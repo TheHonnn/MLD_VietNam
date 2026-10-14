@@ -1,0 +1,86 @@
+{
+  "name": "Medical Healthcare Mobile App",
+  "totalFrames": 10,
+  "frames": [
+    {
+      "id": "8123:49290",
+      "name": "07 — GROUP W / WEB ADMIN",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 5088,
+      "height": 8352
+    },
+    {
+      "id": "8120:13676",
+      "name": "06 — GROUP F / MEMBERSHIP & PROFILE",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 1800,
+      "height": 1936
+    },
+    {
+      "id": "8112:7818",
+      "name": "04 — GROUP D / TREATMENT & CUSTOMER CARE",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 1800,
+      "height": 1936
+    },
+    {
+      "id": "8111:26449",
+      "name": "03 — GROUP C / BOOKING & PAYMENT",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 2238,
+      "height": 1936
+    },
+    {
+      "id": "8111:27684",
+      "name": "Nhóm C — Trạng thái & thành phần mở rộng",
+      "type": "FRAME",
+      "page": "Medical Healthcare Mobile App",
+      "width": 2238,
+      "height": 24507
+    },
+    {
+      "id": "8109:15454",
+      "name": "Nhóm B — Trạng thái & thành phần mở rộng",
+      "type": "FRAME",
+      "page": "Medical Healthcare Mobile App",
+      "width": 1800,
+      "height": 15124
+    },
+    {
+      "id": "8109:14560",
+      "name": "02 — GROUP B / HOME & SERVICE DISCOVERY",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 1800,
+      "height": 1944
+    },
+    {
+      "id": "8107:5735",
+      "name": "02 — DESIGN SYSTEM",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 1728,
+      "height": 5760
+    },
+    {
+      "id": "8107:5498",
+      "name": "01 — GROUP A / ONBOARDING & AUTH",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 2644,
+      "height": 972
+    },
+    {
+      "id": "8116:26866",
+      "name": "05 — GROUP E / VOCATIONAL TRAINING ACADEMY",
+      "type": "SECTION",
+      "page": "Medical Healthcare Mobile App",
+      "width": 1744,
+      "height": 2776
+    }
+  ]
+}

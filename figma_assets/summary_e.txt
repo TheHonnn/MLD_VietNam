@@ -1,0 +1,1000 @@
+
+==================== E01_AcademyHome [8116:25004] ====================
+[FRAME] "E01_AcademyHome" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x698)
+    [FRAME] "Nội dung đầy đủ" (390x2222)
+      [FRAME] "Giới thiệu" (350x92)
+        [FRAME] "Điều hướng" (350x18)
+          [TEXT] "Nhãn học viện" (117x18) fill=SOLID#985018 "HỌC VIỆN ĐÀO TẠO"
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Học viện đào tạo"
+        [TEXT] "Nội dung" (350x22) fill=SOLID#6B6158 "Kiến tạo kỹ năng – Phát triển nghề nghiệp"
+      [FRAME] "Chào học viên" (350x48)
+        [FRAME] "Ảnh đại diện" (48x48) fill=SOLID#F3E2CE r=24
+          [TEXT] "Chữ viết tắt" (27x24) fill=SOLID#985018 "MA"
+        [FRAME] "Lời chào" (234x46)
+          [TEXT] "Nội dung" (234x24) fill=SOLID#40352F "Xin chào, Minh Anh!"
+          [TEXT] "Chú thích" (234x18) fill=SOLID#6B6158 "Sẵn sàng nâng cao kỹ năng hôm nay?"
+        [FRAME] "Thông báo" (44x44) fill=SOLID#FFFFFF r=12
+          [FRAME] "bell" (22x22)
+      [INSTANCE] "Chọn cơ sở minh họa" (350x52)
+        [TEXT] "Nhãn trường" (54x16) fill=SOLID#40352F "Giới tính"
+        [FRAME] "Ô nhập" (350x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Giá trị" (290x19) fill=SOLID#40352F "Chi nhánh mẫu 01 — Quận 3"
+          [FRAME] "chevron-down" (20x20)
+      [COMPONENT] "AcademyHeroBanner / 01" (350x410)
+        [INSTANCE] "Lời mời học nghề" (350x410) fill=SOLID#F3E2CE r=20
+          [RECTANGLE] "Hình ảnh" (350x180) fill=IMAGE r=16
+          [FRAME] "Nội dung học viện" (350x230)
+      [FRAME] "Lối tắt học tập" (350x96)
+        [FRAME] "Lối tắt" (82x78)
+          [FRAME] "Biểu tượng lối tắt" (52x52) fill=SOLID#F3E2CE r=16
+          [TEXT] "Nhãn" (82x18) fill=SOLID#40352F "Khóa học"
+        [FRAME] "Lối tắt" (82x78)
+          [FRAME] "Biểu tượng lối tắt" (52x52) fill=SOLID#F3E2CE r=16
+          [TEXT] "Nhãn" (82x18) fill=SOLID#40352F "Lịch học"
+        [FRAME] "Lối tắt" (82x78)
+          [FRAME] "Biểu tượng lối tắt" (52x52) fill=SOLID#F3E2CE r=16
+          [TEXT] "Nhãn" (82x18) fill=SOLID#40352F "Bài kiểm tra"
+        [FRAME] "Lối tắt" (82x96)
+          [FRAME] "Biểu tượng lối tắt" (52x52) fill=SOLID#F3E2CE r=16
+          [TEXT] "Nhãn" (82x36) fill=SOLID#40352F "Kết quả học tập"
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Tiếp tục học tập"
+      [COMPONENT] "LearningProgressCard / 01" (350x458) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [RECTANGLE] "Ảnh thực hành" (318x144) fill=IMAGE r=12
+        [FRAME] "Nhãn trạng thái" (154x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (134x18) fill=SOLID#985018 "Đang học · MCN-0926"
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Nguyễn Thanh Hương · Khai giảng 18/09/2026"
+        [FRAME] "Tiến độ" (318x38)
+          [FRAME] "Tóm tắt tiến độ" (318x24)
+          [FRAME] "Thanh tiến độ" (318x6) fill=SOLID#E3D1BF r=3
+        [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Bài tiếp theo: Bài 05 — Kỹ thuật Massage cơ bản"
+        [INSTANCE] "Hành động chính" (318x56) fill=SOLID#985018 r=14
+          [TEXT] "Nhãn nút" (100x20) fill=SOLID#FFFFFF "Tiếp tục học"
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Khóa học nổi bật"
+      [FRAME] "Khung khóa học nổi bật" (350x446)
+        [FRAME] "Danh sách đầy đủ" (588x446)
+          [COMPONENT] "CourseCard / 08" (286x428) fill=SOLID#FFFFFF r=20
+          [COMPONENT] "CourseCard / 09" (286x446) fill=SOLID#FFFFFF r=20
+      [FRAME] "Thẻ thông tin" (350x266) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Lịch học sắp tới"
+        [FRAME] "Thời gian" (318x64)
+          [FRAME] "Ngày học" (56x64) fill=SOLID#FFFFFF r=12
+          [FRAME] "Chi tiết" (250x46)
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Thực hành kỹ thuật massage cơ bản"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Phòng thực hành 02 · Chi nhánh mẫu 01 — Quận 3"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Giảng viên Nguyễn Thanh Hương"
+      [TEXT] "Chú thích" (350x18) fill=SOLID#6B6158 "Khóa học, học phí và lịch đào tạo là dữ liệu minh họa."
+  [INSTANCE] "Điều hướng — Học viện" (390x98) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [FRAME] "Các mục điều hướng" (390x64)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "house" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (49x13) fill=SOLID#6B6158 "Trang chủ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "leaf" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (36x13) fill=SOLID#6B6158 "Dịch vụ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "calendar-days" (22x22)
+          [VECTOR] "Vector" (17x18) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (39x13) fill=SOLID#6B6158 "Đặt lịch"
+      [FRAME] "Mục điều hướng" (75x64) fill=SOLID#F3E2CE r=12
+        [FRAME] "graduation-cap" (22x22)
+          [VECTOR] "Vector" (18x13) stroke=SOLID#985018
+        [TEXT] "Nhãn mục" (44x13) fill=SOLID#985018 "Học viện"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "user-round" (22x22)
+          [VECTOR] "Vector" (15x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (41x13) fill=SOLID#6B6158 "Cá nhân"
+    [FRAME] "Vùng an toàn" (390x34)
+      [RECTANGLE] "Thanh hệ thống" (134x5) fill=SOLID#40352F r=16777200
+
+==================== E02_CourseCatalog [8116:25179] ====================
+[FRAME] "E02_CourseCatalog" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x698)
+    [FRAME] "Nội dung đầy đủ" (390x2574)
+      [FRAME] "Giới thiệu" (350x140)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Khám phá khóa học"
+        [TEXT] "Nội dung" (350x44) fill=SOLID#6B6158 "Chọn chương trình đào tạo phù hợp với mục tiêu nghề nghiệp của bạn."
+      [INSTANCE] "Tìm khóa học" (350x70)
+        [FRAME] "Tìm kiếm" (350x70)
+          [FRAME] "Biểu tượng tìm kiếm" (44x52) fill=SOLID#FFFFFF r=12
+          [INSTANCE] "Trường tìm kiếm" (298x70)
+      [FRAME] "Khung danh mục" (350x44)
+        [FRAME] "Danh mục đầy đủ" (695x44)
+          [COMPONENT] "CourseCategoryChip / 01" (73x44)
+          [COMPONENT] "CourseCategoryChip / 02" (89x44)
+          [COMPONENT] "CourseCategoryChip / 03" (116x44)
+          [COMPONENT] "CourseCategoryChip / 04" (113x44)
+          [COMPONENT] "CourseCategoryChip / 05" (108x44)
+          [COMPONENT] "CourseCategoryChip / 06" (156x44)
+      [FRAME] "Bộ lọc trực tiếp" (350x288)
+        [TEXT] "Nội dung" (350x24) fill=SOLID#40352F "Tinh chỉnh chương trình"
+        [FRAME] "Bộ lọc" (350x76)
+          [INSTANCE] "Lựa chọn" (169x76)
+          [INSTANCE] "Lựa chọn" (169x76)
+        [FRAME] "Bộ lọc" (350x76)
+          [INSTANCE] "Lựa chọn" (169x76)
+          [INSTANCE] "Lựa chọn" (169x76)
+        [INSTANCE] "Lựa chọn" (350x76)
+          [TEXT] "Nhãn trường" (125x16) fill=SOLID#40352F "Chi nhánh minh họa"
+          [FRAME] "Ô nhập" (350x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "4 chương trình đào tạo"
+      [COMPONENT] "CourseCard / 01" (350x428) fill=SOLID#FFFFFF r=20
+        [INSTANCE] "Thông tin khóa học" (350x364) fill=SOLID#FFFFFF r=20
+          [FRAME] "Ảnh dịch vụ" (350x172)
+          [FRAME] "Thông tin dịch vụ" (350x192)
+        [FRAME] "Thông tin đào tạo" (350x56)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#985018 "Cơ bản · Học trực tiếp"
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Học phí minh họa"
+      [COMPONENT] "CourseCard / 02" (350x428) fill=SOLID#FFFFFF r=20
+        [INSTANCE] "Thông tin khóa học" (350x364) fill=SOLID#FFFFFF r=20
+          [FRAME] "Ảnh dịch vụ" (350x172)
+          [FRAME] "Thông tin dịch vụ" (350x192)
+        [FRAME] "Thông tin đào tạo" (350x56)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#985018 "Chuyên nghiệp · Kết hợp trực tuyến và thực hành"
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Học phí minh họa"
+      [COMPONENT] "CourseCard / 03" (350x428) fill=SOLID#FFFFFF r=20
+        [INSTANCE] "Thông tin khóa học" (350x364) fill=SOLID#FFFFFF r=20
+          [FRAME] "Ảnh dịch vụ" (350x172)
+          [FRAME] "Thông tin dịch vụ" (350x192)
+        [FRAME] "Thông tin đào tạo" (350x56)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#985018 "Quản lý · Trực tuyến + Hội thảo thực hành"
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Học phí minh họa"
+      [COMPONENT] "CourseCard / 04" (350x428) fill=SOLID#FFFFFF r=20
+        [INSTANCE] "Thông tin khóa học" (350x364) fill=SOLID#FFFFFF r=20
+          [FRAME] "Ảnh dịch vụ" (350x172)
+          [FRAME] "Thông tin dịch vụ" (350x192)
+        [FRAME] "Thông tin đào tạo" (350x56)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#985018 "Chuyên nghiệp · Học trực tiếp"
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Học phí minh họa"
+      [TEXT] "Chú thích" (350x36) fill=SOLID#6B6158 "Học phí và chương trình là dữ liệu minh họa, không phải cam kết tuyển sinh thực tế."
+  [INSTANCE] "Điều hướng — Học viện" (390x98) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [FRAME] "Các mục điều hướng" (390x64)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "house" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (49x13) fill=SOLID#6B6158 "Trang chủ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "leaf" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (36x13) fill=SOLID#6B6158 "Dịch vụ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "calendar-days" (22x22)
+          [VECTOR] "Vector" (17x18) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (39x13) fill=SOLID#6B6158 "Đặt lịch"
+      [FRAME] "Mục điều hướng" (75x64) fill=SOLID#F3E2CE r=12
+        [FRAME] "graduation-cap" (22x22)
+          [VECTOR] "Vector" (18x13) stroke=SOLID#985018
+        [TEXT] "Nhãn mục" (44x13) fill=SOLID#985018 "Học viện"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "user-round" (22x22)
+          [VECTOR] "Vector" (15x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (41x13) fill=SOLID#6B6158 "Cá nhân"
+    [FRAME] "Vùng an toàn" (390x34)
+      [RECTANGLE] "Thanh hệ thống" (134x5) fill=SOLID#40352F r=16777200
+
+==================== E03_CourseDetail [8116:25390] ====================
+[FRAME] "E03_CourseDetail" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x660)
+    [FRAME] "Nội dung đầy đủ" (390x2512)
+      [FRAME] "Giới thiệu" (350x124)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x72) fill=SOLID#693B20 "Kỹ thuật Massage Chuyên Nghiệp"
+      [FRAME] "Ảnh khóa học" (350x220) r=20
+        [RECTANGLE] "Đào tạo có hướng dẫn" (350x220) fill=IMAGE
+        [FRAME] "Tiện ích khóa học" (96x44)
+          [FRAME] "Tiện ích" (44x44) fill=SOLID#FFFFFF r=12
+          [FRAME] "Tiện ích" (44x44) fill=SOLID#FFFFFF r=12
+      [FRAME] "Thẻ thông tin" (350x202) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [FRAME] "Nhãn trạng thái" (230x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (210x18) fill=SOLID#985018 "Thực hành chuyên nghiệp · Minh họa"
+        [FRAME] "Thông số đào tạo" (318x60)
+          [FRAME] "Thông số" (151x60)
+          [FRAME] "Thông số" (151x60)
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "48 giờ lý thuyết · 96 giờ thực hành"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Học trực tiếp · Học phí 9.000.000đ"
+      [FRAME] "Giới thiệu khóa học" (350x150)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Giới thiệu khóa học"
+        [TEXT] "Nội dung" (350x110) fill=SOLID#40352F "Chương trình dành cho học viên muốn phát triển kỹ năng massage và tác phong nghề Spa. Kết hợp kiến thức nền tảng với thực hành có hướng dẫn, giúp bạn tự tin thực hiện quy trình dịch vụ và giao tiếp với khách hàng."
+      [FRAME] "Mục tiêu nghề nghiệp" (350x276)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Bạn sẽ học được gì?"
+        [FRAME] "Mục tiêu" (350x44)
+          [FRAME] "circle-check" (20x20)
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Nền tảng chăm sóc cơ thể và kỹ thuật massage"
+        [FRAME] "Mục tiêu" (350x22)
+          [FRAME] "circle-check" (20x20)
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Quy trình chuẩn bị và thực hiện dịch vụ"
+        [FRAME] "Mục tiêu" (350x22)
+          [FRAME] "circle-check" (20x20)
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Tìm hiểu nhu cầu, giao tiếp với khách hàng"
+        [FRAME] "Mục tiêu" (350x22)
+          [FRAME] "circle-check" (20x20)
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Vệ sinh, an toàn và tổ chức nơi làm việc"
+        [FRAME] "Mục tiêu" (350x22)
+          [FRAME] "circle-check" (20x20)
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Rèn luyện thao tác thực hành có hướng dẫn"
+        [FRAME] "Mục tiêu" (350x44)
+          [FRAME] "circle-check" (20x20)
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Tác phong chuyên nghiệp và đạo đức nghề nghiệp"
+      [COMPONENT] "CourseCurriculumAccordion / 01" (350x424)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Nội dung chương trình"
+        [FRAME] "Thẻ thông tin" (350x112) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương học" (318x24)
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Vai trò của người làm nghề, quy trình đón tiếp và nguyên tắc phục vụ trong môi trường Spa."
+        [FRAME] "Thẻ thông tin" (350x56) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương học" (318x24)
+        [FRAME] "Thẻ thông tin" (350x56) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương học" (318x24)
+        [FRAME] "Thẻ thông tin" (350x56) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương học" (318x24)
+        [FRAME] "Thẻ thông tin" (350x56) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương học" (318x24)
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Giảng viên đồng hành"
+      [COMPONENT] "InstructorProfileCard / 01" (350x248)
+        [INSTANCE] "Hồ sơ giảng viên" (350x248) fill=SOLID#FFFFFF r=20
+          [FRAME] "Hồ sơ chuyên viên" (318x104)
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Kỹ thuật massage · Quy trình dịch vụ · Hướng dẫn thực hành"
+          [INSTANCE] "Liên kết" (318x44) r=14
+      [FRAME] "Các đợt khai giảng" (350x384)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Lịch khai giảng"
+        [FRAME] "Thẻ thông tin" (350x166) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "23/10/2026 · MCN-1026"
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Chi nhánh mẫu 01 — Quận 3"
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Thứ 6–7–Chủ nhật · 13:00–17:00"
+          [FRAME] "Nhãn trạng thái" (161x30) fill=SOLID#F3E2CE r=8
+        [FRAME] "Thẻ thông tin" (350x166) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "20/11/2026 · MCN-1126"
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Chi nhánh mẫu 01 — Quận 3"
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Thứ 6–7–Chủ nhật · 13:00–17:00"
+          [FRAME] "Nhãn trạng thái" (156x30) fill=SOLID#F3E2CE r=8
+      [FRAME] "Thẻ thông tin" (350x200) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Điều kiện hoàn thành"
+        [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Chuyên cần ≥80%; điểm lý thuyết và thực hành ≥7/10. Tiêu chí mẫu của khóa học."
+        [TEXT] "Chú thích" (318x72) fill=SOLID#40352F "Văn bản hoàn thành nội bộ khóa học, không phải văn bằng nghề được cấp phép hoặc chứng nhận kiểm định nhà nước. Nội dung đào tạo không đưa ra chẩn đoán hay cam kết điều trị."
+  [FRAME] "Hành động cố định" (390x136) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [TEXT] "Chú thích" (350x18) fill=SOLID#985018 "Học phí minh họa · 9.000.000đ"
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (143x20) fill=SOLID#FFFFFF "Đăng ký khóa học"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3
+
+==================== E04_InstructorProfile [8116:25508] ====================
+[FRAME] "E04_InstructorProfile" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x2416)
+      [FRAME] "Giới thiệu" (350x88)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Thông tin giảng viên"
+      [COMPONENT] "InstructorProfileCard / 02" (350x424) fill=SOLID#FFFFFF r=20
+        [RECTANGLE] "Chân dung giảng viên" (350x264) fill=IMAGE
+        [FRAME] "Danh tính" (350x144)
+          [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Nguyễn Thanh Hương"
+          [TEXT] "Nội dung" (318x24) fill=SOLID#985018 "Giảng viên kỹ thuật Spa"
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Massage · Chăm sóc cơ thể · Quy trình dịch vụ"
+          [FRAME] "Nhãn trạng thái" (131x30) fill=SOLID#F3E2CE r=8
+      [FRAME] "Giới thiệu" (350x128)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Giới thiệu"
+        [TEXT] "Nội dung" (350x88) fill=SOLID#40352F "Cô Hương đồng hành cùng học viên từ thao tác nền tảng đến thực hành quy trình hoàn chỉnh. Phương pháp hướng dẫn chú trọng vệ sinh, giao tiếp và điều chỉnh thao tác theo phản hồi của khách hàng."
+      [FRAME] "Thẻ thông tin" (350x218) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Chuyên môn đào tạo"
+        [FRAME] "Chuyên môn" (318x44)
+          [FRAME] "check" (20x20)
+          [TEXT] "Nội dung" (286x44) fill=SOLID#40352F "Kỹ thuật massage cơ bản và chuyên nghiệp"
+        [FRAME] "Chuyên môn" (318x22)
+          [FRAME] "check" (20x20)
+          [TEXT] "Nội dung" (286x22) fill=SOLID#40352F "Quy trình phục vụ trong môi trường Spa"
+        [FRAME] "Chuyên môn" (318x22)
+          [FRAME] "check" (20x20)
+          [TEXT] "Nội dung" (286x22) fill=SOLID#40352F "Vệ sinh và an toàn tại nơi thực hành"
+        [FRAME] "Chuyên môn" (318x22)
+          [FRAME] "check" (20x20)
+          [TEXT] "Nội dung" (286x22) fill=SOLID#40352F "Quan sát, phản hồi và đánh giá thao tác"
+      [FRAME] "Thẻ thông tin" (350x240) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Kinh nghiệm thực tế"
+        [TEXT] "Nội dung" (318x24) fill=SOLID#985018 "8 năm đồng hành nghề Spa"
+        [TEXT] "Nội dung" (318x66) fill=SOLID#40352F "Hướng dẫn nhóm học viên nhỏ, tổ chức buổi thực hành và hỗ trợ xây dựng quy trình chăm sóc khách hàng trong môi trường đào tạo."
+        [TEXT] "Chú thích" (318x54) fill=SOLID#6B6158 "Kinh nghiệm và kỹ năng là thông tin minh họa của giảng viên giả định; không xác nhận bằng cấp hoặc kiểm định."
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Khóa học phụ trách"
+      [COMPONENT] "CourseCard / 05" (350x428) fill=SOLID#FFFFFF r=20
+        [INSTANCE] "Thông tin khóa học" (350x364) fill=SOLID#FFFFFF r=20
+          [FRAME] "Ảnh dịch vụ" (350x172)
+          [FRAME] "Thông tin dịch vụ" (350x192)
+        [FRAME] "Thông tin đào tạo" (350x56)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#985018 "Chuyên nghiệp · Học trực tiếp"
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Học phí minh họa"
+      [COMPONENT] "CourseCard / 06" (350x428) fill=SOLID#FFFFFF r=20
+        [INSTANCE] "Thông tin khóa học" (350x364) fill=SOLID#FFFFFF r=20
+          [FRAME] "Ảnh dịch vụ" (350x172)
+          [FRAME] "Thông tin dịch vụ" (350x192)
+        [FRAME] "Thông tin đào tạo" (350x56)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#985018 "Cơ bản · Học trực tiếp"
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Học phí minh họa"
+      [FRAME] "Thẻ thông tin" (350x202) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Lịch đào tạo"
+        [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "16/10/2026 · 13:00–17:00 Thực hành kỹ thuật massage cơ bản"
+        [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "23/10/2026 · 13:00–17:00 Khai giảng lớp MCN-1026"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Chi nhánh mẫu 01 — Quận 3 · Lịch minh họa"
+  [FRAME] "Hành động cố định" (390x110) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (233x20) fill=SOLID#FFFFFF "Xem khóa học của giảng viên"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3
+
+==================== E05_CourseEnrollment [8116:25606] ====================
+[FRAME] "E05_CourseEnrollment" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x660)
+    [FRAME] "Nội dung đầy đủ" (390x2169)
+      [FRAME] "Giới thiệu" (350x140)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Đăng ký khóa học"
+        [TEXT] "Nội dung" (350x44) fill=SOLID#6B6158 "Hoàn thiện thông tin để tham gia chương trình đào tạo."
+      [COMPONENT] "CourseCard / 07" (350x206) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [FRAME] "Khóa học đã chọn" (318x96)
+          [RECTANGLE] "Ảnh khóa học" (80x96) fill=IMAGE r=12
+          [FRAME] "Tóm tắt" (226x74)
+        [TEXT] "Nội dung" (318x24) fill=SOLID#985018 "9.000.000đ"
+        [FRAME] "Nhãn trạng thái" (186x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (166x18) fill=SOLID#985018 "Đăng ký mới · Chưa ghi danh"
+      [COMPONENT] "EnrollmentForm / 01" (350x488)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Thông tin học viên"
+        [INSTANCE] "Thông tin học viên" (350x76)
+          [TEXT] "Nhãn trường" (61x16) fill=SOLID#40352F "Họ và tên"
+          [FRAME] "Ô nhập" (350x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+        [INSTANCE] "Thông tin học viên" (350x76)
+          [TEXT] "Nhãn trường" (85x16) fill=SOLID#40352F "Số điện thoại"
+          [FRAME] "Ô nhập" (350x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+        [INSTANCE] "Thông tin học viên" (350x76)
+          [TEXT] "Nhãn trường" (36x16) fill=SOLID#40352F "Email"
+          [FRAME] "Ô nhập" (350x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+        [INSTANCE] "Thông tin học viên" (350x76)
+          [TEXT] "Nhãn trường" (133x16) fill=SOLID#40352F "Ngày sinh (tùy chọn)"
+          [FRAME] "Ô nhập" (350x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+        [INSTANCE] "Thông tin học viên" (350x76)
+          [TEXT] "Nhãn trường" (160x16) fill=SOLID#40352F "Địa chỉ liên hệ (tùy chọn)"
+          [FRAME] "Ô nhập" (350x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+      [COMPONENT] "ClassSelectionCard / 01" (350x418) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Chọn lớp học"
+        [INSTANCE] "Lựa chọn" (318x76)
+          [TEXT] "Nhãn trường" (98x16) fill=SOLID#40352F "Cơ sở minh họa"
+          [FRAME] "Ô nhập" (318x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh"
+        [INSTANCE] "Lựa chọn" (318x76)
+          [TEXT] "Nhãn trường" (94x16) fill=SOLID#40352F "Đợt khai giảng"
+          [FRAME] "Ô nhập" (318x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+        [INSTANCE] "Lựa chọn" (318x76)
+          [TEXT] "Nhãn trường" (61x16) fill=SOLID#40352F "Hình thức"
+          [FRAME] "Ô nhập" (318x52) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Thứ 6–7–Chủ nhật · 13:00–17:00"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Lịch và lớp học là dữ liệu minh họa."
+      [FRAME] "Kinh nghiệm đầu vào" (350x330)
+        [TEXT] "Nội dung" (350x48) fill=SOLID#40352F "Bạn đã từng học hoặc làm việc trong lĩnh vực Spa chưa?"
+        [INSTANCE] "Lựa chọn kinh nghiệm" (350x82) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Biểu tượng nhu cầu" (44x44) fill=SOLID#F3E2CE r=12
+          [FRAME] "Nội dung nhu cầu" (318x50)
+        [INSTANCE] "Lựa chọn kinh nghiệm" (350x82) fill=SOLID#F3E2CE stroke=SOLID#985018 r=20
+          [FRAME] "Biểu tượng nhu cầu" (44x44) fill=SOLID#F3E2CE r=12
+          [FRAME] "Nội dung nhu cầu" (318x50)
+        [INSTANCE] "Lựa chọn kinh nghiệm" (350x82) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Biểu tượng nhu cầu" (44x44) fill=SOLID#F3E2CE r=12
+          [FRAME] "Nội dung nhu cầu" (318x50)
+      [COMPONENT] "TuitionSummary / 01" (350x367)
+        [INSTANCE] "Chi tiết học phí" (350x251)
+          [FRAME] "PriceBreakdown / Mặc định" (350x251) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [FRAME] "Thẻ thông tin" (350x104) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#985018 "Thanh toán ngay: 2.000.000đ"
+          [TEXT] "Chú thích" (318x36) fill=SOLID#40352F "Tiền cọc là một phần của tổng học phí 9.000.000đ, không cộng thêm vào tổng."
+      [TEXT] "Chú thích" (350x36) fill=SOLID#6B6158 "Thông tin đăng ký là bản minh họa tĩnh. Chưa xác nhận ghi danh hoặc thực hiện giao dịch."
+  [FRAME] "Hành động cố định" (390x136) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [TEXT] "Chú thích" (350x18) fill=SOLID#985018 "Đặt cọc minh họa · 2.000.000đ"
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (157x20) fill=SOLID#FFFFFF "Tiếp tục thanh toán"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3
+
+==================== E06_TuitionPayment [8116:25740] ====================
+[FRAME] "E06_TuitionPayment" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x660)
+    [FRAME] "Nội dung đầy đủ" (390x1941)
+      [FRAME] "Giới thiệu" (350x140)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Thanh toán học phí"
+        [TEXT] "Nội dung" (350x44) fill=SOLID#6B6158 "Kiểm tra học phí và lựa chọn phương thức thanh toán."
+      [INSTANCE] "Chờ thanh toán — minh họa" (350x100)
+        [FRAME] "PaymentStatus / Chờ thanh toán" (350x100) fill=SOLID#F3E2CE r=16
+          [FRAME] "Trạng thái thanh toán" (318x24)
+          [TEXT] "Nội dung" (318x36) fill=SOLID#40352F "Chưa ghi danh · Không thực hiện thanh toán bằng mẫu này."
+      [FRAME] "Thông tin đăng ký" (350x188) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Nguyễn Minh Anh · MCN-1026"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Khai giảng 23/10/2026 · Học trực tiếp"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Chi nhánh mẫu 01 — Quận 3"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Thứ 6–7–Chủ nhật · 13:00–17:00"
+      [INSTANCE] "TuitionSummary" (350x367)
+        [INSTANCE] "Chi tiết học phí" (350x251)
+          [FRAME] "PriceBreakdown / Mặc định" (350x251) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [FRAME] "Thẻ thông tin" (350x104) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#985018 "Thanh toán ngay: 2.000.000đ"
+          [TEXT] "Chú thích" (318x36) fill=SOLID#40352F "Tiền cọc là một phần của tổng học phí 9.000.000đ, không cộng thêm vào tổng."
+      [FRAME] "Phương thức thanh toán" (350x864)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Phương thức thanh toán"
+        [INSTANCE] "Chuyển khoản ngân hàng" (350x76)
+          [FRAME] "PaymentMethodCard / Đang chọn" (350x76) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [INSTANCE] "Mã thanh toán minh họa" (350x376)
+          [FRAME] "PaymentQRPlaceholder / Chưa cấu hình" (350x376) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [INSTANCE] "Thanh toán QR" (350x102) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Lựa chọn" (318x44)
+          [TEXT] "Nội dung" (318x18) fill=SOLID#40352F "Mã minh họa, không dùng để chuyển tiền."
+        [INSTANCE] "Thanh toán trực tuyến" (350x102)
+          [FRAME] "PaymentMethodCard / Mặc định" (350x102) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [INSTANCE] "Thanh toán theo đợt" (350x120) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Lựa chọn" (318x44)
+          [TEXT] "Nội dung" (318x36) fill=SOLID#40352F "Điều kiện hỗ trợ minh họa; chưa phải phương thức được trung tâm cung cấp."
+      [FRAME] "Thẻ thông tin" (350x122) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Điều kiện minh họa"
+        [TEXT] "Chú thích" (318x54) fill=SOLID#40352F "Thanh toán theo đợt chỉ là tình huống mẫu về điều kiện hỗ trợ. Chưa cấu hình ngân hàng, cổng thanh toán hoặc chính sách thực tế."
+  [FRAME] "Hành động cố định" (390x136) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [TEXT] "Chú thích" (350x18) fill=SOLID#985018 "Chờ thanh toán · Trả ngay 2.000.000đ (minh họa)"
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (166x20) fill=SOLID#FFFFFF "Xác nhận thanh toán"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3
+
+==================== E07_MyCourses [8116:25866] ====================
+[FRAME] "E07_MyCourses" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x698)
+    [FRAME] "Nội dung đầy đủ" (390x1616)
+      [FRAME] "Giới thiệu" (350x92)
+        [FRAME] "Điều hướng" (350x18)
+          [TEXT] "Nhãn học viện" (117x18) fill=SOLID#985018 "HỌC VIỆN ĐÀO TẠO"
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Khóa học của tôi"
+        [TEXT] "Nội dung" (350x22) fill=SOLID#6B6158 "Theo dõi quá trình học tập và phát triển kỹ năng."
+      [FRAME] "Thẻ thông tin" (350x173) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [FRAME] "Tổng quan" (318x57)
+          [FRAME] "Chỉ số học tập" (95x57)
+          [FRAME] "Chỉ số học tập" (95x57)
+          [FRAME] "Chỉ số học tập" (95x57)
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "120 giờ học · 1 khóa sắp học"
+        [TEXT] "Chú thích" (318x36) fill=SOLID#6B6158 "96 giờ khóa cơ bản + 24 giờ khóa đang học. Số liệu minh họa."
+      [FRAME] "Thẻ điều hướng" (350x51)
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (62x20) fill=SOLID#985018 "Đang học"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#985018 r=2
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (53x20) fill=SOLID#6B6158 "Sắp học"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#E3D1BF r=2
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (94x20) fill=SOLID#6B6158 "Đã hoàn thành"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#E3D1BF r=2
+      [COMPONENT] "LearningProgressCard / 02" (350x302) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [FRAME] "Nhãn trạng thái" (154x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (134x18) fill=SOLID#985018 "Đang học · MCN-0926"
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Nguyễn Thanh Hương · Khai giảng 18/09/2026"
+        [FRAME] "Tiến độ" (318x38)
+          [FRAME] "Tóm tắt tiến độ" (318x24)
+          [FRAME] "Thanh tiến độ" (318x6) fill=SOLID#E3D1BF r=3
+        [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Bài tiếp theo: Bài 05 — Kỹ thuật Massage cơ bản"
+        [INSTANCE] "Hành động chính" (318x56) fill=SOLID#985018 r=14
+          [TEXT] "Nhãn nút" (100x20) fill=SOLID#FFFFFF "Tiếp tục học"
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Các khóa học khác"
+      [FRAME] "Thẻ thông tin" (350x218) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [FRAME] "Nhãn trạng thái" (69x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (49x18) fill=SOLID#985018 "Sắp học"
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Chăm Sóc Da Chuyên Nghiệp"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "CSD-1026 · Khai giảng 30/10/2026"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Kết hợp trực tuyến và thực hành"
+        [INSTANCE] "Liên kết" (318x44) r=14
+          [TEXT] "Nhãn nút" (132x20) fill=SOLID#985018 "Xem lớp sắp học"
+      [FRAME] "Thẻ thông tin" (350x218) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [FRAME] "Nhãn trạng thái" (168x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (148x18) fill=SOLID#985018 "Đã hoàn thành · Minh họa"
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Cơ Bản"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "MCB-0726 · Hoàn thành 28/08/2026"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "20 / 20 bài học · Tiến độ 100%"
+        [INSTANCE] "Liên kết" (318x44) r=14
+          [TEXT] "Nhãn nút" (164x20) fill=SOLID#985018 "Xem kết quả học tập"
+      [FRAME] "Thẻ thông tin" (350x266) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Lịch học gần nhất"
+        [FRAME] "Thời gian" (318x64)
+          [FRAME] "Ngày học" (56x64) fill=SOLID#FFFFFF r=12
+          [FRAME] "Chi tiết" (250x46)
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Thực hành kỹ thuật massage cơ bản"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Phòng thực hành 02 · Chi nhánh mẫu 01 — Quận 3"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Giảng viên Nguyễn Thanh Hương"
+      [TEXT] "Chú thích" (350x36) fill=SOLID#6B6158 "Đăng ký MCN-1026 đang chờ thanh toán chưa được tính vào 3 khóa đã ghi danh."
+  [INSTANCE] "Điều hướng — Học viện" (390x98) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [FRAME] "Các mục điều hướng" (390x64)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "house" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (49x13) fill=SOLID#6B6158 "Trang chủ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "leaf" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (36x13) fill=SOLID#6B6158 "Dịch vụ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "calendar-days" (22x22)
+          [VECTOR] "Vector" (17x18) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (39x13) fill=SOLID#6B6158 "Đặt lịch"
+      [FRAME] "Mục điều hướng" (75x64) fill=SOLID#F3E2CE r=12
+        [FRAME] "graduation-cap" (22x22)
+          [VECTOR] "Vector" (18x13) stroke=SOLID#985018
+        [TEXT] "Nhãn mục" (44x13) fill=SOLID#985018 "Học viện"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "user-round" (22x22)
+          [VECTOR] "Vector" (15x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (41x13) fill=SOLID#6B6158 "Cá nhân"
+    [FRAME] "Vùng an toàn" (390x34)
+      [RECTANGLE] "Thanh hệ thống" (134x5) fill=SOLID#40352F r=16777200
+
+==================== E08_ClassDetail [8116:25997] ====================
+[FRAME] "E08_ClassDetail" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x660)
+    [FRAME] "Nội dung đầy đủ" (390x2219)
+      [FRAME] "Giới thiệu" (350x88)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Chi tiết lớp học"
+      [FRAME] "Thẻ thông tin" (350x274) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [FRAME] "Nhãn trạng thái" (154x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (134x18) fill=SOLID#985018 "Đang học · MCN-0926"
+        [TEXT] "Tiêu đề mục" (318x56) fill=SOLID#693B20 "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Giảng viên Nguyễn Thanh Hương"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Chi nhánh mẫu 01 — Quận 3"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Thứ 6–7–Chủ nhật · 13:00–17:00"
+        [FRAME] "Tiến độ" (318x38)
+          [FRAME] "Tóm tắt tiến độ" (318x24)
+          [FRAME] "Thanh tiến độ" (318x6) fill=SOLID#E3D1BF r=3
+      [FRAME] "Thẻ điều hướng" (350x51)
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (84x20) fill=SOLID#985018 "Nội dung học"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#985018 r=2
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (55x20) fill=SOLID#6B6158 "Lịch học"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#E3D1BF r=2
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (45x20) fill=SOLID#6B6158 "Tài liệu"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#E3D1BF r=2
+      [COMPONENT] "CourseCurriculumAccordion / 02" (350x1060)
+        [FRAME] "Thẻ thông tin" (350x378) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Tiêu đề chương" (318x24)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "3 bài học · Đã hoàn thành"
+          [FRAME] "LessonListItem" (318x76) fill=SOLID#FFFFFF r=12
+          [FRAME] "LessonListItem" (318x90) fill=SOLID#FFFFFF r=12
+          [FRAME] "LessonListItem" (318x90) fill=SOLID#FFFFFF r=12
+        [FRAME] "Thẻ thông tin" (350x350) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Tiêu đề chương" (318x24)
+          [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "3 bài học · 1 bài đã hoàn thành"
+          [FRAME] "LessonListItem" (318x76) fill=SOLID#FFFFFF r=12
+          [FRAME] "LessonListItem" (318x76) fill=SOLID#F3E2CE r=12
+          [FRAME] "LessonListItem" (318x76) fill=SOLID#FFFFFF r=12
+        [FRAME] "Thẻ thông tin" (350x78) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương thu gọn" (318x46)
+        [FRAME] "Thẻ thông tin" (350x78) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương thu gọn" (318x46)
+        [FRAME] "Thẻ thông tin" (350x78) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [FRAME] "Chương thu gọn" (318x46)
+        [TEXT] "Chú thích" (350x18) fill=SOLID#6B6158 "Tổng cộng 20 bài học trong 5 chương."
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Bài học tiếp theo"
+      [COMPONENT] "LessonListItem / 01" (350x76) fill=SOLID#F3E2CE r=12
+        [FRAME] "circle-play" (22x22)
+          [VECTOR] "Vector" (18x18) stroke=SOLID#985018
+        [FRAME] "Thông tin bài học" (262x44)
+          [TEXT] "Nội dung" (262x22) fill=SOLID#40352F "Bài 05: Kỹ thuật Massage cơ bản"
+          [TEXT] "Chú thích" (262x18) fill=SOLID#6B6158 "Video · 18 phút · Tiếp theo"
+        [FRAME] "chevron-right" (18x18)
+          [VECTOR] "Vector" (5x9) stroke=SOLID#985018
+      [FRAME] "Thẻ thông tin" (350x266) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Buổi thực hành sắp tới"
+        [FRAME] "Thời gian" (318x64)
+          [FRAME] "Ngày học" (56x64) fill=SOLID#FFFFFF r=12
+          [FRAME] "Chi tiết" (250x46)
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Thực hành kỹ thuật massage cơ bản"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Phòng thực hành 02 · Chi nhánh mẫu 01 — Quận 3"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Giảng viên Nguyễn Thanh Hương"
+      [FRAME] "Thẻ thông tin" (350x168) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Củng cố kiến thức nghề Spa"
+        [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Ôn tập quy trình, vệ sinh và an toàn trước buổi thực hành."
+        [INSTANCE] "Liên kết" (318x44) r=14
+          [TEXT] "Nhãn nút" (145x20) fill=SOLID#985018 "Kiểm tra kiến thức"
+  [FRAME] "Hành động cố định" (390x136) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [TEXT] "Chú thích" (350x18) fill=SOLID#985018 "Bài 05 · Kỹ thuật Massage cơ bản"
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (129x20) fill=SOLID#FFFFFF "Tiếp tục bài học"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3
+
+==================== E09_VideoLesson [8116:26134] ====================
+[FRAME] "E09_VideoLesson" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x622)
+    [FRAME] "Nội dung đầy đủ" (390x1300)
+      [FRAME] "Giới thiệu" (350x88)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (91x18) fill=SOLID#6B6158 "Video minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Bài học"
+      [COMPONENT] "VideoLessonPlayer / 01" (350x197) r=16
+        [RECTANGLE] "Ảnh hướng dẫn kỹ thuật" (350x197) fill=IMAGE
+        [RECTANGLE] "Nền điều khiển" (350x64) fill=SOLID#40352F
+        [FRAME] "Phát video" (48x48) fill=SOLID#FFFFFF r=24
+          [FRAME] "play" (24x24)
+        [FRAME] "Điều khiển phát" (326x29) fill=SOLID#693B20
+          [FRAME] "Dòng thời gian" (326x3) fill=SOLID#FFFFFF r=2
+          [FRAME] "Công cụ video" (326x18)
+      [FRAME] "Thông tin bài học" (350x154)
+        [TEXT] "Chú thích" (350x18) fill=SOLID#985018 "Chương 2 · Video 18 phút"
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Bài 05: Kỹ thuật Massage cơ bản"
+        [TEXT] "Nội dung" (350x22) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Chú thích" (350x18) fill=SOLID#6B6158 "Giảng viên Nguyễn Thanh Hương"
+        [TEXT] "Chú thích" (350x36) fill=SOLID#6B6158 "Ảnh và điều khiển video là minh họa tĩnh, không phát nội dung thực tế."
+      [FRAME] "Thẻ điều hướng" (350x51)
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (57x20) fill=SOLID#985018 "Nội dung"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#985018 r=2
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (45x20) fill=SOLID#6B6158 "Tài liệu"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#E3D1BF r=2
+        [FRAME] "Mục điều hướng" (111x51)
+          [TEXT] "Nhãn" (48x20) fill=SOLID#6B6158 "Ghi chú"
+          [RECTANGLE] "Dấu chọn" (111x3) fill=SOLID#E3D1BF r=2
+      [FRAME] "Mục tiêu bài học" (350x204)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Sau bài học này, bạn có thể"
+        [FRAME] "Mục tiêu" (350x22)
+          [FRAME] "check" (20x20)
+          [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Nhận biết tư thế và thao tác massage cơ bản."
+        [FRAME] "Mục tiêu" (350x44)
+          [FRAME] "check" (20x20)
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Chuẩn bị vệ sinh, khăn và không gian thực hành."
+        [FRAME] "Mục tiêu" (350x44)
+          [FRAME] "check" (20x20)
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Điều chỉnh lực theo phản hồi và sự thoải mái của khách hàng."
+        [TEXT] "Chú thích" (350x18) fill=SOLID#6B6158 "Hướng dẫn kỹ năng dịch vụ, không phải hướng dẫn điều trị."
+      [FRAME] "Tài liệu tham khảo" (350x268)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Tài liệu bài học"
+        [FRAME] "Mục thông tin" (350x68) fill=SOLID#FFFFFF r=12
+          [FRAME] "file-text" (22x22)
+          [FRAME] "Nội dung" (262x44)
+          [FRAME] "download" (18x18)
+        [FRAME] "Mục thông tin" (350x68) fill=SOLID#FFFFFF r=12
+          [FRAME] "clipboard-check" (22x22)
+          [FRAME] "Nội dung" (262x44)
+          [FRAME] "download" (18x18)
+        [FRAME] "Mục thông tin" (350x68) fill=SOLID#FFFFFF r=12
+          [FRAME] "book-open" (22x22)
+          [FRAME] "Nội dung" (262x44)
+          [FRAME] "download" (18x18)
+      [FRAME] "Thẻ thông tin" (350x154) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Tiến độ xem bài học"
+        [FRAME] "Tiến độ" (318x38)
+          [FRAME] "Tóm tắt tiến độ" (318x24)
+          [FRAME] "Thanh tiến độ" (318x6) fill=SOLID#E3D1BF r=3
+        [TEXT] "Chú thích" (318x36) fill=SOLID#6B6158 "Tiến độ khóa học vẫn là 20% · 4/20 bài hoàn thành. Bài 05 chưa hoàn thành."
+  [FRAME] "Hành động cố định" (390x174) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (155x20) fill=SOLID#FFFFFF "Hoàn thành bài học"
+    [INSTANCE] "Hành động phụ" (350x56) fill=SOLID#FFFFFF stroke=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (103x20) fill=SOLID#985018 "Bài tiếp theo"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3
+
+==================== E10_KnowledgeAssessment [8116:26228] ====================
+[FRAME] "E10_KnowledgeAssessment" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x660)
+    [FRAME] "Nội dung đầy đủ" (390x1174)
+      [FRAME] "Giới thiệu" (350x88)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (126x18) fill=SOLID#6B6158 "Bài kiểm tra minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Kiểm tra kiến thức"
+      [FRAME] "Thông tin kiểm tra" (350x124)
+        [TEXT] "Chú thích" (350x18) fill=SOLID#985018 "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Bài kiểm tra: Kiến thức Spa cơ bản"
+        [FRAME] "Tiến trình câu hỏi" (350x24)
+          [TEXT] "Câu đang làm" (85x24) fill=SOLID#985018 "Câu 3 / 20"
+          [FRAME] "Thời gian minh họa" (71x24)
+        [TEXT] "Chú thích" (350x18) fill=SOLID#6B6158 "Thời gian tĩnh · Không đếm ngược"
+        [FRAME] "Tiến trình" (350x4) fill=SOLID#E3D1BF r=2
+          [FRAME] "Câu đã xem" (53x4) fill=SOLID#985018 r=2
+      [COMPONENT] "QuizQuestionCard / 01" (350x146) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [TEXT] "Chú thích" (318x18) fill=SOLID#985018 "Chọn một đáp án phù hợp nhất"
+        [TEXT] "Tiêu đề mục" (318x84) fill=SOLID#693B20 "Yếu tố nào cần được ưu tiên trước khi thực hiện dịch vụ chăm sóc khách hàng?"
+      [FRAME] "Các đáp án" (350x340)
+        [COMPONENT] "QuizAnswerOption / 01" (350x76) fill=SOLID#F3E2CE stroke=SOLID#985018 r=16
+          [FRAME] "Lựa chọn" (22x22) stroke=SOLID#985018 r=11
+          [TEXT] "Nội dung" (284x44) fill=SOLID#40352F "A. Kiểm tra thông tin và nhu cầu khách hàng."
+        [COMPONENT] "QuizAnswerOption / 02" (350x76) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=16
+          [FRAME] "Lựa chọn" (22x22) stroke=SOLID#E3D1BF r=11
+          [TEXT] "Nội dung" (284x22) fill=SOLID#40352F "B. Chuẩn bị chương trình ưu đãi."
+        [INSTANCE] "QuizAnswerOption" (350x76) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=16
+          [FRAME] "Lựa chọn" (22x22) stroke=SOLID#E3D1BF r=11
+          [TEXT] "Nội dung" (284x22) fill=SOLID#40352F "C. Giới thiệu thêm sản phẩm."
+        [INSTANCE] "QuizAnswerOption" (350x76) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=16
+          [FRAME] "Lựa chọn" (22x22) stroke=SOLID#E3D1BF r=11
+          [TEXT] "Nội dung" (284x22) fill=SOLID#40352F "D. Yêu cầu khách hàng thanh toán ngay."
+      [TEXT] "Chú thích" (350x18) fill=SOLID#6B6158 "Đáp án A đang được chọn, chưa xác định đúng hoặc sai."
+      [FRAME] "Điều hướng câu hỏi" (350x56)
+        [INSTANCE] "Hành động phụ" (169x56) fill=SOLID#FFFFFF stroke=SOLID#985018 r=14
+          [TEXT] "Nhãn nút" (80x20) fill=SOLID#985018 "Câu trước"
+        [INSTANCE] "Hành động phụ" (169x56) fill=SOLID#FFFFFF stroke=SOLID#985018 r=14
+          [TEXT] "Nhãn nút" (109x20) fill=SOLID#985018 "Câu tiếp theo"
+      [COMPONENT] "AssessmentScoreCard / 01" (350x218) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kết quả lần làm trước — minh họa"
+        [FRAME] "Điểm và số câu" (318x46)
+          [TEXT] "Điểm" (83x46) fill=SOLID#985018 "8.5/10"
+          [FRAME] "Thông tin kết quả" (219x46)
+        [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Bạn nắm tốt quy trình; hãy ôn lại nội dung an toàn và vệ sinh."
+        [TEXT] "Chú thích" (318x36) fill=SOLID#6B6158 "Nhận xét của giảng viên · Không phải kết quả bài đang làm."
+  [FRAME] "Hành động cố định" (390x136) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [TEXT] "Chú thích" (350x18) fill=SOLID#985018 "Bài làm hiện tại · Chưa nộp, chưa chấm điểm"
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (63x20) fill=SOLID#FFFFFF "Nộp bài"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3
+
+==================== E11_LearningCalendar [8116:26294] ====================
+[FRAME] "E11_LearningCalendar" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x698)
+    [FRAME] "Nội dung đầy đủ" (390x1684)
+      [FRAME] "Giới thiệu" (350x140)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Lịch học & điểm danh"
+        [TEXT] "Nội dung" (350x44) fill=SOLID#6B6158 "Chủ động theo dõi lịch đào tạo và các buổi thực hành."
+      [COMPONENT] "LearningCalendar / 01" (350x422)
+        [INSTANCE] "Lịch tháng 10 năm 2026" (350x395)
+          [FRAME] "CalendarPicker / Tháng 10 năm 2026" (350x395)
+        [FRAME] "Chú giải lịch" (350x15)
+          [FRAME] "Loại sự kiện" (74x15)
+          [FRAME] "Loại sự kiện" (52x15)
+          [FRAME] "Loại sự kiện" (73x15)
+          [FRAME] "Loại sự kiện" (62x15)
+      [FRAME] "Thẻ thông tin" (350x266) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Thứ 6 · 16/10/2026"
+        [FRAME] "Thời gian" (318x64)
+          [FRAME] "Ngày học" (56x64) fill=SOLID#FFFFFF r=12
+          [FRAME] "Chi tiết" (250x46)
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "Thực hành kỹ thuật massage cơ bản"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Phòng thực hành 02 · Chi nhánh mẫu 01 — Quận 3"
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Giảng viên Nguyễn Thanh Hương"
+      [FRAME] "Thẻ thông tin" (350x232) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Tổng quan chuyên cần"
+        [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ thuật Massage Chuyên Nghiệp"
+        [TEXT] "Nội dung" (318x24) fill=SOLID#985018 "88.9% · 8 / 9 buổi đã diễn ra"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "9 buổi đã diễn ra: có mặt 8, vắng 1."
+        [TEXT] "Chú thích" (318x54) fill=SOLID#6B6158 "MCN-0926 · Kế hoạch toàn khóa: 36 buổi. Tỷ lệ chuyên cần chỉ tính trên 9 buổi đã diễn ra, không phải 36 buổi dự kiến."
+      [COMPONENT] "AttendanceCard / 01" (350x488) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Điểm danh buổi học"
+        [TEXT] "Nội dung" (318x22) fill=SOLID#40352F "MCN-0926 · 16/10/2026 · 13:00–17:00"
+        [FRAME] "Nhãn trạng thái" (116x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (96x18) fill=SOLID#985018 "Chưa điểm danh"
+        [INSTANCE] "QR điểm danh minh họa" (318x224)
+          [FRAME] "CheckInQRCode / Minh họa không hợp lệ" (318x224) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Chú thích" (318x36) fill=SOLID#6B6158 "Chỉ minh họa giao diện. Chưa xác minh điểm danh, vị trí hoặc danh tính được ủy quyền."
+        [INSTANCE] "Hành động chính" (318x56) fill=SOLID#985018 r=14
+          [TEXT] "Nhãn nút" (85x20) fill=SOLID#FFFFFF "Điểm danh"
+  [INSTANCE] "Điều hướng — Học viện" (390x98) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [FRAME] "Các mục điều hướng" (390x64)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "house" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (49x13) fill=SOLID#6B6158 "Trang chủ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "leaf" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (36x13) fill=SOLID#6B6158 "Dịch vụ"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "calendar-days" (22x22)
+          [VECTOR] "Vector" (17x18) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (39x13) fill=SOLID#6B6158 "Đặt lịch"
+      [FRAME] "Mục điều hướng" (75x64) fill=SOLID#F3E2CE r=12
+        [FRAME] "graduation-cap" (22x22)
+          [VECTOR] "Vector" (18x13) stroke=SOLID#985018
+        [TEXT] "Nhãn mục" (44x13) fill=SOLID#985018 "Học viện"
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "user-round" (22x22)
+          [VECTOR] "Vector" (15x17) stroke=SOLID#80766E
+        [TEXT] "Nhãn mục" (41x13) fill=SOLID#6B6158 "Cá nhân"
+    [FRAME] "Vùng an toàn" (390x34)
+      [RECTANGLE] "Thanh hệ thống" (134x5) fill=SOLID#40352F r=16777200
+
+==================== E12_LearningResults [8116:26507] ====================
+[FRAME] "E12_LearningResults" (390x844) fill=SOLID#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=SOLID#40352F "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=SOLID#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=SOLID#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=SOLID#40352F
+  [FRAME] "Khung nhìn nội dung" (390x622)
+    [FRAME] "Nội dung đầy đủ" (390x2077)
+      [FRAME] "Giới thiệu" (350x140)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (95x18) fill=SOLID#6B6158 "Dữ liệu minh họa"
+        [TEXT] "Tiêu đề trang" (350x36) fill=SOLID#693B20 "Kết quả học tập"
+        [TEXT] "Nội dung" (350x44) fill=SOLID#6B6158 "Ghi nhận hành trình học tập và phát triển kỹ năng của bạn."
+      [FRAME] "Hồ sơ học viên" (350x48)
+        [FRAME] "Ảnh đại diện" (48x48) fill=SOLID#F3E2CE r=24
+          [TEXT] "Chữ viết tắt" (27x24) fill=SOLID#985018 "MA"
+        [FRAME] "Thông tin học viên" (290x46)
+          [TEXT] "Nội dung" (290x24) fill=SOLID#40352F "Nguyễn Minh Anh"
+          [TEXT] "Chú thích" (290x18) fill=SOLID#6B6158 "MCB-0726 · Nguyễn Thanh Hương"
+      [COMPONENT] "LearningProgressCard / 03" (350x182) fill=SOLID#F3E2CE stroke=SOLID#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=SOLID#693B20 "Kỹ thuật Massage Cơ Bản"
+        [FRAME] "Nhãn trạng thái" (157x30) fill=SOLID#F3E2CE r=8
+          [TEXT] "Nhãn" (137x18) fill=SOLID#985018 "Hoàn thành — minh họa"
+        [FRAME] "Tiến độ" (318x38)
+          [FRAME] "Tóm tắt tiến độ" (318x24)
+          [FRAME] "Thanh tiến độ" (318x6) fill=SOLID#E3D1BF r=3
+        [TEXT] "Chú thích" (318x18) fill=SOLID#6B6158 "Ngày hoàn thành 28/08/2026"
+      [FRAME] "Điểm đánh giá" (350x123)
+        [FRAME] "Chỉ số kết quả" (169x123) fill=SOLID#FFFFFF r=16
+          [TEXT] "Giá trị" (86x33) fill=SOLID#985018 "8.5/10"
+          [TEXT] "Nội dung" (137x24) fill=SOLID#40352F "Lý thuyết"
+          [TEXT] "Chú thích" (137x18) fill=SOLID#6B6158 "Đánh giá minh họa"
+        [FRAME] "Chỉ số kết quả" (169x123) fill=SOLID#FFFFFF r=16
+          [TEXT] "Giá trị" (87x33) fill=SOLID#985018 "9.0/10"
+          [TEXT] "Nội dung" (137x24) fill=SOLID#40352F "Thực hành"
+          [TEXT] "Chú thích" (137x18) fill=SOLID#6B6158 "Đánh giá minh họa"
+      [FRAME] "Thẻ thông tin" (350x104) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=SOLID#985018 "Chuyên cần 90% · 18 / 20 buổi"
+        [TEXT] "Chú thích" (318x36) fill=SOLID#6B6158 "Tính trên 20 buổi đã diễn ra của khóa cơ bản MCB-0726; không phải lớp MCN-0926 đang học."
+      [FRAME] "Đánh giá học tập" (350x524)
+        [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Nhận xét của giảng viên"
+        [FRAME] "Thẻ thông tin" (350x112) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kiến thức lý thuyết."
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Nắm vững quy trình phục vụ và nguyên tắc vệ sinh."
+        [FRAME] "Thẻ thông tin" (350x112) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Kỹ năng thực hành."
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Thao tác ổn định, biết điều chỉnh lực theo phản hồi."
+        [FRAME] "Thẻ thông tin" (350x112) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Chuyên cần."
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Tham gia 18/20 buổi; chủ động ôn lại nội dung đã vắng."
+        [FRAME] "Thẻ thông tin" (350x112) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF r=20
+          [TEXT] "Nội dung" (318x24) fill=SOLID#40352F "Thái độ học tập."
+          [TEXT] "Nội dung" (318x44) fill=SOLID#40352F "Tích cực tiếp nhận góp ý và phối hợp trong nhóm."
+      [TEXT] "Tiêu đề mục" (350x28) fill=SOLID#693B20 "Chứng nhận hoàn thành"
+      [COMPONENT] "CertificatePreview / 01" (350x660) fill=SOLID#FFFFFF stroke=GRADIENT_LINEAR r=16
+        [FRAME] "Khung chứng nhận" (326x636) stroke=SOLID#C58D59
+          [FRAME] "Logo thay thế" (136x44) fill=IMAGE stroke=SOLID#C58D59 r=8
+          [TEXT] "Tên chứng nhận" (294x56) fill=SOLID#693B20 "CHỨNG NHẬN HOÀN THÀNH KHÓA HỌC"
+          [RECTANGLE] "Đường trang trí" (56x2) fill=GRADIENT_LINEAR
+          [TEXT] "Chú thích" (294x18) fill=SOLID#40352F "Ghi nhận học viên"
+          [TEXT] "Tên học viên" (294x34) fill=SOLID#985018 "Nguyễn Minh Anh"
+          [TEXT] "Chú thích" (294x18) fill=SOLID#40352F "đã hoàn thành chương trình"
+          [TEXT] "Nội dung" (294x24) fill=SOLID#40352F "Kỹ thuật Massage Cơ Bản"
+          [TEXT] "Chú thích" (294x18) fill=SOLID#40352F "Ngày hoàn thành: 28/08/2026"
+          [TEXT] "Chú thích" (294x18) fill=SOLID#40352F "Mã mẫu: CN-DEMO-000072"
+          [FRAME] "Mã minh họa không hợp lệ" (294x142)
+          [TEXT] "Phạm vi chứng nhận" (294x54) fill=SOLID#6B6158 "Văn bản hoàn thành khóa học nội bộ, minh họa. Không phải văn bằng nghề được cấp phép hoặc chứng nhận kiểm định nhà nước."
+      [TEXT] "Chú thích" (350x36) fill=SOLID#6B6158 "Chứng nhận và các nút xem, tải chỉ là giao diện tĩnh; không tạo hoặc tải tài liệu thực tế."
+  [FRAME] "Hành động cố định" (390x174) fill=SOLID#FFFFFF stroke=SOLID#E3D1BF
+    [INSTANCE] "Hành động chính" (350x56) fill=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (132x20) fill=SOLID#FFFFFF "Xem chứng nhận"
+    [INSTANCE] "Hành động phụ" (350x56) fill=SOLID#FFFFFF stroke=SOLID#985018 r=14
+      [TEXT] "Nhãn nút" (121x20) fill=SOLID#985018 "Tải chứng nhận"
+    [FRAME] "Vùng an toàn" (350x34)
+      [RECTANGLE] "Chỉ báo màn hình" (134x5) fill=SOLID#40352F r=3

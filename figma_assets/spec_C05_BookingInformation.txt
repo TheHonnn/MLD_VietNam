@@ -1,0 +1,89 @@
+C05_BookingInformation [8111:27011]
+======================================================
+[FRAME] "C05_BookingInformation" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=#40352F text="9:41" [sz:14, wt:600]
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=#40352F
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x1668)
+      [FRAME] "Tiêu đề và tiến trình" (350x194)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 text="ĐẶT LỊCH · MINH HỌA" [sz:12, wt:400]
+        [FRAME] "Giới thiệu" (350x88)
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 text="Thông tin đặt lịch" [sz:28, wt:600]
+          [TEXT] "Nội dung" (350x44) fill=#40352F text="Vui lòng kiểm tra và bổ sung thông tin người sử dụng dịch vụ." [sz:14, wt:400]
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [FRAME] "Thẻ thông tin" (350x128) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#985018 stroke=#985018 r=12
+          [TEXT] "Nội dung" (282x22) fill=#40352F text="Tôi sử dụng dịch vụ" [sz:14, wt:400]
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 r=12
+          [TEXT] "Nội dung" (282x22) fill=#40352F text="Đặt cho người khác" [sz:14, wt:400]
+      [INSTANCE] "Trường thông tin" (350x76)
+        [TEXT] "Nhãn trường" (71x16) fill=#213C43 text="Họ và tên *" [sz:13, wt:500]
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Giá trị" (318x19) fill=#40352F text="Nguyễn Minh Anh" [sz:15, wt:400]
+      [INSTANCE] "Trường thông tin" (350x76)
+        [TEXT] "Nhãn trường" (95x16) fill=#40352F text="Số điện thoại *" [sz:13, wt:500]
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Giá trị" (318x19) fill=#40352F text="0912 345 678" [sz:15, wt:400]
+      [INSTANCE] "Trường thông tin" (350x76)
+        [TEXT] "Nhãn trường" (106x16) fill=#40352F text="Email (tùy chọn)" [sz:13, wt:500]
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Giá trị" (318x19) fill=#40352F text="minh.anh@example.com" [sz:15, wt:400]
+      [FRAME] "Thẻ thông tin" (350x478) fill=#FFFFFF stroke=#E3D1BF r=20
+        [TEXT] "Tiêu đề mục" (318x28) fill=#693B20 text="Để buổi chăm sóc thoải mái hơn" [sz:20, wt:600]
+        [INSTANCE] "Trường thông tin" (318x76)
+          [TEXT] "Nhãn trường" (178x16) fill=#40352F text="Yêu cầu đặc biệt (tùy chọn)" [sz:13, wt:500]
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Hộp chọn" (24x24) fill=#FFFFFF stroke=#985018 r=6
+          [TEXT] "Nội dung" (282x22) fill=#40352F text="Đây là lần đầu tôi đến trung tâm" [sz:14, wt:400]
+        [INSTANCE] "Trường thông tin" (318x76)
+          [TEXT] "Nhãn trường" (166x16) fill=#40352F text="Hỗ trợ tiếp cận (tùy chọn)" [sz:13, wt:500]
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Trường thông tin" (318x76)
+          [TEXT] "Nhãn trường" (153x16) fill=#40352F text="Ghi chú khác (tùy chọn)" [sz:13, wt:500]
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF r=12
+        [TEXT] "Nội dung" (318x54) fill=#40352F text="Chỉ chia sẻ nhu cầu phục vụ cần thiết; không nhập chẩn đoán hay hồ sơ y tế chi tiết. Thông tin tùy chọn dùng để chuẩn bị buổi chăm sóc." [sz:12, wt:400]
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Hộp chọn" (24x24) fill=#FFFFFF stroke=#985018 r=6
+          [TEXT] "Nội dung" (282x44) fill=#40352F text="Tôi đồng ý chia sẻ nhu cầu hỗ trợ với người phụ trách buổi hẹn" [sz:14, wt:400]
+      [INSTANCE] "BookingSummaryCard / Mặc định" (350x372) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Dịch vụ đã chọn" (318x54)
+          [TEXT] "Nội dung" (318x24) fill=#40352F text="Massage thư giãn toàn thân" [sz:16, wt:600]
+          [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Chi nhánh" (318x66)
+          [TEXT] "Nội dung" (318x22) fill=#40352F text="Chi nhánh mẫu 01 — Quận 3" [sz:14, wt:400]
+          [TEXT] "Nội dung" (318x36) fill=#40352F text="123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh · Địa chỉ minh họa" [sz:12, wt:400]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Ngày hẹn" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="12/10/2026" [sz:14, wt:400]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Giờ chăm sóc" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="14:00–15:00" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x54) fill=#40352F text="Chuẩn bị / vệ sinh sau buổi: 15 phút. Chiếm dụng nguồn lực 14:00–15:15, không tính vào 60 phút chăm sóc." [sz:12, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Chuyên viên: Trần Minh Phương" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Khách hàng: Nguyễn Minh Anh" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="0912 345 678" [sz:14, wt:400]
+      [FRAME] "Ghi chú minh họa" (350x60) fill=#F3E2CE r=12
+        [TEXT] "Nội dung" (326x36) fill=#40352F text="Thông tin người dùng và lịch hẹn là dữ liệu minh họa. Không có lưu hoặc gửi thông tin thực." [sz:12, wt:400]
+  [FRAME] "Hành động cố định" (390x110) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+        [TEXT] "Nhãn nút" (132x20) fill=#FFFFFF text="Kiểm tra đặt lịch" [sz:16, wt:600]
+      [FRAME] "Vùng an toàn" (350x34)
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200
+

@@ -1,0 +1,73 @@
+C03_SpecialistSelection [8111:26759]
+======================================================
+[FRAME] "C03_SpecialistSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=#40352F text="9:41" [sz:14, wt:600]
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=#40352F
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x1718)
+      [FRAME] "Tiêu đề và tiến trình" (350x194)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 text="ĐẶT LỊCH · MINH HỌA" [sz:12, wt:400]
+        [FRAME] "Giới thiệu" (350x88)
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 text="Chọn chuyên viên" [sz:28, wt:600]
+          [TEXT] "Nội dung" (350x44) fill=#40352F text="Chọn người đồng hành cùng bạn trong buổi chăm sóc." [sz:14, wt:400]
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [INSTANCE] "SpecialistRadioCard / Tự động sắp xếp" (350x172) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn chuyên viên" (318x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [TEXT] "Nội dung" (318x44) fill=#40352F text="Hệ thống sẽ lựa chọn chuyên viên phù hợp với dịch vụ và lịch hẹn." [sz:14, wt:400]
+        [FRAME] "Điều kiện phân công" (318x36)
+          [TEXT] "Nội dung" (318x36) fill=#985018 text="Chỉ phân công người đủ chuyên môn; đây là lựa chọn minh họa." [sz:12, wt:400]
+      [INSTANCE] "Lựa chọn" (350x76)
+        [TEXT] "Nhãn trường" (137x16) fill=#40352F text="Lọc theo chuyên môn" [sz:13, wt:500]
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Giá trị" (290x19) fill=#40352F text="Massage · Chi nhánh mẫu 01 — Quận 3" [sz:15, wt:400]
+          [FRAME] "chevron-down" (20x20)
+      [INSTANCE] "SpecialistRadioCard / Đang chọn" (350x338) fill=#F3E2CE stroke=#985018 r=20
+        [FRAME] "Lựa chọn chuyên viên" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Hồ sơ minh họa" (350x226) fill=#FFFFFF r=20
+          [FRAME] "Hồ sơ chuyên viên" (318x104)
+          [TEXT] "Nội dung" (318x22) fill=#40352F text="Massage thư giãn · Chăm sóc tận tâm" [sz:14, wt:400]
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Điều kiện phân công" (350x52)
+          [TEXT] "Nội dung" (318x36) fill=#985018 text="Chi nhánh mẫu 01 — Quận 3 · Phù hợp massage trong hồ sơ minh họa; lịch làm việc chưa được kiểm tra thực." [sz:12, wt:400]
+      [INSTANCE] "SpecialistRadioCard / Không đủ chuyên môn" (350x338) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn chuyên viên" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Hồ sơ minh họa" (350x226) fill=#FFFFFF r=20
+          [FRAME] "Hồ sơ chuyên viên" (318x104)
+          [TEXT] "Nội dung" (318x22) fill=#40352F text="Chăm sóc da · Quy trình làm sạch dịu nhẹ" [sz:14, wt:400]
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Điều kiện phân công" (350x52)
+          [TEXT] "Nội dung" (318x36) fill=#6B6158 text="Nguyễn Thu Hà phụ trách chăm sóc da; chưa có chuyên môn massage trong hồ sơ minh họa." [sz:12, wt:400]
+      [INSTANCE] "SpecialistRadioCard / Không đủ chuyên môn" (350x338) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn chuyên viên" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Hồ sơ minh họa" (350x226) fill=#FFFFFF r=20
+          [FRAME] "Hồ sơ chuyên viên" (318x104)
+          [TEXT] "Nội dung" (318x22) fill=#40352F text="Chăm sóc cơ thể · Thư giãn toàn thân" [sz:14, wt:400]
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Điều kiện phân công" (350x52)
+          [TEXT] "Nội dung" (318x36) fill=#6B6158 text="Lê Hoài An phụ trách chăm sóc cơ thể; chưa có chuyên môn massage trong hồ sơ minh họa." [sz:12, wt:400]
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+        [TEXT] "Nội dung" (326x54) fill=#40352F text="3 hồ sơ minh họa, không phải nhân sự hay lịch trống thực. Với nhiều dịch vụ, chọn sắp xếp tự động hoặc phân công người đủ chuyên môn cho từng dịch vụ." [sz:12, wt:400]
+  [FRAME] "Hành động cố định" (390x110) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+        [TEXT] "Nhãn nút" (138x20) fill=#FFFFFF text="Chọn ngày và giờ" [sz:16, wt:600]
+      [FRAME] "Vùng an toàn" (350x34)
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200
+

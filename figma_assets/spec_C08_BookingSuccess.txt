@@ -1,0 +1,65 @@
+C08_BookingSuccess [8111:27380]
+======================================================
+[FRAME] "C08_BookingSuccess" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=#40352F text="9:41" [sz:14, wt:600]
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=#40352F
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x1270)
+      [FRAME] "Tiêu đề và tiến trình" (350x194)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 text="ĐẶT LỊCH · MINH HỌA" [sz:12, wt:400]
+        [FRAME] "Giới thiệu" (350x88)
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 text="Đặt lịch thành công!" [sz:28, wt:600]
+          [TEXT] "Nội dung" (350x44) fill=#40352F text="Cảm ơn bạn đã lựa chọn dịch vụ của chúng tôi. Hẹn gặp bạn trong buổi chăm sóc sắp tới." [sz:14, wt:400]
+        [INSTANCE] "BookingProgress / Hoàn tất" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [FRAME] "Illustration de confirmation" (350x80)
+        [FRAME] "Sceau de confirmation" (80x80) fill=#F3E2CE stroke=#C58D59 r=40
+          [FRAME] "circle-check" (40x40)
+      [FRAME] "Ghi chú minh họa" (350x60) fill=#F3E2CE r=12
+        [TEXT] "Nội dung" (326x36) fill=#40352F text="Minh họa sau khi giữ chỗ và thanh toán cọc thành công; không phải giao dịch thực." [sz:12, wt:400]
+      [INSTANCE] "BookingSuccessTicket / Đã xác nhận mô phỏng" (350x592) fill=#FFFFFF stroke=#E3D1BF r=20
+        [INSTANCE] "BookingStatusBadge / Đã xác nhận (mô phỏng)" (169x34) fill=#F3E2CE r=12
+          [TEXT] "Trạng thái lịch hẹn" (145x18) fill=#236B42 text="Đã xác nhận (mô phỏng)" [sz:12, wt:400]
+        [TEXT] "Nội dung" (318x18) fill=#40352F text="MÃ LỊCH HẸN · SPA-DEMO-000128" [sz:12, wt:400]
+        [TEXT] "Nội dung" (318x24) fill=#40352F text="Massage thư giãn toàn thân" [sz:16, wt:600]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Ngày hẹn" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="12/10/2026" [sz:14, wt:400]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Giờ hẹn" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="14:00–15:00" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Chi nhánh mẫu 01 — Quận 3" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Chuyên viên: Trần Minh Phương" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Khách hàng: Nguyễn Minh Anh" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x18) fill=#40352F text="60 phút · Giá minh họa 450.000đ" [sz:12, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#236B42 text="Đã thanh toán cọc 150.000đ (mô phỏng)" [sz:14, wt:400]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Còn thanh toán" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="300.000đ" [sz:14, wt:400]
+        [INSTANCE] "CheckInQRCode / Minh họa không hợp lệ" (318x224) fill=#F3E2CE stroke=#E3D1BF r=20
+          [FRAME] "Ô mã không hợp lệ" (286x192)
+      [FRAME] "Ghi chú minh họa" (350x60) fill=#F3E2CE r=12
+        [TEXT] "Nội dung" (326x36) fill=#40352F text="Vui lòng đến trước giờ hẹn 10 phút. Đây là hướng dẫn ví dụ, có thể cấu hình theo chi nhánh." [sz:12, wt:400]
+      [INSTANCE] "Hành động phụ" (350x56) fill=#FFFFFF stroke=#985018 r=14
+        [TEXT] "Nhãn nút" (101x20) fill=#985018 text="Về trang chủ" [sz:16, wt:600]
+      [INSTANCE] "Liên kết" (350x44) r=14
+        [TEXT] "Nhãn nút" (111x20) fill=#985018 text="Thêm vào lịch" [sz:16, wt:600]
+  [FRAME] "Hành động cố định" (390x110) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+        [TEXT] "Nhãn nút" (101x20) fill=#FFFFFF text="Xem lịch hẹn" [sz:16, wt:600]
+      [FRAME] "Vùng an toàn" (350x34)
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200
+

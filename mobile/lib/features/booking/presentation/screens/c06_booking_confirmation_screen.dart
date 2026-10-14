@@ -1,0 +1,282 @@
+import 'package:flutter/material.dart';
+import '../../data/models/booking_models.dart';
+import '../widgets/group_c_widgets.dart';
+import 'c01_service_selection_screen.dart';
+import 'c02_branch_selection_screen.dart';
+import 'c03_specialist_selection_screen.dart';
+import 'c04_datetime_selection_screen.dart';
+import 'c05_booking_info_screen.dart';
+import 'c07_payment_qr_screen.dart';
+
+/// Screen C06: Xác nhận đặt lịch [8111:27118]
+class C06BookingConfirmationScreen extends StatefulWidget {
+  final BookingFlowState flowState;
+
+  const C06BookingConfirmationScreen({
+    super.key,
+    required this.flowState,
+  });
+
+  @override
+  State<C06BookingConfirmationScreen> createState() => _C06BookingConfirmationScreenState();
+}
+
+class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScreen> {
+  late bool _agreeTerms;
+
+  @override
+  void initState() {
+    super.initState();
+    _agreeTerms = widget.flowState.agreeTerms;
+  }
+
+  String _formatPrice(double price) {
+    return price.toInt().toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]}.',
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subtotal = widget.flowState.rawServicePrice;
+    final discount = widget.flowState.voucherDiscount;
+    final packageUsed = widget.flowState.usePrepaidPackage ? widget.flowState.servicePrice : 0.0;
+    final total = widget.flowState.usePrepaidPackage ? 0.0 : widget.flowState.servicePrice;
+    final deposit = widget.flowState.usePrepaidPackage ? 0.0 : 150000.0;
+    final remaining = widget.flowState.usePrepaidPackage ? 0.0 : (total - deposit).clamp(0.0, double.infinity);
+
+    return Scaffold(
+      backgroundColor: BookingColors.background,
+      appBar: const BookingAppBar(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                children: [
+                  const SizedBox(height: 8),
+                  const BookingHeaderSection(
+                    title: 'Xác nhận đặt lịch',
+                    subtitle: 'Kiểm tra thông tin trước khi hoàn tất.',
+                    currentStep: 3, // Figma C06 là Bước 3: Xác nhận
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Thẻ Ghi chú minh họa
+                  const IllustrationNoteCard(
+                    text:
+                        'Tóm tắt minh họa · Chưa phải lịch hẹn đã xác nhận. Cần có giữ chỗ hợp lệ trước khi xác nhận và đáp ứng điều kiện thanh toán của chi nhánh.',
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Thẻ BookingSummaryCard / Có thể chỉnh sửa (350x744)
+                  BookingSummaryCardWidget(
+                    flowState: widget.flowState,
+                    isEditable: true,
+                    onEditService: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => C01ServiceSelectionScreen(flowState: widget.flowState),
+                        ),
+                      );
+                    },
+                    onEditBranch: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => C02BranchSelectionScreen(flowState: widget.flowState),
+                        ),
+                      );
+                    },
+                    onEditDateTime: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => C04DateTimeSelectionScreen(flowState: widget.flowState),
+                        ),
+                      );
+                    },
+                    onEditSpecialist: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => C03SpecialistSelectionScreen(flowState: widget.flowState),
+                        ),
+                      );
+                    },
+                    onEditCustomer: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => C05BookingInfoScreen(flowState: widget.flowState),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Thẻ PriceBreakdown / Mặc định (350x251)
+                  PriceBreakdownCardWidget(
+                    subtotal: subtotal,
+                    discount: discount,
+                    packageUsed: packageUsed,
+                    total: total,
+                    deposit: deposit,
+                    remaining: remaining,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Thẻ VoucherInput / Mặc định (350x172)
+                  VoucherInputCardWidget(
+                    onApply: (code) {
+                      setState(() {
+                        widget.flowState.voucherCode = code;
+                        widget.flowState.voucherDiscount = 50000.0;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Đã áp dụng mã ưu đãi $code (-50.000đ)!'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Thẻ PrepaidPackageSelector / Chưa chọn (350x200)
+                  PrepaidPackageSelectorWidget(
+                    isSelected: widget.flowState.usePrepaidPackage,
+                    onChanged: (val) {
+                      setState(() {
+                        widget.flowState.usePrepaidPackage = val;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Thẻ Chính sách minh họa (350x290, fill=white, r=20)
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: BookingColors.cardBorder, width: 1.0),
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Chính sách minh họa',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: BookingColors.heading,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Đổi lịch trước ít nhất 24 giờ: không thu phí trong ví dụ.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: BookingColors.textPrimary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Hủy lịch: tiền cọc được xem xét theo chính sách, không tự động hoàn tiền.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: BookingColors.textPrimary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Cọc 150.000đ · Thanh toán sau 300.000đ.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: BookingColors.textPrimary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Mọi mức giá và chính sách ở đây là ví dụ, không phải cam kết kinh doanh thực.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: BookingColors.textPrimary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Checkbox: Tôi đã đọc và đồng ý...
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _agreeTerms = !_agreeTerms;
+                              widget.flowState.agreeTerms = _agreeTerms;
+                            });
+                          },
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: _agreeTerms ? BookingColors.primary : Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: BookingColors.primary),
+                                ),
+                                child: _agreeTerms
+                                    ? const Icon(Icons.check, size: 16, color: Colors.white)
+                                    : null,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Tôi đã đọc và đồng ý với điều khoản đặt lịch minh họa',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: BookingColors.textPrimary,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+
+            // Fixed Bottom Bar chuẩn Figma
+            BookingFixedBottomBar(
+              summaryText: 'Tổng ${_formatPrice(total)}đ · Cọc minh họa ${_formatPrice(deposit)}đ',
+              buttonText: 'Tiếp tục thanh toán',
+              isEnabled: _agreeTerms,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => C07PaymentQrScreen(flowState: widget.flowState),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

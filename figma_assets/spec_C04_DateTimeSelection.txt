@@ -1,0 +1,85 @@
+C04_DateTimeSelection [8111:26889]
+======================================================
+[FRAME] "C04_DateTimeSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=#40352F text="9:41" [sz:14, wt:600]
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=#40352F
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x1448)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 text="ĐẶT LỊCH · MINH HỌA" [sz:12, wt:400]
+        [FRAME] "Giới thiệu" (350x66)
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 text="Chọn ngày và giờ" [sz:28, wt:600]
+          [TEXT] "Nội dung" (350x22) fill=#40352F text="Lựa chọn thời gian phù hợp với lịch của bạn." [sz:14, wt:400]
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [FRAME] "Thẻ thông tin" (350x132) fill=#F3E2CE stroke=#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=#40352F text="Massage thư giãn toàn thân" [sz:16, wt:600]
+        [TEXT] "Nội dung" (318x36) fill=#40352F text="Chi nhánh mẫu 01 — Quận 3 · Trần Minh Phương · 60 phút" [sz:12, wt:400]
+        [FRAME] "Thông tin tóm tắt" (318x24)
+          [TEXT] "Nhãn" (172x24) fill=#6B6158 text="Đang chọn" [sz:16, wt:600]
+          [TEXT] "Giá trị" (130x24) fill=#985018 text="14:00–15:00" [sz:16, wt:600]
+      [FRAME] "Tháng và lịch" (350x224)
+        [FRAME] "Chuyển tháng" (350x24)
+          [TEXT] "Nội dung" (350x24) fill=#40352F text="‹   Tháng 10, 2026   ›" [sz:16, wt:600]
+        [INSTANCE] "DateStrip / 12/10/2026 đang chọn" (350x72)
+          [FRAME] "Ngày trong tuần" (44x72) fill=#985018 stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Liên kết" (350x44) r=14
+          [TEXT] "Nhãn nút" (108x20) fill=#985018 text="Mở lịch tháng" [sz:16, wt:600]
+        [TEXT] "Nội dung" (350x36) fill=#40352F text="12/10/2026–18/10/2026 · Lịch trống minh họa, không phải dữ liệu trực tiếp." [sz:12, wt:400]
+      [FRAME] "Khung giờ theo buổi" (350x154)
+        [TEXT] "Nội dung" (350x24) fill=#40352F text="Buổi sáng" [sz:16, wt:600]
+        [FRAME] "Khung giờ" (350x122)
+          [INSTANCE] "TimeSlotButton / Không khả dụng" (104x62) fill=#EBE3DA stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Đã đặt" (104x62) fill=#EBE3DA stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Không khả dụng" (104x62) fill=#EBE3DA stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [FRAME] "Khung giờ theo buổi" (350x144)
+        [TEXT] "Nội dung" (350x24) fill=#40352F text="Buổi chiều" [sz:16, wt:600]
+        [FRAME] "Khung giờ" (350x112)
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Đang chọn" (104x52) fill=#985018 stroke=#985018 r=12
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [FRAME] "Khung giờ theo buổi" (350x84)
+        [TEXT] "Nội dung" (350x24) fill=#40352F text="Buổi tối" [sz:16, wt:600]
+        [FRAME] "Khung giờ" (350x52)
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [TEXT] "Nội dung" (350x72) fill=#40352F text="Trống: có thể chọn · Viền chủ đạo: đang chọn · Nhãn “Đã đặt” và “Không khả dụng”: không thể chọn. Ví dụ nguồn lực đã bận 09:30–10:30 gồm khoảng vệ sinh, nên 09:00 và 10:00 không phù hợp." [sz:12, wt:400]
+      [FRAME] "Thẻ thông tin" (350x180) fill=#F3E2CE stroke=#E3D1BF r=20
+        [FRAME] "Thông tin tóm tắt" (318x24)
+          [TEXT] "Nhãn" (172x24) fill=#6B6158 text="Giờ chăm sóc" [sz:16, wt:600]
+          [TEXT] "Giá trị" (130x24) fill=#985018 text="14:00–15:00" [sz:16, wt:600]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Thời lượng" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="60 phút" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x36) fill=#40352F text="Chuẩn bị / vệ sinh riêng: 15 phút sau buổi. Chiếm dụng phòng và chuyên viên: 14:00–15:15." [sz:12, wt:400]
+        [FRAME] "Ghi chú minh họa" (318x42) fill=#F3E2CE r=12
+          [TEXT] "Nội dung" (294x18) fill=#40352F text="Giữ chỗ minh họa — chưa phải xác nhận" [sz:12, wt:400]
+      [TEXT] "Nội dung" (350x54) fill=#40352F text="Khung 18:30 kết thúc chăm sóc 19:30; vệ sinh đến 19:45, trước giờ đóng cửa minh họa 20:00. Các giờ trống là lựa chọn thay thế, không phải lịch đặt đồng thời." [sz:12, wt:400]
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+      [TEXT] "Nội dung" (350x18) fill=#40352F text="12/10/2026 · 14:00–15:00 · 60 phút" [sz:12, wt:400]
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+        [TEXT] "Nhãn nút" (66x20) fill=#FFFFFF text="Tiếp tục" [sz:16, wt:600]
+      [FRAME] "Vùng an toàn" (350x34)
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200
+

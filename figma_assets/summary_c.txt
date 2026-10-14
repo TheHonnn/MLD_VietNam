@@ -1,0 +1,492 @@
+=== C01_ServiceSelection [8111:26453] ===
+[FRAME] "C01_ServiceSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x2348)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x66)
+        [INSTANCE] "BookingProgress / Dịch vụ" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [INSTANCE] "Tìm kiếm" (350x52)
+        [FRAME] "Tìm kiếm" (350x52)
+          [FRAME] "Biểu tượng tìm kiếm" (44x52) fill=#FFFFFF r=12
+          [INSTANCE] "Trường tìm kiếm" (298x52)
+      [FRAME] "Bộ lọc" (350x148)
+        [INSTANCE] "Danh mục đang chọn" (144x44) fill=#985018 stroke=#985018 r=12
+        [INSTANCE] "Danh mục" (116x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Danh mục" (139x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Danh mục" (156x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Danh mục" (112x44) fill=#FFFFFF stroke=#E3D1BF r=12
+      [FRAME] "Lựa chọn dịch vụ" (350x1656)
+        [INSTANCE] "MultiServiceSelector / Đang chọn" (350x402) fill=#FFFFFF stroke=#985018 r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+        [INSTANCE] "MultiServiceSelector / Mặc định" (350x402) fill=#FFFFFF stroke=#E3D1BF r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+        [INSTANCE] "MultiServiceSelector / Mặc định" (350x402) fill=#FFFFFF stroke=#E3D1BF r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+        [INSTANCE] "MultiServiceSelector / Mặc định" (350x402) fill=#FFFFFF stroke=#E3D1BF r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+      [INSTANCE] "SelectedServiceSummary / Một dịch vụ" (350x82) fill=#F3E2CE stroke=#E3D1BF r=20
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C02_BranchSelection [8111:26619] ===
+[FRAME] "C02_BranchSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x1684)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x66)
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [INSTANCE] "Tìm kiếm" (350x52)
+        [FRAME] "Tìm kiếm" (350x52)
+          [FRAME] "Biểu tượng tìm kiếm" (44x52) fill=#FFFFFF r=12
+          [INSTANCE] "Trường tìm kiếm" (298x52)
+      [INSTANCE] "Lựa chọn" (350x76)
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "chevron-down" (20x20)
+      [FRAME] "Bộ lọc" (350x44)
+        [INSTANCE] "Danh mục đang chọn" (99x44) fill=#985018 stroke=#985018 r=12
+        [INSTANCE] "Danh mục" (78x44) fill=#FFFFFF stroke=#E3D1BF r=12
+      [INSTANCE] "BranchSelectionCard / Đang chọn" (350x514) fill=#FFFFFF stroke=#985018 r=20
+        [FRAME] "Chọn chi nhánh" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Thông tin chi nhánh" (350x402) fill=#FFFFFF r=20
+          [FRAME] "Thông tin cơ sở" (350x234)
+        [FRAME] "Điều kiện dịch vụ" (350x52)
+      [INSTANCE] "BranchSelectionCard / Không cung cấp dịch vụ" (350x496) fill=#FFFFFF stroke=#E3D1B
+        [FRAME] "Chọn chi nhánh" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Thông tin chi nhánh" (350x384) fill=#FFFFFF r=20
+          [FRAME] "Thông tin cơ sở" (350x216)
+        [FRAME] "Điều kiện dịch vụ" (350x52)
+      [INSTANCE] "Liên kết" (350x44) r=14
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C03_SpecialistSelection [8111:26759] ===
+[FRAME] "C03_SpecialistSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x1718)
+      [FRAME] "Tiêu đề và tiến trình" (350x194)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x88)
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [INSTANCE] "SpecialistRadioCard / Tự động sắp xếp" (350x172) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn chuyên viên" (318x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [FRAME] "Điều kiện phân công" (318x36)
+      [INSTANCE] "Lựa chọn" (350x76)
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "chevron-down" (20x20)
+      [INSTANCE] "SpecialistRadioCard / Đang chọn" (350x338) fill=#F3E2CE stroke=#985018 r=20
+        [FRAME] "Lựa chọn chuyên viên" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Hồ sơ minh họa" (350x226) fill=#FFFFFF r=20
+          [FRAME] "Hồ sơ chuyên viên" (318x104)
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Điều kiện phân công" (350x52)
+      [INSTANCE] "SpecialistRadioCard / Không đủ chuyên môn" (350x338) fill=#FFFFFF stroke=#E3D1BF r
+        [FRAME] "Lựa chọn chuyên viên" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Hồ sơ minh họa" (350x226) fill=#FFFFFF r=20
+          [FRAME] "Hồ sơ chuyên viên" (318x104)
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Điều kiện phân công" (350x52)
+      [INSTANCE] "SpecialistRadioCard / Không đủ chuyên môn" (350x338) fill=#FFFFFF stroke=#E3D1BF r
+        [FRAME] "Lựa chọn chuyên viên" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Hồ sơ minh họa" (350x226) fill=#FFFFFF r=20
+          [FRAME] "Hồ sơ chuyên viên" (318x104)
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Điều kiện phân công" (350x52)
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+  [FRAME] "Hành động cố định" (390x110) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C04_DateTimeSelection [8111:26889] ===
+[FRAME] "C04_DateTimeSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x1448)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x66)
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [FRAME] "Thẻ thông tin" (350x132) fill=#F3E2CE stroke=#E3D1BF r=20
+        [FRAME] "Thông tin tóm tắt" (318x24)
+      [FRAME] "Tháng và lịch" (350x224)
+        [FRAME] "Chuyển tháng" (350x24)
+        [INSTANCE] "DateStrip / 12/10/2026 đang chọn" (350x72)
+          [FRAME] "Ngày trong tuần" (44x72) fill=#985018 stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "Ngày trong tuần" (44x72) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Liên kết" (350x44) r=14
+      [FRAME] "Khung giờ theo buổi" (350x154)
+        [FRAME] "Khung giờ" (350x122)
+          [INSTANCE] "TimeSlotButton / Không khả dụng" (104x62) fill=#EBE3DA stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Đã đặt" (104x62) fill=#EBE3DA stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Không khả dụng" (104x62) fill=#EBE3DA stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [FRAME] "Khung giờ theo buổi" (350x144)
+        [FRAME] "Khung giờ" (350x112)
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Đang chọn" (104x52) fill=#985018 stroke=#985018 r=12
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [FRAME] "Khung giờ theo buổi" (350x84)
+        [FRAME] "Khung giờ" (350x52)
+          [INSTANCE] "TimeSlotButton / Có thể chọn" (104x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [FRAME] "Thẻ thông tin" (350x180) fill=#F3E2CE stroke=#E3D1BF r=20
+        [FRAME] "Thông tin tóm tắt" (318x24)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Ghi chú minh họa" (318x42) fill=#F3E2CE r=12
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C05_BookingInformation [8111:27011] ===
+[FRAME] "C05_BookingInformation" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x1668)
+      [FRAME] "Tiêu đề và tiến trình" (350x194)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x88)
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [FRAME] "Thẻ thông tin" (350x128) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#985018 stroke=#985018 r=12
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 r=12
+      [INSTANCE] "Trường thông tin" (350x76)
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [INSTANCE] "Trường thông tin" (350x76)
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [INSTANCE] "Trường thông tin" (350x76)
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+      [FRAME] "Thẻ thông tin" (350x478) fill=#FFFFFF stroke=#E3D1BF r=20
+        [INSTANCE] "Trường thông tin" (318x76)
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Hộp chọn" (24x24) fill=#FFFFFF stroke=#985018 r=6
+        [INSTANCE] "Trường thông tin" (318x76)
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Trường thông tin" (318x76)
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Hộp chọn" (24x24) fill=#FFFFFF stroke=#985018 r=6
+      [INSTANCE] "BookingSummaryCard / Mặc định" (350x372) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Dịch vụ đã chọn" (318x54)
+          [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Chi nhánh" (318x66)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+      [FRAME] "Ghi chú minh họa" (350x60) fill=#F3E2CE r=12
+  [FRAME] "Hành động cố định" (390x110) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C06_BookingConfirmation [8111:27118] ===
+[FRAME] "C06_BookingConfirmation" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x2091)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x66)
+        [INSTANCE] "BookingProgress / Xác nhận" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+      [INSTANCE] "BookingSummaryCard / Có thể chỉnh sửa" (350x744) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Dịch vụ đã chọn" (318x218)
+          [FRAME] "Thông tin tóm tắt" (318x22)
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Chi nhánh" (318x118)
+          [INSTANCE] "Liên kết" (318x44) r=14
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [INSTANCE] "Liên kết" (318x44) r=14
+        [INSTANCE] "Liên kết" (318x44) r=14
+        [INSTANCE] "Liên kết" (318x44) r=14
+      [INSTANCE] "PriceBreakdown / Mặc định" (350x251) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x24)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+      [INSTANCE] "VoucherInput / Mặc định" (350x172) fill=#FFFFFF stroke=#E3D1BF r=20
+        [INSTANCE] "Trường thông tin" (318x76)
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Hành động phụ" (318x56) fill=#FFFFFF stroke=#985018 r=14
+      [INSTANCE] "PrepaidPackageSelector / Chưa chọn" (350x200) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Hộp chọn" (24x24) fill=#FFFFFF stroke=#985018 r=6
+      [FRAME] "Thẻ thông tin" (350x290) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Hộp chọn" (24x24) fill=#985018 stroke=#985018 r=6
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C07_Payment [8111:27241] ===
+[FRAME] "C07_Payment" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x2291)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x66)
+        [INSTANCE] "BookingProgress / Xác nhận" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [INSTANCE] "PaymentStatus / Chờ thanh toán" (350x100) fill=#F3E2CE r=16
+        [FRAME] "Trạng thái thanh toán" (318x24)
+          [FRAME] "clock" (20x20)
+      [FRAME] "Thẻ thông tin" (350x208) fill=#F3E2CE stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#985018 stroke=#985018 r=12
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 r=12
+      [INSTANCE] "PaymentMethodCard / Đang chọn" (350x76) fill=#F3E2CE stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#985018 stroke=#985018 r=12
+      [INSTANCE] "PaymentQRPlaceholder / Chưa cấu hình" (350x376) fill=#F3E2CE stroke=#E3D1BF r=20
+        [FRAME] "Ô mã không hợp lệ" (318x174)
+          [FRAME] "Minh họa mã — không thể quét" (112x112) fill=#FFFFFF stroke=#C58D59 r=12
+        [FRAME] "Thông tin tóm tắt" (318x24)
+        [INSTANCE] "Liên kết" (318x44) r=14
+      [INSTANCE] "PaymentMethodCard / Mặc định" (350x102) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 r=12
+      [INSTANCE] "PaymentMethodCard / Mặc định" (350x138) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 r=12
+      [INSTANCE] "PaymentMethodCard / Mặc định" (350x120) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Lựa chọn" (318x44)
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 r=12
+      [INSTANCE] "PriceBreakdown / Mặc định" (350x251) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x24)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+      [INSTANCE] "BookingSummaryCard / Mặc định" (350x372) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Dịch vụ đã chọn" (318x54)
+          [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Chi nhánh" (318x66)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+      [FRAME] "Ghi chú minh họa" (350x96) fill=#F3E2CE r=12
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C08_BookingSuccess [8111:27380] ===
+[FRAME] "C08_BookingSuccess" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x1270)
+      [FRAME] "Tiêu đề và tiến trình" (350x194)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x88)
+        [INSTANCE] "BookingProgress / Hoàn tất" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [FRAME] "Illustration de confirmation" (350x80)
+        [FRAME] "Sceau de confirmation" (80x80) fill=#F3E2CE stroke=#C58D59 r=40
+          [FRAME] "circle-check" (40x40)
+      [FRAME] "Ghi chú minh họa" (350x60) fill=#F3E2CE r=12
+      [INSTANCE] "BookingSuccessTicket / Đã xác nhận mô phỏng" (350x592) fill=#FFFFFF stroke=#E3D1BF
+        [INSTANCE] "BookingStatusBadge / Đã xác nhận (mô phỏng)" (169x34) fill=#F3E2CE r=12
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [INSTANCE] "CheckInQRCode / Minh họa không hợp lệ" (318x224) fill=#F3E2CE stroke=#E3D1BF r=2
+          [FRAME] "Ô mã không hợp lệ" (286x192)
+      [FRAME] "Ghi chú minh họa" (350x60) fill=#F3E2CE r=12
+      [INSTANCE] "Hành động phụ" (350x56) fill=#FFFFFF stroke=#985018 r=14
+      [INSTANCE] "Liên kết" (350x44) r=14
+  [FRAME] "Hành động cố định" (390x110) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)
+=== C09_MyAppointments [8111:27462] ===
+[FRAME] "C09_MyAppointments" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x698)
+    [FRAME] "Nội dung đầy đủ" (390x1216)
+      [FRAME] "Tiêu đề và tiến trình" (350x126)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x66)
+      [FRAME] "Bộ lọc" (350x44)
+        [INSTANCE] "Danh mục đang chọn" (78x44) fill=#985018 stroke=#985018 r=12
+        [INSTANCE] "Danh mục" (126x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [INSTANCE] "Danh mục" (77x44) fill=#FFFFFF stroke=#E3D1BF r=12
+      [INSTANCE] "Lựa chọn" (350x76)
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "chevron-down" (20x20)
+      [INSTANCE] "Lựa chọn" (350x76)
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [FRAME] "chevron-down" (20x20)
+      [INSTANCE] "AppointmentCard / Đã xác nhận (mô phỏng)" (350x656) fill=#FFFFFF stroke=#E3D1BF r=
+        [INSTANCE] "BookingStatusBadge / Đã xác nhận (mô phỏng)" (169x34) fill=#F3E2CE r=12
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x44)
+        [INSTANCE] "Hành động phụ" (318x56) fill=#FFFFFF stroke=#985018 r=14
+        [INSTANCE] "Liên kết" (318x44) r=14
+        [INSTANCE] "Liên kết" (318x44) r=14
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+  [INSTANCE] "Điều hướng — Đặt lịch" (390x98) fill=#FFFFFF stroke=#E3D1BF
+    [FRAME] "Các mục điều hướng" (390x64)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "house" (22x22)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "leaf" (22x22)
+      [FRAME] "Mục điều hướng" (75x64) fill=#F3E2CE r=12
+        [FRAME] "calendar-days" (22x22)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "graduation-cap" (22x22)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "user-round" (22x22)
+    [FRAME] "Vùng an toàn" (390x34)
+=== C10_AppointmentDetails [8111:27574] ===
+[FRAME] "C10_AppointmentDetails" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+      [FRAME] "ios-wifi-signal" (18x18)
+      [FRAME] "ios-battery-full" (25x18)
+  [FRAME] "Khung nhìn nội dung" (390x686)
+    [FRAME] "Nội dung đầy đủ" (390x2011)
+      [FRAME] "Tiêu đề và tiến trình" (350x96)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+        [FRAME] "Giới thiệu" (350x36)
+      [INSTANCE] "BookingStatusBadge / Đã xác nhận (mô phỏng)" (169x34) fill=#F3E2CE r=12
+      [INSTANCE] "BookingSummaryCard / Mặc định" (350x484) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Dịch vụ đã chọn" (318x166)
+          [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Chi nhánh" (318x66)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+      [INSTANCE] "PriceBreakdown / Đã cọc mô phỏng" (350x251) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x24)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+        [FRAME] "Thông tin tóm tắt" (318x22)
+      [INSTANCE] "PaymentStatus / Thanh toán thành công (mô phỏng)" (350x82) fill=#EFF7F0 r=16
+        [FRAME] "Trạng thái thanh toán" (318x24)
+          [FRAME] "circle-check" (20x20)
+      [INSTANCE] "CheckInQRCode / Minh họa không hợp lệ" (350x206) fill=#F3E2CE stroke=#E3D1BF r=20
+        [FRAME] "Ô mã không hợp lệ" (318x174)
+          [FRAME] "Minh họa mã — không thể quét" (112x112) fill=#FFFFFF stroke=#C58D59 r=12
+      [INSTANCE] "BookingTimeline / Đã xác nhận mô phỏng" (350x284) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Mốc tiến trình" (318x48)
+        [FRAME] "Mốc tiến trình" (318x48)
+        [FRAME] "Mốc tiến trình" (318x48)
+        [FRAME] "Mốc tiến trình" (318x48)
+      [INSTANCE] "Hành động phụ" (350x56) fill=#FFFFFF stroke=#985018 r=14
+      [INSTANCE] "Hành động phụ" (350x56) fill=#FFFFFF stroke=#985018 r=14
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+  [FRAME] "Hành động cố định" (390x110) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+      [FRAME] "Vùng an toàn" (350x34)

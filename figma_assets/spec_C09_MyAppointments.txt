@@ -1,0 +1,90 @@
+C09_MyAppointments [8111:27462]
+======================================================
+[FRAME] "C09_MyAppointments" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=#40352F text="9:41" [sz:14, wt:600]
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=#40352F
+  [FRAME] "Khung nhìn nội dung" (390x698)
+    [FRAME] "Nội dung đầy đủ" (390x1216)
+      [FRAME] "Tiêu đề và tiến trình" (350x126)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 text="ĐẶT LỊCH · MINH HỌA" [sz:12, wt:400]
+        [FRAME] "Giới thiệu" (350x66)
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 text="Lịch hẹn của tôi" [sz:28, wt:600]
+          [TEXT] "Nội dung" (350x22) fill=#40352F text="Quản lý các buổi chăm sóc đã đặt." [sz:14, wt:400]
+      [FRAME] "Bộ lọc" (350x44)
+        [INSTANCE] "Danh mục đang chọn" (78x44) fill=#985018 stroke=#985018 r=12
+          [TEXT] "Nhãn" (46x20) fill=#FFFFFF text="Sắp tới" [sz:13, wt:400]
+        [INSTANCE] "Danh mục" (126x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn" (94x20) fill=#40352F text="Đã hoàn thành" [sz:13, wt:400]
+        [INSTANCE] "Danh mục" (77x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn" (45x20) fill=#40352F text="Đã hủy" [sz:13, wt:400]
+      [INSTANCE] "Lựa chọn" (350x76)
+        [TEXT] "Nhãn trường" (85x16) fill=#40352F text="Khoảng ngày" [sz:13, wt:500]
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Giá trị" (290x19) fill=#40352F text="12/10/2026–31/10/2026" [sz:15, wt:400]
+          [FRAME] "chevron-down" (20x20)
+      [INSTANCE] "Lựa chọn" (350x76)
+        [TEXT] "Nhãn trường" (202x16) fill=#40352F text="Chi nhánh / Dịch vụ / Trạng thái" [sz:13, wt:500]
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Giá trị" (290x19) fill=#40352F text="Tất cả · Tất cả · Đã xác nhận" [sz:15, wt:400]
+          [FRAME] "chevron-down" (20x20)
+      [INSTANCE] "AppointmentCard / Đã xác nhận (mô phỏng)" (350x656) fill=#FFFFFF stroke=#E3D1BF r=20
+        [RECTANGLE] "Hình ảnh" (318x128) r=16
+        [INSTANCE] "BookingStatusBadge / Đã xác nhận (mô phỏng)" (169x34) fill=#F3E2CE r=12
+          [TEXT] "Trạng thái lịch hẹn" (145x18) fill=#236B42 text="Đã xác nhận (mô phỏng)" [sz:12, wt:400]
+        [TEXT] "Nội dung" (318x24) fill=#40352F text="Massage thư giãn toàn thân" [sz:16, wt:600]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Ngày hẹn" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="12/10/2026" [sz:14, wt:400]
+        [FRAME] "Thông tin tóm tắt" (318x22)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Giờ hẹn" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x22) fill=#40352F text="14:00–15:00" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Chi nhánh mẫu 01 — Quận 3" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Chuyên viên: Trần Minh Phương" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x22) fill=#40352F text="Khách hàng: Nguyễn Minh Anh" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x18) fill=#40352F text="SPA-DEMO-000128 · Dữ liệu minh họa" [sz:12, wt:400]
+        [FRAME] "Thông tin tóm tắt" (318x44)
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 text="Thời lượng / Tổng" [sz:14, wt:400]
+          [TEXT] "Giá trị" (130x44) fill=#40352F text="60 phút / 450.000đ" [sz:14, wt:400]
+        [TEXT] "Nội dung" (318x18) fill=#40352F text="Cọc đã trả 150.000đ (mô phỏng) · Còn 300.000đ" [sz:12, wt:400]
+        [INSTANCE] "Hành động phụ" (318x56) fill=#FFFFFF stroke=#985018 r=14
+          [TEXT] "Nhãn nút" (96x20) fill=#985018 text="Xem chi tiết" [sz:16, wt:600]
+        [INSTANCE] "Liên kết" (318x44) r=14
+          [TEXT] "Nhãn nút" (61x20) fill=#985018 text="Đổi lịch" [sz:16, wt:600]
+        [INSTANCE] "Liên kết" (318x44) r=14
+          [TEXT] "Nhãn nút" (64x20) fill=#985018 text="Hủy lịch" [sz:16, wt:600]
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+        [TEXT] "Nội dung" (326x54) fill=#40352F text="Lịch hẹn và thanh toán là tình huống mô phỏng, không phải giao dịch thực. Bộ lọc và thao tác chỉ là giao diện tĩnh." [sz:12, wt:400]
+  [INSTANCE] "Điều hướng — Đặt lịch" (390x98) fill=#FFFFFF stroke=#E3D1BF
+    [FRAME] "Các mục điều hướng" (390x64)
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "house" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=#80766E
+        [TEXT] "Nhãn mục" (49x13) fill=#6B6158 text="Trang chủ" [sz:10, wt:400]
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "leaf" (22x22)
+          [VECTOR] "Vector" (17x17) stroke=#80766E
+        [TEXT] "Nhãn mục" (36x13) fill=#6B6158 text="Dịch vụ" [sz:10, wt:400]
+      [FRAME] "Mục điều hướng" (75x64) fill=#F3E2CE r=12
+        [FRAME] "calendar-days" (22x22)
+          [VECTOR] "Vector" (17x18) stroke=#985018
+        [TEXT] "Nhãn mục" (39x13) fill=#985018 text="Đặt lịch" [sz:10, wt:600]
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "graduation-cap" (22x22)
+          [VECTOR] "Vector" (18x13) stroke=#80766E
+        [TEXT] "Nhãn mục" (43x13) fill=#6B6158 text="Học viện" [sz:10, wt:400]
+      [FRAME] "Mục điều hướng" (75x64) r=12
+        [FRAME] "user-round" (22x22)
+          [VECTOR] "Vector" (15x17) stroke=#80766E
+        [TEXT] "Nhãn mục" (41x13) fill=#6B6158 text="Cá nhân" [sz:10, wt:400]
+    [FRAME] "Vùng an toàn" (390x34)
+      [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200
+

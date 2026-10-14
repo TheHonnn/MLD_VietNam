@@ -1,0 +1,68 @@
+C01_ServiceSelection [8111:26453]
+======================================================
+[FRAME] "C01_ServiceSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=#40352F text="9:41" [sz:14, wt:600]
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=#40352F
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x2348)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 text="ĐẶT LỊCH · MINH HỌA" [sz:12, wt:400]
+        [FRAME] "Giới thiệu" (350x66)
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 text="Chọn dịch vụ" [sz:28, wt:600]
+          [TEXT] "Nội dung" (350x22) fill=#40352F text="Lựa chọn dịch vụ chăm sóc phù hợp với bạn." [sz:14, wt:400]
+        [INSTANCE] "BookingProgress / Dịch vụ" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [INSTANCE] "Tìm kiếm" (350x52)
+        [FRAME] "Tìm kiếm" (350x52)
+          [FRAME] "Biểu tượng tìm kiếm" (44x52) fill=#FFFFFF r=12
+          [INSTANCE] "Trường tìm kiếm" (298x52)
+      [FRAME] "Bộ lọc" (350x148)
+        [INSTANCE] "Danh mục đang chọn" (144x44) fill=#985018 stroke=#985018 r=12
+          [TEXT] "Nhãn" (112x20) fill=#FFFFFF text="Massage thư giãn" [sz:13, wt:400]
+        [INSTANCE] "Danh mục" (116x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn" (84x20) fill=#40352F text="Chăm sóc da" [sz:13, wt:400]
+        [INSTANCE] "Danh mục" (139x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn" (107x20) fill=#40352F text="Chăm sóc cơ thể" [sz:13, wt:400]
+        [INSTANCE] "Danh mục" (156x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn" (124x20) fill=#40352F text="Chăm sóc sức khỏe" [sz:13, wt:400]
+        [INSTANCE] "Danh mục" (112x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn" (80x20) fill=#40352F text="Gói liệu trình" [sz:13, wt:400]
+      [FRAME] "Lựa chọn dịch vụ" (350x1656)
+        [INSTANCE] "MultiServiceSelector / Đang chọn" (350x402) fill=#FFFFFF stroke=#985018 r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+        [INSTANCE] "MultiServiceSelector / Mặc định" (350x402) fill=#FFFFFF stroke=#E3D1BF r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+        [INSTANCE] "MultiServiceSelector / Mặc định" (350x402) fill=#FFFFFF stroke=#E3D1BF r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+        [INSTANCE] "MultiServiceSelector / Mặc định" (350x402) fill=#FFFFFF stroke=#E3D1BF r=20
+          [FRAME] "Chọn dịch vụ" (350x60)
+          [INSTANCE] "Dịch vụ chăm sóc" (350x342) fill=#FFFFFF r=20
+      [INSTANCE] "SelectedServiceSummary / Một dịch vụ" (350x82) fill=#F3E2CE stroke=#E3D1BF r=20
+        [TEXT] "Nội dung" (318x24) fill=#40352F text="1 dịch vụ · 60 phút · 450.000đ" [sz:16, wt:600]
+        [TEXT] "Nội dung" (318x18) fill=#40352F text="Giá minh họa; được kiểm tra lại theo chi nhánh." [sz:12, wt:400]
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+        [TEXT] "Nội dung" (326x54) fill=#40352F text="Giá và danh mục dịch vụ chỉ mang tính minh họa. Có thể chọn nhiều dịch vụ tương thích, thực hiện liên tiếp; cần kiểm tra chi nhánh và nguồn lực." [sz:12, wt:400]
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+      [TEXT] "Nội dung" (350x18) fill=#40352F text="1 dịch vụ · 60 phút · 450.000đ · Giá minh họa" [sz:12, wt:400]
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+        [TEXT] "Nhãn nút" (66x20) fill=#FFFFFF text="Tiếp tục" [sz:16, wt:600]
+      [FRAME] "Vùng an toàn" (350x34)
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200
+

@@ -1,0 +1,280 @@
+{
+  "01 — GROUP A / ONBOARDING & AUTH": [
+    {
+      "id": "8107:5688",
+      "name": "A06_PurposeSelection",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8107:5634",
+      "name": "A05_ProfileSetup",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8107:5588",
+      "name": "A04_OTP",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8107:5548",
+      "name": "A03_Login",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8107:5522",
+      "name": "A02_Onboarding",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8107:5499",
+      "name": "A01_Splash",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "02 — GROUP B / HOME & SERVICE DISCOVERY": [
+    {
+      "id": "8109:14993",
+      "name": "Cơ sở và đội ngũ",
+      "type": "FRAME",
+      "width": 1704,
+      "height": 844
+    },
+    {
+      "id": "8109:14562",
+      "name": "Màn hình khám phá",
+      "type": "FRAME",
+      "width": 1704,
+      "height": 844
+    },
+    {
+      "id": "8109:14561",
+      "name": "Titre de section",
+      "type": "TEXT",
+      "width": 493,
+      "height": 28
+    }
+  ],
+  "03 — GROUP C / BOOKING & PAYMENT": [
+    {
+      "id": "8111:26450",
+      "name": "Đặt lịch và thanh toán",
+      "type": "FRAME",
+      "width": 2142,
+      "height": 1838
+    }
+  ],
+  "04 — GROUP D / TREATMENT & CUSTOMER CARE": [
+    {
+      "id": "8112:8648",
+      "name": "D08_Notifications",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8112:8584",
+      "name": "D07_CustomerSupport",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8112:8509",
+      "name": "D06_HomeCareGuidelines",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8112:8402",
+      "name": "D05_ServiceReview",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8112:8246",
+      "name": "D04_PreServiceConsultation",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8112:8110",
+      "name": "D03_CareJournal",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8112:8015",
+      "name": "D02_PackageDetails",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8112:7819",
+      "name": "D01_MyPackages",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "06 — GROUP F / MEMBERSHIP & PROFILE": [
+    {
+      "id": "8120:14530",
+      "name": "F08_Settings",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8120:14442",
+      "name": "F07_ReferralProgram",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8120:14250",
+      "name": "F06_PaymentHistory",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8120:14155",
+      "name": "F05_MyVouchers",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8120:14046",
+      "name": "F04_LoyaltyPoints",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8120:13954",
+      "name": "F03_MembershipCard",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8120:13871",
+      "name": "F02_EditProfile",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "id": "8120:13677",
+      "name": "F01_ProfileDashboard",
+      "type": "FRAME",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "07 — GROUP W / WEB ADMIN": [
+    {
+      "id": "8123:52442",
+      "name": "W12_RevenueReports",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1998
+    },
+    {
+      "id": "8123:52148",
+      "name": "W11_TrainingOperations",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1756
+    },
+    {
+      "id": "8123:51829",
+      "name": "W10_StudentManagement",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1586
+    },
+    {
+      "id": "8123:51585",
+      "name": "W09_InstructorManagement",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1296
+    },
+    {
+      "id": "8123:51295",
+      "name": "W08_Enrollment",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1458
+    },
+    {
+      "id": "8123:50969",
+      "name": "W07_Cashier",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1771
+    },
+    {
+      "id": "8123:50711",
+      "name": "W06_TreatmentPackages",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1652
+    },
+    {
+      "id": "8123:50465",
+      "name": "W05_TechnicianSchedule",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1528
+    },
+    {
+      "id": "8123:50172",
+      "name": "W04_CustomerDetail",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1646
+    },
+    {
+      "id": "8123:49871",
+      "name": "W03_CustomerCRM",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1536
+    },
+    {
+      "id": "8123:49601",
+      "name": "W02_BranchManagement",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1778
+    },
+    {
+      "id": "8123:49291",
+      "name": "W01_Overview",
+      "type": "FRAME",
+      "width": 1600,
+      "height": 1718
+    }
+  ]
+}

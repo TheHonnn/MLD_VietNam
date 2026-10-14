@@ -1,0 +1,371 @@
+[FRAME] "C06_BookingConfirmation" (390x844) fill=#F8F1E8 layout=VERTICAL gap= id=8111:27118
+  [FRAME] "Thanh trạng thái" (390x48) pad=(0,24,0,24) layout=HORIZONTAL gap= id=8111:27119
+    [TEXT] "Giờ" (31x18) fill=#40352F gap= id=8111:27120
+       TEXT: "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18) layout=HORIZONTAL gap=5 id=8111:27121
+      [FRAME] "ios-signal" (18x18) gap= id=8111:30432
+        [VECTOR] "Vector" (17x11) fill=#40352F gap= id=8111:30433
+      [FRAME] "ios-wifi-signal" (18x18) gap= id=8111:30435
+        [VECTOR] "Vector" (15x11) fill=#40352F gap= id=8111:30436
+      [FRAME] "ios-battery-full" (25x18) gap= id=8111:30438
+        [VECTOR] "Vector" (24x12) fill=#40352F gap= id=8111:30439
+  [FRAME] "Khung nhìn nội dung" (390x656) layout=VERTICAL gap= id=8111:27125
+    [FRAME] "Nội dung đầy đủ" (390x2091) pad=(8,20,32,20) layout=VERTICAL gap=24 id=8111:27126
+      [FRAME] "Tiêu đề và tiến trình" (350x172) layout=VERTICAL gap=16 id=8111:27127
+        [FRAME] "Điều hướng" (350x44) layout=HORIZONTAL gap= id=8111:27128
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF w=1 r=12 layout=HORIZONTAL gap= id=8111:27129
+            [FRAME] "arrow-left" (24x24) gap= id=I8111:27129;8107:6675
+              [VECTOR] "Vector" (14x14) stroke=#40352F w=1.7999999523162842 gap= id=I8111:27129;8107:6676
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 gap= id=8111:27132
+             TEXT: "ĐẶT LỊCH · MINH HỌA"
+        [FRAME] "Giới thiệu" (350x66) layout=VERTICAL gap=8 id=8111:27133
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 gap= id=8111:27134
+             TEXT: "Xác nhận đặt lịch"
+          [TEXT] "Nội dung" (350x22) fill=#40352F gap= id=8111:27135
+             TEXT: "Kiểm tra thông tin trước khi hoàn tất."
+        [INSTANCE] "BookingProgress / Xác nhận" (350x30) layout=HORIZONTAL gap=8 id=8111:32435
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32435;8111:32422
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#985018 r=2 gap= id=I8111:32435;8111:32423
+            [TEXT] "Tên bước" (82x18) fill=#985018 gap= id=I8111:32435;8111:32424
+               TEXT: "Dịch vụ"
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32435;8111:32425
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#985018 r=2 gap= id=I8111:32435;8111:32426
+            [TEXT] "Tên bước" (82x18) fill=#985018 gap= id=I8111:32435;8111:32427
+               TEXT: "Lịch hẹn"
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32435;8111:32428
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#985018 r=2 gap= id=I8111:32435;8111:32429
+            [TEXT] "Tên bước" (82x18) fill=#985018 gap= id=I8111:32435;8111:32430
+               TEXT: "Xác nhận"
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32435;8111:32431
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#FFFFFF r=2 gap= id=I8111:32435;8111:32432
+            [TEXT] "Tên bước" (82x18) fill=#6B6158 gap= id=I8111:32435;8111:32433
+               TEXT: "Hoàn tất"
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12 pad=(12,12,12,12) layout=VERTICAL gap=8 id=8111:27149
+        [TEXT] "Nội dung" (326x54) fill=#40352F gap= id=8111:27150
+           TEXT: "Tóm tắt minh họa · Chưa phải lịch hẹn đã xác nhận. Cần có giữ chỗ hợp lệ trước khi xác nhận và đáp ứng điều kiện thanh toán của chi nhánh."
+      [INSTANCE] "BookingSummaryCard / Có thể chỉnh sửa" (350x744) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32788
+        [FRAME] "Dịch vụ đã chọn" (318x218) layout=VERTICAL gap=8 id=I8111:32788;8111:32763
+          [RECTANGLE] "Hình ảnh" (318x104) r=16 gap= id=I8111:32788;8111:32764
+          [TEXT] "Nội dung" (318x24) fill=#40352F gap= id=I8111:32788;8111:32765
+             TEXT: "Massage thư giãn toàn thân"
+          [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32788;8111:32766
+            [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32788;8111:32767
+               TEXT: "Thời lượng chăm sóc"
+            [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32788;8111:32768
+               TEXT: "60 phút"
+          [INSTANCE] "Liên kết" (318x44) r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32788;8111:32769
+            [TEXT] "Nhãn nút" (93x20) fill=#985018 gap= id=I8111:32788;8111:32769;8107:5854
+               TEXT: "Sửa dịch vụ"
+        [FRAME] "Chi nhánh" (318x118) layout=VERTICAL gap=8 id=I8111:32788;8111:32770
+          [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:32788;8111:32771
+             TEXT: "Chi nhánh mẫu 01 — Quận 3"
+          [TEXT] "Nội dung" (318x36) fill=#40352F gap= id=I8111:32788;8111:32772
+             TEXT: "123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh · Địa chỉ minh họa"
+          [INSTANCE] "Liên kết" (318x44) r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32788;8111:32773
+            [TEXT] "Nhãn nút" (111x20) fill=#985018 gap= id=I8111:32788;8111:32773;8107:5854
+               TEXT: "Sửa chi nhánh"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32788;8111:32774
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32788;8111:32775
+             TEXT: "Ngày hẹn"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32788;8111:32776
+             TEXT: "12/10/2026"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32788;8111:32777
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32788;8111:32778
+             TEXT: "Giờ chăm sóc"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32788;8111:32779
+             TEXT: "14:00–15:00"
+        [TEXT] "Nội dung" (318x54) fill=#40352F gap= id=I8111:32788;8111:32780
+           TEXT: "Chuẩn bị / vệ sinh sau buổi: 15 phút. Chiếm dụng nguồn lực 14:00–15:15, không tính vào 60 phút chăm sóc."
+        [INSTANCE] "Liên kết" (318x44) r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32788;8111:32781
+          [TEXT] "Nhãn nút" (127x20) fill=#985018 gap= id=I8111:32788;8111:32781;8107:5854
+             TEXT: "Sửa ngày và giờ"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:32788;8111:32782
+           TEXT: "Chuyên viên: Trần Minh Phương"
+        [INSTANCE] "Liên kết" (318x44) r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32788;8111:32783
+          [TEXT] "Nhãn nút" (129x20) fill=#985018 gap= id=I8111:32788;8111:32783;8107:5854
+             TEXT: "Sửa chuyên viên"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:32788;8111:32784
+           TEXT: "Khách hàng: Nguyễn Minh Anh"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:32788;8111:32785
+           TEXT: "0912 345 678"
+        [INSTANCE] "Liên kết" (318x44) r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32788;8111:32786
+          [TEXT] "Nhãn nút" (203x20) fill=#985018 gap= id=I8111:32788;8111:32786;8107:5854
+             TEXT: "Sửa thông tin khách hàng"
+      [INSTANCE] "PriceBreakdown / Mặc định" (350x251) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32845
+        [TEXT] "Tiêu đề mục" (318x28) fill=#693B20 gap= id=I8111:32845;8111:32824
+           TEXT: "Chi phí minh họa"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32845;8111:32825
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32845;8111:32826
+             TEXT: "Tạm tính"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32845;8111:32827
+             TEXT: "450.000đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32845;8111:32828
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32845;8111:32829
+             TEXT: "Ưu đãi"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32845;8111:32830
+             TEXT: "0đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32845;8111:32831
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32845;8111:32832
+             TEXT: "Đã sử dụng gói liệu trình"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32845;8111:32833
+             TEXT: "0đ"
+        [RECTANGLE] "Đường phân cách" (318x1) fill=#E3D1BF gap= id=I8111:32845;8111:32834
+        [FRAME] "Thông tin tóm tắt" (318x24) layout=HORIZONTAL gap=16 id=I8111:32845;8111:32835
+          [TEXT] "Nhãn" (172x24) fill=#6B6158 gap= id=I8111:32845;8111:32836
+             TEXT: "Tổng thanh toán"
+          [TEXT] "Giá trị" (130x24) fill=#985018 gap= id=I8111:32845;8111:32837
+             TEXT: "450.000đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32845;8111:32838
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32845;8111:32839
+             TEXT: "Tiền cọc minh họa"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32845;8111:32840
+             TEXT: "150.000đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32845;8111:32841
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32845;8111:32842
+             TEXT: "Thanh toán tại cơ sở"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32845;8111:32843
+             TEXT: "300.000đ"
+      [INSTANCE] "VoucherInput / Mặc định" (350x172) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32870
+        [INSTANCE] "Trường thông tin" (318x76) layout=VERTICAL gap=8 id=I8111:32870;8111:32867
+          [TEXT] "Nhãn trường" (63x16) fill=#40352F gap= id=I8111:32870;8111:32867;8107:6112
+             TEXT: "Mã ưu đãi"
+          [FRAME] "Ô nhập" (318x52) fill=#FFFFFF stroke=#E3D1BF w=1 r=12 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32870;8111:32867;8107:6113
+            [TEXT] "Giá trị" (286x19) fill=#40352F gap= id=I8111:32870;8111:32867;8107:6114
+               TEXT: "Nhập mã ưu đãi"
+        [INSTANCE] "Hành động phụ" (318x56) fill=#FFFFFF stroke=#985018 w=1 r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32870;8111:32868
+          [TEXT] "Nhãn nút" (67x20) fill=#985018 gap= id=I8111:32870;8111:32868;8107:5836
+             TEXT: "Áp dụng"
+      [INSTANCE] "PrepaidPackageSelector / Chưa chọn" (350x200) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32889
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=I8111:32889;8111:32882
+          [FRAME] "Hộp chọn" (24x24) fill=#FFFFFF stroke=#985018 w=1 r=6 layout=HORIZONTAL gap= id=I8111:32889;8111:32883
+          [TEXT] "Nội dung" (282x22) fill=#40352F gap= id=I8111:32889;8111:32884
+             TEXT: "Sử dụng buổi trong gói đã mua"
+        [TEXT] "Nội dung" (318x24) fill=#40352F gap= id=I8111:32889;8111:32885
+           TEXT: "Gói massage thư giãn — 5 buổi"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:32889;8111:32886
+           TEXT: "Còn 3 buổi · Hết hạn 31/12/2026"
+        [TEXT] "Nội dung" (318x54) fill=#40352F gap= id=I8111:32889;8111:32887
+           TEXT: "Gói minh họa áp dụng cho massage tại Chi nhánh mẫu 01 — Quận 3. Chỉ trừ buổi sau khi lịch hẹn được xác nhận."
+      [FRAME] "Thẻ thông tin" (350x290) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:27216
+        [TEXT] "Tiêu đề mục" (318x28) fill=#693B20 gap= id=8111:27217
+           TEXT: "Chính sách minh họa"
+        [TEXT] "Nội dung" (318x44) fill=#40352F gap= id=8111:27218
+           TEXT: "Đổi lịch trước ít nhất 24 giờ: không thu phí trong ví dụ."
+        [TEXT] "Nội dung" (318x44) fill=#40352F gap= id=8111:27219
+           TEXT: "Hủy lịch: tiền cọc được xem xét theo chính sách, không tự động hoàn tiền."
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=8111:27220
+           TEXT: "Cọc 150.000đ · Thanh toán sau 300.000đ."
+        [TEXT] "Nội dung" (318x36) fill=#40352F gap= id=8111:27221
+           TEXT: "Mọi mức giá và chính sách ở đây là ví dụ, không phải cam kết kinh doanh thực."
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=8111:27222
+          [FRAME] "Hộp chọn" (24x24) fill=#985018 stroke=#985018 w=1 r=6 layout=HORIZONTAL gap= id=8111:27223
+            [FRAME] "check" (16x16) gap= id=8111:30441
+              [VECTOR] "Vector" (11x7) stroke=#FFFFFF w=2 gap= id=8111:30442
+          [TEXT] "Nội dung" (282x44) fill=#40352F gap= id=8111:27225
+             TEXT: "Tôi đã đọc và đồng ý với điều khoản đặt lịch minh họa"
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF w=1 layout=VERTICAL gap= id=8111:27226
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30) pad=(12,20,0,20) layout=VERTICAL gap= id=8111:33288
+      [TEXT] "Nội dung" (350x18) fill=#40352F gap= id=I8111:33288;8111:33286
+         TEXT: "Tổng 450.000đ · Cọc minh họa 150.000đ"
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF w=1 pad=(12,20,0,20) layout=VERTICAL gap=8 id=8111:27229
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:27229;8109:18215
+        [TEXT] "Nhãn nút" (157x20) fill=#FFFFFF gap= id=I8111:27229;8109:18215;8107:5818
+           TEXT: "Tiếp tục thanh toán"
+      [FRAME] "Vùng an toàn" (350x34) layout=HORIZONTAL gap= id=I8111:27229;8109:18216
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200 gap= id=I8111:27229;8109:18217
+[FRAME] "C07_Payment" (390x844) fill=#F8F1E8 layout=VERTICAL gap= id=8111:27241
+  [FRAME] "Thanh trạng thái" (390x48) pad=(0,24,0,24) layout=HORIZONTAL gap= id=8111:27242
+    [TEXT] "Giờ" (31x18) fill=#40352F gap= id=8111:27243
+       TEXT: "9:41"
+    [FRAME] "Trạng thái thiết bị" (71x18) layout=HORIZONTAL gap=5 id=8111:27244
+      [FRAME] "ios-signal" (18x18) gap= id=8111:30444
+        [VECTOR] "Vector" (17x11) fill=#40352F gap= id=8111:30445
+      [FRAME] "ios-wifi-signal" (18x18) gap= id=8111:30447
+        [VECTOR] "Vector" (15x11) fill=#40352F gap= id=8111:30448
+      [FRAME] "ios-battery-full" (25x18) gap= id=8111:30450
+        [VECTOR] "Vector" (24x12) fill=#40352F gap= id=8111:30451
+  [FRAME] "Khung nhìn nội dung" (390x656) layout=VERTICAL gap= id=8111:27248
+    [FRAME] "Nội dung đầy đủ" (390x2291) pad=(8,20,32,20) layout=VERTICAL gap=24 id=8111:27249
+      [FRAME] "Tiêu đề và tiến trình" (350x172) layout=VERTICAL gap=16 id=8111:27250
+        [FRAME] "Điều hướng" (350x44) layout=HORIZONTAL gap= id=8111:27251
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF w=1 r=12 layout=HORIZONTAL gap= id=8111:27252
+            [FRAME] "arrow-left" (24x24) gap= id=I8111:27252;8107:6675
+              [VECTOR] "Vector" (14x14) stroke=#40352F w=1.7999999523162842 gap= id=I8111:27252;8107:6676
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 gap= id=8111:27255
+             TEXT: "ĐẶT LỊCH · MINH HỌA"
+        [FRAME] "Giới thiệu" (350x66) layout=VERTICAL gap=8 id=8111:27256
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 gap= id=8111:27257
+             TEXT: "Thanh toán"
+          [TEXT] "Nội dung" (350x22) fill=#40352F gap= id=8111:27258
+             TEXT: "Chọn phương thức thanh toán thuận tiện cho bạn."
+        [INSTANCE] "BookingProgress / Xác nhận" (350x30) layout=HORIZONTAL gap=8 id=8111:32448
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32448;8111:32422
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#985018 r=2 gap= id=I8111:32448;8111:32423
+            [TEXT] "Tên bước" (82x18) fill=#985018 gap= id=I8111:32448;8111:32424
+               TEXT: "Dịch vụ"
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32448;8111:32425
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#985018 r=2 gap= id=I8111:32448;8111:32426
+            [TEXT] "Tên bước" (82x18) fill=#985018 gap= id=I8111:32448;8111:32427
+               TEXT: "Lịch hẹn"
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32448;8111:32428
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#985018 r=2 gap= id=I8111:32448;8111:32429
+            [TEXT] "Tên bước" (82x18) fill=#985018 gap= id=I8111:32448;8111:32430
+               TEXT: "Xác nhận"
+          [FRAME] "Bước đặt lịch" (82x30) layout=VERTICAL gap=8 id=I8111:32448;8111:32431
+            [RECTANGLE] "Mức tiến triển" (82x4) fill=#FFFFFF r=2 gap= id=I8111:32448;8111:32432
+            [TEXT] "Tên bước" (82x18) fill=#6B6158 gap= id=I8111:32448;8111:32433
+               TEXT: "Hoàn tất"
+      [INSTANCE] "PaymentStatus / Chờ thanh toán" (350x100) fill=#F3E2CE r=16 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32903
+        [FRAME] "Trạng thái thanh toán" (318x24) layout=HORIZONTAL gap=12 id=I8111:32903;8111:32897
+          [FRAME] "clock" (20x20) gap= id=I8111:32903;8111:32898
+            [VECTOR] "Vector" (17x17) stroke=#985018 w=1.7999999523162842 gap= id=I8111:32903;8111:32899
+          [TEXT] "Nội dung" (286x24) fill=#985018 gap= id=I8111:32903;8111:32900
+             TEXT: "Chờ thanh toán"
+        [TEXT] "Nội dung" (318x36) fill=#40352F gap= id=I8111:32903;8111:32901
+           TEXT: "Minh họa tĩnh · Chưa xác nhận lịch hẹn. Không thực hiện thanh toán."
+      [FRAME] "Thẻ thông tin" (350x208) fill=#F3E2CE stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:27277
+        [TEXT] "Tiêu đề mục" (318x28) fill=#693B20 gap= id=8111:27278
+           TEXT: "Thanh toán ngay 150.000đ"
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=8111:27279
+          [FRAME] "Nút chọn" (24x24) fill=#985018 stroke=#985018 w=1 r=12 layout=HORIZONTAL gap= id=8111:27280
+            [FRAME] "check" (16x16) gap= id=8111:30456
+              [VECTOR] "Vector" (11x7) stroke=#FFFFFF w=2 gap= id=8111:30457
+          [TEXT] "Nội dung" (282x22) fill=#40352F gap= id=8111:27282
+             TEXT: "Đặt cọc 150.000đ"
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=8111:27283
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 w=1 r=12 layout=HORIZONTAL gap= id=8111:27284
+          [TEXT] "Nội dung" (282x22) fill=#40352F gap= id=8111:27285
+             TEXT: "Thanh toán toàn bộ 450.000đ"
+        [TEXT] "Nội dung" (318x36) fill=#40352F gap= id=8111:27286
+           TEXT: "Còn 300.000đ thanh toán tại cơ sở. Giá và điều kiện đặt cọc là minh họa."
+      [INSTANCE] "PaymentMethodCard / Đang chọn" (350x76) fill=#F3E2CE stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32916
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=I8111:32916;8111:32910
+          [FRAME] "Nút chọn" (24x24) fill=#985018 stroke=#985018 w=1 r=12 layout=HORIZONTAL gap= id=I8111:32916;8111:32911
+            [FRAME] "check" (16x16) gap= id=I8111:32916;8111:32912
+              [VECTOR] "Vector" (11x7) stroke=#FFFFFF w=2 gap= id=I8111:32916;8111:32913
+          [TEXT] "Nội dung" (282x22) fill=#40352F gap= id=I8111:32916;8111:32914
+             TEXT: "Chuyển khoản ngân hàng / QR"
+      [INSTANCE] "PaymentQRPlaceholder / Chưa cấu hình" (350x376) fill=#F3E2CE stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32938
+        [FRAME] "Ô mã không hợp lệ" (318x174) pad=(16,16,16,16) layout=VERTICAL gap=12 id=I8111:32938;8111:32923
+          [FRAME] "Minh họa mã — không thể quét" (112x112) fill=#FFFFFF stroke=#C58D59 w=1 r=12 gap= id=I8111:32938;8111:32924
+            [TEXT] "Dấu minh họa" (62x15) fill=#40352F gap= id=I8111:32938;8111:32925
+               TEXT: "MINH HỌA"
+            [RECTANGLE] "Góc mã" (28x28) stroke=#985018 w=4 gap= id=I8111:32938;8111:32926
+            [RECTANGLE] "Góc mã" (28x28) stroke=#985018 w=4 gap= id=I8111:32938;8111:32927
+            [RECTANGLE] "Góc mã" (28x28) stroke=#985018 w=4 gap= id=I8111:32938;8111:32928
+          [TEXT] "Nội dung" (286x18) fill=#40352F gap= id=I8111:32938;8111:32929
+             TEXT: "Mã QR minh họa — không dùng để thanh toán"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:32938;8111:32930
+           TEXT: "Ngân hàng: chưa cấu hình"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:32938;8111:32931
+           TEXT: "Người nhận: chưa cấu hình"
+        [FRAME] "Thông tin tóm tắt" (318x24) layout=HORIZONTAL gap=16 id=I8111:32938;8111:32932
+          [TEXT] "Nhãn" (172x24) fill=#6B6158 gap= id=I8111:32938;8111:32933
+             TEXT: "Số tiền"
+          [TEXT] "Giá trị" (130x24) fill=#985018 gap= id=I8111:32938;8111:32934
+             TEXT: "150.000đ"
+        [TEXT] "Nội dung" (318x18) fill=#40352F gap= id=I8111:32938;8111:32935
+           TEXT: "Nội dung: SPA-DEMO-000128"
+        [INSTANCE] "Liên kết" (318x44) r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:32938;8111:32936
+          [TEXT] "Nhãn nút" (147x20) fill=#985018 gap= id=I8111:32938;8111:32936;8107:5854
+             TEXT: "Sao chép nội dung"
+      [INSTANCE] "PaymentMethodCard / Mặc định" (350x102) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32961
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=I8111:32961;8111:32956
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 w=1 r=12 layout=HORIZONTAL gap= id=I8111:32961;8111:32957
+          [TEXT] "Nội dung" (282x22) fill=#40352F gap= id=I8111:32961;8111:32958
+             TEXT: "Thanh toán trực tuyến"
+        [TEXT] "Nội dung" (318x18) fill=#40352F gap= id=I8111:32961;8111:32959
+           TEXT: "Phương thức minh họa, chưa kết nối cổng thanh toán."
+      [INSTANCE] "PaymentMethodCard / Mặc định" (350x138) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32972
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=I8111:32972;8111:32967
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 w=1 r=12 layout=HORIZONTAL gap= id=I8111:32972;8111:32968
+          [TEXT] "Nội dung" (282x22) fill=#40352F gap= id=I8111:32972;8111:32969
+             TEXT: "Thanh toán tại cơ sở"
+        [TEXT] "Nội dung" (318x54) fill=#40352F gap= id=I8111:32972;8111:32970
+           TEXT: "Chỉ được chọn khi chi nhánh cho phép. Trong ví dụ này, Quận 3 cho phép trả phần còn lại 300.000đ tại cơ sở; vẫn yêu cầu cọc 150.000đ."
+      [INSTANCE] "PaymentMethodCard / Mặc định" (350x120) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32983
+        [FRAME] "Lựa chọn" (318x44) layout=HORIZONTAL gap=12 id=I8111:32983;8111:32978
+          [FRAME] "Nút chọn" (24x24) fill=#FFFFFF stroke=#985018 w=1 r=12 layout=HORIZONTAL gap= id=I8111:32983;8111:32979
+          [TEXT] "Nội dung" (282x22) fill=#40352F gap= id=I8111:32983;8111:32980
+             TEXT: "Sử dụng gói dịch vụ đã mua"
+        [TEXT] "Nội dung" (318x36) fill=#40352F gap= id=I8111:32983;8111:32981
+           TEXT: "Kiểm tra dịch vụ, chi nhánh, số buổi và hạn dùng. Chỉ trừ buổi sau khi xác nhận lịch."
+      [INSTANCE] "PriceBreakdown / Mặc định" (350x251) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:32988
+        [TEXT] "Tiêu đề mục" (318x28) fill=#693B20 gap= id=I8111:32988;8111:32824
+           TEXT: "Chi phí minh họa"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32988;8111:32825
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32988;8111:32826
+             TEXT: "Tạm tính"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32988;8111:32827
+             TEXT: "450.000đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32988;8111:32828
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32988;8111:32829
+             TEXT: "Ưu đãi"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32988;8111:32830
+             TEXT: "0đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32988;8111:32831
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32988;8111:32832
+             TEXT: "Đã sử dụng gói liệu trình"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32988;8111:32833
+             TEXT: "0đ"
+        [RECTANGLE] "Đường phân cách" (318x1) fill=#E3D1BF gap= id=I8111:32988;8111:32834
+        [FRAME] "Thông tin tóm tắt" (318x24) layout=HORIZONTAL gap=16 id=I8111:32988;8111:32835
+          [TEXT] "Nhãn" (172x24) fill=#6B6158 gap= id=I8111:32988;8111:32836
+             TEXT: "Tổng thanh toán"
+          [TEXT] "Giá trị" (130x24) fill=#985018 gap= id=I8111:32988;8111:32837
+             TEXT: "450.000đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32988;8111:32838
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32988;8111:32839
+             TEXT: "Tiền cọc minh họa"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32988;8111:32840
+             TEXT: "150.000đ"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:32988;8111:32841
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:32988;8111:32842
+             TEXT: "Thanh toán tại cơ sở"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:32988;8111:32843
+             TEXT: "300.000đ"
+      [INSTANCE] "BookingSummaryCard / Mặc định" (350x372) fill=#FFFFFF stroke=#E3D1BF w=1 r=20 pad=(16,16,16,16) layout=VERTICAL gap=8 id=8111:33009
+        [FRAME] "Dịch vụ đã chọn" (318x54) layout=VERTICAL gap=8 id=I8111:33009;8111:32724
+          [TEXT] "Nội dung" (318x24) fill=#40352F gap= id=I8111:33009;8111:32725
+             TEXT: "Massage thư giãn toàn thân"
+          [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:33009;8111:32726
+            [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:33009;8111:32727
+               TEXT: "Thời lượng chăm sóc"
+            [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:33009;8111:32728
+               TEXT: "60 phút"
+        [FRAME] "Chi nhánh" (318x66) layout=VERTICAL gap=8 id=I8111:33009;8111:32729
+          [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:33009;8111:32730
+             TEXT: "Chi nhánh mẫu 01 — Quận 3"
+          [TEXT] "Nội dung" (318x36) fill=#40352F gap= id=I8111:33009;8111:32731
+             TEXT: "123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh · Địa chỉ minh họa"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:33009;8111:32732
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:33009;8111:32733
+             TEXT: "Ngày hẹn"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:33009;8111:32734
+             TEXT: "12/10/2026"
+        [FRAME] "Thông tin tóm tắt" (318x22) layout=HORIZONTAL gap=16 id=I8111:33009;8111:32735
+          [TEXT] "Nhãn" (172x22) fill=#6B6158 gap= id=I8111:33009;8111:32736
+             TEXT: "Giờ chăm sóc"
+          [TEXT] "Giá trị" (130x22) fill=#40352F gap= id=I8111:33009;8111:32737
+             TEXT: "14:00–15:00"
+        [TEXT] "Nội dung" (318x54) fill=#40352F gap= id=I8111:33009;8111:32738
+           TEXT: "Chuẩn bị / vệ sinh sau buổi: 15 phút. Chiếm dụng nguồn lực 14:00–15:15, không tính vào 60 phút chăm sóc."
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:33009;8111:32739
+           TEXT: "Chuyên viên: Trần Minh Phương"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:33009;8111:32740
+           TEXT: "Khách hàng: Nguyễn Minh Anh"
+        [TEXT] "Nội dung" (318x22) fill=#40352F gap= id=I8111:33009;8111:32741
+           TEXT: "0912 345 678"
+      [FRAME] "Ghi chú minh họa" (350x96) fill=#F3E2CE r=12 pad=(12,12,12,12) layout=VERTICAL gap=8 id=8111:27363
+        [TEXT] "Nội dung" (326x72) fill=#40352F gap= id=8111:27364
+           TEXT: "Không chuyển tiền bằng mẫu này. Nút chỉ là hình ảnh tĩnh; lịch chưa được xác nhận. Chỉ tình huống giữ chỗ hợp lệ và cọc thành công mô phỏng mới dẫn đến mẫu C08."
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF w=1 layout=VERTICAL gap= id=8111:27365
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30) pad=(12,20,0,20) layout=VERTICAL gap= id=8111:33293
+      [TEXT] "Nội dung" (350x18) fill=#40352F gap= id=I8111:33293;8111:33291
+         TEXT: "Chờ thanh toán · Trả ngay 150.000đ (minh họa)"
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF w=1 pad=(12,20,0,20) layout=VERTICAL gap=8 id=8111:27368
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14 pad=(0,16,0,16) layout=HORIZONTAL gap=8 id=I8111:27368;8109:18215
+        [TEXT] "Nhãn nút" (186x20) fill=#FFFFFF gap= id=I8111:27368;8109:18215;8107:5818
+           TEXT: "Thanh toán và hoàn tất"
+      [FRAME] "Vùng an toàn" (350x34) layout=HORIZONTAL gap= id=I8111:27368;8109:18216
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200 gap= id=I8111:27368;8109:18217

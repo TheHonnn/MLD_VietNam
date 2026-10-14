@@ -1,0 +1,69 @@
+C02_BranchSelection [8111:26619]
+======================================================
+[FRAME] "C02_BranchSelection" (390x844) fill=#F8F1E8
+  [FRAME] "Thanh trạng thái" (390x48)
+    [TEXT] "Giờ" (31x18) fill=#40352F text="9:41" [sz:14, wt:600]
+    [FRAME] "Trạng thái thiết bị" (71x18)
+      [FRAME] "ios-signal" (18x18)
+        [VECTOR] "Vector" (17x11) fill=#40352F
+      [FRAME] "ios-wifi-signal" (18x18)
+        [VECTOR] "Vector" (15x11) fill=#40352F
+      [FRAME] "ios-battery-full" (25x18)
+        [VECTOR] "Vector" (24x12) fill=#40352F
+  [FRAME] "Khung nhìn nội dung" (390x656)
+    [FRAME] "Nội dung đầy đủ" (390x1684)
+      [FRAME] "Tiêu đề và tiến trình" (350x172)
+        [FRAME] "Điều hướng" (350x44)
+          [INSTANCE] "Quay lại" (44x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn minh họa" (125x18) fill=#985018 text="ĐẶT LỊCH · MINH HỌA" [sz:12, wt:400]
+        [FRAME] "Giới thiệu" (350x66)
+          [TEXT] "Tiêu đề trang" (350x36) fill=#693B20 text="Chọn chi nhánh" [sz:28, wt:600]
+          [TEXT] "Nội dung" (350x22) fill=#40352F text="Bạn muốn trải nghiệm dịch vụ tại cơ sở nào?" [sz:14, wt:400]
+        [INSTANCE] "BookingProgress / Lịch hẹn" (350x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+          [FRAME] "Bước đặt lịch" (82x30)
+      [INSTANCE] "Tìm kiếm" (350x52)
+        [FRAME] "Tìm kiếm" (350x52)
+          [FRAME] "Biểu tượng tìm kiếm" (44x52) fill=#FFFFFF r=12
+          [INSTANCE] "Trường tìm kiếm" (298x52)
+      [INSTANCE] "Lựa chọn" (350x76)
+        [TEXT] "Nhãn trường" (105x16) fill=#40352F text="Tỉnh / thành phố" [sz:13, wt:500]
+        [FRAME] "Ô nhập" (350x52) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Giá trị" (290x19) fill=#40352F text="Tất cả tỉnh / thành phố" [sz:15, wt:400]
+          [FRAME] "chevron-down" (20x20)
+      [FRAME] "Bộ lọc" (350x44)
+        [INSTANCE] "Danh mục đang chọn" (99x44) fill=#985018 stroke=#985018 r=12
+          [TEXT] "Nhãn" (67x20) fill=#FFFFFF text="Danh sách" [sz:13, wt:400]
+        [INSTANCE] "Danh mục" (78x44) fill=#FFFFFF stroke=#E3D1BF r=12
+          [TEXT] "Nhãn" (46x20) fill=#40352F text="Bản đồ" [sz:13, wt:400]
+      [INSTANCE] "BranchSelectionCard / Đang chọn" (350x514) fill=#FFFFFF stroke=#985018 r=20
+        [FRAME] "Chọn chi nhánh" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Thông tin chi nhánh" (350x402) fill=#FFFFFF r=20
+          [RECTANGLE] "Hình ảnh" (350x168) r=16
+          [FRAME] "Thông tin cơ sở" (350x234)
+        [FRAME] "Điều kiện dịch vụ" (350x52)
+          [TEXT] "Nội dung" (318x36) fill=#6B6158 text="Giờ hoạt động, dịch vụ, giá và chính sách đều là ví dụ; chưa có giữ chỗ thực." [sz:12, wt:400]
+      [INSTANCE] "BranchSelectionCard / Không cung cấp dịch vụ" (350x496) fill=#FFFFFF stroke=#E3D1BF r=20
+        [FRAME] "Chọn chi nhánh" (350x44)
+          [FRAME] "Lựa chọn" (318x44)
+        [INSTANCE] "Thông tin chi nhánh" (350x384) fill=#FFFFFF r=20
+          [RECTANGLE] "Hình ảnh" (350x168) r=16
+          [FRAME] "Thông tin cơ sở" (350x216)
+        [FRAME] "Điều kiện dịch vụ" (350x52)
+          [TEXT] "Nội dung" (318x36) fill=#B63131 text="Chưa cung cấp dịch vụ massage trong dữ liệu minh họa" [sz:12, wt:400]
+      [INSTANCE] "Liên kết" (350x44) r=14
+        [TEXT] "Nhãn nút" (233x20) fill=#985018 text="Vị trí hiện tại — chưa cấu hình" [sz:16, wt:600]
+      [FRAME] "Ghi chú minh họa" (350x78) fill=#F3E2CE r=12
+        [TEXT] "Nội dung" (326x54) fill=#40352F text="2 cơ sở hư cấu · Địa chỉ, giờ hoạt động và dịch vụ minh họa. Bản đồ / chỉ đường chưa cấu hình; không sử dụng vị trí hay khoảng cách thực." [sz:12, wt:400]
+  [FRAME] "Hành động cố định" (390x140) fill=#FFFFFF stroke=#E3D1BF
+    [INSTANCE] "SelectedServiceSummary / Đang chọn" (390x30)
+      [TEXT] "Nội dung" (350x18) fill=#40352F text="Đang chọn: Chi nhánh mẫu 01 — Quận 3" [sz:12, wt:400]
+    [INSTANCE] "Tiếp tục đặt lịch" (390x110) fill=#FFFFFF stroke=#E3D1BF
+      [INSTANCE] "Hành động chính" (350x56) fill=#985018 r=14
+        [TEXT] "Nhãn nút" (207x20) fill=#FFFFFF text="Tiếp tục chọn chuyên viên" [sz:16, wt:600]
+      [FRAME] "Vùng an toàn" (350x34)
+        [RECTANGLE] "Thanh hệ thống" (134x5) fill=#40352F r=16777200
+
