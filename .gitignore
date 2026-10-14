@@ -21,9 +21,6 @@ Thumbs.db
 # Scratch & Temporary Testing Folders
 scratch/
 test_screens/
-admin/
-zalo-mini-app/
-mini-app/
 *.tmp
 *.log
 
@@ -92,8 +89,22 @@ mobile/ios/Flutter/flutter_assets/
 mobile/ios/ServiceDefinitions.json
 
 # ==============================================================================
+# WEB ADMIN & MINIZALO BUILD & DEPENDENCY ARTIFACTS
+# ==============================================================================
+web-admin/node_modules/
+web-admin/dist/
+web-admin/.env
+web-admin/.env.local
+
+minizalo/node_modules/
+minizalo/dist/
+minizalo/.env
+minizalo/.env.local
+
+# ==============================================================================
 # FIGMA RAW DUMPS & SCRAPED ASSETS (Heavy binary files)
 # ==============================================================================
-figma_assets/screens/
-figma_assets/individual_screens/
-figma_assets/*_raw.json
+docs/figma_assets/screens/
+docs/figma_assets/individual_screens/
+docs/figma_assets/*_raw.json
+docs/figma_assets/__pycache__/
