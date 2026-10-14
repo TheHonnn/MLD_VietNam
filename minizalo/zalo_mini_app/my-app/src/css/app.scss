@@ -1,0 +1,59 @@
+.page-content {
+  padding-bottom: 84px;
+}
+
+.mini-app-shell {
+  --app-safe-top: max(env(safe-area-inset-top, 0px), 24px);
+  height: calc(100dvh - var(--app-safe-top));
+  margin-top: var(--app-safe-top);
+}
+
+@media (min-width: 640px) {
+  .mini-app-shell {
+    margin-top: 0;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.card-shadow {
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+}
+
+.gradient-header {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+}
+
+.gradient-banner {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%);
+}
+
+.zaui-list-item {
+  cursor: pointer;
+}
+
+/* The Figma mobile type scale is one step larger than the original prototype. */
+.mini-app-shell {
+  font-size: 17px;
+}
+
+.mini-app-shell .text-xs { font-size: 13px !important; }
+.mini-app-shell .text-sm { font-size: 15px !important; }
+.mini-app-shell .text-base { font-size: 17px !important; }
+.mini-app-shell .text-lg { font-size: 19px !important; }
+.mini-app-shell [class~="text-[8px]"] { font-size: 9px !important; }
+.mini-app-shell [class~="text-[9px]"] { font-size: 10px !important; }
+.mini-app-shell [class~="text-[10px]"] { font-size: 11px !important; }
+.mini-app-shell [class~="text-[11px]"] { font-size: 12px !important; }
+.mini-app-shell [class~="text-[12px]"] { font-size: 13px !important; }
+.mini-app-shell [class~="text-[13px]"] { font-size: 14px !important; }
+.mini-app-shell [class~="text-[15px]"] { font-size: 16px !important; }
+.mini-app-shell [class~="text-[16px]"] { font-size: 17px !important; }
+.mini-app-shell [class~="text-[20px]"] { font-size: 21px !important; }
+.mini-app-shell [class~="text-[21px]"] { font-size: 22px !important; }
