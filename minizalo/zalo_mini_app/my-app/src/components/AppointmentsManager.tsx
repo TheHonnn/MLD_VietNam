@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Booking } from '../../../../backend/src/data/database';
 import { ArrowLeftIcon, CalendarIcon, ClockIcon, LocationIcon } from '@/components/Icons';
 import { apiClient } from '@/api/client';
@@ -12,15 +12,15 @@ interface AppointmentsManagerProps {
 
 type AppointmentTab = 'upcoming' | 'completed' | 'cancelled';
 const serviceImage = 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80';
-const timeSlots = ['09:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00', '14:00 - 15:00', '15:00 - 16:00', '16:00 - 17:00'];
+
 
 const toInputDate = (date: string) => {
+  if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date.slice(0, 10);
   const [day, month, year] = date.split('/');
   return `${year}-${month}-${day}`;
 };
 const toApiDate = (date: string) => {
-  const [year, month, day] = date.split('-');
-  return `${day}/${month}/${year}`;
+  return date;
 };
 const tomorrow = () => {
   const value = new Date();
@@ -35,13 +35,33 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
   const [newDate, setNewDate] = useState(tomorrow());
-  const [newTime, setNewTime] = useState(timeSlots[0]);
+  const [newTime, setNewTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState('');
+  const [slotsVersion, setSlotsVersion] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setTimeSlots([]);
+    setNewTime('');
+    setSlotsError('');
+    if (!rescheduling || !selectedBooking) return;
+    setSlotsLoading(true);
+    apiClient.getSlots(selectedBooking.branchId, newDate, selectedBooking.serviceId, selectedBooking.doctorId || undefined).then(result => {
+      if (cancelled) return;
+      setSlotsLoading(false);
+      if (!result?.slots || result.error) { setSlotsError(result?.error || 'Không thể tải giờ hẹn.'); return; }
+      setTimeSlots(Array.from(new Set<string>(result.slots.map((slot: any) => slot.startTime.slice(0, 5) + ' - ' + slot.endTime.slice(0, 5)))));
+    });
+    return () => { cancelled = true; };
+  }, [rescheduling, selectedBooking?.id, newDate, slotsVersion]);
+
   const filteredBookings = useMemo(() => bookings.filter((booking) => {
-    if (activeTab === 'upcoming') return booking.status === 'confirmed' || booking.status === 'pending';
+    if (activeTab === 'upcoming') return !['completed', 'cancelled', 'no_show'].includes(booking.status);
     if (activeTab === 'completed') return booking.status === 'completed';
     return booking.status === 'cancelled';
   }), [bookings, activeTab]);
@@ -55,13 +75,14 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({
     if (!selectedBooking) return;
     const current = toInputDate(selectedBooking.date);
     setNewDate(current >= tomorrow() ? current : tomorrow());
-    setNewTime(selectedBooking.timeSlot);
+    setNewTime('');
     setMessage(null);
     setRescheduling(true);
   };
 
   const submitReschedule = async () => {
     if (!selectedBooking || submitting) return;
+    if (!newTime || !timeSlots.includes(newTime)) { setMessage({ type: 'error', text: 'Vui lòng chọn giờ còn trống.' }); return; }
     setSubmitting(true);
     setMessage(null);
     const response = await apiClient.rescheduleBooking(selectedBooking.id, toApiDate(newDate), newTime);
@@ -104,6 +125,9 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({
           <p className="mt-2 text-[10px]">Lịch hiện tại: <strong>{selectedBooking.date} · {selectedBooking.timeSlot}</strong></p>
         </section>
         <label className="block text-[10px] font-semibold"><span className="mb-1.5 block">Ngày hẹn mới</span><input type="date" min={tomorrow()} value={newDate} onChange={(event) => { setNewDate(event.target.value); setMessage(null); }} className="h-11 w-full rounded-[8px] border border-[#DED2C5] bg-white px-3 text-[12px] outline-none focus:border-[#A65317]" /></label>
+        {slotsLoading && <p role="status" className="text-xs">Đang tải giờ hẹn...</p>}
+        {slotsError && <p role="alert" className="text-xs text-red-700">{slotsError} <button onClick={() => setSlotsVersion(value => value + 1)}>Thử lại</button></p>}
+        {!slotsLoading && !slotsError && !timeSlots.length && <p className="text-xs">Chưa có giờ còn trống.</p>}
         <section><h3 className="mb-2 text-[10px] font-semibold">Khung giờ mới</h3><div className="grid grid-cols-2 gap-2">{timeSlots.map((slot) => <button key={slot} onClick={() => { setNewTime(slot); setMessage(null); }} className={`h-10 rounded-[8px] border text-[10px] font-semibold ${newTime === slot ? 'border-[#A65317] bg-[#A65317] text-white' : 'border-[#DED2C5] bg-white'}`}>{slot}</button>)}</div></section>
         {message?.type === 'error' && <div role="alert" className="rounded-[8px] border border-red-200 bg-red-50 p-3 text-[10px] font-semibold text-red-700">{message.text}</div>}
       </main>
@@ -117,7 +141,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({
       <header className="shrink-0 px-4 pb-3 pt-4"><button onClick={() => { setSelectedBooking(null); setMessage(null); }} className="mb-4 flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DED2C5] bg-white"><ArrowLeftIcon size={18} color="#40352F" /></button><h1 className="text-[21px] font-bold text-[#6F452C]">Chi tiết lịch hẹn</h1></header>
       <main className="flex-1 space-y-3 overflow-y-auto px-4 pb-28">
         {message && <div className={`rounded-[8px] border p-3 text-[10px] font-semibold ${message.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
-        <span className={`inline-flex rounded-[7px] px-3 py-1.5 text-[9px] font-semibold ${selectedBooking.status === 'cancelled' ? 'bg-red-50 text-red-700' : 'bg-[#E7F4E8] text-[#4B8B55]'}`}>{selectedBooking.status === 'cancelled' ? 'Đã hủy' : 'Đã xác nhận'}</span>
+        <span className={`inline-flex rounded-[7px] px-3 py-1.5 text-[9px] font-semibold ${selectedBooking.status === 'cancelled' ? 'bg-red-50 text-red-700' : 'bg-[#E7F4E8] text-[#4B8B55]'}`}>{selectedBooking.status}</span>
         <section className="space-y-3 rounded-[10px] border border-[#DED2C5] bg-white p-3"><img src={serviceImage} alt={selectedBooking.serviceTitle} className="h-[130px] w-full rounded-[8px] object-cover" /><h2 className="text-[13px] font-bold">{selectedBooking.serviceTitle}</h2><DetailRow label="Mã lịch" value={selectedBooking.code} /><DetailRow label="Chi nhánh" value={selectedBooking.branchName} /><DetailRow label="Ngày hẹn" value={selectedBooking.date} /><DetailRow label="Giờ chăm sóc" value={selectedBooking.timeSlot} /><DetailRow label="Chuyên viên" value={selectedBooking.doctorName} /><DetailRow label="Khách hàng" value={selectedBooking.userName} /></section>
         {confirmCancel && <section className="rounded-[10px] border border-red-200 bg-red-50 p-3"><p className="text-[11px] font-bold text-red-800">Bạn chắc chắn muốn hủy lịch này?</p><p className="mt-1 text-[9px] text-red-700">Thao tác sẽ được lưu vào hệ thống và tạo thông báo xác nhận.</p><div className="mt-3 flex gap-2"><button onClick={() => setConfirmCancel(false)} className="h-9 flex-1 rounded-[7px] border border-[#DED2C5] bg-white text-[10px] font-semibold">Giữ lịch</button><button onClick={cancelBooking} disabled={submitting} className="h-9 flex-1 rounded-[7px] bg-red-600 text-[10px] font-bold text-white disabled:opacity-60">{submitting ? 'Đang hủy...' : 'Xác nhận hủy'}</button></div></section>}
       </main>

@@ -18,9 +18,9 @@ interface HeaderFigmaProps {
 }
 
 export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
-  userName = 'Nguyễn Minh Anh',
-  userRole = 'Khách Hàng VIP',
-  points = 2450,
+  userName = '',
+  userRole = '',
+  points = 0,
   onOpenNotifications,
   onOpenProfile,
   onOpenAuth,

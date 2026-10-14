@@ -283,41 +283,8 @@ export const SpecialistDetailModal: React.FC<{
             </div>
           </div>
 
-          {/* Lịch làm việc */}
-          <div className="space-y-2">
-            <h3 className="font-bold text-sm text-stone-900">Lịch làm việc tuần này</h3>
-            <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-              <div className="p-2.5 bg-white rounded-xl border border-stone-200">
-                <div className="font-bold text-stone-800">Thứ Hai - Thứ Sáu</div>
-                <div className="text-[#98501B] font-semibold mt-1">09:00 - 18:00</div>
-              </div>
-              <div className="p-2.5 bg-white rounded-xl border border-stone-200">
-                <div className="font-bold text-stone-800">Thứ Bảy</div>
-                <div className="text-[#98501B] font-semibold mt-1">09:00 - 19:00</div>
-              </div>
-              <div className="p-2.5 bg-white rounded-xl border border-stone-200">
-                <div className="font-bold text-stone-800">Chủ Nhật</div>
-                <div className="text-[#98501B] font-semibold mt-1">09:00 - 16:00</div>
-              </div>
-            </div>
-          </div>
+          <p className="text-xs">{doctor.reviewsCount} đánh giá</p>
 
-          {/* Đánh giá từ khách hàng */}
-          <div className="space-y-2 pt-2 border-t border-stone-200">
-            <h3 className="font-bold text-sm text-stone-900">Đánh giá từ khách hàng</h3>
-            <div className="p-3 bg-white rounded-xl border border-stone-200 space-y-1">
-              <div className="flex justify-between items-center text-[11px]">
-                <span className="font-bold text-stone-800">Nguyễn Minh Anh</span>
-                <span className="text-amber-600 font-bold flex items-center space-x-1">
-                  <StarIcon size={10} color="#F59E0B" filled />
-                  <span>5.0</span>
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-600 italic">
-                "Kỹ thuật viên thao tác rất chu đáo, giải tỏa hoàn toàn cơn đau mỏi vai gáy. Rất hài lòng!"
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Fixed Bottom */}

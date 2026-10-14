@@ -13,6 +13,10 @@ import {
 } from './Icons';
 
 interface GroupBSearchProps {
+  services: any[];
+  courses: any[];
+  branches: any[];
+  doctors: any[];
   isOpen: boolean;
   onClose: () => void;
   onSelectService: (service: any) => void;
@@ -22,6 +26,7 @@ interface GroupBSearchProps {
 }
 
 export const GroupBSearch: React.FC<GroupBSearchProps> = ({
+  services: serviceData, courses: courseData, branches: branchData, doctors: doctorData,
   isOpen,
   onClose,
   onSelectService,
@@ -31,107 +36,14 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
 }) => {
   const [keyword, setKeyword] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'service' | 'course' | 'branch' | 'specialist'>('all');
-  const [recentSearches, setRecentSearches] = useState<string[]>([
-    'Massage thư giãn',
-    'Chăm sóc da',
-    'Khóa học nghề spa',
-    'Chi nhánh Quận 3',
-  ]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   if (!isOpen) return null;
 
-  // Mock catalog data for instant search
-  const services = [
-    {
-      id: 'srv_1',
-      title: 'Massage Thư Giãn Toàn Thân',
-      type: 'service',
-      duration: '60 phút',
-      price: '450.000đ',
-      category: 'Massage',
-      image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'srv_2',
-      title: 'Dẫn Lưu Bạch Huyết MLD Chuyên Sâu',
-      type: 'service',
-      duration: '90 phút',
-      price: '850.000đ',
-      category: 'MLD',
-      image: 'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=400&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'srv_3',
-      title: 'Chăm Sóc Da & Phục Hồi Chuyên Sâu',
-      type: 'service',
-      duration: '75 phút',
-      price: '650.000đ',
-      category: 'Chăm sóc da',
-      image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=400&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  const courses = [
-    {
-      id: 'crs_1',
-      title: 'Kỹ Thuật Massage Chuyên Nghiệp',
-      type: 'course',
-      duration: '12 tuần',
-      tuition: '9.000.000đ',
-      category: 'Đào tạo',
-      image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'crs_2',
-      title: 'Chuyên Viên Dẫn Lưu Bạch Huyết MLD',
-      type: 'course',
-      duration: '8 tuần',
-      tuition: '12.000.000đ',
-      category: 'Đào tạo',
-      image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=400&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  const branches = [
-    {
-      id: 'br_1',
-      title: 'Chi Nhánh Mẫu 01 - Quận 3',
-      type: 'branch',
-      address: '123 Đường Mẫu, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh',
-      distance: '3.2 km',
-      image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'br_2',
-      title: 'Chi Nhánh Mẫu 02 - Thảo Điền Quận 2',
-      type: 'branch',
-      address: '45 Đường Quốc Hương, Phường Thảo Điền, TP. Thủ Đức',
-      distance: '6.8 km',
-      image: 'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=400&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  const specialists = [
-    {
-      id: 'sp_1',
-      title: 'Trần Minh Phương',
-      type: 'specialist',
-      role: 'Kỹ thuật viên Massage & MLD',
-      branch: 'Chi nhánh Quận 3',
-      rating: '4.9/5',
-      image: 'https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=400&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'sp_2',
-      title: 'Nguyễn Thu Hà',
-      type: 'specialist',
-      role: 'Chuyên viên chăm sóc da cao cấp',
-      branch: 'Chi nhánh Quận 3',
-      rating: '5.0/5',
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
-    },
-  ];
-
+  const services = serviceData.map(s => ({ ...s, type: 'service', duration: s.durationMinutes + ' phút', price: s.price.toLocaleString('vi-VN') + 'đ' }));
+  const courses = courseData.map(c => ({ ...c, type: 'course', tuition: c.price.toLocaleString('vi-VN') + 'đ' }));
+  const branches = branchData.map(b => ({ ...b, type: 'branch', title: b.name, image: b.imageUrl || '', distance: '' }));
+  const specialists = doctorData.map(d => ({ ...d, type: 'specialist', title: d.name, role: d.title, branch: d.hospital, image: d.avatar }));
   // Filtering
   const cleanKeyword = keyword.trim().toLowerCase();
   const allItems = [...services, ...courses, ...branches, ...specialists];

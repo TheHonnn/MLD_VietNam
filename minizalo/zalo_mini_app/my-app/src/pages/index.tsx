@@ -23,6 +23,7 @@ import {
 import { apiClient } from '@/api/client';
 import {
   database,
+  guestUser,
   MedicalService,
   Doctor,
   Booking,
@@ -60,7 +61,7 @@ function MasterHomePage() {
   const [bookings, setBookings] = useState<Booking[]>(database.bookings);
   const [courses, setCourses] = useState<Course[]>(database.courses);
   const [records, setRecords] = useState<MedicalRecord[]>(database.medicalRecords);
-  const [user, setUser] = useState<User>(database.users[0]);
+  const [user, setUser] = useState<User>({ ...guestUser });
   const [vouchers, setVouchers] = useState<Voucher[]>(database.vouchers);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [memberSummary, setMemberSummary] = useState({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
@@ -92,34 +93,56 @@ function MasterHomePage() {
   const [servicesCategory, setServicesCategory] = useState('all');
   const [servicesSort, setServicesSort] = useState<'popular' | 'priceAsc' | 'priceDesc'>('popular');
 
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState('');
+  const [loadVersion, setLoadVersion] = useState(0);
   // Fetch real data from Backend on mount
   useEffect(() => {
     async function loadBackendData() {
+      setDataLoading(true);
+      setDataError('');
+      setUser({ ...guestUser });
+      setBookings([]);
+      setRecords([]);
+      setVouchers([]);
+      setNotifications([]);
+      setTreatmentPlans([]);
+      setMemberSummary({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
+      setETicketBooking(null);
+      setBookingService(null);
+      let authenticated = false;
       const isInsideZalo = /Zalo/i.test(navigator.userAgent) || Boolean((window as any).ZJSBridge);
       if (isInsideZalo) {
         const zaloSession = await apiClient.loginWithZalo(false);
-        if (zaloSession?.user) {
+        if (zaloSession?.user && zaloSession.token) {
+          authenticated = true;
           setUser((prev) => ({ ...prev, ...zaloSession.user }));
-          setZaloAuthState(zaloSession.user.name === 'Khách hàng Zalo' ? 'required' : 'connected');
+          setZaloAuthState('connected');
         } else {
           setZaloAuthError(zaloSession?.error || 'Không thể xác thực với Zalo.');
           setZaloAuthState('required');
         }
       } else {
         setZaloAuthState('web');
+        const session = await apiClient.getCurrentUser();
+        if (session?.user) { setUser(session.user); authenticated = true; }
+        else { apiClient.logout(); setUser({ ...guestUser }); }
       }
       const [srvData, docData, brData, crsData, recData, membData, bkData, notifData, treatmentData] = await Promise.all([
         apiClient.getServices(),
         apiClient.getDoctors(),
         apiClient.getBranches(),
         apiClient.getCourses(),
-        apiClient.getMedicalRecords(),
-        apiClient.getMembership(),
-        apiClient.getBookings(),
-        apiClient.getNotifications(),
-        apiClient.getTreatmentPlans(),
+        authenticated ? apiClient.getMedicalRecords() : Promise.resolve({}),
+        authenticated ? apiClient.getMembership() : Promise.resolve({}),
+        authenticated ? apiClient.getBookings() : Promise.resolve({}),
+        authenticated ? apiClient.getNotifications() : Promise.resolve({}),
+        authenticated ? apiClient.getTreatmentPlans() : Promise.resolve({}),
       ]);
 
+      const results = [srvData, docData, brData, crsData, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
+      if (results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
+      setDataLoading(false);
       if (srvData?.services) setServices(srvData.services);
       if (docData?.doctors) setDoctors(docData.doctors);
       if (brData?.branches) setBranches(brData.branches);
@@ -133,16 +156,17 @@ function MasterHomePage() {
       if (treatmentData?.treatmentPlans) setTreatmentPlans(treatmentData.treatmentPlans);
     }
 
-    loadBackendData();
-  }, []);
+    loadBackendData().catch(() => { setDataError('Không thể tải dữ liệu. Vui lòng thử lại.'); setDataLoading(false); });
+  }, [loadVersion]);
 
   const connectZaloProfile = async () => {
     setZaloAuthError('');
     setZaloAuthState('checking');
     const result = await apiClient.loginWithZalo(true);
-    if (result?.user) {
+    if (result?.user && result.token) {
       setUser((prev) => ({ ...prev, ...result.user }));
       setZaloAuthState('connected');
+      setLoadVersion(value => value + 1);
       const membership = await apiClient.getMembership();
       if (membership?.user) setUser((prev) => ({ ...prev, ...membership.user }));
       if (membership?.summary) setMemberSummary(membership.summary);
@@ -167,6 +191,8 @@ function MasterHomePage() {
   const upcomingBooking = bookings.find((b) => b.status === 'confirmed') || null;
 
   const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null) => {
+    if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return; }
+    if (!services.length || !branches.length) { setDataError('Chưa có dịch vụ hoặc chi nhánh để đặt lịch.'); return; }
     setBookingBranch(branch || null);
     setBookingDoctor(doctor || null);
     setBookingService(service || services[0] || null);
@@ -201,12 +227,14 @@ function MasterHomePage() {
               <button disabled={zaloAuthState === 'checking'} onClick={connectZaloProfile} className="mt-5 h-11 w-full rounded-[8px] bg-[#98501B] text-sm font-bold text-white disabled:opacity-60">
                 {zaloAuthState === 'checking' ? 'Đang kết nối...' : 'Tiếp tục với Zalo'}
               </button>
-              <p className="mt-3 text-[10px] text-[#8A7D74]">Ứng dụng không yêu cầu OTP và không lấy số điện thoại ở bước này.</p>
+              <p className="mt-3 text-[10px] text-[#8A7D74]">Cấp quyền số điện thoại đã xác thực để kết nối hồ sơ chung và lịch hẹn của bạn.</p>
             </div>
           </div>
         )}
         {/* Scrollable Body Content */}
         <div className="flex-1 overflow-y-auto pb-28 overscroll-contain">
+        {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
+        {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={() => setLoadVersion(value => value + 1)} className="underline">Thử lại</button></div>}
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
           <GroupBHome
@@ -457,6 +485,7 @@ function MasterHomePage() {
         onClose={() => setIsAuthOpen(false)}
         onLoginSuccess={(loggedUser) => {
           setUser(loggedUser);
+          setLoadVersion(value => value + 1);
           setIsAuthOpen(false);
           setActiveTab('home');
         }}
@@ -596,6 +625,10 @@ function MasterHomePage() {
 
       {/* 11. ZOOM SEARCH MODAL (FIGMA B02) */}
       <GroupBSearch
+        services={services}
+        courses={courses}
+        branches={branches}
+        doctors={doctors}
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onSelectService={(s) => {
@@ -628,6 +661,8 @@ function MasterHomePage() {
               key={treatmentInitialTab}
               initialTab={treatmentInitialTab}
               treatmentPlans={treatmentPlans}
+              user={user}
+              notifications={notifications}
               onClose={() => setIsTreatmentOpen(false)}
               onOpenBooking={() => {
                 setIsTreatmentOpen(false);

@@ -1,21 +1,36 @@
-import { getAccessToken, getUserInfo } from 'zmp-sdk';
+import { getAccessToken, getUserInfo, getPhoneNumber } from 'zmp-sdk';
+import { adaptPayload, profileToCanonical } from './adapters';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://mld-api.onrender.com/api').replace(/\/$/, '');
 const SESSION_KEY = 'mld_session_token';
-const fetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
+const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const token = localStorage.getItem(SESSION_KEY);
-  return window.fetch(input, { ...init, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init.headers || {}) } });
+  const headers = new Headers(init.headers);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await window.fetch(input, { ...init, headers });
+  const envelope = await response.json();
+  const successful = response.ok && envelope.success === true;
+  const payload = successful ? adaptPayload(envelope.data || {})
+    : { error: envelope.message || 'Không thể tải dữ liệu. Vui lòng thử lại.', status: envelope.statusCode || response.status };
+  if (successful && payload.token && payload.user) localStorage.setItem(SESSION_KEY, payload.token);
+  return new Response(JSON.stringify(payload), {
+    status: successful ? 200 : (response.ok ? 400 : response.status),
+    headers: { 'Content-Type': 'application/json' },
+  });
 };
-
-const responseJson = async (res: Response) => {
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ...data, error: data.error || 'Có lỗi xảy ra. Vui lòng thử lại.', status: res.status };
-  return data;
-};
+const responseJson = async (res: Response) => res.json();
 
 export const apiClient = {
   async loginWithZalo(requestProfilePermission = false) {
     try {
+      if (!requestProfilePermission) {
+        if (localStorage.getItem(SESSION_KEY)) {
+          const current = await apiClient.getCurrentUser();
+          if (current?.user) return { ...current, token: localStorage.getItem(SESSION_KEY) };
+          apiClient.logout();
+        }
+        return { error: 'Vui lòng cấp quyền số điện thoại để kết nối hồ sơ chung.', needsConsent: true };
+      }
       // This API owns the user-info consent dialog. Calling authorize first can
       // create two permission requests during the same button interaction.
       const profile = await getUserInfo({
@@ -23,9 +38,11 @@ export const apiClient = {
         avatarType: 'large',
       });
       const accessToken = await getAccessToken();
+      const phone = await getPhoneNumber();
+      if (!phone.token) return { error: 'Bạn chưa cấp quyền số điện thoại để kết nối hồ sơ chung.' };
       const res = await fetch(`${API_BASE_URL}/auth/zalo`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, userInfo: profile?.userInfo }),
+        body: JSON.stringify({ accessToken, phoneToken: phone.token, userInfo: profile?.userInfo }),
       });
       const data = await responseJson(res);
       if (data.token) localStorage.setItem(SESSION_KEY, data.token);
@@ -46,7 +63,7 @@ export const apiClient = {
       const res = await fetch(`${API_BASE_URL}/health`);
       return await res.json();
     } catch {
-      return { status: 'mock' };
+      return { error: 'Không thể kết nối máy chủ.' };
     }
   },
 
@@ -70,6 +87,17 @@ export const apiClient = {
       return await res.json();
     } catch {
       return null;
+    }
+  },
+
+  async getSlots(branchId: string, date: string, serviceId: string, technicianId?: string) {
+    try {
+      const params = new URLSearchParams({ branchId, date, serviceId });
+      if (technicianId) params.set('technicianId', technicianId);
+      const res = await fetch(`${API_BASE_URL}/slots?${params}`, { cache: 'no-store' });
+      return await responseJson(res);
+    } catch {
+      return { error: 'Không thể tải giờ hẹn. Vui lòng thử lại.' };
     }
   },
 
@@ -144,6 +172,15 @@ export const apiClient = {
     }
   },
 
+  async getCourseLearning(id: string) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/courses/${encodeURIComponent(id)}/learning`, { cache: 'no-store' });
+      return await responseJson(res);
+    } catch {
+      return { error: 'Không thể tải nội dung học tập. Vui lòng thử lại.' };
+    }
+  },
+
   async submitQuiz(courseId: string, answers: any) {
     try {
       const res = await fetch(`${API_BASE_URL}/courses/${courseId}/quiz/submit`, {
@@ -176,6 +213,21 @@ export const apiClient = {
     } catch {
       return null;
     }
+  },
+
+  async getSupportTickets() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/support-tickets`)); }
+    catch { return { error: 'Không thể tải yêu cầu hỗ trợ.' }; }
+  },
+  async createSupportTicket(subject: string, message: string) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/support-tickets`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, message }),
+    })); }
+    catch { return { error: 'Không thể gửi yêu cầu hỗ trợ.' }; }
+  },
+  async getCareGuidelines() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/care-guidelines`)); }
+    catch { return { error: 'Không thể tải hướng dẫn chăm sóc.' }; }
   },
 
   async getTreatmentPlans() {
@@ -224,51 +276,12 @@ export const apiClient = {
     }
   },
 
-  async sendOtp(phone: string) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-      return await res.json();
-    } catch {
-      return { otpDemo: '246800' };
-    }
-  },
-
-  async verifyOtp(phone: string, otp: string, role = 'patient') {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp, role }),
-      });
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
-  async login(phone: string, role = 'patient') {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, role }),
-      });
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
   async updateProfile(profileData: any) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileData),
+        body: JSON.stringify(profileToCanonical(profileData)),
       });
       return await responseJson(res);
     } catch {

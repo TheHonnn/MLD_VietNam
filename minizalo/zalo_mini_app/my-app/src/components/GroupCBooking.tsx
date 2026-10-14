@@ -22,8 +22,8 @@ const stepTitles: Record<BookingStep, { title: string; subtitle: string; action:
   3: { title: 'Chọn chuyên viên', subtitle: 'Chọn người đồng hành cùng bạn trong buổi chăm sóc.', action: 'Chọn ngày và giờ' },
   4: { title: 'Chọn ngày và giờ', subtitle: 'Lựa chọn thời gian phù hợp với lịch của bạn.', action: 'Tiếp tục' },
   5: { title: 'Thông tin đặt lịch', subtitle: 'Vui lòng kiểm tra và bổ sung thông tin người sử dụng dịch vụ.', action: 'Kiểm tra đặt lịch' },
-  6: { title: 'Xác nhận đặt lịch', subtitle: 'Kiểm tra thông tin trước khi hoàn tất.', action: 'Tiếp tục thanh toán' },
-  7: { title: 'Thanh toán', subtitle: 'Chọn phương thức thanh toán thuận tiện cho bạn.', action: 'Thanh toán và hoàn tất' },
+  6: { title: 'Xác nhận đặt lịch', subtitle: 'Kiểm tra thông tin trước khi hoàn tất.', action: 'Tiếp tục xác nhận' },
+  7: { title: 'Thanh toán', subtitle: 'Chọn phương thức thanh toán thuận tiện cho bạn.', action: 'Xác nhận đặt lịch' },
 };
 
 const categories = ['Massage thư giãn', 'Chăm sóc da', 'Chăm sóc cơ thể', 'Chăm sóc sức khỏe', 'Gói liệu trình'];
@@ -41,16 +41,14 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
     value.setDate(value.getDate() + index + 1);
     return value;
   }), []);
-  const formatDate = (value: Date) => new Intl.DateTimeFormat('en-GB').format(value);
+  const formatDate = (value: Date) => [value.getFullYear(), String(value.getMonth() + 1).padStart(2, '0'), String(value.getDate()).padStart(2, '0')].join('-');
   const [selectedDate, setSelectedDate] = useState(() => formatDate(availableDates[0]));
-  const [selectedTime, setSelectedTime] = useState('14:00 - 15:00');
+  const [selectedTime, setSelectedTime] = useState('');
   const [customerMode, setCustomerMode] = useState<'self' | 'other'>('self');
-  const [customerName, setCustomerName] = useState('Nguyễn Minh Anh');
-  const [customerPhone, setCustomerPhone] = useState('0912 345 678');
-  const [customerEmail, setCustomerEmail] = useState('minh.anh@example.com');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [note, setNote] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState<'deposit' | 'full'>('deposit');
-  const [paymentMethod, setPaymentMethod] = useState<'bank' | 'cash'>('bank');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [voucherCode, setVoucherCode] = useState('');
@@ -58,14 +56,50 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [voucherMessage, setVoucherMessage] = useState('');
 
   const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-  const morningSlots = ['09:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00'];
-  const afternoonSlots = ['14:00 - 15:00', '15:00 - 16:00', '16:00 - 17:00'];
+  const [slots, setSlots] = useState<{ id: string; technicianId: string; startTime: string; endTime: string }[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState('');
+  const [slotsVersion, setSlotsVersion] = useState(0);
+  const branchDoctors = doctors.filter(d => d.branchId === selectedBranch?.id);
+  const labelsFor = (min: number, max: number) => Array.from(new Set(slots
+    .filter(slot => Number(slot.startTime.slice(0, 2)) >= min && Number(slot.startTime.slice(0, 2)) < max)
+    .map(slot => slot.startTime.slice(0, 5) + ' - ' + slot.endTime.slice(0, 5))));
+  const morningSlots = labelsFor(0, 12);
+  const afternoonSlots = labelsFor(12, 18);
+  const eveningSlots = labelsFor(18, 24);
+
+  useEffect(() => {
+    apiClient.getCurrentUser().then(result => {
+      if (!result?.user) return;
+      setCustomerName(result.user.name);
+      setCustomerPhone(result.user.phone);
+      setCustomerEmail(result.user.email);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (selectedDoctor?.branchId !== selectedBranch?.id) { setAutoAssign(true); }
+  }, [selectedBranch?.id, selectedDoctor?.branchId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedTime('');
+    setSlots([]);
+    setSlotsError('');
+    if (!selectedBranch?.id || !selectedService?.id) return;
+    setSlotsLoading(true);
+    apiClient.getSlots(selectedBranch.id, selectedDate, selectedService.id, autoAssign ? undefined : selectedDoctor?.id).then(result => {
+      if (cancelled) return;
+      setSlotsLoading(false);
+      if (!result?.slots || result.error) { setSlotsError(result?.error || 'Không thể tải giờ hẹn.'); return; }
+      setSlots(result.slots);
+    });
+    return () => { cancelled = true; };
+  }, [selectedBranch?.id, selectedService?.id, selectedDate, autoAssign, selectedDoctor?.id, slotsVersion]);
   const total = selectedService?.price || 0;
   const discountedTotal = Math.max(0, total - voucherDiscount);
-  const deposit = 150000;
-  const payable = paymentAmount === 'deposit' ? Math.min(deposit, discountedTotal) : discountedTotal;
   const progressStage = step === 1 ? 1 : step <= 4 ? 2 : 3;
-  const selectedDateNumber = selectedDate.split('/')[0];
+  const selectedDateNumber = selectedDate.split('-')[2];
   const summary = useMemo(() => ({
     doctor: autoAssign ? 'Trung tâm sắp xếp' : selectedDoctor?.name || '',
   }), [autoAssign, selectedDoctor]);
@@ -93,10 +127,19 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   }, [selectedService]);
 
   const goBack = () => step === 1 ? onClose() : setStep((value) => (value - 1) as BookingStep);
-  const goNext = () => setStep((value) => Math.min(7, value + 1) as BookingStep);
+  const goNext = () => {
+    if (!selectedService || !selectedBranch || (step === 3 && !autoAssign && !selectedDoctor)) {
+      setSubmitError('Vui lòng chọn dịch vụ, chi nhánh và chuyên viên phù hợp.');
+      return;
+    }
+    if (step === 4 && !selectedTime) { setSubmitError('Vui lòng chọn giờ hẹn còn trống.'); return; }
+    setSubmitError('');
+    setStep((value) => Math.min(7, value + 1) as BookingStep);
+  };
 
   const finishBooking = async () => {
     if (submitting) return;
+    if (!selectedTime || !slots.some(slot => slot.startTime.slice(0, 5) + ' - ' + slot.endTime.slice(0, 5) === selectedTime)) { setSubmitError('Vui lòng chọn giờ hẹn còn trống.'); return; }
     if (!customerName.trim() || !customerPhone.trim()) {
       setSubmitError('Vui lòng nhập đầy đủ họ tên và số điện thoại.');
       return;
@@ -111,7 +154,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
       timeSlot: selectedTime,
       userName: customerName,
       userPhone: customerPhone,
-      paymentMethod: paymentMethod === 'bank' ? 'vnpay' : 'hospital',
+      paymentMethod: 'CASH_AT_SPA',
       notes: note,
       voucherCode: voucherCode || undefined,
     };
@@ -124,12 +167,20 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
     setSubmitError(response?.error || 'Không thể đặt lịch. Vui lòng thử lại.');
   };
 
+  if (!selectedService || !selectedBranch) return (
+    <div className="absolute inset-0 z-50 bg-[#FAF6F0] p-4 space-y-3">
+      <button onClick={onClose} className="text-xs">Đóng</button>
+      <p role="status" className="text-xs">Chưa có dịch vụ hoặc chi nhánh để đặt lịch.</p>
+      <button disabled className="text-xs">Tiếp tục</button>
+    </div>
+  );
+
   return (
     <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden text-[#40352F]">
       <header className="px-4 pt-4 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <button onClick={goBack} className="w-9 h-9 rounded-[8px] bg-white border border-[#DED2C5] flex items-center justify-center"><ArrowLeftIcon size={18} color="#40352F" /></button>
-          <span className="text-[10px] font-semibold text-[#A65317]">ĐẶT LỊCH · MINH HỌA</span>
+          <span className="text-[10px] font-semibold text-[#A65317]">ĐẶT LỊCH</span>
         </div>
         <h1 className="text-[21px] font-bold text-[#6F452C] leading-tight">{stepTitles[step].title}</h1>
         <p className="text-[11px] text-[#6F625B] mt-1">{stepTitles[step].subtitle}</p>
@@ -156,13 +207,16 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
         {step === 3 && <div className="space-y-3">
           <button onClick={() => setAutoAssign(true)} className={`w-full p-3 rounded-[10px] border text-left bg-white ${autoAssign ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-center gap-2 text-[11px]"><Radio active={autoAssign} />Để trung tâm sắp xếp</div><p className="text-[10px] text-[#7A685D] mt-2">Hệ thống sẽ lựa chọn chuyên viên phù hợp với dịch vụ và lịch hẹn.</p></button>
           <SelectField label="Lọc theo chuyên môn" value={`${selectedService.category} · ${selectedBranch.name}`} />
-          {doctors.map((doctor) => { const active = !autoAssign && selectedDoctor?.id === doctor.id; return <button key={doctor.id} onClick={() => { setAutoAssign(false); setSelectedDoctor(doctor); }} className={`w-full rounded-[10px] border bg-white p-2 text-left ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-start gap-2 px-1 py-1.5"><Radio active={active} /><div><strong className="block text-[12px]">{doctor.name}</strong><span className="mt-0.5 block text-[9px] text-[#A65317]">{active ? 'Chuyên viên ưu tiên' : doctor.title}</span></div></div><img src={doctor.avatar} alt={doctor.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover object-top" /><div className="px-1 pb-1 pt-2"><p className="text-[10px] text-[#7A685D]">{doctor.title}</p><p className="mt-1 text-[9px] text-[#7A685D]">★ {doctor.rating} · {doctor.experienceYears} năm kinh nghiệm</p></div></button>; })}
+          {branchDoctors.map((doctor) => { const active = !autoAssign && selectedDoctor?.id === doctor.id; return <button key={doctor.id} onClick={() => { setAutoAssign(false); setSelectedDoctor(doctor); }} className={`w-full rounded-[10px] border bg-white p-2 text-left ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-start gap-2 px-1 py-1.5"><Radio active={active} /><div><strong className="block text-[12px]">{doctor.name}</strong><span className="mt-0.5 block text-[9px] text-[#A65317]">{active ? 'Chuyên viên ưu tiên' : doctor.title}</span></div></div><img src={doctor.avatar} alt={doctor.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover object-top" /><div className="px-1 pb-1 pt-2"><p className="text-[10px] text-[#7A685D]">{doctor.title}</p><p className="mt-1 text-[9px] text-[#7A685D]">★ {doctor.rating} · {doctor.experienceYears} năm kinh nghiệm</p></div></button>; })}
         </div>}
 
         {step === 4 && <div className="space-y-4">
           <div className="p-3 rounded-[10px] bg-[#F3E2CE] text-[10px]"><strong>{selectedService.title}</strong><p className="mt-1">{selectedBranch.name} · {summary.doctor} · {selectedService.durationMinutes} phút</p><div className="flex justify-between mt-2"><strong>Đang chọn</strong><strong className="text-[#A65317]">{selectedTime}</strong></div></div>
           <div><div className="flex justify-between text-[11px] font-bold mb-2"><span>Ngày phù hợp</span><span>7 ngày tới</span></div><div className="grid grid-cols-7 gap-1.5">{availableDates.map((date) => { const formatted = formatDate(date); const number = String(date.getDate()).padStart(2, '0'); return <button key={formatted} onClick={() => { setSelectedDate(formatted); setSubmitError(''); }} className={`h-14 rounded-[8px] border text-[10px] ${selectedDateNumber === number ? 'bg-[#A65317] border-[#A65317] text-white' : 'bg-white border-[#DED2C5]'}`}><span className="block opacity-70">{dayLabels[date.getDay()]}</span><strong className="text-[12px]">{number}</strong></button>; })}</div></div>
-          <TimeSlots title="Buổi sáng" slots={morningSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi chiều" slots={afternoonSlots} selected={selectedTime} onSelect={setSelectedTime} />
+          {slotsLoading && <p role="status" className="text-xs">Đang tải giờ hẹn...</p>}
+          {slotsError && <p role="alert" className="text-xs text-red-700">{slotsError} <button onClick={() => setSlotsVersion(value => value + 1)}>Thử lại</button></p>}
+          {!slotsLoading && !slotsError && !slots.length && <p className="text-xs">Chưa có giờ hẹn còn trống.</p>}
+          <TimeSlots title="Buổi sáng" slots={morningSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi chiều" slots={afternoonSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi tối" slots={eveningSlots} selected={selectedTime} onSelect={setSelectedTime} />
         </div>}
 
         {step === 5 && <div className="space-y-3">
@@ -171,15 +225,17 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
         </div>}
 
         {step === 6 && <div className="space-y-3">
-          <div className="p-3 rounded-[8px] bg-[#F3E2CE] text-[10px]">Tóm tắt minh họa · Chưa phải lịch hẹn đã xác nhận.</div>
+          <div className="p-3 rounded-[8px] bg-[#F3E2CE] text-[10px]">Kiểm tra thông tin trước khi đặt lịch.</div>
           <SummarySection title={selectedService.title} image={selectedService.image} rows={[['Thời lượng chăm sóc', `${selectedService.durationMinutes} phút`]]} /><SummarySection title={selectedBranch.name} rows={[['Địa chỉ', selectedBranch.address]]} /><SummarySection title={summary.doctor} rows={[['Ngày hẹn', selectedDate], ['Giờ hẹn', selectedTime]]} /><SummarySection title={customerName} rows={[['Số điện thoại', customerPhone], ['Email', customerEmail]]} />
         </div>}
 
-        {step === 7 && <div className="space-y-3">
-          <div className="p-3 rounded-[8px] bg-[#F3E2CE] text-[10px]"><strong className="text-[#A65317]">Chờ thanh toán</strong><p className="mt-1">Minh họa tĩnh · Chưa xác nhận lịch hẹn.</p></div>
-          <div className="p-3 rounded-[10px] bg-[#F3E2CE] border border-[#E3D0BD] space-y-3"><h3 className="font-bold text-[15px]">Thanh toán ngay {payable.toLocaleString('vi-VN')}đ</h3>{voucherMessage && <div className={`rounded-[7px] px-2.5 py-2 text-[10px] font-semibold ${voucherCode ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{voucherMessage}</div>}{voucherCode && <div className="flex justify-between text-[10px]"><span>Mã {voucherCode}</span><strong>-{voucherDiscount.toLocaleString('vi-VN')}đ</strong></div>}<button onClick={() => setPaymentAmount('deposit')} className="flex items-center gap-2 text-[11px]"><Radio active={paymentAmount === 'deposit'} />Đặt cọc {deposit.toLocaleString('vi-VN')}đ</button><button onClick={() => setPaymentAmount('full')} className="flex items-center gap-2 text-[11px]"><Radio active={paymentAmount === 'full'} />Thanh toán toàn bộ {discountedTotal.toLocaleString('vi-VN')}đ</button><p className="text-[10px]">Còn {(discountedTotal - payable).toLocaleString('vi-VN')}đ thanh toán tại cơ sở.</p></div>
-          <button onClick={() => setPaymentMethod('bank')} className={`w-full p-4 rounded-[10px] border text-left text-[11px] ${paymentMethod === 'bank' ? 'bg-[#F3E2CE] border-[#A65317]' : 'bg-white border-[#DED2C5]'}`}><span className="flex items-center gap-2"><Radio active={paymentMethod === 'bank'} />Chuyển khoản ngân hàng / QR</span></button><button onClick={() => setPaymentMethod('cash')} className={`w-full p-4 rounded-[10px] border text-left text-[11px] ${paymentMethod === 'cash' ? 'bg-[#F3E2CE] border-[#A65317]' : 'bg-white border-[#DED2C5]'}`}><span className="flex items-center gap-2"><Radio active={paymentMethod === 'cash'} />Thanh toán tại chi nhánh</span></button>
+        {step === 7 && <div className="space-y-3 text-xs">
+          <h3 className="font-bold">Xác nhận đặt lịch</h3>
+          <p>Tổng dự kiến: {discountedTotal.toLocaleString('vi-VN')}đ</p>
+          {voucherMessage && <p>{voucherMessage}</p>}
+          <p>Thanh toán tại chi nhánh. Lịch hẹn sau khi đặt vẫn chưa thanh toán.</p>
         </div>}
+
       </main>
 
       <footer className="absolute bottom-0 left-0 right-0 bg-white border-t border-[#DED2C5] px-4 pt-2 pb-4">{submitError && <div role="alert" className="mb-2 rounded-[7px] border border-red-200 bg-red-50 px-3 py-2 text-[10px] font-semibold text-red-700">{submitError}</div>}<div className="text-[9px] text-[#6F625B] mb-2 truncate">{selectedDate} · {selectedTime} · {selectedService.durationMinutes} phút</div><button onClick={step === 7 ? finishBooking : goNext} disabled={submitting} className="w-full h-11 rounded-[8px] bg-[#A65317] text-white text-[12px] font-bold disabled:opacity-60">{submitting ? 'Đang kiểm tra lịch...' : stepTitles[step].action}</button></footer>

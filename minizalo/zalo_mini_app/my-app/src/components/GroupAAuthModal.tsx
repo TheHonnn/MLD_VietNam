@@ -33,13 +33,13 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
   const [step, setStep] = useState<'splash' | 'onboarding' | 'login' | 'otp' | 'profile' | 'interests'>(initialStep);
 
   // Form states
-  const [phone, setPhone] = useState('0912345678');
-  const [otp, setOtp] = useState(['2', '4', '6', '8', '', '']);
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(45);
-  const [fullName, setFullName] = useState('Nguyễn Minh Anh');
-  const [dob, setDob] = useState('15/08/1998');
+  const [fullName, setFullName] = useState('');
+  const [dob, setDob] = useState('');
   const [gender, setGender] = useState<'Nữ' | 'Nam'>('Nữ');
-  const [email, setEmail] = useState('minh.anh@example.com');
+  const [email, setEmail] = useState('');
   const [selectedInterest, setSelectedInterest] = useState<'wellness' | 'academy' | 'both'>('both');
   const [onboardingSlide, setOnboardingSlide] = useState(0);
 
@@ -71,6 +71,9 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
     return () => clearInterval(interval);
   }, [step, timer]);
 
+  const [authError, setAuthError] = useState('');
+  const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
   if (!isOpen) return null;
 
   // Onboarding slides
@@ -94,52 +97,46 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
 
   // Handlers
   const handleSendOtp = async () => {
-    await apiClient.sendOtp(phone);
-    setTimer(45);
-    setStep('otp');
+    if (authBusy) return;
+    setAuthBusy(true);
+    setAuthError('');
+    const result = await apiClient.loginWithZalo(true);
+    setAuthBusy(false);
+    if (!result?.user || !result.token) { setAuthError(result?.error || 'Không thể kết nối Zalo.'); return; }
+    setAuthenticatedUser(result.user);
+    setPhone(result.user.phone);
+    setFullName(result.user.name);
+    setDob(result.user.dob);
+    setEmail(result.user.email);
+    if (result.user.gender !== 'Khác') setGender(result.user.gender);
+    setStep('profile');
   };
-
-  const handleVerifyOtp = async () => {
-    const code = otp.join('');
-    const res = await apiClient.verifyOtp(phone, code);
-    if (res?.user) {
-      setStep('profile');
-    } else {
-      setStep('profile');
-    }
-  };
-
+  const handleVerifyOtp = handleSendOtp;
   const handleSaveProfile = async () => {
-    await apiClient.updateProfile({
-      name: fullName,
-      dob,
-      gender,
-      email,
-    });
+    if (!authenticatedUser || authBusy) return;
+    setAuthBusy(true);
+    const res = await apiClient.updateProfile({ name: fullName, dob, gender, email });
+    setAuthBusy(false);
+    if (!res?.user) { setAuthError(res?.error || 'Không thể lưu hồ sơ.'); return; }
+    setAuthenticatedUser(res.user);
     setStep('interests');
   };
-
-  const handleFinish = () => {
-    const mockUser: User = {
-      id: `usr_${Date.now()}`,
-      name: fullName,
-      phone,
-      email,
-      role: selectedInterest === 'academy' ? 'student' : 'patient',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      tier: 'Gold',
-      points: 2450,
-      dob,
-      gender,
-      address: '123 Đường Mẫu, Quận 3, TP. Hồ Chí Minh',
-    };
-    onLoginSuccess(mockUser);
+  const handleFinish = async () => {
+    if (!authenticatedUser || authBusy) return;
+    setAuthBusy(true);
+    const res = await apiClient.updateProfile({ name: fullName, dob, gender, email,
+      purpose: selectedInterest === 'academy' ? 'ACADEMY' : selectedInterest === 'wellness' ? 'BEAUTY_SPA' : 'BOTH' });
+    setAuthBusy(false);
+    if (!res?.user) { setAuthError(res?.error || 'Không thể lưu thông tin.'); return; }
+    onLoginSuccess(res.user);
     onClose();
   };
 
   return (
     <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in">
       <div className="w-full h-full bg-[#FAF6F0] flex flex-col overflow-y-auto no-scrollbar">
+        {authError && <p role="alert" className="p-3 text-xs text-red-700">{authError}</p>}
+        {authBusy && <p role="status" className="p-3 text-xs">Đang kết nối hồ sơ...</p>}
         {canClose && (
           <button
             onClick={onClose}
@@ -253,156 +250,11 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
           </div>
         )}
 
-        {/* 3. SCREEN A03: WELCOME & PHONE LOGIN */}
-        {step === 'login' && (
-          <div className="p-6 flex-1 flex flex-col justify-between bg-[#FAF6F0]">
-            <div>
-              <div className="flex items-center space-x-2.5 mb-6">
-                <div className="w-9 h-9 rounded-xl bg-white shadow flex items-center justify-center border border-[#98501B]/20">
-                  <LeafIcon size={20} color="#98501B" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-[#98501B]">MLD Vietnam</div>
-                  <div className="text-[10px] text-stone-500">Cộng Đồng Dẫn Lưu Bạch Huyết</div>
-                </div>
-              </div>
-
-              <h2 className="text-2xl font-bold text-stone-900 leading-tight">Chào mừng bạn!</h2>
-              <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
-                Đăng nhập để trải nghiệm dịch vụ chăm sóc sức khỏe và các khóa đào tạo nghề.
-              </p>
-
-              {/* Phone input */}
-              <div className="mt-6">
-                <label className="text-xs font-semibold text-stone-700 block mb-1.5">Số điện thoại</label>
-                <div className="flex border border-stone-300 rounded-2xl bg-white overflow-hidden focus-within:border-[#98501B] shadow-sm">
-                  <div className="px-3.5 py-3 bg-stone-100 text-xs font-bold text-stone-700 border-r border-stone-200 flex items-center">
-                    +84
-                  </div>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="912 345 678"
-                    className="flex-1 px-3 py-3 text-sm font-semibold text-stone-800 outline-none bg-transparent"
-                  />
-                </div>
-                <p className="text-[11px] text-stone-500 mt-2">
-                  Chúng tôi sẽ gửi mã OTP để xác thực số điện thoại của bạn.
-                </p>
-              </div>
-
-              <button
-                onClick={handleSendOtp}
-                className="w-full mt-5 py-3.5 bg-[#98501B] text-white font-bold rounded-2xl text-sm shadow-md hover:bg-[#884218] transition flex items-center justify-center space-x-2"
-              >
-                <span>Tiếp tục</span>
-                <ArrowRightIcon size={14} color="#FFFFFF" />
-              </button>
-
-              {/* Security info card */}
-              <div className="mt-4 p-3 bg-stone-200/50 rounded-2xl flex items-start space-x-2.5 border border-stone-200">
-                <ShieldIcon size={16} color="#98501B" className="shrink-0 mt-0.5" />
-                <p className="text-[11px] text-stone-600 leading-relaxed">
-                  Thông tin của bạn được bảo mật và sử dụng để hỗ trợ trải nghiệm.
-                </p>
-              </div>
-            </div>
-
-            <div className="text-center pt-4 border-t border-stone-200 mt-4">
-              <span className="text-xs text-[#98501B] font-semibold cursor-pointer">Cần hỗ trợ?</span>
-              <p className="text-[10px] text-stone-500 mt-1">
-                Bằng việc tiếp tục, bạn đồng ý với{' '}
-                <span className="underline cursor-pointer">Điều khoản dịch vụ</span> |{' '}
-                <span className="underline cursor-pointer">Chính sách bảo mật</span>
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* 4. SCREEN A04: OTP VERIFICATION */}
-        {step === 'otp' && (
-          <div className="p-6 flex-1 flex flex-col justify-between bg-[#FAF6F0]">
-            <div>
-              <button
-                onClick={() => setStep('login')}
-                className="text-stone-600 hover:text-stone-900 flex items-center space-x-1.5 text-xs mb-4"
-              >
-                <ArrowLeftIcon size={14} color="#40352F" />
-                <span>Quay lại</span>
-              </button>
-
-              <div className="w-12 h-12 rounded-2xl bg-[#98501B]/10 text-[#98501B] flex items-center justify-center mb-4">
-                <SmartPhoneIcon size={24} color="#98501B" />
-              </div>
-
-              <h2 className="text-xl font-bold text-stone-900">Xác thực số điện thoại</h2>
-              <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                Nhập mã OTP đã được gửi đến số điện thoại của bạn:
-                <br />
-                <span className="font-bold text-stone-900">+84 {phone}</span>
-              </p>
-
-              {/* OTP 6 Boxes */}
-              <div className="flex justify-between space-x-2 mt-6">
-                {otp.map((digit, index) => (
-                  <input
-                    key={index}
-                    type="text"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const newOtp = [...otp];
-                      newOtp[index] = val;
-                      setOtp(newOtp);
-                    }}
-                    className="w-11 h-13 text-center text-lg font-bold bg-white border border-stone-300 rounded-xl focus:border-[#98501B] outline-none shadow-sm"
-                  />
-                ))}
-              </div>
-
-              <div className="mt-4 text-center">
-                {timer > 0 ? (
-                  <p className="text-xs text-stone-500 font-medium">
-                    Gửi lại mã sau <span className="font-bold text-[#98501B]">00:{timer < 10 ? `0${timer}` : timer}</span>
-                  </p>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setTimer(45);
-                      setOtp(['2', '4', '6', '8', '0', '0']);
-                    }}
-                    className="text-xs text-[#98501B] font-bold underline"
-                  >
-                    Gửi lại mã OTP
-                  </button>
-                )}
-                <button
-                  onClick={() => setStep('login')}
-                  className="block mx-auto mt-2 text-xs text-stone-500 underline"
-                >
-                  Thay đổi số điện thoại
-                </button>
-              </div>
-
-              {/* Demo note */}
-              <div className="mt-4 p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800">
-                <span>Bản minh họa giao diện. Mã OTP mặc định: <b>246800</b></span>
-              </div>
-            </div>
-
-            <div>
-              <button
-                onClick={handleVerifyOtp}
-                className="w-full py-3.5 bg-[#98501B] text-white font-bold rounded-2xl text-sm shadow-md hover:bg-[#884218] transition"
-              >
-                Xác nhận
-              </button>
-            </div>
-          </div>
-        )}
-
+        {step === 'login' && <div className="flex-1 p-6 space-y-4">
+          <h2 className="text-lg font-bold">Kết nối hồ sơ chung</h2>
+          <p className="text-xs">Cấp quyền thông tin Zalo và số điện thoại đã xác thực để tìm tài khoản, lịch hẹn và khóa học của bạn.</p>
+          <button disabled={authBusy} onClick={handleSendOtp} className="w-full h-11 rounded-[8px] bg-[#98501B] text-white text-sm font-bold disabled:opacity-60">Tiếp tục với Zalo</button>
+        </div>}
         {/* 5. SCREEN A05: COMPLETE PROFILE */}
         {step === 'profile' && (
           <div className="p-6 flex-1 flex flex-col justify-between bg-[#FAF6F0] overflow-y-auto">

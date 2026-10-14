@@ -33,7 +33,7 @@ export const ETicketGroupC: React.FC<ETicketGroupCProps> = ({
             Đặt Lịch Khám Thành Công!
           </Text>
           <Text className="text-xs text-stone-500">
-            Phiếu khám điện tử đã được kích hoạt trên hệ thống Kiosk MLD
+            Lịch hẹn đã được ghi nhận. Thanh toán được xử lý riêng tại chi nhánh.
           </Text>
         </Box>
 
@@ -51,7 +51,7 @@ export const ETicketGroupC: React.FC<ETicketGroupCProps> = ({
             </Box>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center space-x-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block mr-1"></span>
-              Đã xác nhận
+              {booking.status}
             </span>
           </Box>
 
@@ -82,12 +82,12 @@ export const ETicketGroupC: React.FC<ETicketGroupCProps> = ({
           {/* QR Code */}
           <Box className="pt-2 border-t border-dashed border-[#EADECF] flex flex-col items-center">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${booking.code}`}
+              src={booking.qrCode}
               alt="QR Code"
               className="w-32 h-32 rounded-xl p-1 bg-white border border-[#EADECF] shadow-sm"
             />
             <Text className="text-[10px] text-stone-400 mt-1.5">
-              Quét mã này tại Kiosk bệnh viện để nhận số thứ tự ưu tiên
+              Mã lịch hẹn
             </Text>
           </Box>
         </Box>

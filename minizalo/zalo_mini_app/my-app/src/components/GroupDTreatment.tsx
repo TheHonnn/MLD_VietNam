@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'zmp-ui';
+import { apiClient } from '@/api/client';
 import {
   CalendarIcon,
   ClockIcon,
@@ -16,7 +17,11 @@ import {
   FileTextIcon,
 } from './Icons';
 
+import { User, AppNotification } from '../../../../backend/src/data/database';
+
 interface GroupDTreatmentProps {
+  user: User;
+  notifications: AppNotification[];
   onOpenBooking: () => void;
   onClose: () => void;
   onOpenConsultation?: () => void;
@@ -24,7 +29,7 @@ interface GroupDTreatmentProps {
   treatmentPlans: any[];
 }
 
-export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking, onClose, initialTab = 'packages', treatmentPlans }) => {
+export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking, onClose, initialTab = 'packages', treatmentPlans, user, notifications: serverNotifications }) => {
   const [activeTab, setActiveTab] = useState<'packages' | 'journal' | 'care_guide' | 'support' | 'notifications'>(initialTab);
   const [packageTab, setPackageTab] = useState<'active' | 'completed' | 'expired'>('active');
   const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
@@ -46,59 +51,41 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
 
   // Notifications state
   const [notifFilter, setNotifFilter] = useState<'all' | 'appointment' | 'treatment' | 'academy'>('all');
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'nt_1',
-      type: 'appointment',
-      title: 'Nhắc lịch chăm sóc',
-      desc: 'Bạn có lịch massage vào 09:00 ngày 15/10/2026 tại Chi nhánh Quận 3.',
-      time: '08/10/2026 · 09:30',
-      unread: true,
-    },
-    {
-      id: 'nt_2',
-      type: 'treatment',
-      title: 'Cập nhật liệu trình',
-      desc: 'Gói chăm sóc của bạn còn 6 buổi sử dụng. Hạn dùng đến 31/12/2026.',
-      time: '08/10/2026 · 09:15',
-      unread: true,
-    },
-    {
-      id: 'nt_3',
-      type: 'academy',
-      title: 'Nhắc lịch học lý thuyết',
-      desc: 'Lớp Kỹ thuật Massage có buổi thực hành tại lớp lúc 13:00 Thứ 6 này.',
-      time: '07/10/2026 · 14:00',
-      unread: false,
-    },
-  ]);
-
-  // Chat consultation state
-  const [chatMessages, setChatMessages] = useState([
-    { sender: 'user', text: 'Tôi muốn đặt lịch buổi tiếp theo của gói massage.', time: '09:42' },
-    {
-      sender: 'agent',
-      text: 'Xin chào Minh Anh! Bạn có thể chọn lịch hẹn phù hợp trong phần quản lý liệu trình hoặc để trung tâm hỗ trợ xếp lịch ngay nhé.',
-      time: '09:43',
-    },
-  ]);
+  const notifications = serverNotifications.map(n => ({ ...n, desc: n.message, time: n.createdAt, unread: !n.isRead }));
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [guidelines, setGuidelines] = useState<any[]>([]);
+  const [supportError, setSupportError] = useState('');
+  const [guidelineError, setGuidelineError] = useState('');
+  const [supportSending, setSupportSending] = useState(false);
   const [inputMsg, setInputMsg] = useState('');
-
-  const handleSendMessage = () => {
-    if (!inputMsg.trim()) return;
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        sender: 'user',
-        text: inputMsg,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
+  const chatMessages = tickets.reduce<{ sender: string; text: string; time: string }[]>((messages, ticket) => {
+    messages.push({ sender: 'user', text: ticket.message, time: ticket.createdAt });
+    if (ticket.adminReply) messages.push({ sender: 'agent', text: ticket.adminReply, time: ticket.repliedAt || ticket.updatedAt || ticket.createdAt });
+    return messages;
+  }, []);
+  useEffect(() => {
+    apiClient.getSupportTickets().then(result => {
+      if (result?.tickets) setTickets(result.tickets);
+      else setSupportError(result?.error || 'Không thể tải yêu cầu hỗ trợ.');
+    });
+    apiClient.getCareGuidelines().then(result => {
+      if (result?.guidelines) setGuidelines(result.guidelines);
+      else setGuidelineError(result?.error || 'Không thể tải hướng dẫn chăm sóc.');
+    });
+  }, []);
+  const handleSendMessage = async () => {
+    if (!inputMsg.trim() || supportSending) return;
+    setSupportSending(true);
+    setSupportError('');
+    const result = await apiClient.createSupportTicket('Hỗ trợ Mini App', inputMsg.trim());
+    setSupportSending(false);
+    if (!result?.ticket) { setSupportError(result?.error || 'Không thể gửi yêu cầu hỗ trợ.'); return; }
+    setTickets(prev => [...prev, result.ticket]);
     setInputMsg('');
   };
 
   const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    // Read state is managed by the notification center.
   };
 
   const activePlans = treatmentPlans.filter((plan) => plan.status === 'active');
@@ -109,7 +96,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
     purchaseDate: new Date(activePlans[0].purchaseDate).toLocaleDateString('vi-VN'),
     sessionsHistory: activePlans[0].sessions.map((session: any) => ({
       session: `Buổi ${String(session.sessionNumber).padStart(2, '0')}`,
-      date: new Date(session.completedAt || session.scheduledAt || Date.now()).toLocaleDateString('vi-VN'),
+      date: new Date(session.completedAt || session.scheduledAt || '').toLocaleDateString('vi-VN'),
       title: session.title,
       specialist: session.specialistName,
       completed: session.status === 'completed',
@@ -163,8 +150,8 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
               </div>
               <div>
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold text-[#40352F]">Nguyễn Minh Anh</span>
-                  <span className="text-[10px] text-[#A65317]">Hội viên Vàng · Ví dụ</span>
+                  <span className="text-xs font-bold text-[#40352F]">{user.name || 'Khách'}</span>
+                  <span className="text-[10px] text-[#A65317]">{user.id ? user.tier : ''}</span>
                 </div>
                 <p className="text-[11px] text-[#7A685D] mt-0.5">
                   {activePlans.length} gói đang dùng • {activePlans.reduce((sum, plan) => sum + plan.remainingSessions, 0)} buổi còn lại • {activePlans.reduce((sum, plan) => sum + plan.usedSessions, 0)} đã dùng
@@ -291,111 +278,28 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
       {/* =========================================================================
           TAB 2: D03 NHẬT KÝ CHĂM SÓC
       ========================================================================= */}
-      {activeTab === 'journal' && (
-        <div className="space-y-3 animate-fade-in">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-semibold uppercase text-[#A65317]">Chăm sóc · Minh họa</span>
-            </div>
-            <h1 className="mt-1 text-[21px] font-bold leading-tight text-[#6F452C]">Nhật ký chăm sóc</h1>
-            <p className="mt-1 text-[10px] text-[#7A685D]">Theo dõi hành trình chăm sóc sức khỏe của bạn.</p>
-          </div>
-
-          <div className="rounded-[10px] bg-[#F3E2CE] px-3 py-3">
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E4CDB6] bg-[#FFF9F3] text-[#A65317]">
-                <span className="text-[15px]">♙</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-[11px] font-bold text-[#40352F]">Nguyễn Minh Anh</p>
-                <p className="text-[10px] font-medium text-[#A65317]">Gói Massage Thư Giãn 10 Buổi</p>
-                <p className="mt-1 text-[9px] text-[#75685F]">4 buổi hoàn thành · Gần nhất 08/10/2026</p>
-                <p className="mt-1 text-[9px] text-[#75685F]">Hồ sơ và liệu trình minh họa</p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveTab('care_guide')}
-            className="h-11 w-full rounded-[8px] border border-[#A65317] bg-white text-[11px] font-bold text-[#A65317]"
-          >
-            Xem hướng dẫn chăm sóc
-          </button>
-
-          <p className="px-1 text-[9px] leading-relaxed text-[#7A685D]">
-            Nhật ký minh họa · Ghi chú chăm sóc chung, không dùng ghi kết quả y khoa.
-          </p>
-
-          <div className="relative pl-7">
-            <div className="absolute bottom-2 left-[9px] top-2 w-px bg-[#D7B28F]" />
-            <div className="absolute left-[4px] top-1 h-[11px] w-[11px] rounded-full border-2 border-[#A65317] bg-[#FAF8F5]" />
-
-            <article className="rounded-[10px] bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              <p className="text-[8px] text-[#A65317]">Ngày 08/10/2026</p>
-              <h3 className="mt-1 text-[10px] font-bold text-[#40352F]">Buổi 04 – Massage thư giãn toàn thân</h3>
-              <div className="mt-2 space-y-1 text-[9px] leading-relaxed text-[#6F625B]">
-                <p>Chuyên viên: Trần Minh Phương</p>
-                <p>Chi nhánh mẫu 01 – Quận 3</p>
-                <p>Khách hàng hoàn thành buổi chăm sóc theo lịch trình.</p>
-              </div>
-
-              <div className="mt-2 text-[9px] leading-relaxed">
-                <p className="font-medium text-[#A65317]">Gợi ý sau buổi · Minh họa</p>
-                <p className="mt-1 text-[#6F625B]">Dành thời gian nghỉ ngơi thoải mái sau buổi massage.</p>
-              </div>
-
-              <div className="mt-3 flex gap-2 border-t border-[#EFEAE3] pt-3">
-                <button
-                  onClick={() => setIsRatingModalOpen(true)}
-                  className="h-9 flex-1 rounded-[8px] border border-[#A65317] bg-white text-[10px] font-bold text-[#A65317]"
-                >
-                  Đánh giá buổi này
-                </button>
-                <button
-                  onClick={() => setIsPreServiceModalOpen(true)}
-                  className="h-9 flex-1 rounded-[8px] bg-[#A65317] text-[10px] font-bold text-white"
-                >
-                  Phiếu chuẩn bị buổi 05
-                </button>
-              </div>
-            </article>
-          </div>
-        </div>
-      )}
-
+      {activeTab === 'journal' && <div className="space-y-3">
+        <h1 className="text-sm font-bold">Nhật ký chăm sóc</h1>
+        {!treatmentPlans.some(plan => plan.sessions.length) && <p className="text-xs">Chưa có nhật ký chăm sóc.</p>}
+        {treatmentPlans.map(plan => plan.sessions.map((session: any) => <article key={session.id} className="border-b border-[#EADECF] py-3 text-xs space-y-2">
+          <p>{session.sessionDate}</p><p>{session.treatmentNotes}</p>
+          {session.conditionBefore && <p>Trước chăm sóc: {session.conditionBefore}</p>}
+          {session.conditionAfter && <p>Sau chăm sóc: {session.conditionAfter}</p>}
+          {session.specialistAdvice && <p>{session.specialistAdvice}</p>}
+        </article>))}
+      </div>}
       {/* =========================================================================
           TAB 3: D06 HƯỚNG DẪN CHĂM SÓC TẠI NHÀ
       ========================================================================= */}
-      {activeTab === 'care_guide' && (
-        <div className="space-y-4 animate-fade-in">
-          <div>
-            <h1 className="text-lg font-bold text-[#40352F]">Hướng dẫn chăm sóc tại nhà</h1>
-            <p className="text-xs text-[#7A685D]">Những hướng dẫn hữu ích giúp duy trì thói quen chăm sóc bản thân.</p>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-[#EADECF] overflow-hidden shadow-sm space-y-3 p-4">
-            <img
-              src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80"
-              alt="Care guide"
-              className="w-full h-40 rounded-xl object-cover"
-            />
-            <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#FAF6F0] text-[#98501B] text-[10px] font-bold border border-[#EADECF]">
-              CHĂM SÓC CƠ THỂ • Bài viết • 4 phút
-            </span>
-            <h3 className="text-sm font-bold text-[#40352F]">Chăm sóc cơ thể sau buổi massage</h3>
-            <p className="text-xs text-[#7A685D] leading-relaxed">
-              Nghỉ ngơi thoải mái, vận động nhẹ và giữ nhịp sinh hoạt phù hợp. Tránh tắm nước lạnh ngay sau khi massage trị liệu để giữ ấm kinh lạc.
-            </p>
-            <button
-              onClick={() => setIsArticleModalOpen(true)}
-              className="w-full py-2.5 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition"
-            >
-              Xem hướng dẫn chi tiết
-            </button>
-          </div>
-        </div>
-      )}
-
+      {activeTab === 'care_guide' && <div className="space-y-3">
+        <h1 className="text-sm font-bold">Hướng dẫn chăm sóc tại nhà</h1>
+        {guidelineError && <p role="alert" className="text-xs text-red-700">{guidelineError}</p>}
+        {!guidelines.length && !guidelineError && <p className="text-xs">Chưa có hướng dẫn chăm sóc.</p>}
+        {guidelines.map(guide => <article key={guide.id} className="border-b border-[#EADECF] py-3 text-xs space-y-2">
+          {guide.imageUrl && <img src={guide.imageUrl} alt={guide.title} className="w-full rounded-[8px]" />}
+          <h3 className="font-bold">{guide.title}</h3><p className="whitespace-pre-wrap">{guide.content}</p>
+        </article>)}
+      </div>}
       {/* =========================================================================
           TAB 4: D07 TƯ VẤN & HỖ TRỢ
       ========================================================================= */}
@@ -424,6 +328,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
             ))}
           </div>
 
+          {supportError && <p role="alert" className="text-xs text-red-700">{supportError}</p>}
           {/* Chat box */}
           <div className="bg-white rounded-2xl border border-[#EADECF] shadow-sm p-3.5 space-y-3 flex flex-col h-72">
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -458,6 +363,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
               />
               <button
                 onClick={handleSendMessage}
+                disabled={supportSending}
                 className="px-3 py-2 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition"
               >
                 Gửi
@@ -574,8 +480,8 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
 
             <div className="bg-white p-4 rounded-2xl border border-[#EADECF] space-y-3">
               <div className="flex justify-between items-center border-b border-[#FAF6F0] pb-2">
-                <h5 className="text-xs font-bold text-[#40352F]">Hành trình 10 buổi của bạn:</h5>
-                <span className="text-[11px] font-bold text-[#98501B]">4/10 buổi đã thực hiện</span>
+                <h5 className="text-xs font-bold text-[#40352F]">Hành trình {selectedPackage.totalSessions} buổi của bạn:</h5>
+                <span className="text-[11px] font-bold text-[#98501B]">{selectedPackage.usedSessions}/{selectedPackage.totalSessions} buổi đã thực hiện</span>
               </div>
               <div className="space-y-2">
                 {selectedPackage.sessionsHistory.map((s: any, idx: number) => (
@@ -676,10 +582,11 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
 
           <div className="p-4 bg-white border-t border-[#EADECF] shrink-0 shadow-lg">
             <button
-              onClick={() => setIsPreServiceModalOpen(false)}
+              disabled
+              title="Chọn lịch hẹn trước khi gửi khảo sát"
               className="w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition shadow-md"
             >
-              Lưu & Xác nhận thông tin khảo sát
+              Cần chọn lịch hẹn để gửi khảo sát
             </button>
           </div>
         </div>
@@ -762,10 +669,11 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking,
 
           <div className="p-3 bg-white border-t border-[#EADECF] shrink-0">
             <button
-              onClick={() => setIsRatingModalOpen(false)}
+              disabled
+              title="Chọn lịch hẹn đã hoàn thành để gửi đánh giá"
               className="w-full h-11 rounded-[8px] bg-[#A65317] text-white text-[11px] font-bold"
             >
-              Gửi đánh giá
+              Cần chọn lịch hẹn đã hoàn thành
             </button>
           </div>
         </div>

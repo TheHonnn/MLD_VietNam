@@ -1,1206 +1,493 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { BookingStatus, EnrollmentStatus, Prisma, UserRole } from '@prisma/client';
-import { database } from './data/database.js';
-import { prisma } from './lib/prisma.js';
+import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
+import { Prisma } from '@prisma/client';
+import { camel, Store, Row } from './store.js';
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-const AUTH_SECRET = process.env.AUTH_SECRET || process.env.DATABASE_URL || 'mld-local-development-secret';
-const asyncRoute = (handler: (req: Request, res: Response) => Promise<unknown>) =>
-  (req: Request, res: Response, next: express.NextFunction) => Promise.resolve(handler(req, res)).catch(next);
+export class ApiError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
 
-const signSession = (userId: string) => {
-  const payload = Buffer.from(JSON.stringify({ userId, expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 })).toString('base64url');
-  const signature = createHmac('sha256', AUTH_SECRET).update(payload).digest('base64url');
-  return `${payload}.${signature}`;
-};
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function uuid(value: unknown) {
+  if (typeof value !== 'string' || !uuidPattern.test(value)) throw new ApiError(400, 'Expected a shared UUID');
+  return value;
+}
 
-const sessionUserId = (req: Request) => {
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  if (!token) return null;
-  const [payload, signature] = token.split('.');
-  if (!payload || !signature) return null;
-  const expected = createHmac('sha256', AUTH_SECRET).update(payload).digest('base64url');
-  const left = Buffer.from(signature);
-  const right = Buffer.from(expected);
-  if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
-  try {
-    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    return parsed.expiresAt > Date.now() && typeof parsed.userId === 'string' ? parsed.userId : null;
-  } catch { return null; }
-};
+function success(res: Response, data: unknown, status = 200, message = 'OK') {
+  return res.status(status).json({ success: true, statusCode: status, message, data: camel(data) });
+}
 
-const userIdFrom = (req: Request) => sessionUserId(req) || 'usr_001';
+const publicUser = Prisma.sql`id, phone, email, full_name, avatar_url, gender, date_of_birth,
+  address, emergency_contact_name, emergency_contact_phone, purpose, role,
+  membership_tier, reward_points, total_spent, referral_code, is_active, created_at, updated_at`;
 
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+async function user(store: Store, id: string) {
+  const [record] = await store.query(Prisma.sql`SELECT ${publicUser} FROM users WHERE id = ${id}::uuid AND is_active`);
+  if (!record) throw new ApiError(401, 'Shared account is missing or inactive');
+  return record;
+}
 
-const serializeService = (service: any) => ({
-  id: service.id,
-  title: service.name,
-  category: service.category,
-  price: Number(service.price),
-  originalPrice: service.originalPrice == null ? undefined : Number(service.originalPrice),
-  durationMinutes: service.durationMinutes,
-  rating: Number(service.rating),
-  reviewsCount: service.reviewsCount,
-  badge: service.badge ?? undefined,
-  image: service.imageUrl ?? '',
-  description: service.description ?? '',
-  indicatorsCount: service.indicatorsCount,
-  preparationNotes: service.preparationNotes,
-});
+const bookingSelect = Prisma.sql`
+  SELECT b.*, to_char(b.booking_date, 'YYYY-MM-DD') AS booking_date,
+    to_char(b.start_time, 'HH24:MI:SS') AS start_time, to_char(b.end_time, 'HH24:MI:SS') AS end_time,
+    u.full_name AS customer_name, u.phone AS customer_phone, br.name AS branch_name,
+    t.full_name AS technician_name,
+    COALESCE((SELECT json_agg(json_build_object('id', bi.id, 'service_id', bi.service_id,
+      'service_title', s.name, 'price', bi.price, 'duration_minutes', bi.duration_minutes,
+      'technician_id', bi.technician_id)) FROM booking_items bi
+      JOIN services s ON s.id = bi.service_id WHERE bi.booking_id = b.id), '[]'::json) AS items
+  FROM bookings b JOIN users u ON u.id = b.customer_id JOIN branches br ON br.id = b.branch_id
+  LEFT JOIN technicians t ON t.id = b.technician_id`;
 
-const serializeSpecialist = (specialist: any) => ({
-  id: specialist.id,
-  name: specialist.name,
-  title: specialist.title,
-  specialty: specialist.specialty,
-  hospital: specialist.workplace ?? specialist.branch?.name ?? '',
-  experienceYears: specialist.experienceYears,
-  rating: Number(specialist.rating),
-  reviewsCount: specialist.reviewsCount,
-  avatar: specialist.avatarUrl ?? '',
-  consultationFee: Number(specialist.consultationFee),
-  bio: specialist.bio ?? '',
-});
+async function booking(store: Store, id: string, customerId: string) {
+  const [record] = await store.query(Prisma.sql`${bookingSelect} WHERE b.id = ${id}::uuid AND b.customer_id = ${customerId}::uuid`);
+  if (!record) throw new ApiError(404, 'Booking not found');
+  return record;
+}
 
-const serializeVoucher = (item: any) => {
-  const voucher = item.voucher ?? item;
-  const status = item.usedAt ? 'used' : voucher.expiresAt < new Date() ? 'expired' : 'available';
-  return {
-    id: voucher.id,
-    code: voucher.code,
-    title: voucher.title,
-    description: voucher.description,
-    scope: voucher.scope.toLowerCase(),
-    discountType: voucher.discountType.toLowerCase(),
-    discountValue: voucher.discountValue,
-    maxDiscountAmount: voucher.maxDiscountAmount,
-    minOrderValue: voucher.minOrderValue,
-    applicableCategories: voucher.applicableCategories,
-    startsAt: voucher.startsAt.toISOString(),
-    expiryDate: voucher.expiresAt.toISOString(),
-    status,
-  };
-};
+export function bookingTime(date: unknown, time: unknown, duration: number) {
+  if (typeof date !== 'string' || typeof time !== 'string') throw new ApiError(400, 'Date and time are required');
+  const parts = date.split('/');
+  const day = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}` : date;
+  const start = time.split(' - ')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}(:\d{2})?$/.test(start)) throw new ApiError(400, 'Invalid booking date/time');
+  const startMinutes = Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5));
+  const instant = new Date(`${day}T${start.length === 5 ? `${start}:00` : start}+07:00`);
+  if (!Number.isFinite(instant.getTime())) throw new ApiError(400, 'Invalid booking date/time');
+  const localDate = new Date(instant.getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+  if (!Number.isFinite(instant.getTime()) || localDate !== day || startMinutes >= 1440 || Number(start.slice(3, 5)) >= 60 || duration <= 0 || !Number.isInteger(duration) || startMinutes + duration >= 1440) throw new ApiError(400, 'Invalid booking date/time');
+  if (instant.getTime() <= Date.now()) throw new ApiError(400, 'Booking must be in the future');
+  const endMinutes = startMinutes + duration;
+  return { day, start: `${start.slice(0, 5)}:00`, end: `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}:00` };
+}
 
-const serializeTreatmentPlan = (plan: any) => {
-  const sessions = plan.sessions ?? [];
-  const completed = sessions.filter((session: any) => session.status === 'COMPLETED').length;
-  const scheduled = sessions.filter((session: any) => session.status === 'SCHEDULED').length;
-  return {
-    id: plan.id,
-    name: plan.name,
-    image: plan.imageUrl ?? plan.service?.imageUrl ?? '',
-    notes: plan.notes ?? '',
-    status: plan.status.toLowerCase(),
-    totalSessions: plan.totalSessions,
-    usedSessions: completed,
-    scheduledSessions: scheduled,
-    remainingSessions: Math.max(0, plan.totalSessions - completed),
-    progressPercent: plan.totalSessions ? Math.round(completed * 100 / plan.totalSessions) : 0,
-    purchaseDate: plan.purchasedAt.toISOString(),
-    expiryDate: plan.expiresAt.toISOString(),
-    service: plan.service ? serializeService(plan.service) : undefined,
-    branch: plan.branch,
-    user: plan.user ? serializeUser(plan.user) : undefined,
-    sessions: sessions.map((session: any) => ({
-      id: session.id,
-      sessionNumber: session.sessionNumber,
-      status: session.status.toLowerCase(),
-      scheduledAt: session.scheduledAt?.toISOString() ?? null,
-      completedAt: session.completedAt?.toISOString() ?? null,
-      specialistName: session.specialistName ?? '',
-      title: session.title,
-      notes: session.notes ?? '',
-    })),
-  };
-};
+async function reserveSlot(store: Store, customerId: string, branchId: string, technicianId: string | null, time: ReturnType<typeof bookingTime>, excludedId: string | null = null) {
+  const [slot] = await store.query(Prisma.sql`
+    SELECT ts.* FROM technician_slots ts JOIN technicians t ON t.id = ts.technician_id
+    WHERE ts.branch_id = ${branchId}::uuid AND t.branch_id = ts.branch_id AND t.is_active
+      AND (${technicianId}::uuid IS NULL OR ts.technician_id = ${technicianId}::uuid)
+      AND ts.slot_date = ${time.day}::date AND ts.start_time = ${time.start}::time AND ts.end_time >= ${time.end}::time
+      AND (ts.status = 'AVAILABLE' OR (ts.status = 'HOLD' AND (ts.held_by_user_id = ${customerId}::uuid OR ts.hold_expires_at < CURRENT_TIMESTAMP)))
+    ORDER BY ts.technician_id FOR UPDATE OF ts SKIP LOCKED LIMIT 1`);
+  if (!slot) throw new ApiError(409, 'No shared technician slot is available');
+  // All Mini App changes for a technician are serialized, including overlapping slots.
+  await store.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${String(slot.technician_id)}))::text AS locked`);
+  const conflicts = await store.query(Prisma.sql`SELECT id FROM bookings
+    WHERE technician_id = ${slot.technician_id}::uuid AND booking_date = ${time.day}::date
+      AND status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE')
+      AND start_time < ${time.end}::time AND end_time > ${time.start}::time
+      AND (${excludedId}::uuid IS NULL OR id <> ${excludedId}::uuid)`);
+  if (conflicts.length) throw new ApiError(409, 'Technician has an overlapping booking');
+  await store.query(Prisma.sql`UPDATE technician_slots SET status = 'BOOKED', held_by_user_id = NULL, hold_expires_at = NULL WHERE id = ${slot.id}::uuid RETURNING id`);
+  return String(slot.technician_id);
+}
 
-const serializeInvoice = (invoice: any) => ({
-  id: invoice.id,
-  code: invoice.code,
-  userId: invoice.userId,
-  bookingId: invoice.bookingId,
-  enrollmentId: invoice.enrollmentId,
-  title: invoice.title,
-  description: invoice.description ?? '',
-  amount: Number(invoice.amount),
-  discount: Number(invoice.discount),
-  finalAmount: Number(invoice.finalAmount),
-  paymentMethod: invoice.paymentMethod,
-  status: String(invoice.status).toLowerCase(),
-  paidAt: invoice.paidAt?.toISOString() ?? null,
-  createdAt: invoice.createdAt.toISOString(),
-});
+async function notify(store: Store, id: string, title: string, message: string, entityId: string) {
+  await store.query(Prisma.sql`INSERT INTO notifications (user_id,title,message,type,data)
+    VALUES (${id}::uuid,${title},${message},'BOOKING',${JSON.stringify({ entityId })}::jsonb) RETURNING id`);
+}
 
-const serializeUser = (user: any) => ({
-  id: user.id,
-  name: user.name,
-  phone: user.phone ?? '',
-  email: user.email ?? '',
-  role: user.role === UserRole.STUDENT ? 'student' : user.role === UserRole.ADMIN ? 'admin' : 'patient',
-  avatar: user.avatarUrl ?? '',
-  tier: user.tier,
-  points: user.points,
-  dob: user.dob ?? '',
-  gender: user.gender ?? '',
-  address: user.address ?? '',
-  preferredBranch: user.preferredBranch ?? '',
-  skinType: user.skinType ?? '',
-  healthNotes: user.healthNotes ?? '',
-  emergencyContactName: user.emergencyContactName ?? '',
-  emergencyContactPhone: user.emergencyContactPhone ?? '',
-});
+async function voucherForOrder(store: Store, customerId: string, code: string, amount: Prisma.Decimal) {
+  const [record] = await store.query(Prisma.sql`
+    SELECT uv.id AS wallet_id, c.* FROM user_vouchers uv JOIN coupons c ON c.id = uv.coupon_id
+    WHERE uv.user_id = ${customerId}::uuid AND UPPER(c.code) = ${code.trim().toUpperCase()}
+      AND uv.status = 'AVAILABLE' AND uv.expires_at > CURRENT_TIMESTAMP AND c.is_active
+      AND c.valid_from <= CURRENT_TIMESTAMP AND c.valid_to > CURRENT_TIMESTAMP
+      AND c.used_count < c.usage_limit ORDER BY uv.expires_at FOR UPDATE OF uv, c LIMIT 1`);
+  if (!record) throw new ApiError(400, 'Voucher is unavailable');
+  if (amount.lt(record.min_order_amount)) throw new ApiError(400, 'Order does not meet voucher minimum');
+  const percent = amount.mul(record.discount_percent).div(100);
+  const discount = Prisma.Decimal.min(amount, percent.add(record.discount_amount), record.max_discount == null ? amount : record.max_discount).toDecimalPlaces(2);
+  return { record, discount };
+}
 
-const serializeCourse = (course: any) => ({
-  id: course.id,
-  title: course.title,
-  category: course.category,
-  price: Number(course.price),
-  tuition: `${Number(course.price).toLocaleString('vi-VN')}đ`,
-  depositAmount: Number(course.deposit),
-  deposit: `${Number(course.deposit).toLocaleString('vi-VN')}đ`,
-  duration: course.duration,
-  instructor: course.instructor,
-  image: course.imageUrl ?? '',
-  description: course.description ?? '',
-});
-
-const serializeEnrollment = (enrollment: any) => ({
-  id: enrollment.id,
-  code: enrollment.code,
-  courseId: enrollment.courseId,
-  courseTitle: enrollment.course.title,
-  courseImage: enrollment.course.imageUrl ?? '',
-  studentName: enrollment.studentName,
-  phone: enrollment.phone,
-  email: enrollment.email ?? '',
-  totalAmount: Number(enrollment.totalAmount),
-  status: String(enrollment.status).toLowerCase(),
-  createdAt: enrollment.createdAt.toISOString(),
-});
-
-const serializeNotification = (notification: any) => ({
-  id: notification.id,
-  title: notification.title,
-  message: notification.message,
-  type: notification.type,
-  entityId: notification.entityId,
-  isRead: Boolean(notification.readAt),
-  createdAt: notification.createdAt.toISOString(),
-});
-
-const parseBookingDate = (date: string, timeSlot: string) => {
-  const [day, month, year] = date.split('/').map(Number);
-  const [hour, minute] = timeSlot.split(' - ')[0].split(':').map(Number);
-  if (![day, month, year, hour, minute].every(Number.isFinite)) return null;
-  return new Date(Date.UTC(year, month - 1, day, hour - 7, minute));
-};
-
-const serializeBooking = (booking: any) => {
-  const date = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
-  }).format(booking.scheduledAt);
-  const start = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(booking.scheduledAt);
-  const endDate = new Date(booking.scheduledAt.getTime() + booking.service.durationMinutes * 60_000);
-  const end = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(endDate);
-  const statusMap: Record<BookingStatus, string> = {
-    PENDING: 'pending', CONFIRMED: 'confirmed', COMPLETED: 'completed', CANCELLED: 'cancelled',
-  };
-  return {
-    id: booking.id,
-    code: booking.code,
-    userId: booking.userId,
-    userName: booking.user.name,
-    userPhone: booking.user.phone ?? '',
-    serviceId: booking.serviceId,
-    serviceTitle: booking.service.name,
-    doctorId: booking.specialistId ?? '',
-    doctorName: booking.specialist?.name ?? 'Trung tâm sắp xếp',
-    branchId: booking.branchId,
-    branchName: booking.branch.name,
-    date,
-    timeSlot: `${start} - ${end}`,
-    price: Number(booking.service.price),
-    discount: Math.max(0, Number(booking.service.price) - Number(booking.totalAmount)),
-    finalPrice: Number(booking.totalAmount),
-    paymentMethod: 'hospital',
-    status: statusMap[booking.status as BookingStatus],
-    notes: booking.notes ?? '',
-    qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${booking.code}`,
-    createdAt: booking.createdAt.toISOString(),
-  };
-};
-
-const bookingInclude = { user: true, branch: true, service: true, specialist: true } as const;
-
-const findBookingConflict = async (
-  specialistId: string,
-  scheduledAt: Date,
-  durationMinutes: number,
-  excludedBookingId?: string,
-) => {
-  const dayStart = new Date(scheduledAt);
-  dayStart.setUTCHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
-  const candidates = await prisma.booking.findMany({
-    where: {
-      specialistId,
-      scheduledAt: { gte: dayStart, lt: dayEnd },
-      status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
-      ...(excludedBookingId ? { id: { not: excludedBookingId } } : {}),
-    },
-    include: { service: true },
-  });
-  const requestedEnd = scheduledAt.getTime() + durationMinutes * 60_000;
-  return candidates.find((candidate) => {
-    const existingStart = candidate.scheduledAt.getTime();
-    const existingEnd = existingStart + candidate.service.durationMinutes * 60_000;
-    return scheduledAt.getTime() < existingEnd && requestedEnd > existingStart;
-  });
-};
-
-// Request logger
-app.use((req, res, next) => {
-  console.log(`[API] ${req.method} ${req.url}`);
-  next();
-});
-
-// Health check
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    app: 'MLD Vietnam - Cộng Đồng Dẫn Lưu Bạch Huyết & Đào Tạo Nghề API',
-    version: '2.0.0',
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ==========================================
-// 1. AUTH & USER ENDPOINTS (GROUP A)
-// ==========================================
-app.post('/api/auth/zalo', asyncRoute(async (req: Request, res: Response) => {
-  const { accessToken, userInfo } = req.body;
-  if (!accessToken) return res.status(400).json({ error: 'Thiếu access token Zalo' });
-  const graphResponse = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
-    headers: { access_token: String(accessToken) },
-  });
-  const graph: any = await graphResponse.json().catch(() => ({}));
-  if (!graphResponse.ok || graph.error || !graph.id) {
-    console.warn('[AUTH] Zalo token verification failed', {
-      status: graphResponse.status,
-      error: graph.error,
-      message: graph.message,
-    });
-    return res.status(401).json({ error: 'Không thể xác minh tài khoản Zalo. Vui lòng đóng Mini App và mở lại.' });
+async function courseList(store: Store, courseId: string | null = null) {
+  const courses = await store.query(Prisma.sql`SELECT c.*, cat.name AS category_name, i.full_name AS instructor_name,
+    (SELECT count(*) FROM course_enrollments ce WHERE ce.course_id = c.id) AS students_count
+    FROM courses c JOIN course_categories cat ON cat.id = c.category_id LEFT JOIN instructors i ON i.id = c.primary_instructor_id
+    WHERE c.is_active AND (${courseId}::uuid IS NULL OR c.id = ${courseId}::uuid) ORDER BY c.created_at`);
+  for (const course of courses) {
+    course.lessons = await store.query(Prisma.sql`SELECT l.id,l.title,l.lesson_type,l.duration_minutes,l.is_free_preview,
+      CASE WHEN l.is_free_preview THEN l.video_url ELSE NULL END AS video_url
+      FROM course_lessons l JOIN course_chapters ch ON ch.id = l.chapter_id
+      WHERE ch.course_id = ${course.id}::uuid ORDER BY ch.chapter_order,l.lesson_order`);
+    const [quiz] = await store.query(Prisma.sql`SELECT id,title,passing_score,total_questions,time_limit_minutes FROM course_quizzes WHERE course_id = ${course.id}::uuid ORDER BY created_at LIMIT 1`);
+    course.quiz = quiz ? { ...quiz, questions: [] } : null;
   }
-  if (userInfo?.id && String(userInfo.id) !== String(graph.id)) return res.status(401).json({ error: 'Thông tin tài khoản Zalo không khớp' });
-  const avatar = userInfo?.avatar || graph.picture?.data?.url || graph.picture || null;
-  const name = userInfo?.name || graph.name || 'Khách hàng Zalo';
-  const existing = await prisma.user.findUnique({ where: { zaloId: String(graph.id) } });
-  const user = existing
-    ? await prisma.user.update({ where: { id: existing.id }, data: { name, avatarUrl: avatar } })
-    : await prisma.user.create({ data: { zaloId: String(graph.id), name, avatarUrl: avatar, role: UserRole.CUSTOMER, tier: 'Silver', points: 0 } });
-  res.json({ token: signSession(user.id), user: serializeUser(user), isNewUser: !existing });
-}));
-app.post('/api/auth/send-otp', (req: Request, res: Response) => {
-  const { phone } = req.body;
-  if (!phone) {
-    return res.status(400).json({ error: 'Vui lòng cung cấp số điện thoại' });
-  }
+  return courses;
+}
 
-  // Demo OTP: 246800
-  res.json({
-    message: 'Mã xác thực OTP đã được gửi tới số điện thoại của bạn',
-    phone,
-    otpDemo: '246800',
-    expiresInSeconds: 60,
-  });
-});
+async function enrollments(store: Store, customerId: string) {
+  return store.query(Prisma.sql`SELECT ce.*, c.title AS course_title, c.image_url AS course_image,
+    u.full_name AS student_name,u.phone,u.email FROM course_enrollments ce
+    JOIN courses c ON c.id = ce.course_id JOIN users u ON u.id = ce.student_id
+    WHERE ce.student_id = ${customerId}::uuid ORDER BY ce.enrolled_at DESC`);
+}
 
-app.post('/api/auth/verify-otp', (req: Request, res: Response) => {
-  const { phone, otp, role = 'patient' } = req.body;
-  if (!phone || !otp) {
-    return res.status(400).json({ error: 'Vui lòng nhập số điện thoại và mã OTP' });
-  }
+export interface AppOptions { jwtSecret: string; zaloAuthUrl?: string; zaloAppSecret?: string; fetch?: typeof fetch; }
 
-  let user = database.users.find((u) => u.phone === phone);
-  if (!user) {
-    user = {
-      id: `usr_${Date.now()}`,
-      name: 'Nguyễn Minh Anh',
-      phone,
-      email: 'minh.anh@example.com',
-      role: role as 'patient' | 'student',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      tier: 'Gold',
-      points: 2450,
-      dob: '15/08/1998',
-      gender: 'Nữ',
-      address: '123 Đường Mẫu, Quận 3, TP. Hồ Chí Minh',
-    };
-    database.users.push(user);
-  }
+export function createApp(store: Store, options: AppOptions) {
+  if (!options.jwtSecret) throw new Error('JWT_SECRET must match the shared identity backend');
+  const app = express();
+  const upstreamFetch = options.fetch ?? fetch;
+  app.use((_req,res,next)=>{ res.set('Cache-Control','no-store'); next(); });
+  app.use(cors());
+  app.use(express.json({ limit: '1mb' }));
+  const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
+    (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
 
-  res.json({
-    message: 'Xác thực OTP thành công!',
-    token: `jwt_token_${user.id}_${Date.now()}`,
-    user,
-  });
-});
+  app.get('/api/health', route(async (_req, res) => {
+    await store.query(Prisma.sql`SELECT 1 AS ready`);
+    return success(res, { status: 'ok', schema: 'database/schema.sql' });
+  }));
 
-app.post('/api/auth/login', (req: Request, res: Response) => {
-  const { phone, role = 'patient' } = req.body;
-  if (!phone) {
-    return res.status(400).json({ error: 'Vui lòng cung cấp số điện thoại' });
-  }
-
-  let user = database.users.find((u) => u.phone === phone);
-  if (!user) {
-    user = {
-      id: `usr_${Date.now()}`,
-      name: role === 'student' ? 'Học Viên MLD' : 'Khách Hàng MLD',
-      phone,
-      email: `${phone}@mldvietnam.vn`,
-      role: role as 'patient' | 'student',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      tier: 'Gold',
-      points: 2450,
-      dob: '15/08/1998',
-      gender: 'Nữ',
-      address: '123 Đường Mẫu, Quận 3, TP. Hồ Chí Minh',
-    };
-    database.users.push(user);
-  }
-
-  res.json({
-    message: 'Đăng nhập thành công',
-    token: `jwt_token_${user.id}_${Date.now()}`,
-    user,
-  });
-});
-
-app.get('/api/auth/me', async (req: Request, res: Response) => {
-  try {
-    const user = await prisma.user.findUnique({ where: { id: userIdFrom(req) } });
-    if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
-    res.json({ user: serializeUser(user) });
-  } catch (error) {
-    console.error('[API] GET /auth/me failed', error);
-    res.status(500).json({ error: 'Không thể tải hồ sơ người dùng' });
-  }
-});
-
-app.put('/api/auth/profile', async (req: Request, res: Response) => {
-  const {
-    name, email, address, dob, gender, avatar, preferredBranch, skinType,
-    healthNotes, emergencyContactName, emergencyContactPhone,
-  } = req.body;
-  if (!name?.trim()) return res.status(400).json({ error: 'Họ và tên không được để trống' });
-  try {
-    const user = await prisma.user.update({
-      where: { id: userIdFrom(req) },
-      data: {
-        name: name.trim(),
-        email: email?.trim() || null,
-        address: address?.trim() || null,
-        dob: dob?.trim() || null,
-        gender: gender || null,
-        avatarUrl: avatar || null,
-        preferredBranch: preferredBranch || null,
-        skinType: skinType || null,
-        healthNotes: healthNotes || null,
-        emergencyContactName: emergencyContactName || null,
-        emergencyContactPhone: emergencyContactPhone || null,
-      },
-    });
-    res.json({ message: 'Cập nhật thông tin thành công', user: serializeUser(user) });
-  } catch (error) {
-    console.error('[API] PUT /auth/profile failed', error);
-    res.status(500).json({ error: 'Không thể cập nhật hồ sơ' });
-  }
-});
-
-// ==========================================
-// 2. SERVICES & SPECIALISTS ENDPOINTS (GROUP B)
-// ==========================================
-app.get('/api/services', async (req: Request, res: Response) => {
-  const { category, search } = req.query;
-  try {
-    const result = await prisma.service.findMany({
-      where: {
-        isActive: true,
-        ...(category && category !== 'all' ? { category: { contains: String(category), mode: 'insensitive' } } : {}),
-        ...(search
-          ? {
-              OR: [
-                { name: { contains: String(search), mode: 'insensitive' } },
-                { description: { contains: String(search), mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-    res.json({ total: result.length, services: result.map(serializeService) });
-  } catch (error) {
-    console.error('[API] GET /services failed', error);
-    res.status(500).json({ error: 'Không thể tải danh sách dịch vụ' });
-  }
-});
-
-app.get('/api/services/:id', async (req: Request, res: Response) => {
-  try {
-    const service = await prisma.service.findUnique({ where: { id: req.params.id } });
-    if (!service) return res.status(404).json({ error: 'Không tìm thấy dịch vụ' });
-    res.json({ service: serializeService(service) });
-  } catch (error) {
-    console.error('[API] GET /services/:id failed', error);
-    res.status(500).json({ error: 'Không thể tải dịch vụ' });
-  }
-});
-
-app.get('/api/doctors', async (_req: Request, res: Response) => {
-  try {
-    const specialists = await prisma.specialist.findMany({ where: { isActive: true }, include: { branch: true } });
-    res.json({ total: specialists.length, doctors: specialists.map(serializeSpecialist) });
-  } catch (error) {
-    console.error('[API] GET /doctors failed', error);
-    res.status(500).json({ error: 'Không thể tải danh sách chuyên viên' });
-  }
-});
-
-app.get('/api/doctors/:id', async (req: Request, res: Response) => {
-  try {
-    const specialist = await prisma.specialist.findUnique({ where: { id: req.params.id }, include: { branch: true } });
-    if (!specialist) return res.status(404).json({ error: 'Không tìm thấy kỹ thuật viên/chuyên viên' });
-    res.json({ doctor: serializeSpecialist(specialist) });
-  } catch (error) {
-    console.error('[API] GET /doctors/:id failed', error);
-    res.status(500).json({ error: 'Không thể tải chuyên viên' });
-  }
-});
-
-app.get('/api/branches', async (_req: Request, res: Response) => {
-  try {
-    const branches = await prisma.branch.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
-    res.json({ branches });
-  } catch (error) {
-    console.error('[API] GET /branches failed', error);
-    res.status(500).json({ error: 'Không thể tải danh sách chi nhánh' });
-  }
-});
-
-// ==========================================
-// 3. BOOKINGS & PAYMENTS (GROUP C)
-// ==========================================
-app.get('/api/bookings', async (req: Request, res: Response) => {
-  try {
-    const bookings = await prisma.booking.findMany({ where: { userId: userIdFrom(req) }, include: bookingInclude, orderBy: { scheduledAt: 'desc' } });
-    res.json({ total: bookings.length, bookings: bookings.map(serializeBooking) });
-  } catch (error) {
-    console.error('[API] GET /bookings failed', error);
-    res.status(500).json({ error: 'Không thể tải lịch hẹn' });
-  }
-});
-
-app.get('/api/bookings/:id', async (req: Request, res: Response) => {
-  try {
-    const booking = await prisma.booking.findFirst({
-      where: { userId: userIdFrom(req), OR: [{ id: req.params.id }, { code: req.params.id }] },
-      include: bookingInclude,
-    });
-    if (!booking) return res.status(404).json({ error: 'Không tìm thấy lịch hẹn' });
-    res.json({ booking: serializeBooking(booking) });
-  } catch (error) {
-    console.error('[API] GET /bookings/:id failed', error);
-    res.status(500).json({ error: 'Không thể tải lịch hẹn' });
-  }
-});
-
-app.post('/api/bookings', async (req: Request, res: Response) => {
-  const {
-    serviceId,
-    doctorId,
-    branchId,
-    date,
-    timeSlot,
-    userName,
-    userPhone,
-    notes = '',
-    voucherCode,
-  } = req.body;
-  const scheduledAt = parseBookingDate(date, timeSlot);
-  if (!serviceId || !branchId || !date || !timeSlot || !scheduledAt) {
-    return res.status(400).json({ error: 'Thông tin đặt lịch chưa đầy đủ hoặc không hợp lệ' });
-  }
-
-  try {
-    const [service, branch, requestedSpecialist] = await Promise.all([
-      prisma.service.findUnique({ where: { id: serviceId } }),
-      prisma.branch.findUnique({ where: { id: branchId } }),
-      doctorId ? prisma.specialist.findUnique({ where: { id: doctorId } }) : Promise.resolve(null),
-    ]);
-    if (!service || !branch) return res.status(404).json({ error: 'Dịch vụ hoặc chi nhánh không tồn tại' });
-    if (doctorId && !requestedSpecialist) return res.status(404).json({ error: 'Chuyên viên không tồn tại' });
-    if (scheduledAt.getTime() <= Date.now()) return res.status(400).json({ error: 'Vui lòng chọn thời gian trong tương lai' });
-    if (requestedSpecialist && requestedSpecialist.branchId !== branchId) {
-      return res.status(409).json({ error: 'Chuyên viên không làm việc tại chi nhánh đã chọn' });
-    }
-
-    let appliedUserVoucher: any = null;
-    let finalAmount = Number(service.price);
-    if (voucherCode) {
-      appliedUserVoucher = await prisma.userVoucher.findFirst({
-        where: { userId: userIdFrom(req), usedAt: null, voucher: { code: String(voucherCode).trim().toUpperCase() } },
-        include: { voucher: true },
-      });
-      const voucher = appliedUserVoucher?.voucher;
-      const now = new Date();
-      if (!voucher || !voucher.isActive || voucher.startsAt > now || voucher.expiresAt < now) {
-        return res.status(400).json({ error: 'Mã ưu đãi không khả dụng hoặc đã hết hạn' });
+  app.post('/api/auth/zalo', route(async (req, res) => {
+    if (!req.body.accessToken) throw new ApiError(400, 'Zalo access token is required');
+    if (!options.zaloAuthUrl) {
+      if (!options.zaloAppSecret) throw new ApiError(503, 'Configure ZALO_APP_SECRET or the shared identity relay');
+      if (typeof req.body.phoneToken !== 'string' || !req.body.phoneToken) throw new ApiError(400,'Phone permission is required to identify the shared account');
+      const [phoneResponse, profileResponse] = await Promise.all([
+        upstreamFetch('https://graph.zalo.me/v2.0/me/info',{ headers:{ access_token:String(req.body.accessToken),code:req.body.phoneToken,secret_key:options.zaloAppSecret },signal:AbortSignal.timeout(15000) }),
+        upstreamFetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture',{ headers:{ access_token:String(req.body.accessToken) },signal:AbortSignal.timeout(15000) }),
+      ]);
+      const phoneData: any = await phoneResponse.json(), profile: any = await profileResponse.json();
+      if (!phoneResponse.ok || phoneData.error || !profileResponse.ok || profile.error || !profile.id) throw new ApiError(401,'Could not verify Zalo identity');
+      const digits = String(phoneData.data?.number ?? '').replace(/^\+/,'');
+      if (!/^84\d{9,10}$/.test(digits)) throw new ApiError(401,'Verified Zalo phone number is invalid');
+      const localPhone = `0${digits.slice(2)}`;
+      const existing = await store.query(Prisma.sql`SELECT ${publicUser} FROM users WHERE phone IN (${localPhone},${digits},${`+${digits}`})`);
+      if (existing.length > 1) throw new ApiError(409,'Duplicate shared phone identities require resolution by the identity owner');
+      let record = existing[0];
+      if (record && !record.is_active) throw new ApiError(403,'Shared account is inactive');
+      if (!record) {
+        const name = String(profile.name ?? 'Zalo customer');
+        const avatar = typeof profile.picture?.data?.url === 'string' ? profile.picture.data.url : null;
+        [record] = await store.query(Prisma.sql`INSERT INTO users (phone,full_name,avatar_url,referral_code)
+          VALUES (${localPhone},${name},${avatar},${randomUUID().replace(/-/g,'').slice(0,20)}) RETURNING ${publicUser}`);
       }
-      if (voucher.scope !== 'ALL' && voucher.scope !== 'SERVICE') {
-        return res.status(400).json({ error: 'Mã này chỉ áp dụng cho khóa học' });
-      }
-      if (voucher.applicableCategories.length && !voucher.applicableCategories.includes(service.category)) {
-        return res.status(400).json({ error: `Mã chỉ áp dụng cho: ${voucher.applicableCategories.join(', ')}` });
-      }
-      if (finalAmount < voucher.minOrderValue) {
-        return res.status(400).json({ error: `Giá trị dịch vụ tối thiểu ${voucher.minOrderValue.toLocaleString('vi-VN')} đ` });
-      }
-      const calculated = voucher.discountType === 'PERCENT'
-        ? Math.floor(finalAmount * voucher.discountValue / 100)
-        : voucher.discountValue;
-      finalAmount -= Math.min(calculated, voucher.maxDiscountAmount ?? calculated, finalAmount);
+      return success(res,{token:jwt.sign({sub:record.id,phone:record.phone,role:record.role},options.jwtSecret,{algorithm:'HS256',expiresIn:'7d'}),user:record,isNewUser:existing.length===0});
     }
+    const response = await upstreamFetch(options.zaloAuthUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: req.body.accessToken, phoneToken:req.body.phoneToken, userInfo: req.body.userInfo }), signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new ApiError(401, 'Shared identity service rejected Zalo login');
+    const raw: any = await response.json();
+    const data = raw.data ?? raw;
+    const token = data.accessToken ?? data.token;
+    let payload: jwt.JwtPayload;
+    try { payload = jwt.verify(token, options.jwtSecret, { algorithms: ['HS256'] }) as jwt.JwtPayload; }
+    catch { throw new ApiError(401, 'Identity service must return a valid shared access token'); }
+    const record = await user(store, uuid(payload.sub));
+    return success(res, { token, user: record, isNewUser: Boolean(data.isNewUser) });
+  }));
 
-    let assignedSpecialist = requestedSpecialist;
-    if (!assignedSpecialist) {
-      const available = await prisma.specialist.findMany({
-        where: { branchId, isActive: true, services: { some: { serviceId } } },
-      });
-      for (const candidate of available) {
-        const conflict = await findBookingConflict(candidate.id, scheduledAt, service.durationMinutes);
-        if (!conflict) {
-          assignedSpecialist = candidate;
-          break;
-        }
+  app.get('/api/services', route(async (req, res) => {
+    const search = typeof req.query.search === 'string' ? req.query.search : '';
+    const category = typeof req.query.category === 'string' ? req.query.category : '';
+    const services = await store.query(Prisma.sql`SELECT s.*,cat.name AS category_name FROM services s JOIN service_categories cat ON cat.id = s.category_id
+      WHERE s.is_active AND cat.is_active AND (${search} = '' OR s.name ILIKE ${`%${search}%`} OR s.short_description ILIKE ${`%${search}%`})
+      AND (${category} = '' OR cat.code = ${category} OR cat.name = ${category}) ORDER BY s.created_at`);
+    return success(res, { services });
+  }));
+  app.get('/api/services/:id', route(async (req,res) => {
+    const [service] = await store.query(Prisma.sql`SELECT s.*,cat.name AS category_name FROM services s JOIN service_categories cat ON cat.id = s.category_id WHERE s.id = ${uuid(req.params.id)}::uuid AND s.is_active`);
+    if (!service) throw new ApiError(404,'Service not found');
+    return success(res,{service});
+  }));
+  app.get('/api/doctors', route(async (_req,res) => success(res,{doctors:await store.query(Prisma.sql`SELECT t.*,b.name AS branch_name FROM technicians t JOIN branches b ON b.id = t.branch_id WHERE t.is_active AND b.is_active ORDER BY t.full_name`)})));
+  app.get('/api/doctors/:id', route(async (req,res) => {
+    const [doctor] = await store.query(Prisma.sql`SELECT t.*,b.name AS branch_name FROM technicians t JOIN branches b ON b.id = t.branch_id WHERE t.id = ${uuid(req.params.id)}::uuid AND t.is_active`);
+    if (!doctor) throw new ApiError(404,'Technician not found');
+    return success(res,{doctor});
+  }));
+  app.get('/api/branches', route(async (_req,res) => success(res,{branches:await store.query(Prisma.sql`SELECT *,to_char(opening_time,'HH24:MI') AS opening_time,to_char(closing_time,'HH24:MI') AS closing_time FROM branches WHERE is_active ORDER BY name`)})));
+  app.get('/api/slots',route(async(req,res)=>{
+    const branchId = uuid(req.query.branchId), serviceId = uuid(req.query.serviceId);
+    const technicianId = req.query.technicianId ? uuid(req.query.technicianId) : null;
+    const day = String(req.query.date ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new ApiError(400,'Slot date must be YYYY-MM-DD');
+    let customerId: string | null = null;
+    try { const payload = jwt.verify(req.headers.authorization?.replace(/^Bearer\s+/i,'') ?? '',options.jwtSecret,{algorithms:['HS256']}) as jwt.JwtPayload; customerId = uuid(payload.sub); }
+    catch { /* Public users see available slots, but not another user's hold. */ }
+    const slots = await store.query(Prisma.sql`SELECT ts.id,ts.technician_id,ts.branch_id,to_char(ts.slot_date,'YYYY-MM-DD') AS slot_date,
+      to_char(ts.start_time,'HH24:MI:SS') AS start_time,to_char(ts.start_time + s.duration_minutes * INTERVAL '1 minute','HH24:MI:SS') AS end_time
+      FROM technician_slots ts JOIN technicians t ON t.id = ts.technician_id JOIN services s ON s.id = ${serviceId}::uuid
+      WHERE ts.branch_id = ${branchId}::uuid AND t.branch_id = ts.branch_id AND t.is_active AND s.is_active
+        AND (${technicianId}::uuid IS NULL OR ts.technician_id = ${technicianId}::uuid)
+        AND ts.slot_date = ${day}::date AND ts.end_time >= ts.start_time + s.duration_minutes * INTERVAL '1 minute'
+        AND (ts.status = 'AVAILABLE' OR (ts.status = 'HOLD' AND (ts.held_by_user_id = ${customerId}::uuid OR ts.hold_expires_at < CURRENT_TIMESTAMP)))
+        AND (ts.slot_date + ts.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh' > CURRENT_TIMESTAMP
+        AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.technician_id = ts.technician_id AND b.booking_date = ts.slot_date
+          AND b.status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE') AND b.start_time < ts.start_time + s.duration_minutes * INTERVAL '1 minute' AND b.end_time > ts.start_time)
+      ORDER BY ts.start_time`);
+    return success(res,{slots});
+  }));
+  app.get('/api/courses', route(async (_req,res) => success(res,{courses:await courseList(store)})));
+  app.get('/api/courses/:id', route(async (req,res) => {
+    const [course] = await courseList(store,uuid(req.params.id));
+    if (!course) throw new ApiError(404,'Course not found');
+    return success(res,{course});
+  }));
+
+  // Private routes always use the UUID issued by the group's identity service.
+  app.use('/api', (req,res,next) => { Promise.resolve().then(async () => {
+    const token = req.headers.authorization?.replace(/^Bearer\s+/i,'');
+    let payload: jwt.JwtPayload;
+    try { payload = jwt.verify(token ?? '', options.jwtSecret, { algorithms: ['HS256'] }) as jwt.JwtPayload; }
+    catch { throw new ApiError(401,'Shared account authentication is required'); }
+    res.locals.userId = uuid(payload.sub);
+    res.locals.user = await user(store,res.locals.userId);
+  }).then(()=>next()).catch(next); });
+
+  app.get('/api/auth/me', route(async (_req,res) => success(res,{user:res.locals.user})));
+  app.put('/api/auth/profile', route(async (req,res) => {
+    const input = req.body;
+    const name = input.fullName ?? input.name ?? res.locals.user.full_name;
+    const gender = input.gender === 'Nam' ? 'MALE' : input.gender === 'Nữ' ? 'FEMALE' : input.gender === 'Khác' ? 'OTHER' : input.gender ?? res.locals.user.gender;
+    if (typeof name !== 'string' || !name.trim() || !['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400,'Invalid profile');
+    const dobValue = input.dateOfBirth !== undefined ? input.dateOfBirth : input.dob !== undefined ? input.dob : res.locals.user.date_of_birth;
+    const dob = dobValue instanceof Date ? dobValue.toISOString().slice(0,10) : dobValue;
+    if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob.slice(0,10)))) throw new ApiError(400,'Birth date must be YYYY-MM-DD');
+    // Phone changes need the shared verified identity flow, not an editable form.
+    if (input.phone && input.phone !== res.locals.user.phone) throw new ApiError(400,'Change phone through the shared verified identity service');
+    const avatar = input.avatarUrl ?? input.avatar ?? res.locals.user.avatar_url;
+    if (avatar && (typeof avatar !== 'string' || avatar.length > 750000 || !/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/.test(avatar))) throw new ApiError(400,'Invalid profile image');
+    const purpose = input.purpose ?? res.locals.user.purpose;
+    if (!['BEAUTY_SPA','ACADEMY','BOTH'].includes(purpose)) throw new ApiError(400,'Invalid purpose');
+    const [updated] = await store.query(Prisma.sql`UPDATE users SET full_name = ${name.trim()},gender = ${gender},
+      avatar_url = ${avatar},purpose = ${purpose}::purpose_interest,
+      email = ${input.email ?? res.locals.user.email},address = ${input.address ?? res.locals.user.address},
+      date_of_birth = ${dob ? String(dob).slice(0,10) : null}::date,
+      emergency_contact_name = ${input.emergencyContactName ?? res.locals.user.emergency_contact_name},
+      emergency_contact_phone = ${input.emergencyContactPhone ?? res.locals.user.emergency_contact_phone}
+      WHERE id = ${res.locals.userId}::uuid RETURNING ${publicUser}`);
+    return success(res,{user:updated});
+  }));
+
+  app.get('/api/bookings', route(async (_req,res) => success(res,{bookings:await store.query(Prisma.sql`${bookingSelect} WHERE b.customer_id = ${res.locals.userId}::uuid ORDER BY b.created_at DESC`)})));
+  app.get('/api/bookings/:id', route(async (req,res) => success(res,{booking:await booking(store,uuid(req.params.id),res.locals.userId)})));
+  app.post('/api/bookings', route(async (req,res) => {
+    const ids = req.body.serviceIds ?? [req.body.serviceId];
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 10 || new Set(ids).size !== ids.length) throw new ApiError(400,'Choose 1-10 unique services');
+    ids.forEach(uuid);
+    const branchId = uuid(req.body.branchId);
+    const technicianId = req.body.technicianId || req.body.doctorId ? uuid(req.body.technicianId || req.body.doctorId) : null;
+    const customerId = res.locals.userId;
+    const result = await store.transaction(async tx => {
+      const services = await tx.query(Prisma.sql`SELECT * FROM services WHERE id IN (${Prisma.join(ids.map(id=>Prisma.sql`${id}::uuid`))}) AND is_active FOR SHARE`);
+      if (services.length !== ids.length) throw new ApiError(404,'A service is missing or inactive');
+      const [branch] = await tx.query(Prisma.sql`SELECT * FROM branches WHERE id = ${branchId}::uuid AND is_active`);
+      if (!branch) throw new ApiError(404,'Branch not found');
+      const time = bookingTime(req.body.bookingDate ?? req.body.date,req.body.startTime ?? req.body.timeSlot,services.reduce((sum,s)=>sum+Number(s.duration_minutes),0));
+      const assigned = await reserveSlot(tx,customerId,branchId,technicianId,time);
+      const total = services.reduce<Prisma.Decimal>((sum,s)=>sum.add(s.discount_price ?? s.price),new Prisma.Decimal(0));
+      const coupon = req.body.couponCode ?? req.body.voucherCode;
+      const applied = coupon ? await voucherForOrder(tx,customerId,String(coupon),total) : null;
+      if (req.body.pointsToUse) throw new ApiError(400,'Point redemption must use the shared payment workflow');
+      const [saved] = await tx.query(Prisma.sql`INSERT INTO bookings
+        (booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,base_total,coupon_id,discount_amount,final_price,
+        booked_for_name,booked_for_phone,special_notes,qr_code_hash)
+        VALUES (${`SPA-${randomUUID()}`.slice(0,30)},${customerId}::uuid,${branchId}::uuid,${assigned}::uuid,${time.day}::date,${time.start}::time,${time.end}::time,
+        'CONFIRMED',${total},${applied?.record.id ?? null}::uuid,${applied?.discount ?? new Prisma.Decimal(0)},${total.sub(applied?.discount ?? 0)},
+        ${req.body.bookedForName ?? req.body.userName ?? null},${req.body.bookedForPhone ?? req.body.userPhone ?? null},${req.body.specialNotes ?? req.body.notes ?? null},${randomUUID()}) RETURNING id`);
+      for (const service of services) await tx.query(Prisma.sql`INSERT INTO booking_items (booking_id,service_id,technician_id,duration_minutes,price)
+        VALUES (${saved.id}::uuid,${service.id}::uuid,${assigned}::uuid,${service.duration_minutes},${service.discount_price ?? service.price}) RETURNING id`);
+      if (applied) {
+        await tx.query(Prisma.sql`UPDATE user_vouchers SET status = 'USED',used_at = CURRENT_TIMESTAMP,used_in_booking_id = ${saved.id}::uuid WHERE id = ${applied.record.wallet_id}::uuid RETURNING id`);
+        await tx.query(Prisma.sql`UPDATE coupons SET used_count = used_count + 1 WHERE id = ${applied.record.id}::uuid RETURNING id`);
       }
-      if (!assignedSpecialist) {
-        return res.status(409).json({ error: 'Tất cả chuyên viên đã kín lịch ở khung giờ này. Vui lòng chọn giờ khác.' });
-      }
+      await notify(tx,customerId,'Booking confirmed',`${time.day} ${time.start}`,saved.id);
+      return booking(tx,saved.id,customerId);
+    });
+    return success(res,{booking:result},201);
+  }));
+
+  app.patch('/api/bookings/:id/reschedule', route(async (req,res) => {
+    const id = uuid(req.params.id), customerId = res.locals.userId;
+    const result = await store.transaction(async tx => {
+      const [current] = await tx.query(Prisma.sql`SELECT *,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time,to_char(end_time,'HH24:MI:SS') AS end_time FROM bookings WHERE id = ${id}::uuid AND customer_id = ${customerId}::uuid FOR UPDATE`);
+      if (!current) throw new ApiError(404,'Booking not found');
+      if (!['PENDING','CONFIRMED'].includes(current.status)) throw new ApiError(409,'This booking cannot be rescheduled');
+      const [duration] = await tx.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes FROM booking_items WHERE booking_id = ${id}::uuid`);
+      const time = bookingTime(req.body.bookingDate ?? req.body.date,req.body.startTime ?? req.body.timeSlot,Number(duration.minutes));
+      if (time.day === current.booking_date && time.start === current.start_time) return booking(tx,id,customerId);
+      await reserveSlot(tx,customerId,current.branch_id,current.technician_id,time,id);
+      await tx.query(Prisma.sql`UPDATE technician_slots SET status = 'AVAILABLE' WHERE technician_id = ${current.technician_id}::uuid AND slot_date = ${current.booking_date}::date AND start_time = ${current.start_time}::time AND status = 'BOOKED' RETURNING id`);
+      await tx.query(Prisma.sql`UPDATE bookings SET booking_date = ${time.day}::date,start_time = ${time.start}::time,end_time = ${time.end}::time WHERE id = ${id}::uuid RETURNING id`);
+      await notify(tx,customerId,'Booking rescheduled',`${time.day} ${time.start}`,id);
+      return booking(tx,id,customerId);
+    });
+    return success(res,{booking:result});
+  }));
+  app.patch('/api/bookings/:id/cancel', route(async (req,res) => {
+    const id = uuid(req.params.id), customerId = res.locals.userId;
+    const result = await store.transaction(async tx => {
+      const [current] = await tx.query(Prisma.sql`SELECT *,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time FROM bookings WHERE id = ${id}::uuid AND customer_id = ${customerId}::uuid FOR UPDATE`);
+      if (!current) throw new ApiError(404,'Booking not found');
+      if (!['PENDING','CONFIRMED'].includes(current.status) || current.payment_status === 'PAID' || current.payment_status === 'PARTIAL') throw new ApiError(409,'Use the shared refund workflow for a paid or started booking');
+      await tx.query(Prisma.sql`UPDATE bookings SET status = 'CANCELLED',cancellation_reason = ${req.body.reason ?? null},cancelled_by_id = ${customerId}::uuid WHERE id = ${id}::uuid RETURNING id`);
+      await tx.query(Prisma.sql`UPDATE technician_slots SET status = 'AVAILABLE' WHERE technician_id = ${current.technician_id}::uuid AND slot_date = ${current.booking_date}::date AND start_time = ${current.start_time}::time AND status = 'BOOKED' RETURNING id`);
+      const vouchers = await tx.query(Prisma.sql`UPDATE user_vouchers SET status = 'AVAILABLE',used_at = NULL,used_in_booking_id = NULL
+        WHERE user_id = ${customerId}::uuid AND used_in_booking_id = ${id}::uuid AND used_in_invoice_id IS NULL RETURNING coupon_id`);
+      for (const voucher of vouchers) await tx.query(Prisma.sql`UPDATE coupons SET used_count = GREATEST(0,used_count - 1) WHERE id = ${voucher.coupon_id}::uuid RETURNING id`);
+      await notify(tx,customerId,'Booking cancelled',String(req.body.reason ?? ''),id);
+      return booking(tx,id,customerId);
+    });
+    return success(res,{booking:result});
+  }));
+
+  app.get('/api/course-enrollments',route(async (_req,res)=>success(res,{enrollments:await enrollments(store,res.locals.userId)})));
+  app.post('/api/course-enrollments',route(async (req,res)=>{
+    const courseId = uuid(req.body.courseId), customerId = res.locals.userId;
+    if (req.body.voucherCode || req.body.couponCode) throw new ApiError(400,'Course discounts must be applied by the shared tuition workflow');
+    const saved = await store.transaction(async tx=>{
+      await tx.query(Prisma.sql`SELECT id FROM users WHERE id = ${customerId}::uuid FOR UPDATE`);
+      const existing = await tx.query(Prisma.sql`SELECT id FROM course_enrollments WHERE student_id = ${customerId}::uuid AND course_id = ${courseId}::uuid AND status <> 'DROPPED'`);
+      if (existing.length) throw new ApiError(409,'Already registered for this course');
+      const [course] = await tx.query(Prisma.sql`SELECT * FROM courses WHERE id = ${courseId}::uuid AND is_active`);
+      if (!course) throw new ApiError(404,'Course not found');
+      const [entry] = await tx.query(Prisma.sql`INSERT INTO course_enrollments (student_id,course_id,tuition_total,status)
+        VALUES (${customerId}::uuid,${courseId}::uuid,${course.tuition_fee},'CONSULTING') RETURNING id`);
+      return (await enrollments(tx,customerId)).find(item=>item.id === entry.id);
+    });
+    return success(res,{enrollment:saved},201);
+  }));
+
+  app.get('/api/courses/:id/learning',route(async (req,res)=>{
+    const courseId = uuid(req.params.id), customerId = res.locals.userId;
+    const [enrollment] = await store.query(Prisma.sql`SELECT id,batch_id FROM course_enrollments WHERE course_id = ${courseId}::uuid AND student_id = ${customerId}::uuid AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC LIMIT 1`);
+    if (!enrollment) throw new ApiError(403,'Enrollment is required to access course content');
+    const [course] = await courseList(store,courseId);
+    course.lessons = await store.query(Prisma.sql`SELECT l.*,COALESCE(p.is_completed,false) AS is_completed FROM course_lessons l JOIN course_chapters ch ON ch.id = l.chapter_id LEFT JOIN user_lesson_progress p ON p.lesson_id = l.id AND p.enrollment_id = ${enrollment.id}::uuid WHERE ch.course_id = ${courseId}::uuid ORDER BY ch.chapter_order,l.lesson_order`);
+    if (course.quiz) course.quiz.questions = await store.query(Prisma.sql`SELECT id,question_number,question_text,options FROM quiz_questions WHERE quiz_id = ${course.quiz.id}::uuid ORDER BY question_number`);
+    course.schedules = await store.query(Prisma.sql`SELECT bs.*,a.status AS attendance_status FROM batch_schedules bs
+      LEFT JOIN student_attendance a ON a.schedule_id=bs.id AND a.enrollment_id=${enrollment.id}::uuid
+      WHERE bs.batch_id=${enrollment.batch_id}::uuid ORDER BY bs.session_date,bs.start_time`);
+    [course.academicRecord] = await store.query(Prisma.sql`SELECT * FROM student_academic_records WHERE enrollment_id=${enrollment.id}::uuid`);
+    [course.certificate] = await store.query(Prisma.sql`SELECT * FROM student_certificates WHERE student_id=${customerId}::uuid AND enrollment_id=${enrollment.id}::uuid AND status='ISSUED' ORDER BY issue_date DESC LIMIT 1`);
+    return success(res,{course});
+  }));
+  app.post('/api/courses/:id/quiz/submit',route(async(req,res)=>{
+    const courseId = uuid(req.params.id), customerId = res.locals.userId;
+    const [enrollment] = await store.query(Prisma.sql`SELECT id FROM course_enrollments WHERE course_id = ${courseId}::uuid AND student_id = ${customerId}::uuid AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC LIMIT 1`);
+    if (!enrollment) throw new ApiError(403,'Enrollment is required');
+    const [quiz] = await store.query(Prisma.sql`SELECT * FROM course_quizzes WHERE course_id = ${courseId}::uuid ORDER BY created_at LIMIT 1`);
+    if (!quiz) throw new ApiError(404,'Quiz not found');
+    const questions = await store.query(Prisma.sql`SELECT * FROM quiz_questions WHERE quiz_id = ${quiz.id}::uuid ORDER BY question_number`);
+    if (!questions.length) throw new ApiError(409,'Quiz has no questions');
+    const answers = req.body.answers;
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) throw new ApiError(400,'Answers must be keyed by question UUID');
+    const correct = questions.filter(q=>{
+      const answer = answers[q.id];
+      const option = typeof answer === 'number' && Number.isInteger(answer) && answer >= 0 && answer < 26 ? String.fromCharCode(65+answer) : answer;
+      return option === q.correct_option;
+    }).length;
+    const score = new Prisma.Decimal(correct).div(questions.length).mul(10).toDecimalPlaces(2);
+    const [submission] = await store.query(Prisma.sql`INSERT INTO quiz_submissions (enrollment_id,quiz_id,score,correct_count,submitted_answers,passed)
+      VALUES (${enrollment.id}::uuid,${quiz.id}::uuid,${score},${correct},${JSON.stringify(answers)}::jsonb,${score.gte(quiz.passing_score)}) RETURNING *`);
+    return success(res,{submission,score:score.mul(10),correctCount:correct,totalQuestions:questions.length,isPassed:submission.passed,certificateCode:null});
+  }));
+
+  app.get('/api/records',route(async(_req,res)=>success(res,{records:await store.query(Prisma.sql`SELECT j.*,t.full_name AS technician_name FROM treatment_journal j LEFT JOIN technicians t ON t.id = j.technician_id WHERE j.customer_id = ${res.locals.userId}::uuid ORDER BY j.session_date DESC`)})));
+  app.get('/api/records/:id',route(async(req,res)=>{
+    const [record] = await store.query(Prisma.sql`SELECT * FROM treatment_journal WHERE id = ${uuid(req.params.id)}::uuid AND customer_id = ${res.locals.userId}::uuid`);
+    if (!record) throw new ApiError(404,'Record not found');
+    return success(res,{record});
+  }));
+  app.get('/api/care-guidelines',route(async(_req,res)=>success(res,{guidelines:await store.query(Prisma.sql`SELECT * FROM home_care_guidelines WHERE is_published ORDER BY is_featured DESC,created_at DESC`)})));
+  app.get('/api/support-tickets',route(async(_req,res)=>success(res,{tickets:await store.query(Prisma.sql`SELECT * FROM support_tickets WHERE customer_id = ${res.locals.userId}::uuid ORDER BY created_at DESC`)})));
+  app.post('/api/support-tickets',route(async(req,res)=>{
+    const subject = String(req.body.subject ?? '').trim(),message = String(req.body.message ?? '').trim();
+    if (!subject || subject.length>200 || !message || message.length>10000) throw new ApiError(400,'A subject and message are required');
+    const [ticket] = await store.query(Prisma.sql`INSERT INTO support_tickets(customer_id,subject,message) VALUES (${res.locals.userId}::uuid,${subject},${message}) RETURNING *`);
+    return success(res,{ticket},201);
+  }));
+  app.post('/api/consultation-surveys',route(async(req,res)=>{
+    const id = req.body.bookingId ? uuid(req.body.bookingId) : null,customerId = res.locals.userId;
+    if (id) await booking(store,id,customerId);
+    const pressure = req.body.pressurePref ?? 'MEDIUM';
+    if (!['LIGHT','MEDIUM','STRONG'].includes(pressure)) throw new ApiError(400,'Invalid pressure preference');
+    const areas = req.body.focusAreas ?? [],conditions = req.body.medicalConditions ?? [];
+    if (![areas,conditions].every(values=>Array.isArray(values)&&values.length<=30&&values.every(value=>typeof value==='string'&&value.length<=200))) throw new ApiError(400,'Invalid consultation details');
+    const [survey] = await store.query(Prisma.sql`INSERT INTO consultation_surveys(customer_id,booking_id,focus_areas,pressure_pref,has_sensitive_skin,has_oil_allergy,allergy_details,medical_conditions,special_requests)
+      VALUES (${customerId}::uuid,${id}::uuid,${areas}::text[],${pressure},${req.body.hasSensitiveSkin===true},${req.body.hasOilAllergy===true},${req.body.allergyDetails??null},${conditions}::text[],${req.body.specialRequests??null}) RETURNING *`);
+    return success(res,{survey},201);
+  }));
+  app.post('/api/reviews',route(async(req,res)=>{
+    const id = uuid(req.body.bookingId),serviceId = uuid(req.body.serviceId),customerId = res.locals.userId;
+    if (!Number.isInteger(req.body.rating)||req.body.rating<1||req.body.rating>5) throw new ApiError(400,'Rating must be 1-5');
+    const [owned] = await store.query(Prisma.sql`SELECT b.technician_id FROM bookings b JOIN booking_items bi ON bi.booking_id=b.id WHERE b.id=${id}::uuid AND b.customer_id=${customerId}::uuid AND b.status='COMPLETED' AND bi.service_id=${serviceId}::uuid`);
+    if (!owned) throw new ApiError(403,'Only a completed service from your own booking can be reviewed');
+    for (const values of [req.body.reviewTags??[],req.body.photos??[]]) {
+      if (!Array.isArray(values)||values.length>30||values.some(value=>typeof value!=='string'||value.length>2000)) throw new ApiError(400,'Invalid review details');
     }
+    const [review] = await store.query(Prisma.sql`INSERT INTO reviews(customer_id,booking_id,service_id,technician_id,rating,comment,review_tags,photos)
+      VALUES (${customerId}::uuid,${id}::uuid,${serviceId}::uuid,${owned.technician_id}::uuid,${req.body.rating},${req.body.comment??null},${JSON.stringify(req.body.reviewTags??[])}::jsonb,${JSON.stringify(req.body.photos??[])}::jsonb) RETURNING *`);
+    return success(res,{review},201);
+  }));
+  app.get('/api/treatment-plans',route(async(_req,res)=>{
+    const plans = await store.query(Prisma.sql`SELECT up.*,row_to_json(tp) AS package FROM user_packages up JOIN treatment_packages tp ON tp.id = up.package_id WHERE up.customer_id = ${res.locals.userId}::uuid ORDER BY up.purchased_at DESC`);
+    for (const plan of plans) plan.sessions = await store.query(Prisma.sql`SELECT * FROM treatment_journal WHERE user_package_id = ${plan.id}::uuid AND customer_id = ${res.locals.userId}::uuid ORDER BY session_number`);
+    return success(res,{treatmentPlans:plans});
+  }));
+  app.get('/api/membership',route(async(_req,res)=>{
+    const id = res.locals.userId;
+    const vouchers = await store.query(Prisma.sql`SELECT uv.*,row_to_json(c) AS coupon FROM user_vouchers uv JOIN coupons c ON c.id = uv.coupon_id WHERE uv.user_id = ${id}::uuid ORDER BY uv.claimed_at DESC`);
+    const [summary] = await store.query(Prisma.sql`SELECT
+      (SELECT count(*) FROM bookings WHERE customer_id = ${id}::uuid AND status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE') AND booking_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date) AS upcoming_bookings,
+      (SELECT COALESCE(sum(total_sessions-completed_sessions),0) FROM user_packages WHERE customer_id = ${id}::uuid AND status = 'ACTIVE' AND expires_at > CURRENT_TIMESTAMP) AS remaining_treatment_sessions,
+      (SELECT count(*) FROM course_enrollments WHERE student_id = ${id}::uuid AND status IN ('CONSULTING','DEPOSITED','ENROLLED','STUDYING')) AS active_courses`);
+    return success(res,{user:res.locals.user,vouchers,summary});
+  }));
+  app.get('/api/transactions',route(async(_req,res)=>{
+    const invoices = await store.query(Prisma.sql`SELECT * FROM invoices WHERE customer_id = ${res.locals.userId}::uuid ORDER BY paid_at DESC`);
+    const points = await store.query(Prisma.sql`SELECT * FROM point_transactions WHERE user_id = ${res.locals.userId}::uuid ORDER BY created_at DESC`);
+    return success(res,{invoices,pointTransactions:points,totalSpent:res.locals.user.total_spent});
+  }));
+  app.get('/api/notifications',route(async(_req,res)=>success(res,{notifications:await store.query(Prisma.sql`SELECT * FROM notifications WHERE user_id = ${res.locals.userId}::uuid ORDER BY created_at DESC LIMIT 50`)})));
+  app.patch('/api/notifications/read-all',route(async(_req,res)=>{
+    await store.query(Prisma.sql`UPDATE notifications SET is_read = true WHERE user_id = ${res.locals.userId}::uuid RETURNING id`);
+    return success(res,{updated:true});
+  }));
+  app.patch('/api/notifications/:id/read',route(async(req,res)=>{
+    const [notification] = await store.query(Prisma.sql`UPDATE notifications SET is_read = true WHERE id = ${uuid(req.params.id)}::uuid AND user_id = ${res.locals.userId}::uuid RETURNING *`);
+    if (!notification) throw new ApiError(404,'Notification not found');
+    return success(res,{notification});
+  }));
 
-    const conflict = await findBookingConflict(assignedSpecialist.id, scheduledAt, service.durationMinutes);
-    if (conflict) {
-      return res.status(409).json({
-        error: `${assignedSpecialist.name} đã có lịch trùng thời gian này. Vui lòng chọn chuyên viên hoặc giờ khác.`,
-        code: 'BOOKING_CONFLICT',
-      });
-    }
-
-    const user = await prisma.user.update({
-      where: { id: userIdFrom(req) },
-      data: {
-        ...(userName ? { name: userName } : {}),
-        ...(userPhone ? { phone: String(userPhone).replace(/\s/g, '') } : {}),
-      },
+  app.post('/api/vouchers/claim',route(async(req,res)=>{
+    const customerId = res.locals.userId, code = String(req.body.code ?? '').trim().toUpperCase();
+    const result = await store.transaction(async tx=>{
+      const [owner] = await tx.query(Prisma.sql`SELECT membership_tier FROM users WHERE id = ${customerId}::uuid FOR UPDATE`);
+      const [coupon] = await tx.query(Prisma.sql`SELECT * FROM coupons WHERE UPPER(code) = ${code} AND is_active AND valid_from <= CURRENT_TIMESTAMP AND valid_to > CURRENT_TIMESTAMP AND used_count < usage_limit FOR UPDATE`);
+      if (!coupon) throw new ApiError(400,'Voucher is unavailable');
+      const [rule] = await tx.query(Prisma.sql`SELECT * FROM voucher_distribution_rules WHERE coupon_id = ${coupon.id}::uuid AND trigger_event = 'PUBLIC_CLAIM' AND is_active AND (target_tier IS NULL OR target_tier = ${owner.membership_tier}::member_tier) ORDER BY created_at LIMIT 1`);
+      if (!rule) throw new ApiError(403,'Voucher is not available for public claim by this membership tier');
+      const existing = await tx.query(Prisma.sql`SELECT id FROM user_vouchers WHERE user_id = ${customerId}::uuid AND coupon_id = ${coupon.id}::uuid`);
+      if (existing.length) throw new ApiError(409,'Voucher already claimed');
+      const [wallet] = await tx.query(Prisma.sql`INSERT INTO user_vouchers(user_id,coupon_id,expires_at,source_trigger)
+        VALUES (${customerId}::uuid,${coupon.id}::uuid,LEAST(${coupon.valid_to}::timestamptz,CURRENT_TIMESTAMP + ${rule.valid_days_after_claim} * INTERVAL '1 day'),'PUBLIC_CLAIM') RETURNING *`);
+      return {...wallet,coupon};
     });
-    const code = `SPA-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-    const created = await prisma.$transaction(async (tx) => {
-      const booking = await tx.booking.create({
-        data: {
-          code,
-          userId: user.id,
-          branchId,
-          serviceId,
-          specialistId: assignedSpecialist!.id,
-          scheduledAt,
-          status: BookingStatus.CONFIRMED,
-          notes,
-          totalAmount: finalAmount,
-        },
-        include: bookingInclude,
-      });
-      await tx.notification.create({
-        data: {
-          userId: user.id,
-          type: 'booking',
-          entityId: booking.id,
-          title: 'Đặt lịch thành công',
-          message: `${service.name} lúc ${timeSlot}, ngày ${date} tại ${branch.name}.`,
-        },
-      });
-      if (appliedUserVoucher) {
-        await tx.userVoucher.update({
-          where: { userId_voucherId: { userId: user.id, voucherId: appliedUserVoucher.voucherId } },
-          data: { usedAt: new Date() },
-        });
-        await tx.voucher.update({ where: { id: appliedUserVoucher.voucherId }, data: { usageCount: { increment: 1 } } });
-      }
-      return booking;
-    });
-    res.status(201).json({ message: 'Đặt lịch thành công', booking: serializeBooking(created) });
-  } catch (error) {
-    console.error('[API] POST /bookings failed', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return res.status(409).json({ error: 'Khung giờ này vừa được người khác đặt. Vui lòng chọn giờ khác.', code: 'BOOKING_CONFLICT' });
-    }
-    res.status(500).json({ error: 'Không thể tạo lịch hẹn' });
-  }
-});
+    return success(res,{voucher:result},201);
+  }));
+  app.post('/api/vouchers/apply',route(async(req,res)=>{
+    if (req.body.scope !== 'service') throw new ApiError(400,'Course discounts use the shared tuition workflow');
+    // Preview only. The final discount is recalculated from database prices on booking.
+    const amount = new Prisma.Decimal(req.body.orderValue ?? 0);
+    if (!amount.isFinite() || amount.lt(0)) throw new ApiError(400,'Invalid order amount');
+    const result = await store.transaction(tx=>voucherForOrder(tx,res.locals.userId,String(req.body.code ?? ''),amount));
+    return success(res,{valid:true,code:result.record.code,discountAmount:result.discount,finalAmount:amount.sub(result.discount),message:'Voucher preview; final price is calculated by the server'});
+  }));
 
-app.patch('/api/bookings/:id/reschedule', async (req: Request, res: Response) => {
-  const { date, timeSlot } = req.body;
-  const scheduledAt = parseBookingDate(date, timeSlot);
-  if (!scheduledAt) return res.status(400).json({ error: 'Ngày hoặc giờ hẹn không hợp lệ' });
-  try {
-    const current = await prisma.booking.findFirst({ where: { id: req.params.id, userId: userIdFrom(req) }, include: { service: true } });
-    if (!current) return res.status(404).json({ error: 'Không tìm thấy lịch hẹn' });
-    if (current.status === BookingStatus.CANCELLED || current.status === BookingStatus.COMPLETED) {
-      return res.status(409).json({ error: 'Không thể đổi lịch đã hủy hoặc đã hoàn thành' });
-    }
-    if (scheduledAt.getTime() <= Date.now()) return res.status(400).json({ error: 'Vui lòng chọn thời gian trong tương lai' });
-    const conflict = current.specialistId
-      ? await findBookingConflict(current.specialistId, scheduledAt, current.service.durationMinutes, current.id)
-      : null;
-    if (conflict) return res.status(409).json({ error: 'Chuyên viên đã có lịch trùng thời gian mới. Vui lòng chọn giờ khác.', code: 'BOOKING_CONFLICT' });
-    const updated = await prisma.$transaction(async (tx) => {
-      const booking = await tx.booking.update({
-        where: { id: current.id }, data: { scheduledAt }, include: bookingInclude,
-      });
-      await tx.notification.create({
-        data: { userId: current.userId, type: 'booking', entityId: current.id, title: 'Lịch hẹn đã được thay đổi', message: `Lịch mới: ${timeSlot}, ngày ${date}.` },
-      });
-      return booking;
-    });
-    res.json({ message: 'Đổi lịch thành công', booking: serializeBooking(updated) });
-  } catch (error) {
-    console.error('[API] PATCH /bookings/:id/reschedule failed', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return res.status(409).json({ error: 'Khung giờ mới vừa được người khác đặt. Vui lòng chọn giờ khác.', code: 'BOOKING_CONFLICT' });
-    }
-    res.status(500).json({ error: 'Không thể đổi lịch hẹn' });
-  }
-});
-
-app.patch('/api/bookings/:id/cancel', async (req: Request, res: Response) => {
-  try {
-    const current = await prisma.booking.findFirst({ where: { id: req.params.id, userId: userIdFrom(req) } });
-    if (!current) return res.status(404).json({ error: 'Không tìm thấy lịch hẹn' });
-    if (current.status === BookingStatus.COMPLETED) return res.status(409).json({ error: 'Không thể hủy lịch đã hoàn thành' });
-    if (current.status === BookingStatus.CANCELLED) return res.status(409).json({ error: 'Lịch hẹn này đã được hủy trước đó' });
-    const updated = await prisma.$transaction(async (tx) => {
-      const booking = await tx.booking.update({
-        where: { id: current.id },
-        data: { status: BookingStatus.CANCELLED, notes: req.body.reason || current.notes },
-        include: bookingInclude,
-      });
-      await tx.notification.create({
-        data: { userId: current.userId, type: 'booking', entityId: current.id, title: 'Lịch hẹn đã hủy', message: `Mã lịch ${current.code} đã được hủy theo yêu cầu của bạn.` },
-      });
-      return booking;
-    });
-    res.json({ message: 'Hủy lịch thành công', booking: serializeBooking(updated) });
-  } catch (error) {
-    console.error('[API] PATCH /bookings/:id/cancel failed', error);
-    res.status(500).json({ error: 'Không thể hủy lịch hẹn' });
-  }
-});
-
-// ==========================================
-// 4. ACADEMY & COURSES ENDPOINTS (GROUP E)
-// ==========================================
-app.get('/api/courses', async (_req: Request, res: Response) => {
-  try {
-    const courses = await prisma.course.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
-    res.json({ total: courses.length, courses: courses.map(serializeCourse) });
-  } catch (error) {
-    console.error('[API] GET /courses failed', error);
-    res.status(500).json({ error: 'Không thể tải danh sách khóa học' });
-  }
-});
-
-app.get('/api/courses/:id', async (req: Request, res: Response) => {
-  try {
-    const course = await prisma.course.findUnique({ where: { id: req.params.id } });
-    if (!course) return res.status(404).json({ error: 'Không tìm thấy khóa học' });
-    res.json({ course: serializeCourse(course) });
-  } catch (error) {
-    console.error('[API] GET /courses/:id failed', error);
-    res.status(500).json({ error: 'Không thể tải khóa học' });
-  }
-});
-
-app.get('/api/course-enrollments', async (req: Request, res: Response) => {
-  try {
-    const enrollments = await prisma.courseEnrollment.findMany({
-      where: { userId: userIdFrom(req) }, include: { course: true }, orderBy: { createdAt: 'desc' },
-    });
-    res.json({ enrollments: enrollments.map(serializeEnrollment) });
-  } catch (error) {
-    console.error('[API] GET /course-enrollments failed', error);
-    res.status(500).json({ error: 'Không thể tải khóa học đã đăng ký' });
-  }
-});
-
-app.post('/api/course-enrollments', async (req: Request, res: Response) => {
-  const { courseId, studentName, phone, email, voucherCode } = req.body;
-  if (!courseId || !studentName?.trim() || !phone?.trim()) {
-    return res.status(400).json({ error: 'Vui lòng nhập đầy đủ họ tên và số điện thoại học viên' });
-  }
-  try {
-    const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || !course.isActive) return res.status(404).json({ error: 'Khóa học không tồn tại hoặc đã ngừng tuyển sinh' });
-    const existing = await prisma.courseEnrollment.findUnique({
-      where: { userId_courseId: { userId: userIdFrom(req), courseId } }, include: { course: true },
-    });
-    if (existing && existing.status !== EnrollmentStatus.CANCELLED) {
-      return res.status(409).json({ error: 'Bạn đã đăng ký khóa học này', enrollment: serializeEnrollment(existing) });
-    }
-    let appliedUserVoucher: any = null;
-    let finalAmount = Number(course.price);
-    if (voucherCode) {
-      appliedUserVoucher = await prisma.userVoucher.findFirst({
-        where: { userId: userIdFrom(req), usedAt: null, voucher: { code: String(voucherCode).trim().toUpperCase() } },
-        include: { voucher: true },
-      });
-      const voucher = appliedUserVoucher?.voucher;
-      const now = new Date();
-      if (!voucher || !voucher.isActive || voucher.startsAt > now || voucher.expiresAt < now) {
-        return res.status(400).json({ error: 'Mã ưu đãi không khả dụng hoặc đã hết hạn' });
-      }
-      if (voucher.scope !== 'ALL' && voucher.scope !== 'COURSE') {
-        return res.status(400).json({ error: 'Mã này chỉ áp dụng cho dịch vụ chăm sóc' });
-      }
-      if (finalAmount < voucher.minOrderValue) {
-        return res.status(400).json({ error: `Học phí tối thiểu ${voucher.minOrderValue.toLocaleString('vi-VN')} đ` });
-      }
-      const calculated = voucher.discountType === 'PERCENT' ? Math.floor(finalAmount * voucher.discountValue / 100) : voucher.discountValue;
-      finalAmount -= Math.min(calculated, voucher.maxDiscountAmount ?? calculated, finalAmount);
-    }
-    const code = `MLD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-    const enrollment = await prisma.$transaction(async (tx) => {
-      const saved = existing
-        ? await tx.courseEnrollment.update({
-            where: { id: existing.id },
-            data: { code, studentName: studentName.trim(), phone: phone.trim(), email: email?.trim() || null, status: EnrollmentStatus.PENDING, totalAmount: finalAmount },
-            include: { course: true },
-          })
-        : await tx.courseEnrollment.create({
-            data: { code, userId: userIdFrom(req), courseId, studentName: studentName.trim(), phone: phone.trim(), email: email?.trim() || null, totalAmount: finalAmount },
-            include: { course: true },
-          });
-      await tx.notification.create({
-        data: { userId: userIdFrom(req), type: 'course', entityId: saved.id, title: 'Đăng ký khóa học thành công', message: `${course.title} đã được giữ chỗ. Bộ phận đào tạo sẽ liên hệ xác nhận học phí.` },
-      });
-      if (appliedUserVoucher) {
-        await tx.userVoucher.update({
-          where: { userId_voucherId: { userId: userIdFrom(req), voucherId: appliedUserVoucher.voucherId } },
-          data: { usedAt: new Date() },
-        });
-        await tx.voucher.update({ where: { id: appliedUserVoucher.voucherId }, data: { usageCount: { increment: 1 } } });
-      }
-      return saved;
-    });
-    res.status(201).json({ message: 'Đăng ký khóa học thành công', enrollment: serializeEnrollment(enrollment) });
-  } catch (error) {
-    console.error('[API] POST /course-enrollments failed', error);
-    res.status(500).json({ error: 'Không thể đăng ký khóa học' });
-  }
-});
-
-app.post('/api/courses/:id/quiz/submit', (req: Request, res: Response) => {
-  const { answers } = req.body;
-  const course = database.courses.find((c) => c.id === req.params.id);
-
-  if (!course || !course.quiz) {
-    return res.status(404).json({ error: 'Khóa học không có bài kiểm tra trắc nghiệm' });
-  }
-
-  let correctCount = 0;
-  course.quiz.questions.forEach((q) => {
-    if (answers && answers[q.id] === q.correctAnswerIndex) {
-      correctCount++;
-    }
+  app.use((_req,res)=>res.status(404).json({success:false,statusCode:404,message:'Endpoint not available',error:'Endpoint not available'}));
+  app.use((error: unknown,_req:Request,res:Response,_next:NextFunction)=>{
+    const retryable = error instanceof Prisma.PrismaClientKnownRequestError && (['P2034','P2002'].includes(error.code) || ['23505','40001','40P01'].includes(String(error.meta?.code)));
+    const status = error instanceof ApiError ? error.status : retryable ? 409 : error instanceof SyntaxError ? 400 : 500;
+    const message = error instanceof ApiError ? error.message : status === 409 ? 'Data changed concurrently; retry the request' : 'Shared database operation failed';
+    if (status === 500) console.error('[Mini App database]',error instanceof Error ? error.name : 'Error');
+    res.status(status).json({success:false,statusCode:status,message,error:message});
   });
-
-  const total = course.quiz.questions.length;
-  const scorePercent = Math.round((correctCount / total) * 100);
-  const isPassed = scorePercent >= course.quiz.passingScore;
-
-  res.json({
-    score: scorePercent,
-    correctCount,
-    totalQuestions: total,
-    isPassed,
-    certificateCode: isPassed ? `CERT-${course.id.toUpperCase()}-${Date.now().toString().slice(-6)}` : null,
-    message: isPassed
-      ? `Chúc mừng bạn đã xuất sắc vượt qua bài thi với ${scorePercent}%! Chứng chỉ MLD Academy đã được cấp.`
-      : `Bạn đạt ${scorePercent}%. Cần đạt tối thiểu ${course.quiz.passingScore}% để nhận chứng chỉ. Vui lòng ôn tập và thi lại.`,
-  });
-});
-
-// ==========================================
-// 5. MEDICAL RECORDS & EMR (GROUP D)
-// ==========================================
-app.get('/api/records', (req: Request, res: Response) => {
-  res.json({ total: database.medicalRecords.length, records: database.medicalRecords });
-});
-
-app.get('/api/records/:id', (req: Request, res: Response) => {
-  const record = database.medicalRecords.find((r) => r.id === req.params.id || r.recordCode === req.params.id);
-  if (!record) {
-    return res.status(404).json({ error: 'Không tìm thấy hồ sơ trị liệu' });
-  }
-  res.json({ record });
-});
-
-// ==========================================
-// 6. MEMBERSHIP & VOUCHERS (GROUP F)
-// ==========================================
-app.get('/api/membership', async (req: Request, res: Response) => {
-  try {
-    const [user, userVouchers, upcomingBookings, activeEnrollments, treatmentPlans] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userIdFrom(req) } }),
-      prisma.userVoucher.findMany({
-        where: { userId: userIdFrom(req), voucher: { isActive: true } },
-        include: { voucher: true },
-        orderBy: { claimedAt: 'desc' },
-      }),
-      prisma.booking.count({ where: { userId: userIdFrom(req), status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] }, scheduledAt: { gte: new Date() } } }),
-      prisma.courseEnrollment.count({ where: { userId: userIdFrom(req), status: { in: [EnrollmentStatus.PENDING, EnrollmentStatus.CONFIRMED] } } }),
-      prisma.treatmentPlan.findMany({ where: { userId: userIdFrom(req), status: 'ACTIVE' }, include: { sessions: true } }),
-    ]);
-    if (!user) return res.status(404).json({ error: 'Không tìm thấy hội viên' });
-    const remainingTreatmentSessions = treatmentPlans.reduce((sum, plan) => {
-      const completed = plan.sessions.filter((session) => session.status === 'COMPLETED').length;
-      return sum + Math.max(0, plan.totalSessions - completed);
-    }, 0);
-    res.json({
-      user: { ...serializeUser(user), nextTierPoints: 5000 },
-      vouchers: userVouchers.map(serializeVoucher),
-      summary: { upcomingBookings, remainingTreatmentSessions, activeCourses: activeEnrollments },
-    });
-  } catch (error) {
-    console.error('[API] GET /membership failed', error);
-    res.status(500).json({ error: 'Không thể tải thông tin hội viên' });
-  }
-});
-
-app.get('/api/treatment-plans', async (req: Request, res: Response) => {
-  try {
-    const plans = await prisma.treatmentPlan.findMany({
-      where: { userId: userIdFrom(req) },
-      include: { service: true, branch: true, sessions: { orderBy: { sessionNumber: 'asc' } } },
-      orderBy: { purchasedAt: 'desc' },
-    });
-    res.json({ treatmentPlans: plans.map(serializeTreatmentPlan) });
-  } catch (error) {
-    console.error('[API] GET /treatment-plans failed', error);
-    res.status(500).json({ error: 'Không thể tải gói liệu trình' });
-  }
-});
-
-app.post('/api/admin/treatment-plans', asyncRoute(async (req: Request, res: Response) => {
-  const { userId = 'usr_001', serviceId, branchId, name, totalSessions, expiresAt, imageUrl, notes } = req.body;
-  if (!serviceId || !branchId || !name?.trim() || !Number.isInteger(Number(totalSessions)) || Number(totalSessions) < 1 || !expiresAt) {
-    return res.status(400).json({ error: 'Thông tin liệu trình chưa đầy đủ hoặc không hợp lệ' });
-  }
-  const plan = await prisma.treatmentPlan.create({
-    data: { userId, serviceId, branchId, name: name.trim(), totalSessions: Number(totalSessions), expiresAt: new Date(expiresAt), imageUrl: imageUrl || null, notes: notes || null },
-    include: { user: true, service: true, branch: true, sessions: true },
-  });
-  await prisma.notification.create({ data: { userId, type: 'treatment', entityId: plan.id, title: 'Đã thêm liệu trình mới', message: `${plan.name} gồm ${plan.totalSessions} buổi.` } });
-  res.status(201).json({ treatmentPlan: serializeTreatmentPlan(plan) });
-}));
-
-app.patch('/api/admin/treatment-plans/:id', asyncRoute(async (req: Request, res: Response) => {
-  const { name, totalSessions, expiresAt, status, imageUrl, notes, branchId, serviceId } = req.body;
-  const plan = await prisma.treatmentPlan.update({
-    where: { id: req.params.id },
-    data: {
-      ...(name?.trim() ? { name: name.trim() } : {}),
-      ...(totalSessions !== undefined ? { totalSessions: Number(totalSessions) } : {}),
-      ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {}),
-      ...(status ? { status: String(status).toUpperCase() as any } : {}),
-      ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}),
-      ...(notes !== undefined ? { notes: notes || null } : {}),
-      ...(branchId ? { branchId } : {}),
-      ...(serviceId ? { serviceId } : {}),
-    },
-    include: { user: true, service: true, branch: true, sessions: { orderBy: { sessionNumber: 'asc' } } },
-  });
-  res.json({ treatmentPlan: serializeTreatmentPlan(plan) });
-}));
-
-app.post('/api/admin/treatment-plans/:id/sessions', asyncRoute(async (req: Request, res: Response) => {
-  const plan = await prisma.treatmentPlan.findUnique({ where: { id: req.params.id }, include: { sessions: true } });
-  if (!plan) return res.status(404).json({ error: 'Không tìm thấy liệu trình' });
-  const sessionNumber = Number(req.body.sessionNumber || Math.max(0, ...plan.sessions.map((item) => item.sessionNumber)) + 1);
-  if (sessionNumber > plan.totalSessions) return res.status(400).json({ error: 'Số buổi vượt quá tổng số buổi của liệu trình' });
-  await prisma.treatmentSession.create({ data: { planId: plan.id, sessionNumber, title: req.body.title?.trim() || `Buổi ${sessionNumber}`, scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt) : null, specialistName: req.body.specialistName || null, notes: req.body.notes || null } });
-  const updated = await prisma.treatmentPlan.findUniqueOrThrow({ where: { id: plan.id }, include: { user: true, service: true, branch: true, sessions: { orderBy: { sessionNumber: 'asc' } } } });
-  res.status(201).json({ treatmentPlan: serializeTreatmentPlan(updated) });
-}));
-
-app.patch('/api/admin/treatment-sessions/:id/complete', async (req: Request, res: Response) => {
-  try {
-    const session = await prisma.treatmentSession.update({
-      where: { id: req.params.id },
-      data: { status: 'COMPLETED', completedAt: new Date(), notes: req.body.notes || undefined },
-      include: { plan: { include: { service: true, branch: true, sessions: { orderBy: { sessionNumber: 'asc' } } } } },
-    });
-    await prisma.notification.create({
-      data: { userId: session.plan.userId, type: 'treatment', entityId: session.planId, title: 'Cập nhật liệu trình', message: `Buổi ${session.sessionNumber} đã hoàn thành.` },
-    });
-    res.json({ treatmentPlan: serializeTreatmentPlan(session.plan) });
-  } catch (error) {
-    console.error('[API] complete treatment session failed', error);
-    res.status(404).json({ error: 'Không tìm thấy buổi liệu trình' });
-  }
-});
-
-app.patch('/api/admin/treatment-sessions/:id', asyncRoute(async (req: Request, res: Response) => {
-  const { title, status, scheduledAt, specialistName, notes } = req.body;
-  const session = await prisma.treatmentSession.update({
-    where: { id: req.params.id },
-    data: { ...(title ? { title } : {}), ...(status ? { status: String(status).toUpperCase() as any } : {}), ...(scheduledAt !== undefined ? { scheduledAt: scheduledAt ? new Date(scheduledAt) : null } : {}), ...(specialistName !== undefined ? { specialistName: specialistName || null } : {}), ...(notes !== undefined ? { notes: notes || null } : {}) },
-    include: { plan: { include: { user: true, service: true, branch: true, sessions: { orderBy: { sessionNumber: 'asc' } } } } },
-  });
-  res.json({ treatmentPlan: serializeTreatmentPlan(session.plan) });
-}));
-
-app.get('/api/transactions', asyncRoute(async (req: Request, res: Response) => {
-  const [invoices, pointTransactions] = await Promise.all([
-    prisma.invoice.findMany({ where: { userId: userIdFrom(req) }, orderBy: { createdAt: 'desc' } }),
-    prisma.pointTransaction.findMany({ where: { userId: userIdFrom(req) }, orderBy: { createdAt: 'desc' } }),
-  ]);
-  res.json({ invoices: invoices.map(serializeInvoice), pointTransactions, totalSpent: invoices.filter((item) => item.status === 'PAID').reduce((sum, item) => sum + Number(item.finalAmount), 0) });
-}));
-
-app.get('/api/notifications', async (req: Request, res: Response) => {
-  try {
-    const notifications = await prisma.notification.findMany({ where: { userId: userIdFrom(req) }, orderBy: { createdAt: 'desc' }, take: 50 });
-    res.json({ unreadCount: notifications.filter((item) => !item.readAt).length, notifications: notifications.map(serializeNotification) });
-  } catch (error) {
-    console.error('[API] GET /notifications failed', error);
-    res.status(500).json({ error: 'Không thể tải thông báo' });
-  }
-});
-
-app.patch('/api/notifications/read-all', async (req: Request, res: Response) => {
-  try {
-    await prisma.notification.updateMany({ where: { userId: userIdFrom(req), readAt: null }, data: { readAt: new Date() } });
-    res.json({ message: 'Đã đánh dấu tất cả thông báo là đã đọc' });
-  } catch (error) {
-    res.status(500).json({ error: 'Không thể cập nhật thông báo' });
-  }
-});
-
-app.patch('/api/notifications/:id/read', async (req: Request, res: Response) => {
-  try {
-    const notification = await prisma.notification.findFirst({ where: { id: req.params.id, userId: userIdFrom(req) } });
-    if (!notification) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
-    const updated = await prisma.notification.update({ where: { id: notification.id }, data: { readAt: new Date() } });
-    res.json({ notification: serializeNotification(updated) });
-  } catch (error) {
-    res.status(500).json({ error: 'Không thể cập nhật thông báo' });
-  }
-});
-
-app.post('/api/vouchers/claim', asyncRoute(async (req: Request, res: Response) => {
-  const code = String(req.body.code ?? '').trim().toUpperCase();
-  if (!code) return res.status(400).json({ error: 'Vui lòng nhập mã ưu đãi' });
-  const voucher = await prisma.voucher.findUnique({ where: { code } });
-  const now = new Date();
-  if (!voucher || !voucher.isActive || voucher.startsAt > now || voucher.expiresAt < now) {
-    return res.status(404).json({ error: 'Mã ưu đãi không tồn tại hoặc đã hết hạn' });
-  }
-  const existing = await prisma.userVoucher.findUnique({
-    where: { userId_voucherId: { userId: userIdFrom(req), voucherId: voucher.id } },
-  });
-  if (existing) return res.status(409).json({ error: 'Mã ưu đãi đã có trong ví của bạn' });
-  const claimed = await prisma.userVoucher.create({
-    data: { userId: userIdFrom(req), voucherId: voucher.id }, include: { voucher: true },
-  });
-  res.status(201).json({ voucher: serializeVoucher(claimed), message: `Đã thêm ${code} vào ví ưu đãi` });
-}));
-
-app.post('/api/vouchers/apply', asyncRoute(async (req: Request, res: Response) => {
-  const { code, orderValue, scope, category } = req.body;
-  if (!code) {
-    return res.status(400).json({ error: 'Vui lòng nhập mã giảm giá' });
-  }
-  const userVoucher = await prisma.userVoucher.findFirst({
-    where: { userId: userIdFrom(req), usedAt: null, voucher: { code: String(code).trim().toUpperCase() } },
-    include: { voucher: true },
-  });
-  const voucher = userVoucher?.voucher;
-  const now = new Date();
-  if (!voucher || !voucher.isActive || voucher.startsAt > now || voucher.expiresAt < now) {
-    return res.status(404).json({ error: 'Mã giảm giá không khả dụng hoặc đã hết hạn' });
-  }
-  const normalizedScope = String(scope ?? '').toUpperCase();
-  if (voucher.scope !== 'ALL' && voucher.scope !== normalizedScope) {
-    return res.status(400).json({ error: `Mã này chỉ áp dụng cho ${voucher.scope === 'COURSE' ? 'khóa học' : 'dịch vụ chăm sóc'}` });
-  }
-  if (voucher.applicableCategories.length && !voucher.applicableCategories.includes(String(category ?? ''))) {
-    return res.status(400).json({ error: `Mã chỉ áp dụng cho: ${voucher.applicableCategories.join(', ')}` });
-  }
-  const amount = Number(orderValue);
-  if (!Number.isFinite(amount) || amount < voucher.minOrderValue) {
-    return res.status(400).json({
-      error: `Giá trị tối thiểu ${voucher.minOrderValue.toLocaleString('vi-VN')} đ để dùng mã này`,
-    });
-  }
-  const calculated = voucher.discountType === 'PERCENT' ? Math.floor(amount * voucher.discountValue / 100) : voucher.discountValue;
-  const discountAmount = Math.min(calculated, voucher.maxDiscountAmount ?? calculated, amount);
-  res.json({
-    valid: true,
-    code: voucher.code,
-    title: voucher.title,
-    scope: voucher.scope.toLowerCase(),
-    discountAmount,
-    finalAmount: amount - discountAmount,
-    message: `Đã áp dụng ${voucher.code}, giảm ${discountAmount.toLocaleString('vi-VN')} đ`,
-  });
-}));
-
-// ==========================================
-// 7. WEB ADMIN PORTAL ENDPOINTS (GROUP W)
-// ==========================================
-app.get('/api/admin/overview', (req: Request, res: Response) => {
-  res.json({
-    kpis: database.admin.kpis,
-    weeklyRevenue: database.admin.weeklyRevenue,
-    bookingsCount: database.bookings.length,
-    studentsCount: database.admin.students.length,
-  });
-});
-
-app.get('/api/admin/schedule', (req: Request, res: Response) => {
-  res.json({
-    schedules: database.admin.staffSchedules,
-  });
-});
-
-app.get('/api/admin/receipts', asyncRoute(async (_req: Request, res: Response) => {
-  const invoices = await prisma.invoice.findMany({ include: { user: true }, orderBy: { createdAt: 'desc' } });
-  res.json({ receipts: invoices.map((item) => ({ ...serializeInvoice(item), customerName: item.user.name, customerPhone: item.user.phone })) });
-}));
-
-app.post('/api/admin/receipts', asyncRoute(async (req: Request, res: Response) => {
-  const { userId = 'usr_001', bookingId, enrollmentId, title, description, amount, discount = 0, paymentMethod = 'Tiền mặt', status = 'PAID' } = req.body;
-  const numericAmount = Number(amount);
-  const numericDiscount = Number(discount);
-  if (!title?.trim() || !Number.isFinite(numericAmount) || numericAmount < 0 || numericDiscount < 0 || numericDiscount > numericAmount) return res.status(400).json({ error: 'Thông tin hóa đơn không hợp lệ' });
-  const paid = String(status).toUpperCase() === 'PAID';
-  const invoice = await prisma.$transaction(async (tx) => {
-    const saved = await tx.invoice.create({ data: { code: `HD-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`, userId, bookingId: bookingId || null, enrollmentId: enrollmentId || null, title: title.trim(), description: description || null, amount: numericAmount, discount: numericDiscount, finalAmount: numericAmount - numericDiscount, paymentMethod, status: String(status).toUpperCase() as any, paidAt: paid ? new Date() : null } });
-    if (paid) {
-      const earnedPoints = Math.floor((numericAmount - numericDiscount) / 10000);
-      if (earnedPoints > 0) {
-        await tx.user.update({ where: { id: userId }, data: { points: { increment: earnedPoints } } });
-        await tx.pointTransaction.create({ data: { userId, description: `Thanh toán ${title.trim()}`, points: earnedPoints, entityType: 'invoice', entityId: saved.id } });
-      }
-      await tx.notification.create({ data: { userId, type: 'payment', entityId: saved.id, title: 'Thanh toán thành công', message: `Hóa đơn ${saved.code} đã thanh toán ${(numericAmount - numericDiscount).toLocaleString('vi-VN')} đ.` } });
-    }
-    return saved;
-  });
-  res.status(201).json({ message: 'Đã ghi nhận hóa đơn', receipt: serializeInvoice(invoice) });
-}));
-
-app.post('/api/admin/specialists', asyncRoute(async (req: Request, res: Response) => {
-  const { branchId, name, title, specialty, workplace, bio, avatarUrl, experienceYears = 0, consultationFee = 0, serviceIds = [] } = req.body;
-  if (!branchId || !name?.trim() || !title?.trim() || !specialty?.trim()) return res.status(400).json({ error: 'Vui lòng nhập đủ thông tin chuyên viên' });
-  const specialist = await prisma.specialist.create({ data: { branchId, name: name.trim(), title: title.trim(), specialty: specialty.trim(), workplace: workplace || null, bio: bio || null, avatarUrl: avatarUrl || null, experienceYears: Number(experienceYears), consultationFee: Number(consultationFee), services: { create: serviceIds.map((serviceId: string) => ({ serviceId })) } }, include: { branch: true, services: true, schedules: true } });
-  res.status(201).json({ specialist: serializeSpecialist(specialist) });
-}));
-
-app.patch('/api/admin/specialists/:id', asyncRoute(async (req: Request, res: Response) => {
-  const { serviceIds, ...fields } = req.body;
-  const specialist = await prisma.$transaction(async (tx) => {
-    if (Array.isArray(serviceIds)) {
-      await tx.specialistService.deleteMany({ where: { specialistId: req.params.id } });
-      await tx.specialistService.createMany({ data: serviceIds.map((serviceId: string) => ({ specialistId: req.params.id, serviceId })), skipDuplicates: true });
-    }
-    return tx.specialist.update({ where: { id: req.params.id }, data: { ...(fields.branchId ? { branchId: fields.branchId } : {}), ...(fields.name ? { name: fields.name } : {}), ...(fields.title ? { title: fields.title } : {}), ...(fields.specialty ? { specialty: fields.specialty } : {}), ...(fields.workplace !== undefined ? { workplace: fields.workplace || null } : {}), ...(fields.bio !== undefined ? { bio: fields.bio || null } : {}), ...(fields.avatarUrl !== undefined ? { avatarUrl: fields.avatarUrl || null } : {}), ...(fields.experienceYears !== undefined ? { experienceYears: Number(fields.experienceYears) } : {}), ...(fields.consultationFee !== undefined ? { consultationFee: Number(fields.consultationFee) } : {}), ...(fields.isActive !== undefined ? { isActive: Boolean(fields.isActive) } : {}) }, include: { branch: true, services: true, schedules: true } });
-  });
-  res.json({ specialist: serializeSpecialist(specialist) });
-}));
-
-app.get('/api/admin/students', (req: Request, res: Response) => {
-  res.json({
-    students: database.admin.students,
-  });
-});
-
-app.get('/api/admin/bootstrap', async (_req: Request, res: Response) => {
-  try {
-    const [branches, users, services, specialists, bookings, courses, enrollments, notifications, treatmentPlans, invoices, pointTransactions] = await Promise.all([
-      prisma.branch.findMany({ include: { services: { include: { service: true } }, staff: true }, orderBy: { createdAt: 'asc' } }),
-      prisma.user.findMany({ include: { bookings: true, enrollments: true }, orderBy: { createdAt: 'desc' } }),
-      prisma.service.findMany({ include: { branches: true, specialists: true }, orderBy: { createdAt: 'asc' } }),
-      prisma.specialist.findMany({ include: { branch: true, services: true, schedules: true }, orderBy: { name: 'asc' } }),
-      prisma.booking.findMany({ include: bookingInclude, orderBy: { scheduledAt: 'desc' } }),
-      prisma.course.findMany({ include: { enrollments: true }, orderBy: { createdAt: 'asc' } }),
-      prisma.courseEnrollment.findMany({ include: { course: true, user: true }, orderBy: { createdAt: 'desc' } }),
-      prisma.notification.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
-      prisma.treatmentPlan.findMany({ include: { user: true, service: true, branch: true, sessions: { orderBy: { sessionNumber: 'asc' } } }, orderBy: { purchasedAt: 'desc' } }),
-      prisma.invoice.findMany({ include: { user: true }, orderBy: { createdAt: 'desc' } }),
-      prisma.pointTransaction.findMany({ orderBy: { createdAt: 'desc' } }),
-    ]);
-    res.json({
-      generatedAt: new Date().toISOString(),
-      branches: branches.map((branch) => ({ ...branch, services: branch.services.map((item) => item.service) })),
-      users: users.map((user) => ({ ...user, avatar: user.avatarUrl || '' })),
-      services: services.map((service) => ({ ...service, price: Number(service.price), originalPrice: service.originalPrice ? Number(service.originalPrice) : null, rating: Number(service.rating) })),
-      specialists: specialists.map((specialist) => ({ ...specialist, rating: Number(specialist.rating), consultationFee: Number(specialist.consultationFee) })),
-      bookings: bookings.map(serializeBooking),
-      courses: courses.map((course) => ({ ...course, price: Number(course.price), deposit: Number(course.deposit) })),
-      enrollments: enrollments.map(serializeEnrollment),
-      notifications,
-      treatmentPlans: treatmentPlans.map(serializeTreatmentPlan),
-      invoices: invoices.map((invoice) => ({ ...serializeInvoice(invoice), customerName: invoice.user.name, customerPhone: invoice.user.phone })),
-      pointTransactions,
-    });
-  } catch (error) {
-    console.error('[API] GET /admin/bootstrap failed', error);
-    res.status(500).json({ error: 'Không thể tải dữ liệu quản trị' });
-  }
-});
-
-app.use((error: unknown, _req: Request, res: Response, _next: express.NextFunction) => {
-  console.error('[API] Unhandled request error', error);
-  if (!res.headersSent) res.status(500).json({ error: 'Hệ thống đang bận. Vui lòng thử lại sau.' });
-});
-
-// Start Server
-app.listen(PORT, () => {
-  console.log(`🚀 [BACKEND] MLD Vietnam Healthcare & Academy Server running at http://localhost:${PORT}`);
-  console.log(`📚 [API DOCS] Endpoints available at:`);
-  console.log(`   - GET  /api/health`);
-  console.log(`   - POST /api/auth/send-otp`);
-  console.log(`   - POST /api/auth/verify-otp`);
-  console.log(`   - GET  /api/services`);
-  console.log(`   - GET  /api/doctors`);
-  console.log(`   - POST /api/bookings`);
-  console.log(`   - GET  /api/courses`);
-  console.log(`   - GET  /api/records`);
-  console.log(`   - GET  /api/membership`);
-  console.log(`   - GET  /api/admin/overview`);
-  console.log(`   - GET  /api/admin/schedule`);
-  console.log(`   - GET  /api/admin/receipts`);
-  console.log(`   - GET  /api/admin/students`);
-});
+  return app;
+}

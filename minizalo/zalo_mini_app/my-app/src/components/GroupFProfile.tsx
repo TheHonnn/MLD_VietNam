@@ -63,16 +63,16 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const [userProfile, setUserProfile] = useState({
     name: user.name,
     phone: user.phone,
-    verified: true,
+    verified: Boolean(user.id),
     tier: user.tier === 'Gold' ? 'Hội viên Vàng' : `Hội viên ${user.tier}`,
-    cardCode: 'WM-000128',
+    cardCode: user.id,
     points: user.points,
     targetDiamondPoints: 3000,
     dob: user.dob,
     gender: user.gender,
     email: user.email,
     address: user.address,
-    preferredBranch: user.preferredBranch || 'Chi nhánh 01 — Quận 3, TP.HCM',
+    preferredBranch: user.preferredBranch || '',
     skinType: user.skinType || '',
     healthNotes: user.healthNotes || '',
     emergencyContactName: user.emergencyContactName || '',
@@ -131,6 +131,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       address: user.address,
       avatar: user.avatar,
       points: user.points,
+      tier: `Hội viên ${user.tier}`,
       preferredBranch: user.preferredBranch || current.preferredBranch,
       skinType: user.skinType || '',
       healthNotes: user.healthNotes || '',
@@ -235,8 +236,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       showToast('Bạn không đủ điểm để đổi quà này!');
       return;
     }
-    setUserProfile((prev) => ({ ...prev, points: prev.points - costPoints }));
-    showToast(`Đổi thành công: ${rewardName}!`);
+    showToast('Vui lòng liên hệ chi nhánh để đổi điểm.');
   };
 
   return (
@@ -754,7 +754,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   <div className="font-mono text-3xl tracking-widest font-black text-black select-none">
                     ||| | |||| | ||| ||||
                   </div>
-                  <p className="font-mono text-xs font-bold text-stone-600 mt-2">MLD-WM-000128</p>
+                  <p className="font-mono text-xs font-bold text-stone-600 mt-2">{user.id}</p>
                 </div>
               )}
 
@@ -861,84 +861,10 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <div className="bg-white p-5 rounded-3xl border border-[#EADECF] shadow-xs text-center space-y-1">
               <span className="text-[11px] font-semibold text-[#7A685D]">Điểm thưởng khả dụng</span>
               <div className="text-3xl font-black text-[#98501B]">{userProfile.points.toLocaleString()} điểm</div>
-              <p className="text-[11px] text-[#A09085]">+350 điểm tích trong tháng 10 · 500 điểm đã đổi</p>
-
-              {/* Progress to Diamond */}
-              <div className="pt-3 border-t border-[#FAF6F0] space-y-2 text-left">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-[#40352F]">💎 Hướng tới hạng Kim Cương</span>
-                  <span className="font-bold text-[#98501B]">
-                    {userProfile.points} / {userProfile.targetDiamondPoints}
-                  </span>
-                </div>
-                <div className="w-full h-2.5 rounded-full bg-[#FAF6F0] overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-cyan-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (userProfile.points / userProfile.targetDiamondPoints) * 100)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-[#7A685D]">
-                  Còn <strong>{Math.max(0, userProfile.targetDiamondPoints - userProfile.points)} điểm</strong> để thăng hạng Kim Cương và nhận giảm giá 25% trọn đời.
-                </p>
-              </div>
+              <p className="text-xs">{userProfile.tier}</p>
             </div>
-
-            {pointsTab === 'rewards' && (
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-[#40352F]">Voucher & Quà tặng đổi bằng điểm:</h4>
-                {[
-                  { title: 'Voucher Giảm 50.000 ₫ Dịch Vụ', points: 300, desc: 'Áp dụng cho hóa đơn từ 300k' },
-                  { title: 'Voucher Giảm 100.000 ₫ Trị Liệu', points: 600, desc: 'Áp dụng cho massage hoặc chăm sóc da' },
-                  { title: '01 Suất Gội Đầu Thảo Dược Miễn Phí', points: 1200, desc: 'Trị giá 250.000 ₫ tại chi nhánh Quận 3' },
-                  { title: 'Set Tinh Dầu Trị Liệu MLD Cao Cấp', points: 2000, desc: 'Bộ 3 lọ tinh dầu hoa cúc & oải hương' },
-                ].map((rw, i) => (
-                  <div key={i} className="p-3.5 bg-white rounded-2xl border border-[#EADECF] flex justify-between items-center shadow-xs">
-                    <div>
-                      <p className="text-xs font-bold text-[#40352F]">{rw.title}</p>
-                      <p className="text-[10px] text-[#7A685D] mt-0.5">{rw.desc}</p>
-                      <span className="text-[11px] font-black text-[#98501B] mt-1 inline-block">
-                        ⭐ {rw.points.toLocaleString()} điểm
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleRedeemReward(rw.title, rw.points)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
-                        userProfile.points >= rw.points
-                          ? 'bg-[#98501B] text-white hover:bg-[#804215]'
-                          : 'bg-stone-100 text-stone-400 cursor-not-allowed'
-                      }`}
-                    >
-                      Đổi ngay
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {pointsTab === 'tiers' && (
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-[#40352F]">Các cấp hạng hội viên MLD:</h4>
-                {[
-                  { name: 'Hội viên Bạc (Silver)', req: '0 - 1.999 điểm', discount: 'Giảm 5%', active: false },
-                  { name: 'Hội viên Vàng (Gold)', req: '2.000 - 2.999 điểm', discount: 'Giảm 15% + Quà sinh nhật', active: true },
-                  { name: 'Hội viên Kim Cương (Diamond)', req: '3.000+ điểm', discount: 'Giảm 25% + Phòng VIP riêng', active: false },
-                ].map((t, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3.5 rounded-2xl border text-xs space-y-1 ${
-                      t.active ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300' : 'bg-white border-[#EADECF]'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#40352F]">{t.name}</span>
-                      {t.active && <span className="text-[10px] bg-[#98501B] text-white font-bold px-2 py-0.5 rounded-full">Hạng hiện tại</span>}
-                    </div>
-                    <p className="text-[11px] text-[#7A685D]">Yêu cầu: {t.req}</p>
-                    <p className="text-[11px] font-semibold text-[#98501B]">Ưu đãi: {t.discount}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            {pointsTab === 'rewards' && <p className="text-xs">Chưa có danh mục đổi điểm được cung cấp.</p>}
+            {pointsTab === 'tiers' && <p className="text-xs">Hạng hiện tại: {userProfile.tier}</p>}
 
             {pointsTab === 'history' && (
               <div className="space-y-2.5">
@@ -1265,12 +1191,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <div className="bg-white p-3 rounded-[10px] border border-[#EADECF] space-y-2.5 text-xs">
               <h5 className="font-bold text-[#6F452C]">Quyền lợi giới thiệu</h5>
               <div className="space-y-2">
-                {[
-                  { name: 'Nguyễn Thúy Lan', status: 'Đã hoàn thành lịch · +100k', done: true },
-                  { name: 'Trần Văn Hùng', status: 'Đã hoàn thành lịch · +100k', done: true },
-                  { name: 'Phạm Phương Thảo', status: 'Đã đăng ký · Chờ trải nghiệm', done: false },
-                  { name: 'Lê Minh Tuấn', status: 'Đã hoàn thành lịch · +100k', done: true },
-                ].map((f, i) => (
+                {([] as { name: string; status: string; done: boolean }[]).map((f, i) => (
                   <div key={i} className="flex justify-between items-center p-2 rounded-xl bg-[#FAF6F0] text-[11px]">
                     <span className="font-semibold text-stone-900">{f.name}</span>
                     <span className={f.done ? 'text-emerald-700 font-bold' : 'text-amber-700 font-semibold'}>

@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: minizalo/backend
     plan: free
-    buildCommand: npm ci --include=dev && npm run db:deploy && npm run build
+    buildCommand: npm ci --include=dev && npm run db:generate && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -12,7 +12,11 @@ services:
         value: production
       - key: DATABASE_URL
         sync: false
-      - key: DIRECT_URL
+      - key: JWT_SECRET
+        sync: false
+      - key: ZALO_AUTH_URL
+        value: ""
+      - key: ZALO_APP_SECRET
         sync: false
       - key: FRONTEND_ORIGIN
         sync: false

@@ -6,7 +6,7 @@ Flutter Android/iOS applications live in the repository's `mobile/` directory.
 ## Structure
 
 - `zalo_mini_app/my-app/`: React, ZaUI, ZMP SDK and Vite application.
-- `backend/`: Express API, Prisma schema and migrations used by this Mini App.
+- `backend/`: Express API and Prisma raw SQL client for the shared MLD database.
 - `figma/`: Design references.
 - `docs/`: Imported business rules and API documentation. Historical notes may
   still describe the previous multi-platform project.
@@ -42,15 +42,30 @@ npm ci
 Copy-Item .env.example .env
 npm run db:generate
 npm run build
+npm run db:check
 npm run dev
 ```
 
-Set database and authentication configuration before starting the API.
-Database migrations and seeding are separate operations.
+Set `DATABASE_URL` to the existing shared MLD database and `JWT_SECRET` to the
+team's shared HS256 signing secret. JWT `sub` is the canonical `users.id` UUID.
+Do not run migrations, `prisma db push`, or seeds from Mini Zalo; its minimal
+Prisma schema is only for client generation. `db:check` and startup validate the
+required shared schema with read-only queries. Historical database artifacts
+are archived in `docs/legacy-database/` and must not be executed.
+
+For native Zalo login, configure server-only `ZALO_APP_SECRET` and leave
+`ZALO_AUTH_URL` empty. The backend verifies the phone permission token and Zalo
+profile, reuses the shared user's UUID by phone, or creates a canonical shared
+user with the database's UUID and `STANDARD` tier defaults. No separate `zaloId`
+is needed. Alternatively, set `ZALO_AUTH_URL` to the shared identity relay that
+returns a valid shared JWT. See the
+[database alignment guide](docs/DATABASE_ALIGNMENT.md) and official
+[Zalo getPhoneNumber documentation](https://docs.zaloplatforms.com/docs/MA/api/user/user-information/getPhoneNumber).
 
 This API is separate from the NestJS API in the repository's root `backend/`.
-Their endpoints and authentication contracts differ; changing the client URL
-alone does not integrate them.
+When configured with the team's connection and signing secret, it shares the
+canonical database and user identity with that API; Mini App
+adapters handle its endpoint and response contract.
 
 ## Imported Legacy Files
 

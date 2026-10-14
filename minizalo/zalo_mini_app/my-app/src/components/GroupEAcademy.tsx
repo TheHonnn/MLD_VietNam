@@ -36,9 +36,9 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
   // Registration modal states
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [studentName, setStudentName] = useState('Nguyễn Minh Anh');
-  const [studentPhone, setStudentPhone] = useState('0912345678');
-  const [studentEmail, setStudentEmail] = useState('minh.anh@example.com');
+  const [studentName, setStudentName] = useState('');
+  const [studentPhone, setStudentPhone] = useState('');
+  const [studentEmail, setStudentEmail] = useState('');
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [enrollmentError, setEnrollmentError] = useState('');
   const [enrolling, setEnrolling] = useState(false);
@@ -54,26 +54,32 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
   const [selectedStudyCourseId, setSelectedStudyCourseId] = useState<string | null>(null);
 
   // Quiz / Exam state (Figma E10)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(2); // Câu 3 / 20
-  const [quizTimer, setQuizTimer] = useState(1125); // 18:45
-  const [selectedQuizAnswer, setSelectedQuizAnswer] = useState<number | null>(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedQuizAnswer, setSelectedQuizAnswer] = useState<number | null>(null);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
 
   // Filter states (Figma E02)
   const [levelFilter, setLevelFilter] = useState('Tất cả');
-  const [durationFilter, setDurationFilter] = useState('6–12 tuần');
-  const [priceFilter, setPriceFilter] = useState('4–9 triệu đồng');
+  const [durationFilter, setDurationFilter] = useState('Tất cả');
+  const [priceFilter, setPriceFilter] = useState('Tất cả');
 
-  const coursesList = courses.map((course, index) => ({
-    ...course,
-    totalHours: index === 0 ? '144 giờ đào tạo' : '96 giờ đào tạo',
-    theoryHours: index === 0 ? '48 giờ lý thuyết' : '32 giờ lý thuyết',
-    practicalHours: index === 0 ? '96 giờ thực hành' : '64 giờ thực hành',
+  const [learningCourse, setLearningCourse] = useState<Course | null>(null);
+  const [learningLoading, setLearningLoading] = useState(false);
+  const [learningError, setLearningError] = useState('');
+  const [learningVersion, setLearningVersion] = useState(0);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
+  const [quizResult, setQuizResult] = useState<any | null>(null);
+  const [quizSubmitting, setQuizSubmitting] = useState(false);
+  const coursesList = courses.map(course => ({
+    ...(learningCourse?.id === course.id ? learningCourse : course),
+    totalHours: course.totalHours + ' giờ đào tạo',
+    theoryHours: course.theoryHours + ' giờ lý thuyết',
+    practicalHours: course.practiceHours + ' giờ thực hành',
     format: 'Học trực tiếp',
     tuition: `${course.price.toLocaleString('vi-VN')}đ`,
-    deposit: `${Math.min(2_000_000, course.price).toLocaleString('vi-VN')}đ`,
-    code: `MLD-${course.id.toUpperCase()}`,
-    progress: enrollments.some((item) => item.courseId === course.id && item.status === 'confirmed') ? 20 : 0,
+    deposit: `${course.depositAmount.toLocaleString('vi-VN')}đ`,
+    code: course.code,
+    progress: enrollments.find(item => item.courseId === course.id)?.progressPercent || 0,
   }));
 
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase('vi');
@@ -85,8 +91,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
       || (selectedCategory === 'Chăm sóc da' && searchable.includes('da'))
       || (selectedCategory === 'Kỹ thuật MLD' && (searchable.includes('mld') || searchable.includes('bạch huyết')))
       || (selectedCategory === 'Quản lý Spa' && searchable.includes('quản lý'));
-    const weeks = index === 0 ? 12 : index === 1 ? 6 : 4;
-    const matchesDuration = durationFilter === 'Tất cả' || (durationFilter === '6–12 tuần' && weeks >= 6 && weeks <= 12) || (durationFilter === 'Dưới 6 tuần' && weeks < 6) || (durationFilter === 'Trên 12 tuần' && weeks > 12);
+    const weeks: number | null = null;
+    const matchesDuration = durationFilter === 'Tất cả' || (durationFilter === '6–12 tuần' && weeks != null && weeks >= 6 && weeks <= 12) || (durationFilter === 'Dưới 6 tuần' && weeks != null && weeks < 6) || (durationFilter === 'Trên 12 tuần' && weeks != null && weeks > 12);
     const matchesPrice = priceFilter === 'Tất cả' || (priceFilter === '4–9 triệu đồng' && course.price >= 4_000_000 && course.price <= 9_000_000) || (priceFilter === 'Dưới 4 triệu' && course.price < 4_000_000) || (priceFilter === 'Trên 9 triệu' && course.price > 9_000_000);
     return matchesSearch && matchesCategory && matchesDuration && matchesPrice;
   });
@@ -97,14 +103,47 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
     || enrolledCourses[0]
     || coursesList[0];
   const studyEnrollment = enrollments.find((item) => item.courseId === studyCourse?.id) || enrollments[0];
+  useEffect(() => {
+    let cancelled = false;
+    setLearningCourse(null);
+    setQuizAnswers({});
+    setQuizResult(null);
+    setCurrentQuestionIndex(0);
+    setSelectedQuizAnswer(null);
+    const enrollment = enrollments.find(e => e.courseId === studyCourse?.id);
+    if (!studyCourse?.id || !enrollment || !['enrolled', 'studying', 'graduated'].includes(enrollment.status)) return;
+    setLearningLoading(true);
+    setLearningError('');
+    apiClient.getCourseLearning(studyCourse.id).then(result => {
+      if (cancelled) return;
+      setLearningLoading(false);
+      if (!result?.course || result.error) { setLearningError(result?.error || 'Không thể tải nội dung học.'); return; }
+      setLearningCourse(result.course);
+    });
+    return () => { cancelled = true; };
+  }, [studyCourse?.id, enrollments, learningVersion]);
+
+  const submitQuiz = async () => {
+    if (!studyCourse?.quiz?.questions.length || quizSubmitting) return;
+    if (Object.keys(quizAnswers).length !== studyCourse.quiz.questions.length) { setLearningError('Vui lòng trả lời tất cả câu hỏi.'); return; }
+    setQuizSubmitting(true);
+    const result = await apiClient.submitQuiz(studyCourse.id, quizAnswers);
+    setQuizSubmitting(false);
+    if (!result || result.error || result.score == null) { setLearningError(result?.error || 'Không thể nộp bài.'); return; }
+    setQuizResult(result);
+    setIsCertificateModalOpen(true);
+  };
   const openLesson = (lessonIndex: number) => {
     const lessons = studyCourse?.lessons || [];
     const safeIndex = Math.min(Math.max(lessonIndex, 0), Math.max(lessons.length - 1, 0));
-    setActiveLessonModal({ ...(lessons[safeIndex] || { title: 'Bài học' }), lessonIndex: safeIndex });
+    if (!lessons[safeIndex]?.videoUrl) { setLearningError('Chưa có video cho bài học này.'); return; }
+    setActiveLessonModal({ ...lessons[safeIndex], lessonIndex: safeIndex });
   };
 
   useEffect(() => {
+    apiClient.getCurrentUser().then(result => { if (result?.user) { setStudentName(result.user.name); setStudentPhone(result.user.phone); setStudentEmail(result.user.email); } });
     apiClient.getCourseEnrollments().then((response) => {
+      if (!response || response.error) setLearningError(response?.error || 'Không thể tải đăng ký học.');
       if (response?.enrollments) setEnrollments(response.enrollments);
     });
   }, []);
@@ -141,7 +180,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
     }
     setEnrolling(true);
     setEnrollmentError('');
-    const response = await apiClient.enrollCourse({ courseId: selectedCourse.id, studentName, phone: studentPhone, email: studentEmail, voucherCode: voucherCode || undefined });
+    const response = await apiClient.enrollCourse({ courseId: selectedCourse.id, voucherCode: voucherCode || undefined });
     setEnrolling(false);
     if (response?.enrollment) {
       if (voucherCode) localStorage.removeItem('mld_pending_voucher');
@@ -155,11 +194,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
   };
 
   const instructorData = {
-    name: 'Nguyễn Thanh Hương',
-    role: 'Giảng viên kỹ thuật Spa',
-    specialties: 'Massage • Chăm sóc cơ thể • Quy trình dịch vụ',
-    bio: 'Cô Hương đồng hành cùng học viên từ thao tác nền tảng đến thực hành quy trình hoàn chỉnh. Phương pháp hướng dẫn chú trọng vệ sinh, giao tiếp và điều chỉnh thao tác theo phản hồi của khách hàng.',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&auto=format&fit=crop&q=80',
+    name: selectedCourse?.instructor || '', role: '', specialties: '', bio: '',
+    image: selectedCourse?.instructorAvatar || '',
   };
 
   const quizQuestions = studyCourse?.quiz?.questions || [];
@@ -173,6 +209,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
 
   return (
     <div className="space-y-3 px-3 pt-3 pb-20">
+      {learningLoading && <p role="status" className="text-xs">Đang tải nội dung học...</p>}
+      {learningError && <p role="alert" className="text-xs text-red-700">{learningError} <button onClick={() => setLearningVersion(value => value + 1)}>Thử lại</button></p>}
       {/* Group E Header Subnav (Figma 05) */}
       {mode === 'learning' && <div className="grid grid-cols-4 gap-1 rounded-[10px] border border-[#EADECF] bg-white p-1">
         {[
@@ -396,7 +434,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                 {enrollment.status === 'pending' ? 'Chờ xác nhận' : enrollment.status === 'confirmed' ? 'Đang học' : enrollment.status} • {enrollment.code}
               </span>
-              <span className="text-xs font-bold text-[#98501B]">{enrollment.status === 'confirmed' ? '20% hoàn thành' : 'Đã ghi nhận'}</span>
+              <span className="text-xs font-bold text-[#98501B]">{`${enrollment.progressPercent}% hoàn thành`}</span>
             </div>
 
             <div>
@@ -405,7 +443,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
             </div>
 
             <div className="w-full h-2 rounded-full bg-[#FAF6F0] overflow-hidden">
-              <div className="h-full bg-[#98501B] rounded-full" style={{ width: '20%' }} />
+              <div className="h-full bg-[#98501B] rounded-full" style={{ width: `${enrollment.progressPercent}%` }} />
             </div>
 
             <div className="p-3 rounded-xl bg-[#FAF6F0] text-xs space-y-1">
@@ -441,7 +479,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
                 <h3 className="text-xs font-bold text-[#40352F]">{studyCourse?.quiz?.title || 'Bài kiểm tra kiến thức'}</h3>
               </div>
               <div className="text-right">
-                <span className="text-xs font-extrabold text-[#98501B]">⏱ 18:45</span>
+                <span className="text-xs font-extrabold text-[#98501B]">{studyCourse?.quiz ? `Điểm đạt: ${studyCourse.quiz.passingScore}%` : ''}</span>
                 <p className="text-[9px] text-[#A09085]">Thời gian tính</p>
               </div>
             </div>
@@ -458,7 +496,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
               {currentQuizQuestion.options.map((opt, idx) => (
                 <div
                   key={idx}
-                  onClick={() => setSelectedQuizAnswer(idx)}
+                  onClick={() => { setSelectedQuizAnswer(idx); if (courseQuizQuestion) setQuizAnswers(prev => ({ ...prev, [courseQuizQuestion.id]: courseQuizQuestion.optionKeys?.[idx] || String.fromCharCode(65 + idx) })); }}
                   className={`p-3 rounded-[10px] border text-xs cursor-pointer transition flex items-center justify-between ${
                     selectedQuizAnswer === idx
                       ? 'border-[#98501B] bg-[#FAF6F0] text-[#98501B] font-bold'
@@ -472,11 +510,18 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
             </div>
 
             <div className="flex space-x-2 pt-2">
+              <button disabled={!quizQuestions.length} onClick={() => {
+                const next = (quizQuestionIndex + 1) % quizQuestions.length;
+                setCurrentQuestionIndex(next);
+                const question = quizQuestions[next];
+                setSelectedQuizAnswer(question.optionKeys?.indexOf(quizAnswers[question.id]) ?? null);
+              }} className="text-xs">Câu tiếp theo</button>
               <button
-                onClick={() => setIsCertificateModalOpen(true)}
+                onClick={submitQuiz}
+                disabled={quizSubmitting || !quizQuestions.length}
                 className="flex-1 py-2.5 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition"
               >
-                Nộp bài & Xem đánh giá
+                {quizSubmitting ? 'Đang nộp bài...' : 'Nộp bài & Xem đánh giá'}
               </button>
             </div>
           </div>
@@ -486,36 +531,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
       {/* =========================================================================
           TAB 4: E11 LỊCH HỌC & ĐIỂM DANH
       ========================================================================= */}
-      {activeTab === 'schedule' && (
-        <div className="space-y-3 animate-fade-in">
-          <div>
-            <h1 className="text-[21px] font-bold text-[#6F452C]">Lịch học & điểm danh</h1>
-            <p className="text-xs text-[#7A685D]">Chủ động theo dõi lịch đào tạo và các buổi thực hành.</p>
-          </div>
-
-          <div className="bg-white rounded-[10px] p-3 border border-[#EADECF] space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-[#40352F]">Tháng 10, 2026</h3>
-              <span className="text-[10px] text-[#98501B] font-bold">● Lịch mẫu</span>
-            </div>
-
-            {/* Upcoming class session */}
-            <button onClick={() => { setClassDetailTab('schedule'); setIsClassDetailOpen(true); }} className="w-full rounded-[10px] bg-[#F3E2CE] p-3 text-left space-y-1">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-[#40352F]">Thứ 6 • 16/10/2026</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                  Thực hành tại lớp
-                </span>
-              </div>
-              <p className="text-xs text-[#7A685D]">13:00 — 17:00 (4 tiếng)</p>
-              <p className="text-[11px] text-[#40352F]">Chủ đề: Thao tác massage vùng cổ gáy trên mô hình thật</p>
-              <p className="text-[10px] text-[#A09085]">Địa điểm: Phòng thực hành 02 — Chi nhánh Quận 3</p>
-              <span className="mt-2 block text-[10px] font-bold text-[#A65317]">Xem chi tiết buổi học</span>
-            </button>
-          </div>
-        </div>
-      )}
-
+      {activeTab === 'schedule' && <p className="text-xs">Chưa có lịch học được cung cấp.</p>}
       {/* =========================================================================
           DEDICATED FULL PAGE: E03 CHI TIẾT KHÓA HỌC
       ========================================================================= */}
@@ -559,13 +575,13 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
                 <div className="text-[9px] text-[#A09085]">48 giờ lý thuyết</div>
               </div>
               <div>
-                <div className="text-xl font-black text-[#40352F]">144</div>
+                <div className="text-xl font-black text-[#40352F]">{selectedCourse.totalHours}</div>
                 <div className="text-[10px] text-[#7A685D] font-semibold">giờ đào tạo</div>
-                <div className="text-[9px] text-[#A09085]">96 giờ thực hành</div>
+                <div className="text-[9px] text-[#A09085]">{selectedCourse.practiceHours} giờ thực hành</div>
               </div>
               </div>
-              <p className="mt-2 text-[9px] text-[#6F625B]">48 giờ lý thuyết · 96 giờ thực hành</p>
-              <p className="mt-2 text-[9px] text-[#6F625B]">Học trực tiếp · Học phí 9.000.000đ</p>
+              <p className="mt-2 text-[9px] text-[#6F625B]">{selectedCourse.theoryHours} giờ lý thuyết · {selectedCourse.practiceHours} giờ thực hành</p>
+              <p className="mt-2 text-[9px] text-[#6F625B]">Học phí {selectedCourse.price.toLocaleString('vi-VN')}đ</p>
             </div>
 
             <div className="space-y-2">
@@ -703,6 +719,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
                 <input
                   type="text"
                   value={studentName}
+                  readOnly
                   onChange={(e) => setStudentName(e.target.value)}
                   className="w-full p-3 rounded-[8px] border border-[#EADECF] bg-white text-xs font-medium focus:outline-none focus:border-[#98501B]"
                 />
@@ -712,6 +729,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
                 <input
                   type="text"
                   value={studentPhone}
+                  readOnly
                   onChange={(e) => setStudentPhone(e.target.value)}
                   className="w-full p-3 rounded-[8px] border border-[#EADECF] bg-white text-xs font-medium focus:outline-none focus:border-[#98501B]"
                 />
@@ -721,6 +739,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
                 <input
                   type="email"
                   value={studentEmail}
+                  readOnly
                   onChange={(e) => setStudentEmail(e.target.value)}
                   className="w-full p-3 rounded-[8px] border border-[#EADECF] bg-white text-xs font-medium focus:outline-none focus:border-[#98501B]"
                 />
@@ -787,8 +806,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
 
             <div className="bg-[#F3E2CE] p-3 rounded-[10px] space-y-2 text-xs">
               <p className="font-bold text-[12px] text-[#40352F]">{selectedCourse.title}</p>
-              <p className="text-[9px] text-[#6F625B]">{studentName} · MCN-1026</p>
-              <p className="text-[9px] text-[#6F625B]">Khai giảng 23/10/2026 · Học trực tiếp</p>
+              <p className="text-[9px] text-[#6F625B]">{studentName}</p>
+              <p className="text-[9px] text-[#6F625B]">{selectedCourse.code}</p>
               <p className="text-[9px] text-[#6F625B]">Chi nhánh mẫu 01 – Quận 3</p>
               <p className="text-[9px] text-[#6F625B]">Thứ 6–7–Chủ nhật · 13:00–17:00</p>
             </div>
@@ -806,7 +825,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
           </div>
 
           <div className="p-3 bg-white border-t border-[#EADECF] shrink-0">
-            <p className="mb-2 text-[8px] text-[#A65317]">Chờ thanh toán · Trả ngay 2.000.000đ (minh họa)</p>
+            <p className="mb-2 text-[8px] text-[#A65317]">Đăng ký chưa xác nhận thanh toán</p>
             <button
               onClick={submitEnrollment}
               disabled={enrolling}
@@ -832,12 +851,12 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
           </div>
           <div className="flex-1 space-y-3 overflow-y-auto px-3 pb-24">
             <div className="rounded-[10px] bg-[#F3E2CE] p-3">
-              <p className="text-[8px] font-semibold text-[#A65317]">Đang học · MCN-0926</p>
+              <p className="text-[8px] font-semibold text-[#A65317]">{studyEnrollment?.status || ''}</p>
               <h3 className="mt-3 text-[16px] font-bold leading-tight text-[#6F452C]">{studyCourse?.title}</h3>
               <div className="mt-3 space-y-2 text-[9px] text-[#6F625B]">
-                <p>Giảng viên Nguyễn Thanh Hương</p><p>Chi nhánh mẫu 01 – Quận 3</p><p>Thứ 6–7–Chủ nhật · 13:00–17:00</p>
+                <p>{studyCourse?.instructor}</p>
               </div>
-              <div className="mt-3 flex justify-between text-[9px]"><span>4 / 20 bài học đã hoàn thành</span><b className="text-[#A65317]">20%</b></div>
+              <div className="mt-3 flex justify-between text-[9px]"><span>{studyCourse?.lessons.filter(lesson => lesson.isCompleted).length || 0} / {studyCourse?.lessonsCount || 0} bài học đã hoàn thành</span><b className="text-[#A65317]">{studyEnrollment?.progressPercent || 0}%</b></div>
               <div className="mt-2 h-1 rounded-full bg-[#DFC8B4]"><div className="h-full w-1/5 rounded-full bg-[#A65317]" /></div>
             </div>
             <div className="grid grid-cols-3 border-b border-[#DCC8B6] text-center text-[9px] text-[#7A685D]">
@@ -849,8 +868,9 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
               <p className="mt-1 text-[8px] text-[#8A7D74]">{studyCourse?.lessons.length || 0} bài học</p>
               {studyCourse?.lessons.map((lesson, lessonIndex) => <button key={lesson.id} onClick={() => openLesson(lessonIndex)} className="mt-3 flex w-full items-center gap-2 border-t border-[#EFEAE3] pt-3 text-left text-[9px] text-[#6F452C]"><PlayCircleIcon size={16} className="shrink-0 text-[#A65317]" /><span>{lesson.title}<br/><small>Video · {lesson.duration} · {lesson.isCompleted ? 'Đã hoàn thành' : 'Chưa hoàn thành'}</small></span></button>)}
             </div>}
-            {classDetailTab === 'schedule' && <div className="space-y-2 rounded-[10px] border border-[#EADECF] bg-white p-3"><b className="text-xs text-[#40352F]">Lịch học sắp tới</b><p className="text-[10px] text-[#7A685D]">Thứ 6, 16/10/2026 · 13:00–17:00</p><p className="text-[10px] text-[#7A685D]">Phòng thực hành 02 · Chi nhánh Quận 3</p><button onClick={() => { setIsClassDetailOpen(false); setActiveTab('schedule'); }} className="mt-2 h-10 w-full rounded-[8px] bg-[#A65317] text-xs font-bold text-white">Xem lịch học & điểm danh</button></div>}
-            {classDetailTab === 'documents' && <div className="space-y-2 rounded-[10px] border border-[#EADECF] bg-white p-3"><b className="text-xs text-[#40352F]">Tài liệu khóa học</b>{['Giáo trình kỹ thuật Massage.pdf', 'Sơ đồ huyệt đạo cơ bản.pdf', 'Checklist quy trình thực hành.pdf'].map((name) => <button key={name} onClick={() => window.alert(`Tài liệu minh họa: ${name}`)} className="flex min-h-11 w-full items-center gap-2 border-t border-[#EFEAE3] text-left text-[10px] text-[#6F452C]"><FileTextIcon size={16} className="text-[#A65317]" />{name}</button>)}</div>}
+            {classDetailTab === 'schedule' && <p className="text-xs">Chưa có lịch học được cung cấp.</p>}
+
+            {classDetailTab === 'documents' && <p className="text-xs">Chưa có tài liệu được cung cấp.</p>}
           </div>
           <div className="shrink-0 border-t border-[#EADECF] bg-white p-3">
             <button onClick={() => openLesson(0)} className="h-11 w-full rounded-[8px] bg-[#A65317] text-[11px] font-bold text-white">Tiếp tục bài học</button>
@@ -883,33 +903,10 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
 
           <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-24">
             {/* Video container */}
-            <div className="relative rounded-[10px] bg-black overflow-hidden h-48 flex items-center justify-center">
-              <img
-                src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80"
-                alt="Video"
-                className="w-full h-full object-cover opacity-60"
-              />
-              <button
-                onClick={() => setVideoPlaying(!videoPlaying)}
-                className="absolute w-14 h-14 rounded-full bg-[#98501B] text-white flex items-center justify-center shadow-xl active:scale-90 transition"
-              >
-                <PlayCircleIcon size={28} />
-              </button>
-              <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/75 text-white text-[10px] font-mono">
-                03:20 / 18:00
-              </span>
-            </div>
+            <video key={activeLessonModal.id} src={activeLessonModal.videoUrl} controls className="w-full aspect-video bg-black" />
+            <h4 className="text-sm font-bold">{activeLessonModal.title}</h4>
+            <p className="text-xs">{activeLessonModal.duration}</p>
 
-            <div className="space-y-2">
-              <p className="text-[9px] text-[#A65317]">Chương 2 · Video 18 phút</p>
-              <h4 className="text-[15px] font-bold text-[#6F452C]">{activeLessonModal.title}</h4>
-              <h4 className="text-xs font-bold text-[#40352F]">Nội dung trọng tâm bài học:</h4>
-              <p className="text-xs text-[#7A685D] leading-relaxed">
-                1. Kỹ thuật miết nhẹ dẫn lưu mạch máu ngoại vi.<br />
-                2. Lực ép lòng bàn tay và nhịp thở đồng điệu.<br />
-                3. Điều chỉnh tư thế ngồi tránh mỏi cơ cho kỹ thuật viên.
-              </p>
-            </div>
           </div>
 
           <div className="p-3 bg-white border-t border-[#EADECF] shrink-0 space-y-2">
@@ -917,7 +914,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
               onClick={() => setActiveLessonModal(null)}
               className="w-full h-11 rounded-[8px] bg-[#A65317] text-white text-[11px] font-bold"
             >
-              Hoàn thành bài học
+              Đóng bài học
             </button>
             <button onClick={() => { const nextIndex = activeLessonModal.lessonIndex + 1; if (nextIndex < (studyCourse?.lessons.length || 0)) openLesson(nextIndex); else { setActiveLessonModal(null); setIsClassDetailOpen(false); setActiveTab('exam'); } }} className="w-full h-11 rounded-[8px] border border-[#A65317] bg-white text-[#A65317] text-[11px] font-bold">{activeLessonModal.lessonIndex + 1 < (studyCourse?.lessons.length || 0) ? 'Bài tiếp theo' : 'Làm bài kiểm tra kiến thức'}</button>
           </div>
@@ -927,65 +924,16 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
       {/* =========================================================================
           DEDICATED FULL PAGE: E12 KẾT QUẢ HỌC TẬP & CHỨNG CHỈ
       ========================================================================= */}
-      {isCertificateModalOpen && (
-        <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="px-3 pt-3 pb-2 flex items-start justify-between shrink-0">
-            <div className="flex items-center space-x-2.5">
-              <button
-                onClick={() => setIsCertificateModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] flex items-center justify-center text-[#40352F] hover:bg-[#EADECF] transition active:scale-95"
-              >
-                <ArrowLeftIcon size={16} color="#40352F" />
-              </button>
-              <h3 className="text-[20px] font-bold text-[#6F452C]">Kết quả học tập</h3>
-            </div>
-            <button
-              onClick={() => setIsCertificateModalOpen(false)}
-              className="text-xs text-[#98501B] font-bold"
-            >
-              Dữ liệu minh họa
-            </button>
-          </div>
+      {isCertificateModalOpen && <div className="absolute inset-0 z-50 bg-[#FAF6F0] p-4 space-y-4">
+        <button onClick={() => setIsCertificateModalOpen(false)} className="text-xs">Đóng</button>
+        <h3 className="text-sm font-bold">Kết quả học tập</h3>
+        {quizResult ? <div className="text-xs space-y-2">
+          <p>Điểm: {quizResult.score}%</p><p>{quizResult.correctCount} / {quizResult.totalQuestions} câu đúng</p>
+          <p>{quizResult.isPassed ? 'Đạt' : 'Chưa đạt'}</p>
+        </div> : <p className="text-xs">Chưa có kết quả bài kiểm tra.</p>}
+        <p className="text-xs">Chưa có chứng chỉ được cấp.</p>
+      </div>}
 
-          <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-24">
-            <div className="space-y-2 py-2">
-              <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs">
-                <TrophyIcon size={32} />
-              </div>
-              <h4 className="text-base font-extrabold text-[#40352F]">Chúc Mừng Tốt Nghiệp!</h4>
-              <p className="text-xs text-[#7A685D] px-4">
-                Học viên <strong>{studyEnrollment?.studentName || 'Nguyễn Minh Anh'}</strong> đã hoàn thành khóa <strong>{studyCourse?.title}</strong>.
-              </p>
-            </div>
-
-            {/* Scores (Figma E12) */}
-            <div className="grid grid-cols-2 gap-2 bg-transparent text-left">
-              <div>
-                <div className="text-xl font-black text-[#98501B]">8.5 / 10</div>
-                <div className="text-[10px] text-[#7A685D] font-bold">Lý thuyết y khoa</div>
-              </div>
-              <div>
-                <div className="text-xl font-black text-emerald-600">9.0 / 10</div>
-                <div className="text-[10px] text-[#7A685D] font-bold">Thực hành lâm sàng</div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50 text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-amber-900 tracking-wider">Mã chứng nhận điện tử</span>
-              <p className="font-mono text-sm font-black text-amber-950">MLD-CERT-VN-2026-8899</p>
-            </div>
-          </div>
-
-          <div className="p-3 bg-white border-t border-[#EADECF] shrink-0">
-            <button
-              onClick={() => setIsCertificateModalOpen(false)}
-              className="w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition shadow-md"
-            >
-              Lưu chứng nhận vào hồ sơ cá nhân
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
