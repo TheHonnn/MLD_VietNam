@@ -1,15 +1,15 @@
 -- ==============================================================================
--- MLD VIỆT NAM - INITIAL SEED DATA (AUTHENTIC SPA & ACADEMY)
--- Version: 3.0.0
--- Database: PostgreSQL 15+ / Supabase
+-- MLD VIỆT NAM - SEED DATA TOÀN DIỆN CHO TOÀN BỘ HỆ SINH THÁI
+-- Tương thích 100% với Master Schema 53 bảng trong database/schema.sql
 -- ==============================================================================
 
 -- 1. CHI NHÁNH CƠ SỞ SPA MLD (BRANCHES)
-INSERT INTO branches (id, name, phone, address, district, city, latitude, longitude, opening_time, closing_time, image_url, amenities, total_rooms, total_beds)
+INSERT INTO branches (id, name, code, phone, address, district, city, latitude, longitude, opening_time, closing_time, image_url, gallery_urls, amenities)
 VALUES 
     (
         'aaaaaaaa-0001-0001-0001-000000000001',
         'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa',
+        'MLD-Q3',
         '02839301234',
         'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu',
         'Quận 3',
@@ -19,13 +19,13 @@ VALUES
         '08:30:00',
         '20:30:00',
         'https://images.unsplash.com/photo-1540555700478-4be289fbecef',
-        '["Phòng VIP riêng tư", "Máy soi da đa tầng 3D", "Bãi đỗ ô tô miễn phí", "Trà thảo mộc dưỡng nhan"]'::jsonb,
-        10,
-        20
+        '["https://images.unsplash.com/photo-1540555700478-4be289fbecef", "https://images.unsplash.com/photo-1560750588-73207b1ef5b8"]'::jsonb,
+        '["Phòng VIP riêng tư", "Máy soi da đa tầng 3D", "Bãi đỗ ô tô miễn phí", "Trà thảo mộc dưỡng nhan"]'::jsonb
     ),
     (
         'aaaaaaaa-0001-0001-0001-000000000002',
         'MLD Beauty & Spa — Cơ sở Nguyễn Thị Minh Khai',
+        'MLD-Q1',
         '02838295678',
         'Số 45 Nguyễn Thị Minh Khai, Phường Bến Nghé',
         'Quận 1',
@@ -35,13 +35,22 @@ VALUES
         '08:30:00',
         '21:00:00',
         'https://images.unsplash.com/photo-1560750588-73207b1ef5b8',
-        '["Phòng Đào tạo thực hành Academy", "Không gian thiền dưỡng sinh", "Trang thiết bị chuẩn y khoa", "Khu tiếp đón cao cấp"]'::jsonb,
-        8,
-        16
+        '["https://images.unsplash.com/photo-1560750588-73207b1ef5b8"]'::jsonb,
+        '["Phòng Đào tạo thực hành Academy", "Không gian thiền dưỡng sinh", "Trang thiết bị chuẩn y khoa", "Khu tiếp đón cao cấp"]'::jsonb
     )
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 
--- 2. TÀI KHOẢN MẪU (USERS)
+-- 2. PHÒNG TRỊ LIỆU & PHÒNG LAB ĐÀO TẠO (BRANCH_ROOMS)
+INSERT INTO branch_rooms (id, branch_id, name, room_type, bed_capacity, is_available)
+VALUES
+    ('11111111-0001-0001-0001-000000000001', 'aaaaaaaa-0001-0001-0001-000000000001', 'Phòng VIP 01 - Hoa Sen', 'VIP_ROOM', 2, TRUE),
+    ('11111111-0001-0001-0001-000000000002', 'aaaaaaaa-0001-0001-0001-000000000001', 'Phòng Massage Body 02', 'MASSAGE_ROOM', 4, TRUE),
+    ('11111111-0001-0001-0001-000000000003', 'aaaaaaaa-0001-0001-0001-000000000001', 'Phòng Gội Đầu Dưỡng Sinh 03', 'HEAD_SPA_ROOM', 4, TRUE),
+    ('11111111-0001-0001-0001-000000000004', 'aaaaaaaa-0001-0001-0001-000000000002', 'Phòng Thực Hành Lâm Sàng Lab 01', 'PRACTICE_LAB', 10, TRUE),
+    ('11111111-0001-0001-0001-000000000005', 'aaaaaaaa-0001-0001-0001-000000000002', 'Phòng Học Lý Thuyết 02', 'ACADEMY_CLASSROOM', 15, TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+-- 3. TÀI KHOẢN MẪU (USERS)
 -- Mật khẩu mặc định: 'Password@123'
 INSERT INTO users (id, phone, email, full_name, avatar_url, gender, role, purpose, membership_tier, reward_points, total_spent, referral_code)
 VALUES 
@@ -52,7 +61,7 @@ VALUES
         'Ban Quản Trị MLD Việt Nam',
         'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2',
         'FEMALE',
-        'ADMIN',
+        'SUPER_ADMIN',
         'BOTH',
         'DIAMOND',
         5000,
@@ -66,7 +75,7 @@ VALUES
         'Lễ Tân Hoàng Yến',
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
         'FEMALE',
-        'STAFF',
+        'RECEPTIONIST',
         'BEAUTY_SPA',
         'STANDARD',
         0,
@@ -112,18 +121,26 @@ VALUES
         'BOTH',
         'GOLD',
         350,
-        12500000.00,
+        18500000.00,
         'MYDUYEN99'
     )
 ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name;
 
--- 3. KỸ THUẬT VIÊN SPA (TECHNICIANS)
-INSERT INTO technicians (id, user_id, branch_id, full_name, title, avatar_url, experience_years, rating_avg, review_count, specialties, bio)
+-- 4. HỒ SƠ NHÂN SỰ TOÀN CƠ SỞ (STAFF_PROFILES)
+INSERT INTO staff_profiles (id, user_id, branch_id, employee_code, department, position, base_salary, commission_rate)
+VALUES
+    ('99999999-0001-0001-0001-000000000001', 'bbbbbbbb-0001-0001-0001-000000000002', 'aaaaaaaa-0001-0001-0001-000000000001', 'NV-LT-001', 'RECEPTION', 'Trưởng nhóm Lễ tân', 10000000.00, 2.00),
+    ('99999999-0001-0001-0001-000000000002', 'bbbbbbbb-0001-0001-0001-000000000003', 'aaaaaaaa-0001-0001-0001-000000000001', 'NV-KTV-001', 'THERAPY_MASSAGE', 'Chuyên viên Trị liệu cấp cao', 12000000.00, 10.00)
+ON CONFLICT (employee_code) DO NOTHING;
+
+-- 5. KỸ THUẬT VIÊN SPA (TECHNICIANS)
+INSERT INTO technicians (id, user_id, branch_id, staff_profile_id, full_name, title, avatar_url, experience_years, rating_avg, review_count, specialties, bio)
 VALUES 
     (
         'cccccccc-0001-0001-0001-000000000001',
         'bbbbbbbb-0001-0001-0001-000000000003',
         'aaaaaaaa-0001-0001-0001-000000000001',
+        '99999999-0001-0001-0001-000000000002',
         'Trần Lan Anh',
         'Chuyên viên Trị liệu Cấp cao',
         'https://images.unsplash.com/photo-1580489944761-15a19d654956',
@@ -137,6 +154,7 @@ VALUES
         'cccccccc-0001-0001-0001-000000000002',
         NULL,
         'aaaaaaaa-0001-0001-0001-000000000001',
+        NULL,
         'Lê Quỳnh Nga',
         'Chuyên viên Chăm sóc da & Dưỡng sinh',
         'https://images.unsplash.com/photo-1544005313-94ddf0286df2',
@@ -148,7 +166,7 @@ VALUES
     )
 ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
 
--- 4. DANH MỤC DỊCH VỤ SPA (SERVICE_CATEGORIES)
+-- 6. DANH MỤC DỊCH VỤ SPA (SERVICE_CATEGORIES)
 INSERT INTO service_categories (id, name, code, icon_url, description, display_order)
 VALUES 
     (
@@ -185,7 +203,7 @@ VALUES
     )
 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name;
 
--- 5. DỊCH VỤ SPA CHI TIẾT (SERVICES)
+-- 7. DỊCH VỤ SPA CHI TIẾT (SERVICES)
 INSERT INTO services (id, category_id, name, slug, short_description, full_description, duration_minutes, price, discount_price, image_url, steps, benefits, is_featured)
 VALUES 
     (
@@ -235,7 +253,7 @@ VALUES
     )
 ON CONFLICT (slug) DO UPDATE SET price = EXCLUDED.price;
 
--- 6. GÓI LIỆU TRÌNH ĐỊNH KỲ (TREATMENT_PACKAGES)
+-- 8. GÓI LIỆU TRÌNH ĐỊNH KỲ (TREATMENT_PACKAGES)
 INSERT INTO treatment_packages (id, name, service_id, total_sessions, price, discount_price, validity_months, description, image_url)
 VALUES 
     (
@@ -262,7 +280,7 @@ VALUES
     )
 ON CONFLICT (id) DO UPDATE SET price = EXCLUDED.price;
 
--- 7. GIẢNG VIÊN ĐÀO TẠO ACADEMY (INSTRUCTORS)
+-- 9. GIẢNG VIÊN ĐÀO TẠO ACADEMY (INSTRUCTORS)
 INSERT INTO instructors (id, user_id, full_name, title, avatar_url, experience_years, bio, achievements)
 VALUES 
     (
@@ -277,7 +295,7 @@ VALUES
     )
 ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
 
--- 8. DANH MỤC KHÓA ĐÀO TẠO ACADEMY (COURSE_CATEGORIES)
+-- 10. DANH MỤC KHÓA ĐÀO TẠO ACADEMY (COURSE_CATEGORIES)
 INSERT INTO course_categories (id, name, code, icon_url, description, display_order)
 VALUES 
     (
@@ -298,22 +316,24 @@ VALUES
     )
 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name;
 
--- 9. KHÓA HỌC ACADEMY (COURSES)
-INSERT INTO courses (id, category_id, instructor_id, title, slug, short_description, full_description, level, total_hours, total_sessions, tuition_fee, discount_fee, certificate_title, image_url, is_hot)
+-- 11. KHÓA HỌC ACADEMY (COURSES)
+INSERT INTO courses (id, category_id, primary_instructor_id, title, code, short_description, full_description, level, total_hours, theory_hours, practice_hours, total_lessons, tuition_fee, deposit_amount, certificate_title, image_url, is_featured)
 VALUES 
     (
         '30303030-0001-0001-0001-000000000001',
         '20202020-0001-0001-0001-000000000001',
         '10101010-0001-0001-0001-000000000001',
-        'Khóa Đào Tạo Kỹ Thuật Viên Spa Chuyên Nghiệp (Từ Cơ Bản Đến Nâng Cao)',
-        'khoa-dao-tao-ktv-spa-chuyen-nghiep',
+        'Khóa Đào Tạo Kỹ Thuật Viên Spa Chuyên Nghiệp',
+        'SPA-PRO-01',
         'Cam kết vững tay nghề, thành thạo công nghệ chăm sóc da chuẩn y khoa và hỗ trợ việc làm 100%.',
         'Khóa học thực chiến với 80% thời lượng thực hành trên mẫu thật. Học viên nắm trọn kỹ năng soi da, phân tích phác đồ điều trị, kỹ thuật massage nâng cơ và vận hành máy móc thẩm mỹ hiện đại.',
         'BEGINNER',
-        60,
+        144,
+        48,
+        96,
         20,
         15000000.00,
-        11900000.00,
+        2000000.00,
         'Chứng Chỉ Kỹ Thuật Viên Spa Quốc Gia & MLD Academy',
         'https://images.unsplash.com/photo-1512290900672-1f416559d80d',
         TRUE
@@ -323,24 +343,33 @@ VALUES
         '20202020-0001-0001-0001-000000000002',
         '10101010-0001-0001-0001-000000000001',
         'Khóa Nghề Gội Đầu Dưỡng Sinh & Bấm Huyệt Đả Thông Kinh Lạc',
-        'khoa-nghe-goi-dau-duong-sinh-bam-huyet',
+        'HEAD-SPA-01',
         'Khóa học cấp tốc giúp bạn tự tin mở tiệm hoặc làm việc tại các hệ thống spa cao cấp.',
         'Học viên được đào tạo chuyên sâu về 14 đường kinh lạc, phương pháp chế biến thảo mộc thiên nhiên, bài bấm huyệt chống đau nửa đầu vai gáy và kỹ năng tư vấn khách hàng chu đáo.',
         'BEGINNER',
-        36,
+        72,
+        24,
+        48,
         12,
         8500000.00,
-        6800000.00,
+        1500000.00,
         'Chứng Chỉ Chuyên Viên Dưỡng Sinh MLD Academy',
         'https://images.unsplash.com/photo-1544005313-94ddf0286df2',
         TRUE
     )
-ON CONFLICT (slug) DO UPDATE SET tuition_fee = EXCLUDED.tuition_fee;
+ON CONFLICT (code) DO UPDATE SET tuition_fee = EXCLUDED.tuition_fee;
 
--- 10. MÃ KHUYẾN MÃI / VOUCHER (COUPONS)
-INSERT INTO coupons (code, title, description, discount_percent, discount_amount, max_discount, min_order_amount, applicable_to, valid_from, valid_to, usage_limit)
+-- 12. MẪU PHÔI CHỨNG CHỈ (CERTIFICATE_TEMPLATES)
+INSERT INTO certificate_templates (id, name, code, background_image_url, title_text, signer_name, signer_title)
+VALUES
+    ('88888888-0001-0001-0001-000000000001', 'Phôi Chứng chỉ Nghề Spa Chuyên Nghiệp MLD', 'TMPL-SPA-PRO', 'https://cdn.mld.vn/certs/background_spa.png', 'CHỨNG CHỈ TỐT NGHIỆP', 'ThS. Nguyễn Thu Hà', 'Hiệu trưởng Học viện MLD Vietnam')
+ON CONFLICT (code) DO NOTHING;
+
+-- 13. MÃ KHUYẾN MÃI / VOUCHER (COUPONS)
+INSERT INTO coupons (id, code, title, description, discount_percent, discount_amount, max_discount, min_order_amount, valid_from, valid_to, usage_limit)
 VALUES 
     (
+        '44444444-0001-0001-0001-000000000001',
         'MLDCHAOXIN',
         'Tặng 100.000đ cho khách hàng mới',
         'Áp dụng cho mọi dịch vụ Spa hoặc Gói liệu trình đầu tiên',
@@ -348,12 +377,12 @@ VALUES
         100000.00,
         100000.00,
         300000.00,
-        'ALL',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP + INTERVAL '180 days',
         1000
     ),
     (
+        '44444444-0001-0001-0001-000000000002',
         'SPADAY20',
         'Ưu đãi 20% Dịch vụ Chăm sóc Da & Dưỡng sinh',
         'Giảm tối đa 150.000đ áp dụng từ thứ 2 đến thứ 5',
@@ -361,23 +390,15 @@ VALUES
         0.00,
         150000.00,
         400000.00,
-        'SPA_SERVICE',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP + INTERVAL '90 days',
         500
-    ),
-    (
-        'ACADEMY500K',
-        'Học bổng 500.000đ Đào tạo nghề MLD',
-        'Tặng ngay 500k cho học viên đăng ký sớm bất kỳ khóa học nào',
-        0.00,
-        500000.00,
-        500000.00,
-        5000000.00,
-        'COURSE',
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP + INTERVAL '120 days',
-        200
     )
 ON CONFLICT (code) DO NOTHING;
 
+-- 14. QUY CÁCH NHẬN VOUCHER TỰ ĐỘNG (VOUCHER_DISTRIBUTION_RULES)
+INSERT INTO voucher_distribution_rules (id, coupon_id, trigger_event, is_auto_grant, notify_user, valid_days_after_claim, description)
+VALUES
+    ('55555555-0001-0001-0001-000000000001', '44444444-0001-0001-0001-000000000001', 'ON_SIGNUP', TRUE, TRUE, 30, 'Tự động tặng voucher 100k vào ví khi người dùng hoàn tất đăng ký tài khoản mới (A05)'),
+    ('55555555-0001-0001-0001-000000000002', '44444444-0001-0001-0001-000000000002', 'ON_TIER_UPGRADE', TRUE, TRUE, 60, 'Tự động tặng voucher 20% khi thăng hạng lên Silver/Gold')
+ON CONFLICT (id) DO NOTHING;
