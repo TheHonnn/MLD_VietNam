@@ -1,8 +1,9 @@
 -- ==============================================================================
 -- MLD VIỆT NAM - DATABASE SCHEMA DEFINITION SCRIPT (PRODUCTION GRADE)
--- Hệ thống Y tế, Dưỡng sinh Spa & Học viện Đào tạo Nghề
--- Tương thích 100% Thiết kế Figma ("Medical Healthcare Mobile App" - ctH76PAiMBTQLJE0BxNjOI)
+-- Hệ sinh thái Y tế, Dưỡng sinh Spa & Học viện Đào tạo Nghề
+-- Tương thích 100% Thiết kế Figma & Cổng Quản trị Web Admin (CRUD toàn diện)
 -- Database Engine: PostgreSQL 15+ (Hỗ trợ Supabase & AWS RDS)
+-- Phiên bản: 4.0.0 (Admin CRUD & Business Engine Complete)
 -- ==============================================================================
 
 -- 1. BẬT EXTENSION POSTGRESQL CẦN THIẾT
@@ -17,7 +18,7 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
         CREATE TYPE user_role AS ENUM (
             'CUSTOMER', 'STUDENT', 'TECHNICIAN', 'INSTRUCTOR', 
-            'CASHIER', 'RECEPTIONIST', 'BRANCH_MANAGER', 'ADMIN'
+            'CASHIER', 'RECEPTIONIST', 'BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'
         );
     END IF;
 
@@ -48,7 +49,7 @@ DO $$ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'package_status') THEN
-        CREATE TYPE package_status AS ENUM ('ACTIVE', 'COMPLETED', 'EXPIRED', 'CANCELLED');
+        CREATE TYPE package_status AS ENUM ('ACTIVE', 'COMPLETED', 'EXPIRED', 'CANCELLED', 'PAUSED');
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'course_level') THEN
@@ -95,6 +96,39 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ticket_status') THEN
         CREATE TYPE ticket_status AS ENUM ('PENDING', 'PROCESSING', 'RESOLVED', 'CLOSED');
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'staff_department') THEN
+        CREATE TYPE staff_department AS ENUM (
+            'RECEPTION', 'CASHIER', 'THERAPY_MASSAGE', 'SKINCARE', 
+            'ACADEMY_TRAINING', 'CUSTOMER_SERVICE', 'ADMINISTRATION'
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'employment_type') THEN
+        CREATE TYPE employment_type AS ENUM ('FULL_TIME', 'PART_TIME', 'PROBATION', 'INTERN');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'leave_status') THEN
+        CREATE TYPE leave_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'voucher_distribution_trigger') THEN
+        CREATE TYPE voucher_distribution_trigger AS ENUM (
+            'ON_SIGNUP', 'ON_BIRTHDAY', 'ON_TIER_UPGRADE', 'ON_FIRST_BOOKING', 
+            'REFERRAL_INVITER', 'REFERRAL_INVITEE', 'MANUAL_BY_ADMIN', 'PUBLIC_CLAIM'
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'certificate_status') THEN
+        CREATE TYPE certificate_status AS ENUM ('DRAFT', 'ISSUED', 'REVOKED');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tuition_trans_type') THEN
+        CREATE TYPE tuition_trans_type AS ENUM (
+            'DEPOSIT', 'FULL_PAYMENT', 'INSTALLMENT_1', 'INSTALLMENT_2', 
+            'REMAINING_BALANCE', 'REFUND'
+        );
+    END IF;
 END $$;
 
 -- 3. HÀM CẬP NHẬT THỜI GIAN TỰ ĐỘNG
@@ -107,10 +141,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ==============================================================================
--- 4. PHÂN HỆ 1: TÀI KHOẢN, PHÂN QUYỀN & THIẾT LẬP (USERS & SETTINGS)
+-- 4. PHÂN HỆ 1: TÀI KHOẢN, PHÂN QUYỀN RBAC (AUTH & ROLES)
 -- ==============================================================================
 
--- Bảng 1: users
+-- Bảng 1: users (Tài khoản người dùng toàn hệ thống)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     phone VARCHAR(20) UNIQUE NOT NULL,
@@ -131,6 +165,8 @@ CREATE TABLE IF NOT EXISTS users (
     referral_code VARCHAR(20) UNIQUE NOT NULL,
     referred_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    locked_reason TEXT,
+    locked_at TIMESTAMPTZ,
     fcm_device_token TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -140,7 +176,7 @@ CREATE TRIGGER trg_users_updated_at
 BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
 
--- Bảng 2: user_settings
+-- Bảng 2: user_settings (Thiết lập app người dùng F08)
 CREATE TABLE IF NOT EXISTS user_settings (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     biometric_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -151,11 +187,49 @@ CREATE TABLE IF NOT EXISTS user_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Bảng 3: roles (Vai trò quản trị hệ thống)
+CREATE TABLE IF NOT EXISTS roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_system BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 4: permissions (Danh mục quyền hạn chi tiết)
+CREATE TABLE IF NOT EXISTS permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(100) UNIQUE NOT NULL,
+    module VARCHAR(50) NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 5: role_permissions (Gán quyền cho vai trò)
+CREATE TABLE IF NOT EXISTS role_permissions (
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
+);
+
+-- Bảng 6: user_roles (Gán vai trò cho người dùng theo chi nhánh)
+CREATE TABLE IF NOT EXISTS user_roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    branch_id UUID, -- Sẽ được gắn khóa ngoại REFERENCES branches(id) sau khi bảng branches được khởi tạo
+    granted_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_user_role_branch UNIQUE (user_id, role_id, branch_id)
+);
+
 -- ==============================================================================
--- 5. PHÂN HỆ 2: CƠ SỞ CHI NHÁNH, PHÒNG TRỊ LIỆU & GIƯỜNG (BRANCHES & ROOMS)
+-- 5. PHÂN HỆ 2: CƠ SỞ CHI NHÁNH & PHÒNG TRỊ LIỆU (BRANCHES & ROOMS)
 -- ==============================================================================
 
--- Bảng 3: branches
+-- Bảng 7: branches
 CREATE TABLE IF NOT EXISTS branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200) NOT NULL,
@@ -180,7 +254,14 @@ CREATE TRIGGER trg_branches_updated_at
 BEFORE UPDATE ON branches
 FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
 
--- Bảng 4: branch_rooms
+-- Ràng buộc khóa ngoại cho bảng user_roles tới branches
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_roles_branch') THEN
+        ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_branch FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Bảng 8: branch_rooms (Phòng dịch vụ trị liệu & Phòng lab đào tạo)
 CREATE TABLE IF NOT EXISTS branch_rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
@@ -192,14 +273,40 @@ CREATE TABLE IF NOT EXISTS branch_rooms (
 );
 
 -- ==============================================================================
--- 6. PHÂN HỆ 3: ĐỘI NGŨ CHUYÊN GIA, CA TRỰC & NGHỈ PHÉP (SPECIALISTS & SLOTS)
+-- 6. PHÂN HỆ 3: ĐỘI NGŨ NHÂN SỰ, KTV, CA TRỰC & NGHỈ PHÉP (STAFF & ROSTERS)
 -- ==============================================================================
 
--- Bảng 5: technicians
+-- Bảng 9: staff_profiles (Hồ sơ nhân sự toàn cơ sở)
+CREATE TABLE IF NOT EXISTS staff_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    employee_code VARCHAR(50) UNIQUE NOT NULL,
+    department staff_department NOT NULL DEFAULT 'RECEPTION',
+    position VARCHAR(100) NOT NULL,
+    employment_type employment_type NOT NULL DEFAULT 'FULL_TIME',
+    base_salary NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    commission_rate NUMERIC(5, 2) NOT NULL DEFAULT 0.00 CHECK (commission_rate >= 0 AND commission_rate <= 100),
+    hire_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    resignation_date DATE,
+    id_card_number VARCHAR(30),
+    bank_account_number VARCHAR(50),
+    bank_name VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER trg_staff_profiles_updated_at
+BEFORE UPDATE ON staff_profiles
+FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
+
+-- Bảng 10: technicians (Hồ sơ chuyên viên trị liệu Spa)
 CREATE TABLE IF NOT EXISTS technicians (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID UNIQUE REFERENCES users(id) ON DELETE SET NULL,
     branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    staff_profile_id UUID REFERENCES staff_profiles(id) ON DELETE SET NULL,
     full_name VARCHAR(150) NOT NULL,
     title VARCHAR(100) NOT NULL DEFAULT 'Kỹ thuật viên cấp cao',
     avatar_url TEXT NOT NULL,
@@ -217,7 +324,7 @@ CREATE TRIGGER trg_technicians_updated_at
 BEFORE UPDATE ON technicians
 FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
 
--- Bảng 6: technician_shifts
+-- Bảng 11: technician_shifts (Phân ca trực và phân phòng làm việc W05)
 CREATE TABLE IF NOT EXISTS technician_shifts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     technician_id UUID NOT NULL REFERENCES technicians(id) ON DELETE CASCADE,
@@ -230,7 +337,21 @@ CREATE TABLE IF NOT EXISTS technician_shifts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 7: technician_slots (Có ràng buộc chống trùng lịch và khóa 10 phút)
+-- Bảng 12: staff_leaves (Đơn xin nghỉ phép nhân viên)
+CREATE TABLE IF NOT EXISTS staff_leaves (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id UUID NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+    leave_type VARCHAR(50) NOT NULL DEFAULT 'ANNUAL',
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    reason TEXT NOT NULL,
+    status leave_status NOT NULL DEFAULT 'PENDING',
+    approved_by UUID REFERENCES users(id),
+    approved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 13: technician_slots (Lưới khung giờ nhận khách thời gian thực với khóa 10 phút)
 CREATE TABLE IF NOT EXISTS technician_slots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     technician_id UUID NOT NULL REFERENCES technicians(id) ON DELETE CASCADE,
@@ -246,10 +367,10 @@ CREATE TABLE IF NOT EXISTS technician_slots (
 );
 
 -- ==============================================================================
--- 7. PHÂN HỆ 4: DANH MỤC DỊCH VỤ SPA (SERVICES)
+-- 7. PHÂN HỆ 4: DANH MỤC DỊCH VỤ SPA (SERVICES CATALOG)
 -- ==============================================================================
 
--- Bảng 8: service_categories
+-- Bảng 14: service_categories
 CREATE TABLE IF NOT EXISTS service_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) UNIQUE NOT NULL,
@@ -261,7 +382,7 @@ CREATE TABLE IF NOT EXISTS service_categories (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 9: services
+-- Bảng 15: services
 CREATE TABLE IF NOT EXISTS services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category_id UUID NOT NULL REFERENCES service_categories(id) ON DELETE CASCADE,
@@ -287,10 +408,10 @@ BEFORE UPDATE ON services
 FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
 
 -- ==============================================================================
--- 8. PHÂN HỆ 5: ĐẶT LỊCH, GIỮ CHỖ & VÉ HẸN CHECK-IN (BOOKINGS & ITEMS)
+-- 8. PHÂN HỆ 5: ĐẶT LỊCH, CHECK-IN, CHECK-OUT & ĐA DỊCH VỤ (BOOKINGS & ITEMS)
 -- ==============================================================================
 
--- Bảng 10: coupons (Mã giảm giá chiến dịch)
+-- Bảng 16: coupons (Mã giảm giá chiến dịch)
 CREATE TABLE IF NOT EXISTS coupons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
@@ -308,13 +429,14 @@ CREATE TABLE IF NOT EXISTS coupons (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 11: bookings
+-- Bảng 17: bookings (Bao gồm đầy đủ các trường quản lý Check-in / Check-out, phòng và giường)
 CREATE TABLE IF NOT EXISTS bookings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     booking_code VARCHAR(30) UNIQUE NOT NULL,
     customer_id UUID NOT NULL REFERENCES users(id),
     branch_id UUID NOT NULL REFERENCES branches(id),
     assigned_room_id UUID REFERENCES branch_rooms(id) ON DELETE SET NULL,
+    assigned_bed_number VARCHAR(30),
     technician_id UUID REFERENCES technicians(id) ON DELETE SET NULL,
     booking_date DATE NOT NULL,
     start_time TIME NOT NULL,
@@ -332,10 +454,21 @@ CREATE TABLE IF NOT EXISTS bookings (
     booked_for_phone VARCHAR(20),
     special_notes TEXT,
     qr_code_hash VARCHAR(255) UNIQUE NOT NULL,
+    
+    -- Quản lý Check-in / Check-out
     checked_in_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
+    checked_in_by_id UUID REFERENCES users(id),
+    service_started_at TIMESTAMPTZ,
+    checked_out_at TIMESTAMPTZ,
+    checked_out_by_id UUID REFERENCES users(id),
+    actual_duration_minutes INT,
+    checkin_notes TEXT,
+    has_medical_alert BOOLEAN NOT NULL DEFAULT FALSE, -- Cờ cảnh báo đỏ nếu khách có tiền sử dị ứng hoặc bệnh nền
+    
+    -- Hủy lịch
     cancellation_reason TEXT,
     cancelled_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -344,7 +477,7 @@ CREATE TRIGGER trg_bookings_updated_at
 BEFORE UPDATE ON bookings
 FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
 
--- Bảng 12: booking_items (Chi tiết từng dịch vụ trong giỏ lịch hẹn Multi-Service)
+-- Bảng 18: booking_items (Chi tiết từng dịch vụ trong giỏ Multi-Service)
 CREATE TABLE IF NOT EXISTS booking_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
@@ -359,7 +492,7 @@ CREATE TABLE IF NOT EXISTS booking_items (
 -- 9. PHÂN HỆ 6: GÓI LIỆU TRÌNH, NHẬT KÝ & CHĂM SÓC (TREATMENT & CARE)
 -- ==============================================================================
 
--- Bảng 13: treatment_packages
+-- Bảng 19: treatment_packages (Cấu hình gói liệu trình nhiều buổi)
 CREATE TABLE IF NOT EXISTS treatment_packages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200) NOT NULL,
@@ -374,7 +507,7 @@ CREATE TABLE IF NOT EXISTS treatment_packages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 14: user_packages
+-- Bảng 20: user_packages (Gói liệu trình khách sở hữu)
 CREATE TABLE IF NOT EXISTS user_packages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -386,13 +519,14 @@ CREATE TABLE IF NOT EXISTS user_packages (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
--- Bảng 15: treatment_journal
+-- Bảng 21: treatment_journal (Sổ cập nhật tiến độ điều trị từng buổi)
 CREATE TABLE IF NOT EXISTS treatment_journal (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_package_id UUID REFERENCES user_packages(id) ON DELETE CASCADE,
     booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
     customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     technician_id UUID REFERENCES technicians(id) ON DELETE SET NULL,
+    assigned_room_id UUID REFERENCES branch_rooms(id) ON DELETE SET NULL,
     session_number INT NOT NULL DEFAULT 1 CHECK (session_number >= 1),
     session_date DATE NOT NULL,
     condition_before TEXT,
@@ -401,10 +535,11 @@ CREATE TABLE IF NOT EXISTS treatment_journal (
     before_photos JSONB NOT NULL DEFAULT '[]'::jsonb,
     after_photos JSONB NOT NULL DEFAULT '[]'::jsonb,
     specialist_advice TEXT,
+    customer_signature_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 16: consultation_surveys (Khảo sát tiền dịch vụ D04)
+-- Bảng 22: consultation_surveys (Khảo sát tiền dịch vụ D04)
 CREATE TABLE IF NOT EXISTS consultation_surveys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -419,7 +554,7 @@ CREATE TABLE IF NOT EXISTS consultation_surveys (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 17: reviews (Đánh giá dịch vụ & KTV D05)
+-- Bảng 23: reviews (Đánh giá dịch vụ & KTV D05)
 CREATE TABLE IF NOT EXISTS reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -434,10 +569,11 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 18: home_care_guidelines (Cẩm nang chăm sóc tại nhà D06)
+-- Bảng 24: home_care_guidelines (Cẩm nang hướng dẫn tự chăm sóc tại nhà D06)
 CREATE TABLE IF NOT EXISTS home_care_guidelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE,
     category VARCHAR(100) NOT NULL,
     read_time_minutes INT NOT NULL DEFAULT 5,
     summary TEXT NOT NULL,
@@ -447,10 +583,12 @@ CREATE TABLE IF NOT EXISTS home_care_guidelines (
     author_name VARCHAR(150) NOT NULL DEFAULT 'Chuyên gia MLD',
     view_count INT NOT NULL DEFAULT 0,
     is_featured BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 19: support_tickets & Bảng 20: support_faqs (D07)
+-- Bảng 25: support_tickets & Bảng 26: support_faqs (Hỗ trợ CSKH D07)
 CREATE TABLE IF NOT EXISTS support_tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -473,21 +611,62 @@ CREATE TABLE IF NOT EXISTS support_faqs (
 );
 
 -- ==============================================================================
--- 10. PHÂN HỆ 7: HỘI VIÊN, TÍCH ĐIỂM, VOUCHER & GIỚI THIỆU (LOYALTY & PROMOTIONS)
+-- 10. PHÂN HỆ 7: HỘI VIÊN, TÍCH ĐIỂM & QUY CÁCH VOUCHER (LOYALTY RULES)
 -- ==============================================================================
 
--- Bảng 21: user_vouchers (Ví Voucher cá nhân F05)
+-- Bảng 27: membership_tier_rules (Cấu hình cơ chế thăng hạng & quyền lợi hội viên)
+CREATE TABLE IF NOT EXISTS membership_tier_rules (
+    tier member_tier PRIMARY KEY,
+    min_accumulated_spent NUMERIC(14, 2) NOT NULL,
+    point_earning_rate NUMERIC(5, 2) NOT NULL,
+    discount_service_percent NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+    free_head_spa_sessions INT NOT NULL DEFAULT 0,
+    birthday_voucher_id UUID REFERENCES coupons(id),
+    priority_booking BOOLEAN NOT NULL DEFAULT FALSE,
+    description TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 28: loyalty_point_settings (Cấu hình tỷ lệ tích & sử dụng điểm thưởng)
+CREATE TABLE IF NOT EXISTS loyalty_point_settings (
+    id INT PRIMARY KEY DEFAULT 1,
+    earn_amount_per_point NUMERIC(12, 2) NOT NULL DEFAULT 10000.00,
+    redeem_value_per_point NUMERIC(12, 2) NOT NULL DEFAULT 100.00,
+    max_redeem_percent_per_order NUMERIC(5, 2) NOT NULL DEFAULT 30.00,
+    point_expiry_months INT NOT NULL DEFAULT 12,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 29: voucher_distribution_rules (Quy cách nhận và kích hoạt voucher)
+CREATE TABLE IF NOT EXISTS voucher_distribution_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    coupon_id UUID NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+    trigger_event voucher_distribution_trigger NOT NULL,
+    target_tier member_tier,
+    is_auto_grant BOOLEAN NOT NULL DEFAULT TRUE,
+    notify_user BOOLEAN NOT NULL DEFAULT TRUE,
+    valid_days_after_claim INT NOT NULL DEFAULT 30,
+    description VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 30: user_vouchers (Ví Voucher cá nhân F05)
 CREATE TABLE IF NOT EXISTS user_vouchers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     coupon_id UUID NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+    source_trigger voucher_distribution_trigger NOT NULL DEFAULT 'PUBLIC_CLAIM',
     status voucher_status NOT NULL DEFAULT 'AVAILABLE',
     claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,
     used_at TIMESTAMPTZ,
-    used_in_booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL
+    used_in_booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
+    used_in_invoice_id UUID
 );
 
--- Bảng 22: point_transactions (Biến động điểm thưởng F04)
+-- Bảng 31: point_transactions (Biến động điểm thưởng F04)
 CREATE TABLE IF NOT EXISTS point_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -499,7 +678,7 @@ CREATE TABLE IF NOT EXISTS point_transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 23: referrals (Giới thiệu bạn bè F07)
+-- Bảng 32: referrals (Giới thiệu bạn bè nhận thưởng 2 chiều F07)
 CREATE TABLE IF NOT EXISTS referrals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     referrer_id UUID NOT NULL REFERENCES users(id),
@@ -512,10 +691,10 @@ CREATE TABLE IF NOT EXISTS referrals (
 );
 
 -- ==============================================================================
--- 11. PHÂN HỆ 8: HỌC VIỆN ĐÀO TẠO NGHỀ SPA & Y KHOA (ACADEMY LMS & OPERATIONS)
+-- 11. PHÂN HỆ 8: HỌC VIỆN ĐÀO TẠO NGHÈ, ĐIỂM DANH, CHỨNG CHỈ (ACADEMY LMS)
 -- ==============================================================================
 
--- Bảng 24: course_categories
+-- Bảng 33: course_categories
 CREATE TABLE IF NOT EXISTS course_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(150) UNIQUE NOT NULL,
@@ -526,7 +705,7 @@ CREATE TABLE IF NOT EXISTS course_categories (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 25: instructors
+-- Bảng 34: instructors (Hồ sơ giảng viên Master Trainer)
 CREATE TABLE IF NOT EXISTS instructors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID UNIQUE REFERENCES users(id) ON DELETE SET NULL,
@@ -540,7 +719,7 @@ CREATE TABLE IF NOT EXISTS instructors (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 26: courses
+-- Bảng 35: courses (Khóa đào tạo chuyên môn)
 CREATE TABLE IF NOT EXISTS courses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category_id UUID NOT NULL REFERENCES course_categories(id) ON DELETE CASCADE,
@@ -569,7 +748,7 @@ CREATE TRIGGER trg_courses_updated_at
 BEFORE UPDATE ON courses
 FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
 
--- Bảng 27: course_chapters (Các chương học của khóa)
+-- Bảng 36: course_chapters (Các chương học của khóa)
 CREATE TABLE IF NOT EXISTS course_chapters (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -579,7 +758,7 @@ CREATE TABLE IF NOT EXISTS course_chapters (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 28: course_lessons (Chi tiết bài giảng Video & Tài liệu PDF E08, E09)
+-- Bảng 37: course_lessons (Chi tiết bài học Video & Tài liệu PDF E08, E09)
 CREATE TABLE IF NOT EXISTS course_lessons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chapter_id UUID NOT NULL REFERENCES course_chapters(id) ON DELETE CASCADE,
@@ -595,7 +774,7 @@ CREATE TABLE IF NOT EXISTS course_lessons (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 29: course_batches (Lớp học theo đợt khai giảng)
+-- Bảng 38: course_batches (Lớp học theo đợt khai giảng)
 CREATE TABLE IF NOT EXISTS course_batches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -611,7 +790,7 @@ CREATE TABLE IF NOT EXISTS course_batches (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 30: course_enrollments (Hồ sơ học viên đăng ký)
+-- Bảng 39: course_enrollments (Hồ sơ học viên đăng ký)
 CREATE TABLE IF NOT EXISTS course_enrollments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -625,7 +804,7 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
     enrolled_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 31: user_lesson_progress (Tiến trình xem bài học và ghi chú)
+-- Bảng 40: user_lesson_progress (Tiến trình xem bài học và ghi chú)
 CREATE TABLE IF NOT EXISTS user_lesson_progress (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
@@ -637,7 +816,7 @@ CREATE TABLE IF NOT EXISTS user_lesson_progress (
     CONSTRAINT uq_enrollment_lesson UNIQUE (enrollment_id, lesson_id)
 );
 
--- Bảng 32: course_quizzes (Bài kiểm tra trắc nghiệm E10)
+-- Bảng 41: course_quizzes (Bài kiểm tra trắc nghiệm E10)
 CREATE TABLE IF NOT EXISTS course_quizzes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -648,7 +827,7 @@ CREATE TABLE IF NOT EXISTS course_quizzes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 33: quiz_questions (Ngân hàng câu hỏi trắc nghiệm)
+-- Bảng 42: quiz_questions (Ngân hàng câu hỏi trắc nghiệm)
 CREATE TABLE IF NOT EXISTS quiz_questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     quiz_id UUID NOT NULL REFERENCES course_quizzes(id) ON DELETE CASCADE,
@@ -659,7 +838,7 @@ CREATE TABLE IF NOT EXISTS quiz_questions (
     explanation TEXT
 );
 
--- Bảng 34: quiz_submissions (Bài thi đã nộp của học viên E10)
+-- Bảng 43: quiz_submissions (Bài thi đã nộp của học viên E10)
 CREATE TABLE IF NOT EXISTS quiz_submissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
@@ -672,7 +851,7 @@ CREATE TABLE IF NOT EXISTS quiz_submissions (
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 35: batch_schedules (Thời khóa biểu từng buổi học thực hành lâm sàng)
+-- Bảng 44: batch_schedules (Thời khóa biểu từng buổi học thực hành lâm sàng)
 CREATE TABLE IF NOT EXISTS batch_schedules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     batch_id UUID NOT NULL REFERENCES course_batches(id) ON DELETE CASCADE,
@@ -684,7 +863,7 @@ CREATE TABLE IF NOT EXISTS batch_schedules (
     is_practice_lab BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- Bảng 36: student_attendance (Sổ điểm danh học viên)
+-- Bảng 45: student_attendance (Sổ điểm danh học viên)
 CREATE TABLE IF NOT EXISTS student_attendance (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     schedule_id UUID NOT NULL REFERENCES batch_schedules(id) ON DELETE CASCADE,
@@ -692,10 +871,48 @@ CREATE TABLE IF NOT EXISTS student_attendance (
     status attendance_status NOT NULL DEFAULT 'PRESENT',
     check_in_time TIMESTAMPTZ,
     notes TEXT,
+    marked_by_id UUID REFERENCES users(id),
     CONSTRAINT uq_attendance UNIQUE (schedule_id, enrollment_id)
 );
 
--- Bảng 37: student_academic_records (Bảng điểm 4 chiều & Chứng chỉ tốt nghiệp E12)
+-- Bảng 46: certificate_templates (Mẫu phôi chứng chỉ nghề)
+CREATE TABLE IF NOT EXISTS certificate_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(200) NOT NULL,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    background_image_url TEXT NOT NULL,
+    title_text VARCHAR(255) NOT NULL DEFAULT 'CHỨNG CHỈ TỐT NGHIỆP',
+    signer_name VARCHAR(150) NOT NULL DEFAULT 'ThS. Nguyễn Thu Hà',
+    signer_title VARCHAR(150) NOT NULL DEFAULT 'Hiệu trưởng Học viện MLD Vietnam',
+    signature_image_url TEXT,
+    seal_image_url TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 47: student_certificates (Chứng chỉ điện tử cấp cho học viên kèm mã tra cứu QR)
+CREATE TABLE IF NOT EXISTS student_certificates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    template_id UUID REFERENCES certificate_templates(id),
+    certificate_code VARCHAR(50) UNIQUE NOT NULL,
+    qr_verification_code VARCHAR(255) UNIQUE NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    course_title VARCHAR(250) NOT NULL,
+    issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    theory_score NUMERIC(4, 2) NOT NULL,
+    practical_score NUMERIC(4, 2) NOT NULL,
+    final_grade VARCHAR(50) NOT NULL DEFAULT 'GIỎI',
+    certificate_pdf_url TEXT,
+    status certificate_status NOT NULL DEFAULT 'ISSUED',
+    revoked_at TIMESTAMPTZ,
+    revocation_reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 48: student_academic_records (Bảng điểm tổng hợp 4 chiều E12, W10)
 CREATE TABLE IF NOT EXISTS student_academic_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     enrollment_id UUID UNIQUE NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
@@ -710,16 +927,35 @@ CREATE TABLE IF NOT EXISTS student_academic_records (
     feedback_attitude TEXT,
     is_graduated BOOLEAN NOT NULL DEFAULT FALSE,
     graduation_date DATE,
-    certificate_code VARCHAR(50) UNIQUE,
-    certificate_pdf_url TEXT,
+    certificate_id UUID REFERENCES student_certificates(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==============================================================================
--- 12. PHÂN HỆ 9: THU NGÂN POS, HÓA ĐƠN & BÁO CÁO DOANH THU (CASHIER & FINANCIALS)
+-- 12. PHÂN HỆ 9: THU HỌC PHÍ, ĐẶT CỌC & THU NGÂN POS (FINANCIALS)
 -- ==============================================================================
 
--- Bảng 38: invoices (Hóa đơn thu ngân POS W07, F06, W12)
+-- Bảng 49: tuition_transactions (Thu học phí, đặt cọc & trả góp học viên)
+CREATE TABLE IF NOT EXISTS tuition_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    transaction_code VARCHAR(50) UNIQUE NOT NULL,
+    enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id UUID NOT NULL REFERENCES courses(id),
+    branch_id UUID NOT NULL REFERENCES branches(id),
+    cashier_id UUID REFERENCES users(id),
+    transaction_type tuition_trans_type NOT NULL DEFAULT 'DEPOSIT',
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    payment_method payment_method NOT NULL DEFAULT 'BANK_TRANSFER',
+    payment_status payment_status NOT NULL DEFAULT 'PAID',
+    receipt_number VARCHAR(50),
+    receipt_pdf_url TEXT,
+    due_date DATE,
+    notes TEXT,
+    paid_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng 50: invoices (Hóa đơn thu ngân POS W07, F06, W12)
 CREATE TABLE IF NOT EXISTS invoices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_code VARCHAR(50) UNIQUE NOT NULL,
@@ -738,10 +974,14 @@ CREATE TABLE IF NOT EXISTS invoices (
     payment_status payment_status NOT NULL DEFAULT 'PAID',
     gateway_transaction_id VARCHAR(100),
     receipt_pdf_url TEXT,
+    refund_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+    refunded_at TIMESTAMPTZ,
+    refund_reason TEXT,
+    refunded_by_id UUID REFERENCES users(id),
     paid_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 39: invoice_items (Chi tiết từng món trên hóa đơn)
+-- Bảng 51: invoice_items (Chi tiết từng món trên hóa đơn thu ngân)
 CREATE TABLE IF NOT EXISTS invoice_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
@@ -752,7 +992,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     amount NUMERIC(12, 2) NOT NULL
 );
 
--- Bảng 40: notifications (Thông báo đẩy D08, F01)
+-- Bảng 52: notifications (Thông báo đẩy D08, F01)
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -764,7 +1004,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng 41: audit_logs (Nhật ký kiểm toán hệ thống chuẩn y tế số)
+-- Bảng 53: audit_logs (Nhật ký kiểm toán an ninh hệ thống)
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -789,41 +1029,84 @@ CREATE INDEX IF NOT EXISTS idx_technician_slots_lookup ON technician_slots(techn
 CREATE INDEX IF NOT EXISTS idx_bookings_customer_status ON bookings(customer_id, status, booking_date);
 CREATE INDEX IF NOT EXISTS idx_bookings_branch_date ON bookings(branch_id, booking_date);
 CREATE INDEX IF NOT EXISTS idx_bookings_qr_code ON bookings(qr_code_hash);
+CREATE INDEX IF NOT EXISTS idx_bookings_checkin ON bookings(branch_id, status, checked_in_at);
 CREATE INDEX IF NOT EXISTS idx_invoices_branch_paid ON invoices(branch_id, paid_at, payment_status);
 CREATE INDEX IF NOT EXISTS idx_course_enrollments_student ON course_enrollments(student_id, status);
 CREATE INDEX IF NOT EXISTS idx_user_lesson_progress ON user_lesson_progress(enrollment_id, lesson_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_staff_branch_dept ON staff_profiles(branch_id, department, is_active);
+CREATE INDEX IF NOT EXISTS idx_staff_code ON staff_profiles(employee_code);
+CREATE INDEX IF NOT EXISTS idx_cert_code ON student_certificates(certificate_code);
+CREATE INDEX IF NOT EXISTS idx_cert_qr ON student_certificates(qr_verification_code);
+CREATE INDEX IF NOT EXISTS idx_tuition_enrollment ON tuition_transactions(enrollment_id, transaction_type);
 
 -- ==============================================================================
--- 14. TRIGGER TỰ ĐỘNG TÍCH LŨY DOANH THU & NÂNG HẠNG HỘI VIÊN
+-- 14. TRIGGER NÂNG CẤP: TỰ ĐỘNG THĂNG HẠNG VÀ TÍCH ĐIỂM DỰA TRÊN CẤU HÌNH RULES
 -- ==============================================================================
-CREATE OR REPLACE FUNCTION process_invoice_paid_membership()
+CREATE OR REPLACE FUNCTION process_invoice_paid_complete()
 RETURNS TRIGGER AS $$
 DECLARE
     v_total_spent NUMERIC(14, 2);
     v_new_tier member_tier;
+    v_earning_rate NUMERIC(5, 2);
+    v_points_earned INT;
+    v_current_points INT;
 BEGIN
     IF (NEW.payment_status = 'PAID' AND (OLD.payment_status IS NULL OR OLD.payment_status <> 'PAID')) THEN
-        -- Cộng dồn chi tiêu cho khách hàng
+        -- 1. Cập nhật tổng chi tiêu
         UPDATE users
         SET total_spent = total_spent + NEW.total_amount
         WHERE id = NEW.customer_id
         RETURNING total_spent INTO v_total_spent;
 
-        -- Xác định hạng thẻ dựa trên tổng chi tiêu
-        IF v_total_spent >= 60000000.00 THEN
-            v_new_tier := 'DIAMOND';
-        ELSIF v_total_spent >= 30000000.00 THEN
-            v_new_tier := 'PLATINUM';
-        ELSIF v_total_spent >= 15000000.00 THEN
-            v_new_tier := 'GOLD';
-        ELSIF v_total_spent >= 5000000.00 THEN
-            v_new_tier := 'SILVER';
-        ELSE
-            v_new_tier := 'STANDARD';
+        -- 2. Tra cứu hạng thẻ hợp lệ cao nhất từ bảng cấu hình membership_tier_rules
+        SELECT tier, point_earning_rate INTO v_new_tier, v_earning_rate
+        FROM membership_tier_rules
+        WHERE min_accumulated_spent <= v_total_spent
+        ORDER BY min_accumulated_spent DESC
+        LIMIT 1;
+
+        -- 3. Tính số điểm thưởng được nhận: (Tổng tiền * Tỷ lệ %) / 100
+        -- Ví dụ: Đơn 1.000.000đ, hạng Gold (2%) -> 20.000đ giá trị -> 200 điểm
+        v_points_earned := FLOOR((NEW.total_amount * (v_earning_rate / 100.0)) / 100.0);
+
+        IF v_points_earned > 0 THEN
+            UPDATE users
+            SET reward_points = reward_points + v_points_earned
+            WHERE id = NEW.customer_id
+            RETURNING reward_points INTO v_current_points;
+
+            -- Ghi nhận sổ cái biến động điểm point_transactions
+            INSERT INTO point_transactions (
+                user_id, points_change, balance_after, action_type, description, reference_id
+            ) VALUES (
+                NEW.customer_id,
+                v_points_earned,
+                v_current_points,
+                'BOOKING_EARN',
+                'Tích điểm từ hóa đơn ' || NEW.invoice_code || ' (' || v_new_tier || ' - ' || v_earning_rate || '%)',
+                NEW.id
+            );
         END IF;
 
-        -- Cập nhật hạng thẻ mới
+        -- 4. Cập nhật hạng thẻ mới cho khách
+        UPDATE users
+        SET membership_tier = v_new_tier
+        WHERE id = NEW.customer_id;
+    ELSIF (NEW.payment_status = 'REFUNDED' AND OLD.payment_status = 'PAID') THEN
+        -- Khấu trừ chi tiêu khi hoàn tiền
+        UPDATE users
+        SET total_spent = GREATEST(0.00, total_spent - COALESCE(NEW.refund_amount, NEW.total_amount))
+        WHERE id = NEW.customer_id
+        RETURNING total_spent INTO v_total_spent;
+
+        -- Tính lại hạng thẻ phù hợp sau khi trừ tiền hoàn
+        SELECT tier INTO v_new_tier
+        FROM membership_tier_rules
+        WHERE min_accumulated_spent <= v_total_spent
+        ORDER BY min_accumulated_spent DESC
+        LIMIT 1;
+
         UPDATE users
         SET membership_tier = v_new_tier
         WHERE id = NEW.customer_id;
@@ -835,5 +1118,20 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS trg_invoice_paid_membership ON invoices;
 CREATE TRIGGER trg_invoice_paid_membership
 AFTER INSERT OR UPDATE ON invoices
-FOR EACH ROW EXECUTE FUNCTION process_invoice_paid_membership();
+FOR EACH ROW EXECUTE FUNCTION process_invoice_paid_complete();
 
+-- ==============================================================================
+-- 15. SEED CẤU HÌNH BAN ĐẦU CHO HỆ THỐNG
+-- ==============================================================================
+INSERT INTO membership_tier_rules (tier, min_accumulated_spent, point_earning_rate, discount_service_percent, free_head_spa_sessions, priority_booking, description)
+VALUES 
+('STANDARD', 0.00, 1.00, 0.00, 0, FALSE, 'Hạng Chuẩn: Tích lũy 1% giá trị đơn hàng làm điểm thưởng.'),
+('SILVER', 5000000.00, 1.50, 5.00, 0, FALSE, 'Hạng Bạc (Từ 5 triệu): Tích 1.5% điểm, giảm 5% dịch vụ lẻ.'),
+('GOLD', 15000000.00, 2.00, 10.00, 1, TRUE, 'Hạng Vàng (Từ 15 triệu): Tích 2% điểm, giảm 10% dịch vụ, ưu tiên xếp lịch.'),
+('PLATINUM', 30000000.00, 3.00, 15.00, 2, TRUE, 'Hạng Bạch Kim (Từ 30 triệu): Tích 3% điểm, giảm 15% dịch vụ, phòng VIP riêng.'),
+('DIAMOND', 60000000.00, 5.00, 20.00, 4, TRUE, 'Hạng Kim Cương (Từ 60 triệu): Tích 5% điểm, giảm 20% dịch vụ, chuyên gia trưởng phục vụ.')
+ON CONFLICT (tier) DO NOTHING;
+
+INSERT INTO loyalty_point_settings (id, earn_amount_per_point, redeem_value_per_point, max_redeem_percent_per_order, point_expiry_months)
+VALUES (1, 10000.00, 100.00, 30.00, 12)
+ON CONFLICT (id) DO NOTHING;
