@@ -527,7 +527,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   <div>
                     <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Giới tính</label>
                     <div className="flex space-x-2">
-                      {['Nữ', 'Nam', 'Khác'].map((g) => (
+                      {(['Nữ', 'Nam', 'Khác'] as const).map((g) => (
                         <button
                           key={g}
                           onClick={() => setUserProfile({ ...userProfile, gender: g })}

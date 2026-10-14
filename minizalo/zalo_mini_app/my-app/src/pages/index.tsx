@@ -11,7 +11,6 @@ import { GroupDRecords } from '@/components/GroupDRecords';
 import { GroupFProfile } from '@/components/GroupFProfile';
 import { GroupAAuthModal } from '@/components/GroupAAuthModal';
 import { GroupBSearch } from '@/components/GroupBSearch';
-import { GroupWAdmin } from '@/components/GroupWAdmin';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import {
   ServiceDetailModal,
@@ -50,11 +49,6 @@ import {
 } from '@/components/Icons';
 
 function MasterHomePage() {
-  // App Mode: 'miniapp' (Zalo Mini App) | 'admin' (Figma Group W Web Admin)
-  const [appMode, setAppMode] = useState<'miniapp' | 'admin'>(() =>
-    new URLSearchParams(window.location.search).get('admin') === '1' ? 'admin' : 'miniapp'
-  );
-
   // Navigation Tabs matching Figma Nhóm B & C: 'home' | 'services' | 'booking' | 'academy' | 'profile'
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking' | 'academy' | 'profile'>('home');
   const [academyMode, setAcademyMode] = useState<'catalog' | 'learning'>('catalog');
@@ -193,11 +187,6 @@ function MasterHomePage() {
       if (servicesSort === 'priceDesc') return b.price - a.price;
       return b.rating - a.rating;
     });
-
-  // IF ADMIN MODE: Render Group W Web Admin Dashboard
-  if (appMode === 'admin') {
-    return <GroupWAdmin onBackToMiniApp={() => setAppMode('miniapp')} />;
-  }
 
   return (
     <div className="min-h-screen bg-[#EDE7DE] flex justify-center items-start sm:items-center py-0 sm:py-4 text-stone-800 select-none">

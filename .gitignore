@@ -19,6 +19,7 @@ Thumbs.db
 *.env.local
 
 # Scratch & Temporary Testing Folders
+.local-archive/
 scratch/
 test_screens/
 *.tmp

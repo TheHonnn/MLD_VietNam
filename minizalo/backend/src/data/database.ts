@@ -8,7 +8,7 @@ export interface User {
   tier: 'Silver' | 'Gold' | 'Platinum';
   points: number;
   dob: string;
-  gender: 'Nam' | 'Nữ';
+  gender: 'Nam' | 'Nữ' | 'Khác';
   address: string;
   preferredBranch?: string;
   skinType?: string;

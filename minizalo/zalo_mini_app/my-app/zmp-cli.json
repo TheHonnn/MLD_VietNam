@@ -1,5 +1,5 @@
 {
-  "cwd": "/Users/lap15182-local/Documents/zmp-blank-templates",
+  "cwd": ".",
   "name": "zmp-blank-templates",
   "framework": "react-typescript",
   "cssPreProcessor": "scss",

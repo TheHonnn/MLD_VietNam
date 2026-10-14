@@ -5,6 +5,7 @@ interface IconProps {
   className?: string;
   color?: string;
   fill?: string;
+  strokeWidth?: number;
 }
 
 // 1. NAVIGATION ICONS (Matching Figma Nhóm B & C Bottom Nav)
@@ -96,8 +97,8 @@ export const HeartIcon: React.FC<IconProps & { filled?: boolean }> = ({ size = 1
   </svg>
 );
 
-export const CheckIcon: React.FC<IconProps> = ({ size = 16, className = '', color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+export const CheckIcon: React.FC<IconProps> = ({ size = 16, className = '', color = 'currentColor', strokeWidth = 2.2 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <polyline points="20 6 9 17 4 12" />
   </svg>
 );

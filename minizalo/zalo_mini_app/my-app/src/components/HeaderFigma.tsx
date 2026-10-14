@@ -2,7 +2,6 @@ import React from 'react';
 import { Box, Text } from 'zmp-ui';
 import {
   LeafIcon,
-  MonitorIcon,
   ShieldIcon,
   BellIcon,
   TrophyIcon,
@@ -16,7 +15,6 @@ interface HeaderFigmaProps {
   onOpenNotifications?: () => void;
   onOpenProfile?: () => void;
   onOpenAuth?: () => void;
-  onOpenAdmin?: () => void;
 }
 
 export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
@@ -26,7 +24,6 @@ export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
   onOpenNotifications,
   onOpenProfile,
   onOpenAuth,
-  onOpenAdmin,
 }) => {
   return (
     <Box className="bg-gradient-to-r from-[#98501B] via-[#884218] to-[#6E3514] text-white px-4 pt-3 pb-4 rounded-b-3xl shadow-lg relative overflow-hidden">
@@ -58,18 +55,6 @@ export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
         </Box>
 
         <Box className="flex items-center space-x-1.5">
-          {/* Web Admin Portal Toggle */}
-          {onOpenAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[10px] text-white font-bold flex items-center space-x-1 active:scale-95 transition"
-              title="Chuyển sang Web Admin Dashboard"
-            >
-              <MonitorIcon size={13} color="#FFFFFF" />
-              <span className="hidden sm:inline">Web Admin</span>
-            </button>
-          )}
-
           {/* Group A Auth Onboarding Trigger */}
           {onOpenAuth && (
             <button

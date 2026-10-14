@@ -334,53 +334,5 @@ export const apiClient = {
     }
   },
 
-  async getAdminOverview() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/overview`);
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
-  async getAdminSchedule() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/schedule`);
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
-  async getAdminReceipts() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/receipts`);
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
-  async createAdminReceipt(data: any) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/receipts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
-  async getAdminStudents() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/students`);
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
 };
 
