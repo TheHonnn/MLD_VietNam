@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
@@ -31,7 +32,7 @@ class SmartImage extends StatelessWidget {
         height: height,
         errorBuilder: (_, __, ___) => _buildFallback(),
       );
-    } else {
+    } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       imageWidget = Image.network(
         imageUrl,
         fit: fit,
@@ -39,6 +40,17 @@ class SmartImage extends StatelessWidget {
         height: height,
         errorBuilder: (_, __, ___) => _buildFallback(),
       );
+    } else if (imageUrl.isNotEmpty) {
+      final file = File(imageUrl);
+      imageWidget = Image.file(
+        file,
+        fit: fit,
+        width: width,
+        height: height,
+        errorBuilder: (_, __, ___) => _buildFallback(),
+      );
+    } else {
+      imageWidget = _buildFallback();
     }
 
     if (borderRadius != null) {

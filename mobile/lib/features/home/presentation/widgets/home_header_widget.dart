@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/profile_image_picker.dart';
 
 class HomeHeaderWidget extends StatelessWidget {
   final String userName;
   final String membershipTier;
   final int unreadNotifications;
+  final String? avatarUrl;
   final VoidCallback onNotificationTap;
   final VoidCallback onProfileTap;
 
@@ -13,6 +15,7 @@ class HomeHeaderWidget extends StatelessWidget {
     required this.userName,
     this.membershipTier = 'Gold Member',
     this.unreadNotifications = 3,
+    this.avatarUrl,
     required this.onNotificationTap,
     required this.onProfileTap,
   });
@@ -31,17 +34,12 @@ class HomeHeaderWidget extends StatelessWidget {
               children: [
                 Stack(
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.primary, width: 2),
-                        image: const DecorationImage(
-                          image: AssetImage('assets/images/doctor_2.png'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    AppProfileAvatar(
+                      avatarUrl: avatarUrl ?? 'assets/images/le_hoai_an.png',
+                      size: 50,
+                      borderWidth: 2,
+                      borderColor: AppColors.primary,
+                      showShadow: false,
                     ),
                     Positioned(
                       bottom: 0,

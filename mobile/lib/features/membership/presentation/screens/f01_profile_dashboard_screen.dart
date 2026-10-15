@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/profile_image_picker.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/mock_membership_repository.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
@@ -76,37 +77,16 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Avatar tròn 64x64 r=32
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.secondary, // #C58D59
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.secondary.withValues(alpha: 0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        _profile.avatarUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceSecondary,
-                          child: const Icon(
-                            Icons.person,
-                            color: AppColors.primary,
-                            size: 32,
-                          ),
-                        ),
-                      ),
-                    ),
+                  AppProfileAvatar(
+                    avatarUrl: _profile.avatarUrl,
+                    size: 64,
+                    onEditTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
+                      );
+                      _refreshProfile();
+                    },
                   ),
 
                   const SizedBox(width: 14),

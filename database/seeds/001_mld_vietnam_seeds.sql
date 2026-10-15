@@ -296,6 +296,8 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
 
 -- 10. DANH MỤC KHÓA ĐÀO TẠO ACADEMY (COURSE_CATEGORIES)
+ALTER TABLE course_categories ADD COLUMN IF NOT EXISTS description TEXT;
+
 INSERT INTO course_categories (id, name, code, icon_url, description, display_order)
 VALUES 
     (

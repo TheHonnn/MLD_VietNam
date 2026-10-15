@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/profile_image_picker.dart';
+import '../../../membership/data/repositories/mock_membership_repository.dart';
 import '../../widgets/primary_button.dart';
 import 'a06_purpose_selection_screen.dart';
 
@@ -21,6 +23,19 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
   final _emailController = TextEditingController();
   String? _selectedGender;
   bool _isLoading = false;
+  String? _avatarPath;
+
+  Future<void> _pickAvatar() async {
+    final picked = await ProfileImagePickerHelper.showPickerModal(
+      context,
+      currentAvatarUrl: _avatarPath,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _avatarPath = picked;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -71,6 +86,16 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
     setState(() {
       _isLoading = true;
     });
+
+    final repo = MockMembershipRepository();
+    repo.updateProfile(repo.profile.copyWith(
+      fullName: _fullNameController.text.trim(),
+      phone: widget.phone.isNotEmpty ? widget.phone : repo.profile.phone,
+      email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : repo.profile.email,
+      dateOfBirth: _dobController.text.trim().isNotEmpty ? _dobController.text.trim() : repo.profile.dateOfBirth,
+      gender: _selectedGender ?? repo.profile.gender,
+      avatarUrl: _avatarPath ?? repo.profile.avatarUrl,
+    ));
 
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) {
@@ -170,70 +195,92 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
                         const SizedBox(height: 24),
 
                         // --- CHỈNH SỬA ẢNH ĐẠI DIỆN ---
-                        Row(
-                          children: [
-                            Stack(
+                        InkWell(
+                          onTap: _pickAvatar,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Row(
                               children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceSecondary, // #F3E2CE
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
+                                if (_avatarPath != null)
+                                  AppProfileAvatar(
+                                    avatarUrl: _avatarPath!,
+                                    size: 80,
+                                    isEditable: true,
+                                    onEditTap: _pickAvatar,
+                                    borderWidth: 2,
+                                  )
+                                else
+                                  Stack(
+                                    children: [
+                                      Container(
+                                        width: 80,
+                                        height: 80,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceSecondary, // #F3E2CE
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.person_rounded,
+                                            size: 38,
+                                            color: AppColors.primary, // #985018
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary, // #985018
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 2),
+                                          ),
+                                          child: const Icon(
+                                            Icons.camera_alt_rounded,
+                                            size: 15,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.person_rounded,
-                                      size: 38,
-                                      color: AppColors.primary, // #985018
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary, // #985018
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt_rounded,
-                                      size: 15,
-                                      color: Colors.white,
-                                    ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _avatarPath != null ? 'Đổi ảnh đại diện' : 'Thêm ảnh đại diện',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary, // #985018
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _avatarPath != null
+                                            ? 'Đã chọn ảnh thành công'
+                                            : 'Có thể cập nhật sau',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                          color: _avatarPath != null
+                                              ? const Color(0xFF236B42)
+                                              : AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 16),
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Thêm ảnh đại diện',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.primary, // #985018
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Có thể cập nhật sau',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppColors.textSecondary, // #6B6158
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
 
                         const SizedBox(height: 24),

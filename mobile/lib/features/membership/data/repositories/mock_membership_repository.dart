@@ -1,9 +1,36 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_models.dart';
 
 class MockMembershipRepository {
   static final MockMembershipRepository _instance = MockMembershipRepository._internal();
   factory MockMembershipRepository() => _instance;
-  MockMembershipRepository._internal();
+  MockMembershipRepository._internal() {
+    _loadPersistedProfile();
+  }
+
+  static const String _avatarPrefKey = 'user_avatar_url';
+  static const String _namePrefKey = 'user_full_name';
+  static const String _phonePrefKey = 'user_phone';
+  static const String _emailPrefKey = 'user_email';
+
+  Future<void> _loadPersistedProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedAvatar = prefs.getString(_avatarPrefKey);
+      final savedName = prefs.getString(_namePrefKey);
+      final savedPhone = prefs.getString(_phonePrefKey);
+      final savedEmail = prefs.getString(_emailPrefKey);
+
+      if (savedAvatar != null || savedName != null || savedPhone != null || savedEmail != null) {
+        _userProfile = _userProfile.copyWith(
+          avatarUrl: savedAvatar ?? _userProfile.avatarUrl,
+          fullName: savedName ?? _userProfile.fullName,
+          phone: savedPhone ?? _userProfile.phone,
+          email: savedEmail ?? _userProfile.email,
+        );
+      }
+    } catch (_) {}
+  }
 
   UserProfile _userProfile = const UserProfile(
     id: 'user-000128',
@@ -247,6 +274,19 @@ class MockMembershipRepository {
   // Actions
   void updateProfile(UserProfile updated) {
     _userProfile = updated;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_avatarPrefKey, updated.avatarUrl);
+      prefs.setString(_namePrefKey, updated.fullName);
+      prefs.setString(_phonePrefKey, updated.phone);
+      prefs.setString(_emailPrefKey, updated.email);
+    }).catchError((_) {});
+  }
+
+  void updateAvatar(String newAvatarUrl) {
+    _userProfile = _userProfile.copyWith(avatarUrl: newAvatarUrl);
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_avatarPrefKey, newAvatarUrl);
+    }).catchError((_) {});
   }
 
   void updateSettings(UserSettings updated) {

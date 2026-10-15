@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../booking/data/models/booking_models.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
+import '../../../membership/data/repositories/mock_membership_repository.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/mock_home_repository.dart';
 import 'b04_search_screen.dart';
@@ -446,44 +448,36 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Avatar (44x44, circle, #F3E2CE, icon #985018)
+                    // Avatar (44x44, circle)
                     InkWell(
                       onTap: widget.onNavigateToProfile,
                       borderRadius: BorderRadius.circular(22),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                          color: AppColors.surfaceSecondary, // #F3E2CE
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.person_rounded,
-                            size: 24,
-                            color: AppColors.primary, // #985018
-                          ),
-                        ),
+                      child: AppProfileAvatar(
+                        avatarUrl: MockMembershipRepository().profile.avatarUrl,
+                        size: 44,
+                        borderWidth: 1.5,
+                        borderColor: AppColors.secondary,
+                        showShadow: false,
                       ),
                     ),
                     const SizedBox(width: 12),
 
                     // Salutation texts (gap 4)
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Xin chào, Minh Anh!',
-                            style: TextStyle(
+                            'Xin chào, ${MockMembershipRepository().profile.fullName.split(' ').last}!',
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary, // #40352F
                             ),
                           ),
-                          SizedBox(height: 2),
-                          Text(
+                          const SizedBox(height: 2),
+                          const Text(
                             'Hôm nay bạn muốn chăm sóc bản thân như thế nào?',
                             style: TextStyle(
                               fontSize: 12,

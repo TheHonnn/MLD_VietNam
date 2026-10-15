@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/profile_image_picker.dart';
 import '../../data/repositories/mock_membership_repository.dart';
 
 class F02EditProfileScreen extends StatefulWidget {
@@ -22,11 +23,13 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
 
   String _gender = 'Nữ';
   bool _isLoading = false;
+  late String _currentAvatarUrl;
 
   @override
   void initState() {
     super.initState();
     final p = _repo.profile;
+    _currentAvatarUrl = p.avatarUrl;
     _fullNameController = TextEditingController(text: p.fullName);
     _emailController = TextEditingController(text: p.email);
     _dobController = TextEditingController(text: p.dateOfBirth);
@@ -63,6 +66,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
 
     Future.delayed(const Duration(milliseconds: 500), () {
       final updated = _repo.profile.copyWith(
+        avatarUrl: _currentAvatarUrl,
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim(),
         dateOfBirth: _dobController.text.trim(),
@@ -87,6 +91,24 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
         Navigator.pop(context);
       }
     });
+  }
+
+  Future<void> _pickAvatar() async {
+    final newPath = await ProfileImagePickerHelper.showPickerModal(
+      context,
+      currentAvatarUrl: _currentAvatarUrl,
+    );
+    if (newPath != null && mounted) {
+      setState(() {
+        _currentAvatarUrl = newPath;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã chọn ảnh đại diện mới. Nhấn "Lưu thay đổi" để áp dụng.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -166,59 +188,12 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                     Center(
                       child: Column(
                         children: [
-                          Stack(
-                            children: [
-                              Container(
-                                width: 88,
-                                height: 88,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.secondary, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.secondary.withValues(alpha: 0.2),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipOval(
-                                  child: Image.asset(
-                                    p.avatarUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: AppColors.surfaceSecondary,
-                                      child: const Icon(Icons.person, size: 48, color: AppColors.primary),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: AppColors.border, width: 1.0),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.08),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 16,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          AppProfileAvatar(
+                            avatarUrl: _currentAvatarUrl,
+                            size: 88,
+                            isEditable: true,
+                            borderWidth: 2,
+                            onEditTap: _pickAvatar,
                           ),
                           const SizedBox(height: 12),
                           Text(

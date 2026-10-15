@@ -421,6 +421,17 @@ export interface TreatmentJournal {
   customerSignatureUrl?: string | null;
 }
 
+export interface CourseCategory {
+  id: string;
+  name: string;
+  code: string;
+  iconUrl: string;
+  description?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface Course {
   id: string;
   categoryId: string;

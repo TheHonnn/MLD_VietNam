@@ -700,6 +700,7 @@ CREATE TABLE IF NOT EXISTS course_categories (
     name VARCHAR(150) UNIQUE NOT NULL,
     code VARCHAR(50) UNIQUE NOT NULL,
     icon_url TEXT NOT NULL,
+    description TEXT,
     display_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
