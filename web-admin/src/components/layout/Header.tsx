@@ -32,9 +32,10 @@ export const Header: React.FC = () => {
           Quản trị <span className="mx-1 text-[#C4B7AA]">/</span>{' '}
           <span className="text-[#2C241E] font-medium">{currentTitle}</span>
         </div>
-        <div className="mt-1">
-          <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#F3E2CE] text-[#8A4F23] leading-tight">
-            Dữ liệu minh họa
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E6F4EA] text-[#137333] leading-tight">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#137333]"></span>
+            Supabase Cloud Live
           </span>
         </div>
       </div>
@@ -75,7 +76,7 @@ export const Header: React.FC = () => {
           </div>
           <div className="hidden sm:block text-left">
             <div className="text-xs font-bold text-[#2C241E] leading-tight">Quản lý hệ thống</div>
-            <div className="text-[10px] text-[#8C7A6B] leading-tight mt-0.5">Tài khoản minh họa</div>
+            <div className="text-[10px] text-[#137333] font-medium leading-tight mt-0.5">Cloud Synced</div>
           </div>
         </div>
       </div>

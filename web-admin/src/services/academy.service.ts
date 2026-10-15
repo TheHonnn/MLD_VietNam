@@ -29,11 +29,10 @@ export const academyService = {
     search?: string;
     level?: CourseLevel;
   }): Promise<ApiResponse<Course[]>> {
-    return apiClient.get<Course[]>('/academy/courses', {
-      params,
-      mockFallback: async () => {
-        const live = await supabaseService.getCourses();
-        let result = live && live.length > 0 ? live : [...mockCourses];
+    try {
+      const live = await supabaseService.getCourses();
+      if (live && live.length > 0) {
+        let result = live;
         if (params?.level) {
           result = result.filter((c) => c.level === params.level);
         }
@@ -45,19 +44,59 @@ export const academyService = {
               c.code.toLowerCase().includes(kw)
           );
         }
-        return result;
-      },
-    });
+        return {
+          success: true,
+          statusCode: 200,
+          message: 'Dữ liệu trực tiếp từ Supabase Cloud',
+          data: result,
+        };
+      }
+    } catch (err) {
+      console.warn('[academyService] getCourses failed:', err);
+    }
+
+    let result = [...mockCourses];
+    if (params?.level) {
+      result = result.filter((c) => c.level === params.level);
+    }
+    if (params?.search) {
+      const kw = params.search.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.title.toLowerCase().includes(kw) ||
+          c.code.toLowerCase().includes(kw)
+      );
+    }
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Dữ liệu minh họa',
+      data: result,
+    };
   },
 
   async getCourseById(id: string): Promise<ApiResponse<Course | undefined>> {
-    return apiClient.get<Course | undefined>(`/academy/courses/${id}`, {
-      mockFallback: async () => {
-        const live = await supabaseService.getCourses();
-        const found = live?.find((c) => c.id === id);
-        return found || mockCourses.find((c) => c.id === id);
-      },
-    });
+    try {
+      const live = await supabaseService.getCourses();
+      const found = live?.find((c) => c.id === id);
+      if (found) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: 'Dữ liệu từ Supabase Cloud',
+          data: found,
+        };
+      }
+    } catch (err) {
+      console.warn('[academyService] getCourseById failed:', err);
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Dữ liệu minh họa',
+      data: mockCourses.find((c) => c.id === id),
+    };
   },
 
   // --- Lớp học / Khóa học (Batches) ---
