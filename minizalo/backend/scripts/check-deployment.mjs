@@ -26,6 +26,9 @@ const results = await Promise.all(checks.map(async ([path, key, fields]) => {
     const failures = [];
     const envelope = typeof body.success === 'boolean' && typeof body.statusCode === 'number';
     if (!envelope) failures.push('Missing shared success/statusCode/data response contract');
+    if (path === '/health' && body.data?.authFlow !== 'zalo-phone-registration') {
+      failures.push('Backend is not the phone-only registration version; deploy all backend changes first');
+    }
     if (key === 'private') {
       if (response.status !== 401) failures.push('Private endpoint must reject anonymous requests with 401');
     } else {

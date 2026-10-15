@@ -32,6 +32,8 @@ async function main() {
     jwtSecret: process.env.JWT_SECRET ?? '',
     zaloAppId: process.env.ZALO_APP_ID,
     zaloAppSecret: process.env.ZALO_APP_SECRET,
+    zaloRelayUrl: process.env.ZALO_RELAY_URL,
+    zaloRelaySecret: process.env.ZALO_RELAY_SECRET,
     zaloAllowSignup: process.env.ZALO_ALLOW_SIGNUP === 'true',
   });
   app.listen(Number(process.env.PORT ?? 5000),'0.0.0.0',()=>console.log('Mini App API connected to the shared schema'));

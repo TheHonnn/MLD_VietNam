@@ -84,7 +84,10 @@ export async function verifyZaloAccount(accessToken: unknown, options: ZaloAuthO
   return { id: profile.id as string, name, avatar };
 }
 
-export async function verifyZaloPhone(accessToken: string, phoneToken: unknown, options: ZaloAuthOptions) {
+export async function verifyZaloPhone(accessToken: unknown, phoneToken: unknown, options: ZaloAuthOptions) {
+  if (typeof accessToken !== 'string' || !accessToken || accessToken.length > 8192 || /\s/.test(accessToken)) {
+    throw new ApiError(400, 'A valid Zalo access token is required');
+  }
   if (typeof phoneToken !== 'string' || !phoneToken || phoneToken.length > 8192 || /\s/.test(phoneToken)) {
     throw new ApiError(400, 'Allow Zalo phone sharing to connect your shared customer account');
   }
@@ -101,6 +104,9 @@ export async function verifyZaloPhone(accessToken: string, phoneToken: unknown, 
   } catch { throw new ApiError(502, 'Cannot verify the Zalo phone right now; please retry'); }
   if (!response.ok || body?.error !== 0 || typeof body?.data?.number !== 'string') {
     const suffix = providerFailure('phone', response, body, !response.ok ? 'http-error' : 'provider-error-or-invalid-number', [accessToken, phoneToken, options.zaloAppSecret]);
+    if (Number(body?.error?.code ?? body?.error_code ?? body?.error) === -501) {
+      throw new ApiError(502, `Zalo phone verification is restricted from this server IP; inspect server Logs${suffix}`);
+    }
     throw new ApiError(401, `Zalo phone permission expired or was rejected; please try again${suffix}`);
   }
   const international = body.data.number.replace(/^\+/, '');
@@ -108,29 +114,40 @@ export async function verifyZaloPhone(accessToken: string, phoneToken: unknown, 
   return `0${international.slice(2)}`;
 }
 
-export async function resolveZaloAccount(store: Store, profile: Awaited<ReturnType<typeof verifyZaloAccount>> & { phone: string }, options: ZaloAuthOptions) {
+export async function findZaloAccount(store: Store, phone: string) {
+  if (!/^0[1-9]\d{8,9}$/.test(phone)) throw new ApiError(400, 'A verified local phone number is required');
+  const international = `84${phone.slice(1)}`;
+  const accounts = await store.query(Prisma.sql`SELECT id,is_active,role FROM public.users
+    WHERE phone IN (${phone},${international},${`+${international}`}) FOR UPDATE`);
+  if (accounts.length > 1) throw new ApiError(409, 'Duplicate shared phone identities require administrator review');
+  const account = accounts[0];
+  if (!account) return null;
+  if (!account.is_active) throw new ApiError(401, 'Shared account is missing or inactive');
+  if (!['CUSTOMER','STUDENT'].includes(account.role)) throw new ApiError(403, 'This account is not a customer account');
+  return { userId: String(account.id), isNewUser: false };
+}
+
+export interface NewZaloCustomer {
+  phone: string; name: string; avatar: string | null;
+  email?: string | null; dateOfBirth?: string | null; gender?: 'MALE' | 'FEMALE' | 'OTHER';
+}
+
+export async function resolveZaloAccount(store: Store, profile: NewZaloCustomer, options: ZaloAuthOptions) {
   if (!/^0[1-9]\d{8,9}$/.test(profile.phone)) throw new ApiError(400, 'A verified local phone number is required');
-  const international = `84${profile.phone.slice(1)}`;
   // Use the shared phone identity; do not change the group's schema or create
   // a separate customer namespace. Retry concurrent first-login conflicts.
   for (let attempt = 0; ; attempt++) {
     try {
       return await store.transaction(async tx => {
         await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${profile.phone}))::text AS locked`);
-        const accounts = await tx.query(Prisma.sql`SELECT id,is_active,role FROM public.users
-          WHERE phone IN (${profile.phone},${international},${`+${international}`}) FOR UPDATE`);
-        if (accounts.length > 1) throw new ApiError(409, 'Duplicate shared phone identities require administrator review');
-        const account = accounts[0];
-        if (account) {
-          if (!account.is_active) throw new ApiError(401, 'Shared account is missing or inactive');
-          if (!['CUSTOMER','STUDENT'].includes(account.role)) throw new ApiError(403, 'This account is not a customer account');
-          return { userId: String(account.id), isNewUser: false };
-        }
+        const account = await findZaloAccount(tx, profile.phone);
+        if (account) return account;
         if (!options.zaloAllowSignup) throw new ApiError(409, 'New customer signup is disabled; contact support');
         const userId = randomUUID();
         const referralCode = randomUUID().replace(/-/g, '').slice(0, 20).toUpperCase();
-        await tx.query(Prisma.sql`INSERT INTO public.users (id,phone,full_name,avatar_url,referral_code)
-          VALUES (${userId}::uuid,${profile.phone},${profile.name},${profile.avatar},${referralCode}) RETURNING id`);
+        await tx.query(Prisma.sql`INSERT INTO public.users (id,phone,full_name,avatar_url,referral_code,email,date_of_birth,gender)
+          VALUES (${userId}::uuid,${profile.phone},${profile.name},${profile.avatar},${referralCode},
+            ${profile.email ?? null},${profile.dateOfBirth ?? null}::date,${profile.gender ?? 'OTHER'}) RETURNING id`);
         return { userId, isNewUser: true };
       });
     } catch (error: any) {

@@ -5,7 +5,8 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { camel, Store, Row } from './store.js';
 import { ApiError } from './errors.js';
-import { resolveZaloAccount, verifyZaloAccount, verifyZaloPhone, ZaloAuthOptions } from './zalo-auth.js';
+import { findZaloAccount, resolveZaloAccount } from './zalo-auth.js';
+import { authenticateZalo, RelayAuthOptions } from './zalo-relay-client.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,7 +126,7 @@ async function enrollments(store: Store, customerId: string) {
     WHERE ce.student_id = ${customerId}::uuid ORDER BY ce.enrolled_at DESC`);
 }
 
-export interface AppOptions extends ZaloAuthOptions { jwtSecret: string; }
+export interface AppOptions extends RelayAuthOptions { jwtSecret: string; }
 
 export function createApp(store: Store, options: AppOptions) {
   if (!options.jwtSecret) throw new Error('JWT_SECRET is required');
@@ -138,13 +139,46 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql' });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration' });
   }));
 
   app.post('/api/auth/zalo', route(async (req, res) => {
-    const profile = await verifyZaloAccount(req.body?.accessToken, options);
-    const phone = await verifyZaloPhone(req.body.accessToken, req.body.phoneToken, options);
-    const identity = await resolveZaloAccount(store, { ...profile, phone }, options);
+    const profile = await authenticateZalo(req.body?.accessToken, req.body?.phoneToken, options);
+    const identity = await findZaloAccount(store, profile.phone);
+    if (!identity) {
+      if (!options.zaloAllowSignup) throw new ApiError(409, 'New customer signup is disabled; contact support');
+      const registrationToken = jwt.sign({ purpose: 'zalo-registration', phone: profile.phone }, options.jwtSecret,
+        { algorithm: 'HS256', expiresIn: '5m', audience: 'mld-zalo-registration', issuer: 'mld-miniapp-api' });
+      return success(res, { registrationRequired: true, registrationToken, phone: profile.phone });
+    }
+    const record = await user(store, uuid(identity.userId));
+    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
+    return success(res, { token, user: record, isNewUser: identity.isNewUser });
+  }));
+
+  app.post('/api/auth/zalo/register', route(async (req, res) => {
+    let proof: jwt.JwtPayload;
+    try {
+      proof = jwt.verify(req.body?.registrationToken ?? '', options.jwtSecret,
+        { algorithms: ['HS256'], audience: 'mld-zalo-registration', issuer: 'mld-miniapp-api' }) as jwt.JwtPayload;
+    } catch { throw new ApiError(401, 'Phone verification expired; allow Zalo phone sharing again'); }
+    if (proof.purpose !== 'zalo-registration' || typeof proof.phone !== 'string' || !/^0[1-9]\d{8,9}$/.test(proof.phone)) {
+      throw new ApiError(401, 'Invalid phone verification proof');
+    }
+    const input = req.body;
+    const name = typeof input.fullName === 'string' ? input.fullName.trim() : '';
+    const email = typeof input.email === 'string' ? input.email.trim() : '';
+    const dob = input.dateOfBirth || null;
+    const gender = input.gender ?? 'OTHER';
+    if (!name || name.length > 150 || /[\x00-\x1f\x7f]/.test(name)) throw new ApiError(400, 'Full name is required, up to 150 characters');
+    if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new ApiError(400, 'Invalid email');
+    if (!['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400, 'Invalid gender');
+    if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob)
+      || !Number.isFinite(Date.parse(dob)) || new Date(dob).toISOString().slice(0,10) !== dob || Date.parse(dob) > Date.now())) {
+      throw new ApiError(400, 'Invalid date of birth');
+    }
+    const identity = await resolveZaloAccount(store, { phone: proof.phone, name, avatar: null,
+      email: email || null, dateOfBirth: dob, gender }, options);
     const record = await user(store, uuid(identity.userId));
     const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
     return success(res, { token, user: record, isNewUser: identity.isNewUser });

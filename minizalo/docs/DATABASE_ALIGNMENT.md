@@ -33,7 +33,7 @@ tokens. JWT `sub` is always the canonical `users.id` UUID, with an eight-hour
 expiry. This backend accepts its own HS256 tokens and reloads the active shared
 user on every private request.
 
-The frontend requests name/avatar and phone-sharing permission only after the
+The frontend requests only phone-sharing permission after the
 user taps the Zalo login action. It sends `{ accessToken, phoneToken }` to
 `/api/auth/zalo`. No manual phone entry or OTP is used. The backend exchanges
 the single-use phone code with `https://graph.zalo.me/v2.0/me/info`, using the
@@ -43,12 +43,12 @@ tokens use ZMP native storage with an in-memory fallback. Initial page load does
 not trigger a phone consent prompt; public catalogs remain available to guests.
 
 Set `ZALO_APP_ID` and `ZALO_APP_SECRET` to the parent Zalo developer application,
-NOT the Mini App ID or an OA access token. The backend calls the fixed official
-`https://graph.zalo.me/v2.0/me?fields=id,name,picture` endpoint using the token
-and HMAC-SHA256 `appsecret_proof` header as in the official Zalo PHP SDK. Enable
-the app's API app-secret-proof protection where available. Invalid provider
-responses, missing profile permission, redirects, and provider outages fail
-closed; no client-provided UUID, name, avatar, phone, or app ID selects an account.
+NOT the Mini App ID or an OA access token. Production login calls only
+`https://graph.zalo.me/v2.0/me/info` with access_token, code and secret_key headers.
+The Social `/me` profile API is not called. Its helper remains covered by isolated
+legacy compatibility tests but is not wired to the login route or relay.
+Invalid provider responses, redirects and outages fail closed. Client-provided
+phone, UUID, name or avatar cannot prove customer identity.
 `ZALO_AUTH_URL` is no longer used and must not be configured.
 
 The existing canonical `users.phone UNIQUE NOT NULL` schema is used unchanged.
@@ -64,8 +64,15 @@ Duplicate aliases require administrator review; inactive and staff accounts are
 rejected. Phone changes/reassignment require the group's account recovery policy;
 do not automatically move history based on Zalo display names.
 
-With `ZALO_ALLOW_SIGNUP=true`, a phone with no shared account creates one user
-transactionally, with verified name/avatar/phone, STANDARD tier and zero points.
+With `ZALO_ALLOW_SIGNUP=true`, a phone with no shared account receives a signed
+five-minute registration proof (audience `mld-zalo-registration`, no user sub).
+It cannot access private business data. `/api/auth/zalo/register` verifies the
+proof, validates full name and optional email/date of birth/gender, then creates
+the shared user transactionally using ONLY the proof's verified phone. Name and
+optional fields are user-entered, not verified Zalo profile claims. Avatar starts
+null. New accounts have STANDARD tier and zero points. There are no placeholder
+users if a form is abandoned. Existing accounts skip the form and preserve data;
+registration retries reuse an account created concurrently without overwriting it.
 If signup is disabled it returns 409. Unique and serialization conflicts retry
 without creating separate customer identities. No fake phones or demo users.
 

@@ -54,14 +54,22 @@ required shared schema with read-only queries. Historical database artifacts
 are archived in `docs/legacy-database/` and must not be executed.
 
 For Zalo login, set the parent application's `ZALO_APP_ID` and `ZALO_APP_SECRET`.
-The Mini App backend directly verifies Zalo tokens and reads name/avatar from
-Zalo, not client-provided profile fields. After an explicit user action it requests
-phone-sharing permission, then verifies the one-time phone code server-to-server.
+The frontend requests only phone-sharing permission after an explicit user action.
+The backend verifies the one-time phone code at `/me/info`; it does not call the
+Social `/me` profile endpoint or request name/avatar permission. Existing users
+sign in directly; new phones receive a five-minute registration proof and must
+complete a profile form before a shared account is created. Form data never
+selects the customer UUID or phone and existing profiles are not overwritten.
 No manual phone input or OTP is used. Verified phone resolves the canonical
 `users.id`, preserving native customer history. `ZALO_AUTH_URL` is no longer
 used. Set `ZALO_ALLOW_SIGNUP=true` to allow new shared customers. No schema
 extension or nullable-phone migration is needed. See [login setup](docs/ZALO_LOGIN_SETUP.md)
 and the [database alignment guide](docs/DATABASE_ALIGNMENT.md).
+
+The current experiment tests `/me/info` directly on Render; the confirmed -501
+was from the separate Social `/me` endpoint. If phone verification also rejects
+the overseas IP, use your own [Vietnam relay](docs/VIETNAM_RELAY.md). Only the
+relay holds the Zalo app secret; Render uses a separate signed-request key.
 
 This API is separate from the NestJS API in the repository's root `backend/`.
 When configured with the team's database connection and verified phone identity,
