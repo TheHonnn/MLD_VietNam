@@ -1,18 +1,40 @@
-import { getAccessToken, getUserInfo, getPhoneNumber } from 'zmp-sdk';
+import { getAccessToken, getPhoneNumber, nativeStorage } from 'zmp-sdk';
 import { adaptPayload, profileToCanonical } from './adapters';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://mld-api.onrender.com/api').replace(/\/$/, '');
-const SESSION_KEY = 'mld_session_token';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://mld-miniapp-api.onrender.com/api').replace(/\/$/, '');
+const SESSION_KEY = 'mld_miniapp_session_v2';
+let memoryToken: string | null = null;
+const session = {
+  get() {
+    if (memoryToken !== null) return memoryToken;
+    try { return nativeStorage.getItem(SESSION_KEY) || ''; }
+    catch { return ''; }
+  },
+  set(token: string) {
+    memoryToken = token;
+    try { nativeStorage.setItem(SESSION_KEY, token); } catch { /* Keep this session in memory. */ }
+  },
+  clear() {
+    memoryToken = '';
+    try { nativeStorage.removeItem(SESSION_KEY); } catch { /* Storage may be unavailable in preview. */ }
+  },
+};
 const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
-  const token = localStorage.getItem(SESSION_KEY);
+  const token = session.get();
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  const response = await window.fetch(input, { ...init, headers });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  let response: Response;
+  try {
+    response = await window.fetch(input, { ...init, headers, signal: init.signal ?? controller.signal });
+  } finally { clearTimeout(timeout); }
   const envelope = await response.json();
   const successful = response.ok && envelope.success === true;
   const payload = successful ? adaptPayload(envelope.data || {})
     : { error: envelope.message || 'Không thể tải dữ liệu. Vui lòng thử lại.', status: envelope.statusCode || response.status };
-  if (successful && payload.token && payload.user) localStorage.setItem(SESSION_KEY, payload.token);
+  if (response.status === 401) session.clear();
+  if (successful && payload.token && payload.user) session.set(payload.token);
   return new Response(JSON.stringify(payload), {
     status: successful ? 200 : (response.ok ? 400 : response.status),
     headers: { 'Content-Type': 'application/json' },
@@ -21,34 +43,29 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
 const responseJson = async (res: Response) => res.json();
 
 export const apiClient = {
-  async loginWithZalo(requestProfilePermission = false) {
+  async loginWithZalo(requestConsent = false) {
     try {
-      if (!requestProfilePermission) {
-        if (localStorage.getItem(SESSION_KEY)) {
+      if (!requestConsent) {
+        if (memoryToken) {
           const current = await apiClient.getCurrentUser();
-          if (current?.user) return { ...current, token: localStorage.getItem(SESSION_KEY) };
-          apiClient.logout();
+          if (current?.user) return { ...current, token: session.get() };
         }
-        return { error: 'Vui lòng cấp quyền số điện thoại để kết nối hồ sơ chung.', needsConsent: true };
+        return { needsConsent: true, error: 'Tiếp tục với Zalo và cho phép chia sẻ số điện thoại để kết nối hồ sơ.' };
       }
-      // This API owns the user-info consent dialog. Calling authorize first can
-      // create two permission requests during the same button interaction.
-      const profile = await getUserInfo({
-        autoRequestPermission: requestProfilePermission,
-        avatarType: 'large',
-      });
+      // Reverify the current Zalo account on launch, even if a JWT was cached.
+      session.clear();
+      // Request permissions only after a user action. No phone input or OTP.
+      const { token: phoneToken } = await getPhoneNumber();
+      if (!phoneToken) return { error: 'Bạn chưa cho phép Zalo chia sẻ số điện thoại.' };
       const accessToken = await getAccessToken();
-      const phone = await getPhoneNumber();
-      if (!phone.token) return { error: 'Bạn chưa cấp quyền số điện thoại để kết nối hồ sơ chung.' };
       const res = await fetch(`${API_BASE_URL}/auth/zalo`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, phoneToken: phone.token, userInfo: profile?.userInfo }),
+        body: JSON.stringify({ accessToken, phoneToken }),
       });
       const data = await responseJson(res);
-      if (data.token) localStorage.setItem(SESSION_KEY, data.token);
+      if (data.token) session.set(data.token);
       return data;
     } catch (error) {
-      console.error('[AUTH] Zalo login failed', error);
       const zaloError = error as { code?: number | string; message?: string };
       const code = zaloError?.code !== undefined ? ` (mã ${zaloError.code})` : '';
       return { error: `${zaloError?.message || 'Không thể kết nối tài khoản Zalo'}${code}` };
@@ -56,7 +73,16 @@ export const apiClient = {
   },
 
   logout() {
-    localStorage.removeItem(SESSION_KEY);
+    session.clear();
+  },
+  async registerZaloProfile(registrationToken: string, profile: { fullName: string; email?: string; dateOfBirth?: string; gender?: string }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/zalo/register`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...profile, registrationToken }),
+      });
+      return await responseJson(res);
+    } catch { return { error: 'Không thể lưu hồ sơ. Vui lòng thử lại.' }; }
   },
   async getHealth() {
     try {

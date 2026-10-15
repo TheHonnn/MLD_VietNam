@@ -14,9 +14,15 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: ZALO_AUTH_URL
-        value: ""
+      - key: ZALO_APP_ID
+        sync: false
       - key: ZALO_APP_SECRET
         sync: false
+      - key: ZALO_RELAY_URL
+        sync: false
+      - key: ZALO_RELAY_SECRET
+        sync: false
+      - key: ZALO_ALLOW_SIGNUP
+        value: "true"
       - key: FRONTEND_ORIGIN
         sync: false

@@ -4,10 +4,10 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { camel, Store, Row } from './store.js';
-
-export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
-}
+import { ApiError } from './errors.js';
+import { findZaloAccount, resolveZaloAccount } from './zalo-auth.js';
+import { authenticateZalo, RelayAuthOptions } from './zalo-relay-client.js';
+export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function uuid(value: unknown) {
@@ -126,12 +126,11 @@ async function enrollments(store: Store, customerId: string) {
     WHERE ce.student_id = ${customerId}::uuid ORDER BY ce.enrolled_at DESC`);
 }
 
-export interface AppOptions { jwtSecret: string; zaloAuthUrl?: string; zaloAppSecret?: string; fetch?: typeof fetch; }
+export interface AppOptions extends RelayAuthOptions { jwtSecret: string; }
 
 export function createApp(store: Store, options: AppOptions) {
-  if (!options.jwtSecret) throw new Error('JWT_SECRET must match the shared identity backend');
+  if (!options.jwtSecret) throw new Error('JWT_SECRET is required');
   const app = express();
-  const upstreamFetch = options.fetch ?? fetch;
   app.use((_req,res,next)=>{ res.set('Cache-Control','no-store'); next(); });
   app.use(cors());
   app.use(express.json({ limit: '1mb' }));
@@ -140,46 +139,49 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql' });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration' });
   }));
 
   app.post('/api/auth/zalo', route(async (req, res) => {
-    if (!req.body.accessToken) throw new ApiError(400, 'Zalo access token is required');
-    if (!options.zaloAuthUrl) {
-      if (!options.zaloAppSecret) throw new ApiError(503, 'Configure ZALO_APP_SECRET or the shared identity relay');
-      if (typeof req.body.phoneToken !== 'string' || !req.body.phoneToken) throw new ApiError(400,'Phone permission is required to identify the shared account');
-      const [phoneResponse, profileResponse] = await Promise.all([
-        upstreamFetch('https://graph.zalo.me/v2.0/me/info',{ headers:{ access_token:String(req.body.accessToken),code:req.body.phoneToken,secret_key:options.zaloAppSecret },signal:AbortSignal.timeout(15000) }),
-        upstreamFetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture',{ headers:{ access_token:String(req.body.accessToken) },signal:AbortSignal.timeout(15000) }),
-      ]);
-      const phoneData: any = await phoneResponse.json(), profile: any = await profileResponse.json();
-      if (!phoneResponse.ok || phoneData.error || !profileResponse.ok || profile.error || !profile.id) throw new ApiError(401,'Could not verify Zalo identity');
-      const digits = String(phoneData.data?.number ?? '').replace(/^\+/,'');
-      if (!/^84\d{9,10}$/.test(digits)) throw new ApiError(401,'Verified Zalo phone number is invalid');
-      const localPhone = `0${digits.slice(2)}`;
-      const existing = await store.query(Prisma.sql`SELECT ${publicUser} FROM users WHERE phone IN (${localPhone},${digits},${`+${digits}`})`);
-      if (existing.length > 1) throw new ApiError(409,'Duplicate shared phone identities require resolution by the identity owner');
-      let record = existing[0];
-      if (record && !record.is_active) throw new ApiError(403,'Shared account is inactive');
-      if (!record) {
-        const name = String(profile.name ?? 'Zalo customer');
-        const avatar = typeof profile.picture?.data?.url === 'string' ? profile.picture.data.url : null;
-        [record] = await store.query(Prisma.sql`INSERT INTO users (phone,full_name,avatar_url,referral_code)
-          VALUES (${localPhone},${name},${avatar},${randomUUID().replace(/-/g,'').slice(0,20)}) RETURNING ${publicUser}`);
-      }
-      return success(res,{token:jwt.sign({sub:record.id,phone:record.phone,role:record.role},options.jwtSecret,{algorithm:'HS256',expiresIn:'7d'}),user:record,isNewUser:existing.length===0});
+    const profile = await authenticateZalo(req.body?.accessToken, req.body?.phoneToken, options);
+    const identity = await findZaloAccount(store, profile.phone);
+    if (!identity) {
+      if (!options.zaloAllowSignup) throw new ApiError(409, 'New customer signup is disabled; contact support');
+      const registrationToken = jwt.sign({ purpose: 'zalo-registration', phone: profile.phone }, options.jwtSecret,
+        { algorithm: 'HS256', expiresIn: '5m', audience: 'mld-zalo-registration', issuer: 'mld-miniapp-api' });
+      return success(res, { registrationRequired: true, registrationToken, phone: profile.phone });
     }
-    const response = await upstreamFetch(options.zaloAuthUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessToken: req.body.accessToken, phoneToken:req.body.phoneToken, userInfo: req.body.userInfo }), signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new ApiError(401, 'Shared identity service rejected Zalo login');
-    const raw: any = await response.json();
-    const data = raw.data ?? raw;
-    const token = data.accessToken ?? data.token;
-    let payload: jwt.JwtPayload;
-    try { payload = jwt.verify(token, options.jwtSecret, { algorithms: ['HS256'] }) as jwt.JwtPayload; }
-    catch { throw new ApiError(401, 'Identity service must return a valid shared access token'); }
-    const record = await user(store, uuid(payload.sub));
-    return success(res, { token, user: record, isNewUser: Boolean(data.isNewUser) });
+    const record = await user(store, uuid(identity.userId));
+    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
+    return success(res, { token, user: record, isNewUser: identity.isNewUser });
+  }));
+
+  app.post('/api/auth/zalo/register', route(async (req, res) => {
+    let proof: jwt.JwtPayload;
+    try {
+      proof = jwt.verify(req.body?.registrationToken ?? '', options.jwtSecret,
+        { algorithms: ['HS256'], audience: 'mld-zalo-registration', issuer: 'mld-miniapp-api' }) as jwt.JwtPayload;
+    } catch { throw new ApiError(401, 'Phone verification expired; allow Zalo phone sharing again'); }
+    if (proof.purpose !== 'zalo-registration' || typeof proof.phone !== 'string' || !/^0[1-9]\d{8,9}$/.test(proof.phone)) {
+      throw new ApiError(401, 'Invalid phone verification proof');
+    }
+    const input = req.body;
+    const name = typeof input.fullName === 'string' ? input.fullName.trim() : '';
+    const email = typeof input.email === 'string' ? input.email.trim() : '';
+    const dob = input.dateOfBirth || null;
+    const gender = input.gender ?? 'OTHER';
+    if (!name || name.length > 150 || /[\x00-\x1f\x7f]/.test(name)) throw new ApiError(400, 'Full name is required, up to 150 characters');
+    if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new ApiError(400, 'Invalid email');
+    if (!['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400, 'Invalid gender');
+    if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob)
+      || !Number.isFinite(Date.parse(dob)) || new Date(dob).toISOString().slice(0,10) !== dob || Date.parse(dob) > Date.now())) {
+      throw new ApiError(400, 'Invalid date of birth');
+    }
+    const identity = await resolveZaloAccount(store, { phone: proof.phone, name, avatar: null,
+      email: email || null, dateOfBirth: dob, gender }, options);
+    const record = await user(store, uuid(identity.userId));
+    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
+    return success(res, { token, user: record, isNewUser: identity.isNewUser });
   }));
 
   app.get('/api/services', route(async (req, res) => {
@@ -230,7 +232,7 @@ export function createApp(store: Store, options: AppOptions) {
     return success(res,{course});
   }));
 
-  // Private routes always use the UUID issued by the group's identity service.
+  // Private routes use the shared UUID, signed by this Mini App backend.
   app.use('/api', (req,res,next) => { Promise.resolve().then(async () => {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i,'');
     let payload: jwt.JwtPayload;

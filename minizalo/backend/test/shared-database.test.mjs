@@ -89,26 +89,32 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
     await t.test('no demo user, fake login or unconfigured Zalo identity succeeds', async () => {
       assert.equal((await request('/bookings', { anonymous: true })).status, 401);
       assert.equal((await request('/bookings', { tokenOverride: jwt.sign({ sub: 'usr_001' }, secret) })).status, 400);
-      assert.equal((await request('/auth/zalo', { method: 'POST', body: { accessToken: 'fake' }, anonymous: true })).status, 503);
+      assert.equal((await request('/auth/zalo', { method: 'POST', body: { accessToken: 'fake',phoneToken:'code' }, anonymous: true })).status, 503);
       assert.equal((await request('/auth/login', { method: 'POST', body: { phone: '0900000001' }, anonymous: true })).status, 401);
     });
-    await t.test('verified Zalo phone reuses the shared customer UUID without trusting client identity', async () => {
+    await t.test('Zalo login reuses the shared UUID through verified phone permission without OTP or client identity', async () => {
       let exchangeCount = 0;
       const zaloFetch = async (url, options) => {
-        if (String(url).endsWith('/info')) {
-          assert.equal(options.headers.code, 'verified-phone-code');
-          assert.equal(options.headers.secret_key, 'server-secret');
-          exchangeCount++;
-          return Response.json({ error: 0, data: { number: '84900000001' } });
+        exchangeCount++;
+        assert.equal(String(url),'https://graph.zalo.me/v2.0/me/info');
+        if (String(url).endsWith('/me/info')) {
+          assert.equal(options.headers.code,'verified-phone-code');
+          assert.equal(options.headers.secret_key,'zalo-test-secret');
+          return Response.json({error:0,data:{number:'84900000001'}});
         }
-        return Response.json({ id: 'zalo-verified-id', name: 'Verified Zalo Name' });
+        assert.equal(new URL(url).origin, 'https://graph.zalo.me');
+        assert.equal(options.headers.access_token, 'verified-zalo-token');
+        assert.equal(options.headers.appsecret_proof.length,64);
+        assert.equal(options.body, undefined);
+        exchangeCount++;
+        return Response.json({ id:'987654',name:'Verified Zalo Name',picture:{data:{url:'https://example.test/avatar.png'}} });
       };
-      const authServer = createApp(store, { jwtSecret: secret, zaloAppSecret: 'server-secret', fetch: zaloFetch }).listen(0, '127.0.0.1');
+      const authServer = createApp(store, { jwtSecret: secret, zaloAppId:'123456',zaloAppSecret:'zalo-test-secret', fetch: zaloFetch }).listen(0, '127.0.0.1');
       await once(authServer,'listening');
       try {
         const response = await fetch(`http://127.0.0.1:${authServer.address().port}/api/auth/zalo`, {
           method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({accessToken:'verified-access-token',phoneToken:'verified-phone-code',userInfo:{id:ids.other,phone:'0900000002'}}),
+          body:JSON.stringify({accessToken:'verified-zalo-token',phoneToken:'verified-phone-code',userInfo:{id:ids.other,phone:'0900000002'},userId:ids.other}),
         });
         const result = await response.json();
         assert.equal(response.status,200,JSON.stringify(result));
@@ -116,6 +122,30 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
         assert.equal(jwt.verify(result.data.token,secret).sub,ids.user);
         assert.equal(result.data.isNewUser,false);
         assert.equal(exchangeCount,1);
+        assert.equal((await db.query('SELECT count(*)::int AS n FROM users')).rows[0].n,2);
+      } finally { await new Promise(resolve=>authServer.close(resolve)); }
+    });
+    await t.test('Zalo phone login rejects invalid provider responses and unregistered customers', async()=>{
+      let providerProfile;
+      const authServer = createApp(store,{jwtSecret:secret,zaloAppId:'123456',zaloAppSecret:'zalo-test-secret',
+        fetch:async url=>{assert.equal(String(url),'https://graph.zalo.me/v2.0/me/info');return Response.json(providerProfile);}}).listen(0,'127.0.0.1');
+      await once(authServer,'listening');
+      try {
+        const cases = [
+          [{error:-216,message:'Expired token'},401],
+          [{error:0,data:{number:84999999999}},401],
+          [{error:0,data:{number:'fake'}},401],
+          [{error:-501,message:'IP restricted'},502],
+          [{error:0,data:{number:'84999999999'}},409],
+        ];
+        for (const [profile,status] of cases) {
+          providerProfile=profile;
+          const response=await fetch(`http://127.0.0.1:${authServer.address().port}/api/auth/zalo`,{
+            method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:'zalo-token',phoneToken:'phone-code'}),
+          });
+          assert.equal(response.status,status);
+          assert.equal((await response.json()).success,false);
+        }
         assert.equal((await db.query('SELECT count(*)::int AS n FROM users')).rows[0].n,2);
       } finally { await new Promise(resolve=>authServer.close(resolve)); }
     });

@@ -10,6 +10,7 @@ import { GroupDTreatment } from '@/components/GroupDTreatment';
 import { GroupDRecords } from '@/components/GroupDRecords';
 import { GroupFProfile } from '@/components/GroupFProfile';
 import { GroupAAuthModal } from '@/components/GroupAAuthModal';
+import { ZaloProfileForm, RegistrationChallenge } from '@/components/ZaloProfileForm';
 import { GroupBSearch } from '@/components/GroupBSearch';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import {
@@ -96,6 +97,7 @@ function MasterHomePage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState('');
   const [loadVersion, setLoadVersion] = useState(0);
+  const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
   // Fetch real data from Backend on mount
   useEffect(() => {
     async function loadBackendData() {
@@ -163,6 +165,11 @@ function MasterHomePage() {
     setZaloAuthError('');
     setZaloAuthState('checking');
     const result = await apiClient.loginWithZalo(true);
+    if (result?.registrationRequired && result.registrationToken) {
+      setRegistration({ registrationToken: result.registrationToken, phone: result.phone });
+      setZaloAuthState('web');
+      return;
+    }
     if (result?.user && result.token) {
       setUser((prev) => ({ ...prev, ...result.user }));
       setZaloAuthState('connected');
@@ -222,15 +229,19 @@ function MasterHomePage() {
             <div className="w-full rounded-[8px] border border-[#EADECF] bg-white p-5 text-center shadow-lg">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5EBE1] text-xl font-black text-[#98501B]">Z</div>
               <h1 className="mt-4 text-lg font-bold text-[#40352F]">Kết nối tài khoản Zalo</h1>
-              <p className="mt-2 text-xs leading-relaxed text-[#75685F]">Cho phép MLD Việt Nam sử dụng tên và ảnh đại diện để tạo hồ sơ riêng cho bạn.</p>
+              <p className="mt-2 text-xs leading-relaxed text-[#75685F]">Chia sẻ số điện thoại Zalo để kết nối hồ sơ MLD và liên hệ đặt lịch. Khách mới sẽ điền thông tin sau khi xác minh.</p>
               {zaloAuthError && <p className="mt-3 rounded-[8px] bg-red-50 p-2.5 text-left text-[11px] text-red-700">{zaloAuthError}</p>}
               <button disabled={zaloAuthState === 'checking'} onClick={connectZaloProfile} className="mt-5 h-11 w-full rounded-[8px] bg-[#98501B] text-sm font-bold text-white disabled:opacity-60">
                 {zaloAuthState === 'checking' ? 'Đang kết nối...' : 'Tiếp tục với Zalo'}
               </button>
-              <p className="mt-3 text-[10px] text-[#8A7D74]">Cấp quyền số điện thoại đã xác thực để kết nối hồ sơ chung và lịch hẹn của bạn.</p>
+              <p className="mt-3 text-[10px] text-[#8A7D74]">Không cần nhập số điện thoại hoặc mã OTP.</p>
+              <button type="button" disabled={zaloAuthState === 'checking'} onClick={() => setZaloAuthState('web')} className="mt-3 min-h-11 px-4 text-xs font-semibold text-[#75685F] disabled:opacity-60">Xem dịch vụ trước</button>
             </div>
           </div>
         )}
+        {registration && <ZaloProfileForm challenge={registration}
+          onBack={() => { setRegistration(null); setZaloAuthState('required'); }}
+          onComplete={account => { setRegistration(null); setUser(account); setZaloAuthState('connected'); setLoadVersion(value => value + 1); }} />}
         {/* Scrollable Body Content */}
         <div className="flex-1 overflow-y-auto pb-28 overscroll-contain">
         {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
@@ -489,7 +500,6 @@ function MasterHomePage() {
           setIsAuthOpen(false);
           setActiveTab('home');
         }}
-        initialStep="splash"
         canClose={canCloseAuth}
       />
 

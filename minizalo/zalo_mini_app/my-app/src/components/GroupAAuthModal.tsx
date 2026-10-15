@@ -1,484 +1,76 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/api/client';
 import { User } from '../../../../backend/src/data/database';
-import {
-  LeafIcon,
-  CloseIcon,
-  ArrowRightIcon,
-  ArrowLeftIcon,
-  SmartPhoneIcon,
-  ShieldIcon,
-  CameraIcon,
-  CheckIcon,
-  HeartIcon,
-  NavAcademyIcon,
-  StarIcon,
-} from '@/components/Icons';
+import { CloseIcon, LeafIcon } from '@/components/Icons';
+import { ZaloProfileForm, RegistrationChallenge } from '@/components/ZaloProfileForm';
 
 interface GroupAAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (user: User) => void;
-  initialStep?: 'splash' | 'onboarding' | 'login' | 'otp' | 'profile' | 'interests';
   canClose?: boolean;
 }
 
 export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
-  isOpen,
-  onClose,
-  onLoginSuccess,
-  initialStep = 'splash',
-  canClose = false,
+  isOpen, onClose, onLoginSuccess, canClose = false,
 }) => {
-  const [step, setStep] = useState<'splash' | 'onboarding' | 'login' | 'otp' | 'profile' | 'interests'>(initialStep);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
+  const attempt = useRef(0);
 
-  // Form states
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [timer, setTimer] = useState(45);
-  const [fullName, setFullName] = useState('');
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState<'Nữ' | 'Nam'>('Nữ');
-  const [email, setEmail] = useState('');
-  const [selectedInterest, setSelectedInterest] = useState<'wellness' | 'academy' | 'both'>('both');
-  const [onboardingSlide, setOnboardingSlide] = useState(0);
-
-  // Reset to initialStep whenever modal opens
   useEffect(() => {
-    if (isOpen) {
-      setStep(initialStep);
-      setOnboardingSlide(0);
-    }
-  }, [isOpen, initialStep]);
+    attempt.current++;
+    setBusy(false);
+    setError('');
+    setRegistration(null);
+    return () => { attempt.current++; };
+  }, [isOpen]);
 
-  // Splash auto-transition after 2.2s
-  useEffect(() => {
-    let splashTimer: any;
-    if (isOpen && step === 'splash') {
-      splashTimer = setTimeout(() => {
-        setStep('onboarding');
-      }, 2200);
-    }
-    return () => clearTimeout(splashTimer);
-  }, [isOpen, step]);
-
-  // OTP Countdown timer
-  useEffect(() => {
-    let interval: any;
-    if (step === 'otp' && timer > 0) {
-      interval = setInterval(() => setTimer((t) => t - 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [step, timer]);
-
-  const [authError, setAuthError] = useState('');
-  const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(null);
-  const [authBusy, setAuthBusy] = useState(false);
   if (!isOpen) return null;
+  if (registration) return <ZaloProfileForm challenge={registration} onBack={() => setRegistration(null)}
+    onComplete={user => { onLoginSuccess(user); onClose(); }} />;
 
-  // Onboarding slides
-  const slides = [
-    {
-      title: 'Chăm sóc sức khỏe mỗi ngày',
-      desc: 'Trải nghiệm các dịch vụ spa, thư giãn và chăm sóc sức khỏe chuyên nghiệp.',
-      image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Đào tạo nghề spa chuẩn y khoa',
-      desc: 'Học nghề thực chiến, cấp chứng chỉ quốc gia và đồng hành phát triển sự nghiệp.',
-      image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Dẫn lưu bạch huyết MLD Vodder',
-      desc: 'Công nghệ phục hồi và thải độc hệ miễn dịch độc quyền chuẩn Châu Âu.',
-      image: 'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=600&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  // Handlers
-  const handleSendOtp = async () => {
-    if (authBusy) return;
-    setAuthBusy(true);
-    setAuthError('');
+  const login = async () => {
+    if (busy) return;
+    const current = ++attempt.current;
+    setBusy(true);
+    setError('');
     const result = await apiClient.loginWithZalo(true);
-    setAuthBusy(false);
-    if (!result?.user || !result.token) { setAuthError(result?.error || 'Không thể kết nối Zalo.'); return; }
-    setAuthenticatedUser(result.user);
-    setPhone(result.user.phone);
-    setFullName(result.user.name);
-    setDob(result.user.dob);
-    setEmail(result.user.email);
-    if (result.user.gender !== 'Khác') setGender(result.user.gender);
-    setStep('profile');
-  };
-  const handleVerifyOtp = handleSendOtp;
-  const handleSaveProfile = async () => {
-    if (!authenticatedUser || authBusy) return;
-    setAuthBusy(true);
-    const res = await apiClient.updateProfile({ name: fullName, dob, gender, email });
-    setAuthBusy(false);
-    if (!res?.user) { setAuthError(res?.error || 'Không thể lưu hồ sơ.'); return; }
-    setAuthenticatedUser(res.user);
-    setStep('interests');
-  };
-  const handleFinish = async () => {
-    if (!authenticatedUser || authBusy) return;
-    setAuthBusy(true);
-    const res = await apiClient.updateProfile({ name: fullName, dob, gender, email,
-      purpose: selectedInterest === 'academy' ? 'ACADEMY' : selectedInterest === 'wellness' ? 'BEAUTY_SPA' : 'BOTH' });
-    setAuthBusy(false);
-    if (!res?.user) { setAuthError(res?.error || 'Không thể lưu thông tin.'); return; }
-    onLoginSuccess(res.user);
+    if (current !== attempt.current) return;
+    setBusy(false);
+    if (result?.registrationRequired && result.registrationToken) {
+      setRegistration({ registrationToken: result.registrationToken, phone: result.phone });
+      return;
+    }
+    if (!result?.user || !result.token) {
+      setError(result?.error || 'Không thể đăng nhập Zalo. Vui lòng thử lại.');
+      return;
+    }
+    onLoginSuccess(result.user);
     onClose();
   };
 
   return (
-    <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in">
-      <div className="w-full h-full bg-[#FAF6F0] flex flex-col overflow-y-auto no-scrollbar">
-        {authError && <p role="alert" className="p-3 text-xs text-red-700">{authError}</p>}
-        {authBusy && <p role="status" className="p-3 text-xs">Đang kết nối hồ sơ...</p>}
-        {canClose && (
-          <button
-            onClick={onClose}
-            className="absolute right-4 top-4 z-10 w-8 h-8 rounded-full bg-white/90 shadow-sm border border-stone-200 flex items-center justify-center text-stone-700 transition"
-            title="Đóng"
-          >
-            <CloseIcon size={14} color="#40352F" />
-          </button>
-        )}
-
-        {/* 1. SCREEN A01: SPLASH SCREEN */}
-        {step === 'splash' && (
-          <div className="p-6 flex-1 flex flex-col justify-between items-center text-center bg-gradient-to-b from-[#FBF8F5] to-[#F5ECE1] relative">
-            <div className="w-full flex justify-end">
-              <button onClick={() => setStep('onboarding')} className="text-xs text-stone-500 font-semibold underline">
-                Bỏ qua
-              </button>
-            </div>
-
-            <div className="my-auto space-y-4">
-              <div className="w-20 h-20 mx-auto rounded-2xl bg-white shadow-lg p-3 flex items-center justify-center border border-[#98501B]/20">
-                <LeafIcon size={40} color="#98501B" />
-              </div>
-              <div className="inline-block bg-[#98501B]/10 px-3 py-1 rounded-full text-[11px] font-bold text-[#98501B] uppercase tracking-wider">
-                MLD Vietnam
-              </div>
-              <div className="text-xs text-stone-500 font-medium tracking-wide">
-                CỘNG ĐỒNG DẪN LƯU BẠCH HUYẾT VIỆT NAM
-              </div>
-              <h2 className="text-xl font-bold text-[#98501B] uppercase tracking-wide">
-                Chăm Sóc Sức Khỏe & Đào Tạo Nghề
-              </h2>
-              <p className="text-xs text-stone-600 italic">
-                Tận tâm chăm sóc – Đồng hành phát triển
-              </p>
-            </div>
-
-            <div className="w-full space-y-3">
-              <div className="flex items-center justify-center space-x-2 text-xs text-stone-500">
-                <div className="w-4 h-4 border-2 border-[#98501B] border-t-transparent rounded-full animate-spin"></div>
-                <span>Đang chuẩn bị trải nghiệm...</span>
-              </div>
-              <button
-                onClick={() => setStep('onboarding')}
-                className="w-full py-3 bg-[#98501B] text-white rounded-xl font-bold text-sm shadow-md hover:bg-[#884218] transition"
-              >
-                Bắt đầu khám phá
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 2. SCREEN A02: ONBOARDING CAROUSEL */}
-        {step === 'onboarding' && (
-          <div className="p-6 flex-1 flex flex-col justify-between bg-[#FAF6F0]">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-stone-500 tracking-wider">CHĂM SÓC & PHÁT TRIỂN</span>
-              <button onClick={() => setStep('login')} className="text-xs text-[#98501B] font-bold">
-                Bỏ qua
-              </button>
-            </div>
-
-            {/* Arch photo container */}
-            <div className="my-4">
-              <div className="h-56 w-full rounded-t-full rounded-b-3xl overflow-hidden shadow-lg border-2 border-[#98501B]/20 relative">
-                <img
-                  src={slides[onboardingSlide].image}
-                  alt="Spa Onboarding"
-                  className="w-full h-full object-cover transition-all duration-500"
-                />
-              </div>
-
-              {/* Dots */}
-              <div className="flex justify-center space-x-2 mt-4">
-                {slides.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setOnboardingSlide(idx)}
-                    className={`h-2 rounded-full transition-all ${
-                      idx === onboardingSlide ? 'w-6 bg-[#98501B]' : 'w-2 bg-stone-300'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              <div className="mt-4 text-center">
-                <h3 className="text-lg font-bold text-stone-900">{slides[onboardingSlide].title}</h3>
-                <p className="text-xs text-stone-600 mt-2 px-2 leading-relaxed">
-                  {slides[onboardingSlide].desc}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              {onboardingSlide < slides.length - 1 ? (
-                <button
-                  onClick={() => setOnboardingSlide((prev) => prev + 1)}
-                  className="w-full py-3.5 bg-[#98501B] text-white font-bold rounded-2xl text-sm shadow-md hover:bg-[#884218] transition"
-                >
-                  Tiếp tục
-                </button>
-              ) : (
-                <button
-                  onClick={() => setStep('login')}
-                  className="w-full py-3.5 bg-[#98501B] text-white font-bold rounded-2xl text-sm shadow-md hover:bg-[#884218] transition"
-                >
-                  Đăng nhập / Đăng ký
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {step === 'login' && <div className="flex-1 p-6 space-y-4">
-          <h2 className="text-lg font-bold">Kết nối hồ sơ chung</h2>
-          <p className="text-xs">Cấp quyền thông tin Zalo và số điện thoại đã xác thực để tìm tài khoản, lịch hẹn và khóa học của bạn.</p>
-          <button disabled={authBusy} onClick={handleSendOtp} className="w-full h-11 rounded-[8px] bg-[#98501B] text-white text-sm font-bold disabled:opacity-60">Tiếp tục với Zalo</button>
-        </div>}
-        {/* 5. SCREEN A05: COMPLETE PROFILE */}
-        {step === 'profile' && (
-          <div className="p-6 flex-1 flex flex-col justify-between bg-[#FAF6F0] overflow-y-auto">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <button onClick={() => setStep('otp')} className="text-stone-600 text-xs flex items-center space-x-1">
-                  <ArrowLeftIcon size={12} color="#40352F" />
-                  <span>Quay lại</span>
-                </button>
-                <span className="text-xs font-bold text-stone-500 tracking-wider">HỒ SƠ CÁ NHÂN</span>
-              </div>
-
-              <h2 className="text-xl font-bold text-stone-900">Hoàn thiện hồ sơ</h2>
-              <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                Vui lòng cập nhật thông tin để chúng tôi phục vụ bạn tốt hơn.
-              </p>
-
-              {/* Avatar Uploader */}
-              <div className="mt-4 flex items-center space-x-4 p-3 bg-white rounded-2xl border border-stone-200 shadow-sm">
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-full bg-stone-200 overflow-hidden flex items-center justify-center">
-                    <CameraIcon size={24} color="#8C7E74" />
-                  </div>
-                  <div className="absolute bottom-0 right-0 w-5 h-5 bg-[#98501B] text-white rounded-full flex items-center justify-center text-[10px] shadow">
-                    <CameraIcon size={10} color="#FFFFFF" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-[#98501B]">Thêm ảnh đại diện</div>
-                  <div className="text-[10px] text-stone-500">Có thể cập nhật sau</div>
-                </div>
-              </div>
-
-              {/* Form Fields */}
-              <div className="mt-4 space-y-3">
-                <div>
-                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Họ và tên *</label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-white border border-stone-300 rounded-xl outline-none focus:border-[#98501B] font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Số điện thoại</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      disabled
-                      value={phone}
-                      className="w-full px-3 py-2.5 text-xs bg-stone-100 border border-stone-200 rounded-xl text-stone-600 font-semibold"
-                    />
-                    <span className="absolute right-3 top-2.5 text-emerald-600">
-                      <CheckIcon size={14} color="#2E8B57" />
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[11px] font-bold text-stone-700 block mb-1">Ngày sinh</label>
-                    <input
-                      type="text"
-                      value={dob}
-                      onChange={(e) => setDob(e.target.value)}
-                      className="w-full px-3 py-2.5 text-xs bg-white border border-stone-300 rounded-xl outline-none focus:border-[#98501B]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-stone-700 block mb-1">Giới tính</label>
-                    <select
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value as any)}
-                      className="w-full px-3 py-2.5 text-xs bg-white border border-stone-300 rounded-xl outline-none focus:border-[#98501B]"
-                    >
-                      <option value="Nữ">Nữ</option>
-                      <option value="Nam">Nam</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-white border border-stone-300 rounded-xl outline-none focus:border-[#98501B]"
-                  />
-                </div>
-              </div>
-
-              <p className="text-[10px] text-stone-500 mt-3 italic">
-                * Bắt buộc. Ngày sinh, giới tính và email là tùy chọn.
-              </p>
-            </div>
-
-            <div className="mt-4">
-              <button
-                onClick={handleSaveProfile}
-                className="w-full py-3.5 bg-[#98501B] text-white font-bold rounded-2xl text-sm shadow-md hover:bg-[#884218] transition"
-              >
-                Lưu và tiếp tục
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 6. SCREEN A06: INTEREST SELECTION */}
-        {step === 'interests' && (
-          <div className="p-6 flex-1 flex flex-col justify-between bg-[#FAF6F0]">
-            <div>
-              <button onClick={() => setStep('profile')} className="text-stone-600 text-xs mb-3 flex items-center space-x-1">
-                <ArrowLeftIcon size={12} color="#40352F" />
-                <span>Quay lại</span>
-              </button>
-
-              <h2 className="text-xl font-bold text-stone-900 leading-tight">Bạn quan tâm đến điều gì?</h2>
-              <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                Chọn nhu cầu của bạn để chúng tôi mang đến trải nghiệm phù hợp nhất.
-              </p>
-
-              {/* 3 Interest Cards */}
-              <div className="mt-5 space-y-3">
-                {/* Option 1: Chăm sóc sức khỏe */}
-                <div
-                  onClick={() => setSelectedInterest('wellness')}
-                  className={`p-3.5 rounded-2xl border-2 cursor-pointer transition flex items-start space-x-3 ${
-                    selectedInterest === 'wellness'
-                      ? 'border-[#98501B] bg-amber-50/70 shadow-sm'
-                      : 'border-stone-200 bg-white hover:border-stone-300'
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-[#98501B] flex items-center justify-center shrink-0">
-                    <HeartIcon size={20} color="#98501B" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs font-bold text-stone-900">Chăm sóc sức khỏe</div>
-                    <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">
-                      Đặt lịch spa, chăm sóc cơ thể, theo dõi liệu trình và nhận ưu đãi.
-                    </p>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedInterest === 'wellness' ? 'border-[#98501B] bg-[#98501B]' : 'border-stone-300'
-                    }`}
-                  >
-                    {selectedInterest === 'wellness' && <div className="w-2 h-2 rounded-full bg-white"></div>}
-                  </div>
-                </div>
-
-                {/* Option 2: Học nghề spa */}
-                <div
-                  onClick={() => setSelectedInterest('academy')}
-                  className={`p-3.5 rounded-2xl border-2 cursor-pointer transition flex items-start space-x-3 ${
-                    selectedInterest === 'academy'
-                      ? 'border-[#98501B] bg-amber-50/70 shadow-sm'
-                      : 'border-stone-200 bg-white hover:border-stone-300'
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-                    <NavAcademyIcon size={20} color="#1D4ED8" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs font-bold text-stone-900">Học nghề spa</div>
-                    <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">
-                      Khám phá khóa học, đăng ký đào tạo và theo dõi quá trình học tập.
-                    </p>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedInterest === 'academy' ? 'border-[#98501B] bg-[#98501B]' : 'border-stone-300'
-                    }`}
-                  >
-                    {selectedInterest === 'academy' && <div className="w-2 h-2 rounded-full bg-white"></div>}
-                  </div>
-                </div>
-
-                {/* Option 3: Cả hai */}
-                <div
-                  onClick={() => setSelectedInterest('both')}
-                  className={`p-3.5 rounded-2xl border-2 cursor-pointer transition flex items-start space-x-3 ${
-                    selectedInterest === 'both'
-                      ? 'border-[#98501B] bg-amber-50/70 shadow-sm'
-                      : 'border-stone-200 bg-white hover:border-stone-300'
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-[#98501B] flex items-center justify-center shrink-0">
-                    <StarIcon size={18} color="#98501B" filled />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs font-bold text-stone-900">Cả hai</div>
-                    <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">
-                      Trải nghiệm đầy đủ dịch vụ chăm sóc sức khỏe và chương trình đào tạo nghề.
-                    </p>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedInterest === 'both' ? 'border-[#98501B] bg-[#98501B]' : 'border-stone-300'
-                    }`}
-                  >
-                    {selectedInterest === 'both' && <div className="w-2 h-2 rounded-full bg-white"></div>}
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-[10px] text-stone-500 mt-3 text-center">
-                Bạn có thể thay đổi lựa chọn này bất cứ lúc nào trong hồ sơ.
-              </p>
-            </div>
-
-            <div>
-              <button
-                onClick={handleFinish}
-                className="w-full py-3.5 bg-[#98501B] text-white font-bold rounded-2xl text-sm shadow-md hover:bg-[#884218] transition flex items-center justify-center space-x-2"
-              >
-                <span>Khám phá ứng dụng</span>
-                <ArrowRightIcon size={14} color="#FFFFFF" />
-              </button>
-            </div>
-          </div>
-        )}
+    <div role="dialog" aria-modal="true" aria-labelledby="zalo-login-title"
+      className="absolute inset-0 z-50 flex flex-col overflow-y-auto bg-[#FAF6F0] p-6">
+      {canClose && (
+        <button type="button" onClick={onClose} disabled={busy} title="Đóng" aria-label="Đóng"
+          className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center text-stone-600 disabled:opacity-50">
+          <CloseIcon size={18} color="#40352F" />
+        </button>
+      )}
+      <div className="mx-auto my-auto w-full max-w-sm py-8 text-center">
+        <div className="mb-5 flex justify-center"><LeafIcon size={48} color="#98501B" /></div>
+        <p className="mb-2 text-sm font-semibold text-[#98501B]">MLD Việt Nam</p>
+        <h2 id="zalo-login-title" className="text-xl font-bold text-stone-800">Đăng nhập</h2>
+        <p className="mt-3 text-sm leading-6 text-stone-600">Chia sẻ số điện thoại Zalo để kết nối hồ sơ và liên hệ đặt lịch.</p>
+        {error && <p role="alert" className="mt-4 break-words text-sm text-red-700">{error}</p>}
+        <button type="button" onClick={login} disabled={busy} aria-busy={busy}
+          className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0068FF] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
+          {busy && <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+          {busy ? 'Đang đăng nhập...' : 'Tiếp tục với Zalo'}
+        </button>
       </div>
     </div>
   );

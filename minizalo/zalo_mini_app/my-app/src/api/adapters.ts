@@ -32,8 +32,8 @@ type PointTransaction = {
 
 const lower = (value: string) => value.toLowerCase();
 
-export const adaptUser = (u: User): View.User => ({
-  ...u, name: u.fullName, avatar: u.avatarUrl || '', email: u.email || '',
+export const adaptUser = (u: Omit<User, 'phone'> & { phone?: string | null }): View.User => ({
+  ...u, phone: u.phone || '', name: u.fullName, avatar: u.avatarUrl || '', email: u.email || '',
   role: u.role === 'CUSTOMER' ? 'patient' : lower(u.role),
   tier: u.membershipTier.charAt(0) + lower(u.membershipTier.slice(1)),
   points: Number(u.rewardPoints), dob: u.dateOfBirth || '',

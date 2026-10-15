@@ -27,35 +27,56 @@ Mini Zalo database with PascalCase tables and text IDs is incompatible; point
 the application at the shared database instead of deploying archived migrations.
 No separate `DIRECT_URL` is required because this application does not migrate.
 
-Set `JWT_SECRET` to the same HS256 signing secret used by the shared backend.
-The JWT `sub` is the canonical `users.id` UUID. Zalo login must resolve to that
-shared identity; Zalo IDs, legacy CUIDs, and demonstration IDs are not user UUIDs.
-Do not provision an independent Mini Zalo user table or seed demo identities.
+Set `JWT_SECRET` to a private random secret for the Mini App backend. Native
+backends do not need to share this key: shared data does not require shared
+tokens. JWT `sub` is always the canonical `users.id` UUID, with an eight-hour
+expiry. This backend accepts its own HS256 tokens and reloads the active shared
+user on every private request.
 
-Zalo login supports native canonical linking or an optional shared identity relay.
-For native linking, leave `ZALO_AUTH_URL` empty and configure the server-only
-`ZALO_APP_SECRET`. The Mini App obtains a phone permission token using
-`getPhoneNumber` and sends it with the Zalo access token to the backend. The
-backend calls `GET https://graph.zalo.me/v2.0/me/info` with `access_token`, `code`,
-and `secret_key` headers to retrieve the verified `data.number`, and verifies
-the profile through `graph.zalo.me/v2.0/me`. See the official
-[Zalo getPhoneNumber documentation](https://docs.zaloplatforms.com/docs/MA/api/user/user-information/getPhoneNumber).
+The frontend requests only phone-sharing permission after the
+user taps the Zalo login action. It sends `{ accessToken, phoneToken }` to
+`/api/auth/zalo`. No manual phone entry or OTP is used. The backend exchanges
+the single-use phone code with `https://graph.zalo.me/v2.0/me/info`, using the
+same access token and its private app secret. Only that verified phone selects
+the shared account; client-supplied phone values and UUIDs are ignored. Session
+tokens use ZMP native storage with an in-memory fallback. Initial page load does
+not trigger a phone consent prompt; public catalogs remain available to guests.
 
-The verified number is matched against shared `users.phone` in local `0`, `84`,
-and `+84` formats. An existing account retains its canonical UUID. If no account
-exists, native login inserts into the shared `users` table with verified `phone`,
-profile `full_name`, and a generated `referral_code`; canonical defaults supply
-the UUID and `STANDARD` membership tier. Duplicate phone identities require
-resolution by the shared identity owner, and inactive accounts cannot log in.
-This authenticated account creation is an application write, not migration or
-seeding. No separate `zaloId` column or Mini Zalo identity table is needed.
+Set `ZALO_APP_ID` and `ZALO_APP_SECRET` to the parent Zalo developer application,
+NOT the Mini App ID or an OA access token. Production login calls only
+`https://graph.zalo.me/v2.0/me/info` with access_token, code and secret_key headers.
+The Social `/me` profile API is not called. Its helper remains covered by isolated
+legacy compatibility tests but is not wired to the login route or relay.
+Invalid provider responses, redirects and outages fail closed. Client-provided
+phone, UUID, name or avatar cannot prove customer identity.
+`ZALO_AUTH_URL` is no longer used and must not be configured.
 
-Alternatively, set `ZALO_AUTH_URL` to a trusted shared identity API that returns
-`accessToken` or `token` containing the shared HS256 JWT. When configured, this
-relay takes precedence over native linking. Both paths use the shared
-`JWT_SECRET` and canonical UUID as JWT `sub`; a client-supplied UUID is not
-authentication. Configure either the relay or the native app secret for Zalo
-login. Existing valid shared JWTs use the same identity contract.
+The existing canonical `users.phone UNIQUE NOT NULL` schema is used unchanged.
+No Zalo mapping table or phone-nullability SQL is required. Earlier phone-free
+SQL proposals were removed; do not apply old copies. If the team already applied
+any proposal, coordinate with its owner before reverting anything; this app
+never automatically drops tables or restores NOT NULL on existing records.
+
+The verified phone is normalized to local 0-prefix form and matched against
+existing local, 84-prefix and +84-prefix values. One existing active CUSTOMER or
+STUDENT account reuses its shared UUID, tier, points and profile without changes.
+Duplicate aliases require administrator review; inactive and staff accounts are
+rejected. Phone changes/reassignment require the group's account recovery policy;
+do not automatically move history based on Zalo display names.
+
+With `ZALO_ALLOW_SIGNUP=true`, a phone with no shared account receives a signed
+five-minute registration proof (audience `mld-zalo-registration`, no user sub).
+It cannot access private business data. `/api/auth/zalo/register` verifies the
+proof, validates full name and optional email/date of birth/gender, then creates
+the shared user transactionally using ONLY the proof's verified phone. Name and
+optional fields are user-entered, not verified Zalo profile claims. Avatar starts
+null. New accounts have STANDARD tier and zero points. There are no placeholder
+users if a form is abandoned. Existing accounts skip the form and preserve data;
+registration retries reuse an account created concurrently without overwriting it.
+If signup is disabled it returns 409. Unique and serialization conflicts retry
+without creating separate customer identities. No fake phones or demo users.
+
+See `docs/ZALO_LOGIN_SETUP.md` for operator setup and device test steps.
 
 `backend/src/lib/prisma.ts` loads dotenv before constructing the client. Keep
 credentials in the actual deployment environment or private local `.env`;
@@ -96,21 +117,20 @@ statements skipped; they must not connect to or seed the deployed shared databas
 Render runs `npm ci --include=dev && npm run db:generate && npm run build`, then
 `npm start`. Configure its shared `DATABASE_URL`, `JWT_SECRET`, and frontend
 origin explicitly. Render never runs migrations or seeds.
-For native linking, set Render's server-only `ZALO_APP_SECRET` and leave
-`ZALO_AUTH_URL` empty. For relay linking, set `ZALO_AUTH_URL` instead. The
-`db:check` command and startup schema preflight remain read-only in both modes.
+Set Render's parent `ZALO_APP_ID` and `ZALO_APP_SECRET`. Keep
+`ZALO_ALLOW_SIGNUP=true` to enable verified new customer registration. The `db:check`
+command and startup schema preflight remain read-only.
 
 ## Verification Status
 
 The backend integration tests run against an isolated PostgreSQL engine loaded
 from the repository's canonical SQL. They verify shared UUIDs, ownership,
-booking/slot/voucher transactions, academy data, verified Zalo phone linking,
+booking/slot/voucher transactions, academy data, Zalo-only identity resolution,
 and visibility of changes written by another client.
 
-The local `DATABASE_URL` checked during this alignment did not contain the
-canonical tables. No live schema, migrations, seed data, or connection secrets
-were changed. Set the real shared connection, shared JWT secret, and Zalo app
-secret (or identity relay), then run `npm run db:check` before starting the API.
+No live schema, migrations, seed data, or connection secrets were changed.
+Set the real shared connection, private Mini App JWT secret, and parent Zalo
+credentials, then run `npm run db:check` before starting the API.
 Passing offline tests does not mean the deployed clients are already connected
 to the same database.
 
