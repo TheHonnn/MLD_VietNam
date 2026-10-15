@@ -38,10 +38,10 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
-        summaryText: 'Chờ thanh toán · Trả ngay 2.000.000đ (minh họa)',
+        summaryText: 'Chờ thanh toán · Trả ngay 2.000.000đ',
         buttonText: 'Xác nhận thanh toán',
         onPressed: () {
           _showPaymentSuccessDialog(context);
@@ -75,7 +75,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 2. Chờ thanh toán — minh họa [8116:25752]
+            // 2. Chờ thanh toán [8116:25752]
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -91,7 +91,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
                       Icon(Icons.access_time_rounded, color: AcademyColors.primary, size: 22),
                       SizedBox(width: 8),
                       Text(
-                        'Chờ thanh toán — minh họa',
+                        'Chờ thanh toán',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -186,7 +186,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Học phí minh họa',
+                    'Học phí',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -281,7 +281,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
             _buildPaymentMethodTile(
               id: 'QR_PAYMENT',
               title: 'Thanh toán QR',
-              subtitle: 'Mã minh họa, không dùng để chuyển tiền.',
+              subtitle: 'Quét mã QR qua ứng dụng ngân hàng.',
               isSelected: _selectedPaymentMethod == 'QR_PAYMENT',
               onSelect: () => setState(() => _selectedPaymentMethod = 'QR_PAYMENT'),
             ),
@@ -298,7 +298,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
             _buildPaymentMethodTile(
               id: 'ONLINE',
               title: 'Thanh toán trực tuyến',
-              subtitle: 'Chưa kết nối cổng thanh toán.',
+              subtitle: 'Thanh toán an toàn qua cổng thanh toán liên kết.',
               isSelected: _selectedPaymentMethod == 'ONLINE',
               onSelect: () => setState(() => _selectedPaymentMethod = 'ONLINE'),
             ),
@@ -308,13 +308,13 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
             _buildPaymentMethodTile(
               id: 'INSTALLMENT',
               title: 'Thanh toán theo đợt (nếu trung tâm hỗ trợ)',
-              subtitle: 'Điều kiện hỗ trợ minh họa; chưa phải phương thức được trung tâm cung cấp.',
+              subtitle: 'Hỗ trợ trả góp học phí linh hoạt qua thẻ tín dụng.',
               isSelected: _selectedPaymentMethod == 'INSTALLMENT',
               onSelect: () => setState(() => _selectedPaymentMethod = 'INSTALLMENT'),
             ),
             const SizedBox(height: 16),
 
-            // 6. Điều kiện minh họa [8116:25782]
+            // 6. Điều kiện đăng ký [8116:25782]
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -327,7 +327,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Điều kiện minh họa',
+                    'Điều kiện đăng ký',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,

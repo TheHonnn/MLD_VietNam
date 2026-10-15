@@ -21,7 +21,7 @@ class TreatmentSessionModel {
     required this.date,
     this.note,
     this.specialistName = 'Trần Minh Phương',
-    this.branchName = 'Chi nhánh mẫu 01 — Quận 3',
+    this.branchName = 'Chi nhánh Quận 3',
     this.postCareAdvice,
   });
 
@@ -179,7 +179,7 @@ class HomeCareArticleModel {
     required this.readTimeText,
     required this.summary,
     required this.imageUrl,
-    this.authorText = 'Ban nội dung · Gợi ý minh họa',
+    this.authorText = 'Ban chuyên môn MLD',
     this.isVideo = false,
   });
 }

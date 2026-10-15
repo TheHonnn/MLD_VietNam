@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import '../../data/repositories/mock_membership_repository.dart';
 
 class F07ReferralProgramScreen extends StatefulWidget {
@@ -24,10 +25,13 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
   }
 
   void _shareReferral(String code) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đang chia sẻ liên kết giới thiệu với mã: $code'),
-      ),
+    final shareText = 'Trải nghiệm chăm sóc sức khỏe và đào tạo nghề chuẩn y khoa cùng MLD Việt Nam!\n'
+        'Nhập mã giới thiệu của tôi: $code để nhận ngay ưu đãi đặc quyền.\n'
+        'Tải ứng dụng tại: https://mldvietnam.vn/invite?code=$code';
+    AppLauncherHelper.shareContent(
+      context,
+      text: shareText,
+      subject: 'Mã giới thiệu MLD Việt Nam: $code',
     );
   }
 
@@ -72,14 +76,7 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                             ),
                           ),
                         ),
-                        const Text(
-                          'Dữ liệu minh họa',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
+
                       ],
                     ),
 
@@ -135,11 +132,11 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                               ),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(16),
+                          const Padding(
+                            padding: EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
+                              children: [
                                 Text(
                                   'Mời bạn cùng trải nghiệm',
                                   style: TextStyle(
@@ -244,7 +241,7 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Dữ liệu minh họa · Mã không có giá trị giới thiệu thực',
+                            'Chia sẻ mã giới thiệu để cùng nhận điểm thưởng',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
@@ -266,10 +263,10 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppColors.border, width: 1.0),
                       ),
-                      child: Column(
+                      child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Quyền lợi giới thiệu',
                             style: TextStyle(
                               fontSize: 18,
@@ -277,8 +274,8 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                               color: AppColors.textHeading,
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          const Row(
+                          SizedBox(height: 14),
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Icon(Icons.auto_awesome_rounded, size: 20, color: AppColors.primary),
@@ -295,8 +292,8 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          const Row(
+                          SizedBox(height: 12),
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Icon(Icons.card_giftcard_rounded, size: 20, color: AppColors.primary),
@@ -313,8 +310,8 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 14),
-                          const Text(
+                          SizedBox(height: 14),
+                          Text(
                             'Ví dụ: đăng ký lần đầu và hoàn tất dịch vụ đủ điều kiện mới được ghi nhận. Điểm và ưu đãi tùy chương trình; không phải cam kết quyền lợi thực.',
                             style: TextStyle(
                               fontSize: 12,
@@ -365,7 +362,7 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                           ),
                           const SizedBox(height: 10),
                           const Text(
-                            'Dữ liệu minh họa · 200 điểm đã ghi nhận 03/10/2026',
+                            '200 điểm thưởng đã ghi nhận',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
@@ -480,7 +477,7 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
 
                     const Center(
                       child: Text(
-                        'Dữ liệu minh họa · 2 lượt đủ điều kiện × 100 điểm = 200 điểm',
+                        '2 lượt giới thiệu thành công × 100 điểm = 200 điểm',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,

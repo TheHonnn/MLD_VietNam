@@ -142,7 +142,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
-                        'Hồ sơ minh họa · Nhân vật hư cấu',
+                        'Chuyên viên chăm sóc chuyên nghiệp',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -154,7 +154,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
 
                     // Branch & Address
                     const Text(
-                      'Chi nhánh mẫu 01 — Quận 3',
+                      'Chi nhánh Quận 3',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -163,7 +163,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh · Dữ liệu minh họa',
+                      '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -185,7 +185,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Phương là nhân vật chuyên viên minh họa, đại diện cho phong cách chăm sóc chu đáo và nhẹ nhàng. '
+                      'Phương là chuyên viên chăm sóc giàu kinh nghiệm, chu đáo và tận tâm tại MLD. '
                       'Luôn lắng nghe nhu cầu thư giãn và hướng dẫn từng bước để khách cảm thấy thoải mái.',
                       style: TextStyle(
                         fontSize: 14,
@@ -241,7 +241,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      '4 năm — thông tin minh họa',
+                      '4 năm kinh nghiệm',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -361,7 +361,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     ),
                     const SizedBox(height: 2),
                     const Text(
-                      'Khung giờ minh họa, không phải lịch trống trực tiếp.',
+                      'Lịch làm việc trong tuần',
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -383,7 +383,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                             const SizedBox(height: 6),
                             if (isOff)
                               const Text(
-                                'Nghỉ (minh họa)',
+                                'Nghỉ ',
                                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                               )
                             else
@@ -439,7 +439,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Đánh giá minh họa · Đúng 3 nhận xét mẫu',
+                      'Đánh giá từ khách hàng',
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -467,7 +467,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                                   ),
                                 ),
                                 const Text(
-                                  'Đánh giá minh họa',
+                                  'Đánh giá khách hàng',
                                   style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                 ),
                               ],

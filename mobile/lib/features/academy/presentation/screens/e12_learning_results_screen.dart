@@ -11,11 +11,11 @@ class E12LearningResultsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: AcademyColors.cardBorder, width: 1.0)),
         ),
@@ -126,9 +126,9 @@ class E12LearningResultsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Column(
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Nguyễn Minh Anh',
                       style: TextStyle(
@@ -176,7 +176,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
-                      'Hoàn thành — minh họa',
+                      'Đã hoàn thành',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -185,9 +185,9 @@ class E12LearningResultsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
+                    children: [
                       Text(
                         '20 / 20 bài học đã hoàn thành',
                         style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
@@ -226,11 +226,11 @@ class E12LearningResultsScreen extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _buildScoreCard('8.5/10', 'Lý thuyết', 'Đánh giá minh họa'),
+                  child: _buildScoreCard('8.5/10', 'Lý thuyết', 'Đánh giá khách hàng'),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildScoreCard('9.0/10', 'Thực hành', 'Đánh giá minh họa'),
+                  child: _buildScoreCard('9.0/10', 'Thực hành', 'Đánh giá khách hàng'),
                 ),
               ],
             ),
@@ -245,9 +245,9 @@ class E12LearningResultsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Chuyên cần 90% · 18 / 20 buổi',
                     style: TextStyle(
@@ -321,9 +321,9 @@ class E12LearningResultsScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     // Logo
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.workspace_premium, color: Color(0xFFC58D59), size: 32),
                         SizedBox(width: 8),
                         Text(
@@ -399,7 +399,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                     const Divider(color: AcademyColors.cardBorder, height: 1),
                     const SizedBox(height: 10),
                     const Text(
-                      'Văn bản hoàn thành khóa học nội bộ, minh họa. Không phải văn bằng nghề được cấp phép hoặc chứng nhận kiểm định nhà nước.',
+                      'Chứng nhận hoàn thành khóa đào tạo chuyên môn tại Viện Đào tạo MLD Vietnam.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11,

@@ -47,7 +47,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           ),
                         ),
                         const Text(
-                          'CHĂM SÓC · MINH HỌA',
+                          'CHĂM SÓC & TRỊ LIỆU',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -89,7 +89,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
 
                     // --- 3. THÔNG TIN GÓI (350x108) ---
                     const Text(
-                      '● Đang sử dụng · Gói minh họa',
+                      '● Đang sử dụng',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -229,7 +229,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${package.branchName} · Dữ liệu minh họa',
+                              package.branchName,
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w400,
@@ -244,7 +244,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
-                                'Lịch hẹn minh họa',
+                                'Lịch hẹn sắp tới',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -381,7 +381,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Giá gói minh họa, không phải giao dịch thực.',
+                            'Giá gói dịch vụ ưu đãi áp dụng tại chi nhánh.',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
@@ -446,7 +446,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           ),
                           SizedBox(height: 12),
                           Text(
-                            'Điều kiện và chi nhánh là minh họa, không phải chính sách kinh doanh thực.',
+                            'Áp dụng tại toàn bộ hệ thống chi nhánh MLD Vietnam.',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
                           ),
                         ],

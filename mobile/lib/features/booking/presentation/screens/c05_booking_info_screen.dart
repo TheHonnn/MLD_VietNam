@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/utils/validators.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c06_booking_confirmation_screen.dart';
@@ -196,7 +197,7 @@ class _C05BookingInfoScreenState extends State<C05BookingInfoScreen> {
                       label: 'Họ và tên *',
                       controller: _nameController,
                       hint: 'Nhập họ và tên',
-                      validator: (val) => val == null || val.isEmpty ? 'Vui lòng nhập họ và tên' : null,
+                      validator: AppValidators.fullName,
                     ),
                     const SizedBox(height: 12),
 
@@ -206,8 +207,7 @@ class _C05BookingInfoScreenState extends State<C05BookingInfoScreen> {
                       controller: _phoneController,
                       hint: 'Nhập số điện thoại',
                       keyboardType: TextInputType.phone,
-                      validator: (val) =>
-                          val == null || val.isEmpty ? 'Vui lòng nhập số điện thoại' : null,
+                      validator: AppValidators.phone,
                     ),
                     const SizedBox(height: 12),
 
@@ -217,6 +217,7 @@ class _C05BookingInfoScreenState extends State<C05BookingInfoScreen> {
                       controller: _emailController,
                       hint: 'Nhập email liên hệ',
                       keyboardType: TextInputType.emailAddress,
+                      validator: (val) => AppValidators.email(val, isOptional: true),
                     ),
                     const SizedBox(height: 24),
 
@@ -348,9 +349,9 @@ class _C05BookingInfoScreenState extends State<C05BookingInfoScreen> {
                     BookingSummaryCardWidget(flowState: widget.flowState),
                     const SizedBox(height: 24),
 
-                    // Thẻ Ghi chú minh họa
+                    // Thẻ Ghi chú
                     const IllustrationNoteCard(
-                      text: 'Thông tin người dùng và lịch hẹn là dữ liệu minh họa. Không có lưu hoặc gửi thông tin thực.',
+                      text: 'Thông tin khách hàng được bảo mật và dùng để xác nhận lịch hẹn.',
                     ),
                     const SizedBox(height: 32),
                   ],

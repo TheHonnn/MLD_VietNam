@@ -499,7 +499,7 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'Giá minh họa; được kiểm tra lại theo chi nhánh.',
+                          'Chi phí dịch vụ; được kiểm tra lại theo chi nhánh.',
                           style: TextStyle(
                             fontSize: 12,
                             color: BookingColors.textPrimary,
@@ -510,9 +510,9 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Thẻ Ghi chú minh họa
+                  // Thẻ Ghi chú
                   const IllustrationNoteCard(
-                    text: 'Giá và danh mục dịch vụ chỉ mang tính minh họa. Có thể chọn nhiều dịch vụ tương thích, thực hiện liên tiếp; cần kiểm tra chi nhánh và nguồn lực.',
+                    text: 'Bảng giá và dịch vụ niêm yết chính thức. Có thể chọn nhiều dịch vụ tương thích, thực hiện liên tiếp; cần kiểm tra chi nhánh và nguồn lực.',
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -521,7 +521,7 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
-              summaryText: '$count dịch vụ · $totalMinutes phút · $totalPriceđ · Giá minh họa',
+              summaryText: '$count dịch vụ · $totalMinutes phút · $totalPriceđ · Chi phí dịch vụ',
               buttonText: 'Tiếp tục',
               onPressed: () {
                 Navigator.push(

@@ -21,7 +21,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: 'Bài 05 · Kỹ thuật Massage cơ bản',
@@ -96,7 +96,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Chi nhánh mẫu 01 — Quận 3',
+                    'Chi nhánh Quận 3',
                     style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
                   ),
                   const SizedBox(height: 4),
@@ -105,9 +105,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
+                    children: [
                       Text(
                         '4 / 20 bài học đã hoàn thành',
                         style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
@@ -191,8 +191,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                         color: AcademyColors.cardWarm,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
-                        children: const [
+                      child: const Row(
+                        children: [
                           Icon(Icons.play_circle_fill, color: AcademyColors.primary, size: 24),
                           SizedBox(width: 12),
                           Expanded(
@@ -265,8 +265,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     color: AcademyColors.cardWarm,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
-                    children: const [
+                  child: const Row(
+                    children: [
                       Icon(Icons.play_circle_fill, color: AcademyColors.primary, size: 26),
                       SizedBox(width: 14),
                       Expanded(
@@ -378,7 +378,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Phòng thực hành 02 · Chi nhánh mẫu 01 — Quận 3',
+                      'Phòng thực hành 02 · Chi nhánh Quận 3',
                       style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                     ),
                     const SizedBox(height: 4),

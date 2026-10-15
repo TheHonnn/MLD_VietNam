@@ -21,8 +21,8 @@ class MockBookingRepository {
         serviceName: 'Massage thư giãn toàn thân',
         serviceImage: 'assets/images/specialist_hero_1.png',
         durationMinutes: 60,
-        branchName: 'Chi nhánh mẫu 01 — Quận 3',
-        branchAddress: '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+        branchName: 'Chi nhánh Quận 3',
+        branchAddress: '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
         branchPhone: '0901 234 567',
         specialistName: 'Trần Minh Phương',
         specialistTitle: 'Kỹ thuật viên massage',
@@ -53,7 +53,7 @@ class MockBookingRepository {
             isCompleted: true,
           ),
           BookingTimelineEvent(
-            title: 'Đã xác nhận (mô phỏng)',
+            title: 'Đã xác nhận',
             description: 'Chi nhánh tiếp nhận và phân công chuyên viên',
             timestamp: DateTime(2026, 10, 10, 14, 40),
             isCompleted: true,
@@ -74,8 +74,8 @@ class MockBookingRepository {
         serviceName: 'Chăm sóc da chuyên sâu',
         serviceImage: 'assets/images/gioithieu_2.png',
         durationMinutes: 90,
-        branchName: 'Chi nhánh mẫu 01 — Quận 3',
-        branchAddress: '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+        branchName: 'Chi nhánh Quận 3',
+        branchAddress: '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
         branchPhone: '0901 234 567',
         specialistName: 'Nguyễn Thu Hà',
         specialistTitle: 'Kỹ thuật viên trị liệu da',
@@ -114,8 +114,8 @@ class MockBookingRepository {
         serviceName: 'Massage thư giãn toàn thân',
         serviceImage: 'assets/images/specialist_hero_1.png',
         durationMinutes: 60,
-        branchName: 'Chi nhánh mẫu 01 — Quận 3',
-        branchAddress: '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+        branchName: 'Chi nhánh Quận 3',
+        branchAddress: '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
         branchPhone: '0901 234 567',
         specialistName: 'Trần Minh Phương',
         specialistTitle: 'Kỹ thuật viên massage',
@@ -139,7 +139,7 @@ class MockBookingRepository {
             isCompleted: true,
           ),
           BookingTimelineEvent(
-            title: 'Đã hủy (mô phỏng)',
+            title: 'Đã hủy',
             description: 'Khách hàng yêu cầu hủy lịch',
             timestamp: DateTime(2026, 10, 5, 10, 0),
             isCompleted: true,
@@ -200,8 +200,8 @@ class MockBookingRepository {
     final specialistTitle = flow.selectedSpecialist?.title ?? 'Kỹ thuật viên dưỡng sinh';
     final specialistAvatar = flow.selectedSpecialist?.avatarUrl ?? 'assets/images/specialist_avatar_1.png';
 
-    final branchName = flow.selectedBranch?.name ?? 'Chi nhánh mẫu 01 — Quận 3';
-    final branchAddress = flow.selectedBranch?.address ?? '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh';
+    final branchName = flow.selectedBranch?.name ?? 'Chi nhánh Quận 3';
+    final branchAddress = flow.selectedBranch?.address ?? '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh';
     final serviceName = flow.selectedService?.name ?? 'Massage thư giãn toàn thân';
 
     final item = AppointmentItemModel(
@@ -241,7 +241,7 @@ class MockBookingRepository {
           isCompleted: true,
         ),
         const BookingTimelineEvent(
-          title: 'Đã xác nhận (mô phỏng)',
+          title: 'Đã xác nhận',
           description: 'Hệ thống đã ghi nhận lịch hẹn',
           isCompleted: true,
           isCurrent: true,

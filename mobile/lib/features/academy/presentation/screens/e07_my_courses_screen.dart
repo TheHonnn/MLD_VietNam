@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../data/models/academy_models.dart';
 import '../widgets/academy_widgets.dart';
 import 'e08_class_detail_screen.dart';
-import 'e09_lesson_screen.dart';
 import 'e12_learning_results_screen.dart';
 
 /// Screen E07: Khóa học của tôi [8116:25866]
@@ -33,7 +31,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -42,26 +40,14 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Giới thiệu [8116:25871]
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  'HỌC VIỆN ĐÀO TẠO',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                    color: AcademyColors.primary,
-                  ),
-                ),
-                Text(
-                  'Dữ liệu minh họa',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AcademyColors.textSecondary,
-                  ),
-                ),
-              ],
+            const Text(
+              'HỌC VIỆN ĐÀO TẠO MLD',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: AcademyColors.primary,
+              ),
             ),
             const SizedBox(height: 6),
             const Text(
@@ -115,7 +101,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '96 giờ khóa cơ bản + 24 giờ khóa đang học. Số liệu minh họa.',
+                    'Tổng số giờ tích lũy thực hành và lý thuyết.',
                     style: TextStyle(
                       fontSize: 12,
                       color: AcademyColors.textSecondary,
@@ -192,9 +178,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
+                      children: [
                         Text(
                           '4 / 20 bài học đã hoàn thành',
                           style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
@@ -292,7 +278,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
 
               // Thẻ Đã hoàn thành
               _buildOtherCourseCard(
-                tag: 'Đã hoàn thành · Minh họa',
+                tag: 'Đã hoàn thành',
                 title: 'Kỹ thuật Massage Cơ Bản',
                 subtitle: 'MCB-0726 · Hoàn thành 28/08/2026',
                 format: '20 / 20 bài học · Tiến độ 100%',
@@ -405,7 +391,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Phòng thực hành 02 · Chi nhánh mẫu 01 — Quận 3',
+                      'Phòng thực hành 02 · Chi nhánh Quận 3',
                       style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                     ),
                     const SizedBox(height: 4),
@@ -438,7 +424,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               ),
             ] else ...[
               _buildOtherCourseCard(
-                tag: 'Đã hoàn thành · Minh họa',
+                tag: 'Đã hoàn thành',
                 title: 'Kỹ thuật Massage Cơ Bản',
                 subtitle: 'MCB-0726 · Hoàn thành 28/08/2026',
                 format: '20 / 20 bài học · Tiến độ 100%',

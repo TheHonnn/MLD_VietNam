@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../home/presentation/screens/main_layout_screen.dart';
 import 'a02_onboarding_screen.dart';
+import 'a03_login_screen.dart';
 
 class A01SplashScreen extends StatefulWidget {
   const A01SplashScreen({super.key});
@@ -9,17 +13,39 @@ class A01SplashScreen extends StatefulWidget {
 }
 
 class _A01SplashScreenState extends State<A01SplashScreen> {
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (mounted) {
+    _timer = Timer(const Duration(milliseconds: 2500), () async {
+      if (!mounted) return;
+      final canAutoLogin = await AuthService.instance.checkAutoLogin();
+      if (!mounted) return;
+
+      if (canAutoLogin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+        );
+      } else if (AuthService.instance.hasCompletedOnboarding) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+        );
+      } else {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const A02OnboardingScreen()),
         );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override

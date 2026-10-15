@@ -36,7 +36,7 @@ class CourseModel {
     required this.branch,
     required this.schedule,
     required this.description,
-    this.tag = 'Thực hành chuyên nghiệp · Minh họa',
+    this.tag = 'Thực hành chuyên nghiệp',
   });
 }
 
@@ -119,7 +119,7 @@ class MockAcademyData {
       instructorName: 'Nguyễn Thanh Hương',
       instructorTitle: 'Giảng viên kỹ thuật Spa',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
-      branch: 'Chi nhánh mẫu 01 — Quận 3',
+      branch: 'Chi nhánh Quận 3',
       schedule: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
       description: 'Chương trình đào tạo toàn diện từ giải phẫu cơ bản đến kỹ thuật massage trị liệu chuyên sâu, bấm huyệt lưu thông khí huyết và chăm sóc khách hàng tiêu chuẩn cao cấp.',
     ),
@@ -138,7 +138,7 @@ class MockAcademyData {
       instructorName: 'Trần Minh Phương',
       instructorTitle: 'Chuyên gia Da liễu & Trị liệu',
       instructorAvatar: 'assets/images/tran_minh_phuong.png',
-      branch: 'Chi nhánh mẫu 01 — Quận 3',
+      branch: 'Chi nhánh Quận 3',
       schedule: 'Thứ 2–4–6 · 09:00–12:00',
       description: 'Đào tạo kỹ năng phân tích da, ứng dụng công nghệ điện di, peel sinh học và phác đồ điều trị nám, mụn an toàn chuẩn y khoa.',
     ),
@@ -176,7 +176,7 @@ class MockAcademyData {
       instructorName: 'Nguyễn Thanh Hương',
       instructorTitle: 'Giảng viên kỹ thuật Spa',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
-      branch: 'Chi nhánh mẫu 01 — Quận 3',
+      branch: 'Chi nhánh Quận 3',
       schedule: 'Thứ 7–Chủ nhật · 08:30–17:30',
       description: 'Phương pháp dưỡng sinh đả thông kinh lạc, gội đầu dưỡng sinh thảo dược và massage đá nóng phục hồi sinh lực.',
     ),

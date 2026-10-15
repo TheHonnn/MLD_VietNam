@@ -35,9 +35,9 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
           : 'Massage thư giãn toàn thân',
       serviceImage: 'assets/images/specialist_hero_1.png',
       durationMinutes: widget.flowState.totalDurationMinutes,
-      branchName: widget.flowState.selectedBranch?.name ?? 'Chi nhánh mẫu 01 — Quận 3',
+      branchName: widget.flowState.selectedBranch?.name ?? 'Chi nhánh Quận 3',
       branchAddress: widget.flowState.selectedBranch?.address ??
-          '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+          '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
       branchPhone: widget.flowState.selectedBranch?.phone ?? '0901 234 567',
       specialistName: widget.flowState.autoAssignSpecialist
           ? 'Hệ thống tự động sắp xếp'
@@ -75,7 +75,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
           isCompleted: true,
         ),
         BookingTimelineEvent(
-          title: 'Đã xác nhận (mô phỏng)',
+          title: 'Đã xác nhận',
           timestamp: DateTime.now(),
           isCompleted: true,
           isCurrent: true,
@@ -102,7 +102,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
     final serviceName = widget.flowState.allSelectedServices.isNotEmpty
         ? widget.flowState.allSelectedServices.first.name
         : 'Massage thư giãn toàn thân';
-    final branchName = widget.flowState.selectedBranch?.name ?? 'Chi nhánh mẫu 01 — Quận 3';
+    final branchName = widget.flowState.selectedBranch?.name ?? 'Chi nhánh Quận 3';
     final specialistName = widget.flowState.autoAssignSpecialist
         ? 'Trần Minh Phương (Hệ thống sắp xếp)'
         : (widget.flowState.selectedSpecialist?.name ?? 'Trần Minh Phương');
@@ -161,13 +161,13 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Ghi chú minh họa
+                  // Ghi chú
                   const IllustrationNoteCard(
-                    text: 'Minh họa sau khi giữ chỗ và thanh toán cọc thành công; không phải giao dịch thực.',
+                    text: 'Lịch hẹn của bạn đã được ghi nhận. Vui lòng đến đúng giờ để được phục vụ chu đáo nhất.',
                   ),
                   const SizedBox(height: 24),
 
-                  // Vé BookingSuccessTicket / Đã xác nhận mô phỏng (350x592, fill=white, r=20)
+                  // Vé BookingSuccessTicket / Đã xác nhận (350x592, fill=white, r=20)
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -179,7 +179,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Badge Đã xác nhận (mô phỏng)
+                        // Badge Đã xác nhận
                         const BookingStatusBadge(
                           status: AppointmentStatus.confirmed,
                           isSimulated: true,
@@ -231,7 +231,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '$duration phút · Giá minh họa ${_formatCurrency(total)}đ',
+                          '$duration phút · Chi phí dịch vụ ${_formatCurrency(total)}đ',
                           style: const TextStyle(
                             fontSize: 12,
                             color: BookingColors.textPrimary,
@@ -239,7 +239,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Đã thanh toán cọc ${_formatCurrency(deposit)}đ (mô phỏng)',
+                          'Đã thanh toán cọc ${_formatCurrency(deposit)}đ',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -250,16 +250,16 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                         _buildRow('Còn thanh toán', '${_formatCurrency(remaining)}đ'),
                         const SizedBox(height: 14),
 
-                        // CheckInQRCode / Minh họa không hợp lệ (318x224, fill=#F3E2CE, r=20)
+                        // CheckInQRCode (318x224, fill=#F3E2CE, r=20)
                         const CheckInQRCodeWidget(
-                          note: 'Mã check-in minh họa — không có giá trị sử dụng',
+                          note: 'Mã check-in dùng khi đến chi nhánh',
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 24),
 
-                  // Thẻ Ghi chú minh họa
+                  // Thẻ Ghi chú
                   const IllustrationNoteCard(
                     text:
                         'Vui lòng đến trước giờ hẹn 10 phút. Đây là hướng dẫn ví dụ, có thể cấu hình theo chi nhánh.',
@@ -300,7 +300,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Đã thêm lịch hẹn vào ứng dụng Lịch trên thiết bị (minh họa).'),
+                            content: Text('Đã thêm lịch hẹn vào ứng dụng Lịch trên thiết bị .'),
                             duration: Duration(seconds: 2),
                           ),
                         );

@@ -1,0 +1,20 @@
+# ==============================================================================
+# MLD VIỆT NAM - SUPABASE CLI CONFIGURATION
+# ==============================================================================
+
+project_id = "wstvwushpwcdsmhpunvh"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+
+[db]
+port = 54322
+
+[functions.vietqr-payment]
+verify_jwt = false # Cho phép gọi công khai hoặc từ client với anon key
+
+[functions.appointment-reminder]
+verify_jwt = false # Cho phép gọi từ Cron job hoặc internal webhook
+

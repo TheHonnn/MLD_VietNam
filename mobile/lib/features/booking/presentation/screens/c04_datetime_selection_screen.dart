@@ -66,7 +66,7 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
     final serviceName = widget.flowState.allSelectedServices.isNotEmpty
         ? widget.flowState.allSelectedServices.first.name
         : 'Massage thư giãn toàn thân';
-    final branchName = widget.flowState.selectedBranch?.name ?? 'Chi nhánh mẫu 01 — Quận 3';
+    final branchName = widget.flowState.selectedBranch?.name ?? 'Chi nhánh Quận 3';
     final specialistName = widget.flowState.autoAssignSpecialist
         ? 'Để trung tâm sắp xếp'
         : (widget.flowState.selectedSpecialist?.name ?? 'Trần Minh Phương');
@@ -258,7 +258,7 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
                   ),
                   const Center(
                     child: Text(
-                      '12/10/2026–18/10/2026 · Lịch trống minh họa, không phải dữ liệu trực tiếp.',
+                      '12/10/2026–18/10/2026 · Lịch trống trong tuần',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
@@ -436,7 +436,7 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
-                            'Giữ chỗ minh họa — chưa phải xác nhận',
+                            'Thông tin giữ chỗ',
                             style: TextStyle(
                               fontSize: 12,
                               color: BookingColors.textPrimary,
@@ -448,7 +448,7 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Khung 18:30 kết thúc chăm sóc 19:30; vệ sinh đến 19:45, trước giờ đóng cửa minh họa 20:00. Các giờ trống là lựa chọn thay thế, không phải lịch đặt đồng thời.',
+                    'Khung giờ chăm sóc đã bao gồm thời gian chuẩn bị và tư vấn.',
                     style: TextStyle(
                       fontSize: 12,
                       color: BookingColors.textPrimary,

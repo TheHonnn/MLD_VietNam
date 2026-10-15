@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import 'b06_branch_detail_screen.dart';
 
 class B05BranchListingScreen extends StatefulWidget {
@@ -36,20 +37,20 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
   final List<Map<String, dynamic>> _branches = [
     {
       'id': 1,
-      'name': 'Chi nhánh mẫu 01 — Quận 3',
-      'address': '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+      'name': 'Chi nhánh Quận 3',
+      'address': '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
       'city': 'TP. Hồ Chí Minh',
-      'hours': '09:00–20:00 · Cả tuần (minh họa)',
+      'hours': '09:00–20:00 · Cả tuần ',
       'services': 'Massage · Chăm sóc da',
       'image': 'assets/images/branch_hero_1.png',
       'phone': '0901 234 567',
     },
     {
       'id': 2,
-      'name': 'Chi nhánh mẫu 02 — Cầu Giấy',
-      'address': '45 Đường Minh Họa, Phường Mẫu, Hà Nội',
+      'name': 'Chi nhánh Cầu Giấy',
+      'address': '45 Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội',
       'city': 'Hà Nội',
-      'hours': '09:00–20:00 · Cả tuần (minh họa)',
+      'hours': '09:00–20:00 · Cả tuần ',
       'services': 'Massage · Chăm sóc da',
       'image': 'assets/images/branch_hero_2.png',
       'phone': '0909 876 543',
@@ -237,7 +238,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Chức năng định vị đang sử dụng dữ liệu minh họa'),
+                          content: Text('Đang tải vị trí chi nhánh gần nhất'),
                         ),
                       );
                     },
@@ -370,7 +371,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'Dữ liệu minh họa · 2 cơ sở hư cấu. Không sử dụng vị trí hoặc khoảng cách thực tế.',
+                  'Hệ thống cơ sở chăm sóc và đào tạo MLD Vietnam',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -442,11 +443,11 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
-                      'Dữ liệu minh họa',
+                      'Đang hoạt động',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF236B42),
                       ),
                     ),
                   ),
@@ -712,7 +713,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                         Icon(Icons.layers_outlined, size: 14, color: AppColors.textSecondary),
                         SizedBox(width: 4),
                         Text(
-                          'Bản đồ mô phỏng',
+                          'Bản đồ chi nhánh',
                           style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                         ),
                       ],
@@ -998,8 +999,10 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Đang mở ứng dụng Bản đồ dẫn đường tới ${branch['name']}...')),
+                          AppLauncherHelper.openMapLocation(
+                            context,
+                            address: branch['address'] as String?,
+                            label: branch['name'] as String?,
                           );
                         },
                         icon: const Icon(Icons.navigation_rounded, size: 18, color: AppColors.textInverse),

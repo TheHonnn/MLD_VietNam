@@ -20,10 +20,10 @@ class C03SpecialistSelectionScreen extends StatefulWidget {
 
 class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScreen> {
   late List<TechnicianModel> _allSpecialists;
-  String _selectedExpertise = 'Massage · Chi nhánh mẫu 01 — Quận 3';
+  String _selectedExpertise = 'Massage · Chi nhánh Quận 3';
 
   final List<String> _expertiseOptions = [
-    'Massage · Chi nhánh mẫu 01 — Quận 3',
+    'Massage · Chi nhánh Quận 3',
     'Tất cả chuyên môn',
     'Chăm sóc da',
     'Chăm sóc cơ thể',
@@ -125,7 +125,7 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Chỉ phân công người đủ chuyên môn; đây là lựa chọn minh họa.',
+                            'Đội ngũ chuyên viên được phân công phù hợp với dịch vụ của bạn.',
                             style: TextStyle(
                               fontSize: 12,
                               color: BookingColors.primary,
@@ -191,7 +191,7 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                     radioLabel: 'Chuyên viên ưu tiên',
                     tagline: 'Massage thư giãn · Chăm sóc tận tâm',
                     conditionNote:
-                        'Chi nhánh mẫu 01 — Quận 3 · Phù hợp massage trong hồ sơ minh họa; lịch làm việc chưa được kiểm tra thực.',
+                        'Chi nhánh Quận 3 · Chuyên môn massage trị liệu và phục hồi',
                     onSelect: () {
                       setState(() {
                         widget.flowState.autoAssignSpecialist = false;
@@ -212,11 +212,11 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                     radioLabel: 'Chưa đủ điều kiện phân công',
                     tagline: 'Chăm sóc da · Quy trình làm sạch dịu nhẹ',
                     conditionNote:
-                        'Nguyễn Thu Hà phụ trách chăm sóc da; chưa có chuyên môn massage trong hồ sơ minh họa.',
+                        'Nguyễn Thu Hà chuyên sâu về chăm sóc và phục hồi da',
                     onSelect: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Chuyên viên này chưa có chuyên môn massage trong hồ sơ minh họa.'),
+                          content: Text('Chuyên viên này phụ trách chuyên sâu dịch vụ chăm sóc da mặt.'),
                           duration: Duration(seconds: 2),
                         ),
                       );
@@ -234,11 +234,11 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                     radioLabel: 'Chưa đủ điều kiện phân công',
                     tagline: 'Chăm sóc cơ thể · Thư giãn toàn thân',
                     conditionNote:
-                        'Lê Hoài An phụ trách chăm sóc cơ thể; chưa có chuyên môn massage trong hồ sơ minh họa.',
+                        'Lê Hoài An chuyên sâu về chăm sóc và thư giãn cơ thể',
                     onSelect: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Chuyên viên này chưa có chuyên môn massage trong hồ sơ minh họa.'),
+                          content: Text('Chuyên viên này phụ trách chuyên sâu dịch vụ chăm sóc da mặt.'),
                           duration: Duration(seconds: 2),
                         ),
                       );
@@ -246,10 +246,10 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                   ),
                   const SizedBox(height: 24),
 
-                  // Thẻ Ghi chú minh họa
+                  // Thẻ Ghi chú
                   const IllustrationNoteCard(
                     text:
-                        '3 hồ sơ minh họa, không phải nhân sự hay lịch trống thực. Với nhiều dịch vụ, chọn sắp xếp tự động hoặc phân công người đủ chuyên môn cho từng dịch vụ.',
+                        'Chọn chuyên viên phù hợp với nhu cầu và khung giờ mong muốn.',
                   ),
                   const SizedBox(height: 32),
                 ],
@@ -334,7 +334,7 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
             ),
           ),
 
-          // Khối Hồ sơ minh họa bên trong (fill=white, r=20)
+          // Khối Thông tin chuyên viên bên trong (fill=white, r=20)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Container(
@@ -386,7 +386,7 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Hồ sơ minh họa',
+                              'Thông tin chuyên viên',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: BookingColors.primary,

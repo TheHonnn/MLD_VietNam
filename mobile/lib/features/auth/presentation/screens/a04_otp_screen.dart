@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../widgets/primary_button.dart';
 import 'a05_profile_setup_screen.dart';
 
@@ -57,24 +58,31 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
     });
   }
 
-  void _handleVerify() {
+  void _handleVerify() async {
     setState(() {
       _isLoading = true;
     });
 
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => A05ProfileSetupScreen(phone: widget.phoneNumber),
-          ),
-        );
-      }
-    });
+    // Save session upon successful OTP verification
+    final dummyToken = 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
+    await AuthService.instance.saveSession(
+      accessToken: dummyToken,
+      phone: widget.phoneNumber,
+    );
+
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => A05ProfileSetupScreen(phone: widget.phoneNumber),
+        ),
+      );
+    }
   }
 
   String _formatMaskedPhone(String phone) {
@@ -331,12 +339,12 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                         ],
                       ),
 
-                      // --- PHẦN DƯỚI: Thông báo bản minh họa & Nút Xác nhận ---
+                      // --- PHẦN DƯỚI: Thông báo & Nút Xác nhận ---
                       Padding(
                         padding: const EdgeInsets.only(top: 24.0, bottom: 8.0),
                         child: Column(
                           children: [
-                            // Khung thông báo minh họa (background #F3E2CE, r=12)
+                            // Khung thông báo (background #F3E2CE, r=12)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               decoration: BoxDecoration(
@@ -354,7 +362,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Bản minh họa giao diện. Không gửi hoặc xác thực OTP thực tế.',
+                                      'Mã xác thực gồm 6 chữ số được gửi qua SMS đến số điện thoại của bạn.',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w400,

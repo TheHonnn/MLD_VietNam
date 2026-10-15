@@ -6,7 +6,7 @@ enum SlotPeriod { morning, afternoon, evening }
 /// Trạng thái lịch hẹn theo chuẩn Figma Group C
 enum AppointmentStatus {
   pending, // Chờ xác nhận
-  confirmed, // Đã xác nhận (hoặc Đã xác nhận mô phỏng)
+  confirmed, // Đã xác nhận
   inService, // Đang phục vụ
   completed, // Hoàn thành
   cancelled, // Đã hủy
@@ -18,7 +18,7 @@ extension AppointmentStatusExtension on AppointmentStatus {
       case AppointmentStatus.pending:
         return 'Chờ xác nhận';
       case AppointmentStatus.confirmed:
-        return 'Đã xác nhận (mô phỏng)';
+        return 'Đã xác nhận';
       case AppointmentStatus.inService:
         return 'Đang phục vụ';
       case AppointmentStatus.completed:
@@ -85,8 +85,8 @@ class AppointmentItemModel {
   final String serviceName; // 'Massage thư giãn toàn thân'
   final String serviceImage;
   final int durationMinutes; // 60
-  final String branchName; // 'Chi nhánh mẫu 01 — Quận 3'
-  final String branchAddress; // '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh'
+  final String branchName; // 'Chi nhánh Quận 3'
+  final String branchAddress; // '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh'
   final String branchPhone; // '0901 234 567'
   final String specialistName; // 'Trần Minh Phương'
   final String specialistTitle; // 'Kỹ thuật viên massage'
@@ -212,7 +212,7 @@ class BookingFlowState {
   String accessibilityNeeds; // Hỗ trợ tiếp cận (tùy chọn)
   String otherNotes; // Ghi chú khác (tùy chọn)
   bool consentShareNeeds; // Đồng ý chia sẻ nhu cầu hỗ trợ
-  bool agreeTerms; // Đồng ý với điều khoản đặt lịch minh họa
+  bool agreeTerms; // Đồng ý với điều khoản dịch vụ
 
   BookingFlowState({
     this.selectedService,

@@ -393,7 +393,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           ),
                           const SizedBox(height: 8),
                           _buildInfoBullet(
-                            'Chi nhánh phục vụ: Chi nhánh mẫu 01 — Quận 3; Chi nhánh mẫu 02 — Cầu Giấy. Dữ liệu minh họa.',
+                            'Chi nhánh phục vụ: Chi nhánh Quận 3, Chi nhánh Cầu Giấy.',
                           ),
                           const SizedBox(height: 14),
 
@@ -485,7 +485,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                                               borderRadius: BorderRadius.circular(6),
                                             ),
                                             child: const Text(
-                                              'Hồ sơ minh họa',
+                                              'Thông tin chuyên viên',
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 color: AppColors.textSecondary,

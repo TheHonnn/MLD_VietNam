@@ -81,7 +81,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                       ),
                     ),
                     const Text(
-                      'CHĂM SÓC · MINH HỌA',
+                      'CHĂM SÓC & TRỊ LIỆU',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -178,7 +178,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Hồ sơ và liệu trình minh họa',
+                      'Hồ sơ chăm sóc & liệu trình',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -222,7 +222,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
 
               // Ghi chú phụ
               const Text(
-                'Nhật ký minh họa · Ghi chú chăm sóc chung, không đánh giá kết quả y khoa.',
+                'Nhật ký theo dõi quá trình chăm sóc của khách hàng.',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -284,7 +284,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Chi nhánh mẫu 01 — Quận 3 · Dữ liệu minh họa',
+                      'Chi nhánh Quận 3',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 8),
@@ -295,7 +295,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
-                        'Lịch hẹn minh họa',
+                        'Lịch hẹn sắp tới',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF236B42)),
                       ),
                     ),
@@ -560,7 +560,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Gợi ý sau buổi · Minh họa',
+                    'Gợi ý sau buổi',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -590,7 +590,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                                 serviceName: item.serviceTitle,
                                 specialistName: item.specialistName,
                                 branchName: item.branchName,
-                                sessionInfo: 'Buổi 04 · Hoàn thành 08/10/2026 · Minh họa',
+                                sessionInfo: 'Buổi 04 · Hoàn thành 08/10/2026',
                               ),
                             ),
                           );

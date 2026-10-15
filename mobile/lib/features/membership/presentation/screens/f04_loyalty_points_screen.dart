@@ -64,14 +64,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                             ),
                           ),
                         ),
-                        const Text(
-                          'Dữ liệu minh họa',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
+
                       ],
                     ),
 
@@ -227,7 +220,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Dữ liệu minh họa · Tháng 10/2026',
+                            'Lịch sử điểm thưởng',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
@@ -280,17 +273,17 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                           // Progress Bar (h=6, r=3, bg #F3E2CE, fill #985018)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(3),
-                            child: LinearProgressIndicator(
+                            child: const LinearProgressIndicator(
                               value: 0.817,
                               minHeight: 6,
                               backgroundColor: AppColors.surfaceSecondary,
-                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                             ),
                           ),
 
                           const SizedBox(height: 10),
                           const Text(
-                            '2.450 / 3.000 điểm · 81,7% Ngưỡng hạng minh họa, không phải quy định thực tế.',
+                            '2.450 / 3.000 điểm · 81,7% Tích cực trải nghiệm để nâng cấp hạng thành viên.',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
@@ -512,7 +505,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
 
                     const Center(
                       child: Text(
-                        'Dữ liệu minh họa · Điểm và ưu đãi không có giá trị thực tế',
+                        'Điểm thưởng dùng để đổi voucher và quà tặng chăm sóc',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,

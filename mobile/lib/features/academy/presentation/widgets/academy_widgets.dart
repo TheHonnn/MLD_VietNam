@@ -21,7 +21,7 @@ class AcademyAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     this.onBack,
     this.trailing,
-    this.subtitleTag = 'Dữ liệu minh họa',
+    this.subtitleTag,
   });
 
   @override

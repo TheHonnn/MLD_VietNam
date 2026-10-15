@@ -334,20 +334,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
-
-                    // Subtext Dữ liệu minh họa
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        'Dữ liệu minh họa',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white.withValues(alpha: 0.75),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -641,7 +627,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Chi nhánh mẫu 01 — Quận 3 (ưu tiên)',
+                      'Chi nhánh Quận 3 (ưu tiên)',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -652,32 +638,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
-
-              // --- 11. NHÃN MINH HỌA ---
-              const Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      size: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Dữ liệu minh họa',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
             ],
           ),
         ),

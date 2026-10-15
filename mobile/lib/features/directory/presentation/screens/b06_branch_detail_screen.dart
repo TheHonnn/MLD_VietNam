@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
 import 'b08_specialist_profile_screen.dart';
@@ -11,8 +12,8 @@ class B06BranchDetailScreen extends StatefulWidget {
 
   const B06BranchDetailScreen({
     super.key,
-    this.branchName = 'Chi nhánh mẫu 01 — Quận 3',
-    this.branchAddress = '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+    this.branchName = 'Chi nhánh Quận 3',
+    this.branchAddress = '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
     this.branchImage = 'assets/images/branch_hero_1.png',
   });
 
@@ -116,7 +117,7 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
-                        'Dữ liệu minh họa · Cơ sở và địa chỉ hư cấu.',
+                        'Không gian thư giãn đạt chuẩn quốc tế',
                         style: TextStyle(
                           fontSize: 13,
                           color: AppColors.textSecondary,
@@ -232,7 +233,7 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                         Icon(Icons.access_time_rounded, size: 20, color: AppColors.textSecondary),
                         SizedBox(width: 8),
                         Text(
-                          '09:00–20:00 · Cả tuần (minh họa)',
+                          '09:00–20:00 · Cả tuần ',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -247,11 +248,7 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: InkWell(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Đang kết nối tổng đài MLD: 039.3856.549...')),
-                              );
-                            },
+                            onTap: () => AppLauncherHelper.makePhoneCall(context, '0393856549'),
                             child: const Text(
                               'Đặt lịch MLD: 039.3856.549',
                               style: TextStyle(
@@ -304,7 +301,7 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Một không gian chăm sóc được minh họa với sắc ngà ấm, ánh sáng dịu và các khu vực đón tiếp riêng. '
+                      'Không gian chăm sóc sang trọng với sắc ngà ấm, ánh sáng dịu và khu vực đón tiếp riêng biệt. '
                       'Mẫu cơ sở thể hiện trải nghiệm thư giãn và tư vấn nhu cầu chu đáo.',
                       style: TextStyle(
                         fontSize: 14,
@@ -315,9 +312,9 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
 
                     const SizedBox(height: 20),
 
-                    // --- 5. TIỆN NGHI MINH HỌA ---
+                    // --- 5. TIỆN NGHI  ---
                     const Text(
-                      'Tiện nghi minh họa',
+                      'Tiện nghi chi nhánh',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -407,7 +404,7 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Lịch hoạt động minh họa',
+                      'Lịch hoạt động',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -909,8 +906,10 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Đang mở ứng dụng Bản đồ dẫn đường tới ${widget.branchName}...')),
+                          AppLauncherHelper.openMapLocation(
+                            context,
+                            address: widget.branchAddress,
+                            label: widget.branchName,
                           );
                         },
                         icon: const Icon(Icons.navigation_rounded, size: 18, color: AppColors.textInverse),
