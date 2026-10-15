@@ -92,12 +92,14 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       assert.equal((await request('/auth/zalo', { method: 'POST', body: { accessToken: 'fake' }, anonymous: true })).status, 503);
       assert.equal((await request('/auth/login', { method: 'POST', body: { phone: '0900000001' }, anonymous: true })).status, 401);
     });
-    await t.test('Zalo-only login reuses a linked shared UUID without phone permission, OTP or client identity', async () => {
-      const extension = await readFile(new URL('../../docs/sql/001_zalo_identities.sql', import.meta.url),'utf8');
-      await db.exec(extension);
-      await db.query('INSERT INTO zalo_identities (zalo_app_id,zalo_user_id,user_id) VALUES ($1,$2,$3)', ['123456','987654',ids.user]);
+    await t.test('Zalo login reuses the shared UUID through verified phone permission without OTP or client identity', async () => {
       let exchangeCount = 0;
       const zaloFetch = async (url, options) => {
+        if (String(url).endsWith('/me/info')) {
+          assert.equal(options.headers.code,'verified-phone-code');
+          assert.equal(options.headers.secret_key,'zalo-test-secret');
+          return Response.json({error:0,data:{number:'84900000001'}});
+        }
         assert.equal(new URL(url).origin, 'https://graph.zalo.me');
         assert.equal(options.headers.access_token, 'verified-zalo-token');
         assert.equal(options.headers.appsecret_proof.length,64);
@@ -110,7 +112,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       try {
         const response = await fetch(`http://127.0.0.1:${authServer.address().port}/api/auth/zalo`, {
           method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({accessToken:'verified-zalo-token',userInfo:{id:ids.other,phone:'0900000002'},userId:ids.other}),
+          body:JSON.stringify({accessToken:'verified-zalo-token',phoneToken:'verified-phone-code',userInfo:{id:ids.other,phone:'0900000002'},userId:ids.other}),
         });
         const result = await response.json();
         assert.equal(response.status,200,JSON.stringify(result));
@@ -124,12 +126,12 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
     await t.test('Zalo login rejects invalid provider responses and unlinked identities', async()=>{
       let providerProfile;
       const authServer = createApp(store,{jwtSecret:secret,zaloAppId:'123456',zaloAppSecret:'zalo-test-secret',
-        fetch:async()=>Response.json(providerProfile)}).listen(0,'127.0.0.1');
+        fetch:async url=>Response.json(String(url).endsWith('/me/info')?{error:0,data:{number:'84999999999'}}:providerProfile)}).listen(0,'127.0.0.1');
       await once(authServer,'listening');
       try {
         const cases = [
           [{error:-216,message:'Expired token'},401],
-          [{id:987654,name:'Numeric ID loses precision'},401],
+          [{id:987654,name:'Numeric ID loses precision'},502],
           [{id:'987654',name:'Name',app_id:'different-app'},401],
           [{id:'987654'},403],
           [{id:'999999',name:'Unlinked customer'},409],
@@ -137,7 +139,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
         for (const [profile,status] of cases) {
           providerProfile=profile;
           const response=await fetch(`http://127.0.0.1:${authServer.address().port}/api/auth/zalo`,{
-            method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:'zalo-token'}),
+            method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:'zalo-token',phoneToken:'phone-code'}),
           });
           assert.equal(response.status,status);
           assert.equal((await response.json()).success,false);

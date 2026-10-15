@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { camel, Store, Row } from './store.js';
 import { ApiError } from './errors.js';
-import { resolveZaloAccount, verifyZaloAccount, ZaloAuthOptions } from './zalo-auth.js';
+import { resolveZaloAccount, verifyZaloAccount, verifyZaloPhone, ZaloAuthOptions } from './zalo-auth.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -143,7 +143,8 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.post('/api/auth/zalo', route(async (req, res) => {
     const profile = await verifyZaloAccount(req.body?.accessToken, options);
-    const identity = await resolveZaloAccount(store, profile, options);
+    const phone = await verifyZaloPhone(req.body.accessToken, req.body.phoneToken, options);
+    const identity = await resolveZaloAccount(store, { ...profile, phone }, options);
     const record = await user(store, uuid(identity.userId));
     const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
     return success(res, { token, user: record, isNewUser: identity.isNewUser });

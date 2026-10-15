@@ -222,12 +222,13 @@ function MasterHomePage() {
             <div className="w-full rounded-[8px] border border-[#EADECF] bg-white p-5 text-center shadow-lg">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5EBE1] text-xl font-black text-[#98501B]">Z</div>
               <h1 className="mt-4 text-lg font-bold text-[#40352F]">Kết nối tài khoản Zalo</h1>
-              <p className="mt-2 text-xs leading-relaxed text-[#75685F]">Đăng nhập bằng tài khoản Zalo để truy cập hồ sơ MLD của bạn.</p>
+              <p className="mt-2 text-xs leading-relaxed text-[#75685F]">Chia sẻ tên, ảnh đại diện và số điện thoại Zalo để kết nối hồ sơ MLD và liên hệ đặt lịch.</p>
               {zaloAuthError && <p className="mt-3 rounded-[8px] bg-red-50 p-2.5 text-left text-[11px] text-red-700">{zaloAuthError}</p>}
               <button disabled={zaloAuthState === 'checking'} onClick={connectZaloProfile} className="mt-5 h-11 w-full rounded-[8px] bg-[#98501B] text-sm font-bold text-white disabled:opacity-60">
                 {zaloAuthState === 'checking' ? 'Đang kết nối...' : 'Tiếp tục với Zalo'}
               </button>
               <p className="mt-3 text-[10px] text-[#8A7D74]">Không cần nhập số điện thoại hoặc mã OTP.</p>
+              <button type="button" disabled={zaloAuthState === 'checking'} onClick={() => setZaloAuthState('web')} className="mt-3 min-h-11 px-4 text-xs font-semibold text-[#75685F] disabled:opacity-60">Xem dịch vụ trước</button>
             </div>
           </div>
         )}

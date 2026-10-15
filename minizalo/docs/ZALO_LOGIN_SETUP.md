@@ -1,100 +1,68 @@
 # Zalo Login Setup
 
-## Status
+## Current Flow
 
-Code and automated tests are local. No Git push, Render deployment, live schema
-changes, or Zalo upload is implied by a passing test. Production still needs the
-parent app credentials, owner-approved identity schema, and real device testing.
+Login is through Zalo, not phone input or OTP. The user taps Continue with Zalo,
+allows name/avatar and phone-sharing permission, and the frontend sends only
+`accessToken` and the single-use `phoneToken` to its own backend. The backend
+verifies the profile and exchanges the phone code directly with official Zalo
+APIs using the parent application's secret.
 
-## 1. Parent Zalo Application Credentials
+The verified phone resolves the existing canonical `users.id`. Existing profiles,
+points, tiers and history are preserved. New users get a real phone, UUID,
+STANDARD tier and zero points. Ambiguous phone aliases, inactive accounts and
+staff accounts are rejected. No client-supplied phone/UUID is trusted.
 
-1. Open https://developers.zalo.me/ using an account with access to the app.
-2. Select the parent developer application already linked to this Mini App.
-3. In application information/configuration, find App ID and Secret Key.
-4. On Render, set `ZALO_APP_ID` and `ZALO_APP_SECRET` in Environment.
-5. Do not use the Mini App ID, OA token, Supabase key, or ZMP deploy token.
-6. Enable API app-secret-proof protection for the parent app where available.
-   The backend always sends the proof; verify wrong-app/invalid tokens are denied
-   during real integration testing. Do not assume app binding from a client ID.
+The earlier SQL proposals `001_zalo_identities.sql` and
+`002_phone_free_signup.sql` are withdrawn and removed. No shared schema changes
+are necessary. Do not execute old copies, rerun the root schema, or seed demo
+users. If the team already applied a proposal, ask its owner to assess it; do
+not drop objects or impose NOT NULL blindly on existing data.
 
-Only the backend stores Secret Key. Never place it in VITE variables, Git, chat,
-logs, screenshots, or the frontend bundle. Rotate previously disclosed database
-passwords and JWT secrets with their owners before production use.
-
-## 2. Shared Database Approval
-
-Send both SQL proposals to the shared database owner for review:
-
-- `sql/001_zalo_identities.sql`: mapping table only, no customer changes.
-- `sql/002_phone_free_signup.sql`: allow null phone without changing existing
-  phone values or uniqueness. Native code/admin must handle null phone and the
-  owner must update the canonical schema/types before enabling signup.
-
-Do not run the full root schema, partial Prisma migration, or demo seeds.
-Neither proposal is executed by backend deployment. Existing customers need
-trusted operator linkage; no matching or merging based on name/avatar is safe.
-The app never accepts a UUID from a browser as proof of account ownership.
-
-After verified account ownership, an authorized database operator can insert a
-mapping with the verified parent App ID, Zalo user ID, and existing `users.id`.
-Do not insert a mapping based on an unverified support message. Existing rows
-are deliberately not reassigned automatically on conflicts.
-
-The backend database role needs canonical table permissions plus SELECT/INSERT
-on `public.zalo_identities`. Public Supabase anon/authenticated clients receive
-no access to identity mappings. There is no service-role key in the Mini App.
-
-## 3. Render Configuration
+## Render Environment
 
 | Key | Value |
 | --- | --- |
 | NODE_ENV | production |
-| DATABASE_URL | Shared PostgreSQL connection URI, password URL-encoded |
-| JWT_SECRET | Private random Mini App signing key, at least 32 characters |
-| ZALO_APP_ID | Parent Zalo developer App ID |
-| ZALO_APP_SECRET | Parent Zalo developer Secret Key |
-| ZALO_ALLOW_SIGNUP | false until owner approves; true to enable new shared users |
+| DATABASE_URL | Shared PostgreSQL URI, password URL-encoded |
+| JWT_SECRET | Private Mini App signing key |
+| ZALO_APP_ID | Parent developer App ID, NOT Mini App ID |
+| ZALO_APP_SECRET | Parent developer Secret Key |
+| ZALO_ALLOW_SIGNUP | true to register new customers; false for existing only |
 
-Delete the obsolete `ZALO_AUTH_URL`. Do not define PORT unless necessary: Render
-supplies it. Root Directory is `minizalo/backend`, Build Command is
-`npm ci --include=dev && npm run db:generate && npm run build`, Start Command is
-`npm start`, Health Check Path is `/api/health`.
+Find the parent application at https://developers.zalo.me/ under your apps.
+Configure its name/avatar and phone permissions for this Mini App. Enable API
+app-secret-proof protection where available. Phone API uses the same app secret.
+Never expose the secret in frontend variables, Git, logs or chat.
 
-Commit/push only Mini App changes to the branch selected in Render, then deploy.
-Local `.env` and Render Environment are separate; they do not sync automatically.
+Delete obsolete `ZALO_AUTH_URL`. Root Directory: `minizalo/backend`.
+Build: `npm ci --include=dev && npm run db:generate && npm run build`.
+Start: `npm start`. Health Check Path: `/api/health`.
+Push updated backend code to Render's selected branch before redeploying.
+Uploading the frontend to Zalo does NOT deploy this backend or its environment.
+Local `.env` and Render Environment are independent.
 
-## 4. Frontend and Real Device Tests
+## Device Verification
 
-Frontend API is `https://mld-miniapp-api.onrender.com/api`. Build with `npm run
-build` in `zalo_mini_app/my-app`. Upload a Development/Testing version only after
-backend configuration and database approval. Use a tester account in the Mini
-App's allowed testers/members. Complete Zalo domain/permission configuration if
-required by the developer dashboard.
+1. Open the latest Testing version with its own QR on a real Zalo phone.
+2. Browsing public catalogs must not immediately request phone consent.
+3. Tap Continue with Zalo: consent explains profile linkage and booking contact.
+4. Deny permission: no login or user creation; retry remains available.
+5. Allow permission: no manual phone input, OTP screen, or SMS.
+6. Existing mobile customer with the verified phone must keep the same UUID,
+   tier, points and bookings. Alias duplicates must fail for administrator review.
+7. New phone: one shared user, verified name/avatar/phone and zero points.
+8. Re-login: same UUID, no duplicate records. Expired/used phone code fails.
+9. Tampered client phone/UUID, invalid Zalo token and disabled account fail.
+10. Verify bookings and slot changes appear in native clients/admin. These
+    auth checks do not certify payment or reward integrations.
 
-1. `/api/health` returns 200; catalogs show only actual admin-managed data.
-2. On a real Zalo device, login asks only for name/avatar. No phone or OTP.
-3. Cancel profile consent: no successful login or new user row.
-4. Allow consent: first new signup creates one shared UUID with null phone,
-   verified name/avatar, STANDARD tier and zero points. No fake business data.
-5. Restart/re-login: same UUID and same data, no duplicate users.
-6. For an existing linked customer, verify UUID, tier and points remain unchanged.
-7. Invalid/expired Zalo token, wrong app token or inactive user: login fails.
-8. JWT missing/expired/forged: private APIs return 401.
-9. Book a real available slot: verify canonical booking/items/slot in admin;
-   native clients must see the same booking and availability. Cancel and verify
-   shared slot release. Do not fake payments or rewards to make tests pass.
-10. Payment/reward integration requires the group's actual business workflow and
-    separate end-to-end verification; these auth tests do not certify payments.
-
-Automated tests use isolated PGlite, NOT the team's database. Zalo verification
-uses mocked official responses in tests, so credentials/real Zalo behavior still
-must be verified on device. A health response only confirms DB readiness, not
-that Zalo credentials or identity extensions have been configured.
+Automated tests use isolated PGlite and mocked Zalo responses, never the shared
+live database. Passing health or offline tests does not prove real Zalo setup.
+Rotate secrets previously disclosed in chat with the database/backend owners.
 
 ## Official References
 
+- https://docs.zaloplatforms.com/docs/MA/api/user/user-information/getPhoneNumber
 - https://docs.zaloplatforms.com/docs/MA/api/user/user-information/getAccessToken
-- https://docs.zaloplatforms.com/docs/MA/intro/intro/mini-app-account
-- https://docs.zaloplatforms.com/docs/MA/intro/getting-started/convert-web-app-to-mini-app
 - https://github.com/zaloplatform/zalo-php-sdk/blob/master/src/Zalo.php
-- https://github.com/zaloplatform/zalo-php-sdk/blob/master/src/ZaloClient.php

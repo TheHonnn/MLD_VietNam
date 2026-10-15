@@ -1,4 +1,4 @@
-import { getAccessToken, getUserInfo, nativeStorage } from 'zmp-sdk';
+import { getAccessToken, getUserInfo, getPhoneNumber, nativeStorage } from 'zmp-sdk';
 import { adaptPayload, profileToCanonical } from './adapters';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://mld-miniapp-api.onrender.com/api').replace(/\/$/, '');
@@ -43,16 +43,25 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
 const responseJson = async (res: Response) => res.json();
 
 export const apiClient = {
-  async loginWithZalo(_forceRefresh = false) {
+  async loginWithZalo(requestConsent = false) {
     try {
+      if (!requestConsent) {
+        if (memoryToken) {
+          const current = await apiClient.getCurrentUser();
+          if (current?.user) return { ...current, token: session.get() };
+        }
+        return { needsConsent: true, error: 'Tiếp tục với Zalo và cho phép chia sẻ số điện thoại để kết nối hồ sơ.' };
+      }
       // Reverify the current Zalo account on launch, even if a JWT was cached.
       session.clear();
-      // Only name/avatar permission; identity is verified again by the backend.
+      // Request permissions only after a user action. No phone input or OTP.
       await getUserInfo({ autoRequestPermission: true });
+      const { token: phoneToken } = await getPhoneNumber();
+      if (!phoneToken) return { error: 'Bạn chưa cho phép Zalo chia sẻ số điện thoại.' };
       const accessToken = await getAccessToken();
       const res = await fetch(`${API_BASE_URL}/auth/zalo`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken }),
+        body: JSON.stringify({ accessToken, phoneToken }),
       });
       const data = await responseJson(res);
       if (data.token) session.set(data.token);

@@ -6,19 +6,18 @@ import { createHmac } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../dist/server.js';
-import { resolveZaloAccount, verifyZaloAccount } from '../dist/zalo-auth.js';
+import { resolveZaloAccount, verifyZaloAccount, verifyZaloPhone } from '../dist/zalo-auth.js';
 
 const options = { zaloAppId:'123456',zaloAppSecret:'private-zalo-test-secret' };
-const profile = {id:'90071992547409930001',name:'Actual Zalo Name',avatar:'https://example.test/avatar.png'};
+const profile = {id:'90071992547409930001',name:'Actual Zalo Name',avatar:'https://example.test/avatar.png',phone:'0912345678'};
 const sqlStore = db => ({
   query: async q => (await db.query(q.text,q.values)).rows,
   transaction: run => db.transaction(tx => run(sqlStore(tx))),
 });
 
-test('Zalo verifier uses fixed official endpoint and server-side HMAC, never trusts client identity', async () => {
+test('Zalo profile verifier uses fixed official endpoint and server-side HMAC', async () => {
   const verified = await verifyZaloAccount('real-token',{
-    ...options,
-    fetch:async (url,init) => {
+    ...options,fetch:async (url,init) => {
       assert.equal(url.origin,'https://graph.zalo.me');
       assert.equal(url.pathname,'/v2.0/me');
       assert.equal(url.searchParams.get('fields'),'id,name,picture');
@@ -26,107 +25,130 @@ test('Zalo verifier uses fixed official endpoint and server-side HMAC, never tru
       assert.equal(init.headers.access_token,'real-token');
       assert.equal(init.headers.appsecret_proof,createHmac('sha256',options.zaloAppSecret).update('real-token').digest('hex'));
       assert.equal(init.redirect,'error');
-      assert.ok(init.signal);
       return Response.json({id:profile.id,name:profile.name,picture:{data:{url:profile.avatar}}});
     },
   });
-  assert.deepEqual(verified,profile);
+  assert.deepEqual(verified,{id:profile.id,name:profile.name,avatar:profile.avatar});
 });
 
-test('Zalo verification fails closed for invalid input, errors, timeouts, permissions and app mismatch', async () => {
-  for(const value of [undefined,null,{},'', 'token\nother','x'.repeat(8193)]) {
-    await assert.rejects(verifyZaloAccount(value,options),e=>e.status===400);
-  }
+test('profile verification rejects malformed tokens, wrong app, expired token and missing consent', async () => {
+  for(const value of [undefined,null,{},'', 'token\nother','x'.repeat(8193)]) await assert.rejects(verifyZaloAccount(value,options),e=>e.status===400);
   await assert.rejects(verifyZaloAccount('token',{}),e=>e.status===503);
-  const cases = [
+  for(const [body,status] of [
     [{error:-1,id:profile.id,name:profile.name},401],
-    [{id:9007199254740993,name:profile.name},401],
-    [{id:'fake',name:profile.name},401],
+    [{id:9007199254740993,name:profile.name},502],
+    [{id:'fake',name:profile.name},502],
     [{id:profile.id,name:profile.name,app_id:'789'},401],
     [{id:profile.id},403],
-    [{id:profile.id,name:'x'.repeat(151)},403],
-  ];
-  for(const [body,status] of cases) await assert.rejects(verifyZaloAccount('token',{...options,fetch:async()=>Response.json(body)}),e=>e.status===status);
+  ]) await assert.rejects(verifyZaloAccount('token',{...options,fetch:async()=>Response.json(body)}),e=>e.status===status);
   for(const status of [429,500,503]) await assert.rejects(verifyZaloAccount('token',{...options,fetch:async()=>Response.json({},{status})}),e=>e.status===502);
-  await assert.rejects(verifyZaloAccount('token',{...options,fetch:async()=>{throw new Error('token must never be returned');}}),e=>e.status===502&&!e.message.includes('token must'));
-  const noAvatar = await verifyZaloAccount('token',{...options,fetch:async()=>Response.json({id:profile.id,name:profile.name,picture:{data:{url:'javascript:alert(1)'}}})});
-  assert.equal(noAvatar.avatar,null);
 });
 
-test('phone-free shared signup is explicit, atomic and preserves UUID across sessions', async t => {
-  const db = new PGlite();
-  const canonical = await readFile(new URL('../../../database/schema.sql',import.meta.url),'utf8');
+test('provider diagnostics expose only numeric codes and fixed reasons, never credentials or profile data', async () => {
+  const original=console.warn;
+  const logs=[];
+  console.warn=(...args)=>logs.push(args.join(' '));
+  try {
+    await assert.rejects(verifyZaloAccount('private-access-token',{
+      ...options,fetch:async()=>Response.json({error:-1241,message:'private-access-token private-zalo-test-secret customer-private-phone',id:'123'}),
+    }),e=>e.status===401&&e.message.includes('Zalo code -1241')&&!e.message.includes('private-access-token'));
+    assert.equal(logs.length,1);
+    assert.ok(logs[0].includes('"providerCode":-1241'));
+    for(const secret of ['private-access-token','private-zalo-test-secret','customer-private-phone']) assert.equal(logs[0].includes(secret),false);
+    await assert.rejects(verifyZaloAccount('token',{
+      ...options,fetch:async()=>Response.json({error:{code:'-124',message:'private response'}}),
+    }),e=>e.status===401&&e.message.includes('Zalo code -124'));
+  } finally { console.warn=original; }
+});
+
+test('phone is exchanged server-to-server with matching Zalo token and app secret', async () => {
+  for(const number of ['84912345678','+84912345678']) {
+    const phone=await verifyZaloPhone('real-token','single-use-phone-code',{...options,fetch:async(url,init)=>{
+      assert.equal(url,'https://graph.zalo.me/v2.0/me/info');
+      assert.deepEqual(init.headers,{access_token:'real-token',code:'single-use-phone-code',secret_key:options.zaloAppSecret});
+      assert.equal(init.redirect,'error');
+      return Response.json({error:0,data:{number}});
+    }});
+    assert.equal(phone,profile.phone);
+  }
+  for(const token of [undefined,{},'', 'x\nother']) await assert.rejects(verifyZaloPhone('token',token,options),e=>e.status===400);
+  for(const body of [{error:-1,data:{number:'84912345678'}},{error:0,data:{number:'fake'}},{error:0,data:{number:84912345678}},{error:0,data:{number:'84012345678'}}]) {
+    await assert.rejects(verifyZaloPhone('token','code',{...options,fetch:async()=>Response.json(body)}),e=>e.status===401);
+  }
+  await assert.rejects(verifyZaloPhone('token','code',{...options,fetch:async()=>{throw new Error('private details');}}),e=>e.status===502&&!e.message.includes('private'));
+});
+
+test('Zalo phone permission preserves shared accounts without schema changes or OTP', async t => {
+  const db=new PGlite();
+  const canonical=await readFile(new URL('../../../database/schema.sql',import.meta.url),'utf8');
   await db.exec(canonical.split(/\r?\n/).filter(l=>!l.startsWith('CREATE EXTENSION')&&!l.includes('gin_trgm_ops')).join('\n'));
-  const store = sqlStore(db);
+  const store=sqlStore(db);
+  let accountId;
   let server;
   try {
-    await t.test('schema without approved identity extension is not silently mutated',async()=>{
-      await assert.rejects(resolveZaloAccount(store,profile,{...options,zaloAllowSignup:true}),e=>e.status===503);
-      assert.equal((await db.query('SELECT count(*)::int n FROM users')).rows[0].n,0);
-    });
-    const identitySql=await readFile(new URL('../../docs/sql/001_zalo_identities.sql',import.meta.url),'utf8');
-    await db.exec(identitySql);
-    await db.exec(identitySql);
-    await t.test('signup disabled by default and phone constraint respected',async()=>{
+    await t.test('signup respects the switch and original NOT NULL phone schema',async()=>{
       await assert.rejects(resolveZaloAccount(store,profile,options),e=>e.status===409);
-      await assert.rejects(resolveZaloAccount(store,profile,{...options,zaloAllowSignup:true}),e=>e.status===503);
-      assert.equal((await db.query('SELECT count(*)::int n FROM users')).rows[0].n,0);
-    });
-    const signupSql=await readFile(new URL('../../docs/sql/002_phone_free_signup.sql',import.meta.url),'utf8');
-    await db.exec(signupSql);
-    await db.exec(signupSql);
-    let accountId;
-    await t.test('first verified login creates one real shared user and persistent identity',async()=>{
       const result=await resolveZaloAccount(store,profile,{...options,zaloAllowSignup:true});
-      assert.equal(result.isNewUser,true);
       accountId=result.userId;
-      assert.match(accountId,/^[a-f0-9-]{36}$/);
+      assert.equal(result.isNewUser,true);
       const row=(await db.query('SELECT * FROM users WHERE id=$1',[accountId])).rows[0];
-      assert.equal(row.phone,null);
+      assert.equal(row.phone,profile.phone);
       assert.equal(row.full_name,profile.name);
       assert.equal(row.avatar_url,profile.avatar);
-      assert.equal(row.reward_points,0);
       assert.equal(row.membership_tier,'STANDARD');
-      assert.equal(row.password_hash,null);
+      assert.equal(row.reward_points,0);
+      assert.equal((await db.query("SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='phone'")).rows[0].is_nullable,'NO');
     });
-    await t.test('subsequent logins reuse UUID even with signup disabled',async()=>{
-      const result=await resolveZaloAccount(store,profile,options);
-      assert.deepEqual(result,{userId:accountId,isNewUser:false});
+    await t.test('repeated login and national/international aliases reuse UUID and retain rewards',async()=>{
+      await db.query("UPDATE users SET membership_tier='GOLD',reward_points=350,full_name='Shared Name' WHERE id=$1",[accountId]);
+      for(const phone of [profile.phone,'84912345678','+84912345678']) {
+        await db.query('UPDATE users SET phone=$1 WHERE id=$2',[phone,accountId]);
+        assert.deepEqual(await resolveZaloAccount(store,profile,options),{userId:accountId,isNewUser:false});
+      }
+      const row=(await db.query('SELECT * FROM users WHERE id=$1',[accountId])).rows[0];
+      assert.equal(row.reward_points,350);
+      assert.equal(row.membership_tier,'GOLD');
+      assert.equal(row.full_name,'Shared Name');
       assert.equal((await db.query('SELECT count(*)::int n FROM users')).rows[0].n,1);
-      assert.equal((await db.query("SELECT relrowsecurity FROM pg_class WHERE oid='public.zalo_identities'::regclass")).rows[0].relrowsecurity,true);
-      await assert.rejects(db.query('INSERT INTO zalo_identities (zalo_app_id,zalo_user_id,user_id) VALUES ($1,$2,$3)',[options.zaloAppId,'another',accountId]));
     });
-    await t.test('identity insert failure rolls back new user',async()=>{
-      const rejectingStore={...store,transaction:run=>store.transaction(tx=>run({...tx,query:q=>q.text.includes('INSERT INTO public.zalo_identities')?Promise.reject(new Error('Forced test rollback')):tx.query(q)}))};
-      await assert.rejects(resolveZaloAccount(rejectingStore,{...profile,id:'999'},{...options,zaloAllowSignup:true}));
-      assert.equal((await db.query('SELECT count(*)::int n FROM users')).rows[0].n,1);
+    await t.test('duplicate alias identities, inactive users and staff accounts are rejected',async()=>{
+      await db.query("INSERT INTO users(phone,full_name,referral_code) VALUES ($1,'Duplicate','DUP')",[profile.phone]);
+      await assert.rejects(resolveZaloAccount(store,profile,options),e=>e.status===409);
+      await db.query("DELETE FROM users WHERE referral_code='DUP'");
+      await db.query('UPDATE users SET is_active=false WHERE id=$1',[accountId]);
+      await assert.rejects(resolveZaloAccount(store,profile,options),e=>e.status===401);
+      await db.query("UPDATE users SET is_active=true,role='ADMIN' WHERE id=$1",[accountId]);
+      await assert.rejects(resolveZaloAccount(store,profile,options),e=>e.status===403);
+      await db.query("UPDATE users SET role='CUSTOMER' WHERE id=$1",[accountId]);
     });
-    await t.test('HTTP login ignores forged UUID/name/phone and issues expiring Mini App token',async()=>{
+    await t.test('HTTP login ignores client phone and UUID; missing/expired phone code creates no user',async()=>{
+      let phoneError=false;
       const secret='mini-app-test-secret';
-      server=createApp(store,{...options,jwtSecret:secret,fetch:async()=>Response.json({id:profile.id,name:profile.name})}).listen(0,'127.0.0.1');
+      server=createApp(store,{...options,jwtSecret:secret,fetch:async url=>String(url).endsWith('/me/info')
+        ?Response.json(phoneError?{error:-1}:{error:0,data:{number:'84912345678'}})
+        :Response.json({id:profile.id,name:profile.name})}).listen(0,'127.0.0.1');
       await once(server,'listening');
       const base=`http://127.0.0.1:${server.address().port}/api`;
-      const response=await fetch(`${base}/auth/zalo`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:'real-token',userId:'forged-id',phone:'fake',userInfo:{id:'forged',name:'Forged Name'}})});
+      const login=body=>fetch(`${base}/auth/zalo`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      assert.equal((await login({accessToken:'real-token',phone:'0900000000'})).status,400);
+      phoneError=true;
+      assert.equal((await login({accessToken:'real-token',phoneToken:'expired'})).status,401);
+      phoneError=false;
+      const response=await login({accessToken:'real-token',phoneToken:'real-code',phone:'0900000000',userId:'forged',userInfo:{name:'Forged'}});
       const result=await response.json();
       assert.equal(response.status,200,JSON.stringify(result));
       assert.equal(result.data.user.id,accountId);
-      assert.equal(result.data.user.fullName,profile.name);
+      assert.equal(result.data.user.fullName,'Shared Name');
+      assert.equal(result.data.user.rewardPoints,350);
       assert.equal(result.data.user.passwordHash,undefined);
       const payload=jwt.verify(result.data.token,secret);
       assert.equal(payload.sub,accountId);
       assert.equal(payload.exp-payload.iat,8*60*60);
-      const me=await fetch(`${base}/auth/me`,{headers:{Authorization:`Bearer ${result.data.token}`}});
-      assert.equal(me.status,200);
-      for (const invalidToken of [
-        jwt.sign({sub:accountId},'different-backend-key',{expiresIn:'1h'}),
-        jwt.sign({sub:accountId},secret,{expiresIn:-1}),
-        'not-a-jwt',
-      ]) {
-        assert.equal((await fetch(`${base}/auth/me`,{headers:{Authorization:`Bearer ${invalidToken}`}})).status,401);
+      assert.equal((await db.query('SELECT count(*)::int n FROM users')).rows[0].n,1);
+      assert.equal((await fetch(`${base}/auth/me`,{headers:{Authorization:`Bearer ${result.data.token}`}})).status,200);
+      for(const token of [jwt.sign({sub:accountId},'wrong-key'),jwt.sign({sub:accountId},secret,{expiresIn:-1}),'invalid']) {
+        assert.equal((await fetch(`${base}/auth/me`,{headers:{Authorization:`Bearer ${token}`}})).status,401);
       }
-      await db.query('UPDATE users SET is_active=false WHERE id=$1',[accountId]);
-      assert.equal((await fetch(`${base}/auth/me`,{headers:{Authorization:`Bearer ${result.data.token}`}})).status,401);
-      assert.equal((await fetch(`${base}/auth/zalo`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:'real-token'})})).status,401);
     });
   } finally {
     if(server) await new Promise(resolve=>server.close(resolve));

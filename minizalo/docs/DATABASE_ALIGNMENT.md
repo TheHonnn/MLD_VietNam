@@ -33,10 +33,14 @@ tokens. JWT `sub` is always the canonical `users.id` UUID, with an eight-hour
 expiry. This backend accepts its own HS256 tokens and reloads the active shared
 user on every private request.
 
-The frontend requests only Zalo name/avatar permission using `getUserInfo`, then
-calls `getAccessToken` and sends only `{ accessToken }` to `/api/auth/zalo`.
-It does not request phone permission, phone input, or OTP. Session tokens use
-ZMP SDK native storage with an in-memory fallback, not browser-only storage.
+The frontend requests name/avatar and phone-sharing permission only after the
+user taps the Zalo login action. It sends `{ accessToken, phoneToken }` to
+`/api/auth/zalo`. No manual phone entry or OTP is used. The backend exchanges
+the single-use phone code with `https://graph.zalo.me/v2.0/me/info`, using the
+same access token and its private app secret. Only that verified phone selects
+the shared account; client-supplied phone values and UUIDs are ignored. Session
+tokens use ZMP native storage with an in-memory fallback. Initial page load does
+not trigger a phone consent prompt; public catalogs remain available to guests.
 
 Set `ZALO_APP_ID` and `ZALO_APP_SECRET` to the parent Zalo developer application,
 NOT the Mini App ID or an OA access token. The backend calls the fixed official
@@ -47,33 +51,23 @@ responses, missing profile permission, redirects, and provider outages fail
 closed; no client-provided UUID, name, avatar, phone, or app ID selects an account.
 `ZALO_AUTH_URL` is no longer used and must not be configured.
 
-The canonical repository schema still requires `users.phone` and does not define
-Zalo identity linkage. Proposed SQL is stored only under Mini App ownership:
+The existing canonical `users.phone UNIQUE NOT NULL` schema is used unchanged.
+No Zalo mapping table or phone-nullability SQL is required. Earlier phone-free
+SQL proposals were removed; do not apply old copies. If the team already applied
+any proposal, coordinate with its owner before reverting anything; this app
+never automatically drops tables or restores NOT NULL on existing records.
 
-- `docs/sql/001_zalo_identities.sql`: persistent app-scoped Zalo ID -> shared UUID
-  mapping, unique constraints, FK, RLS, and no public/anon/authenticated access.
-- `docs/sql/002_phone_free_signup.sql`: optional nullable `users.phone`, retaining
-  uniqueness and existing values. Requires the shared owner's approval and
-  null-phone compatibility in native backends, shared types, and admin.
+The verified phone is normalized to local 0-prefix form and matched against
+existing local, 84-prefix and +84-prefix values. One existing active CUSTOMER or
+STUDENT account reuses its shared UUID, tier, points and profile without changes.
+Duplicate aliases require administrator review; inactive and staff accounts are
+rejected. Phone changes/reassignment require the group's account recovery policy;
+do not automatically move history based on Zalo display names.
 
-These are proposals for the shared database owner, NOT automatic migrations.
-No live database changes are made by installation, startup, tests, or deploy.
-The owner must review and incorporate approved changes into the shared schema
-and grant SELECT/INSERT on the identity table to the private backend DB role.
-
-Signup is disabled unless `ZALO_ALLOW_SIGNUP=true`. With signup enabled and both
-approved schema changes applied, first login atomically creates a canonical
-`users` row with null phone, verified Zalo name/avatar, default STANDARD tier,
-zero points and a persistent identity mapping. Repeated logins reuse its UUID;
-existing shared profiles are not overwritten. There are no fake phones, demo
-users, independent Mini App customer tables, or browser UUID mappings.
-
-Customers who already have native accounts must be linked by an authorized
-operator after proving ownership, before first Mini App signup. Names/avatars
-alone cannot establish that two accounts belong to the same person. Never merge
-or guess UUIDs from names. With signup disabled, an unlinked account returns 409;
-without the approved identity extension, login returns 503. No public linking
-endpoint accepts arbitrary shared UUIDs.
+With `ZALO_ALLOW_SIGNUP=true`, a phone with no shared account creates one user
+transactionally, with verified name/avatar/phone, STANDARD tier and zero points.
+If signup is disabled it returns 409. Unique and serialization conflicts retry
+without creating separate customer identities. No fake phones or demo users.
 
 See `docs/ZALO_LOGIN_SETUP.md` for operator setup and device test steps.
 
@@ -117,7 +111,7 @@ Render runs `npm ci --include=dev && npm run db:generate && npm run build`, then
 `npm start`. Configure its shared `DATABASE_URL`, `JWT_SECRET`, and frontend
 origin explicitly. Render never runs migrations or seeds.
 Set Render's parent `ZALO_APP_ID` and `ZALO_APP_SECRET`. Keep
-`ZALO_ALLOW_SIGNUP=false` until database review is complete. The `db:check`
+`ZALO_ALLOW_SIGNUP=true` to enable verified new customer registration. The `db:check`
 command and startup schema preflight remain read-only.
 
 ## Verification Status
@@ -127,10 +121,9 @@ from the repository's canonical SQL. They verify shared UUIDs, ownership,
 booking/slot/voucher transactions, academy data, Zalo-only identity resolution,
 and visibility of changes written by another client.
 
-The local `DATABASE_URL` checked during this alignment did not contain the
-canonical tables. No live schema, migrations, seed data, or connection secrets
-were changed. Set the real shared connection, shared JWT secret, and trusted
-Zalo identity service URL, then run `npm run db:check` before starting the API.
+No live schema, migrations, seed data, or connection secrets were changed.
+Set the real shared connection, private Mini App JWT secret, and parent Zalo
+credentials, then run `npm run db:check` before starting the API.
 Passing offline tests does not mean the deployed clients are already connected
 to the same database.
 

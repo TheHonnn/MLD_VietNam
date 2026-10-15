@@ -19,6 +19,6 @@ services:
       - key: ZALO_APP_SECRET
         sync: false
       - key: ZALO_ALLOW_SIGNUP
-        value: "false"
+        value: "true"
       - key: FRONTEND_ORIGIN
         sync: false

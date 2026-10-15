@@ -31,7 +31,7 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
     const current = ++attempt.current;
     setBusy(true);
     setError('');
-    const result = await apiClient.loginWithZalo();
+    const result = await apiClient.loginWithZalo(true);
     if (current !== attempt.current) return;
     setBusy(false);
     if (!result?.user || !result.token) {
@@ -55,7 +55,7 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
         <div className="mb-5 flex justify-center"><LeafIcon size={48} color="#98501B" /></div>
         <p className="mb-2 text-sm font-semibold text-[#98501B]">MLD Việt Nam</p>
         <h2 id="zalo-login-title" className="text-xl font-bold text-stone-800">Đăng nhập</h2>
-        <p className="mt-3 text-sm leading-6 text-stone-600">Cho phép truy cập tên và ảnh đại diện Zalo.</p>
+        <p className="mt-3 text-sm leading-6 text-stone-600">Cho phép chia sẻ tên, ảnh đại diện và số điện thoại Zalo để kết nối hồ sơ và liên hệ đặt lịch.</p>
         {error && <p role="alert" className="mt-4 break-words text-sm text-red-700">{error}</p>}
         <button type="button" onClick={login} disabled={busy} aria-busy={busy}
           className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0068FF] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">

@@ -55,15 +55,16 @@ are archived in `docs/legacy-database/` and must not be executed.
 
 For Zalo login, set the parent application's `ZALO_APP_ID` and `ZALO_APP_SECRET`.
 The Mini App backend directly verifies Zalo tokens and reads name/avatar from
-Zalo, not client-provided profile fields. No phone permission, input, or OTP is
-used. `ZALO_AUTH_URL` is no longer used. Signup defaults to disabled until the
-shared database owner reviews the SQL proposals under `docs/sql/` for persistent
-identity linkage and optional null phone. Never apply them without coordinating
-native/backend/admin compatibility. See [login setup](docs/ZALO_LOGIN_SETUP.md)
+Zalo, not client-provided profile fields. After an explicit user action it requests
+phone-sharing permission, then verifies the one-time phone code server-to-server.
+No manual phone input or OTP is used. Verified phone resolves the canonical
+`users.id`, preserving native customer history. `ZALO_AUTH_URL` is no longer
+used. Set `ZALO_ALLOW_SIGNUP=true` to allow new shared customers. No schema
+extension or nullable-phone migration is needed. See [login setup](docs/ZALO_LOGIN_SETUP.md)
 and the [database alignment guide](docs/DATABASE_ALIGNMENT.md).
 
 This API is separate from the NestJS API in the repository's root `backend/`.
-When configured with the team's database connection and approved identity mapping,
+When configured with the team's database connection and verified phone identity,
 it shares canonical records and UUIDs with that API, not signing secrets; Mini App
 adapters handle its endpoint and response contract.
 
