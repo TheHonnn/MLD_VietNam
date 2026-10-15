@@ -46,25 +46,25 @@ npm run db:check
 npm run dev
 ```
 
-Set `DATABASE_URL` to the existing shared MLD database and `JWT_SECRET` to the
-team's shared HS256 signing secret. JWT `sub` is the canonical `users.id` UUID.
+Set `DATABASE_URL` to the existing shared MLD database and `JWT_SECRET` to a
+private Mini App HS256 signing secret. JWT `sub` is the canonical `users.id` UUID.
 Do not run migrations, `prisma db push`, or seeds from Mini Zalo; its minimal
 Prisma schema is only for client generation. `db:check` and startup validate the
 required shared schema with read-only queries. Historical database artifacts
 are archived in `docs/legacy-database/` and must not be executed.
 
-For native Zalo login, configure server-only `ZALO_APP_SECRET` and leave
-`ZALO_AUTH_URL` empty. The backend verifies the phone permission token and Zalo
-profile, reuses the shared user's UUID by phone, or creates a canonical shared
-user with the database's UUID and `STANDARD` tier defaults. No separate `zaloId`
-is needed. Alternatively, set `ZALO_AUTH_URL` to the shared identity relay that
-returns a valid shared JWT. See the
-[database alignment guide](docs/DATABASE_ALIGNMENT.md) and official
-[Zalo getPhoneNumber documentation](https://docs.zaloplatforms.com/docs/MA/api/user/user-information/getPhoneNumber).
+For Zalo login, set the parent application's `ZALO_APP_ID` and `ZALO_APP_SECRET`.
+The Mini App backend directly verifies Zalo tokens and reads name/avatar from
+Zalo, not client-provided profile fields. No phone permission, input, or OTP is
+used. `ZALO_AUTH_URL` is no longer used. Signup defaults to disabled until the
+shared database owner reviews the SQL proposals under `docs/sql/` for persistent
+identity linkage and optional null phone. Never apply them without coordinating
+native/backend/admin compatibility. See [login setup](docs/ZALO_LOGIN_SETUP.md)
+and the [database alignment guide](docs/DATABASE_ALIGNMENT.md).
 
 This API is separate from the NestJS API in the repository's root `backend/`.
-When configured with the team's connection and signing secret, it shares the
-canonical database and user identity with that API; Mini App
+When configured with the team's database connection and approved identity mapping,
+it shares canonical records and UUIDs with that API, not signing secrets; Mini App
 adapters handle its endpoint and response contract.
 
 ## Imported Legacy Files

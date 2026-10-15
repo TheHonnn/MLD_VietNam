@@ -28,7 +28,12 @@ async function main() {
   startupStage = 'schema-validation';
   await validateSharedSchema(store);
   startupStage = 'app-initialization';
-  const app = createApp(store,{ jwtSecret:process.env.JWT_SECRET ?? '',zaloAuthUrl:process.env.ZALO_AUTH_URL });
+  const app = createApp(store,{
+    jwtSecret: process.env.JWT_SECRET ?? '',
+    zaloAppId: process.env.ZALO_APP_ID,
+    zaloAppSecret: process.env.ZALO_APP_SECRET,
+    zaloAllowSignup: process.env.ZALO_ALLOW_SIGNUP === 'true',
+  });
   app.listen(Number(process.env.PORT ?? 5000),'0.0.0.0',()=>console.log('Mini App API connected to the shared schema'));
 }
 
@@ -54,7 +59,7 @@ main().catch(async error=>{
     accessDenied: /permission denied|access denied|not permitted/i.test(message),
     saslError: /SASL|SCRAM/i.test(message),
   }));
-  console.error(message.startsWith('Database does not match database/schema.sql:') || message === 'JWT_SECRET must match the shared identity backend'
+  console.error(message.startsWith('Database does not match database/schema.sql:') || message === 'JWT_SECRET is required'
     ? message : 'Database startup failed. Check shared connection and identity configuration.');
   await prisma.$disconnect();
   process.exitCode = 1;

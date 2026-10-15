@@ -4,10 +4,9 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { camel, Store, Row } from './store.js';
-
-export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
-}
+import { ApiError } from './errors.js';
+import { resolveZaloAccount, verifyZaloAccount, ZaloAuthOptions } from './zalo-auth.js';
+export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function uuid(value: unknown) {
@@ -126,12 +125,11 @@ async function enrollments(store: Store, customerId: string) {
     WHERE ce.student_id = ${customerId}::uuid ORDER BY ce.enrolled_at DESC`);
 }
 
-export interface AppOptions { jwtSecret: string; zaloAuthUrl?: string; zaloAppSecret?: string; fetch?: typeof fetch; }
+export interface AppOptions extends ZaloAuthOptions { jwtSecret: string; }
 
 export function createApp(store: Store, options: AppOptions) {
-  if (!options.jwtSecret) throw new Error('JWT_SECRET must match the shared identity backend');
+  if (!options.jwtSecret) throw new Error('JWT_SECRET is required');
   const app = express();
-  const upstreamFetch = options.fetch ?? fetch;
   app.use((_req,res,next)=>{ res.set('Cache-Control','no-store'); next(); });
   app.use(cors());
   app.use(express.json({ limit: '1mb' }));
@@ -144,42 +142,11 @@ export function createApp(store: Store, options: AppOptions) {
   }));
 
   app.post('/api/auth/zalo', route(async (req, res) => {
-    if (!req.body.accessToken) throw new ApiError(400, 'Zalo access token is required');
-    if (!options.zaloAuthUrl) {
-      if (!options.zaloAppSecret) throw new ApiError(503, 'Configure ZALO_APP_SECRET or the shared identity relay');
-      if (typeof req.body.phoneToken !== 'string' || !req.body.phoneToken) throw new ApiError(400,'Phone permission is required to identify the shared account');
-      const [phoneResponse, profileResponse] = await Promise.all([
-        upstreamFetch('https://graph.zalo.me/v2.0/me/info',{ headers:{ access_token:String(req.body.accessToken),code:req.body.phoneToken,secret_key:options.zaloAppSecret },signal:AbortSignal.timeout(15000) }),
-        upstreamFetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture',{ headers:{ access_token:String(req.body.accessToken) },signal:AbortSignal.timeout(15000) }),
-      ]);
-      const phoneData: any = await phoneResponse.json(), profile: any = await profileResponse.json();
-      if (!phoneResponse.ok || phoneData.error || !profileResponse.ok || profile.error || !profile.id) throw new ApiError(401,'Could not verify Zalo identity');
-      const digits = String(phoneData.data?.number ?? '').replace(/^\+/,'');
-      if (!/^84\d{9,10}$/.test(digits)) throw new ApiError(401,'Verified Zalo phone number is invalid');
-      const localPhone = `0${digits.slice(2)}`;
-      const existing = await store.query(Prisma.sql`SELECT ${publicUser} FROM users WHERE phone IN (${localPhone},${digits},${`+${digits}`})`);
-      if (existing.length > 1) throw new ApiError(409,'Duplicate shared phone identities require resolution by the identity owner');
-      let record = existing[0];
-      if (record && !record.is_active) throw new ApiError(403,'Shared account is inactive');
-      if (!record) {
-        const name = String(profile.name ?? 'Zalo customer');
-        const avatar = typeof profile.picture?.data?.url === 'string' ? profile.picture.data.url : null;
-        [record] = await store.query(Prisma.sql`INSERT INTO users (phone,full_name,avatar_url,referral_code)
-          VALUES (${localPhone},${name},${avatar},${randomUUID().replace(/-/g,'').slice(0,20)}) RETURNING ${publicUser}`);
-      }
-      return success(res,{token:jwt.sign({sub:record.id,phone:record.phone,role:record.role},options.jwtSecret,{algorithm:'HS256',expiresIn:'7d'}),user:record,isNewUser:existing.length===0});
-    }
-    const response = await upstreamFetch(options.zaloAuthUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessToken: req.body.accessToken, phoneToken:req.body.phoneToken, userInfo: req.body.userInfo }), signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new ApiError(401, 'Shared identity service rejected Zalo login');
-    const raw: any = await response.json();
-    const data = raw.data ?? raw;
-    const token = data.accessToken ?? data.token;
-    let payload: jwt.JwtPayload;
-    try { payload = jwt.verify(token, options.jwtSecret, { algorithms: ['HS256'] }) as jwt.JwtPayload; }
-    catch { throw new ApiError(401, 'Identity service must return a valid shared access token'); }
-    const record = await user(store, uuid(payload.sub));
-    return success(res, { token, user: record, isNewUser: Boolean(data.isNewUser) });
+    const profile = await verifyZaloAccount(req.body?.accessToken, options);
+    const identity = await resolveZaloAccount(store, profile, options);
+    const record = await user(store, uuid(identity.userId));
+    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
+    return success(res, { token, user: record, isNewUser: identity.isNewUser });
   }));
 
   app.get('/api/services', route(async (req, res) => {
@@ -230,7 +197,7 @@ export function createApp(store: Store, options: AppOptions) {
     return success(res,{course});
   }));
 
-  // Private routes always use the UUID issued by the group's identity service.
+  // Private routes use the shared UUID, signed by this Mini App backend.
   app.use('/api', (req,res,next) => { Promise.resolve().then(async () => {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i,'');
     let payload: jwt.JwtPayload;
