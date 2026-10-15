@@ -170,6 +170,19 @@ export function createApp(store: Store, options: AppOptions) {
     const email = typeof input.email === 'string' ? input.email.trim() : '';
     const dob = input.dateOfBirth || null;
     const gender = input.gender ?? 'OTHER';
+    const purpose = input.purpose ?? 'BEAUTY_SPA';
+    const avatar = input.avatarUrl || null;
+    if (!['BEAUTY_SPA','ACADEMY','BOTH'].includes(purpose)) throw new ApiError(400, 'Invalid purpose');
+    if (avatar !== null) {
+      if (typeof avatar !== 'string' || avatar.length > 750000) throw new ApiError(400, 'Invalid profile image');
+      const localImage = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(avatar);
+      let remoteImage = false;
+      try {
+        const url = new URL(avatar);
+        remoteImage = url.protocol === 'https:' && !url.username && !url.password;
+      } catch { /* Uploaded images use a bounded data URL instead. */ }
+      if (!localImage && !remoteImage) throw new ApiError(400, 'Invalid profile image');
+    }
     if (!name || name.length > 150 || /[\x00-\x1f\x7f]/.test(name)) throw new ApiError(400, 'Full name is required, up to 150 characters');
     if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new ApiError(400, 'Invalid email');
     if (!['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400, 'Invalid gender');
@@ -177,8 +190,8 @@ export function createApp(store: Store, options: AppOptions) {
       || !Number.isFinite(Date.parse(dob)) || new Date(dob).toISOString().slice(0,10) !== dob || Date.parse(dob) > Date.now())) {
       throw new ApiError(400, 'Invalid date of birth');
     }
-    const identity = await resolveZaloAccount(store, { phone: proof.phone, name, avatar: null,
-      email: email || null, dateOfBirth: dob, gender }, options);
+    const identity = await resolveZaloAccount(store, { phone: proof.phone, name, avatar,
+      email: email || null, dateOfBirth: dob, gender, purpose }, options);
     const record = await user(store, uuid(identity.userId));
     const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
     return success(res, { token, user: record, isNewUser: identity.isNewUser });

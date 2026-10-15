@@ -1,4 +1,4 @@
-import { getAccessToken, getPhoneNumber, nativeStorage } from 'zmp-sdk';
+import { getAccessToken, getPhoneNumber, getUserInfo, nativeStorage } from 'zmp-sdk';
 import { adaptPayload, profileToCanonical } from './adapters';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://mld-miniapp-api.onrender.com/api').replace(/\/$/, '');
@@ -54,6 +54,15 @@ export const apiClient = {
       }
       // Reverify the current Zalo account on launch, even if a JWT was cached.
       session.clear();
+      // Editable profile suggestions only, never a trusted phone/UUID identity.
+      let suggestedName = '';
+      let suggestedAvatar = '';
+      try {
+        const { userInfo } = await getUserInfo({ autoRequestPermission: true, avatarType: 'large' });
+        suggestedName = userInfo?.name?.trim().slice(0, 150) || '';
+        const avatar = new URL(userInfo?.avatar || '');
+        if (avatar.protocol === 'https:' && !avatar.username && !avatar.password) suggestedAvatar = avatar.href;
+      } catch { /* Profile sharing is optional; phone verification remains required. */ }
       // Request permissions only after a user action. No phone input or OTP.
       const { token: phoneToken } = await getPhoneNumber();
       if (!phoneToken) return { error: 'Bạn chưa cho phép Zalo chia sẻ số điện thoại.' };
@@ -64,7 +73,7 @@ export const apiClient = {
       });
       const data = await responseJson(res);
       if (data.token) session.set(data.token);
-      return data;
+      return data.registrationRequired ? { ...data, suggestedName, suggestedAvatar } : data;
     } catch (error) {
       const zaloError = error as { code?: number | string; message?: string };
       const code = zaloError?.code !== undefined ? ` (mã ${zaloError.code})` : '';
@@ -75,7 +84,7 @@ export const apiClient = {
   logout() {
     session.clear();
   },
-  async registerZaloProfile(registrationToken: string, profile: { fullName: string; email?: string; dateOfBirth?: string; gender?: string }) {
+  async registerZaloProfile(registrationToken: string, profile: { fullName: string; email?: string; dateOfBirth?: string; gender?: string; avatarUrl?: string; purpose?: string }) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/zalo/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

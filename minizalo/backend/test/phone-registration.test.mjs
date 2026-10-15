@@ -57,14 +57,18 @@ test('phone-only Zalo registration needs verified phone plus a real name, never 
     });
     await t.test('invalid or missing form values cannot create an account',async()=>{
       for(const data of [{fullName:''},{fullName:' '.repeat(5)},{fullName:'x'.repeat(151)},{fullName:'Name',email:'invalid'},
-        {fullName:'Name',dateOfBirth:'2026-02-31'},{fullName:'Name',dateOfBirth:'2099-01-01'},{fullName:'Name',gender:'ADMIN'}]) {
+        {fullName:'Name',dateOfBirth:'2026-02-31'},{fullName:'Name',dateOfBirth:'2099-01-01'},{fullName:'Name',gender:'ADMIN'},
+        {fullName:'Name',purpose:'ADMIN'},{fullName:'Name',avatarUrl:'javascript:alert(1)'},
+        {fullName:'Name',avatarUrl:'http://example.test/avatar.jpg'},{fullName:'Name',avatarUrl:'https://user:password@example.test/avatar.jpg'},
+        {fullName:'Name',avatarUrl:'data:image/svg+xml;base64,PHN2Zz4='},{fullName:'Name',avatarUrl:'x'.repeat(750001)}]) {
         assert.equal((await post('/auth/zalo/register',{registrationToken,...data})).status,400);
       }
       assert.equal(await count(),0);
     });
     await t.test('form creates canonical account using proof phone, not client phone, UUID, role or rewards',async()=>{
       const result=await post('/auth/zalo/register',{registrationToken,fullName:'  Real Customer  ',email:'customer@example.test',
-        gender:'FEMALE',dateOfBirth:'2000-01-02',phone:'0900000000',userId:'forged',role:'SUPER_ADMIN',rewardPoints:9999});
+        gender:'FEMALE',dateOfBirth:'2000-01-02',avatarUrl:'https://example.test/customer.jpg',purpose:'BOTH',
+        phone:'0900000000',userId:'forged',role:'SUPER_ADMIN',rewardPoints:9999});
       assert.equal(result.status,200,JSON.stringify(result));
       userId=result.data.user.id;
       assert.equal(result.data.isNewUser,true);
@@ -75,16 +79,19 @@ test('phone-only Zalo registration needs verified phone plus a real name, never 
       assert.equal(result.data.user.role,'CUSTOMER');
       assert.equal(result.data.user.rewardPoints,0);
       assert.equal(result.data.user.membershipTier,'STANDARD');
-      assert.equal(result.data.user.avatarUrl,null);
+      assert.equal(result.data.user.avatarUrl,'https://example.test/customer.jpg');
+      assert.equal(result.data.user.purpose,'BOTH');
       assert.equal(jwt.verify(result.data.token,secret).sub,userId);
       assert.equal(await count(),1);
     });
     await t.test('retries and subsequent Zalo login preserve existing UUID, rewards and profile without form',async()=>{
       await db.query("UPDATE users SET membership_tier='GOLD',reward_points=350 WHERE id=$1",[userId]);
-      const retry=await post('/auth/zalo/register',{registrationToken,fullName:'Must not overwrite'});
+      const retry=await post('/auth/zalo/register',{registrationToken,fullName:'Must not overwrite',avatarUrl:'https://example.test/replaced.jpg',purpose:'ACADEMY'});
       assert.equal(retry.status,200);
       assert.equal(retry.data.user.id,userId);
       assert.equal(retry.data.isNewUser,false);
+      assert.equal(retry.data.user.purpose,'BOTH');
+      assert.equal(retry.data.user.avatarUrl,'https://example.test/customer.jpg');
       const result=await post('/auth/zalo',{accessToken:'real-token',phoneToken:'another-code'});
       assert.equal(result.status,200);
       assert.equal(result.data.user.id,userId);
