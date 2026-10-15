@@ -10,12 +10,26 @@ export interface ZaloAuthOptions {
   fetch?: typeof fetch;
 }
 
-function providerFailure(stage: 'profile' | 'phone', response: Response, body: any, reason: string) {
+function providerFailure(stage: 'profile' | 'phone', response: Response, body: any, reason: string, credentials: string[] = []) {
   const rawCode = body?.error?.code ?? body?.error_code ?? body?.error;
   const code = typeof rawCode === 'number' && Number.isSafeInteger(rawCode) ? rawCode
     : typeof rawCode === 'string' && /^-?\d{1,8}$/.test(rawCode) ? Number(rawCode) : undefined;
-  // Never log provider messages/bodies: they may contain tokens or user data.
-  console.warn('[Zalo verification]', JSON.stringify({ stage, httpStatus: response.status, providerCode: code, reason }));
+  let providerMessage = typeof body?.message === 'string' ? body.message
+    : typeof body?.error?.message === 'string' ? body.error.message : '';
+  const privateValues = [...credentials, body?.id, body?.name, body?.data?.number]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0);
+  for (const value of privateValues.sort((a, b) => b.length - a.length)) {
+    providerMessage = providerMessage.split(value).join('[REDACTED]');
+    providerMessage = providerMessage.split(encodeURIComponent(value)).join('[REDACTED]');
+  }
+  providerMessage = providerMessage
+    .replace(/https?:\/\/\S+/gi, '[REDACTED_URL]')
+    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]')
+    .replace(/\+?\d[\d .()-]{6,}\d/g, '[REDACTED_NUMBER]')
+    .replace(/[A-Za-z0-9_=-]{16,}/g, '[REDACTED]')
+    .replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 400);
+  // Do not log the response body, profile, request headers or credentials.
+  console.warn('[Zalo verification]', JSON.stringify({ stage, httpStatus: response.status, providerCode: code, reason, providerMessage }));
   return code == null ? '' : ` (Zalo code ${code})`;
 }
 
@@ -46,15 +60,18 @@ export async function verifyZaloAccount(accessToken: unknown, options: ZaloAuthO
     throw new ApiError(502, 'Cannot verify the Zalo account right now; please retry');
   }
   if (!response.ok || (profile?.error != null && profile.error !== 0)) {
-    const suffix = providerFailure('profile', response, profile, !response.ok ? 'http-error' : 'provider-error');
+    const suffix = providerFailure('profile', response, profile, !response.ok ? 'http-error' : 'provider-error', [accessToken, options.zaloAppSecret]);
+    if (Number(profile?.error?.code ?? profile?.error_code ?? profile?.error) === -501) {
+      throw new ApiError(502, `Zalo verification failed with a provider error; inspect the provider response in server Logs${suffix}`);
+    }
     throw new ApiError(401, `Zalo rejected the access token; check the parent app credentials and sign in again${suffix}`);
   }
   if (typeof profile?.id !== 'string' || !/^\d{1,64}$/.test(profile.id)) {
-    providerFailure('profile', response, profile, typeof profile?.id !== 'string' ? 'invalid-id-type' : 'invalid-id-format');
+    providerFailure('profile', response, profile, typeof profile?.id !== 'string' ? 'invalid-id-type' : 'invalid-id-format', [accessToken, options.zaloAppSecret]);
     throw new ApiError(502, 'Zalo profile response has an unsupported user ID format');
   }
   if (profile.app_id != null && String(profile.app_id) !== options.zaloAppId) {
-    providerFailure('profile', response, profile, 'parent-app-mismatch');
+    providerFailure('profile', response, profile, 'parent-app-mismatch', [accessToken, options.zaloAppSecret]);
     throw new ApiError(401, 'Zalo token belongs to another application');
   }
   const name = typeof profile.name === 'string' ? profile.name.trim() : '';
@@ -83,7 +100,7 @@ export async function verifyZaloPhone(accessToken: string, phoneToken: unknown, 
     body = await response.json();
   } catch { throw new ApiError(502, 'Cannot verify the Zalo phone right now; please retry'); }
   if (!response.ok || body?.error !== 0 || typeof body?.data?.number !== 'string') {
-    const suffix = providerFailure('phone', response, body, !response.ok ? 'http-error' : 'provider-error-or-invalid-number');
+    const suffix = providerFailure('phone', response, body, !response.ok ? 'http-error' : 'provider-error-or-invalid-number', [accessToken, phoneToken, options.zaloAppSecret]);
     throw new ApiError(401, `Zalo phone permission expired or was rejected; please try again${suffix}`);
   }
   const international = body.data.number.replace(/^\+/, '');

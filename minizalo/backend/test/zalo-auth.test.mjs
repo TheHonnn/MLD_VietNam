@@ -44,7 +44,7 @@ test('profile verification rejects malformed tokens, wrong app, expired token an
   for(const status of [429,500,503]) await assert.rejects(verifyZaloAccount('token',{...options,fetch:async()=>Response.json({},{status})}),e=>e.status===502);
 });
 
-test('provider diagnostics expose only numeric codes and fixed reasons, never credentials or profile data', async () => {
+test('provider diagnostics redact credentials and user data while preserving useful provider errors', async () => {
   const original=console.warn;
   const logs=[];
   console.warn=(...args)=>logs.push(args.join(' '));
@@ -58,6 +58,12 @@ test('provider diagnostics expose only numeric codes and fixed reasons, never cr
     await assert.rejects(verifyZaloAccount('token',{
       ...options,fetch:async()=>Response.json({error:{code:'-124',message:'private response'}}),
     }),e=>e.status===401&&e.message.includes('Zalo code -124'));
+    await assert.rejects(verifyZaloAccount('secret-access-token',{
+      ...options,fetch:async()=>Response.json({error:-501,message:'Request blocked from server. secret-access-token customer@example.test 0912345678 https://example.test/?token=secret',name:'Customer Private'}),
+    }),e=>e.status===502&&e.message.includes('Zalo code -501')&&!e.message.includes('secret-access-token'));
+    const last=logs.at(-1);
+    assert.ok(last.includes('Request blocked from server.'));
+    for(const value of ['secret-access-token','customer@example.test','0912345678','https://example.test','Customer Private']) assert.equal(last.includes(value),false);
   } finally { console.warn=original; }
 });
 
