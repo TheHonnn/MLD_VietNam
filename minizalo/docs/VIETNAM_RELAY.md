@@ -12,9 +12,8 @@ because the calling IP is outside Vietnam. A tunnel alone does NOT change a
 server's outgoing IP. The process making the Zalo calls must run on a host whose
 egress IP Zalo recognizes as Vietnamese. A Vietnamese domain is not enough.
 
-Current login first tests the PHONE `/me/info` endpoint directly on Render,
-without Social `/me` or profile permission. Do not provision a VN relay unless
-phone verification also fails there. The optional relay now returns only a
+Both profile and PHONE `/me/info` verification on Render have returned -501
+with the provider message that the calling IP is outside Vietnam. The relay returns only a
 verified phone and app ID; new users complete their own profile form on Render.
 
 ## Required Infrastructure
@@ -26,9 +25,44 @@ verified phone and app ID; new users complete their own profile form on Render.
   tunnel forwarding to localhost. Do not use a random/public forwarding proxy.
 - Parent Zalo App ID/Secret and a separate random relay HMAC secret >=32 chars.
 
-The implementation is complete locally, not provisioned or deployed remotely.
-You still need to provide your Vietnam host and HTTPS origin. No VPS account,
-paid resource, DNS record, firewall change or credential was created for you.
+No VPS account, paid resource, DNS record or firewall rule is needed for the
+temporary local Windows setup below. Successful Zalo login still requires a
+real device test; a healthy tunnel does not prove Zalo accepts the outgoing IP.
+
+## Quick Start: Your Windows PC
+
+1. In `minizalo/backend/.env.relay`, fill `ZALO_APP_SECRET` from the parent Zalo
+   app. Keep the existing app ID and generated relay secret. Do not send keys in
+   chat or commit this file. The relay does not read the backend's `.env`.
+2. In PowerShell:
+
+   ```powershell
+   cd E:\Mobile\MLD_VIETNAM\minizalo\backend
+   npm.cmd run relay:install
+   npm.cmd run relay:local
+   ```
+
+   The installer downloads the official Windows x64 Cloudflare executable,
+   verifies its SHA-256 against the official GitHub release metadata and keeps
+   it under ignored `.relay-local/`. It does not install a Windows service.
+3. Keep that terminal open. Copy the displayed `ZALO_RELAY_URL` into Render's
+   Environment, and copy `ZALO_RELAY_SECRET` privately from `.env.relay` into
+   the corresponding Render variable. Keep `ZALO_APP_ID` identical on both.
+4. Save Render's environment and wait for Live. Check the public relay
+   `/health` returns `{"status":"ok"}`. An unsigned POST to `/v2/zalo/verify`
+   must return 401. Then try the existing Testing Mini App again.
+5. Press Ctrl+C in the terminal to stop BOTH the tunnel and local relay.
+   If running hidden in the background, run `npm.cmd run relay:stop` from
+   `minizalo/backend` instead; the manager stops only its own child processes.
+
+Keep the PC awake, connected to the Vietnam network, with overseas VPN off.
+No router port forwarding is needed. The URL is also saved in
+`backend/.relay-local/url.txt`; it changes on restart, so update Render again.
+Only phone verification goes through the PC; Render keeps serving business APIs.
+New Zalo logins fail closed while the PC/tunnel is offline.
+
+[Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
+are temporary testing tunnels without an uptime guarantee, not production hosting.
 
 ## 1. Prepare the Vietnam Host
 
@@ -40,7 +74,7 @@ npm run db:generate
 npm run build
 ```
 
-Create a private `.env` from `relay-env.example` (do not overwrite the Render
+Create a private `.env.relay` from `relay-env.example` (do not overwrite the Render
 backend env or commit real credentials). Configure:
 
 ```dotenv
@@ -105,8 +139,8 @@ branch. Uploading a Zalo frontend version does not update Render's backend.
 ## 4. Verify
 
 1. Check `https://your-relay.example.vn/health` returns 200.
-2. An unsigned POST to `/v1/zalo/verify` MUST return 401 without calling Zalo.
-3. On the existing Testing version, tap Zalo login and grant profile/phone consent.
+2. An unsigned POST to `/v2/zalo/verify` MUST return 401 without calling Zalo.
+3. On the existing Testing version, tap Zalo login and grant phone consent.
 4. The Vietnam relay verifies phone using the fixed official `/me/info` endpoint.
    Render verifies app ID and phone before resolving the shared UUID or issuing
    a short-lived new-customer registration challenge. It does not call `/me`.
@@ -123,6 +157,20 @@ Requests use HMAC-SHA256 over method, fixed route, timestamp, nonce and exact JS
 body. Signatures are compared in constant time. Old/tampered/replayed requests
 are rejected before upstream access. Relay body size is limited to 24 KB.
 The relay exposes no arbitrary target URL and never returns credentials or JWTs.
+
+Protocol v2 additionally encrypts tokens in requests and phone/app ID in successful
+responses using Node's AES-256-GCM. HKDF-SHA256 derives separate request/response
+keys from the private random relay secret. Each message has a fresh random 96-bit
+IV and a 128-bit authentication tag; authenticated context binds direction, route,
+request timestamp and nonce. Responses from another request cannot be substituted.
+Plaintext/old-v1 payloads are NOT accepted; deploy the matching Render client and
+local relay together. There is no plaintext fallback.
+
+Cloudflare terminates HTTPS, but with v2 the token/phone payload remains encrypted
+until the Render or local relay process decrypts it. Cloudflare can still observe
+metadata such as timing, URL, IP and ciphertext length. This is not anonymity or
+a security audit. Keep both endpoints patched and the relay key private; a
+compromised endpoint/key defeats payload encryption. Do not enable body logging.
 
 Replay state is in memory: deploy ONE relay process/replica. For multiple workers,
 add a shared atomic nonce store before scaling. Restarting clears replay state;

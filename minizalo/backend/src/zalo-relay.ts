@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { ApiError } from './errors.js';
 import { verifyZaloPhone, ZaloAuthOptions } from './zalo-auth.js';
-import { RELAY_PATH, RELAY_WINDOW_MS, validRelaySignature } from './zalo-relay-protocol.js';
+import { RELAY_PATH, RELAY_WINDOW_MS, validRelaySignature, encryptRelayPayload, decryptRelayPayload } from './zalo-relay-protocol.js';
 
 interface RelayOptions extends ZaloAuthOptions { relaySecret: string; }
 
@@ -29,9 +29,11 @@ export function createZaloRelay(options: RelayOptions) {
       if (nonces.has(nonce)) throw new ApiError(401, 'Relay request has already been used');
       if (nonces.size >= 10000) throw new ApiError(503, 'Relay capacity reached; retry later');
       nonces.set(nonce, now + 2 * RELAY_WINDOW_MS);
-      const input = JSON.parse(req.body.toString('utf8'));
+      let input: any;
+      try { input = decryptRelayPayload(JSON.parse(req.body.toString('utf8')), options.relaySecret, 'request', timestamp, nonce); }
+      catch { throw new ApiError(400, 'Invalid encrypted relay request'); }
       const phone = await verifyZaloPhone(input?.accessToken, input?.phoneToken, options);
-      res.json({ success: true, data: { phone, appId: options.zaloAppId } });
+      res.json({ success: true, data: encryptRelayPayload({ phone, appId: options.zaloAppId }, options.relaySecret, 'response', timestamp, nonce) });
     }).catch(next);
   });
   app.use((_req, res) => res.status(404).json({ success: false, statusCode: 404, message: 'Not found' }));

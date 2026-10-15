@@ -8,6 +8,9 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "start:relay": "node dist/relay-main.js",
+    "relay:install": "node scripts/local-relay.mjs install",
+    "relay:local": "npm run build && node scripts/local-relay.mjs start",
+    "relay:stop": "node scripts/local-relay.mjs stop",
     "test": "npm run build && node --test test/*.test.mjs",
     "db:generate": "prisma generate",
     "db:check": "npm run build && node scripts/check-database.mjs"

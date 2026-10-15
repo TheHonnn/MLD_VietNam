@@ -1,7 +1,11 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'node:path';
 import { createZaloRelay } from './zalo-relay.js';
 
 try {
+  // Keep database/JWT configuration out of the Vietnam-only relay process.
+  const loaded = config({ path: resolve(__dirname, '../.env.relay'), override: true });
+  if (loaded.error) throw new Error('Private relay configuration is missing');
   const app = createZaloRelay({
     zaloAppId: process.env.ZALO_APP_ID,
     zaloAppSecret: process.env.ZALO_APP_SECRET,

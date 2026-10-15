@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ApiError } from './errors.js';
 import { verifyZaloPhone, ZaloAuthOptions } from './zalo-auth.js';
-import { RELAY_PATH, signRelayRequest } from './zalo-relay-protocol.js';
+import { RELAY_PATH, signRelayRequest, encryptRelayPayload, decryptRelayPayload } from './zalo-relay-protocol.js';
 
 export interface RelayAuthOptions extends ZaloAuthOptions {
   zaloRelayUrl?: string;
@@ -24,9 +24,9 @@ export async function authenticateZalo(accessToken: unknown, phoneToken: unknown
     || (options.zaloRelaySecret?.length ?? 0) < 32 || !/^\d{1,64}$/.test(options.zaloAppId ?? '')) {
     throw new ApiError(503, 'Private relay requires an HTTPS origin, app ID and a secret of at least 32 characters');
   }
-  const body = JSON.stringify({ accessToken, phoneToken });
   const timestamp = String(Date.now());
   const nonce = randomUUID();
+  const body = JSON.stringify(encryptRelayPayload({ accessToken, phoneToken }, options.zaloRelaySecret!, 'request', timestamp, nonce));
   let response: Response;
   let result: any;
   try {
@@ -50,7 +50,9 @@ export async function authenticateZalo(accessToken: unknown, phoneToken: unknown
     throw new ApiError(status, status === 502 ? 'Private Zalo relay could not verify the account; check relay Logs'
       : 'Zalo verification failed; grant permissions and sign in again');
   }
-  const profile = result.data;
+  let profile: any;
+  try { profile = decryptRelayPayload(result.data, options.zaloRelaySecret!, 'response', timestamp, nonce); }
+  catch { throw new ApiError(502, 'Private Zalo relay returned an invalid encrypted response'); }
   if (profile?.appId !== options.zaloAppId || typeof profile?.phone !== 'string' || !/^0[1-9]\d{8,9}$/.test(profile.phone)) {
     throw new ApiError(502, 'Private Zalo relay returned an invalid account or parent app ID');
   }
