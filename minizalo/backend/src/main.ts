@@ -4,6 +4,24 @@ import { createStore, validateSharedSchema } from './store.js';
 
 let startupStage = 'database-connection';
 
+function redactStartupMessage(message: string): string {
+  const secrets = Object.entries(process.env)
+    .filter(([key]) => /SECRET|TOKEN|PASSWORD|KEY|DATABASE_URL|DIRECT_URL/i.test(key))
+    .map(([, value]) => value ?? '');
+  for (const key of ['DATABASE_URL', 'DIRECT_URL']) {
+    try {
+      const url = new URL(process.env[key] ?? '');
+      secrets.push(url.username, url.password, decodeURIComponent(url.username), decodeURIComponent(url.password));
+    } catch {
+      // Malformed connection strings are still redacted by their exact value above.
+    }
+  }
+  for (const secret of secrets.filter(Boolean).sort((a, b) => b.length - a.length)) {
+    message = message.split(secret).join('[REDACTED]');
+  }
+  return message.replace(/postgres(?:ql)?:\/\/[^\s"'`]+/gi, '[REDACTED_URL]').slice(0, 3000);
+}
+
 async function main() {
   const store = createStore(prisma);
   await prisma.$queryRaw`SELECT 1`;
@@ -18,6 +36,7 @@ main().catch(async error=>{
   const message = error instanceof Error ? error.message : '';
   const code = String(error?.errorCode ?? error?.code ?? '');
   const safeCode = /^P\d{4}$/.test(code) ? code : message.match(/\bP\d{4}\b/)?.[0];
+  console.error('Startup error (credentials redacted):', redactStartupMessage(message));
   console.error('Startup diagnostic:', JSON.stringify({
     stage: startupStage,
     errorType: error instanceof Error ? error.name.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 80) : 'Unknown',
