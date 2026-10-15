@@ -12,6 +12,7 @@ import {
   TreatmentJournal,
   ApiResponse,
 } from '../types/shared_types';
+import { supabaseService } from './supabaseService';
 
 export const treatmentService = {
   // --- Danh mục dịch vụ ---
@@ -21,8 +22,9 @@ export const treatmentService = {
   }): Promise<ApiResponse<Service[]>> {
     return apiClient.get<Service[]>('/services', {
       params,
-      mockFallback: () => {
-        let result = [...mockServices];
+      mockFallback: async () => {
+        const live = await supabaseService.getServices();
+        let result = live && live.length > 0 ? live : [...mockServices];
         if (params?.categoryId) {
           result = result.filter((s) => s.categoryId === params.categoryId);
         }
@@ -41,20 +43,31 @@ export const treatmentService = {
 
   async getServiceById(id: string): Promise<ApiResponse<Service | undefined>> {
     return apiClient.get<Service | undefined>(`/services/${id}`, {
-      mockFallback: () => mockServices.find((s) => s.id === id),
+      mockFallback: async () => {
+        const live = await supabaseService.getServices();
+        const found = live?.find((s) => s.id === id);
+        return found || mockServices.find((s) => s.id === id);
+      },
     });
   },
 
   // --- Gói Liệu Trình (TreatmentPackage) ---
   async getTreatmentPackages(): Promise<ApiResponse<TreatmentPackage[]>> {
     return apiClient.get<TreatmentPackage[]>('/treatment-packages', {
-      mockFallback: () => mockTreatmentPackages,
+      mockFallback: async () => {
+        const live = await supabaseService.getTreatmentPackages();
+        return live && live.length > 0 ? live : mockTreatmentPackages;
+      },
     });
   },
 
   async getTreatmentPackageById(id: string): Promise<ApiResponse<TreatmentPackage | undefined>> {
     return apiClient.get<TreatmentPackage | undefined>(`/treatment-packages/${id}`, {
-      mockFallback: () => mockTreatmentPackages.find((p) => p.id === id),
+      mockFallback: async () => {
+        const live = await supabaseService.getTreatmentPackages();
+        const found = live?.find((p) => p.id === id);
+        return found || mockTreatmentPackages.find((p) => p.id === id);
+      },
     });
   },
 

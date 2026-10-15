@@ -21,6 +21,8 @@ import {
   ApiResponse,
 } from '../types/shared_types';
 
+import { supabaseService } from './supabaseService';
+
 export const academyService = {
   // --- Khóa học LMS ---
   async getCourses(params?: {
@@ -29,8 +31,9 @@ export const academyService = {
   }): Promise<ApiResponse<Course[]>> {
     return apiClient.get<Course[]>('/academy/courses', {
       params,
-      mockFallback: () => {
-        let result = [...mockCourses];
+      mockFallback: async () => {
+        const live = await supabaseService.getCourses();
+        let result = live && live.length > 0 ? live : [...mockCourses];
         if (params?.level) {
           result = result.filter((c) => c.level === params.level);
         }
@@ -49,7 +52,11 @@ export const academyService = {
 
   async getCourseById(id: string): Promise<ApiResponse<Course | undefined>> {
     return apiClient.get<Course | undefined>(`/academy/courses/${id}`, {
-      mockFallback: () => mockCourses.find((c) => c.id === id),
+      mockFallback: async () => {
+        const live = await supabaseService.getCourses();
+        const found = live?.find((c) => c.id === id);
+        return found || mockCourses.find((c) => c.id === id);
+      },
     });
   },
 
