@@ -3,6 +3,7 @@ import { apiClient } from '@/api/client';
 import type { Course, CourseEnrollment } from '../../../../backend/src/data/database';
 import { ArrowLeftIcon, FileTextIcon, PlayCircleIcon } from './Icons';
 import { QRCode } from './QRCode';
+import { EntityImage } from './GroupBExtensions';
 
 interface GroupEAcademyProps {
   courses: Course[];
@@ -242,7 +243,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
       </div>
       {!filtered.length && <Empty>Chưa có khóa học phù hợp.</Empty>}
       {filtered.map(course => <button key={course.id} className="w-full space-y-2 border-b py-3 text-left" onClick={() => { setSelectedId(course.id); setActionError(''); setNotice(''); }}>
-        {safeUrl(course.image) && <img src={safeUrl(course.image)} alt={course.title} className="aspect-[16/9] w-full rounded-[8px] object-cover" />}
+        <EntityImage src={safeUrl(course.image)} alt={course.title} className="aspect-[16/9] w-full" />
         <h2 className="text-base font-bold break-words">{course.title}</h2>
         <p className="text-xs">{course.category} · {course.duration}</p><p className="text-sm font-semibold">{money(course.price)}</p>
       </button>)}
@@ -251,12 +252,12 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, mode = 'c
     {tab === 'catalog' && selected && <div className="space-y-4">
       <button aria-label="Quay lại khóa học" className={buttonClass} onClick={() => { setSelectedId(null); setLessonId(null); }}><ArrowLeftIcon size={16} /></button>
       <h2 className="text-lg font-bold break-words">{selected.title}</h2>
-      {safeUrl(selected.image) && <img src={safeUrl(selected.image)} alt={selected.title} className="aspect-[16/9] w-full rounded-[8px] object-cover" />}
+      <EntityImage src={safeUrl(selected.image)} alt={selected.title} className="aspect-[16/9] w-full" />
       <p className="whitespace-pre-wrap text-sm">{selected.description || 'Chưa có giới thiệu khóa học.'}</p>
       <dl className="grid grid-cols-2 gap-2 text-xs"><dt>Mã khóa học</dt><dd>{selected.code}</dd><dt>Trình độ</dt><dd>{selected.level}</dd><dt>Tổng số giờ</dt><dd>{selected.totalHours}</dd><dt>Lý thuyết / thực hành</dt><dd>{selected.theoryHours} / {selected.practiceHours} giờ</dd><dt>Học phí</dt><dd>{money(selected.price)}</dd><dt>Mức đặt cọc</dt><dd>{money(selected.depositAmount)}</dd></dl>
       <h3 className="text-sm font-bold">Giảng viên</h3>
       {selected.instructorProfile ? <div className="space-y-2 text-xs">
-        {safeUrl(selected.instructorProfile.avatarUrl) && <img src={safeUrl(selected.instructorProfile.avatarUrl)} alt={selected.instructorProfile.fullName} className="h-20 w-20 rounded-[8px] object-cover" />}
+        <EntityImage src={safeUrl(selected.instructorProfile.avatarUrl)} alt={selected.instructorProfile.fullName} className="h-20 w-20" />
         <p>{selected.instructorProfile.fullName} {selected.instructorProfile.title}</p>
         {selected.instructorProfile.experienceYears != null && <p>{selected.instructorProfile.experienceYears} năm kinh nghiệm</p>}
         <p className="whitespace-pre-wrap">{selected.instructorProfile.bio}</p>

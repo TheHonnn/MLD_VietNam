@@ -84,6 +84,11 @@ Missing owner/configuration workflows above require coordination before enabling
 - Browser smoke checks use the anonymous public catalog without customer writes;
   authenticated flows are covered by isolated backend tests. Native Zalo permission
   and complete authenticated UI flows still need a real device check.
+- On 2026-10-16, all 47 backend tests passed and frontend TypeScript/build passed.
+  Render passed all 16 read-only API contract checks after deployment. Browser
+  checks of home, service detail and academy at 320/390/1280px found no horizontal
+  overflow. Browser-only SDK runtime events remain unverified on a real Zalo device.
+  Missing/broken course images use an explicit empty-image state, not stock imagery.
 - `node scripts/check-content.mjs --compare-deployed` is read-only and prints only
   aggregate counts and catalog-match booleans, never customer records/secrets.
 - Deploy backend first. `/api/health` must report `contentContract: shared-admin-v1`.
