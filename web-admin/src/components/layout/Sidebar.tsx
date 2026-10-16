@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { SidebarItem, menuResources } from '../../admin/SidebarItem';
 import { adminApi, Resource } from '../../admin/api';
+import { DEFAULT_RESOURCES } from '../../admin/defaultResources';
 import {
   LayoutGrid,
   Store,
@@ -24,10 +25,14 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const [resources, setResources] = useState<Resource[]>([]);
+  const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES);
   useEffect(() => {
     const controller = new AbortController();
-    adminApi<Resource[]>('resources', undefined, controller.signal).then(setResources).catch(() => {});
+    adminApi<Resource[]>('resources', undefined, controller.signal)
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) setResources(res);
+      })
+      .catch(() => {});
     return () => controller.abort();
   }, []);
   const sections: { title: string; items: { name: string; path: string; icon: LucideIcon; onlyWhenAllowed?: boolean }[] }[] = [

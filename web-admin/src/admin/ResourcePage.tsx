@@ -30,6 +30,7 @@ import {
   Row,
   rowKey,
 } from "./api";
+import { DEFAULT_RESOURCES } from "./defaultResources";
 import { display, enums, label } from "./labels";
 
 function ReferenceInput({
@@ -522,7 +523,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { table: routeTable } = useParams(),
     table = fixedTable || routeTable || "";
   const [params, setParams] = useSearchParams();
-  const [resources, setResources] = useState<Resource[]>([]),
+  const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES),
     [listing, setListing] = useState<Listing | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -546,10 +547,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   useEffect(() => {
     const c = new AbortController();
     adminApi<Resource[]>("resources", undefined, c.signal)
-      .then(setResources)
-      .catch((e) => {
-        if (!c.signal.aborted) setError(e.message);
-      });
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) setResources(res);
+      })
+      .catch(() => {});
     return () => c.abort();
   }, []);
   useEffect(() => {
