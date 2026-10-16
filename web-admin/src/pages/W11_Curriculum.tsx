@@ -453,7 +453,7 @@ export const W11_Curriculum: React.FC = () => {
             Danh sách lớp đào tạo
           </h2>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-            {filteredClasses.length} bản ghi mẫu
+            {filteredClasses.length} lớp đào tạo
           </span>
         </div>
 
@@ -466,7 +466,7 @@ export const W11_Curriculum: React.FC = () => {
                 <th className="py-2.5 px-4 font-semibold">Giảng viên</th>
                 <th className="py-2.5 px-4 font-semibold">Cơ sở / phòng</th>
                 <th className="py-2.5 px-4 font-semibold">Lịch học / bắt đầu</th>
-                <th className="py-2.5 px-4 font-semibold">Sĩ số mẫu</th>
+                <th className="py-2.5 px-4 font-semibold">Sĩ số lớp</th>
                 <th className="py-2.5 px-4 font-semibold">Trạng thái</th>
               </tr>
             </thead>
@@ -526,7 +526,7 @@ export const W11_Curriculum: React.FC = () => {
 
         {/* Footer */}
         <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-          <span>Hiển thị {filteredClasses.length} / {trainingClasses.length} bản ghi minh họa</span>
+          <span>Hiển thị {filteredClasses.length} / {trainingClasses.length} lớp học</span>
           <div className="flex items-center gap-1.5">
             <button
               disabled
@@ -576,10 +576,10 @@ export const W11_Curriculum: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Theo dõi học tập mẫu */}
+        {/* Right: Theo dõi học tập */}
         <div className="lg:col-span-5 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
           <h2 className="text-base font-bold text-[#2C241E]">
-            Theo dõi học tập mẫu
+            Theo dõi tiến độ học tập
           </h2>
 
           {/* Lesson box */}
@@ -604,7 +604,7 @@ export const W11_Curriculum: React.FC = () => {
           {/* Stats */}
           <div className="space-y-2 text-xs pt-0.5">
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Minh Anh đã hoàn thành</span>
+              <span>Xuân Trường đã hoàn thành</span>
               <span className="text-[#2C241E] font-medium">4/20 bài · 20%</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
@@ -614,7 +614,7 @@ export const W11_Curriculum: React.FC = () => {
           </div>
 
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Đánh giá kiến thức và thực hành cần ghi nhận nội bộ sau đối chiếu. Không xác nhận chứng chỉ hoặc kiểm định chính thức.
+            Đánh giá kiến thức và thực hành theo dõi trên hệ thống quản lý học tập MLD Academy.
           </div>
         </div>
       </div>
@@ -623,7 +623,7 @@ export const W11_Curriculum: React.FC = () => {
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#8A4F23]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống khung chương trình đào tạo & lộ trình học viện • MLD Vietnam Healthcare Admin.
         </span>
       </div>
 

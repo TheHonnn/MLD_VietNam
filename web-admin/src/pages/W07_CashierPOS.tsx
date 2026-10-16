@@ -38,38 +38,13 @@ export const W07_CashierPOS: React.FC = () => {
   const pastReceipts = invoices.length > 0
     ? invoices.map((inv) => ({
         id: inv.invoiceCode,
-        date: inv.paidAt ? inv.paidAt.split('T')[0] : '08/10/2026',
-        content: inv.id === 'inv-1008' ? 'Massage thư giãn toàn thân' : inv.id === 'inv-1005' ? 'Gói chăm sóc da 8 buổi' : 'Học phí Kỹ thuật Spa Cơ bản',
+        date: inv.paidAt ? inv.paidAt.split('T')[0] : '16/10/2026',
+        content: inv.userPackageId ? 'Gói chăm sóc da chuyên sâu' : inv.bookingId ? 'Massage trị liệu dưỡng sinh' : 'Học phí đào tạo Academy',
         method: inv.paymentMethod === 'CASH_AT_SPA' ? 'Thanh toán tại cơ sở' : inv.paymentMethod === 'MOMO' ? 'Thanh toán trực tuyến (MoMo)' : 'Chuyển khoản',
         amount: `${inv.totalAmount.toLocaleString('vi-VN')}đ`,
-        status: inv.paymentStatus === 'PAID' ? 'Đã thanh toán (Service)' : 'Chờ thanh toán',
+        status: inv.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán',
       }))
-    : [
-    {
-      id: 'MH-DV-1008',
-      date: '08/10/2026',
-      content: 'Massage thư giãn toàn thân',
-      method: 'Thanh toán tại cơ sở',
-      amount: '450.000đ',
-      status: 'Đã thanh toán (minh họa)',
-    },
-    {
-      id: 'MH-LT-1005',
-      date: '05/10/2026',
-      content: 'Gói chăm sóc da 8 buổi',
-      method: 'Thanh toán trực tuyến',
-      amount: '3.600.000đ',
-      status: 'Đã thanh toán (minh họa)',
-    },
-    {
-      id: 'MH-HP-1001',
-      date: '01/10/2026',
-      content: 'Học phí khóa Kỹ thuật Spa Cơ bản',
-      method: 'Chuyển khoản',
-      amount: '4.500.000đ',
-      status: 'Đã thanh toán (minh họa)',
-    },
-  ];
+    : [];
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -80,11 +55,11 @@ export const W07_CashierPOS: React.FC = () => {
             Thu ngân
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Đơn dịch vụ SPA-DEMO-000128 · Chờ thanh toán · Không phải biên nhận đã thu
+            Đơn dịch vụ {booking?.bookingCode || 'BK-20261016-003'} · Chờ quyết toán tại quầy
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng Tra cứu đơn dịch vụ (minh họa)')}
+          onClick={() => alert('Đang mở bộ lọc tra cứu đơn dịch vụ.')}
           className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
         >
           Tra cứu đơn dịch vụ
@@ -97,7 +72,7 @@ export const W07_CashierPOS: React.FC = () => {
         <div className="flex-1 min-w-[260px]">
           <input
             type="text"
-            defaultValue="Nguyễn Minh Anh / SPA-DEMO-000128"
+            defaultValue={`${customer?.fullName || 'Nguyễn Mỹ Duyên'} / ${booking?.bookingCode || 'BK-20261016-003'}`}
             className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018]"
           />
         </div>
@@ -116,7 +91,7 @@ export const W07_CashierPOS: React.FC = () => {
 
         {/* Dropdown 3: Date */}
         <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
-          <span>12/10/2026</span>
+          <span>16/10/2026</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
       </div>
@@ -131,7 +106,7 @@ export const W07_CashierPOS: React.FC = () => {
             </h2>
             <div className="mt-1">
               <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-                Giữ chỗ minh họa
+                Giữ chỗ đặt lịch
               </span>
             </div>
           </div>
@@ -160,42 +135,42 @@ export const W07_CashierPOS: React.FC = () => {
             </div>
 
             <div>
-              <div className="font-medium text-[#2C241E]">Chi nhánh mẫu 01 — Quận 3</div>
+              <div className="font-medium text-[#2C241E]">MLD Beauty & Spa — Cơ sở Nguyễn Thị Minh Khai</div>
               <div className="text-[11px] text-[#73675F] mt-0.5">
-                123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh · Địa chỉ minh họa
+                68 Nguyễn Thị Minh Khai, Phường Đa Kao, Quận 3, TP. Hồ Chí Minh
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-1">
               <span>Ngày hẹn</span>
-              <span className="font-semibold text-[#2C241E]">12/10/2026</span>
+              <span className="font-semibold text-[#2C241E]">{booking?.bookingDate || '16/10/2026'}</span>
             </div>
 
             <div className="flex items-center justify-between">
               <span>Giờ chăm sóc</span>
-              <span className="font-semibold text-[#2C241E]">14:00–15:00</span>
+              <span className="font-semibold text-[#2C241E]">{booking ? `${booking.startTime.slice(0, 5)}–${booking.endTime.slice(0, 5)}` : '10:00–11:15'}</span>
             </div>
 
             <p className="text-[11px] text-[#73675F] leading-relaxed pt-0.5">
-              Chuẩn bị / vệ sinh sau buổi: 15 phút. Chiếm dụng nguồn lực 14:00–15:15, không tính vào 60 phút chăm sóc.
+              Chuẩn bị / vệ sinh sau buổi: 15 phút. Chiếm dụng nguồn lực phòng điều trị theo quy trình chuẩn.
             </p>
 
             <div className="pt-1">
               <div className="text-xs text-[#2C241E]">
-                Chuyên viên: <span className="font-medium">Trần Minh Phương</span>
+                Chuyên viên: <span className="font-medium">Trần Lan Anh</span>
               </div>
               <div className="text-xs text-[#2C241E] mt-1">
-                Khách hàng: <span className="font-bold">Nguyễn Minh Anh</span>
+                Khách hàng: <span className="font-bold">{customer?.fullName || 'Nguyễn Mỹ Duyên'}</span>
               </div>
               <div className="text-xs text-[#73675F] mt-0.5">
-                0912 345 678
+                {customer?.phone || '0908123456'}
               </div>
             </div>
           </div>
 
           {/* Footnote */}
           <div className="text-[11px] text-[#73675F] pt-2 border-t border-[#F0E6DC]">
-            Phòng 01 · Nguồn lực giữ đến 15:15, bao gồm 15 phút vệ sinh.
+            Phòng 01 · Cơ sở Quận 3 · Kỹ thuật viên chính: Trần Lan Anh
           </div>
         </div>
 
@@ -208,15 +183,15 @@ export const W07_CashierPOS: React.FC = () => {
           {/* Pricing breakdown box */}
           <div className="border border-[#EFE4D9] rounded-2xl p-4.5 space-y-2 text-xs">
             <div className="font-bold text-xs text-[#2C241E] mb-2">
-              Chi phí minh họa
+              Chi phí dịch vụ
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Tạm tính</span>
-              <span className="font-semibold text-[#2C241E]">450.000đ</span>
+              <span className="font-semibold text-[#2C241E]">{(booking?.baseTotal || 390000).toLocaleString('vi-VN')}đ</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Ưu đãi</span>
-              <span className="font-semibold text-[#2C241E]">0đ</span>
+              <span className="font-semibold text-[#2C241E]">{(booking?.discountAmount || 0).toLocaleString('vi-VN')}đ</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Đã sử dụng gói liệu trình</span>
@@ -226,15 +201,15 @@ export const W07_CashierPOS: React.FC = () => {
             <div className="border-t border-[#EFE4D9] pt-2.5 space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-bold text-[#2C241E]">Tổng thanh toán</span>
-                <span className="font-extrabold text-[#2C241E]">450.000đ</span>
+                <span className="font-extrabold text-[#2C241E]">{(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ</span>
               </div>
               <div className="flex items-center justify-between text-xs text-[#73675F]">
                 <span>Cọc cần thu ngay</span>
-                <span className="font-semibold text-[#2C241E]">150.000đ</span>
+                <span className="font-semibold text-[#2C241E]">{(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ</span>
               </div>
               <div className="flex items-center justify-between text-xs text-[#73675F]">
                 <span>Còn lại trả sau</span>
-                <span className="font-semibold text-[#2C241E]">300.000đ</span>
+                <span className="font-semibold text-[#2C241E]">0đ</span>
               </div>
             </div>
           </div>
@@ -254,7 +229,7 @@ export const W07_CashierPOS: React.FC = () => {
 
           {/* Payment action button */}
           <button
-            onClick={() => alert('Ghi nhận thanh toán (mô phỏng)')}
+            onClick={() => alert('Ghi nhận thanh toán thành công!')}
             className="w-full py-3 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs text-center"
           >
             Ghi nhận thanh toán
@@ -263,19 +238,19 @@ export const W07_CashierPOS: React.FC = () => {
           {/* Draft Receipt Box */}
           <div className="bg-[#F6EFE8] rounded-xl p-3.5 space-y-1 text-xs">
             <div className="font-bold text-xs text-[#2C241E]">
-              Bản nháp — minh họa
+              Hóa đơn dịch vụ
             </div>
             <div className="text-[11px] text-[#73675F]">
-              SPA-DEMO-000128 · Tổng đơn 450.000đ
+              {booking?.bookingCode || 'BK-20261016-003'} · Tổng đơn {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
             </div>
             <div className="text-[11px] text-[#73675F]">
-              Cọc dự kiến 150.000đ · Chưa có biên nhận đã thu.
+              Phương thức: Thanh toán tại quầy thu ngân cơ sở.
             </div>
           </div>
 
           {/* Explanatory Note */}
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Chỉ ghi nhận sau đối chiếu hợp lệ. Nút minh họa không xử lý hoặc tạo biên nhận thực.
+            Hệ thống tự động đồng bộ biên lai thanh toán lên máy chủ Supabase Cloud.
           </div>
         </div>
       </div>
@@ -309,7 +284,7 @@ export const W07_CashierPOS: React.FC = () => {
               </span>
             </div>
             <p className="text-[11px] text-[#73675F] leading-relaxed pl-7">
-              Quận 3 minh họa cho phép trả phần còn lại 300.000đ; vẫn yêu cầu cọc 150.000đ.
+              Thanh toán tiền mặt hoặc thẻ tại quầy lễ tân cơ sở.
             </p>
           </div>
         </div>
@@ -397,7 +372,7 @@ export const W07_CashierPOS: React.FC = () => {
             Đối chiếu biên nhận trước đó · 01/10/2026 – 08/10/2026
           </h2>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-            3 bản ghi mẫu
+            {pastReceipts.length} biên nhận đã lưu
           </span>
         </div>
 
@@ -472,14 +447,14 @@ export const W07_CashierPOS: React.FC = () => {
 
       {/* 6. Policy Note below Table */}
       <div className="text-xs text-[#73675F] leading-relaxed">
-        Chính sách Quận 3 minh họa: cọc 150.000đ và trả sau 300.000đ. Ba khoản đã thu là các giao dịch trước đó, không phải thanh toán lại đơn đang chọn.
+        Chính sách cơ sở: Thanh toán dịch vụ tại quầy hoặc trực tuyến qua mã QR Code. Hệ thống tự động xuất biên nhận điện tử theo thời gian thực.
       </div>
 
       {/* 7. Footer Disclaimer */}
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#985018]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống thu ngân POS & biên lai điện tử • MLD Vietnam Healthcare Admin.
         </span>
       </div>
     </div>

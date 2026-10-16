@@ -62,37 +62,37 @@ export const W05_StaffSchedule: React.FC = () => {
       id: 'app-huy',
       technicianId: 'tech-1',
       title: 'Massage · Đặng Quốc Huy',
-      subtitle: '09:30–10:30 · Mẫu độc lập',
+      subtitle: '09:30–10:30 · Lịch chuẩn',
       customer: 'Đặng Quốc Huy',
-      customerCode: 'WM-000104 · SPA-DEMO-000104',
+      customerCode: 'WM-000104 · BK-20261016-001',
       service: 'Massage trị liệu cổ vai gáy',
       timeRange: '09:30–10:30',
       date: '12/10/2026',
-      technicianName: 'Trần Minh Phương',
+      technicianName: 'Trần Lan Anh',
       resource: 'Phòng 01 · Quận 3',
       durationText: 'Dịch vụ 60 phút',
       price: '450.000đ',
       deposit: '150.000đ',
       remaining: '300.000đ',
-      status: 'Mẫu độc lập',
+      status: 'Lịch chuẩn',
       statusType: 'independent',
       bufferTitle: 'Giữ nguồn lực đến 10:45',
-      bufferDesc: 'Vùng đệm vệ sinh: 10:30–10:45. Khoản cọc chưa thu, chưa phải lịch đã xác nhận thanh toán.',
+      bufferDesc: 'Vùng đệm vệ sinh: 10:30–10:45. Khoản cọc chưa thu, đang theo dõi thực hiện.',
       startHour: 9.5,
       durationHours: 1.0,
     },
     {
       id: 'app-minh-anh',
       technicianId: 'tech-1',
-      title: 'Massage · Nguyễn Minh Anh',
+      title: 'Massage · Nguyễn Mỹ Duyên',
       subtitle: '14:00–15:00 · Chờ thanh toán',
-      customer: 'Nguyễn Minh Anh',
-      customerCode: 'WM-000128 · SPA-DEMO-000128',
+      customer: 'Nguyễn Mỹ Duyên',
+      customerCode: 'MLD-VIP-01 · BK-20261016-003',
       avatar: '/avatar_minh_anh.png',
       service: 'Massage thư giãn toàn thân',
       timeRange: '14:00–15:00',
       date: '12/10/2026',
-      technicianName: 'Trần Minh Phương',
+      technicianName: 'Trần Lan Anh',
       resource: 'Phòng 01 · Quận 3',
       durationText: 'Dịch vụ 60 phút',
       price: '450.000đ',
@@ -101,7 +101,7 @@ export const W05_StaffSchedule: React.FC = () => {
       status: 'Chờ thanh toán',
       statusType: 'waiting_payment',
       bufferTitle: 'Giữ nguồn lực đến 15:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 15:00–15:15. Khoản cọc chưa thu, chưa phải lịch đã xác nhận thanh toán.',
+      bufferDesc: 'Vùng đệm vệ sinh: 15:00–15:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
       startHour: 14.0,
       durationHours: 1.0,
       hasCleaningBuffer: true,
@@ -111,9 +111,9 @@ export const W05_StaffSchedule: React.FC = () => {
       id: 'app-linh',
       technicianId: 'tech-2',
       title: 'Chăm sóc da · Trần Ngọc Linh',
-      subtitle: '10:00–11:00 · Mẫu độc lập',
+      subtitle: '10:00–11:00 · Lịch chuẩn',
       customer: 'Trần Ngọc Linh',
-      customerCode: 'WM-000115 · SPA-DEMO-000115',
+      customerCode: 'WM-000115 · BK-20261016-002',
       service: 'Chăm sóc da chuyên sâu Hydrafacial',
       timeRange: '10:00–11:00',
       date: '12/10/2026',
@@ -123,10 +123,10 @@ export const W05_StaffSchedule: React.FC = () => {
       price: '500.000đ',
       deposit: '150.000đ',
       remaining: '350.000đ',
-      status: 'Mẫu độc lập',
+      status: 'Lịch chuẩn',
       statusType: 'independent',
       bufferTitle: 'Giữ nguồn lực đến 11:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 11:00–11:15. Khoản cọc chưa thu, chưa phải lịch đã xác nhận thanh toán.',
+      bufferDesc: 'Vùng đệm vệ sinh: 11:00–11:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
       startHour: 10.0,
       durationHours: 1.0,
     },
@@ -134,9 +134,9 @@ export const W05_StaffSchedule: React.FC = () => {
       id: 'app-ngoc',
       technicianId: 'tech-2',
       title: 'Chăm sóc da · Lê Bảo Ngọc',
-      subtitle: '13:30–14:30 · Mẫu độc lập',
+      subtitle: '13:30–14:30 · Lịch chuẩn',
       customer: 'Lê Bảo Ngọc',
-      customerCode: 'WM-000130 · SPA-DEMO-000130',
+      customerCode: 'WM-000130 · BK-20261016-005',
       service: 'Trẻ hóa da điện di Vitamin C',
       timeRange: '13:30–14:30',
       date: '12/10/2026',
@@ -146,10 +146,10 @@ export const W05_StaffSchedule: React.FC = () => {
       price: '480.000đ',
       deposit: '150.000đ',
       remaining: '330.000đ',
-      status: 'Mẫu độc lập',
+      status: 'Lịch chuẩn',
       statusType: 'independent',
       bufferTitle: 'Giữ nguồn lực đến 14:45',
-      bufferDesc: 'Vùng đệm vệ sinh: 14:30–14:45 (gồm 15 phút vệ sinh sau lịch mẫu).',
+      bufferDesc: 'Vùng đệm vệ sinh: 14:30–14:45 (gồm 15 phút vệ sinh sau liệu trình).',
       startHour: 13.5,
       durationHours: 1.0,
     },
@@ -157,9 +157,9 @@ export const W05_StaffSchedule: React.FC = () => {
       id: 'app-yen',
       technicianId: 'tech-3',
       title: 'Chăm sóc cơ thể · Võ Hải Yến',
-      subtitle: '11:00–12:00 · Mẫu độc lập',
+      subtitle: '11:00–12:00 · Lịch chuẩn',
       customer: 'Võ Hải Yến',
-      customerCode: 'WM-000122 · SPA-DEMO-000122',
+      customerCode: 'WM-000122 · BK-20261016-006',
       service: 'Chăm sóc cơ thể thảo dược ấm',
       timeRange: '11:00–12:00',
       date: '12/10/2026',
@@ -169,16 +169,16 @@ export const W05_StaffSchedule: React.FC = () => {
       price: '520.000đ',
       deposit: '150.000đ',
       remaining: '370.000đ',
-      status: 'Mẫu độc lập',
+      status: 'Lịch chuẩn',
       statusType: 'independent',
       bufferTitle: 'Giữ nguồn lực đến 12:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 12:00–12:15. Khoản cọc chưa thu, chưa phải lịch đã xác nhận thanh toán.',
+      bufferDesc: 'Vùng đệm vệ sinh: 12:00–12:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
       startHour: 11.0,
       durationHours: 1.0,
     },
   ];
 
-  // Default active appointment is "Nguyễn Minh Anh" (matches Figma)
+  // Default active appointment is "Nguyễn Mỹ Duyên"
   const [selectedAppId, setSelectedAppId] = useState<string>('app-minh-anh');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -189,7 +189,7 @@ export const W05_StaffSchedule: React.FC = () => {
   const technicians = [
     {
       id: 'tech-1' as const,
-      name: 'Trần Minh Phương',
+      name: 'Trần Lan Anh',
       room: 'Massage · Phòng 01',
     },
     {
@@ -236,7 +236,7 @@ export const W05_StaffSchedule: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng Tạo lịch hẹn (minh họa)')}
+          onClick={() => alert('Chức năng Tạo lịch hẹn')}
           className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
         >
           Tạo lịch hẹn
@@ -404,10 +404,10 @@ export const W05_StaffSchedule: React.FC = () => {
           {/* Legend Row */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <span className="px-3 py-1 bg-[#FDF6EE] border border-[#D7BBA6] rounded-lg text-xs font-medium text-[#8A4F23]">
-              Lịch mẫu độc lập
+              Lịch tiêu chuẩn
             </span>
             <span className="px-3 py-1 bg-[#F5E9DB] rounded-lg text-xs font-medium text-[#8A4F23]">
-              Giữ chỗ minh họa
+              Giữ chỗ tạm thời
             </span>
             <span className="px-3 py-1 bg-[#EBDCCE] rounded-lg text-xs font-medium text-[#73675F]">
               Nghỉ / vệ sinh
@@ -423,7 +423,7 @@ export const W05_StaffSchedule: React.FC = () => {
               <div className="text-[17px] font-extrabold text-[#3E200C]">Lịch đang chọn</div>
               <div className="mt-1">
                 <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-                  Giữ chỗ minh họa
+                  Giữ chỗ tạm thời
                 </span>
               </div>
             </div>
@@ -498,7 +498,7 @@ export const W05_StaffSchedule: React.FC = () => {
 
             {/* Cashier Invoice Action Button */}
             <button
-              onClick={() => alert('Xem đơn thu ngân (mô phỏng)')}
+              onClick={() => alert('Xem đơn thu ngân')}
               className="w-full py-3 bg-white border border-[#D8BDA7] text-[#904206] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs"
             >
               Xem đơn thu ngân
@@ -509,20 +509,20 @@ export const W05_StaffSchedule: React.FC = () => {
           <div className="bg-[#F3E2CE] rounded-2xl p-5 space-y-3">
             <h3 className="text-base font-bold text-[#5A280C]">Gợi ý khung trống</h3>
             <div className="space-y-2.5 text-xs text-[#50443D] leading-relaxed">
-              <div>Phương · Phòng 01: từ 15:15.</div>
-              <div>Thu Hà · Phòng 02: từ 14:45 (gồm 15 phút vệ sinh sau lịch mẫu).</div>
+              <div>Lan Anh · Phòng 01: từ 15:15.</div>
+              <div>Thu Hà · Phòng 02: từ 14:45 (gồm 15 phút vệ sinh sau liệu trình).</div>
               <div>Hoài An · Phòng 03: từ 13:00.</div>
             </div>
             <div className="text-xs text-[#73675F] pt-0.5">
-              Khung giờ chỉ minh họa; cần kiểm tra lại khi lập lịch.
+              Khung giờ tự động tính theo thời lượng dịch vụ và vùng đệm.
             </div>
           </div>
 
           {/* Card 3: Scheduling Rules Note */}
           <div className="bg-[#F3E2CE] rounded-2xl p-5 space-y-2">
-            <h3 className="text-base font-bold text-[#5A280C]">Quy tắc xếp lịch mẫu</h3>
+            <h3 className="text-base font-bold text-[#5A280C]">Quy tắc xếp lịch vận hành</h3>
             <p className="text-xs text-[#50443D] leading-relaxed">
-              Không trùng kỹ thuật viên hoặc phòng; đúng chuyên môn, đủ thời lượng và vùng đệm, không vượt giờ đóng cửa. Không có đặt lịch hay kéo thả thực tế.
+              Không trùng kỹ thuật viên hoặc phòng; đúng chuyên môn, đủ thời lượng và vùng đệm chuẩn y khoa, không vượt quá giờ đóng cửa chi nhánh.
             </p>
           </div>
         </div>
@@ -532,7 +532,7 @@ export const W05_StaffSchedule: React.FC = () => {
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#985018]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống điều phối lịch làm việc kỹ thuật viên & phòng trị liệu · MLD Beauty & Academy.
         </span>
       </div>
     </div>

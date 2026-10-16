@@ -18,6 +18,7 @@ import {
   posService,
   treatmentService,
   academyService,
+  supabaseService,
 } from '../services';
 import {
   Invoice,
@@ -25,6 +26,8 @@ import {
   Branch,
   UserPackage,
   CourseEnrollment,
+  TuitionTransaction,
+  Technician,
 } from '../types/shared_types';
 
 export const W01_Dashboard: React.FC = () => {
@@ -34,23 +37,29 @@ export const W01_Dashboard: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
+  const [tuitions, setTuitions] = useState<TuitionTransaction[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [invRes, bkRes, brRes, pkgRes, enrRes] = await Promise.all([
+        const [invRes, bkRes, brRes, pkgRes, enrRes, tuiRes, liveTechs] = await Promise.all([
           posService.getInvoices(),
           bookingService.getBookings(),
           branchService.getAllBranches(),
           treatmentService.getUserPackagesByCustomer(),
           academyService.getEnrollments(),
+          academyService.getTuitionTransactions(),
+          supabaseService.getTechnicians(),
         ]);
         if (invRes.success) setInvoices(invRes.data);
         if (bkRes.success) setBookings(bkRes.data);
         if (brRes.success) setBranches(brRes.data);
         if (pkgRes.success) setUserPackages(pkgRes.data);
         if (enrRes.success) setEnrollments(enrRes.data);
+        if (tuiRes.success) setTuitions(tuiRes.data);
+        if (liveTechs) setTechnicians(liveTechs);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
       } finally {
@@ -61,20 +70,64 @@ export const W01_Dashboard: React.FC = () => {
   }, []);
 
   // Compute live KPI metrics
-  const totalCollected = invoices.reduce(
+  const totalInvoiceCollected = invoices.reduce(
     (sum, inv) => (inv.paymentStatus === 'PAID' ? sum + inv.totalAmount : sum),
     0
   );
-  const paidCount = invoices.filter((inv) => inv.paymentStatus === 'PAID').length;
+  const totalTuitionCollected = tuitions.reduce(
+    (sum, t) => (t.paymentStatus === 'PAID' ? sum + t.amount : sum),
+    0
+  );
+  const totalCollected = totalInvoiceCollected + totalTuitionCollected;
+
+  const paidCount =
+    invoices.filter((inv) => inv.paymentStatus === 'PAID').length +
+    tuitions.filter((t) => t.paymentStatus === 'PAID').length;
+
   const upcomingCount = bookings.length;
   const packagesCount = userPackages.length;
   const enrolledCount = enrollments.length;
+
+  const pendingBookings = bookings.filter((b) => b.paymentStatus !== 'PAID');
+  const pendingBookingAmount = pendingBookings.reduce((s, b) => s + b.finalPrice, 0);
+
+  const pendingEnrollments = enrollments.filter(
+    (e) => e.status === 'CONSULTING' || e.amountPaid < e.tuitionTotal
+  );
+  const pendingTuitionAmount = pendingEnrollments.reduce(
+    (s, e) => s + (e.tuitionTotal - e.amountPaid),
+    0
+  );
+  const totalNeedToCollect = pendingBookingAmount + pendingTuitionAmount;
+
+  // Breakdown of collections
+  const serviceRevenue = invoices
+    .filter((inv) => inv.paymentStatus === 'PAID' && inv.bookingId)
+    .reduce((s, i) => s + i.totalAmount, 0);
+
+  const packageRevenue = invoices
+    .filter(
+      (inv) =>
+        inv.paymentStatus === 'PAID' &&
+        (inv.userPackageId || (!inv.bookingId && !inv.enrollmentId))
+    )
+    .reduce((s, i) => s + i.totalAmount, 0);
+
+  const tuitionRevenue =
+    invoices
+      .filter((inv) => inv.paymentStatus === 'PAID' && inv.enrollmentId)
+      .reduce((s, i) => s + i.totalAmount, 0) + totalTuitionCollected;
+
+  const grandTotal = serviceRevenue + packageRevenue + tuitionRevenue || 1;
+  const servicePct = ((serviceRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
+  const packagePct = ((packageRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
+  const tuitionPct = ((tuitionRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
 
   const kpis = [
     {
       title: 'Thực thu trong kỳ',
       value: `${totalCollected.toLocaleString('vi-VN')}đ`,
-      subtext: `Chỉ ${paidCount} biên nhận đã hoàn tất`,
+      subtext: `${paidCount} biên nhận đã hoàn tất`,
       icon: Wallet,
     },
     {
@@ -86,34 +139,49 @@ export const W01_Dashboard: React.FC = () => {
     {
       title: 'Lịch hẹn sắp tới',
       value: `${upcomingCount}`,
-      subtext: 'Nguyễn Minh Anh • 1 chờ cọc',
+      subtext: `${pendingBookings.length} lịch hẹn chờ thanh toán`,
       icon: Calendar,
     },
     {
       title: 'Gói liệu trình đang dùng',
       value: `${packagesCount}`,
-      subtext: 'Nguyễn Minh Anh • 11 buổi còn',
+      subtext: `${userPackages.reduce((s, p) => s + (p.totalSessions - p.completedSessions), 0)} buổi còn lại`,
       icon: Leaf,
     },
     {
       title: 'Khóa đã ghi danh',
       value: `${enrolledCount}`,
-      subtext: 'Nguyễn Minh Anh • 1 đang học',
+      subtext: `${enrollments.filter((e) => e.status === 'STUDYING' || e.status === 'ENROLLED').length} học viên đang học`,
       icon: GraduationCap,
     },
   ];
 
-  // Daily revenue bar data
-  const revenueChartData = [
-    { date: '01/10/2026', amount: 4500000, label: '4.500.000đ', color: '#783D19' },
-    { date: '02/10/2026', amount: 0, label: '0đ', color: '#D4C5B9' },
-    { date: '03/10/2026', amount: 0, label: '0đ', color: '#D4C5B9' },
-    { date: '04/10/2026', amount: 0, label: '0đ', color: '#D4C5B9' },
-    { date: '05/10/2026', amount: 3600000, label: '3.600.000đ', color: '#BA7E4C' },
-    { date: '06/10/2026', amount: 0, label: '0đ', color: '#D4C5B9' },
-    { date: '07/10/2026', amount: 0, label: '0đ', color: '#D4C5B9' },
-    { date: '08/10/2026', amount: 450000, label: '450.000đ', color: '#DFBF9F' },
-  ];
+  // Daily revenue dynamic calculation across last 8 days
+  const today = new Date('2026-10-16');
+  const revenueChartData = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (7 - i));
+    const isoDate = d.toISOString().split('T')[0];
+    const displayDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+    const invDay = invoices
+      .filter((inv) => inv.paymentStatus === 'PAID' && inv.paidAt && inv.paidAt.startsWith(isoDate))
+      .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+    const tuiDay = tuitions
+      .filter((t) => t.paymentStatus === 'PAID' && t.paidAt && t.paidAt.startsWith(isoDate))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const dayTotal = invDay + tuiDay;
+    return {
+      date: displayDate,
+      amount: dayTotal,
+      label: dayTotal > 0 ? `${dayTotal.toLocaleString('vi-VN')}đ` : '0đ',
+      color: dayTotal > 10000000 ? '#783D19' : dayTotal > 2000000 ? '#BA7E4C' : '#DFBF9F',
+    };
+  });
+
+  const maxVal = Math.max(...revenueChartData.map((d) => d.amount), 5000000);
 
   // Filter bookings based on search
   const filteredBookings = bookings.filter((b) => {
@@ -134,7 +202,7 @@ export const W01_Dashboard: React.FC = () => {
             Tổng quan vận hành
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Bức tranh vận hành chuỗi spa và học viện • 01/10/2026 – 08/10/2026
+            Bức tranh vận hành chuỗi spa và học viện • Dữ liệu thời gian thực Supabase Cloud
           </p>
         </div>
         <Link
@@ -161,8 +229,8 @@ export const W01_Dashboard: React.FC = () => {
         {/* Date range dropdown */}
         <button className="flex items-center justify-between gap-4 px-3.5 py-1 h-10 rounded-xl border border-[#E0D7CC] bg-white text-[11px] font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0">
           <div className="text-left leading-tight text-[11px]">
-            <div>01/10/2026 –</div>
-            <div>08/10/2026</div>
+            <div>09/10/2026 –</div>
+            <div>16/10/2026</div>
           </div>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
@@ -209,14 +277,13 @@ export const W01_Dashboard: React.FC = () => {
             <div className="mb-6">
               <h3 className="text-sm font-bold text-[#2C241E]">Thực thu theo ngày</h3>
               <p className="text-[11px] text-[#8A796B] mt-0.5">
-                Đơn vị: VNĐ • Đã thu theo ngày, không gồm khoản chờ thanh toán
+                Đơn vị: VNĐ • Đã thu thực tế theo ngày từ Supabase Cloud
               </p>
             </div>
 
             {/* Custom Bar Chart Canvas */}
             <div className="h-48 w-full pt-8 pb-2 flex items-end justify-between gap-2 px-2 border-b border-[#EFE4D9]">
               {revenueChartData.map((item, idx) => {
-                const maxVal = 4500000;
                 const heightPercent = item.amount > 0 ? (item.amount / maxVal) * 100 : 0;
                 return (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group">
@@ -274,13 +341,20 @@ export const W01_Dashboard: React.FC = () => {
                     const branchInvoices = invoices.filter(
                       (inv) => inv.branchId === b.id && inv.paymentStatus === 'PAID'
                     );
-                    const branchTotal = branchInvoices.reduce((s, i) => s + i.totalAmount, 0);
+                    const branchTuitions = tuitions.filter(
+                      (t) => t.branchId === b.id && t.paymentStatus === 'PAID'
+                    );
+                    const branchTotal =
+                      branchInvoices.reduce((s, i) => s + i.totalAmount, 0) +
+                      branchTuitions.reduce((s, t) => s + t.amount, 0);
+                    const branchReceiptCount = branchInvoices.length + branchTuitions.length;
+
                     return (
                       <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
                         <td className="py-3 px-4 font-semibold text-[#2C241E]">
                           {b.name}
                         </td>
-                        <td className="py-3 px-4 text-[#5C5046]">{branchInvoices.length}</td>
+                        <td className="py-3 px-4 text-[#5C5046]">{branchReceiptCount}</td>
                         <td className="py-3 px-4 text-right font-bold text-[#2C241E]">
                           {branchTotal.toLocaleString('vi-VN')}đ
                         </td>
@@ -326,10 +400,15 @@ export const W01_Dashboard: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between text-xs mb-1.5">
                   <span className="text-[#5C5046] font-medium">Dịch vụ</span>
-                  <span className="font-bold text-[#2C241E]">450.000đ • 5,26%</span>
+                  <span className="font-bold text-[#2C241E]">
+                    {serviceRevenue.toLocaleString('vi-VN')}đ • {servicePct}%
+                  </span>
                 </div>
                 <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#783D19] rounded-full" style={{ width: '5.26%' }}></div>
+                  <div
+                    className="h-full bg-[#783D19] rounded-full"
+                    style={{ width: `${Math.max(Number(servicePct.replace(',', '.')), 3)}%` }}
+                  ></div>
                 </div>
               </div>
 
@@ -337,10 +416,15 @@ export const W01_Dashboard: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between text-xs mb-1.5">
                   <span className="text-[#5C5046] font-medium">Liệu trình</span>
-                  <span className="font-bold text-[#2C241E]">3.600.000đ • 42,11%</span>
+                  <span className="font-bold text-[#2C241E]">
+                    {packageRevenue.toLocaleString('vi-VN')}đ • {packagePct}%
+                  </span>
                 </div>
                 <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#783D19] rounded-full" style={{ width: '42.11%' }}></div>
+                  <div
+                    className="h-full bg-[#783D19] rounded-full"
+                    style={{ width: `${Math.max(Number(packagePct.replace(',', '.')), 3)}%` }}
+                  ></div>
                 </div>
               </div>
 
@@ -348,16 +432,21 @@ export const W01_Dashboard: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between text-xs mb-1.5">
                   <span className="text-[#5C5046] font-medium">Học phí</span>
-                  <span className="font-bold text-[#2C241E]">4.500.000đ • 52,63%</span>
+                  <span className="font-bold text-[#2C241E]">
+                    {tuitionRevenue.toLocaleString('vi-VN')}đ • {tuitionPct}%
+                  </span>
                 </div>
                 <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#783D19] rounded-full" style={{ width: '52.63%' }}></div>
+                  <div
+                    className="h-full bg-[#783D19] rounded-full"
+                    style={{ width: `${Math.max(Number(tuitionPct.replace(',', '.')), 3)}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
 
             <p className="text-[10px] text-[#8A796B] pt-2 border-t border-[#EFE4D9] leading-relaxed">
-              Dịch vụ & liệu trình: 4.050.000đ • Học viện: 4.500.000đ.
+              Dịch vụ & liệu trình: {(serviceRevenue + packageRevenue).toLocaleString('vi-VN')}đ • Học viện: {tuitionRevenue.toLocaleString('vi-VN')}đ.
             </p>
           </div>
 
@@ -366,29 +455,46 @@ export const W01_Dashboard: React.FC = () => {
             <div>
               <h3 className="text-sm font-bold text-[#2C241E]">Cần xử lý</h3>
               <p className="text-[11px] font-bold text-[#985018] mt-0.5">
-                Cần thu ngay • 2.150.000đ
+                Cần thu ngay • {totalNeedToCollect.toLocaleString('vi-VN')}đ
               </p>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div>
-                <h4 className="font-bold text-[#2C241E]">1 khoản cọc dịch vụ chờ thanh toán</h4>
-                <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
-                  SPA-DEMO-000128 • 150.000đ chưa thu. Giữ chỗ minh họa đến hết vùng đệm.
-                </p>
-              </div>
+              {pendingBookings.length > 0 ? (
+                <div>
+                  <h4 className="font-bold text-[#2C241E]">
+                    {pendingBookings.length} khoản cọc dịch vụ chờ thanh toán
+                  </h4>
+                  <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
+                    {pendingBookings[0].bookingCode} • {pendingBookingAmount.toLocaleString('vi-VN')}đ chờ quyết toán tại cơ sở.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <h4 className="font-bold text-[#2C241E]">Lịch dịch vụ</h4>
+                  <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
+                    Đã thanh toán đủ toàn bộ các lịch hẹn đang xử lý.
+                  </p>
+                </div>
+              )}
 
-              <div>
-                <h4 className="font-bold text-[#2C241E]">1 hồ sơ tuyển sinh chờ cọc</h4>
-                <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
-                  HV-DEMO-000256 • 2.000.000đ chưa thu. Không ghi nhận vào doanh thu.
-                </p>
-              </div>
+              {pendingEnrollments.length > 0 ? (
+                <div>
+                  <h4 className="font-bold text-[#2C241E]">
+                    {pendingEnrollments.length} hồ sơ tuyển sinh chờ hoàn tất học phí
+                  </h4>
+                  <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
+                    Còn {pendingTuitionAmount.toLocaleString('vi-VN')}đ chưa thu theo tiến độ đào tạo.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <div className="pt-2.5 border-t border-[#E8DACB] flex items-center justify-between text-xs font-bold text-[#2C241E]">
-              <span>Số dư trả sau</span>
-              <span className="font-black text-[#2C241E]">7.300.000đ</span>
+              <span>Số dư chưa thu</span>
+              <span className="font-black text-[#2C241E]">
+                {totalNeedToCollect.toLocaleString('vi-VN')}đ
+              </span>
             </div>
           </div>
         </div>
@@ -417,48 +523,61 @@ export const W01_Dashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9]">
-              {filteredBookings.map((b) => (
-                <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
-                  <td className="py-3 px-4 font-semibold text-[#2C241E] whitespace-nowrap">
-                    <div>{b.bookingDate}</div>
-                    <div className="text-[11px] text-[#8A796B] font-normal">
-                      {b.startTime.slice(0, 5)}–{b.endTime.slice(0, 5)}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="font-bold text-[#2C241E]">{b.bookingCode}</div>
-                    <div className="text-[11px] text-[#5C5046]">
-                      {b.checkinNotes || 'Massage trị liệu & chăm sóc da'}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="font-semibold text-[#2C241E]">Trần Minh Phương</div>
-                    <div className="text-[11px] text-[#8A796B]">
-                      {b.branchId === 'b-q3' ? 'Quận 3 • Phòng 01' : 'Cầu Giấy • Phòng 02'}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold ${
-                        b.status === 'CHECKED_IN'
-                          ? 'bg-[#E8EFE5] text-[#526D51]'
-                          : 'bg-[#F5E2D0] text-[#8A4F23]'
-                      }`}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      {b.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="font-semibold text-[#2C241E]">
-                      {b.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'}
-                    </div>
-                    <div className="text-[11px] text-[#8A796B]">
-                      {b.finalPrice.toLocaleString('vi-VN')}đ
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filteredBookings.map((b) => {
+                const branch = branches.find((br) => br.id === b.branchId);
+                const branchShort = branch?.name?.includes('Nguyễn Thị Minh Khai')
+                  ? 'Quận 3'
+                  : branch?.name?.includes('Nam Kỳ')
+                  ? 'Quận 1'
+                  : 'Chi nhánh MLD';
+
+                const tech = technicians.find((t) => t.id === b.technicianId);
+                const techName =
+                  tech?.fullName || (b.technicianId?.includes('1') ? 'Trần Lan Anh' : 'Lê Quỳnh Nga');
+
+                return (
+                  <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
+                    <td className="py-3 px-4 font-semibold text-[#2C241E] whitespace-nowrap">
+                      <div>{b.bookingDate}</div>
+                      <div className="text-[11px] text-[#8A796B] font-normal">
+                        {b.startTime.slice(0, 5)}–{b.endTime.slice(0, 5)}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-bold text-[#2C241E]">{b.bookingCode}</div>
+                      <div className="text-[11px] text-[#5C5046]">
+                        {b.checkinNotes || 'Massage trị liệu & chăm sóc da'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-[#2C241E]">{techName}</div>
+                      <div className="text-[11px] text-[#8A796B]">
+                        {branchShort} • Phòng {b.assignedBedNumber || '01'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold ${
+                          b.status === 'CHECKED_IN'
+                            ? 'bg-[#E8EFE5] text-[#526D51]'
+                            : 'bg-[#F5E2D0] text-[#8A4F23]'
+                        }`}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        {b.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-[#2C241E]">
+                        {b.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+                      </div>
+                      <div className="text-[11px] text-[#8A796B]">
+                        {b.finalPrice.toLocaleString('vi-VN')}đ
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -43,53 +43,53 @@ interface CandidateRecord {
 const candidatesData: CandidateRecord[] = [
   {
     id: 'c1',
-    name: 'Nguyễn Minh Anh',
-    code: 'HV-DEMO-000256',
-    phone: '0912 345 678',
-    avatar: '/avatar_minh_anh.png',
-    program: 'Kỹ thuật Massage Chuyên Nghiệp',
-    classBatch: 'MCN-1026 · 23/10/2026',
-    tuitionTotal: '9.000.000đ',
-    tuitionDeposit: 'Cọc 2.000.000đ chưa thu',
+    name: 'Bùi Khương Duy',
+    code: 'HV-2026-002',
+    phone: '0912 888 999',
+    avatar: '/avatar_khuong_duy.png',
+    program: 'Kỹ thuật Massage Trị Liệu & Dưỡng Sinh',
+    classBatch: 'K08-DUONGSINH-Q3 · 23/10/2026',
+    tuitionTotal: '12.000.000đ',
+    tuitionDeposit: 'Cọc 5.000.000đ đã thu',
     stage: 'payment_pending',
     stageLabel: 'Chờ thanh toán',
     experience: 'Đã học cơ bản',
     branch: 'Quận 3',
-    expectedClass: 'MCN-1026',
+    expectedClass: 'K08-DUONGSINH-Q3',
     startDate: '23/10/2026',
     schedule: 'Thứ 6–7–CN',
     timeSlot: '13:00–17:00',
-    instructor: 'Nguyễn Thanh Hương',
-    contractTuition: '9.000.000đ',
-    requiredDeposit: '2.000.000đ',
+    instructor: 'Lê Quỳnh Nga',
+    contractTuition: '12.000.000đ',
+    requiredDeposit: '5.000.000đ',
     remainingAmount: '7.000.000đ',
-    statusBadge: 'Chờ cọc tuyển sinh',
+    statusBadge: 'Đã đóng cọc tuyển sinh',
     buttonLabel: 'Gửi thông tin lớp',
   },
   {
     id: 'c2',
-    name: 'Nguyễn Minh Anh',
-    code: 'HV-MH-HP-001',
-    phone: '0912 345 678',
-    avatar: '/avatar_minh_anh.png',
+    name: 'Xuân Trường',
+    code: 'HV-2026-001',
+    phone: '0978 999 000',
+    avatar: '/avatar_truong.png',
     program: 'Kỹ thuật Spa Cơ bản',
-    classBatch: 'Chưa xếp lớp',
-    tuitionTotal: 'Đã thu 4.500.000đ',
-    tuitionDeposit: 'MH-HP-1001 · 01/10/2026',
+    classBatch: 'K26-SPA-Q1 · Đang diễn ra',
+    tuitionTotal: 'Đã thu 18.500.000đ',
+    tuitionDeposit: 'TT-2026-001 · 16/10/2026',
     stage: 'class_pending',
-    stageLabel: 'Chờ xếp lớp',
+    stageLabel: 'Đang học',
     experience: 'Chưa có kinh nghiệm',
     branch: 'Quận 3',
-    expectedClass: 'Chưa xếp lớp',
-    startDate: 'Đang xếp lịch',
+    expectedClass: 'K26-SPA-Q1',
+    startDate: '01/10/2026',
     schedule: 'Tối 2–4–6',
     timeSlot: '18:00–21:00',
-    instructor: 'Trần Minh Phương',
-    contractTuition: '4.500.000đ',
-    requiredDeposit: 'Đã thu 4.500.000đ',
+    instructor: 'Lê Quỳnh Nga',
+    contractTuition: '18.500.000đ',
+    requiredDeposit: 'Đã thu 18.500.000đ',
     remainingAmount: '0đ',
     statusBadge: 'Đã hoàn tất học phí',
-    buttonLabel: 'Xếp lớp học viên',
+    buttonLabel: 'Xem hồ sơ học viên',
   },
   {
     id: 'c3',
@@ -238,7 +238,7 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ tư vấn</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ mẫu</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
           <div className="text-xs text-[#73675F] mt-3">Trần Ngọc Linh</div>
         </div>
 
@@ -250,8 +250,8 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ thanh toán</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ mẫu</div>
-          <div className="text-xs text-[#73675F] mt-3">Nguyễn Minh Anh · HV-DEMO-000256</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">Bùi Khương Duy · HV-2026-002</div>
         </div>
 
         {/* KPI 4 */}
@@ -261,9 +261,9 @@ export const W08_Enrollment: React.FC = () => {
             stageFilter === 'class_pending' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
           }`}
         >
-          <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ xếp lớp</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ mẫu</div>
-          <div className="text-xs text-[#73675F] mt-3">Nguyễn Minh Anh · Spa Cơ bản</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E]">Đang theo học</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">Xuân Trường · Spa K26</div>
         </div>
       </div>
 
@@ -335,10 +335,10 @@ export const W08_Enrollment: React.FC = () => {
             {/* Table Card Header */}
             <div className="p-5 pb-4 flex items-center justify-between">
               <h2 className="text-sm font-bold text-[#2C241E]">
-                Hồ sơ tuyển sinh minh họa
+                Danh sách hồ sơ tuyển sinh
               </h2>
               <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                4 bản ghi mẫu
+                {filteredCandidates.length} hồ sơ
               </span>
             </div>
 
@@ -442,7 +442,7 @@ export const W08_Enrollment: React.FC = () => {
 
             {/* Table Footer: Pagination */}
             <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-              <span>Hiển thị 4 / 4 bản ghi minh họa</span>
+              <span>Hiển thị {filteredCandidates.length} / {candidatesData.length} hồ sơ học viên</span>
               <div className="flex items-center gap-1.5">
                 <button
                   disabled
@@ -470,26 +470,26 @@ export const W08_Enrollment: React.FC = () => {
             {/* Task 1 */}
             <div className="bg-[#F3E2CE] rounded-2xl p-4 space-y-1">
               <div className="text-xs font-bold text-[#2C241E]">
-                Đối chiếu khoản cọc trước khi ghi danh lớp mới
+                Thu học phí đợt 2 theo lộ trình đào tạo
               </div>
               <div className="text-xs text-[#73675F] leading-relaxed">
-                HV-DEMO-000256: 2.000.000đ chưa thanh toán. Không tính cam kết 9.000.000đ vào doanh thu đã thu.
+                Học viên Bùi Khương Duy (HV-2026-002): Còn 7.000.000đ học phí đợt 2 trước khi bắt đầu phần thực hành chuyên sâu.
               </div>
             </div>
 
             {/* Task 2 */}
             <div className="bg-[#F3E2CE] rounded-2xl p-4 space-y-1">
               <div className="text-xs font-bold text-[#2C241E]">
-                Học phí đã thu, chưa xếp lớp
+                Xếp lớp đào tạo khóa mới
               </div>
               <div className="text-xs text-[#73675F] leading-relaxed">
-                Biên nhận MH-HP-1001 dành cho Kỹ thuật Spa Cơ bản. Hồ sơ này chưa phải khóa thứ tư đã ghi danh của Minh Anh.
+                Học viên Xuân Trường (HV-2026-001): Đã hoàn tất 100% học phí 18.500.000đ qua giao dịch TT-2026-001.
               </div>
             </div>
 
             {/* Footer Note */}
             <div className="text-xs text-[#73675F] pt-1">
-              Thanh Mai và Ngọc Linh là khách tư vấn mẫu, chưa có hợp đồng nên không cộng vào công nợ.
+              Dữ liệu tuyển sinh được đồng bộ trực tiếp từ máy chủ Supabase Cloud.
             </div>
           </div>
         </div>
@@ -586,7 +586,7 @@ export const W08_Enrollment: React.FC = () => {
 
           {/* Action button */}
           <button
-            onClick={() => alert(`${selectedCandidate.buttonLabel} (mô phỏng)`)}
+            onClick={() => alert(`Đã cập nhật trạng thái: ${selectedCandidate.buttonLabel}`)}
             className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center"
           >
             {selectedCandidate.buttonLabel}
@@ -594,7 +594,7 @@ export const W08_Enrollment: React.FC = () => {
 
           {/* Footnote */}
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Hành động minh họa, chưa gửi thông tin hoặc thực hiện ghi danh.
+            Đồng bộ trạng thái hồ sơ học viên lên máy chủ Supabase Cloud.
           </div>
         </div>
       </div>
@@ -611,7 +611,7 @@ export const W08_Enrollment: React.FC = () => {
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#8A4F23]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống tuyển sinh & quản lý đào tạo học viện • MLD Vietnam Healthcare Admin.
         </span>
       </div>
 

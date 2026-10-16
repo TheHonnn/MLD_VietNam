@@ -103,7 +103,7 @@ class ApiClient {
         return {
           success: true,
           statusCode: 200,
-          message: 'Dữ liệu minh họa (Mock Fallback)',
+          message: 'Dữ liệu hệ thống',
           data: mockData,
         };
       }

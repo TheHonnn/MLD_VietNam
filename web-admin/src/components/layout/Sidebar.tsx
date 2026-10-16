@@ -133,7 +133,7 @@ export const Sidebar: React.FC = () => {
           <span>Cài đặt</span>
         </button>
         <div className="pt-2 px-3">
-          <p className="text-[10px] text-[#A69788]">Giao diện minh họa tĩnh</p>
+          <p className="text-[10px] text-[#A69788]">Hệ thống Quản trị MLD v1.0</p>
         </div>
       </div>
     </aside>

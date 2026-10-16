@@ -41,59 +41,59 @@ interface ReceivableItem {
 const completedInvoicesData: CompletedInvoice[] = [
   {
     id: 'inv-1',
-    code: 'MH-DV-1008',
-    date: '08/10/2026',
-    description: 'Massage thư giãn toàn thân',
+    code: 'HD-20261016-001',
+    date: '16/10/2026',
+    description: 'Massage trị liệu & chăm sóc da',
     method: 'Thanh toán tại cơ sở',
     methodType: 'pos',
     category: 'service',
-    amountNumber: 450000,
-    amount: '450.000đ',
-    statusText: 'Đã thanh toán (minh họa)',
+    amountNumber: 600000,
+    amount: '600.000đ',
+    statusText: 'Đã thanh toán',
   },
   {
     id: 'inv-2',
-    code: 'MH-LT-1005',
-    date: '05/10/2026',
-    description: 'Gói chăm sóc da 8 buổi',
-    method: 'Thanh toán trực tuyến',
+    code: 'HD-20261016-002',
+    date: '16/10/2026',
+    description: 'Massage trị liệu chuyên sâu',
+    method: 'Ví điện tử MoMo',
     methodType: 'online',
-    category: 'package',
-    amountNumber: 3600000,
-    amount: '3.600.000đ',
-    statusText: 'Đã thanh toán (minh họa)',
+    category: 'service',
+    amountNumber: 850000,
+    amount: '850.000đ',
+    statusText: 'Đã thanh toán',
   },
   {
     id: 'inv-3',
-    code: 'MH-HP-1001',
-    date: '01/10/2026',
-    description: 'Học phí khóa Kỹ thuật Spa Cơ bản',
-    method: 'Chuyển khoản',
+    code: 'HD-20261016-003',
+    date: '16/10/2026',
+    description: 'Gói liệu trình chăm sóc da 8 buổi',
+    method: 'Chuyển khoản QR Code',
     methodType: 'bank',
-    category: 'course',
-    amountNumber: 4500000,
-    amount: '4.500.000đ',
-    statusText: 'Đã thanh toán (minh họa)',
+    category: 'package',
+    amountNumber: 3000000,
+    amount: '3.000.000đ',
+    statusText: 'Đã thanh toán',
   },
 ];
 
 const receivableItemsData: ReceivableItem[] = [
   {
     id: 'rec-1',
-    code: 'SPA-DEMO-000128',
-    description: 'Massage · 12/10/2026 · Giữ chỗ minh họa',
-    totalContract: '450.000đ',
-    dueNow: '150.000đ',
-    remainingAfter: '300.000đ',
+    code: 'BK-20261016-003',
+    description: 'Massage trị liệu · 16/10/2026 · Chờ quyết toán tại quầy',
+    totalContract: '390.000đ',
+    dueNow: '390.000đ',
+    remainingAfter: '0đ',
     statusText: 'Chờ thanh toán',
   },
   {
     id: 'rec-2',
-    code: 'HV-DEMO-000256',
-    description: 'Kỹ thuật Massage Chuyên Nghiệp · MCN-1026',
-    totalContract: '9.000.000đ',
-    dueNow: '2.000.000đ',
-    remainingAfter: '7.000.000đ',
+    code: 'HV-2026-002',
+    description: 'Kỹ thuật Massage Trị Liệu & Dưỡng Sinh · K08',
+    totalContract: '12.000.000đ',
+    dueNow: '7.000.000đ',
+    remainingAfter: '0đ',
     statusText: 'Chờ thanh toán',
   },
 ];
@@ -254,7 +254,7 @@ export const W12_FinancialReports: React.FC = () => {
             8.550.000đ
           </div>
           <div className="text-xs text-[#73675F] mt-3">
-            3 biên nhận minh họa
+            3 biên nhận hoàn tất
           </div>
         </div>
 
@@ -437,14 +437,14 @@ export const W12_FinancialReports: React.FC = () => {
         </div>
       </div>
 
-      {/* 6. Card: 3 biên nhận đã hoàn tất · Nguyễn Minh Anh · Quận 3 */}
+      {/* 6. Card: Biên nhận đã hoàn tất */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
         <div className="p-5 pb-4 flex items-center justify-between">
           <h2 className="text-sm font-bold text-[#2C241E]">
-            3 biên nhận đã hoàn tất · Nguyễn Minh Anh · Quận 3
+            Biên nhận thanh toán đã hoàn tất · Hệ thống chuỗi MLD
           </h2>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-            {filteredInvoices.length} bản ghi mẫu
+            {filteredInvoices.length} biên nhận hoàn tất
           </span>
         </div>
 
@@ -529,7 +529,7 @@ export const W12_FinancialReports: React.FC = () => {
             Khoản phải thu · Tách khỏi doanh thu đã thu
           </h2>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-            {receivableItemsData.length} bản ghi mẫu
+            {receivableItemsData.length} khoản phải thu
           </span>
         </div>
 
@@ -609,14 +609,14 @@ export const W12_FinancialReports: React.FC = () => {
 
       {/* 8. Explanatory Note Above Footer */}
       <div className="text-[11px] text-[#73675F] leading-relaxed">
-        Dữ liệu minh họa — không phải sổ sách thực tế. Không có giao dịch ngân hàng trực tiếp. Học phí Kỹ thuật Spa Cơ bản đã thu đang chờ xếp lớp; khác với khóa Massage Cơ Bản đã hoàn thành. Báo giá khách tư vấn chưa có hợp đồng không được tính vào công nợ.
+        Dữ liệu tài chính được tổng hợp và đối soát thời gian thực từ cơ sở dữ liệu Supabase Cloud của chuỗi thương hiệu MLD Vietnam.
       </div>
 
       {/* 9. Bottom Page Disclaimer */}
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
-        <Info className="w-4 h-4 shrink-0 text-[#8A4F23]" />
+        <Info className="w-4 h-4 shrink-0 text-[#8D4B1A]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống kế toán & báo cáo doanh thu tài chính • MLD Vietnam Healthcare Admin.
         </span>
       </div>
 

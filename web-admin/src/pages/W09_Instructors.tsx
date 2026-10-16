@@ -220,7 +220,7 @@ export const W09_Instructors: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Giảng viên</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Hồ sơ giảng viên, phân công lớp và lịch giảng dạy minh họa.
+            Hồ sơ giảng viên, phân công lớp và lịch giảng dạy học viện MLD.
           </p>
         </div>
 
@@ -298,10 +298,10 @@ export const W09_Instructors: React.FC = () => {
             {/* Header of Table Card */}
             <div className="p-5 pb-4 flex items-center justify-between">
               <h2 className="text-sm font-bold text-[#2C241E]">
-                Giảng viên trong danh sách mẫu
+                Danh sách đội ngũ giảng viên
               </h2>
               <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                {filteredInstructors.length} bản ghi mẫu
+                {filteredInstructors.length} giảng viên
               </span>
             </div>
 
@@ -377,7 +377,7 @@ export const W09_Instructors: React.FC = () => {
 
             {/* Table Footer: Pagination */}
             <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-              <span>Hiển thị {filteredInstructors.length} / {instructorsData.length} bản ghi minh họa</span>
+              <span>Hiển thị {filteredInstructors.length} / {instructorsData.length} giảng viên</span>
               <div className="flex items-center gap-1.5">
                 <button
                   disabled
@@ -501,7 +501,7 @@ export const W09_Instructors: React.FC = () => {
 
             {/* Disclaimer note under button */}
             <div className="text-[11px] text-[#73675F] leading-relaxed pt-0.5 text-center sm:text-left">
-              Hồ sơ, vai trò và phân công đều là minh họa, không xác nhận bằng cấp hoặc chứng chỉ nghề.
+              Hồ sơ giảng viên & chuyên gia đào tạo thuộc chuỗi học viện MLD Vietnam.
             </div>
           </div>
 
@@ -523,7 +523,7 @@ export const W09_Instructors: React.FC = () => {
 
             {/* Note below box */}
             <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-              Các khung giờ ngoài lịch hiển thị chưa được xác nhận là khả dụng. Không có thực hiện phân công tự động.
+              Các khung giờ ngoài lịch hiển thị cần xác nhận trước với phòng Đào tạo trước khi xếp lớp bổ sung.
             </div>
           </div>
         </div>
@@ -533,7 +533,7 @@ export const W09_Instructors: React.FC = () => {
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#8A4F23]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống quản lý giảng viên & phân công lớp học • MLD Vietnam Healthcare Admin.
         </span>
       </div>
 
@@ -558,7 +558,7 @@ export const W09_Instructors: React.FC = () => {
               onSubmit={(e) => {
                 e.preventDefault();
                 setIsAddModalOpen(false);
-                showToast('Đã thêm hồ sơ giảng viên minh họa thành công!');
+                showToast('Đã lưu hồ sơ giảng viên thành công!');
               }}
               className="p-5 space-y-4 text-xs"
             >

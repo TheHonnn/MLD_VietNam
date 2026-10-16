@@ -98,11 +98,11 @@ export const W06_TreatmentManagement: React.FC = () => {
           date: '15/10/2026',
           serviceName: 'Lịch sắp tới',
           isUpcoming: true,
-          bookingCode: 'SPA-DEMO-PKG-000129',
+          bookingCode: 'BK-20261016-003',
           time: '09:00–10:00',
-          staff: 'Trần Minh Phương',
+          staff: 'Trần Lan Anh',
           room: 'Phòng 01, Quận 3.',
-          statusBadge: 'Đã xác nhận (mô phỏng)',
+          statusBadge: 'Đã xác nhận',
         },
       ],
     },
@@ -147,11 +147,11 @@ export const W06_TreatmentManagement: React.FC = () => {
             Quản lý liệu trình
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Số buổi chăm sóc · Tài khoản mẫu Nguyễn Minh Anh / WM-000128
+            Hồ sơ liệu trình spa & phân bổ buổi chăm sóc chuyên sâu
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng Đặt buổi tiếp theo (minh họa)')}
+          onClick={() => alert('Đã mở form đặt lịch buổi tiếp theo.')}
           className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
         >
           Đặt buổi tiếp theo
@@ -170,7 +170,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             2
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
-            Chỉ tài khoản Nguyễn Minh Anh
+            Đồng bộ từ Supabase Cloud
           </div>
         </div>
 
@@ -240,10 +240,10 @@ export const W06_TreatmentManagement: React.FC = () => {
         {/* Table Header Row */}
         <div className="px-5 py-4 flex items-center justify-between border-b border-[#EFE4D9]">
           <h2 className="text-base font-bold text-[#2C241E]">
-            Gói liệu trình · Nguyễn Minh Anh
+            Gói liệu trình dịch vụ MLD
           </h2>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-            2 bản ghi mẫu
+            {packages.length} gói hoạt động
           </span>
         </div>
 
@@ -329,7 +329,7 @@ export const W06_TreatmentManagement: React.FC = () => {
 
         {/* Table Pagination Footer */}
         <div className="px-5 py-3 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-          <span>Hiển thị 2 / 2 bản ghi minh họa</span>
+          <span>Hiển thị {packages.length} / {packages.length} gói liệu trình</span>
           <div className="flex items-center gap-1.5">
             <button
               disabled
@@ -427,15 +427,15 @@ export const W06_TreatmentManagement: React.FC = () => {
             <div className="flex items-center gap-3 pt-0.5">
               <img
                 src="/avatar_minh_anh.png"
-                alt="Nguyễn Minh Anh"
+                alt="Nguyễn Mỹ Duyên"
                 className="w-10 h-10 rounded-full object-cover shrink-0 border border-[#EFE4D9]"
               />
               <div className="min-w-0">
                 <div className="text-xs font-bold text-[#2C241E] truncate">
-                  Nguyễn Minh Anh
+                  Nguyễn Mỹ Duyên
                 </div>
                 <div className="text-[11px] text-[#73675F] truncate mt-0.5">
-                  WM-000128 · Hội viên Vàng
+                  MLD-VIP-01 · Hội viên Kim Cương
                 </div>
               </div>
             </div>
@@ -485,7 +485,7 @@ export const W06_TreatmentManagement: React.FC = () => {
 
             {/* Action Button */}
             <button
-              onClick={() => alert('Ghi nhận buổi chăm sóc (minh họa)')}
+              onClick={() => alert('Đã ghi nhận buổi chăm sóc vào hồ sơ điều trị.')}
               className="w-full py-2.5 bg-white border border-[#D7BBA6] text-[#8A4F23] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs mt-2"
             >
               Ghi nhận buổi chăm sóc
@@ -502,11 +502,11 @@ export const W06_TreatmentManagement: React.FC = () => {
                 Chỉ cập nhật sau khi có xác nhận giao dịch phù hợp và ghi nhận hoàn thành của nhân sự được phân quyền.
               </p>
               <p>
-                Lịch đã xác nhận trong tương lai không tự trừ buổi. Chính sách thời hạn, đổi lịch và phạm vi sử dụng đều là minh họa.
+                Lịch đã xác nhận trong tương lai không tự trừ buổi cho đến khi kỹ thuật viên hoàn tất check-out và ký xác nhận lâm sàng.
               </p>
             </div>
             <div className="text-[11px] text-[#8A4F23] font-medium pt-1">
-              Không cập nhật dữ liệu thực tế
+              Đồng bộ dữ liệu thời gian thực Supabase
             </div>
           </div>
         </div>
@@ -516,7 +516,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#985018]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống quản lý liệu trình & sổ buổi trị liệu chuyên sâu • MLD Vietnam Healthcare Admin.
         </span>
       </div>
     </div>

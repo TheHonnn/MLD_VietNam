@@ -244,7 +244,7 @@ export const W02_Branches: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between py-0.5">
                   <span className="text-[#695A4E]">Kỹ thuật viên trưởng</span>
-                  <span className="font-semibold text-[#2C241E]">Trần Minh Phương</span>
+                  <span className="font-semibold text-[#2C241E]">Trần Lan Anh</span>
                 </div>
                 <div className="flex items-center justify-between py-0.5">
                   <span className="text-[#695A4E]">Khung giờ tiếp khách</span>

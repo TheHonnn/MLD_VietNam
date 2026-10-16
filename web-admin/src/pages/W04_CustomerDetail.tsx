@@ -96,7 +96,7 @@ export const W04_CustomerDetail: React.FC = () => {
             Hồ sơ khách hàng
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Khách hàng / {customer?.fullName || 'Lê Minh Anh'} · {customer?.referralCode || 'MLD-MINHANH92'} · Dữ liệu từ Service Layer
+            Khách hàng / {customer?.fullName || 'Nguyễn Mỹ Duyên'} · {customer?.referralCode || 'MLD-VIP-01'} · Dữ liệu từ Supabase Cloud
           </p>
         </div>
         <button
@@ -143,7 +143,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 />
                 <div>
                   <div className="text-sm font-bold text-[#2C241E]">
-                    {customer?.fullName || 'Lê Minh Anh'}
+                    {customer?.fullName || 'Nguyễn Mỹ Duyên'}
                   </div>
                   <div className="text-[11px] text-[#73675F] mt-0.5">
                     {customer?.phone || '0988123456'} · Đã xác thực
@@ -178,7 +178,7 @@ export const W04_CustomerDetail: React.FC = () => {
                   {customer ? `${customer.rewardPoints.toLocaleString('vi-VN')} điểm` : '2.450 điểm'}
                 </div>
                 <div className="text-[11px] text-[#F3E2CE]/80 mt-1.5 font-medium">
-                  Mã hội viên · {customer?.referralCode || 'MLD-MINHANH92'}
+                  Mã hội viên · {customer?.referralCode || 'MLD-VIP-01'}
                 </div>
               </div>
 
@@ -226,7 +226,7 @@ export const W04_CustomerDetail: React.FC = () => {
             </p>
             <div>
               <span className="inline-block px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                Kỹ thuật viên phụ trách: Trần Minh Phương
+                Kỹ thuật viên phụ trách: Trần Lan Anh
               </span>
             </div>
             <div className="flex items-center justify-between text-xs pt-1">

@@ -61,24 +61,24 @@ interface StudentRecord {
 const studentsData: StudentRecord[] = [
   {
     id: 'hv-1',
-    name: 'Nguyễn Minh Anh',
-    code: 'HV-MH-128 · WM-000128',
-    avatar: '/avatar_minh_anh.png',
+    name: 'Xuân Trường',
+    code: 'HV-2026-001 · K26-SPA-Q1',
+    avatar: '/avatar_truong.png',
     courseName: 'Massage Chuyên Nghiệp',
-    batchAndBranch: 'MCN-0926 · Quận 3',
+    batchAndBranch: 'K26-SPA-Q1 · Quận 3',
     progressPercent: 20,
     progressText: '20% · 4/20 bài',
     attendanceSessions: '8/9 buổi',
     attendancePercent: '88,9%',
     tuitionProfile: {
       line1: 'Theo hồ sơ lớp hiện tại',
-      line2: 'Cọc lớp mới tách riêng',
+      line2: 'Đã hoàn tất 100% học phí',
     },
     status: 'studying',
     statusLabel: 'Đang học',
     branch: 'Quận 3',
 
-    instructorName: 'Nguyễn Thanh Hương',
+    instructorName: 'Lê Quỳnh Nga',
     enrolledCoursesCount: '3 khóa',
     statusBreakdown: '1 / 1 / 1',
     totalStudyHours: '120 giờ',
@@ -88,7 +88,7 @@ const studentsData: StudentRecord[] = [
       typeAndDuration: 'Video · 18 phút · Tiếp theo',
     },
     nextLessonNote:
-      'Bài thực hành tiếp theo: kỹ thuật massage cơ bản. Bài nộp gần nhất: ôn quy trình phục vụ, kết quả minh họa.',
+      'Bài thực hành tiếp theo: kỹ thuật massage cơ bản. Bài nộp gần nhất: ôn quy trình phục vụ theo giáo trình chuẩn.',
 
     completedCourses: [
       {
@@ -398,15 +398,15 @@ export const W10_Attendance: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column (8 cols): Table Danh sách + Kết quả hoàn thành + Hồ sơ hoàn thành */}
         <div className="lg:col-span-8 space-y-5">
-          {/* Card 1: Danh sách học viên minh họa */}
+          {/* Card 1: Danh sách học viên đào tạo */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
             {/* Header of Table Card */}
             <div className="p-5 pb-4 flex items-center justify-between">
               <h2 className="text-sm font-bold text-[#2C241E]">
-                Danh sách học viên minh họa
+                Danh sách học viên đào tạo
               </h2>
               <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                {filteredStudents.length} bản ghi mẫu
+                {filteredStudents.length} học viên
               </span>
             </div>
 
@@ -526,7 +526,7 @@ export const W10_Attendance: React.FC = () => {
 
             {/* Table Footer: Pagination */}
             <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-              <span>Hiển thị {filteredStudents.length} / {studentsData.length} bản ghi minh họa</span>
+              <span>Hiển thị {filteredStudents.length} / {studentsData.length} học viên</span>
               <div className="flex items-center gap-1.5">
                 <button
                   disabled
@@ -554,7 +554,7 @@ export const W10_Attendance: React.FC = () => {
                 Kết quả khóa đã hoàn thành · {selectedStudent.name.split(' ').slice(-2).join(' ')}
               </h2>
               <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                {selectedStudent.completedCourses.length} bản ghi mẫu
+                {selectedStudent.completedCourses.length} khóa học
               </span>
             </div>
 
@@ -601,7 +601,7 @@ export const W10_Attendance: React.FC = () => {
 
             {/* Footer */}
             <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-              <span>Hiển thị {selectedStudent.completedCourses.length} / {selectedStudent.completedCourses.length || 1} bản ghi minh họa</span>
+              <span>Hiển thị {selectedStudent.completedCourses.length} / {selectedStudent.completedCourses.length || 1} khóa hoàn thành</span>
               <div className="flex items-center gap-1.5">
                 <button
                   disabled
@@ -635,7 +635,7 @@ export const W10_Attendance: React.FC = () => {
                   Khóa hiện tại đã ghi danh
                 </div>
                 <div className="text-xs text-[#73675F] leading-relaxed">
-                  MCN-0926 · 12 tuần / 144 giờ: 48 giờ lý thuyết và 96 giờ thực hành. HV-DEMO-000256 là hợp đồng lớp mới đang chờ cọc, không làm thay đổi trạng thái lớp hiện tại.
+                  K26-SPA-Q1 · 12 tuần / 144 giờ: 48 giờ lý thuyết và 96 giờ thực hành. Học viên theo học đúng lộ trình đào tạo tiêu chuẩn của học viện MLD.
                 </div>
               </div>
 
@@ -752,7 +752,7 @@ export const W10_Attendance: React.FC = () => {
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#8A4F23]" />
         <span>
-          Dữ liệu minh họa · Các thao tác chỉ là giao diện tĩnh, không thay đổi dữ liệu hay thực hiện giao dịch.
+          Hệ thống đào tạo & theo dõi tiến độ học viên • MLD Vietnam Healthcare Admin.
         </span>
       </div>
 
