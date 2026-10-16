@@ -15,7 +15,7 @@ export function NewCustomerOnboarding({ challenge, onComplete, onBack }: {
   const [step, setStep] = useState<'care' | 'growth' | 'profile' | 'interests'>('care');
   const [draft, setDraft] = useState<ProfileDraft>({
     fullName: challenge.suggestedName || '', avatarUrl: challenge.suggestedAvatar || '',
-    email: '', dateOfBirth: '', gender: 'OTHER',
+    email: '', dateOfBirth: '', gender: '',
   });
   const [interests, setInterests] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);

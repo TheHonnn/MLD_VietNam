@@ -89,7 +89,7 @@ export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
           </label>
           <label className="profile-field">Giới tính
             <select value={profile.gender} onChange={event => change('gender', event.target.value)}>
-              <option value="OTHER">Chưa chọn</option><option value="FEMALE">Nữ</option><option value="MALE">Nam</option>
+              <option value="">Chưa chọn</option><option value="FEMALE">Nữ</option><option value="MALE">Nam</option><option value="OTHER">Khác</option>
             </select>
           </label>
         </div>

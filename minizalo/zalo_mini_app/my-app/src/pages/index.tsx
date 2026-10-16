@@ -24,7 +24,6 @@ import {
 } from '@/components/GroupBExtensions';
 import { apiClient } from '@/api/client';
 import {
-  database,
   guestUser,
   MedicalService,
   Doctor,
@@ -58,14 +57,14 @@ function MasterHomePage() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   // Application Data States (synced with Backend API)
-  const [services, setServices] = useState<MedicalService[]>(database.services);
-  const [doctors, setDoctors] = useState<Doctor[]>(database.doctors);
-  const [branches, setBranches] = useState<Branch[]>(database.branches);
-  const [bookings, setBookings] = useState<Booking[]>(database.bookings);
-  const [courses, setCourses] = useState<Course[]>(database.courses);
-  const [records, setRecords] = useState<MedicalRecord[]>(database.medicalRecords);
+  const [services, setServices] = useState<MedicalService[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [user, setUser] = useState<User>({ ...guestUser });
-  const [vouchers, setVouchers] = useState<Voucher[]>(database.vouchers);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [memberSummary, setMemberSummary] = useState({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
   const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
@@ -108,6 +107,12 @@ function MasterHomePage() {
     async function loadBackendData() {
       setDataLoading(true);
       setDataError('');
+      setServices([]);
+      setDoctors([]);
+      setBranches([]);
+      setCourses([]);
+      setGuidelines([]);
+      setAppMetadata({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
       setUser({ ...guestUser });
       setBookings([]);
       setRecords([]);
@@ -155,7 +160,7 @@ function MasterHomePage() {
       ]);
       if (cancelled) return;
 
-      const results = [srvData, docData, brData, crsData, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
+      const results = [srvData, docData, brData, crsData, care, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
       if (metadata?.error || results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
       setDataLoading(false);
       if (srvData?.services) setServices(srvData.services);
@@ -234,7 +239,7 @@ function MasterHomePage() {
     .sort((a, b) => {
       if (servicesSort === 'priceAsc') return a.price - b.price;
       if (servicesSort === 'priceDesc') return b.price - a.price;
-      return b.rating - a.rating;
+      return (b.rating ?? 0) - (a.rating ?? 0);
     });
 
   return (

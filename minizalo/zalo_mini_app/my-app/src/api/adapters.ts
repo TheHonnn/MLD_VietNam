@@ -37,24 +37,24 @@ export const adaptUser = (u: Omit<User, 'phone'> & { phone?: string | null }): V
   role: u.role === 'CUSTOMER' ? 'patient' : lower(u.role),
   tier: u.membershipTier.charAt(0) + lower(u.membershipTier.slice(1)),
   points: Number(u.rewardPoints), dob: (u.dateOfBirth || '').slice(0, 10),
-  gender: u.gender === 'MALE' ? 'Nam' : u.gender === 'FEMALE' ? 'Nữ' : 'Khác',
+  gender: u.gender === 'MALE' ? 'Nam' : u.gender === 'FEMALE' ? 'Nữ' : u.gender === 'OTHER' ? 'Khác' : '',
   address: u.address || '', emergencyContactName: u.emergencyContactName || '',
   emergencyContactPhone: u.emergencyContactPhone || '',
 });
 
-export const adaptService = (s: Service & DisplayFields & {ratingAvg?: number; reviewCount?: number; reviews?: Record<string,any>[]}): View.MedicalService => ({
+export const adaptService = (s: Service & DisplayFields & {ratingAvg?: number | null; reviewCount?: number; reviews?: Record<string,any>[]}): View.MedicalService => ({
   ...s, title: s.name, category: s.categoryName || s.category?.name || '',
   price: Number(s.discountPrice ?? s.price),
   originalPrice: s.discountPrice != null ? Number(s.price) : undefined,
   image: s.imageUrl, description: s.fullDescription || s.shortDescription,
-  rating: Number(s.ratingAvg || 0), reviewsCount: Number(s.reviewCount || 0), indicatorsCount: 0, preparationNotes: [],
+  rating: s.ratingAvg == null ? null : Number(s.ratingAvg), reviewsCount: Number(s.reviewCount || 0),
 });
 
 export const adaptDoctor = (d: Technician & DisplayFields): View.Doctor => ({
   ...d, name: d.fullName, specialty: d.specialties.join(', '),
-  hospital: d.branchName || '', rating: Number(d.ratingAvg),
-  reviewsCount: d.reviewCount, avatar: d.avatarUrl,
-  consultationFee: 0, bio: d.bio || '',
+  hospital: d.branchName || '', rating: d.ratingAvg == null ? null : Number(d.ratingAvg),
+  reviewsCount: Number(d.reviewCount), avatar: d.avatarUrl,
+  bio: d.bio || '',
 });
 
 export const adaptBranch = (b: Branch): View.Branch => ({ ...b });
@@ -78,9 +78,9 @@ export const adaptBooking = (b: BookingResponse): View.Booking => ({
 export const adaptCourse = (c: CourseResponse): View.Course => ({
   ...c, category: c.categoryName || '', price: Number(c.tuitionFee),
   duration: c.totalHours + ' giờ', instructor: c.instructorName || '',
-  instructorAvatar: c.instructorAvatar || '', instructorProfile: (c as any).instructor || null, rating: 0, studentsCount: Number(c.studentsCount || 0),
+  instructorAvatar: c.instructorAvatar || '', instructorProfile: (c as any).instructor || null, studentsCount: Number(c.studentsCount || 0),
   image: c.imageUrl, description: c.fullDescription || c.shortDescription,
-  depositAmount: Number(c.depositAmount), modulesCount: Number((c as any).modulesCount || 0), lessonsCount: c.totalLessons,
+  depositAmount: Number(c.depositAmount), modulesCount: Number((c as any).modulesCount || 0), lessonsCount: (c.lessons || []).length,
   lessons: (c.lessons || []).map(l => ({
     ...l, duration: l.durationMinutes + ' phút', videoUrl: l.videoUrl || '',
     isCompleted: l.isCompleted === true,
@@ -122,7 +122,7 @@ export const adaptRecord = (j: TreatmentJournal & DisplayFields): View.MedicalRe
   doctorName: j.technicianName || '', facility: j.branchName || '',
   diagnosis: j.conditionAfter || j.conditionBefore || '',
   conditionBefore: j.conditionBefore || '', conditionAfter: j.conditionAfter || '',
-  treatmentNotes: j.treatmentNotes || '', labIndicators: [], prescription: [],
+  treatmentNotes: j.treatmentNotes || '',
   doctorAdvice: j.specialistAdvice || '',
 });
 
@@ -133,7 +133,7 @@ export const adaptTreatmentPlan = (p: UserPackage & { sessions?: (TreatmentJourn
   status: lower(p.status), purchaseDate: p.purchasedAt, expiryDate: p.expiresAt,
   sessions: (p.sessions || []).map(j => ({
     ...j, completedAt: j.sessionDate, title: j.treatmentNotes || '',
-    specialistName: j.technicianName || '', status: 'completed',
+    specialistName: j.technicianName || '',
   })),
 });
 
@@ -170,7 +170,7 @@ export function profileToCanonical(profile: Record<string, any>) {
     fullName: name ?? rest.fullName,
     dateOfBirth: dob !== undefined ? dob || null : rest.dateOfBirth !== undefined ? rest.dateOfBirth || null : undefined,
     avatarUrl: avatar ?? rest.avatarUrl,
-    gender: gender === 'Nam' ? 'MALE' : gender === 'Nữ' ? 'FEMALE' : gender === 'Khác' ? 'OTHER' : gender,
+    gender: gender === 'Nam' ? 'MALE' : gender === 'Nữ' ? 'FEMALE' : gender === 'Khác' ? 'OTHER' : gender === '' ? null : gender,
     email: rest.email, address: rest.address,
     emergencyContactName: rest.emergencyContactName, emergencyContactPhone: rest.emergencyContactPhone,
     ...(rest.purpose ? { purpose: rest.purpose } : {}),

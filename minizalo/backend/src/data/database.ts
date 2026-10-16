@@ -8,7 +8,7 @@ export interface User {
   tier: 'Standard' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond' | (string & {});
   points: number;
   dob: string;
-  gender: 'Nam' | 'Nữ' | 'Khác';
+  gender: 'Nam' | 'Nữ' | 'Khác' | '';
   address: string;
   preferredBranch?: string;
   skinType?: string;
@@ -53,10 +53,9 @@ export interface Doctor {
   specialty: string;
   hospital: string;
   experienceYears: number;
-  rating: number;
+  rating: number | null;
   reviewsCount: number;
   avatar: string;
-  consultationFee: number;
   bio: string;
   reviews?: Record<string, any>[];
 }
@@ -68,13 +67,11 @@ export interface MedicalService {
   price: number;
   originalPrice?: number;
   durationMinutes: number;
-  rating: number;
+  rating: number | null;
   reviewsCount: number;
   badge?: string;
   image: string;
   description: string;
-  indicatorsCount: number;
-  preparationNotes: string[];
   categoryId?: string;
   isFeatured?: boolean;
   steps?: (string | Record<string, any>)[];
@@ -133,7 +130,6 @@ export interface Course {
   duration: string;
   instructor: string;
   instructorAvatar: string;
-  rating: number;
   studentsCount: number;
   badge?: string;
   image: string;
@@ -196,26 +192,6 @@ export interface MedicalRecord {
   doctorName: string;
   facility: string;
   diagnosis: string;
-  vitalSigns?: {
-    bloodPressure: string;
-    heartRate: number;
-    spO2: number;
-    temperature: number;
-    weight: number;
-  };
-  labIndicators: {
-    name: string;
-    value: string;
-    unit: string;
-    status: 'Bình thường' | 'Cao' | 'Thấp';
-    referenceRange: string;
-  }[];
-  prescription: {
-    medicineName: string;
-    dosage: string;
-    schedule: string;
-    notes: string;
-  }[];
   doctorAdvice: string;
   conditionBefore?: string;
   conditionAfter?: string;
@@ -244,10 +220,5 @@ export interface Voucher {
 
 export const guestUser: User = {
   id: '', name: '', phone: '', email: '', role: 'patient', avatar: '',
-  tier: 'Standard', points: 0, dob: '', gender: 'Khác', address: '',
-};
-export const database = {
-  users: [] as User[], doctors: [] as Doctor[], branches: [] as Branch[],
-  services: [] as MedicalService[], bookings: [] as Booking[], courses: [] as Course[],
-  medicalRecords: [] as MedicalRecord[], vouchers: [] as Voucher[],
+  tier: '', points: 0, dob: '', gender: '', address: '',
 };

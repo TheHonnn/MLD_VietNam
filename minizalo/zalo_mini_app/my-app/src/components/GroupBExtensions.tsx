@@ -110,7 +110,7 @@ export const SpecialistDirectoryModal: React.FC<{
   const specialties = Array.from(new Set(doctors.map(doctor => doctor.specialty).filter(Boolean)));
   const results = doctors.filter(doctor => (doctor.name + ' ' + doctor.title + ' ' + doctor.specialty).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi'))
     && (!branch || doctor.hospital === branch) && (!specialty || doctor.specialty === specialty))
-    .sort((a, b) => sort === 'rating' ? b.rating - a.rating : a.name.localeCompare(b.name, 'vi'));
+    .sort((a, b) => sort === 'rating' ? (b.rating ?? 0) - (a.rating ?? 0) : a.name.localeCompare(b.name, 'vi'));
   return <DetailScreen title="Đội ngũ chuyên viên" onClose={onClose}>
     <label className="block"><span className="flex items-center gap-2"><SearchIcon size={16} />Tìm chuyên viên</span><input value={query} onChange={event => setQuery(event.target.value)} className={inputClass} /></label>
     <div className="grid grid-cols-2 gap-2">
@@ -142,7 +142,6 @@ export const ServiceDetailModal: React.FC<{
     <section><h2 className="mb-2 font-bold">Giới thiệu dịch vụ</h2><p className="whitespace-pre-line">{service.description || 'Chưa cập nhật mô tả.'}</p></section>
     <section className="space-y-2"><h2 className="font-bold">Lợi ích</h2>{service.benefits?.length ? <ul className="list-inside list-disc space-y-1">{service.benefits.map((benefit, index) => <li key={index}>{contentText(benefit, 'title') || contentText(benefit, 'description')}</li>)}</ul> : <p className="text-stone-500">Chưa cập nhật lợi ích.</p>}</section>
     <section className="space-y-2"><h2 className="font-bold">Quy trình trải nghiệm</h2>{service.steps?.length ? service.steps.map((step, index) => <div key={index} className="border-b border-[#EADECF] py-2"><h3 className="font-semibold">{typeof step !== 'string' && typeof step.step === 'number' ? step.step + '. ' : ''}{contentText(step, 'title')}</h3>{typeof step !== 'string' && <p className="whitespace-pre-line">{contentText(step, 'desc') || contentText(step, 'description')}</p>}</div>) : <p className="text-stone-500">Chưa cập nhật quy trình.</p>}</section>
-    {!!service.preparationNotes?.length && <section><h2 className="mb-2 font-bold">Thông tin cần biết</h2><ul className="list-inside list-disc">{service.preparationNotes.map((note, index) => <li key={index}>{note}</li>)}</ul></section>}
     <Gallery urls={service.galleryUrls} name={service.title} /><Reviews reviews={service.reviews} />
   </DetailScreen>;
 };

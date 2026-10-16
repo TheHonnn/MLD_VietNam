@@ -208,7 +208,7 @@ export function createApp(store: Store, options: AppOptions) {
     const name = typeof input.fullName === 'string' ? input.fullName.trim() : '';
     const email = typeof input.email === 'string' ? input.email.trim() : '';
     const dob = input.dateOfBirth || null;
-    const gender = input.gender ?? 'OTHER';
+    const gender = input.gender === '' || input.gender == null ? null : input.gender;
     const purpose = input.purpose ?? 'BEAUTY_SPA';
     const avatar = input.avatarUrl || null;
     if (!['BEAUTY_SPA','ACADEMY','BOTH'].includes(purpose)) throw new ApiError(400, 'Invalid purpose');
@@ -224,7 +224,7 @@ export function createApp(store: Store, options: AppOptions) {
     }
     if (!name || name.length > 150 || /[\x00-\x1f\x7f]/.test(name)) throw new ApiError(400, 'Full name is required, up to 150 characters');
     if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new ApiError(400, 'Invalid email');
-    if (!['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400, 'Invalid gender');
+    if (gender !== null && !['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400, 'Invalid gender');
     if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob)
       || !Number.isFinite(Date.parse(dob)) || new Date(dob).toISOString().slice(0,10) !== dob || Date.parse(dob) > Date.now())) {
       throw new ApiError(400, 'Invalid date of birth');
@@ -316,8 +316,8 @@ export function createApp(store: Store, options: AppOptions) {
   app.put('/api/auth/profile', route(async (req,res) => {
     const input = req.body;
     const name = input.fullName ?? input.name ?? res.locals.user.full_name;
-    const gender = input.gender === 'Nam' ? 'MALE' : input.gender === 'Nữ' ? 'FEMALE' : input.gender === 'Khác' ? 'OTHER' : input.gender ?? res.locals.user.gender;
-    if (typeof name !== 'string' || !name.trim() || name.trim().length>150 || /[\x00-\x1f\x7f]/.test(name) || !['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400,'Invalid profile');
+    const gender = input.gender === 'Nam' ? 'MALE' : input.gender === 'Nữ' ? 'FEMALE' : input.gender === 'Khác' ? 'OTHER' : input.gender !== undefined ? input.gender : res.locals.user.gender;
+    if (typeof name !== 'string' || !name.trim() || name.trim().length>150 || /[\x00-\x1f\x7f]/.test(name) || (gender !== null && !['MALE','FEMALE','OTHER'].includes(gender))) throw new ApiError(400,'Invalid profile');
     if(input.email!==undefined&&(typeof input.email!=='string'||input.email.length>255||(input.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)))) throw new ApiError(400,'Invalid email');
     const dobValue = input.dateOfBirth !== undefined ? input.dateOfBirth : input.dob !== undefined ? input.dob : res.locals.user.date_of_birth;
     const dob = dobValue instanceof Date ? dobValue.toISOString().slice(0,10) : dobValue;

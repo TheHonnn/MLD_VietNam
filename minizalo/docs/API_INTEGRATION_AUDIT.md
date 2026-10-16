@@ -78,6 +78,29 @@ Missing owner/configuration workflows above require coordination before enabling
 
 ## Verification And Rollout
 
+### Follow-up Runtime Data Audit (2026-10-16)
+
+- Removed the unused in-memory `database` container. Runtime lists start empty
+  and are populated only by the configured API; isolated test fixtures remain
+  under `backend/test` and are never used to populate the shared database.
+- Removed invented zero course ratings/consultation fees, empty clinical records,
+  unused indicator fields and synthesized completed statuses on journal sessions.
+  Service/specialist averages with no reviews remain `null`, not zero-star ratings.
+- Course lesson counts use the actual returned lesson list, not the schema's
+  default planned lesson count. Missing gender is distinct from an explicit Other
+  selection in onboarding, profile mapping and persistence.
+- Missing API configuration fails closed instead of silently selecting a server.
+  Requests bypass cache; refresh clears old catalog/configuration values and
+  reports care-library failures along with other API failures.
+- The read-only content checker now compares selected names, prices, descriptions,
+  images and branch hours as well as UUIDs. It prints booleans/counts only and
+  returns a failure when content differs. Active category/branch filters match
+  public API visibility. UI copy, enum options and onboarding artwork are not
+  customer/catalog fixtures and remain part of the interface.
+- Follow-up verification: all 53 backend/adapter tests passed; TypeScript and
+  production build passed. Selected content and UUIDs matched the shared database
+  for all four deployed public catalogs. No production test records were written.
+
 - Backend tests use isolated PGlite with the actual canonical SQL, not production
   writes. They cover admin edits, privacy/ownership, settings, protected content,
   learning persistence, booking transactions, signup and encrypted Zalo relay.

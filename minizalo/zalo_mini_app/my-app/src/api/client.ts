@@ -1,7 +1,7 @@
 import { getAccessToken, getPhoneNumber, getUserInfo, nativeStorage } from 'zmp-sdk';
 import { adaptPayload, profileToCanonical } from './adapters';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://mld-miniapp-api.onrender.com/api').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SESSION_KEY = 'mld_miniapp_session_v2';
 let memoryToken: string | null = null;
 const session = {
@@ -20,6 +20,7 @@ const session = {
   },
 };
 const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  if (!API_BASE_URL) throw new Error('VITE_API_BASE_URL is required');
   const token = session.get();
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -27,7 +28,7 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const timeout = setTimeout(() => controller.abort(), 30000);
   let response: Response;
   try {
-    response = await window.fetch(input, { ...init, headers, signal: init.signal ?? controller.signal });
+    response = await window.fetch(input, { cache: 'no-store', ...init, headers, signal: init.signal ?? controller.signal });
   } finally { clearTimeout(timeout); }
   const envelope = await response.json();
   const successful = response.ok && envelope.success === true;

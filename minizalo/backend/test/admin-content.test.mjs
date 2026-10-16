@@ -65,6 +65,17 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       assert.equal(changed.data.services[0].name, 'Changed by admin');
       assert.equal(Number(changed.data.services[0].price), 155000);
     });
+    await t.test('unspecified gender remains unset when saving a real profile', async () => {
+      await db.query('UPDATE users SET gender=NULL WHERE id=$1',[id(1)]);
+      const saved=await call('/auth/profile',{method:'PUT',body:{fullName:'Updated customer'}});
+      assert.equal(saved.status,200,JSON.stringify(saved));
+      assert.equal(saved.data.user.gender,null);
+      assert.equal((await call('/auth/profile',{method:'PUT',body:{gender:'ADMIN'}})).status,400);
+      const explicit=await call('/auth/profile',{method:'PUT',body:{gender:'OTHER'}});
+      assert.equal(explicit.data.user.gender,'OTHER');
+      const cleared=await call('/auth/profile',{method:'PUT',body:{gender:null}});
+      assert.equal(cleared.data.user.gender,null);
+    });
     await t.test('settings persist per customer and cannot select another owner', async () => {
       assert.equal((await call('/auth/settings', { anonymous: true })).status, 401);
       assert.equal((await call('/auth/settings')).data.settings, null);

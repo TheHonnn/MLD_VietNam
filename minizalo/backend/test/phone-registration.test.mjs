@@ -107,6 +107,16 @@ test('phone-only Zalo registration needs verified phone plus a real name, never 
       assert.ok(result.message.includes('-501'));
       assert.equal(await count(),1);
     });
+    await t.test('optional gender is not fabricated when a new customer leaves it unset',async()=>{
+      const proof=jwt.sign({purpose:'zalo-registration',phone:'0900000001'},secret,
+        {audience:'mld-zalo-registration',issuer:'mld-miniapp-api',expiresIn:'5m'});
+      const result=await post('/auth/zalo/register',{registrationToken:proof,fullName:'Customer without optional fields',gender:''});
+      assert.equal(result.status,200,JSON.stringify(result));
+      assert.equal(result.data.user.gender,null);
+      assert.equal(result.data.user.dateOfBirth,null);
+      assert.equal(result.data.user.email,null);
+      assert.equal(await count(),2);
+    });
   } finally {
     await new Promise(resolve=>server.close(resolve));
     await db.close();
