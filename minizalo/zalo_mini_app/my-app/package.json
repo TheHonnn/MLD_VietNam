@@ -24,12 +24,14 @@
   },
   "dependencies": {
     "jotai": "^2.12.1",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zmp-sdk": "latest",
     "zmp-ui": "latest"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

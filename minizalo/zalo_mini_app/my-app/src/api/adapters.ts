@@ -7,7 +7,7 @@ import type * as View from '../../../../backend/src/data/database';
 type DisplayFields = { categoryName?: string; branchName?: string; technicianName?: string };
 type BookingResponse = Omit<Booking, 'items'> & DisplayFields & {
   customerName?: string; customerPhone?: string; createdAt?: string;
-  items?: (BookingItem & { name?: string; serviceTitle?: string })[];
+  items?: (BookingItem & { name?: string; serviceTitle?: string; imageUrl?: string })[];
 };
 type Lesson = { id: string; title: string; durationMinutes: number; videoUrl?: string; isCompleted?: boolean };
 type Quiz = { id: string; title: string; passingScore: number; questions: {
@@ -36,18 +36,18 @@ export const adaptUser = (u: Omit<User, 'phone'> & { phone?: string | null }): V
   ...u, phone: u.phone || '', name: u.fullName, avatar: u.avatarUrl || '', email: u.email || '',
   role: u.role === 'CUSTOMER' ? 'patient' : lower(u.role),
   tier: u.membershipTier.charAt(0) + lower(u.membershipTier.slice(1)),
-  points: Number(u.rewardPoints), dob: u.dateOfBirth || '',
+  points: Number(u.rewardPoints), dob: (u.dateOfBirth || '').slice(0, 10),
   gender: u.gender === 'MALE' ? 'Nam' : u.gender === 'FEMALE' ? 'Nữ' : 'Khác',
   address: u.address || '', emergencyContactName: u.emergencyContactName || '',
   emergencyContactPhone: u.emergencyContactPhone || '',
 });
 
-export const adaptService = (s: Service & DisplayFields): View.MedicalService => ({
+export const adaptService = (s: Service & DisplayFields & {ratingAvg?: number; reviewCount?: number; reviews?: Record<string,any>[]}): View.MedicalService => ({
   ...s, title: s.name, category: s.categoryName || s.category?.name || '',
   price: Number(s.discountPrice ?? s.price),
   originalPrice: s.discountPrice != null ? Number(s.price) : undefined,
   image: s.imageUrl, description: s.fullDescription || s.shortDescription,
-  rating: 0, reviewsCount: 0, indicatorsCount: 0, preparationNotes: [],
+  rating: Number(s.ratingAvg || 0), reviewsCount: Number(s.reviewCount || 0), indicatorsCount: 0, preparationNotes: [],
 });
 
 export const adaptDoctor = (d: Technician & DisplayFields): View.Doctor => ({
@@ -65,21 +65,22 @@ export const adaptBooking = (b: BookingResponse): View.Booking => ({
   userPhone: b.bookedForPhone || b.customerPhone || b.customer?.phone || '',
   serviceId: b.items?.[0]?.serviceId || '',
   serviceTitle: (b.items || []).map(i => i.name || i.serviceTitle || i.service?.name || '').filter(Boolean).join(', '),
+  serviceImage: b.items?.[0]?.imageUrl || '',
   doctorId: b.technicianId || '', doctorName: b.technicianName || b.technician?.fullName || '',
   branchName: b.branchName || b.branch?.name || '', date: b.bookingDate,
   timeSlot: b.startTime + ' - ' + b.endTime, price: Number(b.baseTotal),
   discount: Number(b.discountAmount) + Number(b.pointsDiscount),
   finalPrice: Number(b.finalPrice), paymentMethod: lower(b.paymentMethod),
   status: lower(b.status), notes: b.specialNotes || undefined,
-  qrCode: b.qrCodeHash ? 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(b.qrCodeHash) : '', createdAt: b.createdAt || '',
+  qrCode: b.qrCodeHash || '', createdAt: b.createdAt || '',
 });
 
 export const adaptCourse = (c: CourseResponse): View.Course => ({
   ...c, category: c.categoryName || '', price: Number(c.tuitionFee),
   duration: c.totalHours + ' giờ', instructor: c.instructorName || '',
-  instructorAvatar: c.instructorAvatar || '', rating: 0, studentsCount: Number(c.studentsCount || 0),
+  instructorAvatar: c.instructorAvatar || '', instructorProfile: (c as any).instructor || null, rating: 0, studentsCount: Number(c.studentsCount || 0),
   image: c.imageUrl, description: c.fullDescription || c.shortDescription,
-  depositAmount: Number(c.depositAmount), modulesCount: 0, lessonsCount: c.totalLessons,
+  depositAmount: Number(c.depositAmount), modulesCount: Number((c as any).modulesCount || 0), lessonsCount: c.totalLessons,
   lessons: (c.lessons || []).map(l => ({
     ...l, duration: l.durationMinutes + ' phút', videoUrl: l.videoUrl || '',
     isCompleted: l.isCompleted === true,
@@ -117,7 +118,7 @@ export const adaptVoucher = (v: UserVoucher): View.Voucher => ({
 });
 
 export const adaptRecord = (j: TreatmentJournal & DisplayFields): View.MedicalRecord => ({
-  ...j, userId: j.customerId, recordCode: '', diagnosisDate: j.sessionDate,
+  ...j, userId: j.customerId, recordCode: j.id, diagnosisDate: j.sessionDate,
   doctorName: j.technicianName || '', facility: j.branchName || '',
   diagnosis: j.conditionAfter || j.conditionBefore || '',
   conditionBefore: j.conditionBefore || '', conditionAfter: j.conditionAfter || '',
@@ -166,7 +167,8 @@ export function adaptPayload(payload: Record<string, any>) {
 export function profileToCanonical(profile: Record<string, any>) {
   const { name, dob, avatar, gender, ...rest } = profile;
   return {
-    fullName: name ?? rest.fullName, dateOfBirth: dob || rest.dateOfBirth || null,
+    fullName: name ?? rest.fullName,
+    dateOfBirth: dob !== undefined ? dob || null : rest.dateOfBirth !== undefined ? rest.dateOfBirth || null : undefined,
     avatarUrl: avatar ?? rest.avatarUrl,
     gender: gender === 'Nam' ? 'MALE' : gender === 'Nữ' ? 'FEMALE' : gender === 'Khác' ? 'OTHER' : gender,
     email: rest.email, address: rest.address,

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Box, Text, Modal } from 'zmp-ui';
+import { Box, Text } from 'zmp-ui';
 import { Booking } from '../../../../backend/src/data/database';
-import { CheckIcon, ArrowLeftIcon, ArrowRightIcon, QrCodeIcon } from './Icons';
+import { CheckIcon, ArrowLeftIcon, ArrowRightIcon } from './Icons';
+import { QRCode } from './QRCode';
 
 interface ETicketGroupCProps {
   booking: Booking | null;
@@ -81,11 +82,7 @@ export const ETicketGroupC: React.FC<ETicketGroupCProps> = ({
 
           {/* QR Code */}
           <Box className="pt-2 border-t border-dashed border-[#EADECF] flex flex-col items-center">
-            <img
-              src={booking.qrCode}
-              alt="QR Code"
-              className="w-32 h-32 rounded-xl p-1 bg-white border border-[#EADECF] shadow-sm"
-            />
+            <QRCode value={booking.qrCodeHash || booking.qrCode} size={160} />
             <Text className="text-[10px] text-stone-400 mt-1.5">
               Mã lịch hẹn
             </Text>

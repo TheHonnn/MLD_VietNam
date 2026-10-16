@@ -43,6 +43,42 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
 const responseJson = async (res: Response) => res.json();
 
 export const apiClient = {
+  async getAppMetadata() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/app-metadata`)); }
+    catch { return { error: 'Không thể tải danh mục và cấu hình ứng dụng.' }; }
+  },
+  async getSettings() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`)); }
+    catch { return { error: 'Không thể tải thiết lập.' }; }
+  },
+  async updateSettings(settings: Record<string, unknown>) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) })); }
+    catch { return { error: 'Không thể lưu thiết lập.' }; }
+  },
+  async getSupportFaqs() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/support-faqs`)); }
+    catch { return { error: 'Không thể tải câu hỏi thường gặp.' }; }
+  },
+  async createConsultationSurvey(body: Record<string, unknown>) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/consultation-surveys`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch { return { error: 'Không thể lưu khảo sát.' }; }
+  },
+  async getConsultationSurveys() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/consultation-surveys`)); }
+    catch { return { error: 'Không thể tải khảo sát đã lưu.' }; }
+  },
+  async getMyReviews() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/reviews/mine`)); }
+    catch { return { error: 'Không thể tải đánh giá của bạn.' }; }
+  },
+  async createReview(body: Record<string, unknown>) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/reviews`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch { return { error: 'Không thể gửi đánh giá.' }; }
+  },
+  async saveLessonProgress(courseId: string, lessonId: string, body: { watchedSeconds: number; isCompleted?: boolean; studentNotes?: string }) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/courses/${courseId}/lessons/${lessonId}/progress`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch { return { error: 'Không thể lưu tiến trình học.' }; }
+  },
   async loginWithZalo(requestConsent = false) {
     try {
       if (!requestConsent) {

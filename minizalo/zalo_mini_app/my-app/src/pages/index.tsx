@@ -55,6 +55,7 @@ function MasterHomePage() {
   // Navigation Tabs matching Figma Nhóm B & C: 'home' | 'services' | 'booking' | 'academy' | 'profile'
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking' | 'academy' | 'profile'>('home');
   const [academyMode, setAcademyMode] = useState<'catalog' | 'learning'>('catalog');
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   // Application Data States (synced with Backend API)
   const [services, setServices] = useState<MedicalService[]>(database.services);
@@ -99,8 +100,11 @@ function MasterHomePage() {
   const [dataError, setDataError] = useState('');
   const [loadVersion, setLoadVersion] = useState(0);
   const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
+  const [appMetadata, setAppMetadata] = useState<any>({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
+  const [guidelines, setGuidelines] = useState<any[]>([]);
   // Fetch real data from Backend on mount
   useEffect(() => {
+    let cancelled = false;
     async function loadBackendData() {
       setDataLoading(true);
       setDataError('');
@@ -113,10 +117,12 @@ function MasterHomePage() {
       setMemberSummary({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
       setETicketBooking(null);
       setBookingService(null);
+      const metadataRequest = apiClient.getAppMetadata();
       let authenticated = false;
       const isInsideZalo = /Zalo/i.test(navigator.userAgent) || Boolean((window as any).ZJSBridge);
       if (isInsideZalo) {
         const zaloSession = await apiClient.loginWithZalo(false);
+        if (cancelled) return;
         if (zaloSession?.user && zaloSession.token) {
           authenticated = true;
           setUser((prev) => ({ ...prev, ...zaloSession.user }));
@@ -128,9 +134,14 @@ function MasterHomePage() {
       } else {
         setZaloAuthState('web');
         const session = await apiClient.getCurrentUser();
+        if (cancelled) return;
         if (session?.user) { setUser(session.user); authenticated = true; }
         else { apiClient.logout(); setUser({ ...guestUser }); }
       }
+      const [metadata, care] = await Promise.all([metadataRequest, apiClient.getCareGuidelines()]);
+      if (cancelled) return;
+      if (!metadata?.error) setAppMetadata(metadata);
+      if (care?.guidelines) setGuidelines(care.guidelines);
       const [srvData, docData, brData, crsData, recData, membData, bkData, notifData, treatmentData] = await Promise.all([
         apiClient.getServices(),
         apiClient.getDoctors(),
@@ -142,9 +153,10 @@ function MasterHomePage() {
         authenticated ? apiClient.getNotifications() : Promise.resolve({}),
         authenticated ? apiClient.getTreatmentPlans() : Promise.resolve({}),
       ]);
+      if (cancelled) return;
 
       const results = [srvData, docData, brData, crsData, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
-      if (results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
+      if (metadata?.error || results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
       setDataLoading(false);
       if (srvData?.services) setServices(srvData.services);
       if (docData?.doctors) setDoctors(docData.doctors);
@@ -159,7 +171,8 @@ function MasterHomePage() {
       if (treatmentData?.treatmentPlans) setTreatmentPlans(treatmentData.treatmentPlans);
     }
 
-    loadBackendData().catch(() => { setDataError('Không thể tải dữ liệu. Vui lòng thử lại.'); setDataLoading(false); });
+    loadBackendData().catch(() => { if (!cancelled) { setDataError('Không thể tải dữ liệu. Vui lòng thử lại.'); setDataLoading(false); } });
+    return () => { cancelled = true; };
   }, [loadVersion]);
 
   const connectZaloProfile = async () => {
@@ -196,7 +209,9 @@ function MasterHomePage() {
   };
 
   // Find latest upcoming confirmed booking
-  const upcomingBooking = bookings.find((b) => b.status === 'confirmed') || null;
+  const bookingStart = (booking: Booking) => Date.parse(`${booking.date.slice(0,10)}T${booking.timeSlot.split(' - ')[0]}+07:00`);
+  const upcomingBooking = bookings.filter(booking => ['confirmed','pending'].includes(booking.status) && bookingStart(booking) > Date.now())
+    .sort((a,b) => bookingStart(a)-bookingStart(b))[0] || null;
 
   const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null) => {
     if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return; }
@@ -213,7 +228,7 @@ function MasterHomePage() {
         s.title.toLowerCase().includes(servicesSearch.toLowerCase()) ||
         s.description.toLowerCase().includes(servicesSearch.toLowerCase());
       const matchCat =
-        servicesCategory === 'all' || s.category.toLowerCase().includes(servicesCategory.toLowerCase());
+        servicesCategory === 'all' || s.categoryId === servicesCategory;
       return matchSearch && matchCat;
     })
     .sort((a, b) => {
@@ -245,11 +260,17 @@ function MasterHomePage() {
           onComplete={account => { setRegistration(null); setUser(account); setActiveTab('home'); setZaloAuthState('connected'); setLoadVersion(value => value + 1); }} />}
         {/* Scrollable Body Content */}
         <div className="flex-1 overflow-y-auto pb-28 overscroll-contain">
+        <div className="flex justify-end px-3 pt-2"><button type="button" disabled={dataLoading} onClick={() => setLoadVersion(value => value + 1)} className="min-h-9 rounded-lg border bg-white px-3 text-xs disabled:opacity-50">{dataLoading ? 'Đang cập nhật...' : 'Cập nhật dữ liệu'}</button></div>
         {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
         {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={() => setLoadVersion(value => value + 1)} className="underline">Thử lại</button></div>}
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
           <GroupBHome
+            userName={user.name}
+            metadata={appMetadata}
+            courses={courses}
+            onSelectCourse={course => { setSelectedCourseId(course.id); setAcademyMode('catalog'); setActiveTab('academy'); }}
+            guidelines={guidelines}
             services={services}
             doctors={doctors}
             branches={branches}
@@ -297,14 +318,7 @@ function MasterHomePage() {
 
             {/* Category Pills (Figma Screen 2) */}
             <div className="flex flex-wrap gap-2 text-xs">
-              {[
-                { id: 'all', label: 'Tất cả' },
-                { id: 'massage', label: 'Massage' },
-                { id: 'da', label: 'Chăm sóc da' },
-                { id: 'cothe', label: 'Chăm sóc cơ thể' },
-                { id: 'thugian', label: 'Thư giãn' },
-                { id: 'goilieutrinh', label: 'Gói liệu trình' },
-              ].map((c) => (
+              {[{ id: 'all', label: 'Tất cả' }, ...appMetadata.serviceCategories.map((category: any) => ({ id: category.id, label: category.name }))].map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setServicesCategory(c.id)}
@@ -359,14 +373,6 @@ function MasterHomePage() {
                       alt={service.title}
                       className="w-full h-full object-cover"
                     />
-                    <button
-                      type="button"
-                      onClick={(event) => event.stopPropagation()}
-                      className="absolute top-3 right-3 w-9 h-9 rounded-[8px] bg-white border border-[#E3D7CB] flex items-center justify-center shadow-sm"
-                      aria-label="Yêu thích"
-                    >
-                      <HeartIcon size={18} color="#A65317" />
-                    </button>
                   </div>
                   <Box className="p-3 space-y-2.5">
                     <Box className="min-w-0 space-y-1">
@@ -428,7 +434,7 @@ function MasterHomePage() {
                 <button onClick={() => setIsSpecialistDirectoryOpen(true)} className="h-8 rounded-[7px] border border-[#D8C9BA] bg-white px-3 text-[9px] font-bold text-[#A65317]">Xem tất cả</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {doctors.slice(0, 2).map((doctor) => <button key={doctor.id} onClick={() => setViewingDoctor(doctor)} className="overflow-hidden rounded-[8px] border border-[#E3D7CB] bg-white text-left"><img src={doctor.avatar} alt={doctor.name} className="h-[105px] w-full object-cover" /><div className="p-2.5"><h3 className="line-clamp-1 text-[11px] font-bold text-[#40352F]">{doctor.name}</h3><p className="mt-1 line-clamp-1 text-[9px] text-[#7A685D]">{doctor.title}</p><p className="mt-2 text-[9px] font-semibold text-[#A65317]">★ {doctor.rating} · {doctor.experienceYears} năm</p></div></button>)}
+                {doctors.slice(0, 2).map((doctor) => <button key={doctor.id} onClick={() => setViewingDoctor(doctor)} className="overflow-hidden rounded-[8px] border border-[#E3D7CB] bg-white text-left"><img src={doctor.avatar} alt={doctor.name} className="h-[105px] w-full object-cover" /><div className="p-2.5"><h3 className="line-clamp-1 text-[11px] font-bold text-[#40352F]">{doctor.name}</h3><p className="mt-1 line-clamp-1 text-[9px] text-[#7A685D]">{doctor.title}</p><p className="mt-2 text-[9px] font-semibold text-[#A65317]">{doctor.reviewsCount > 0 ? `★ ${doctor.rating}` : 'Chưa có đánh giá'} · {doctor.experienceYears} năm</p></div></button>)}
               </div>
             </section>
           </Box>
@@ -440,21 +446,35 @@ function MasterHomePage() {
             bookings={bookings}
             onUpdateBookings={(updated) => setBookings(updated)}
             onBookNewService={() => openBooking(services[0])}
-            onRebookService={(title) => {
-              const matched = services.find((s) => s.title === title) || services[0];
-              openBooking(matched);
+            onRebookService={(id) => {
+              const matched = services.find((s) => s.id === id);
+              if (matched) openBooking(matched);
+              else { setDataError('Dịch vụ này không còn nhận đặt lịch. Vui lòng chọn dịch vụ khác.'); setActiveTab('services'); }
             }}
           />
         )}
 
         {/* TAB 4: HỌC VIỆN & ĐÀO TẠO NGHỀ (FIGMA GROUP E) */}
-        {activeTab === 'academy' && <GroupEAcademy key={academyMode} courses={courses} mode={academyMode} />}
+        {activeTab === 'academy' && <GroupEAcademy key={academyMode} courses={courses} mode={academyMode} initialCourseId={academyMode === 'catalog' ? selectedCourseId || undefined : undefined} />}
 
         {/* TAB 5: HỘI VIÊN & CÁ NHÂN (FIGMA GROUP F VIP PASS) */}
         {activeTab === 'profile' && (
           <Box className="space-y-4">
             <GroupFProfile
               user={user}
+              metadata={{ tierRules: appMetadata.membershipTiers, loyalty: appMetadata.loyaltySettings }}
+              onLogout={async () => {
+                apiClient.logout(); setUser({ ...guestUser }); setRegistration(null); setIsTreatmentOpen(false);
+                setIsEMRModalOpen(false); setIsNotificationsOpen(false); setActiveTab('home');
+                setBookings([]); setRecords([]); setVouchers([]); setNotifications([]); setTreatmentPlans([]);
+                setLoadVersion(value => value + 1);
+              }}
+              onSelectVoucher={voucher => {
+                try {
+                  localStorage.setItem('mld_pending_voucher', JSON.stringify({ code: voucher.code, scope: 'service' }));
+                  setActiveTab('services');
+                } catch { setDataError('Không thể giữ lựa chọn voucher trên thiết bị. Bạn có thể nhập mã khi đặt lịch.'); }
+              }}
               onUserUpdated={setUser}
               onOpenAppointments={() => setActiveTab('booking')}
               onOpenPackages={() => {
@@ -466,6 +486,7 @@ function MasterHomePage() {
                 setActiveTab('academy');
               }}
               onOpenCourseCatalog={() => {
+                setSelectedCourseId(null);
                 setAcademyMode('catalog');
                 setActiveTab('academy');
               }}
@@ -644,23 +665,24 @@ function MasterHomePage() {
         onClose={() => setIsSearchOpen(false)}
         onSelectService={(s) => {
           setIsSearchOpen(false);
-          const found = services.find((x) => x.id === s.id) || services[0];
-          setViewingService(found);
+          const found = services.find((x) => x.id === s.id);
+          if (found) setViewingService(found);
         }}
-        onSelectCourse={() => {
+        onSelectCourse={course => {
           setIsSearchOpen(false);
+          setSelectedCourseId(course.id);
           setAcademyMode('catalog');
           setActiveTab('academy');
         }}
         onSelectBranch={(br) => {
           setIsSearchOpen(false);
-          const found = branches.find((x) => x.id === br.id) || branches[0];
-          setViewingBranch(found);
+          const found = branches.find((x) => x.id === br.id);
+          if (found) setViewingBranch(found);
         }}
         onSelectSpecialist={(sp) => {
           setIsSearchOpen(false);
-          const found = doctors.find((x) => x.name.includes(sp.title)) || doctors[0];
-          setViewingDoctor(found);
+          const found = doctors.find((x) => x.id === sp.id);
+          if (found) setViewingDoctor(found);
         }}
       />
 
@@ -672,6 +694,9 @@ function MasterHomePage() {
               key={treatmentInitialTab}
               initialTab={treatmentInitialTab}
               treatmentPlans={treatmentPlans}
+              records={records}
+              bookings={bookings}
+              onNotificationsChange={setNotifications}
               user={user}
               notifications={notifications}
               onClose={() => setIsTreatmentOpen(false)}

@@ -1,489 +1,208 @@
 import React from 'react';
-import { MedicalService, Doctor, Branch } from '../../../../backend/src/data/database';
-import {
-  ArrowLeftIcon,
-  HeartIcon,
-  ShareIcon,
-  ClockIcon,
-  StarIcon,
-  CheckIcon,
-  CloseIcon,
-  PhoneIcon,
-  LocationIcon,
-  MapIcon,
-  SearchIcon,
-} from '@/components/Icons';
+import type { MedicalService, Doctor, Branch } from '../../../../backend/src/data/database';
+import type { Branch as CanonicalBranch } from '../../../../../database/shared_types';
+import { ArrowLeftIcon, MapIcon, SearchIcon } from '@/components/Icons';
 
-export const BranchDirectoryModal: React.FC<{
-  branches: Branch[];
-  onClose: () => void;
-  onSelectBranch: (branch: Branch) => void;
-}> = ({ branches, onClose, onSelectBranch }) => (
-  <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden text-[#40352F]">
-    <div className="px-4 pt-4 pb-3">
-      <button onClick={onClose} className="w-9 h-9 rounded-[8px] bg-white border border-[#DED2C5] flex items-center justify-center mb-4"><ArrowLeftIcon size={18} /></button>
-      <h1 className="text-[21px] font-bold text-[#6F452C]">Hệ thống chi nhánh</h1>
-      <p className="text-[11px] text-[#7A685D] mt-1">Tìm cơ sở phù hợp với bạn.</p>
-    </div>
-    <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
-      <div className="flex gap-2"><span className="w-10 h-10 rounded-[8px] bg-white border border-[#DED2C5] flex items-center justify-center"><LocationIcon size={17} color="#A65317" /></span><div className="h-10 flex-1 rounded-[8px] bg-white border border-[#DED2C5] px-3 flex items-center text-[10px] text-[#8A7D74]">Tìm chi nhánh, địa chỉ...</div></div>
-      <label className="block text-[10px] text-[#6F625B]">Tỉnh / thành phố<span className="h-10 mt-1 px-3 rounded-[8px] bg-white border border-[#DED2C5] flex items-center justify-between text-[#40352F]">Tất cả tỉnh / thành phố <span>⌄</span></span></label>
-      <div className="flex gap-2"><button className="flex-1 h-10 rounded-[8px] bg-white border border-[#A65317] text-[#A65317] text-[10px] font-bold">Gần tôi</button><button className="px-4 h-10 rounded-[8px] bg-[#A65317] text-white text-[10px]">Danh sách</button><button className="px-4 h-10 rounded-[8px] bg-white border border-[#DED2C5] text-[10px]">Bản đồ</button></div>
-      <label className="block text-[10px] text-[#6F625B]">Dịch vụ tại cơ sở<span className="h-10 mt-1 px-3 rounded-[8px] bg-white border border-[#DED2C5] flex items-center justify-between text-[#40352F]">Tất cả dịch vụ <span>⌄</span></span></label>
-      <div className="p-3 rounded-[8px] bg-[#F3E2CE] text-[9px]">Dữ liệu minh họa · {branches.length} cơ sở hữu cấu. Không sử dụng vị trí hoặc khoảng cách thực tế.</div>
-      {branches.map((branch) => <button key={branch.id} onClick={() => onSelectBranch(branch)} className="w-full rounded-[10px] border border-[#DED2C5] bg-white p-2 text-left"><div className="px-1 py-1.5"><h3 className="text-[12px] font-bold">{branch.name}</h3><p className="mt-0.5 text-[9px] font-semibold text-[#A65317]">Có thể đặt lịch tại chi nhánh</p></div><img src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&auto=format&fit=crop&q=80" alt={branch.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover" /><p className="px-1 pb-1 pt-2 text-[10px] text-[#7A685D]">{branch.address}</p></button>)}
-    </div>
+export interface PublicReview {
+  id: string;
+  rating: number;
+  comment?: string | null;
+  branchReply?: string | null;
+  photos?: string[];
+}
+type ContentItem = string | Record<string, unknown>;
+export type ServiceDetails = Omit<MedicalService, 'steps' | 'benefits' | 'reviews'> & {
+  categoryId?: string;
+  steps?: ContentItem[];
+  benefits?: ContentItem[];
+  galleryUrls?: string[];
+  reviews?: (PublicReview | Record<string, unknown>)[];
+};
+export type DoctorDetails = Omit<Doctor, 'reviews'> & { reviews?: (PublicReview | Record<string, unknown>)[] };
+export type BranchDetails = Omit<Branch, 'amenities'> & Partial<Pick<CanonicalBranch, 'openingTime' | 'closingTime' | 'latitude' | 'longitude' | 'galleryUrls'>> & { amenities?: ContentItem[] };
+
+const contentText = (item: ContentItem, field: string) => typeof item === 'string' ? item : typeof item[field] === 'string' ? item[field] as string : '';
+
+const buttonClass = 'rounded-[8px] border border-[#DED2C5] bg-white px-3 py-2 text-xs font-semibold text-[#98501B] disabled:opacity-50';
+const inputClass = 'mt-1 h-10 w-full min-w-0 rounded-[8px] border border-[#DED2C5] bg-white px-3 text-xs text-[#40352F]';
+
+export const EntityImage: React.FC<{ src?: string | null; alt: string; className?: string }> = ({ src, alt, className = 'h-44 w-full' }) => {
+  const [failedSource, setFailedSource] = React.useState<string | null>(null);
+  return src && failedSource !== src
+    ? <img src={src} alt={alt} onError={() => setFailedSource(src)} className={className + ' rounded-[8px] object-cover'} />
+    : <div className={className + ' flex items-center justify-center rounded-[8px] bg-stone-100 p-3 text-center text-xs text-stone-500'}>Chưa có hình ảnh</div>;
+};
+
+export const BranchHours: React.FC<{ branch: BranchDetails }> = ({ branch }) => (
+  <p className="text-xs text-stone-600">Giờ hoạt động: {branch.openingTime && branch.closingTime
+    ? branch.openingTime + ' - ' + branch.closingTime : 'Chưa cập nhật'}</p>
+);
+
+const MapLink: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
+  const latitude = branch.latitude == null ? NaN : Number(branch.latitude);
+  const longitude = branch.longitude == null ? NaN : Number(branch.longitude);
+  const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
+  const destination = hasCoordinates ? latitude + ',' + longitude : branch.address?.trim();
+  return destination
+    ? <a href={'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(destination)} target="_blank" rel="noopener noreferrer" className={buttonClass + ' inline-flex items-center gap-2'}><MapIcon size={14} />Mở bản đồ</a>
+    : <p className="text-stone-500">Chưa có vị trí chi nhánh.</p>;
+};
+
+const DetailScreen: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode }> = ({ title, onClose, children, footer }) => (
+  <div className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#FAF6F0] text-[#40352F]">
+    <header className="flex shrink-0 items-center gap-3 border-b border-[#EADECF] bg-white p-4">
+      <button onClick={onClose} aria-label="Quay lại" title="Quay lại" className={buttonClass}><ArrowLeftIcon size={18} /></button>
+      <h1 className="min-w-0 break-words text-base font-bold">{title}</h1>
+    </header>
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-xs [overflow-wrap:anywhere]">{children}</div>
+    {footer && <footer className="flex shrink-0 flex-wrap items-center gap-3 border-t border-[#EADECF] bg-white p-4">{footer}</footer>}
   </div>
 );
 
+const Gallery: React.FC<{ urls?: string[]; name: string }> = ({ urls = [], name }) => urls.length ? (
+  <section className="space-y-2"><h2 className="font-bold">Thư viện ảnh</h2><div className="grid grid-cols-2 gap-2">{urls.filter(Boolean).map((url, index) => <EntityImage key={url + index} src={url} alt={name} className="h-28 w-full" />)}</div></section>
+) : null;
+
+const Reviews: React.FC<{ reviews?: (PublicReview | Record<string, unknown>)[] }> = ({ reviews }) => (
+  <section className="space-y-2"><h2 className="font-bold">Đánh giá</h2>
+    {!reviews?.length ? <p className="text-stone-500">Chưa có đánh giá được cung cấp.</p> : reviews.map((review, index) => (
+      <article key={typeof review.id === 'string' ? review.id : index} className="space-y-2 border-b border-[#EADECF] py-3">
+        {review.rating != null && Number.isFinite(Number(review.rating)) && <p className="font-semibold">{Number(review.rating)}/5</p>}
+        {typeof review.comment === 'string' && <p className="whitespace-pre-line">{review.comment}</p>}
+        {typeof review.branchReply === 'string' && <p className="text-stone-600">Phản hồi chi nhánh: {review.branchReply}</p>}
+        <Gallery urls={Array.isArray(review.photos) ? review.photos.filter((photo): photo is string => typeof photo === 'string') : []} name="Ảnh đánh giá" />
+      </article>
+    ))}
+  </section>
+);
+
+export const BranchDirectoryModal: React.FC<{
+  branches: BranchDetails[];
+  onClose: () => void;
+  onSelectBranch: (branch: Branch) => void;
+}> = ({ branches, onClose, onSelectBranch }) => {
+  const [query, setQuery] = React.useState('');
+  const [city, setCity] = React.useState('');
+  const cities = Array.from(new Set(branches.map(branch => branch.city).filter(Boolean)));
+  const results = branches.filter(branch => (!city || branch.city === city)
+    && (branch.name + ' ' + branch.address).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')));
+  return <DetailScreen title="Hệ thống chi nhánh" onClose={onClose}>
+    <label className="block">Tìm chi nhánh<input value={query} onChange={event => setQuery(event.target.value)} className={inputClass} placeholder="Tên hoặc địa chỉ..." /></label>
+    <label className="block">Tỉnh / thành phố<select value={city} onChange={event => setCity(event.target.value)} className={inputClass}><option value="">Tất cả</option>{cities.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+    <p>{results.length} chi nhánh</p>
+    {!results.length && <p className="text-stone-500">Không có chi nhánh phù hợp.</p>}
+    {results.map(branch => <button key={branch.id} onClick={() => onSelectBranch(branch)} className="w-full space-y-2 rounded-[8px] border border-[#DED2C5] bg-white p-3 text-left">
+      <h2 className="font-bold">{branch.name}</h2><EntityImage src={branch.imageUrl} alt={branch.name} /><p>{branch.address || 'Chưa cập nhật địa chỉ'}</p><BranchHours branch={branch} />
+    </button>)}
+  </DetailScreen>;
+};
+
 export const SpecialistDirectoryModal: React.FC<{
-  doctors: Doctor[];
+  doctors: DoctorDetails[];
   onClose: () => void;
   onSelectDoctor: (doctor: Doctor) => void;
 }> = ({ doctors, onClose, onSelectDoctor }) => {
   const [query, setQuery] = React.useState('');
-  const [branch, setBranch] = React.useState('all');
-  const [specialty, setSpecialty] = React.useState('all');
+  const [branch, setBranch] = React.useState('');
+  const [specialty, setSpecialty] = React.useState('');
   const [sort, setSort] = React.useState('name');
-  const branches = Array.from(new Set(doctors.map((doctor) => doctor.hospital).filter(Boolean)));
-  const specialties = Array.from(new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)));
-  const results = doctors
-    .filter((doctor) => {
-      const keyword = query.trim().toLocaleLowerCase('vi');
-      const matchesQuery = !keyword || `${doctor.name} ${doctor.title} ${doctor.specialty}`.toLocaleLowerCase('vi').includes(keyword);
-      return matchesQuery && (branch === 'all' || doctor.hospital === branch) && (specialty === 'all' || doctor.specialty === specialty);
-    })
+  const branches = Array.from(new Set(doctors.map(doctor => doctor.hospital).filter(Boolean)));
+  const specialties = Array.from(new Set(doctors.map(doctor => doctor.specialty).filter(Boolean)));
+  const results = doctors.filter(doctor => (doctor.name + ' ' + doctor.title + ' ' + doctor.specialty).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi'))
+    && (!branch || doctor.hospital === branch) && (!specialty || doctor.specialty === specialty))
     .sort((a, b) => sort === 'rating' ? b.rating - a.rating : a.name.localeCompare(b.name, 'vi'));
-
-  return <div className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#FAF6F0] text-[#40352F]">
-    <div className="shrink-0 px-4 pb-3 pt-4"><button onClick={onClose} aria-label="Quay lại" className="mb-3 flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DED2C5] bg-white"><ArrowLeftIcon size={18} /></button><h1 className="text-[21px] font-bold text-[#6F452C]">Đội ngũ chuyên viên</h1><p className="mt-1 text-[11px] text-[#7A685D]">Đồng hành cùng bạn trong hành trình chăm sóc sức khỏe.</p></div>
-    <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-24">
-      <label className="flex h-10 items-center gap-2 rounded-[8px] border border-[#DED2C5] bg-white px-3"><SearchIcon size={16} color="#A65317" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên hoặc chuyên môn..." className="min-w-0 flex-1 bg-transparent text-[10px] outline-none" /></label>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-[9px] text-[#6F625B]">Chi nhánh<select value={branch} onChange={(event) => setBranch(event.target.value)} className="mt-1 h-10 w-full rounded-[8px] border border-[#DED2C5] bg-white px-2 text-[10px] text-[#40352F]"><option value="all">Tất cả</option>{branches.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-        <label className="text-[9px] text-[#6F625B]">Chuyên môn<select value={specialty} onChange={(event) => setSpecialty(event.target.value)} className="mt-1 h-10 w-full rounded-[8px] border border-[#DED2C5] bg-white px-2 text-[10px] text-[#40352F]"><option value="all">Tất cả</option>{specialties.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-      </div>
-      <label className="block text-[9px] text-[#6F625B]">Sắp xếp<select value={sort} onChange={(event) => setSort(event.target.value)} className="mt-1 h-10 w-full rounded-[8px] border border-[#DED2C5] bg-white px-3 text-[10px] text-[#40352F]"><option value="name">Theo tên chuyên viên</option><option value="rating">Đánh giá cao nhất</option></select></label>
-      <div className="rounded-[8px] bg-[#F3E2CE] p-3 text-[9px]">{results.length} chuyên viên phù hợp</div>
-      {results.length === 0 ? <div className="rounded-[10px] border border-[#DED2C5] bg-white p-6 text-center text-[10px] text-[#7A685D]">Không tìm thấy chuyên viên phù hợp.</div> : results.map((doctor) => <button key={doctor.id} onClick={() => onSelectDoctor(doctor)} className="w-full rounded-[10px] border border-[#DED2C5] bg-white p-2 text-left"><div className="px-1 py-1.5"><h3 className="text-[12px] font-bold">{doctor.name}</h3><p className="mt-0.5 text-[9px] font-semibold text-[#A65317]">{doctor.title}</p></div><img src={doctor.avatar} alt={doctor.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover object-top" /><div className="px-1 pb-1 pt-2"><p className="text-[10px] text-[#7A685D]">{doctor.specialty}</p><span className="mt-1 block text-[9px] font-semibold text-[#A65317]">★ {doctor.rating} · {doctor.experienceYears} năm kinh nghiệm</span></div></button>)}
+  return <DetailScreen title="Đội ngũ chuyên viên" onClose={onClose}>
+    <label className="block"><span className="flex items-center gap-2"><SearchIcon size={16} />Tìm chuyên viên</span><input value={query} onChange={event => setQuery(event.target.value)} className={inputClass} /></label>
+    <div className="grid grid-cols-2 gap-2">
+      <label>Chi nhánh<select value={branch} onChange={event => setBranch(event.target.value)} className={inputClass}><option value="">Tất cả</option>{branches.map(item => <option key={item}>{item}</option>)}</select></label>
+      <label>Chuyên môn<select value={specialty} onChange={event => setSpecialty(event.target.value)} className={inputClass}><option value="">Tất cả</option>{specialties.map(item => <option key={item}>{item}</option>)}</select></label>
     </div>
-  </div>;
+    <label className="block">Sắp xếp<select value={sort} onChange={event => setSort(event.target.value)} className={inputClass}><option value="name">Theo tên</option><option value="rating">Đánh giá cao nhất</option></select></label>
+    <p>{results.length} chuyên viên phù hợp</p>
+    {!results.length && <p className="text-stone-500">Không tìm thấy chuyên viên phù hợp.</p>}
+    {results.map(doctor => <button key={doctor.id} onClick={() => onSelectDoctor(doctor)} className="w-full space-y-2 rounded-[8px] border border-[#DED2C5] bg-white p-3 text-left">
+      <h2 className="font-bold">{doctor.name}</h2><p>{doctor.title}</p><EntityImage src={doctor.avatar} alt={doctor.name} /><p>{doctor.specialty}</p>
+      {doctor.reviewsCount > 0 && <p>{doctor.rating}/5 ({doctor.reviewsCount} đánh giá)</p>}
+      {doctor.experienceYears != null && <p>{doctor.experienceYears} năm kinh nghiệm</p>}
+    </button>)}
+  </DetailScreen>;
 };
 
-// 1. SERVICE DETAIL MODAL (Matching Figma B03 - Dịch vụ đầy đủ)
 export const ServiceDetailModal: React.FC<{
-  service: MedicalService | null;
+  service: ServiceDetails | null;
   onClose: () => void;
   onBookNow: (service: MedicalService) => void;
 }> = ({ service, onClose, onBookNow }) => {
   if (!service) return null;
-
-  return (
-    <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-        {/* Header Bar */}
-        <div className="relative h-60 w-full overflow-hidden">
-          <img src={service.image} alt={service.title} className="w-full h-full object-cover" />
-          <button
-            onClick={onClose}
-            className="absolute top-4 left-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center text-stone-700 shadow"
-          >
-            <ArrowLeftIcon size={16} color="#40352F" />
-          </button>
-          <div className="absolute top-4 right-4 flex space-x-2">
-            <button className="w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center text-stone-700 shadow">
-              <HeartIcon size={16} color="#98501B" />
-            </button>
-            <button className="w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center text-stone-700 shadow">
-              <ShareIcon size={16} color="#40352F" />
-            </button>
-          </div>
-          <div className="absolute bottom-3 left-4 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full text-white text-[11px] font-semibold flex items-center space-x-1.5">
-            <ClockIcon size={12} color="#FFFFFF" />
-            <span>{service.durationMinutes} phút • {service.category}</span>
-          </div>
-        </div>
-
-        {/* Scrollable Body */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-5 text-stone-800 text-xs">
-          <div>
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-bold text-[#98501B] uppercase tracking-wider">
-                  {service.category}
-                </span>
-                <h2 className="text-xl font-bold text-stone-900 mt-0.5">{service.title}</h2>
-              </div>
-              <div className="text-right">
-                <div className="text-base font-bold text-[#98501B]">{service.price.toLocaleString('vi-VN')} ₫</div>
-                {service.originalPrice && (
-                  <div className="text-[10px] text-stone-400 line-through">
-                    {service.originalPrice.toLocaleString('vi-VN')} ₫
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center space-x-1.5 mt-2">
-              <StarIcon size={12} color="#F59E0B" filled />
-              <span className="text-stone-800 font-bold">{service.rating}</span>
-              <span className="text-stone-400">({service.reviewsCount} đánh giá từ khách hàng)</span>
-            </div>
-          </div>
-
-          {/* Giới thiệu dịch vụ */}
-          <div>
-            <h3 className="font-bold text-sm text-stone-900 mb-1.5">Giới thiệu dịch vụ</h3>
-            <p className="text-stone-600 leading-relaxed text-xs">{service.description}</p>
-          </div>
-
-          {/* Trải nghiệm nổi bật */}
-          <div className="p-3.5 bg-white rounded-2xl border border-stone-200 space-y-2">
-            <h4 className="font-bold text-stone-800 text-xs">Trải nghiệm nổi bật</h4>
-            <div className="space-y-1.5 text-stone-600 text-[11px]">
-              <div className="flex items-center space-x-2">
-                <CheckIcon size={13} color="#2E8B57" />
-                <span>Thư giãn sâu cơ bắp và giảm căng cơ toàn thân</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <CheckIcon size={13} color="#2E8B57" />
-                <span>Kích thích tuần hoàn máu và vi tuần hoàn bạch huyết</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <CheckIcon size={13} color="#2E8B57" />
-                <span>Không gian trị liệu chuẩn spa tĩnh lặng, hương thơm tinh dầu</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quy trình trải nghiệm 4 bước */}
-          <div>
-            <h3 className="font-bold text-sm text-stone-900 mb-2.5">Quy trình trải nghiệm</h3>
-            <div className="space-y-2 text-[11px]">
-              <div className="flex space-x-3 p-2.5 bg-white rounded-xl border border-stone-200">
-                <span className="w-5 h-5 rounded-full bg-[#98501B] text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                  1
-                </span>
-                <div>
-                  <div className="font-bold text-stone-800">Tư vấn nhu cầu</div>
-                  <div className="text-stone-500 mt-0.5">Thưởng trà thảo mộc và xác định vùng cơ căng mỏi</div>
-                </div>
-              </div>
-
-              <div className="flex space-x-3 p-2.5 bg-white rounded-xl border border-stone-200">
-                <span className="w-5 h-5 rounded-full bg-[#98501B] text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                  2
-                </span>
-                <div>
-                  <div className="font-bold text-stone-800">Chuẩn bị dịch vụ</div>
-                  <div className="text-stone-500 mt-0.5">Thay trang phục và thả lỏng trong phòng trị liệu riêng</div>
-                </div>
-              </div>
-
-              <div className="flex space-x-3 p-2.5 bg-white rounded-xl border border-stone-200">
-                <span className="w-5 h-5 rounded-full bg-[#98501B] text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                  3
-                </span>
-                <div>
-                  <div className="font-bold text-stone-800">Tiến hành chăm sóc ({service.durationMinutes} phút)</div>
-                  <div className="text-stone-500 mt-0.5">Kỹ thuật viên thao tác chuẩn quy trình MLD y khoa</div>
-                </div>
-              </div>
-
-              <div className="flex space-x-3 p-2.5 bg-white rounded-xl border border-stone-200">
-                <span className="w-5 h-5 rounded-full bg-[#98501B] text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                  4
-                </span>
-                <div>
-                  <div className="font-bold text-stone-800">Hướng dẫn sau dịch vụ</div>
-                  <div className="text-stone-500 mt-0.5">Lời khuyên chăm sóc tại nhà và uống nước ấm bổ sung</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Lưu ý chuẩn bị */}
-          <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-stone-600 text-[11px] space-y-1">
-            <div className="font-bold text-[#98501B]">Thông tin cần biết:</div>
-            {service.preparationNotes.map((note, idx) => (
-              <div key={idx} className="flex items-start space-x-1.5">
-                <span>•</span>
-                <span>{note}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Fixed Bottom Bar */}
-        <div className="p-4 bg-white border-t border-stone-200 flex justify-between items-center shadow-lg">
-          <div>
-            <div className="text-base font-bold text-[#98501B]">{service.price.toLocaleString('vi-VN')} ₫</div>
-            <div className="text-[10px] text-stone-500">{service.durationMinutes} phút trị liệu</div>
-          </div>
-          <button
-            onClick={() => onBookNow(service)}
-            className="px-6 py-3 bg-[#98501B] text-white font-bold rounded-xl shadow-md hover:bg-[#884218] transition text-xs"
-          >
-            Đặt lịch ngay
-          </button>
-        </div>
-      </div>
-  );
+  return <DetailScreen title={service.title} onClose={onClose} footer={<><span className="font-bold">{service.price.toLocaleString('vi-VN')} ₫</span><button onClick={() => onBookNow(service)} className={buttonClass}>Đặt lịch ngay</button></>}>
+    <EntityImage src={service.image} alt={service.title} />
+    <p>{service.category} · {service.durationMinutes} phút</p>
+    {service.reviewsCount > 0 && Number.isFinite(service.rating) && <p>{service.rating}/5 ({service.reviewsCount} đánh giá)</p>}
+    {service.originalPrice != null && service.originalPrice > service.price && <p className="line-through">{service.originalPrice.toLocaleString('vi-VN')} ₫</p>}
+    <section><h2 className="mb-2 font-bold">Giới thiệu dịch vụ</h2><p className="whitespace-pre-line">{service.description || 'Chưa cập nhật mô tả.'}</p></section>
+    <section className="space-y-2"><h2 className="font-bold">Lợi ích</h2>{service.benefits?.length ? <ul className="list-inside list-disc space-y-1">{service.benefits.map((benefit, index) => <li key={index}>{contentText(benefit, 'title') || contentText(benefit, 'description')}</li>)}</ul> : <p className="text-stone-500">Chưa cập nhật lợi ích.</p>}</section>
+    <section className="space-y-2"><h2 className="font-bold">Quy trình trải nghiệm</h2>{service.steps?.length ? service.steps.map((step, index) => <div key={index} className="border-b border-[#EADECF] py-2"><h3 className="font-semibold">{typeof step !== 'string' && typeof step.step === 'number' ? step.step + '. ' : ''}{contentText(step, 'title')}</h3>{typeof step !== 'string' && <p className="whitespace-pre-line">{contentText(step, 'desc') || contentText(step, 'description')}</p>}</div>) : <p className="text-stone-500">Chưa cập nhật quy trình.</p>}</section>
+    {!!service.preparationNotes?.length && <section><h2 className="mb-2 font-bold">Thông tin cần biết</h2><ul className="list-inside list-disc">{service.preparationNotes.map((note, index) => <li key={index}>{note}</li>)}</ul></section>}
+    <Gallery urls={service.galleryUrls} name={service.title} /><Reviews reviews={service.reviews} />
+  </DetailScreen>;
 };
 
-// 2. SPECIALIST DETAIL MODAL (Matching Figma B06 - Chuyên viên đầy đủ)
 export const SpecialistDetailModal: React.FC<{
-  doctor: Doctor | null;
+  doctor: DoctorDetails | null;
   onClose: () => void;
   onBookWithDoctor: (doctor: Doctor) => void;
 }> = ({ doctor, onClose, onBookWithDoctor }) => {
   if (!doctor) return null;
-
-  return (
-    <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-        {/* Top Cover */}
-        <div className="relative h-48 bg-stone-300">
-          <img src={doctor.avatar} alt={doctor.name} className="w-full h-full object-cover" />
-          <button
-            onClick={onClose}
-            className="absolute top-4 left-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center text-stone-700 shadow"
-          >
-            <ArrowLeftIcon size={16} color="#40352F" />
-          </button>
-        </div>
-
-        {/* Scrollable Body */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-4 text-xs text-stone-800">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-xl font-bold text-stone-900">{doctor.name}</h2>
-              <div className="text-[#98501B] font-semibold mt-0.5">{doctor.title}</div>
-              <div className="text-stone-500 text-[11px] mt-0.5">{doctor.hospital}</div>
-            </div>
-            <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center">
-              <div className="font-bold text-amber-700 text-sm flex items-center justify-center space-x-1">
-                <StarIcon size={12} color="#F59E0B" filled />
-                <span>{doctor.rating}</span>
-              </div>
-              <div className="text-[9px] text-stone-500">{doctor.reviewsCount} đánh giá</div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-sm text-stone-900 mb-1">Giới thiệu</h3>
-            <p className="text-stone-600 leading-relaxed">{doctor.bio}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 p-3 bg-white rounded-2xl border border-stone-200">
-            <div>
-              <div className="text-[10px] text-stone-400">Chuyên môn chính</div>
-              <div className="font-bold text-stone-800 mt-0.5">{doctor.specialty}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-stone-400">Kinh nghiệm</div>
-              <div className="font-bold text-stone-800 mt-0.5">{doctor.experienceYears} năm thực hành</div>
-            </div>
-          </div>
-
-          <p className="text-xs">{doctor.reviewsCount} đánh giá</p>
-
-        </div>
-
-        {/* Fixed Bottom */}
-        <div className="p-4 bg-white border-t border-stone-200 shadow-lg">
-          <button
-            onClick={() => onBookWithDoctor(doctor)}
-            className="w-full py-3 bg-[#98501B] text-white font-bold rounded-xl shadow-md hover:bg-[#884218] transition text-xs"
-          >
-            Đặt lịch với chuyên viên {doctor.name}
-          </button>
-        </div>
-      </div>
-  );
+  return <DetailScreen title={doctor.name} onClose={onClose} footer={<button onClick={() => onBookWithDoctor(doctor)} className={buttonClass + ' w-full whitespace-normal'}>Đặt lịch với chuyên viên {doctor.name}</button>}>
+    <EntityImage src={doctor.avatar} alt={doctor.name} /><p>{doctor.title}</p><p>{doctor.hospital}</p>
+    {doctor.reviewsCount > 0 && <p>{doctor.rating}/5 ({doctor.reviewsCount} đánh giá)</p>}
+    <section><h2 className="mb-2 font-bold">Giới thiệu</h2><p className="whitespace-pre-line">{doctor.bio || 'Chưa cập nhật giới thiệu.'}</p></section>
+    <p>Chuyên môn: {doctor.specialty || 'Chưa cập nhật'}</p>
+    <p>Kinh nghiệm: {doctor.experienceYears != null ? doctor.experienceYears + ' năm' : 'Chưa cập nhật'}</p>
+    <Reviews reviews={doctor.reviews} />
+  </DetailScreen>;
 };
 
-// 3. BRANCH DETAIL MODAL (Matching Figma B04 - Chi nhánh đầy đủ)
 export const BranchDetailModal: React.FC<{
-  branch: Branch | null;
+  branch: BranchDetails | null;
   onClose: () => void;
   onSelectBranch: (branch: Branch) => void;
   onOpenDirections?: (branch: Branch) => void;
 }> = ({ branch, onClose, onSelectBranch, onOpenDirections }) => {
   if (!branch) return null;
-
-  return (
-    <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-        <div className="p-4 border-b border-[#EADECF] flex items-center gap-3 bg-white">
-          <button onClick={onClose} aria-label="Quay lại" className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DED2C5] bg-white"><ArrowLeftIcon size={18} color="#40352F" /></button>
-          <h2 className="font-bold text-base text-[#40352F]">Thông tin cơ sở</h2>
-        </div>
-
-        <div className="p-5 flex-1 overflow-y-auto space-y-4 text-xs text-stone-800">
-          <div className="h-44 w-full rounded-2xl overflow-hidden shadow-sm border border-[#EADECF]">
-            <img
-              src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80"
-              alt={branch.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-
-          <div>
-            <h3 className="text-lg font-bold text-[#40352F]">{branch.name}</h3>
-            <p className="text-stone-600 mt-1 flex items-start space-x-1.5">
-              <LocationIcon size={14} color="#98501B" className="shrink-0 mt-0.5" />
-              <span>{branch.address}</span>
-            </p>
-            <div className="text-[#98501B] font-semibold mt-1 flex items-center space-x-1.5">
-              <PhoneIcon size={12} color="#98501B" />
-              <span>Hotline: {branch.phone}</span>
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-white rounded-2xl border border-[#EADECF] space-y-2">
-            <h4 className="font-bold text-[#40352F]">Tiện nghi không gian</h4>
-            <div className="grid grid-cols-2 gap-2 text-[11px] text-stone-600">
-              <div className="flex items-center space-x-1.5">
-                <CheckIcon size={12} color="#2E8B57" />
-                <span>Phòng VIP riêng tư</span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <CheckIcon size={12} color="#2E8B57" />
-                <span>Trà thảo mộc chào mừng</span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <CheckIcon size={12} color="#2E8B57" />
-                <span>Chỗ đỗ xe ô tô thuận tiện</span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <CheckIcon size={12} color="#2E8B57" />
-                <span>Không gian yên tĩnh thư thái</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-[#FBF1E8] rounded-2xl text-[11px] text-stone-700 space-y-1 border border-[#EADECF]">
-            <div className="font-bold text-[#40352F]">Giờ hoạt động:</div>
-            <div className="flex justify-between">
-              <span>Thứ Hai - Chủ Nhật:</span>
-              <span className="font-bold text-[#98501B]">09:00 - 20:00</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white border-t border-[#EADECF] flex space-x-3 shadow-lg">
-          <button
-            onClick={() => onOpenDirections ? onOpenDirections(branch) : null}
-            className="flex-1 py-3 bg-[#FAF6F0] hover:bg-[#F3E2CE] text-[#98501B] font-bold rounded-xl border border-[#EADECF] text-xs transition flex items-center justify-center space-x-1.5"
-          >
-            <MapIcon size={14} color="#98501B" />
-            <span>Chỉ đường</span>
-          </button>
-          <button
-            onClick={() => onSelectBranch(branch)}
-            className="flex-1 py-3 bg-[#98501B] text-white font-bold rounded-xl shadow-md text-xs hover:bg-[#804215] active:scale-95 transition"
-          >
-            Đặt lịch tại cơ sở này
-          </button>
-        </div>
-      </div>
-  );
+  return <DetailScreen title={branch.name} onClose={onClose} footer={<>
+    {onOpenDirections ? <button onClick={() => onOpenDirections(branch)} className={buttonClass}>Chỉ đường</button> : <MapLink branch={branch} />}
+    <button onClick={() => onSelectBranch(branch)} className={buttonClass}>Đặt lịch tại cơ sở này</button>
+  </>}>
+    <EntityImage src={branch.imageUrl} alt={branch.name} /><p>{branch.address || 'Chưa cập nhật địa chỉ'}</p>
+    {branch.phone && <a className="block text-[#98501B]" href={'tel:' + branch.phone}>Hotline: {branch.phone}</a>}
+    <BranchHours branch={branch} />
+    <section className="space-y-2"><h2 className="font-bold">Tiện nghi</h2>{branch.amenities?.length ? <ul className="list-inside list-disc">{branch.amenities.map((amenity, index) => <li key={index}>{contentText(amenity, 'name') || contentText(amenity, 'title')}</li>)}</ul> : <p className="text-stone-500">Chưa cập nhật tiện nghi.</p>}</section>
+    <Gallery urls={branch.galleryUrls} name={branch.name} />
+  </DetailScreen>;
 };
 
-// 4. LOCATION DIRECTIONS MODAL (Matching Figma B — Vị trí - Quyền truy cập & Hướng dẫn)
 export const LocationDirectionsModal: React.FC<{
-  branch: Branch | null;
+  branch: BranchDetails | null;
   onClose: () => void;
   onBookAtBranch?: (branch: Branch) => void;
 }> = ({ branch, onClose, onBookAtBranch }) => {
-  const [copied, setCopied] = React.useState(false);
-
+  const [copyStatus, setCopyStatus] = React.useState('');
+  React.useEffect(() => { setCopyStatus(''); }, [branch?.id]);
   if (!branch) return null;
-
-  const handleCopy = () => {
-    navigator.clipboard?.writeText(branch.address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(branch.address);
+      setCopyStatus('Đã sao chép địa chỉ');
+    } catch { setCopyStatus('Không thể sao chép địa chỉ.'); }
   };
-
-  return (
-    <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-        {/* Header */}
-        <div className="p-4 border-b border-[#EADECF] flex items-center gap-3 bg-white">
-          <button onClick={onClose} aria-label="Quay lại" className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DED2C5] bg-white"><ArrowLeftIcon size={18} color="#40352F" /></button>
-          <div className="flex items-center space-x-2"><MapIcon size={16} color="#98501B" /><h2 className="font-bold text-sm text-[#40352F]">Chỉ đường đến cơ sở</h2></div>
-        </div>
-
-        {/* Content */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-4 text-xs text-stone-800">
-          {/* Branch summary */}
-          <div className="bg-white p-4 rounded-2xl border border-[#EADECF] shadow-sm space-y-1.5">
-            <h3 className="font-bold text-sm text-[#40352F]">{branch.name}</h3>
-            <p className="text-stone-600 text-xs flex items-start space-x-1.5">
-              <LocationIcon size={14} color="#98501B" className="shrink-0 mt-0.5" />
-              <span>{branch.address}</span>
-            </p>
-            <div className="text-[11px] text-stone-500 pt-1 border-t border-stone-100 flex justify-between items-center">
-              <span>Hotline: {branch.phone}</span>
-              <button
-                onClick={handleCopy}
-                className="text-[#98501B] font-bold hover:underline"
-              >
-                {copied ? 'Đã sao chép địa chỉ' : 'Sao chép địa chỉ'}
-              </button>
-            </div>
-          </div>
-
-          {/* Map Route Illustration */}
-          <div className="relative rounded-2xl overflow-hidden border border-[#EADECF] bg-stone-100 shadow-inner h-48 flex flex-col items-center justify-center text-center p-4">
-            <div className="absolute inset-0 bg-gradient-to-b from-[#F3E2CE]/40 to-[#EADECF]/60" />
-            <div className="relative z-10 flex flex-col items-center space-y-2">
-              <div className="w-12 h-12 rounded-full bg-[#98501B] text-white flex items-center justify-center shadow-md">
-                <LocationIcon size={24} color="#FFFFFF" />
-              </div>
-              <span className="font-bold text-xs text-[#40352F]">Khoảng cách ước tính: ~3.2 km</span>
-              <span className="text-[11px] text-stone-500">Thời gian di chuyển ước tính: 8 - 12 phút</span>
-            </div>
-          </div>
-
-          {/* Step-by-step route directions */}
-          <div className="bg-white p-4 rounded-2xl border border-[#EADECF] space-y-2.5">
-            <h4 className="font-bold text-xs text-[#40352F] uppercase tracking-wider">Lộ trình gợi ý:</h4>
-            <div className="space-y-2 text-[11px] text-stone-600">
-              <div className="flex items-start space-x-2">
-                <span className="w-4 h-4 rounded-full bg-[#FAF6F0] text-[#98501B] font-bold flex items-center justify-center text-[10px] shrink-0 border border-[#EADECF]">1</span>
-                <span>Từ vị trí của bạn, di chuyển theo trục đường chính hướng về trung tâm.</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="w-4 h-4 rounded-full bg-[#FAF6F0] text-[#98501B] font-bold flex items-center justify-center text-[10px] shrink-0 border border-[#EADECF]">2</span>
-                <span>Rẽ vào tuyến đường {branch.address.split(',')[0]} (cách ngã tư 150m).</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="w-4 h-4 rounded-full bg-[#FAF6F0] text-[#98501B] font-bold flex items-center justify-center text-[10px] shrink-0 border border-[#EADECF]">3</span>
-                <span>Cơ sở MLD nằm bên tay phải, có biển hiệu màu nâu đất và bảo vệ hướng dẫn bãi đỗ xe ô tô miễn phí.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 bg-white border-t border-[#EADECF] flex space-x-3 shadow-lg">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 bg-[#FAF6F0] text-stone-700 font-bold rounded-xl border border-[#EADECF] text-xs hover:bg-[#F3E2CE] transition"
-          >
-            Đóng
-          </button>
-          {onBookAtBranch && (
-            <button
-              onClick={() => {
-                onClose();
-                onBookAtBranch(branch);
-              }}
-              className="flex-1 py-3 bg-[#98501B] text-white font-bold rounded-xl shadow-md text-xs hover:bg-[#804215] active:scale-95 transition"
-            >
-              Đặt lịch tại cơ sở này
-            </button>
-          )}
-        </div>
-      </div>
-  );
+  return <DetailScreen title="Chỉ đường đến cơ sở" onClose={onClose} footer={onBookAtBranch && <button onClick={() => { onClose(); onBookAtBranch(branch); }} className={buttonClass}>Đặt lịch tại cơ sở này</button>}>
+    <h2 className="text-sm font-bold">{branch.name}</h2><p>{branch.address || 'Chưa cập nhật địa chỉ'}</p>
+    {branch.phone && <a className="block" href={'tel:' + branch.phone}>Hotline: {branch.phone}</a>}
+    <BranchHours branch={branch} /><MapLink branch={branch} />
+    {branch.address && <button onClick={handleCopy} className={buttonClass}>Sao chép địa chỉ</button>}
+    {copyStatus && <p role="status">{copyStatus}</p>}
+  </DetailScreen>;
 };
 

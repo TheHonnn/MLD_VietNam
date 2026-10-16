@@ -178,18 +178,10 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
             <div className="bg-white rounded-2xl p-3.5 border border-[#EADECF] shadow-sm space-y-2.5">
               <div className="flex items-center space-x-1.5 text-xs font-bold text-[#40352F]">
                 <TagIcon size={14} className="text-[#98501B]" />
-                <span>Tìm kiếm phổ biến</span>
+                <span>Gợi ý tìm kiếm</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {[
-                  'Massage thư giãn',
-                  'Chăm sóc da',
-                  'Dẫn lưu bạch huyết',
-                  'Khóa học nghề spa',
-                  'Trần Minh Phương',
-                  'Chi nhánh Quận 3',
-                  'Trị liệu đau mỏi vai gáy',
-                ].map((tag) => (
+                {Array.from(new Set(allItems.map(item => item.title))).slice(0, 8).map((tag) => (
                   <button
                     key={tag}
                     onClick={() => handleSelectTag(tag)}
@@ -216,7 +208,7 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
                 <SearchIcon size={32} className="mx-auto text-[#A09085]" />
                 <p className="text-xs font-bold text-[#40352F]">Không tìm thấy kết quả phù hợp</p>
                 <p className="text-[11px] text-[#7A685D]">
-                  Hãy thử tìm kiếm với từ khóa khác như "Massage", "Khóa học", "Quận 3"...
+                  Không có mục phù hợp với từ khóa hiện tại.
                 </p>
               </div>
             ) : (

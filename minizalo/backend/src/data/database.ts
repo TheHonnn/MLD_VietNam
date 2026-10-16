@@ -15,6 +15,8 @@ export interface User {
   healthNotes?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
+  purpose?: 'BEAUTY_SPA' | 'ACADEMY' | 'BOTH';
+  referralCode?: string;
 }
 
 export interface CourseEnrollment {
@@ -56,6 +58,7 @@ export interface Doctor {
   avatar: string;
   consultationFee: number;
   bio: string;
+  reviews?: Record<string, any>[];
 }
 
 export interface MedicalService {
@@ -72,6 +75,12 @@ export interface MedicalService {
   description: string;
   indicatorsCount: number;
   preparationNotes: string[];
+  categoryId?: string;
+  isFeatured?: boolean;
+  steps?: (string | Record<string, any>)[];
+  benefits?: (string | Record<string, any>)[];
+  galleryUrls?: string[];
+  reviews?: Record<string, any>[];
 }
 
 export interface Branch {
@@ -81,6 +90,12 @@ export interface Branch {
   city: string;
   phone: string;
   imageUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  openingTime?: string;
+  closingTime?: string;
+  amenities?: (string | Record<string, any>)[];
+  galleryUrls?: string[];
 }
 
 export interface Booking {
@@ -91,6 +106,8 @@ export interface Booking {
   userPhone: string;
   serviceId: string;
   serviceTitle: string;
+  serviceImage?: string;
+  items?: { serviceId: string; serviceTitle?: string; imageUrl?: string; price: number; durationMinutes: number }[];
   doctorId: string;
   doctorName: string;
   branchId: string;
@@ -104,6 +121,7 @@ export interface Booking {
   status: 'confirmed' | 'pending' | 'completed' | 'cancelled' | 'checked_in' | 'in_service' | 'no_show' | (string & {});
   notes?: string;
   qrCode: string;
+  qrCodeHash?: string;
   createdAt: string;
 }
 
@@ -128,12 +146,31 @@ export interface Course {
   level: string;
   modulesCount: number;
   lessonsCount: number;
+  categoryId?: string;
+  isFeatured?: boolean;
+  learningOutcomes?: (string | Record<string, any>)[];
+  certificateTitle?: string;
+  instructorProfile?: Record<string, any> | null;
+  chapters?: Record<string, any>[];
+  batches?: Record<string, any>[];
+  schedules?: Record<string, any>[];
+  academicRecord?: Record<string, any>;
+  certificate?: Record<string, any>;
   lessons: {
     id: string;
     title: string;
     duration: string;
     videoUrl: string;
     isCompleted: boolean;
+    chapterId?: string;
+    durationMinutes?: number;
+    lessonType?: string;
+    contentText?: string;
+    attachments?: (string | Record<string, any>)[];
+    learningGoals?: (string | Record<string, any>)[];
+    isFreePreview?: boolean;
+    watchedSeconds?: number;
+    studentNotes?: string;
   }[];
   quiz?: {
     id: string;
@@ -213,10 +250,4 @@ export const database = {
   users: [] as User[], doctors: [] as Doctor[], branches: [] as Branch[],
   services: [] as MedicalService[], bookings: [] as Booking[], courses: [] as Course[],
   medicalRecords: [] as MedicalRecord[], vouchers: [] as Voucher[],
-  admin: {
-    kpis: { todayRevenue: 0, yesterdayRevenue: 0, newBookingsToday: 0,
-      upcomingAppointments: 0, servingNow: 0, completedToday: 0,
-      roomOccupancyRate: 0, cashOnHand: 0, bankTransfer: 0 },
-    weeklyRevenue: [], staffSchedules: [], posReceipts: [], students: [],
-  },
 };

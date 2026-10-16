@@ -26,8 +26,6 @@ const stepTitles: Record<BookingStep, { title: string; subtitle: string; action:
   7: { title: 'Thanh toán', subtitle: 'Chọn phương thức thanh toán thuận tiện cho bạn.', action: 'Xác nhận đặt lịch' },
 };
 
-const categories = ['Massage thư giãn', 'Chăm sóc da', 'Chăm sóc cơ thể', 'Chăm sóc sức khỏe', 'Gói liệu trình'];
-
 export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   initialService, initialBranch, initialDoctor, allServices, doctors, branches, onClose, onBookingSuccess,
 }) => {
@@ -36,6 +34,13 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [selectedBranch, setSelectedBranch] = useState<Branch>(initialBranch || branches[0]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor>(initialDoctor || doctors[0]);
   const [autoAssign, setAutoAssign] = useState(!initialDoctor);
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [serviceCategory, setServiceCategory] = useState('');
+  const [branchSearch, setBranchSearch] = useState('');
+  const [branchCity, setBranchCity] = useState('');
+  const categories = Array.from(new Set(allServices.map(service => service.category))).filter(Boolean);
+  const visibleServices = allServices.filter(service => (!serviceCategory || service.category === serviceCategory) && `${service.title} ${service.description}`.toLowerCase().includes(serviceSearch.toLowerCase()));
+  const visibleBranches = branches.filter(branch => (!branchCity || branch.city === branchCity) && `${branch.name} ${branch.address}`.toLowerCase().includes(branchSearch.toLowerCase()));
   const availableDates = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const value = new Date();
     value.setDate(value.getDate() + index + 1);
@@ -47,7 +52,12 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [customerMode, setCustomerMode] = useState<'self' | 'other'>('self');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
+  const [selfRecipient, setSelfRecipient] = useState({ name: '', phone: '' });
+  const chooseRecipient = (mode: 'self' | 'other') => {
+    setCustomerMode(mode);
+    setCustomerName(mode === 'self' ? selfRecipient.name : '');
+    setCustomerPhone(mode === 'self' ? selfRecipient.phone : '');
+  };
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -73,7 +83,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
       if (!result?.user) return;
       setCustomerName(result.user.name);
       setCustomerPhone(result.user.phone);
-      setCustomerEmail(result.user.email);
+      setSelfRecipient({ name: result.user.name, phone: result.user.phone });
     });
   }, []);
 
@@ -133,6 +143,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
       return;
     }
     if (step === 4 && !selectedTime) { setSubmitError('Vui lòng chọn giờ hẹn còn trống.'); return; }
+    if (step === 5 && (!customerName.trim() || !/^(?:0|\+?84)[1-9]\d{8,9}$/.test(customerPhone))) { setSubmitError('Vui lòng nhập họ tên và số điện thoại hợp lệ.'); return; }
     setSubmitError('');
     setStep((value) => Math.min(7, value + 1) as BookingStep);
   };
@@ -193,21 +204,23 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
 
       <main className="flex-1 overflow-y-auto px-4 pb-28">
         {step === 1 && <div className="space-y-3">
-          <SearchField placeholder="Tìm dịch vụ chăm sóc..." />
-          <div className="flex flex-wrap gap-2"><button className="px-3 py-2 rounded-[8px] bg-[#A65317] text-white text-[10px]">Tất cả</button>{categories.map((item) => <button key={item} className="px-3 py-2 rounded-[8px] bg-white border border-[#DED2C5] text-[10px]">{item}</button>)}</div>
-          {allServices.map((service) => { const active = selectedService?.id === service.id; return <button key={service.id} onClick={() => setSelectedService(service)} className={`w-full text-left rounded-[10px] overflow-hidden border bg-white ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="px-3 py-2 flex items-center gap-2 text-[10px]"><Radio active={active} />{active ? `Đã chọn · ${service.title}` : service.title}</div><img src={service.image} alt={service.title} className="w-full h-[170px] object-cover" /><div className="px-3 py-2 flex justify-between text-[10px]"><span>{service.durationMinutes} phút</span><strong className="text-[#A65317]">{service.price.toLocaleString('vi-VN')}đ</strong></div></button>; })}
+          <SearchField placeholder="Tìm dịch vụ chăm sóc..." value={serviceSearch} onChange={setServiceSearch} />
+          <div className="flex flex-wrap gap-2">{['', ...categories].map(item => <button key={item} onClick={() => setServiceCategory(item)} className={`px-3 py-2 rounded-[8px] border text-[10px] ${serviceCategory === item ? 'bg-[#A65317] text-white' : 'bg-white'}`}>{item || 'Tất cả'}</button>)}</div>
+          {!visibleServices.length && <p className="text-xs">Không có dịch vụ phù hợp.</p>}
+          {visibleServices.map((service) => { const active = selectedService?.id === service.id; return <button key={service.id} onClick={() => setSelectedService(service)} className={`w-full text-left rounded-[10px] overflow-hidden border bg-white ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="px-3 py-2 flex items-center gap-2 text-[10px]"><Radio active={active} />{active ? `Đã chọn · ${service.title}` : service.title}</div><img src={service.image} alt={service.title} className="w-full h-[170px] object-cover" /><div className="px-3 py-2 flex justify-between text-[10px]"><span>{service.durationMinutes} phút</span><strong className="text-[#A65317]">{service.price.toLocaleString('vi-VN')}đ</strong></div></button>; })}
         </div>}
 
         {step === 2 && <div className="space-y-3">
-          <SearchField placeholder="Tìm chi nhánh, địa chỉ..." /><SelectField label="Tỉnh / thành phố" value="Tất cả tỉnh / thành phố" />
-          <div className="flex gap-2"><button className="px-4 h-10 rounded-[8px] bg-[#A65317] text-white text-[10px]">Danh sách</button><button className="px-4 h-10 rounded-[8px] bg-white border border-[#DED2C5] text-[10px]">Bản đồ</button></div>
-          {branches.map((branch) => { const active = selectedBranch?.id === branch.id; return <button key={branch.id} onClick={() => setSelectedBranch(branch)} className={`w-full rounded-[10px] border bg-white p-2 text-left ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-start gap-2 px-1 py-1.5"><Radio active={active} /><div><strong className="block text-[12px]">{branch.name}</strong><span className="mt-0.5 block text-[9px] text-[#A65317]">{active ? 'Có thể đặt lịch tại chi nhánh này' : 'Chọn chi nhánh'}</span></div></div><img src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&auto=format&fit=crop&q=80" alt={branch.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover" /><p className="px-1 pb-1 pt-2 text-[10px] text-[#7A685D]">{branch.address}</p></button>; })}
+          <SearchField placeholder="Tìm chi nhánh, địa chỉ..." value={branchSearch} onChange={setBranchSearch} />
+          <label className="block text-xs">Tỉnh / thành phố<select value={branchCity} onChange={event => setBranchCity(event.target.value)} className="mt-1 h-10 w-full rounded-lg border bg-white px-3"><option value="">Tất cả tỉnh / thành phố</option>{Array.from(new Set(branches.map(branch => branch.city))).map(city => <option key={city} value={city}>{city}</option>)}</select></label>
+          {!visibleBranches.length && <p className="text-xs">Không có chi nhánh phù hợp.</p>}
+          {visibleBranches.map((branch) => { const active = selectedBranch?.id === branch.id; return <button key={branch.id} onClick={() => setSelectedBranch(branch)} className={`w-full rounded-[10px] border bg-white p-2 text-left ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-start gap-2 px-1 py-1.5"><Radio active={active} /><div><strong className="block text-[12px]">{branch.name}</strong><span className="mt-0.5 block text-[9px] text-[#A65317]">{active ? 'Đã chọn chi nhánh' : 'Chọn chi nhánh'}</span></div></div>{branch.imageUrl && <img src={branch.imageUrl} alt={branch.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover" />}<p className="px-1 pb-1 pt-2 text-[10px] text-[#7A685D]">{branch.address}</p></button>; })}
         </div>}
 
         {step === 3 && <div className="space-y-3">
           <button onClick={() => setAutoAssign(true)} className={`w-full p-3 rounded-[10px] border text-left bg-white ${autoAssign ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-center gap-2 text-[11px]"><Radio active={autoAssign} />Để trung tâm sắp xếp</div><p className="text-[10px] text-[#7A685D] mt-2">Hệ thống sẽ lựa chọn chuyên viên phù hợp với dịch vụ và lịch hẹn.</p></button>
-          <SelectField label="Lọc theo chuyên môn" value={`${selectedService.category} · ${selectedBranch.name}`} />
-          {branchDoctors.map((doctor) => { const active = !autoAssign && selectedDoctor?.id === doctor.id; return <button key={doctor.id} onClick={() => { setAutoAssign(false); setSelectedDoctor(doctor); }} className={`w-full rounded-[10px] border bg-white p-2 text-left ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-start gap-2 px-1 py-1.5"><Radio active={active} /><div><strong className="block text-[12px]">{doctor.name}</strong><span className="mt-0.5 block text-[9px] text-[#A65317]">{active ? 'Chuyên viên ưu tiên' : doctor.title}</span></div></div><img src={doctor.avatar} alt={doctor.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover object-top" /><div className="px-1 pb-1 pt-2"><p className="text-[10px] text-[#7A685D]">{doctor.title}</p><p className="mt-1 text-[9px] text-[#7A685D]">★ {doctor.rating} · {doctor.experienceYears} năm kinh nghiệm</p></div></button>; })}
+          <p className="text-xs">{selectedService.category} · {selectedBranch.name}</p>
+          {branchDoctors.map((doctor) => { const active = !autoAssign && selectedDoctor?.id === doctor.id; return <button key={doctor.id} onClick={() => { setAutoAssign(false); setSelectedDoctor(doctor); }} className={`w-full rounded-[10px] border bg-white p-2 text-left ${active ? 'border-[#A65317]' : 'border-[#DED2C5]'}`}><div className="flex items-start gap-2 px-1 py-1.5"><Radio active={active} /><div><strong className="block text-[12px]">{doctor.name}</strong><span className="mt-0.5 block text-[9px] text-[#A65317]">{active ? 'Chuyên viên ưu tiên' : doctor.title}</span></div></div><img src={doctor.avatar} alt={doctor.name} className="mt-1 h-[180px] w-full rounded-[8px] object-cover object-top" /><div className="px-1 pb-1 pt-2"><p className="text-[10px] text-[#7A685D]">{doctor.title}</p><p className="mt-1 text-[9px] text-[#7A685D]">{doctor.reviewsCount > 0 ? `★ ${doctor.rating}` : 'Chưa có đánh giá'} · {doctor.experienceYears} năm kinh nghiệm</p></div></button>; })}
         </div>}
 
         {step === 4 && <div className="space-y-4">
@@ -220,13 +233,13 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
         </div>}
 
         {step === 5 && <div className="space-y-3">
-          <div className="p-3 rounded-[10px] bg-white border border-[#DED2C5] space-y-3"><button onClick={() => setCustomerMode('self')} className="flex items-center gap-2 text-[11px]"><Radio active={customerMode === 'self'} />Tôi sử dụng dịch vụ</button><button onClick={() => setCustomerMode('other')} className="flex items-center gap-2 text-[11px]"><Radio active={customerMode === 'other'} />Đặt cho người khác</button></div>
-          <InputField label="Họ và tên *" value={customerName} onChange={setCustomerName} /><InputField label="Số điện thoại *" value={customerPhone} onChange={setCustomerPhone} /><InputField label="Email (tùy chọn)" value={customerEmail} onChange={setCustomerEmail} /><InputField label="Ghi chú" value={note} onChange={setNote} />
+          <div className="p-3 rounded-[10px] bg-white border border-[#DED2C5] space-y-3"><button onClick={() => chooseRecipient('self')} className="flex items-center gap-2 text-[11px]"><Radio active={customerMode === 'self'} />Tôi sử dụng dịch vụ</button><button onClick={() => chooseRecipient('other')} className="flex items-center gap-2 text-[11px]"><Radio active={customerMode === 'other'} />Đặt cho người khác</button></div>
+          <InputField label="Họ và tên *" value={customerName} onChange={setCustomerName} readOnly={customerMode === 'self'} /><InputField label="Số điện thoại *" value={customerPhone} onChange={setCustomerPhone} readOnly={customerMode === 'self'} /><InputField label="Ghi chú" value={note} onChange={setNote} />
         </div>}
 
         {step === 6 && <div className="space-y-3">
           <div className="p-3 rounded-[8px] bg-[#F3E2CE] text-[10px]">Kiểm tra thông tin trước khi đặt lịch.</div>
-          <SummarySection title={selectedService.title} image={selectedService.image} rows={[['Thời lượng chăm sóc', `${selectedService.durationMinutes} phút`]]} /><SummarySection title={selectedBranch.name} rows={[['Địa chỉ', selectedBranch.address]]} /><SummarySection title={summary.doctor} rows={[['Ngày hẹn', selectedDate], ['Giờ hẹn', selectedTime]]} /><SummarySection title={customerName} rows={[['Số điện thoại', customerPhone], ['Email', customerEmail]]} />
+          <SummarySection title={selectedService.title} image={selectedService.image} rows={[['Thời lượng chăm sóc', `${selectedService.durationMinutes} phút`]]} /><SummarySection title={selectedBranch.name} rows={[['Địa chỉ', selectedBranch.address]]} /><SummarySection title={summary.doctor} rows={[['Ngày hẹn', selectedDate], ['Giờ hẹn', selectedTime]]} /><SummarySection title={customerName} rows={[['Số điện thoại', customerPhone]]} />
         </div>}
 
         {step === 7 && <div className="space-y-3 text-xs">
@@ -243,9 +256,9 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   );
 };
 
-const SearchField = ({ placeholder }: { placeholder: string }) => <div className="flex gap-2"><span className="w-10 h-10 bg-white border border-[#DED2C5] rounded-[8px] flex items-center justify-center"><SearchIcon size={17} color="#A65317" /></span><div className="h-10 flex-1 bg-white border border-[#DED2C5] rounded-[8px] px-3 flex items-center text-[10px] text-[#8A7D74]">{placeholder}</div></div>;
+const SearchField = ({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (value: string) => void }) => <div className="flex gap-2"><span className="w-10 h-10 bg-white border border-[#DED2C5] rounded-[8px] flex items-center justify-center"><SearchIcon size={17} color="#A65317" /></span><input aria-label={placeholder} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className="h-10 min-w-0 flex-1 bg-white border border-[#DED2C5] rounded-[8px] px-3 text-[10px]" /></div>;
 const SelectField = ({ label, value }: { label: string; value: string }) => <label className="block text-[10px] text-[#6F625B]"><span className="block mb-1">{label}</span><span className="h-10 px-3 rounded-[8px] bg-white border border-[#DED2C5] flex items-center justify-between text-[#40352F]">{value}<ChevronDownIcon size={14} color="#7A685D" /></span></label>;
 const Radio = ({ active }: { active: boolean }) => <span className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${active ? 'bg-[#A65317] border-[#A65317]' : 'bg-white border-[#BDAA9A]'}`}>{active && <CheckIcon size={11} color="#fff" />}</span>;
 const TimeSlots = ({ title, slots, selected, onSelect }: { title: string; slots: string[]; selected: string; onSelect: (slot: string) => void }) => <div><h3 className="text-[11px] font-bold mb-2">{title}</h3><div className="grid grid-cols-3 gap-2">{slots.map((slot) => <button key={slot} onClick={() => onSelect(slot)} className={`h-10 rounded-[8px] border text-[10px] ${selected === slot ? 'bg-[#A65317] text-white border-[#A65317]' : 'bg-white border-[#DED2C5]'}`}><ClockIcon size={11} className="inline mr-1" />{slot.split(' ')[0]}</button>)}</div></div>;
-const InputField = ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => <label className="block text-[10px] font-semibold text-[#6F625B]"><span className="block mb-1">{label}</span><input value={value} onChange={(event) => onChange(event.target.value)} className="w-full h-11 px-3 rounded-[8px] bg-white border border-[#DED2C5] text-[11px] text-[#40352F] outline-none focus:border-[#A65317]" /></label>;
+const InputField = ({ label, value, onChange, readOnly = false }: { label: string; value: string; onChange: (value: string) => void; readOnly?: boolean }) => <label className="block text-[10px] font-semibold text-[#6F625B]"><span className="block mb-1">{label}</span><input value={value} readOnly={readOnly} onChange={(event) => onChange(event.target.value)} className="w-full h-11 px-3 rounded-[8px] bg-white border border-[#DED2C5] text-[11px] text-[#40352F] outline-none focus:border-[#A65317]" /></label>;
 const SummarySection = ({ title, image, rows }: { title: string; image?: string; rows: [string, string][] }) => <section className="p-3 rounded-[10px] bg-white border border-[#DED2C5] space-y-2"><h3 className="text-[12px] font-bold">{title}</h3>{image && <img src={image} alt={title} className="w-full h-28 rounded-[8px] object-cover" />}{rows.map(([label, value]) => <div key={label} className="flex justify-between gap-3 text-[10px]"><span className="text-[#7A685D]">{label}</span><strong className="text-right">{value}</strong></div>)}</section>;
