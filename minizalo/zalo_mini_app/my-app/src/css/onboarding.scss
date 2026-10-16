@@ -1,0 +1,60 @@
+.new-customer-flow {
+  position: absolute;
+  inset: 0;
+  z-index: 110;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #faf6f0;
+  color: #40352f;
+  letter-spacing: 0;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.new-customer-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 22px max(24px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  h1 { margin: 18px 0 8px; font-size: 25px; line-height: 1.35; font-weight: 700; color: #7b4424; overflow-wrap: anywhere; }
+  h1:focus { outline: none; }
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; opacity: .55; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #32817c; outline-offset: 3px; }
+}
+.onboarding-topbar { display: flex; align-items: center; gap: 10px; min-height: 40px; flex-shrink: 0; margin-bottom: 14px; }
+.onboarding-topbar > span { flex: 1; font-size: 10px; line-height: 1.4; color: #75685f; }
+.onboarding-back { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #e7d9cb; background: #fff; border-radius: 8px; }
+.onboarding-skip { min-height: 40px; color: #98501b; font-size: 12px !important; background: none; border: 0; }
+.onboarding-brand { display: block; font-size: 15px; color: #1586ab; margin-top: 8px; }
+.onboarding-brand strong { color: #218354; font-weight: 600; }
+.onboarding-description { font-size: 13px; line-height: 1.7; color: #83746a; margin: 0 0 18px; }
+.onboarding-primary { min-height: 48px; width: 100%; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 12px; border: 0; border-radius: 8px; background: #98501b; color: #fff; font-size: 14px !important; font-weight: 600 !important; }
+.onboarding-footer { padding-top: 24px; margin-top: auto; }
+.intro-visual { width: 100%; aspect-ratio: 1.12; max-height: 310px; overflow: hidden; border-radius: 8px; flex-shrink: 0; }
+.intro-visual img { width: 100%; height: 100%; object-fit: cover; }
+.intro-progress { display: flex; gap: 5px; margin: 22px 0 12px; }
+.intro-progress span { width: 6px; height: 5px; border-radius: 4px; background: #dac8b7; }
+.intro-progress .is-active { width: 22px; background: #98501b; }
+.intro-page h1 { margin-top: 10px; }
+.profile-page h1 { margin-top: 0; font-size: 24px; }
+.profile-avatar-row { display: flex; align-items: center; gap: 16px; margin: 2px 0 20px; }
+.profile-avatar { width: 72px; height: 72px; position: relative; display: grid; place-items: center; flex-shrink: 0; border: 2px solid white; border-radius: 50%; background: #f2e2cd; color: #ae642d; }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.profile-camera { position: absolute; bottom: -1px; right: -1px; width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; background: #98501b; color: white; border: 2px solid #faf6f0; }
+.profile-photo-label { border: 0; padding: 7px 0; background: none; color: #98501b; font-size: 13px !important; text-align: left; }
+.profile-avatar-row p { color: #83746a; font-size: 11px; margin: 0; }
+.profile-field { display: block; min-width: 0; font-size: 12px; margin-bottom: 14px; }
+.profile-field > input, .profile-field > select, .profile-verified { display: block; margin-top: 6px; width: 100%; min-width: 0; height: 46px; box-sizing: border-box; border: 1px solid #e5d8cb; border-radius: 8px; background: white; color: #40352f; }
+.profile-field > input, .profile-field > select { padding: 10px 12px; font-size: 14px; }
+.profile-required { color: #b04e2b; }
+.profile-verified { display: flex; align-items: center; padding: 0 12px; gap: 8px; background: #f2e2cd; }
+.profile-verified input { background: transparent; border: 0; min-width: 0; width: 100%; font-size: 14px; outline: none; }
+.profile-verified svg { flex-shrink: 0; }
+.profile-two-columns { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; }
+.profile-optional { font-size: 10px; color: #83746a; line-height: 1.6; margin: 4px 0 16px; }
+.onboarding-error { font-size: 12px; line-height: 1.6; color: #ad3030; overflow-wrap: anywhere; padding: 10px 0; }
+@media (max-width: 350px) {
+  .new-customer-page { padding-left: 16px; padding-right: 16px; }
+}

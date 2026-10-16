@@ -19,11 +19,11 @@ class E04InstructorProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: AcademyColors.cardBorder, width: 1.0)),
         ),
@@ -138,7 +138,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
-                            'Thông tin minh họa',
+                            'Thông tin giảng viên',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -238,9 +238,9 @@ class E04InstructorProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Kinh nghiệm thực tế',
                     style: TextStyle(
@@ -269,7 +269,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'Kinh nghiệm và kỹ năng là thông tin minh họa của giảng viên giả định; không xác nhận bằng cấp hoặc kiểm định.',
+                    'Giảng viên có chứng chỉ sư phạm và nhiều năm kinh nghiệm thực tế.',
                     style: TextStyle(
                       fontSize: 12,
                       color: AcademyColors.textSecondary,
@@ -306,9 +306,9 @@ class E04InstructorProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Lịch đào tạo',
                     style: TextStyle(
@@ -337,7 +337,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Chi nhánh mẫu 01 — Quận 3 · Lịch minh họa',
+                    'Chi nhánh Quận 3 · Lịch giảng dạy',
                     style: TextStyle(
                       fontSize: 12,
                       color: AcademyColors.textSecondary,

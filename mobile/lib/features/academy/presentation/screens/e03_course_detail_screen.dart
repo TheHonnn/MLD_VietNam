@@ -36,10 +36,10 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
-        summaryText: 'Học phí minh họa · ${formatCurrency(course.tuitionFee)}đ',
+        summaryText: 'Học phí · ${formatCurrency(course.tuitionFee)}đ',
         buttonText: 'Đăng ký khóa học',
         onPressed: () {
           Navigator.of(context).push(
@@ -182,7 +182,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
-                      'Thực hành chuyên nghiệp · Minh họa',
+                      'Thực hành chuyên nghiệp',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -481,9 +481,9 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildScheduleCard('23/10/2026 · MCN-1026', 'Chi nhánh mẫu 01 — Quận 3', 'Thứ 6–7–Chủ nhật · 13:00–17:00', 'Đang nhận đăng ký'),
+            _buildScheduleCard('23/10/2026 · MCN-1026', 'Chi nhánh Quận 3', 'Thứ 6–7–Chủ nhật · 13:00–17:00', 'Đang nhận đăng ký'),
             const SizedBox(height: 12),
-            _buildScheduleCard('20/11/2026 · MCN-1126', 'Chi nhánh mẫu 01 — Quận 3', 'Thứ 6–7–Chủ nhật · 13:00–17:00', 'Sắp mở đăng ký'),
+            _buildScheduleCard('20/11/2026 · MCN-1126', 'Chi nhánh Quận 3', 'Thứ 6–7–Chủ nhật · 13:00–17:00', 'Sắp mở đăng ký'),
             const SizedBox(height: 24),
 
             // 9. Điều kiện hoàn thành [8116:25463]
@@ -495,9 +495,9 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Điều kiện hoàn thành',
                     style: TextStyle(

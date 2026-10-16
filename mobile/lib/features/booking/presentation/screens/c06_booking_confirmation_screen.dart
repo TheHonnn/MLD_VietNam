@@ -64,10 +64,10 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
                   ),
                   const SizedBox(height: 8),
 
-                  // Thẻ Ghi chú minh họa
+                  // Thẻ Ghi chú
                   const IllustrationNoteCard(
                     text:
-                        'Tóm tắt minh họa · Chưa phải lịch hẹn đã xác nhận. Cần có giữ chỗ hợp lệ trước khi xác nhận và đáp ứng điều kiện thanh toán của chi nhánh.',
+                        'Quý khách vui lòng kiểm tra lại thông tin dịch vụ, thời gian và chi nhánh trước khi thanh toán.',
                   ),
                   const SizedBox(height: 24),
 
@@ -157,7 +157,7 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
                   ),
                   const SizedBox(height: 24),
 
-                  // Thẻ Chính sách minh họa (350x290, fill=white, r=20)
+                  // Thẻ Chính sách đặt hẹn (350x290, fill=white, r=20)
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -170,7 +170,7 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Chính sách minh họa',
+                          'Chính sách đặt hẹn',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
@@ -241,7 +241,7 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
                               const SizedBox(width: 12),
                               const Expanded(
                                 child: Text(
-                                  'Tôi đã đọc và đồng ý với điều khoản đặt lịch minh họa',
+                                  'Tôi đã đọc và đồng ý với điều khoản dịch vụ',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: BookingColors.textPrimary,
@@ -262,7 +262,7 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
 
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
-              summaryText: 'Tổng ${_formatPrice(total)}đ · Cọc minh họa ${_formatPrice(deposit)}đ',
+              summaryText: 'Tổng ${_formatPrice(total)}đ · Tiền cọc ${_formatPrice(deposit)}đ',
               buttonText: 'Tiếp tục thanh toán',
               isEnabled: _agreeTerms,
               onPressed: () {

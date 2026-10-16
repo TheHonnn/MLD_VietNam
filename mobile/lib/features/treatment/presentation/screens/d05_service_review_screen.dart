@@ -15,8 +15,8 @@ class D05ServiceReviewScreen extends StatefulWidget {
     this.onBack,
     this.serviceName = 'Massage thư giãn toàn thân',
     this.specialistName = 'Trần Minh Phương',
-    this.branchName = 'Chi nhánh mẫu 01 — Quận 3',
-    this.sessionInfo = 'Buổi 04 · Hoàn thành 08/10/2026 · Minh họa',
+    this.branchName = 'Chi nhánh Quận 3',
+    this.sessionInfo = 'Buổi 04 · Hoàn thành 08/10/2026',
   });
 
   @override
@@ -231,7 +231,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                           ),
                         ),
                         const Text(
-                          'CHĂM SÓC · MINH HỌA',
+                          'CHĂM SÓC & TRỊ LIỆU',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,

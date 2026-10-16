@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/utils/validators.dart';
 import '../../data/models/academy_models.dart';
 import '../widgets/academy_widgets.dart';
 import 'e06_tuition_payment_screen.dart';
@@ -18,14 +19,15 @@ class E05EnrollmentFormScreen extends StatefulWidget {
 }
 
 class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController(text: 'Nguyễn Minh Anh');
-  final _phoneController = TextEditingController(text: '0912 345 678');
+  final _phoneController = TextEditingController(text: '0912345678');
   final _emailController = TextEditingController(text: 'minhanh.nguyen@email.com');
   final _dobController = TextEditingController();
   final _addressController = TextEditingController();
 
   int _selectedExperience = 1; // 0: Chưa có, 1: Cơ bản / tự học (chuẩn Figma đang chọn), 2: Đang làm nghề
-  String _selectedBranch = 'Chi nhánh mẫu 01 — Quận 3';
+  String _selectedBranch = 'Chi nhánh Quận 3';
   String _selectedBatch = '23/10/2026 · MCN-1026';
   String _selectedFormat = 'Học trực tiếp';
 
@@ -46,32 +48,36 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
-        summaryText: 'Đặt cọc minh họa · 2.000.000đ',
+        summaryText: 'Đặt cọc · 2.000.000đ',
         buttonText: 'Tiếp tục thanh toán',
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => E06TuitionPaymentScreen(
-                course: course,
-                studentName: _nameController.text.trim(),
-                studentPhone: _phoneController.text.trim(),
-                studentEmail: _emailController.text.trim(),
-                selectedBranch: _selectedBranch,
-                selectedShift: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
+          if (_formKey.currentState?.validate() ?? false) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => E06TuitionPaymentScreen(
+                  course: course,
+                  studentName: _nameController.text.trim(),
+                  studentPhone: _phoneController.text.trim(),
+                  studentEmail: _emailController.text.trim(),
+                  selectedBranch: _selectedBranch,
+                  selectedShift: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
+                ),
               ),
-            ),
-          );
+            );
+          }
         },
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // 1. Tiêu đề trang [8116:25611]
             const Text(
               'Đăng ký khóa học',
@@ -192,12 +198,28 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 color: AcademyColors.heading,
               ),
             ),
-            const SizedBox(height: 14),
-            _buildInputField('Họ và tên', _nameController, 'Nhập họ và tên học viên'),
+            _buildInputField(
+              'Họ và tên *',
+              _nameController,
+              'Nhập họ và tên học viên',
+              validator: AppValidators.fullName,
+            ),
             const SizedBox(height: 12),
-            _buildInputField('Số điện thoại', _phoneController, 'Nhập số điện thoại', keyboardType: TextInputType.phone),
+            _buildInputField(
+              'Số điện thoại *',
+              _phoneController,
+              'Nhập số điện thoại',
+              keyboardType: TextInputType.phone,
+              validator: AppValidators.phone,
+            ),
             const SizedBox(height: 12),
-            _buildInputField('Email', _emailController, 'Nhập địa chỉ email', keyboardType: TextInputType.emailAddress),
+            _buildInputField(
+              'Email *',
+              _emailController,
+              'Nhập địa chỉ email',
+              keyboardType: TextInputType.emailAddress,
+              validator: AppValidators.email,
+            ),
             const SizedBox(height: 12),
             _buildInputField('Ngày sinh (tùy chọn)', _dobController, 'DD/MM/YYYY'),
             const SizedBox(height: 12),
@@ -226,20 +248,20 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Cơ sở minh họa
+                  // Cơ sở đào tạo
                   const Text(
-                    'Cơ sở minh họa',
+                    'Cơ sở đào tạo',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AcademyColors.textPrimary),
                   ),
                   const SizedBox(height: 6),
                   _buildDropdownContainer(
                     value: _selectedBranch,
-                    items: const ['Chi nhánh mẫu 01 — Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
+                    items: const ['Chi nhánh Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
                     onChanged: (val) => setState(() => _selectedBranch = val!),
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+                    '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
@@ -275,7 +297,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Lịch và lớp học là dữ liệu minh họa.',
+                    'Lớp học tiêu chuẩn từ 8-12 học viên/lớp để đảm bảo chất lượng.',
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),
                 ],
@@ -352,7 +374,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Thẻ cọc minh họa
+            // Thẻ cọc
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -361,9 +383,9 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Thanh toán ngay: 2.000.000đ',
                     style: TextStyle(
@@ -389,7 +411,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             // Chú thích chân trang
             const Center(
               child: Text(
-                'Thông tin đăng ký là bản minh họa tĩnh. Chưa xác nhận ghi danh hoặc thực hiện giao dịch.',
+                'Vui lòng kiểm tra kỹ thông tin cá nhân và khóa học trước khi tiếp tục.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
@@ -401,52 +423,58 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildInputField(String label, TextEditingController controller, String hint, {TextInputType keyboardType = TextInputType.text}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
+Widget _buildInputField(
+  String label,
+  TextEditingController controller,
+  String hint, {
+  TextInputType keyboardType = TextInputType.text,
+  String? Function(String?)? validator,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AcademyColors.textPrimary,
+        ),
+      ),
+      const SizedBox(height: 6),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+        ),
+        child: TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
           style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
             color: AcademyColors.textPrimary,
           ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-          ),
-          child: Center(
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AcademyColors.textPrimary,
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+            border: InputBorder.none,
+            errorStyle: const TextStyle(fontSize: 11),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildDropdownContainer({
     required String value,

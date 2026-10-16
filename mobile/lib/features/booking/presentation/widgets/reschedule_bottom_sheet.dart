@@ -85,7 +85,7 @@ class _RescheduleBottomSheetState extends State<RescheduleBottomSheet> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${widget.appointment.bookingCode} · Minh họa tĩnh',
+                    '${widget.appointment.bookingCode} tĩnh',
                     style: const TextStyle(
                       fontSize: 12,
                       color: BookingColors.textPrimary,
@@ -202,7 +202,7 @@ class _RescheduleBottomSheetState extends State<RescheduleBottomSheet> {
           ),
           const SizedBox(height: 14),
 
-          // Ghi chú minh họa chuẩn Figma
+          // Ghi chú chuẩn Figma
           IllustrationNoteCard(
             text:
                 'Đổi sang $newDateStr · $_selectedSlot, khoảng vệ sinh đến ${_calculateCleaningEndTime(_selectedSlot)}. Kiểm tra lại nguồn lực trước giữ chỗ và cập nhật.',

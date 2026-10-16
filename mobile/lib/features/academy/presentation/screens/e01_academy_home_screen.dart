@@ -17,7 +17,7 @@ class E01AcademyHomeScreen extends StatefulWidget {
 }
 
 class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
-  final String _selectedBranch = 'Chi nhánh mẫu 01 — Quận 3';
+  final String _selectedBranch = 'Chi nhánh Quận 3';
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +31,9 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 1. Giới thiệu [8116:25013] (350x92)
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
+                children: [
                   Text(
                     'HỌC VIỆN ĐÀO TẠO',
                     style: TextStyle(
@@ -44,7 +44,7 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     ),
                   ),
                   Text(
-                    'Dữ liệu minh họa',
+                    '',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
@@ -152,7 +152,7 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 3. Chọn cơ sở minh họa [8116:25028] (350x52)
+              // 3. Chọn cơ sở [8116:25028] (350x52)
               Container(
                 height: 52,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -277,7 +277,7 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
               // Chú thích chân trang [8116:25143] (350x18)
               const Center(
                 child: Text(
-                  'Khóa học, học phí và lịch đào tạo là dữ liệu minh họa.',
+                  'Chương trình đào tạo thực hành và cấp chứng chỉ nghề chuyên nghiệp.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,

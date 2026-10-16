@@ -60,7 +60,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                       ),
                     ),
                     const Text(
-                      'CHĂM SÓC · MINH HỌA',
+                      'CHĂM SÓC & TRỊ LIỆU',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -157,7 +157,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Hồ sơ và liệu trình minh họa',
+                      'Hồ sơ chăm sóc & liệu trình',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -294,7 +294,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Chi nhánh mẫu 01 — Quận 3 · Dữ liệu minh họa',
+                        'Chi nhánh Quận 3',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
@@ -309,7 +309,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
-                          'Lịch hẹn minh họa',
+                          'Lịch hẹn sắp tới',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,

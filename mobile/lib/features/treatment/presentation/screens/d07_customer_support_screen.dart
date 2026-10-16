@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/mock_treatment_repository.dart';
 
@@ -53,7 +54,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
       }
     });
 
-    // Tự động phản hồi mô phỏng
+    // Tự động phản hồi
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
       setState(() {
@@ -109,7 +110,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Địa chỉ: Chi nhánh mẫu 01 — Quận 3, 123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+              'Địa chỉ: Chi nhánh Quận 3, 123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
               style: TextStyle(fontSize: 14, color: Color(0xFF6B6158), height: 1.4),
             ),
             const SizedBox(height: 24),
@@ -119,9 +120,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đang kết nối cuộc gọi đến hotline 096.7786.399...')),
-                  );
+                  AppLauncherHelper.makePhoneCall(context, '0967786399');
                 },
                 icon: const Icon(Icons.phone, color: Colors.white),
                 label: const Text(
@@ -224,7 +223,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           ),
                         ),
                         const Text(
-                          'CHĂM SÓC · MINH HỌA',
+                          'CHĂM SÓC & TRỊ LIỆU',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -344,7 +343,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                         children: [
                           const Center(
                             child: Text(
-                              'Cuộc trò chuyện minh họa',
+                              'Kênh hỗ trợ trực tuyến',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w400,
@@ -570,7 +569,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           Divider(height: 1, color: Color(0xFFE3D1BF)),
                           SizedBox(height: 12),
                           Text(
-                            'Chi nhánh mẫu 01 — Quận 3',
+                            'Chi nhánh Quận 3',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -579,7 +578,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           ),
                           SizedBox(height: 6),
                           Text(
-                            '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+                            '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
@@ -588,7 +587,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           ),
                           SizedBox(height: 12),
                           Text(
-                            'Chi nhánh, địa chỉ và giờ hỗ trợ là minh họa. Không thể gửi tin nhắn thực tế qua kênh này.',
+                            'Bộ phận CSKH MLD luôn sẵn sàng hỗ trợ quý khách từ 08:30 đến 20:30 hàng ngày.',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,

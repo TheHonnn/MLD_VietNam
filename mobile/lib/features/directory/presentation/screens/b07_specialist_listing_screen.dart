@@ -26,29 +26,29 @@ class _B07SpecialistListingScreenState extends State<B07SpecialistListingScreen>
     {
       'name': 'Nguyễn Thu Hà',
       'role': 'Chuyên viên chăm sóc da',
-      'tag': 'Hồ sơ minh họa',
+      'tag': 'Thông tin chuyên viên',
       'desc': 'Chăm sóc da · Quy trình làm sạch dịu nhẹ',
       'avatar': 'assets/images/specialist_avatar_1.png',
-      'branch': 'Chi nhánh mẫu 01 — Quận 3',
+      'branch': 'Chi nhánh Quận 3',
       'expertise': 'Chăm sóc da',
     },
     {
       'name': 'Trần Minh Phương',
       'role': 'Kỹ thuật viên massage',
-      'tag': 'Hồ sơ minh họa',
+      'tag': 'Thông tin chuyên viên',
       'desc': 'Massage thư giãn · Chăm sóc tận tâm',
       'avatar': 'assets/images/specialist_avatar_2.png',
       'heroAvatar': 'assets/images/specialist_hero_1.png',
-      'branch': 'Chi nhánh mẫu 01 — Quận 3',
+      'branch': 'Chi nhánh Quận 3',
       'expertise': 'Massage thư giãn',
     },
     {
       'name': 'Lê Hoài An',
       'role': 'Chuyên viên chăm sóc cơ thể',
-      'tag': 'Hồ sơ minh họa',
+      'tag': 'Thông tin chuyên viên',
       'desc': 'Chăm sóc cơ thể · Thư giãn toàn thân',
       'avatar': 'assets/images/specialist_avatar_3.png',
-      'branch': 'Chi nhánh mẫu 02 — Cầu Giấy',
+      'branch': 'Chi nhánh Cầu Giấy',
       'expertise': 'Chăm sóc cơ thể',
     },
   ];
@@ -190,7 +190,7 @@ class _B07SpecialistListingScreenState extends State<B07SpecialistListingScreen>
                     child: _buildFilterDropdown(
                       label: 'Chi nhánh',
                       value: _selectedBranch,
-                      items: ['Tất cả', 'Chi nhánh mẫu 01 — Quận 3', 'Chi nhánh mẫu 02 — Cầu Giấy'],
+                      items: ['Tất cả', 'Chi nhánh Quận 3', 'Chi nhánh Cầu Giấy'],
                       onChanged: (v) => setState(() => _selectedBranch = v!),
                     ),
                   ),
@@ -219,7 +219,7 @@ class _B07SpecialistListingScreenState extends State<B07SpecialistListingScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildFilterDropdown(
-                      label: 'Giờ minh họa',
+                      label: 'Giờ làm việc',
                       value: _selectedHour,
                       items: ['Tất cả', 'Buổi sáng (09:00–12:00)', 'Buổi chiều (13:00–18:00)'],
                       onChanged: (v) => setState(() => _selectedHour = v!),
@@ -249,7 +249,7 @@ class _B07SpecialistListingScreenState extends State<B07SpecialistListingScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  '3 hồ sơ minh họa · Không phải nhân sự hoặc lịch trống thực tế.',
+                  'Đội ngũ chuyên viên giàu kinh nghiệm tại chi nhánh',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,

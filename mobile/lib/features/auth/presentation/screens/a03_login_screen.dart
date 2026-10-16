@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/validators.dart';
 import '../../widgets/primary_button.dart';
 import 'a04_otp_screen.dart';
 
@@ -189,10 +190,9 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                       if (value == null || value.trim().isEmpty) {
                                         return 'Vui lòng nhập số điện thoại';
                                       }
-                                      if (value.trim().replaceAll(' ', '').length < 9) {
-                                        return 'Số điện thoại không hợp lệ';
-                                      }
-                                      return null;
+                                      final clean = value.trim().replaceAll(' ', '');
+                                      final fullNumber = clean.startsWith('0') ? clean : '0$clean';
+                                      return AppValidators.phone(fullNumber);
                                     },
                                     decoration: const InputDecoration(
                                       hintText: '912 345 678',

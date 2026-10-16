@@ -7,6 +7,9 @@ if (base.protocol !== 'https:') throw new Error('Production API must use HTTPS')
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const checks = [
   ['/health', null, []],
+  ['/app-metadata', 'metadata', []],
+  ['/support-faqs', 'faqs', ['id','question','answer']],
+  ['/care-guidelines', 'guidelines', ['id','title','content']],
   ['/services', 'services', ['id', 'name', 'categoryId', 'price', 'imageUrl']],
   ['/doctors', 'doctors', ['id', 'fullName', 'branchId', 'specialties']],
   ['/branches', 'branches', ['id', 'name', 'address']],
@@ -14,6 +17,11 @@ const checks = [
   ['/auth/me', 'private', []],
   ['/bookings', 'private', []],
   ['/membership', 'private', []],
+  ['/auth/settings', 'private', []],
+  ['/transactions', 'private', []],
+  ['/support-tickets', 'private', []],
+  ['/consultation-surveys', 'private', []],
+  ['/reviews/mine', 'private', []],
 ];
 console.log(`Read-only production preflight: ${base.origin}${base.pathname}`);
 const results = await Promise.all(checks.map(async ([path, key, fields]) => {
@@ -29,11 +37,14 @@ const results = await Promise.all(checks.map(async ([path, key, fields]) => {
     if (path === '/health' && body.data?.authFlow !== 'zalo-phone-registration') {
       failures.push('Backend is not the phone-only registration version; deploy all backend changes first');
     }
+    if (path === '/health' && body.data?.contentContract !== 'shared-admin-v1') failures.push('Deploy the shared-admin content backend before this frontend');
     if (key === 'private') {
       if (response.status !== 401) failures.push('Private endpoint must reject anonymous requests with 401');
     } else {
       if (!response.ok || body.success !== true) failures.push('Expected successful canonical response');
-      if (key) {
+      if (key === 'metadata') {
+        if (!['serviceCategories','courseCategories','instructors','membershipTiers','faqs'].every(field=>Array.isArray(body.data?.[field]))) failures.push('Missing admin-managed metadata');
+      } else if (key) {
         const records = body.data?.[key];
         if (!Array.isArray(records)) failures.push(`Missing data.${key} array`);
         else if (records.length) {

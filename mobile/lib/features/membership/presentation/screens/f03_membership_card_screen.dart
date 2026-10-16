@@ -49,14 +49,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const Text(
-                          'Dữ liệu minh họa',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
+
                       ],
                     ),
 
@@ -215,7 +208,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                           Align(
                             alignment: Alignment.centerRight,
                             child: Text(
-                              'Dữ liệu minh họa · Thẻ không có giá trị sử dụng',
+                              'Thẻ hội viên điện tử MLD Vietnam',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w400,
@@ -256,7 +249,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                                   Icon(Icons.qr_code_2_rounded, size: 76, color: AppColors.primary),
                                   SizedBox(height: 4),
                                   Text(
-                                    'MINH HỌA',
+                                    'MLD VIỆT NAM',
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
@@ -278,7 +271,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Dữ liệu minh họa · Mã không thể quét, không chứa dữ liệu định danh.',
+                            'Mã QR dùng để tích điểm và check-in tại quầy',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11,
@@ -434,7 +427,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Hạng hiện tại: Vàng. Mốc và quyền lợi hạng là dữ liệu minh họa.',
+                            'Tích lũy điểm để nâng hạng hội viên và nhận thêm đặc quyền hấp dẫn.',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,

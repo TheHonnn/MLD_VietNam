@@ -1,0 +1,148 @@
+.care-intro-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 190;
+  overflow: hidden;
+  container: care-intro / size;
+  --intro-safe-top: max(24px, env(safe-area-inset-top, 0px));
+  --intro-safe-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  overscroll-behavior: contain;
+  background: #f8f1e7;
+  color: #784729;
+  letter-spacing: 0;
+}
+
+.care-intro-page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--intro-safe-top) 16px var(--intro-safe-bottom);
+  box-sizing: border-box;
+}
+
+.care-intro-header {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: clamp(12px, 2.4cqh, 20px);
+  flex-shrink: 0;
+}
+
+.care-intro-header span {
+  color: #756e65;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.care-intro-header button {
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #a4551e;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* The viewBox isolates the supplied photograph; meet keeps it uncropped. */
+.care-intro-photo {
+  width: 100%;
+  height: 46cqh;
+  max-height: 380px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border-radius: 64px 16px 16px 16px;
+}
+
+.care-intro-photo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.care-intro-progress {
+  display: flex;
+  height: 6px;
+  align-items: center;
+  gap: 8px;
+  margin: clamp(12px, 2.4cqh, 20px) 0 clamp(12px, 2cqh, 16px);
+  flex-shrink: 0;
+}
+
+.care-intro-progress span {
+  width: 6px;
+  height: 6px;
+  border-radius: 4px;
+  background: #e6d4c2;
+}
+
+.care-intro-progress .is-active {
+  width: 22px;
+  background: #a4551e;
+}
+
+.care-intro-page h1 {
+  margin: 0;
+  flex-shrink: 0;
+  color: #784729;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 34px;
+  letter-spacing: 0;
+  overflow-wrap: break-word;
+}
+
+.care-intro-description {
+  margin: 10px 0 0;
+  flex-shrink: 0;
+  color: #857c71;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.care-intro-footer {
+  margin-top: auto;
+  padding-top: clamp(12px, 2.4cqh, 20px);
+  flex-shrink: 0;
+}
+
+.care-intro-footer button {
+  display: block;
+  width: 100%;
+  height: 48px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 12px;
+  background: #9d501c;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+@container care-intro (max-height: 640px) {
+  .care-intro-page h1 {
+    font-size: 24px;
+    line-height: 30px;
+  }
+
+  .care-intro-description {
+    font-size: 13px;
+    line-height: 20px;
+  }
+}
+
+.care-intro-screen button:focus-visible {
+  outline: 2px solid #32817c;
+  outline-offset: 3px;
+}

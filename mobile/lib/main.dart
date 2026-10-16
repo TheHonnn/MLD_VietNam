@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'core/services/auth_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/a01_splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Session & Authentication Service
+  await AuthService.instance.init();
   
   // Guard against Android/Samsung Accessibility semantics desynchronization
   FlutterError.onError = (FlutterErrorDetails details) {

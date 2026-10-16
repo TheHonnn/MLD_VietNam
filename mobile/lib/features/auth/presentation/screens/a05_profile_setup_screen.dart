@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../membership/data/repositories/mock_membership_repository.dart';
 import '../../widgets/primary_button.dart';
@@ -76,20 +78,31 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
     }
   }
 
-  void _handleContinue() {
-    if (_fullNameController.text.trim().isEmpty) {
+  void _handleContinue() async {
+    final nameError = AppValidators.fullName(_fullNameController.text);
+    if (nameError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập họ và tên')),
+        SnackBar(content: Text(nameError), backgroundColor: Colors.redAccent),
       );
       return;
+    }
+    if (_emailController.text.trim().isNotEmpty) {
+      final emailError = AppValidators.email(_emailController.text);
+      if (emailError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(emailError), backgroundColor: Colors.redAccent),
+        );
+        return;
+      }
     }
     setState(() {
       _isLoading = true;
     });
 
+    final fullName = _fullNameController.text.trim();
     final repo = MockMembershipRepository();
     repo.updateProfile(repo.profile.copyWith(
-      fullName: _fullNameController.text.trim(),
+      fullName: fullName,
       phone: widget.phone.isNotEmpty ? widget.phone : repo.profile.phone,
       email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : repo.profile.email,
       dateOfBirth: _dobController.text.trim().isNotEmpty ? _dobController.text.trim() : repo.profile.dateOfBirth,
@@ -97,17 +110,23 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
       avatarUrl: _avatarPath ?? repo.profile.avatarUrl,
     ));
 
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const A06PurposeSelectionScreen()),
-        );
-      }
-    });
+    // Persist to AuthService session
+    await AuthService.instance.updateProfile(
+      displayName: fullName,
+      avatarUrl: _avatarPath,
+    );
+
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const A06PurposeSelectionScreen()),
+      );
+    }
   }
 
   @override

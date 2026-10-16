@@ -56,14 +56,6 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                       ),
                     ),
                   ),
-                  const Text(
-                    'Dữ liệu minh họa',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
                 ],
               ),
 
@@ -120,7 +112,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '3 giao dịch hoàn tất · Dữ liệu minh họa',
+                      '3 giao dịch hoàn tất',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -209,7 +201,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
 
               const SizedBox(height: 12),
 
-              // --- 6. PHẠM VI LỊCH SỬ MINH HỌA (350x258, r=20, #F3E2CE) ---
+              // --- 6. PHẠM VI LỊCH SỬ  (350x258, r=20, #F3E2CE) ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -222,7 +214,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Phạm vi lịch sử minh họa',
+                      'Thông tin hóa đơn',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -240,7 +232,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      'Ba giao dịch giả định độc lập; không phải thanh toán thực tế.',
+                      'Chi tiết các hóa đơn và giao dịch đã thực hiện.',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -264,7 +256,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
 
               const Center(
                 child: Text(
-                  'Dữ liệu minh họa · Lịch sử giả định, không phải hóa đơn thuế.',
+                  'Biên nhận thanh toán dịch vụ điện tử.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -459,7 +451,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
           ),
           const SizedBox(height: 2),
           const Text(
-            'Hoàn tiền: 0đ · Còn phải trả: 0đ Chỉ áp dụng cho giao dịch minh họa.',
+            'Hoàn tiền: 0đ · Còn phải trả: 0đ',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w400,

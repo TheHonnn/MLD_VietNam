@@ -1,7 +1,7 @@
-import { getAccessToken, getPhoneNumber, nativeStorage } from 'zmp-sdk';
+import { getAccessToken, getPhoneNumber, getUserInfo, nativeStorage } from 'zmp-sdk';
 import { adaptPayload, profileToCanonical } from './adapters';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://mld-miniapp-api.onrender.com/api').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SESSION_KEY = 'mld_miniapp_session_v2';
 let memoryToken: string | null = null;
 const session = {
@@ -20,16 +20,21 @@ const session = {
   },
 };
 const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  if (!API_BASE_URL) throw new Error('VITE_API_BASE_URL is required');
   const token = session.get();
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (init.signal?.aborted) controller.abort();
+  init.signal?.addEventListener('abort', abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), 30000);
   let response: Response;
+  let envelope: any;
   try {
-    response = await window.fetch(input, { ...init, headers, signal: init.signal ?? controller.signal });
-  } finally { clearTimeout(timeout); }
-  const envelope = await response.json();
+    response = await window.fetch(input, { cache: 'no-store', ...init, headers, signal: controller.signal });
+    envelope = await response.json();
+  } finally { clearTimeout(timeout); init.signal?.removeEventListener('abort', abort); }
   const successful = response.ok && envelope.success === true;
   const payload = successful ? adaptPayload(envelope.data || {})
     : { error: envelope.message || 'Không thể tải dữ liệu. Vui lòng thử lại.', status: envelope.statusCode || response.status };
@@ -43,6 +48,42 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
 const responseJson = async (res: Response) => res.json();
 
 export const apiClient = {
+  async getAppMetadata() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/app-metadata`)); }
+    catch { return { error: 'Không thể tải danh mục và cấu hình ứng dụng.' }; }
+  },
+  async getSettings() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`)); }
+    catch { return { error: 'Không thể tải thiết lập.' }; }
+  },
+  async updateSettings(settings: Record<string, unknown>) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) })); }
+    catch { return { error: 'Không thể lưu thiết lập.' }; }
+  },
+  async getSupportFaqs() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/support-faqs`)); }
+    catch { return { error: 'Không thể tải câu hỏi thường gặp.' }; }
+  },
+  async createConsultationSurvey(body: Record<string, unknown>) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/consultation-surveys`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch { return { error: 'Không thể lưu khảo sát.' }; }
+  },
+  async getConsultationSurveys() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/consultation-surveys`)); }
+    catch { return { error: 'Không thể tải khảo sát đã lưu.' }; }
+  },
+  async getMyReviews() {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/reviews/mine`)); }
+    catch { return { error: 'Không thể tải đánh giá của bạn.' }; }
+  },
+  async createReview(body: Record<string, unknown>) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/reviews`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch { return { error: 'Không thể gửi đánh giá.' }; }
+  },
+  async saveLessonProgress(courseId: string, lessonId: string, body: { watchedSeconds: number; isCompleted?: boolean; studentNotes?: string }) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/courses/${courseId}/lessons/${lessonId}/progress`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch { return { error: 'Không thể lưu tiến trình học.' }; }
+  },
   async loginWithZalo(requestConsent = false) {
     try {
       if (!requestConsent) {
@@ -54,6 +95,15 @@ export const apiClient = {
       }
       // Reverify the current Zalo account on launch, even if a JWT was cached.
       session.clear();
+      // Editable profile suggestions only, never a trusted phone/UUID identity.
+      let suggestedName = '';
+      let suggestedAvatar = '';
+      try {
+        const { userInfo } = await getUserInfo({ autoRequestPermission: true, avatarType: 'large' });
+        suggestedName = userInfo?.name?.trim().slice(0, 150) || '';
+        const avatar = new URL(userInfo?.avatar || '');
+        if (avatar.protocol === 'https:' && !avatar.username && !avatar.password) suggestedAvatar = avatar.href;
+      } catch { /* Profile sharing is optional; phone verification remains required. */ }
       // Request permissions only after a user action. No phone input or OTP.
       const { token: phoneToken } = await getPhoneNumber();
       if (!phoneToken) return { error: 'Bạn chưa cho phép Zalo chia sẻ số điện thoại.' };
@@ -64,7 +114,7 @@ export const apiClient = {
       });
       const data = await responseJson(res);
       if (data.token) session.set(data.token);
-      return data;
+      return data.registrationRequired ? { ...data, suggestedName, suggestedAvatar } : data;
     } catch (error) {
       const zaloError = error as { code?: number | string; message?: string };
       const code = zaloError?.code !== undefined ? ` (mã ${zaloError.code})` : '';
@@ -75,7 +125,7 @@ export const apiClient = {
   logout() {
     session.clear();
   },
-  async registerZaloProfile(registrationToken: string, profile: { fullName: string; email?: string; dateOfBirth?: string; gender?: string }) {
+  async registerZaloProfile(registrationToken: string, profile: { fullName: string; email?: string; dateOfBirth?: string; gender?: string; avatarUrl?: string; purpose?: string }) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/zalo/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

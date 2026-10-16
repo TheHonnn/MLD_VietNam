@@ -79,7 +79,7 @@ class BookingAppBar extends StatelessWidget implements PreferredSizeWidget {
             padding: EdgeInsets.only(right: 16),
             child: Center(
               child: Text(
-                'ĐẶT LỊCH · MINH HỌA',
+                'ĐẶT LỊCH HẸN',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -145,7 +145,7 @@ class BookingHeaderSection extends StatelessWidget {
   }
 }
 
-/// 3. Thẻ Ghi chú minh họa (Ghi chú minh họa)
+/// 3. Thẻ Ghi chú hướng dẫn
 class IllustrationNoteCard extends StatelessWidget {
   final String text;
 
@@ -317,10 +317,10 @@ class BookingSummaryCardWidget extends StatelessWidget {
             : 'Massage thư giãn toàn thân');
     final branchName = appointment?.branchName ??
         flowState?.selectedBranch?.name ??
-        'Chi nhánh mẫu 01 — Quận 3';
+        'Chi nhánh Quận 3';
     final branchAddress = appointment?.branchAddress ??
         flowState?.selectedBranch?.address ??
-        '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh · Địa chỉ minh họa';
+        '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh';
     final specialistName = appointment?.specialistName ??
         flowState?.selectedSpecialist?.name ??
         'Trần Minh Phương';
@@ -573,7 +573,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Chi phí minh họa',
+            'Chi tiết chi phí',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -615,7 +615,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _buildRow(
-            isDepositPaid ? 'Cọc đã trả (mô phỏng)' : 'Tiền cọc minh họa',
+            isDepositPaid ? 'Tiền cọc đã thanh toán' : 'Tiền đặt cọc',
             '${_formatCurrency(deposit)}đ',
           ),
           const SizedBox(height: 8),
@@ -826,7 +826,7 @@ class PrepaidPackageSelectorWidget extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Gói minh họa áp dụng cho massage tại Chi nhánh mẫu 01 — Quận 3. Chỉ trừ buổi sau khi lịch hẹn được xác nhận.',
+            'Gói liệu trình áp dụng cho massage tại Chi nhánh Quận 3. Chỉ trừ buổi sau khi hoàn thành dịch vụ.',
             style: TextStyle(
               fontSize: 12,
               color: BookingColors.textPrimary,
@@ -885,7 +885,7 @@ class PaymentQRPlaceholderWidget extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Mã QR minh họa — không dùng để thanh toán',
+            'Quét mã QR để chuyển khoản thanh toán',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
@@ -974,7 +974,7 @@ class CheckInQRCodeWidget extends StatelessWidget {
 
   const CheckInQRCodeWidget({
     super.key,
-    this.note = 'Mã check-in minh họa — không có giá trị sử dụng',
+    this.note = 'Mã check-in dùng khi đến chi nhánh',
   });
 
   @override
@@ -1032,8 +1032,8 @@ class BookingTimelineWidget extends StatelessWidget {
     final steps = [
       'Đã tạo yêu cầu',
       'Chờ xác nhận / thanh toán',
-      'Đã xác nhận (mô phỏng)',
-      'Hoàn thành · Chưa diễn ra',
+      'Đã xác nhận',
+      'Hoàn thành',
     ];
 
     return Container(

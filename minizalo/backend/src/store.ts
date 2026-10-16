@@ -51,6 +51,13 @@ export const requiredColumns: Record<string, string[]> = {
   consultation_surveys:['id','customer_id','booking_id','focus_areas','pressure_pref'],
   reviews:['id','customer_id','booking_id','service_id','rating'],
   home_care_guidelines:['id','title','content','steps','is_published'],
+  support_faqs:['id','question','answer','is_active','display_order'],
+  membership_tier_rules:['tier','min_accumulated_spent','point_earning_rate','discount_service_percent'],
+  loyalty_point_settings:['id','earn_amount_per_point','redeem_value_per_point','is_active'],
+  user_settings:['user_id','appointment_reminder','promotion_notify','system_notify','language'],
+  referrals:['id','referrer_id','referee_id','reward_points','is_rewarded'],
+  course_batches:['id','course_id','branch_id','instructor_id','status'],
+  invoice_items:['id','invoice_id','item_name','quantity','unit_price','amount'],
 };
 
 export async function validateSharedSchema(store: Store) {
@@ -64,7 +71,8 @@ export async function validateSharedSchema(store: Store) {
     names.filter((name) => !columns.some((column) => column.table_name === table && column.column_name === name))
       .map((name) => `${table}.${name}`));
   for (const table of Object.keys(requiredColumns)) {
-    if (!columns.some((column) => column.table_name === table && column.column_name === 'id' && column.udt_name === 'uuid')) {
+    if (requiredColumns[table].includes('id') && table !== 'loyalty_point_settings'
+      && !columns.some((column) => column.table_name === table && column.column_name === 'id' && column.udt_name === 'uuid')) {
       missing.push(`${table}.id must be UUID`);
     }
   }

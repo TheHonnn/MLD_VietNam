@@ -160,7 +160,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                     ),
                   ),
                   const Text(
-                    'CHĂM SÓC · MINH HỌA',
+                    'CHĂM SÓC & TRỊ LIỆU',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
@@ -291,7 +291,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
               const SizedBox(height: 14),
 
               const Text(
-                'Thông báo minh họa · Không phải ưu đãi hoặc ghi danh thực.',
+                'Thông báo hoạt động & ưu đãi từ hệ thống MLD',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,

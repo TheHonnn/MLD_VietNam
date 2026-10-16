@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
 import 'a03_login_screen.dart';
 
 class A02OnboardingScreen extends StatefulWidget {
@@ -60,11 +61,14 @@ class _A02OnboardingScreenState extends State<A02OnboardingScreen> {
     }
   }
 
-  void _navigateToLogin() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const A03LoginScreen()),
-    );
+  void _navigateToLogin() async {
+    await AuthService.instance.setCompletedOnboarding(true);
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+      );
+    }
   }
 
   @override

@@ -349,7 +349,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               // --- 8. FOOTNOTE ---
               const Center(
                 child: Text(
-                  'Gợi ý và lịch sử là dữ liệu minh họa, không được lưu lại.',
+                  'Tìm kiếm dịch vụ, chuyên viên hoặc chi nhánh',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,

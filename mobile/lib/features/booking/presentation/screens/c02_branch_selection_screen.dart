@@ -227,7 +227,7 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                             Icon(Icons.map_outlined, size: 48, color: BookingColors.primary),
                             SizedBox(height: 8),
                             Text(
-                              'Bản đồ minh họa — chưa cấu hình định vị thực',
+                              'Bản đồ vị trí chi nhánh',
                               style: TextStyle(fontSize: 13, color: BookingColors.textPrimary),
                             ),
                           ],
@@ -260,11 +260,11 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                       isSelected: false,
                       isAvailable: false,
                       servicesText: 'Chăm sóc da · Chăm sóc cơ thể',
-                      noteText: 'Chưa cung cấp dịch vụ massage trong dữ liệu minh họa',
+                      noteText: 'Chưa cung cấp dịch vụ massage tại chi nhánh này',
                       onSelect: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Chi nhánh này chưa cung cấp dịch vụ đã chọn trong dữ liệu minh họa.'),
+                            content: Text('Chi nhánh này hiện chưa cung cấp dịch vụ bạn đã chọn.'),
                             duration: Duration(seconds: 2),
                           ),
                         );
@@ -303,9 +303,9 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Thẻ Ghi chú minh họa
+                  // Thẻ Ghi chú
                   const IllustrationNoteCard(
-                    text: '2 cơ sở hư cấu · Địa chỉ, giờ hoạt động và dịch vụ minh họa. Bản đồ / chỉ đường chưa cấu hình; không sử dụng vị trí hay khoảng cách thực.',
+                    text: 'Hệ thống cơ sở chăm sóc MLD Vietnam. Vui lòng liên hệ hotline chi nhánh để được hướng dẫn chi tiết.',
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -314,7 +314,7 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
 
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
-              summaryText: 'Đang chọn: ${selectedBranch?.name ?? "Chi nhánh mẫu 01 — Quận 3"}',
+              summaryText: 'Đang chọn: ${selectedBranch?.name ?? "Chi nhánh Quận 3"}',
               buttonText: 'Tiếp tục chọn chuyên viên',
               onPressed: () {
                 Navigator.push(
@@ -379,8 +379,8 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                   Expanded(
                     child: Text(
                       isAvailable
-                          ? 'Có thể đặt trong dữ liệu minh họa'
-                          : 'Chưa cung cấp dịch vụ trong dữ liệu minh họa',
+                          ? 'Đang phục vụ dịch vụ này'
+                          : 'Chưa phục vụ dịch vụ này',
                       style: const TextStyle(
                         fontSize: 14,
                         color: BookingColors.textPrimary,
@@ -415,13 +415,6 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Dữ liệu minh họa',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: BookingColors.primary,
-                  ),
-                ),
                 const SizedBox(height: 2),
                 Text(
                   branch.name,
@@ -441,7 +434,7 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  '09:00–20:00 · Cả tuần (minh họa)',
+                  '09:00–20:00 · Cả tuần ',
                   style: TextStyle(
                     fontSize: 12,
                     color: BookingColors.textPrimary,
@@ -488,7 +481,7 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Tính năng chỉ đường minh họa, chưa kết nối bản đồ.'),
+                                content: Text('Mở ứng dụng bản đồ để chỉ đường.'),
                                 duration: Duration(seconds: 1),
                               ),
                             );

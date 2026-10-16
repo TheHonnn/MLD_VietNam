@@ -1,0 +1,141 @@
+.launch-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  overflow: hidden;
+  background: #f8f1e7;
+  color: #784729;
+  font-family: inherit;
+  letter-spacing: 0;
+}
+
+/* Display only the two botanical fragments of the supplied Figma artwork. */
+.launch-leaves {
+  position: absolute;
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+
+.launch-leaves--top {
+  top: 7%;
+  right: 0;
+  width: 31.3%;
+  aspect-ratio: 122 / 160;
+  background-size: 2167.2131% 607.5%;
+  background-position: 11.8953% 22.1675%;
+}
+
+.launch-leaves--bottom {
+  bottom: 16%;
+  left: 0;
+  width: 28.2%;
+  aspect-ratio: 110 / 128;
+  background-size: 2403.6364% 759.375%;
+  background-position: 1.2628% 73.6967%;
+}
+
+.launch-brand {
+  position: absolute;
+  top: 32.5%;
+  left: 0;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.launch-logo {
+  display: flex;
+  width: 47%;
+  max-width: 184px;
+  aspect-ratio: 184 / 96;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #e5aa7e;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.launch-logo img {
+  display: block;
+  width: 92%;
+  height: auto;
+  object-fit: contain;
+}
+
+.launch-brand h1 {
+  margin: 24px 16px 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 36px;
+  letter-spacing: 0;
+}
+
+.launch-divider {
+  width: 40px;
+  height: 2px;
+  margin-top: 12px;
+  background: #c68b58;
+}
+
+.launch-brand p {
+  margin: 14px 12px 0;
+  color: #8b8278;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.launch-status {
+  position: absolute;
+  right: 12px;
+  bottom: 6.8%;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  color: #8b8278;
+  text-align: center;
+}
+
+.launch-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #a85a22;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: launch-spin 900ms linear infinite;
+}
+
+.launch-status p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+@keyframes launch-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 639px) {
+  .mini-app-shell--launch {
+    height: 100dvh;
+    margin-top: 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .mini-app-shell--launch {
+    height: min(844px, 96dvh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launch-spinner { animation: none; }
+}
+
+.mini-app-shell--launch > .app-main-content {
+  overflow: hidden;
+}

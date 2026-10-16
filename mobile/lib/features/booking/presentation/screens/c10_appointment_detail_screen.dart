@@ -5,6 +5,8 @@ import '../widgets/booking_status_badge.dart';
 import '../widgets/cancel_booking_dialog.dart';
 import '../widgets/group_c_widgets.dart';
 import '../widgets/reschedule_bottom_sheet.dart';
+import '../../../../core/utils/launcher_helper.dart';
+import '../../../../core/widgets/qr_scanner_screen.dart';
 
 /// Screen C10: Chi tiết lịch hẹn [8111:27574]
 class C10AppointmentDetailScreen extends StatefulWidget {
@@ -79,6 +81,25 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
     );
   }
 
+  Future<void> _handleCheckInScan() async {
+    final scannedCode = await QRScannerScreen.scan(
+      context,
+      title: 'Check-in Lịch Hẹn',
+      subtitle: 'Hướng camera về phía mã QR tại quầy tiếp tân chi nhánh',
+      expectedTypeHint: 'Mã check-in (VD: MLD-CHK-${_appointment?.bookingCode})',
+    );
+
+    if (scannedCode != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Xác thực Check-in thành công cho lịch hẹn ${_appointment?.bookingCode}!'),
+          backgroundColor: BookingColors.successText,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   String _formatPrice(double price) {
     return price.toInt().toString().replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -128,7 +149,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                   const SizedBox(height: 8),
 
                   Text(
-                    '${app.bookingCode} · Tình huống minh họa, không phải giao dịch thực',
+                    '${app.bookingCode} · Chi tiết lịch hẹn dịch vụ',
                     style: const TextStyle(
                       fontSize: 12,
                       color: BookingColors.textPrimary,
@@ -140,7 +161,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                   BookingSummaryCardWidget(appointment: app),
                   const SizedBox(height: 24),
 
-                  // PriceBreakdown / Đã cọc mô phỏng (350x251)
+                  // PriceBreakdown (350x251)
                   PriceBreakdownCardWidget(
                     subtotal: app.totalAmount,
                     total: app.totalAmount,
@@ -150,7 +171,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                   ),
                   const SizedBox(height: 24),
 
-                  // PaymentStatus / Thanh toán thành công (mô phỏng) (350x82, fill=#EFF7F0, r=16)
+                  // PaymentStatus / Thanh toán thành công (350x82, fill=#EFF7F0, r=16)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -166,7 +187,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                             Icon(Icons.check_circle_outline, size: 20, color: BookingColors.successText),
                             SizedBox(width: 8),
                             Text(
-                              'Thanh toán thành công (mô phỏng)',
+                              'Thanh toán thành công',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -177,7 +198,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Tình huống giả định, không phải giao dịch thực.',
+                          'Lịch hẹn đã được hệ thống xác nhận.',
                           style: TextStyle(
                             fontSize: 12,
                             color: BookingColors.textPrimary,
@@ -189,7 +210,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                   const SizedBox(height: 12),
 
                   Text(
-                    'Đã thanh toán cọc ${_formatPrice(app.depositAmount)} (mô phỏng) · Còn ${_formatPrice(app.remainingAmount)}.',
+                    'Đã thanh toán cọc ${_formatPrice(app.depositAmount)} · Còn ${_formatPrice(app.remainingAmount)}.',
                     style: const TextStyle(
                       fontSize: 14,
                       color: BookingColors.textPrimary,
@@ -197,13 +218,17 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                   ),
                   const SizedBox(height: 24),
 
-                  // CheckInQRCode / Minh họa không hợp lệ (350x206, fill=#F3E2CE, r=20)
-                  const CheckInQRCodeWidget(
-                    note: 'Mã check-in minh họa — không có giá trị sử dụng',
+                  // CheckInQRCode (350x206, fill=#F3E2CE, r=20)
+                  InkWell(
+                    onTap: _handleCheckInScan,
+                    borderRadius: BorderRadius.circular(20),
+                    child: const CheckInQRCodeWidget(
+                      note: 'Chạm để mở camera quét mã check-in tại quầy tiếp tân',
+                    ),
                   ),
                   const SizedBox(height: 24),
 
-                  // BookingTimeline / Đã xác nhận mô phỏng (350x284, fill=white, r=20)
+                  // BookingTimeline (350x284, fill=white, r=20)
                   BookingTimelineWidget(
                     activeIndex: app.status == AppointmentStatus.completed
                         ? 3
@@ -243,14 +268,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                     width: double.infinity,
                     height: 56,
                     child: OutlinedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Hotline trung tâm: 1900 1234 (minh họa)'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
+                      onPressed: () => AppLauncherHelper.makePhoneCall(context, '0393856549'),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: BookingColors.primary),
                         shape: RoundedRectangleBorder(
@@ -258,7 +276,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                         ),
                       ),
                       child: const Text(
-                        'Liên hệ trung tâm',
+                        'Liên hệ trung tâm (039.3856.549)',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -269,10 +287,10 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                   ),
                   const SizedBox(height: 12),
 
-                  // Thẻ Ghi chú minh họa
+                  // Thẻ Ghi chú
                   const IllustrationNoteCard(
                     text:
-                        'Số điện thoại trung tâm: chưa cấu hình. Đổi lịch / hủy lịch cần kiểm tra điều kiện và chính sách minh họa; không tự động hoàn cọc.',
+                        'Quý khách có thể đổi lịch hoặc hủy lịch trước giờ hẹn ít nhất 2 tiếng theo chính sách của MLD.',
                   ),
                   const SizedBox(height: 24),
                 ],

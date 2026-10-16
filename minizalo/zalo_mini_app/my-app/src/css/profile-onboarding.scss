@@ -1,0 +1,205 @@
+.new-customer-page.profile-page {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  container: profile-onboarding / size;
+  background: #f8f1e7;
+  --profile-safe-top: max(24px, env(safe-area-inset-top, 0px));
+  --profile-safe-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+}
+
+.profile-page-content {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--profile-safe-top) 20px var(--profile-safe-bottom);
+  box-sizing: border-box;
+}
+
+.profile-page .onboarding-topbar {
+  min-height: 36px;
+  margin-bottom: clamp(8px, 1.5cqh, 14px);
+  gap: 14px;
+}
+
+.profile-page .onboarding-topbar > span {
+  font-size: 11px;
+  line-height: 16px;
+  color: #756e65;
+}
+
+.profile-page .onboarding-back {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e7d7c8;
+  border-radius: 10px;
+  color: #62544a;
+}
+
+.new-customer-page.profile-page h1 {
+  flex-shrink: 0;
+  margin: 0 0 8px;
+  font-size: 28px;
+  line-height: 34px;
+  color: #784729;
+  letter-spacing: 0;
+}
+
+.profile-page .onboarding-description {
+  flex-shrink: 0;
+  margin: 0 0 clamp(10px, 1.8cqh, 16px);
+  font-size: 14px;
+  line-height: 22px;
+  color: #857c71;
+}
+
+.profile-form {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-page .profile-avatar-row {
+  flex-shrink: 0;
+  gap: 18px;
+  margin: 0;
+}
+
+.profile-page .profile-avatar {
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  background: #f3e2cd;
+  border: 3px solid white;
+  color: #aa5a25;
+}
+
+.profile-page .profile-camera {
+  width: 28px;
+  height: 28px;
+  right: -3px;
+  bottom: -3px;
+  border-color: #f8f1e7;
+}
+
+.profile-page .profile-photo-label {
+  padding: 6px 0;
+  color: #a4551e;
+  font-size: 13px !important;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.profile-page .profile-avatar-row p {
+  font-size: 11px;
+  line-height: 16px;
+  color: #857c71;
+}
+
+.profile-page .profile-avatar-row .profile-upload-error {
+  color: #ad3030;
+  overflow-wrap: anywhere;
+}
+
+.profile-form-fields {
+  display: grid;
+  flex-shrink: 0;
+  gap: 14px;
+}
+
+.profile-page .profile-field {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: #62594e;
+}
+
+.profile-page .profile-field > input,
+.profile-page .profile-field > select,
+.profile-page .profile-verified {
+  height: 50px;
+  margin-top: 6px;
+  border: 1px solid #e5d5c6;
+  border-radius: 8px;
+}
+
+.profile-page .profile-field > input,
+.profile-page .profile-field > select {
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 20px;
+  color: #51473f;
+}
+
+.profile-page .profile-verified {
+  background: #f3e2cd;
+}
+
+.profile-page .profile-verified input {
+  padding: 0;
+  height: 100%;
+  color: #62594e;
+  font-size: 14px;
+}
+
+.profile-verified-mark {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid #40956b;
+  border-radius: 50%;
+}
+
+.profile-page .profile-two-columns {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.profile-form-actions {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.profile-page .profile-optional {
+  margin: 0 0 16px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #857c71;
+}
+
+.profile-page .onboarding-primary {
+  height: 52px;
+  min-height: 52px;
+  border-radius: 12px;
+  background: #9d501c;
+}
+
+@container profile-onboarding (max-height: 700px) {
+  .profile-page-content { padding-right: 16px; padding-left: 16px; }
+  .profile-page .onboarding-topbar { min-height: 32px; margin-bottom: 8px; }
+  .profile-page .onboarding-back { width: 32px; height: 32px; }
+  .new-customer-page.profile-page h1 { margin-bottom: 6px; font-size: 24px; line-height: 30px; }
+  .profile-page .onboarding-description { margin-bottom: 10px; font-size: 12px; line-height: 18px; }
+  .profile-form, .profile-form-fields { gap: 8px; }
+  .profile-page .profile-avatar { width: 56px; height: 56px; border-width: 2px; }
+  .profile-page .profile-camera { width: 24px; height: 24px; }
+  .profile-page .profile-field { font-size: 11px; line-height: 14px; }
+  .profile-page .profile-field > input, .profile-page .profile-field > select, .profile-page .profile-verified { height: 40px; margin-top: 4px; }
+  .profile-page .profile-field > input, .profile-page .profile-field > select, .profile-page .profile-verified input { font-size: 13px; }
+  .profile-page .profile-optional { margin-bottom: 8px; font-size: 10px; line-height: 14px; }
+  .profile-page .onboarding-primary { height: 44px; min-height: 44px; }
+}
+
+/* Keep focused fields reachable when the software keyboard reduces the viewport. */
+@container profile-onboarding (max-height: 480px) {
+  .profile-page-content { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .profile-form-actions { margin-top: 12px; }
+}

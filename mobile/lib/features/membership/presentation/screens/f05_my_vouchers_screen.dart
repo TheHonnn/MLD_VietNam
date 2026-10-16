@@ -55,14 +55,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                             ),
                           ),
                         ),
-                        const Text(
-                          'Dữ liệu minh họa',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
+
                       ],
                     ),
 
@@ -97,12 +90,12 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppColors.border, width: 1.0),
                       ),
-                      child: Column(
+                      child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Text(
+                              Text(
                                 '3',
                                 style: TextStyle(
                                   fontSize: 32,
@@ -110,8 +103,8 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                                   color: AppColors.primary, // #985018
                                 ),
                               ),
-                              const SizedBox(width: 14),
-                              const Expanded(
+                              SizedBox(width: 14),
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -135,16 +128,16 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                                   ],
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 Icons.card_giftcard_rounded,
                                 size: 28,
                                 color: Color(0xFFC58D59),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Dữ liệu minh họa · Không phải ưu đãi thực tế',
+                          SizedBox(height: 10),
+                          Text(
+                            'Áp dụng cho mọi dịch vụ chăm sóc tại MLD',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
@@ -187,7 +180,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
 
                     const Center(
                       child: Text(
-                        'Dữ liệu minh họa · Mã không thể áp dụng thực tế. Số lượng có hạn.',
+                        'Mỗi voucher áp dụng cho một hóa đơn. Số lượng có hạn.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,

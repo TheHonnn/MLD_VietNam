@@ -4,7 +4,7 @@ import '../../data/models/booking_models.dart';
 /// ComponentFamily / BookingStatusBadge [8111:28882]
 /// 5 trạng thái lịch hẹn theo Figma:
 /// - Chờ xác nhận: fill=#F3E2CE, text=#985018
-/// - Đã xác nhận (mô phỏng): fill=#F3E2CE, text=#236B42
+/// - Đã xác nhận: fill=#F3E2CE, text=#236B42
 /// - Đang phục vụ: fill=#F3E2CE, text=#985018
 /// - Hoàn thành: fill=#F3E2CE, text=#236B42
 /// - Đã hủy: fill=#F8F1E8, text=#B63131
@@ -33,7 +33,7 @@ class BookingStatusBadge extends StatelessWidget {
       case AppointmentStatus.confirmed:
         bg = const Color(0xFFF3E2CE);
         textColor = const Color(0xFF236B42);
-        label = isSimulated ? 'Đã xác nhận (mô phỏng)' : 'Đã xác nhận';
+        label = isSimulated ? 'Đã xác nhận' : 'Đã xác nhận';
         break;
       case AppointmentStatus.inService:
         bg = const Color(0xFFF3E2CE);

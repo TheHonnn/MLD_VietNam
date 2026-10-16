@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../auth/presentation/screens/a03_login_screen.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/mock_membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
@@ -60,14 +62,6 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                           color: AppColors.textPrimary,
                         ),
                       ),
-                    ),
-                  ),
-                  const Text(
-                    'Dữ liệu minh họa',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -207,7 +201,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4.0),
                 child: Text(
-                  'Một tài khoản dùng tại Chi nhánh mẫu 01 — Quận 3 và các cơ sở liên kết.',
+                  'Một tài khoản dùng tại Chi nhánh Quận 3 và các cơ sở liên kết.',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -260,7 +254,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4.0),
                 child: Text(
-                  'Các yêu cầu là tùy chọn giao diện; chưa thực hiện thao tác xóa thực tế.',
+                  'Mọi yêu cầu hỗ trợ sẽ được bộ phận CSKH xử lý trong 24 giờ.',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -317,11 +311,19 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Đã đăng xuất')),
-                            );
+                            await AuthService.instance.logout();
+                            if (context.mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                                (route) => false,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Đã đăng xuất thành công')),
+                              );
+                            }
                           },
                           child: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
                         ),

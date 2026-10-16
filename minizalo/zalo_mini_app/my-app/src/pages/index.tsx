@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Page, Box, Text } from 'zmp-ui';
 import { HeaderFigma } from '@/components/HeaderFigma';
-import { GroupBHome } from '@/components/GroupBHome';
+import { GroupBHome } from '@/components/HomeDashboard';
 import { GroupCBooking } from '@/components/GroupCBooking';
 import { AppointmentsManager } from '@/components/AppointmentsManager';
 import { ETicketGroupC } from '@/components/ETicketGroupC';
@@ -10,7 +10,10 @@ import { GroupDTreatment } from '@/components/GroupDTreatment';
 import { GroupDRecords } from '@/components/GroupDRecords';
 import { GroupFProfile } from '@/components/GroupFProfile';
 import { GroupAAuthModal } from '@/components/GroupAAuthModal';
-import { ZaloProfileForm, RegistrationChallenge } from '@/components/ZaloProfileForm';
+import { RegistrationChallenge } from '@/components/ZaloProfileForm';
+import { NewCustomerOnboarding } from '@/components/NewCustomerOnboarding';
+import { LaunchScreen } from '@/components/LaunchScreen';
+import { CareIntroScreen } from '@/components/CareIntroScreen';
 import { GroupBSearch } from '@/components/GroupBSearch';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import {
@@ -23,7 +26,6 @@ import {
 } from '@/components/GroupBExtensions';
 import { apiClient } from '@/api/client';
 import {
-  database,
   guestUser,
   MedicalService,
   Doctor,
@@ -51,19 +53,23 @@ import {
 } from '@/components/Icons';
 
 function MasterHomePage() {
+  const [showLaunchScreen, setShowLaunchScreen] = useState(true);
+  const [showCareIntro, setShowCareIntro] = useState(true);
   // Navigation Tabs matching Figma Nhóm B & C: 'home' | 'services' | 'booking' | 'academy' | 'profile'
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking' | 'academy' | 'profile'>('home');
   const [academyMode, setAcademyMode] = useState<'catalog' | 'learning'>('catalog');
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   // Application Data States (synced with Backend API)
-  const [services, setServices] = useState<MedicalService[]>(database.services);
-  const [doctors, setDoctors] = useState<Doctor[]>(database.doctors);
-  const [branches, setBranches] = useState<Branch[]>(database.branches);
-  const [bookings, setBookings] = useState<Booking[]>(database.bookings);
-  const [courses, setCourses] = useState<Course[]>(database.courses);
-  const [records, setRecords] = useState<MedicalRecord[]>(database.medicalRecords);
+  const [services, setServices] = useState<MedicalService[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [homeBranchId, setHomeBranchId] = useState('');
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [user, setUser] = useState<User>({ ...guestUser });
-  const [vouchers, setVouchers] = useState<Voucher[]>(database.vouchers);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [memberSummary, setMemberSummary] = useState({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
   const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
@@ -98,11 +104,20 @@ function MasterHomePage() {
   const [dataError, setDataError] = useState('');
   const [loadVersion, setLoadVersion] = useState(0);
   const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
+  const [appMetadata, setAppMetadata] = useState<any>({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
+  const [guidelines, setGuidelines] = useState<any[]>([]);
   // Fetch real data from Backend on mount
   useEffect(() => {
+    let cancelled = false;
     async function loadBackendData() {
       setDataLoading(true);
       setDataError('');
+      setServices([]);
+      setDoctors([]);
+      setBranches([]);
+      setCourses([]);
+      setGuidelines([]);
+      setAppMetadata({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
       setUser({ ...guestUser });
       setBookings([]);
       setRecords([]);
@@ -112,10 +127,16 @@ function MasterHomePage() {
       setMemberSummary({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
       setETicketBooking(null);
       setBookingService(null);
+      const metadataRequest = apiClient.getAppMetadata();
+      const catalogRequest = Promise.all([
+        apiClient.getServices(), apiClient.getDoctors(), apiClient.getBranches(),
+        apiClient.getCourses(), apiClient.getCareGuidelines(),
+      ]);
       let authenticated = false;
       const isInsideZalo = /Zalo/i.test(navigator.userAgent) || Boolean((window as any).ZJSBridge);
       if (isInsideZalo) {
         const zaloSession = await apiClient.loginWithZalo(false);
+        if (cancelled) return;
         if (zaloSession?.user && zaloSession.token) {
           authenticated = true;
           setUser((prev) => ({ ...prev, ...zaloSession.user }));
@@ -127,23 +148,24 @@ function MasterHomePage() {
       } else {
         setZaloAuthState('web');
         const session = await apiClient.getCurrentUser();
+        if (cancelled) return;
         if (session?.user) { setUser(session.user); authenticated = true; }
         else { apiClient.logout(); setUser({ ...guestUser }); }
       }
-      const [srvData, docData, brData, crsData, recData, membData, bkData, notifData, treatmentData] = await Promise.all([
-        apiClient.getServices(),
-        apiClient.getDoctors(),
-        apiClient.getBranches(),
-        apiClient.getCourses(),
+      const [metadata, [srvData, docData, brData, crsData, care], recData, membData, bkData, notifData, treatmentData] = await Promise.all([
+        metadataRequest, catalogRequest,
         authenticated ? apiClient.getMedicalRecords() : Promise.resolve({}),
         authenticated ? apiClient.getMembership() : Promise.resolve({}),
         authenticated ? apiClient.getBookings() : Promise.resolve({}),
         authenticated ? apiClient.getNotifications() : Promise.resolve({}),
         authenticated ? apiClient.getTreatmentPlans() : Promise.resolve({}),
       ]);
+      if (cancelled) return;
+      if (!metadata?.error) setAppMetadata(metadata);
+      if (care?.guidelines) setGuidelines(care.guidelines);
 
-      const results = [srvData, docData, brData, crsData, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
-      if (results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
+      const results = [srvData, docData, brData, crsData, care, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
+      if (metadata?.error || results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
       setDataLoading(false);
       if (srvData?.services) setServices(srvData.services);
       if (docData?.doctors) setDoctors(docData.doctors);
@@ -158,7 +180,8 @@ function MasterHomePage() {
       if (treatmentData?.treatmentPlans) setTreatmentPlans(treatmentData.treatmentPlans);
     }
 
-    loadBackendData().catch(() => { setDataError('Không thể tải dữ liệu. Vui lòng thử lại.'); setDataLoading(false); });
+    loadBackendData().catch(() => { if (!cancelled) { setDataError('Không thể tải dữ liệu. Vui lòng thử lại.'); setDataLoading(false); } });
+    return () => { cancelled = true; };
   }, [loadVersion]);
 
   const connectZaloProfile = async () => {
@@ -166,7 +189,7 @@ function MasterHomePage() {
     setZaloAuthState('checking');
     const result = await apiClient.loginWithZalo(true);
     if (result?.registrationRequired && result.registrationToken) {
-      setRegistration({ registrationToken: result.registrationToken, phone: result.phone });
+      setRegistration({ registrationToken: result.registrationToken, phone: result.phone, suggestedName: result.suggestedName, suggestedAvatar: result.suggestedAvatar });
       setZaloAuthState('web');
       return;
     }
@@ -195,12 +218,14 @@ function MasterHomePage() {
   };
 
   // Find latest upcoming confirmed booking
-  const upcomingBooking = bookings.find((b) => b.status === 'confirmed') || null;
+  const bookingStart = (booking: Booking) => Date.parse(`${booking.date.slice(0,10)}T${booking.timeSlot.split(' - ')[0]}+07:00`);
+  const upcomingBooking = bookings.filter(booking => ['confirmed','pending'].includes(booking.status) && bookingStart(booking) > Date.now())
+    .sort((a,b) => bookingStart(a)-bookingStart(b))[0] || null;
 
   const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null) => {
     if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return; }
     if (!services.length || !branches.length) { setDataError('Chưa có dịch vụ hoặc chi nhánh để đặt lịch.'); return; }
-    setBookingBranch(branch || null);
+    setBookingBranch(branch || branches.find(item => item.id === homeBranchId) || branches[0] || null);
     setBookingDoctor(doctor || null);
     setBookingService(service || services[0] || null);
   };
@@ -212,24 +237,26 @@ function MasterHomePage() {
         s.title.toLowerCase().includes(servicesSearch.toLowerCase()) ||
         s.description.toLowerCase().includes(servicesSearch.toLowerCase());
       const matchCat =
-        servicesCategory === 'all' || s.category.toLowerCase().includes(servicesCategory.toLowerCase());
+        servicesCategory === 'all' || s.categoryId === servicesCategory;
       return matchSearch && matchCat;
     })
     .sort((a, b) => {
       if (servicesSort === 'priceAsc') return a.price - b.price;
       if (servicesSort === 'priceDesc') return b.price - a.price;
-      return b.rating - a.rating;
+      return (b.rating ?? 0) - (a.rating ?? 0);
     });
 
   return (
     <div className="min-h-screen bg-[#EDE7DE] flex justify-center items-start sm:items-center py-0 sm:py-4 text-stone-800 select-none">
-      <div className="mini-app-shell w-full max-w-[390px] sm:h-[844px] sm:max-h-[96vh] bg-[#FAF6F0] sm:rounded-[36px] shadow-2xl relative overflow-hidden flex flex-col border sm:border-[#DCCFC0]">
+      <div className={`mini-app-shell ${activeTab === 'home' ? 'mini-app-shell--home' : ''} ${activeTab === 'booking' || eTicketBooking ? 'mini-app-shell--appointments' : ''} ${bookingService ? 'mini-app-shell--booking' : ''} ${isSpecialistDirectoryOpen || viewingDoctor ? 'mini-app-shell--specialists' : ''} ${isBranchDirectoryOpen || viewingBranch || directionsBranch ? 'mini-app-shell--branches' : ''} ${showLaunchScreen || showCareIntro || registration ? 'mini-app-shell--launch' : ''} w-full max-w-[390px] sm:h-[844px] sm:max-h-[96vh] bg-[#FAF6F0] sm:rounded-[36px] shadow-2xl relative overflow-hidden flex flex-col border sm:border-[#DCCFC0]`}>
+        {showLaunchScreen && <LaunchScreen ready={!dataLoading} onComplete={() => setShowLaunchScreen(false)} />}
+        {!showLaunchScreen && showCareIntro && <CareIntroScreen onContinue={() => setShowCareIntro(false)} onSkip={() => setShowCareIntro(false)} />}
         {(zaloAuthState === 'required' || zaloAuthState === 'checking') && (
           <div className="absolute inset-0 z-[100] flex items-center justify-center bg-[#FAF6F0] p-6">
             <div className="w-full rounded-[8px] border border-[#EADECF] bg-white p-5 text-center shadow-lg">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5EBE1] text-xl font-black text-[#98501B]">Z</div>
               <h1 className="mt-4 text-lg font-bold text-[#40352F]">Kết nối tài khoản Zalo</h1>
-              <p className="mt-2 text-xs leading-relaxed text-[#75685F]">Chia sẻ số điện thoại Zalo để kết nối hồ sơ MLD và liên hệ đặt lịch. Khách mới sẽ điền thông tin sau khi xác minh.</p>
+              <p className="mt-2 text-xs leading-relaxed text-[#75685F]">Kết nối bằng số điện thoại Zalo. Tên và ảnh đại diện chỉ được sử dụng khi bạn đồng ý chia sẻ.</p>
               {zaloAuthError && <p className="mt-3 rounded-[8px] bg-red-50 p-2.5 text-left text-[11px] text-red-700">{zaloAuthError}</p>}
               <button disabled={zaloAuthState === 'checking'} onClick={connectZaloProfile} className="mt-5 h-11 w-full rounded-[8px] bg-[#98501B] text-sm font-bold text-white disabled:opacity-60">
                 {zaloAuthState === 'checking' ? 'Đang kết nối...' : 'Tiếp tục với Zalo'}
@@ -239,16 +266,30 @@ function MasterHomePage() {
             </div>
           </div>
         )}
-        {registration && <ZaloProfileForm challenge={registration}
+        {registration && <NewCustomerOnboarding challenge={registration} initialStep="growth"
           onBack={() => { setRegistration(null); setZaloAuthState('required'); }}
-          onComplete={account => { setRegistration(null); setUser(account); setZaloAuthState('connected'); setLoadVersion(value => value + 1); }} />}
+          onComplete={account => { setRegistration(null); setUser(account); setActiveTab('home'); setZaloAuthState('connected'); setLoadVersion(value => value + 1); }} />}
         {/* Scrollable Body Content */}
-        <div className="flex-1 overflow-y-auto pb-28 overscroll-contain">
-        {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
-        {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={() => setLoadVersion(value => value + 1)} className="underline">Thử lại</button></div>}
+        <div className={`app-main-content ${activeTab === 'home' ? 'app-main-content--home' : ''} min-h-0 flex-1 overflow-y-auto pb-28 overscroll-contain`}>
+        {activeTab !== 'home' && activeTab !== 'booking' && <>
+          <div className="flex justify-end px-3 pt-2"><button type="button" disabled={dataLoading} onClick={() => setLoadVersion(value => value + 1)} className="min-h-9 rounded-lg border bg-white px-3 text-xs disabled:opacity-50">{dataLoading ? 'Đang cập nhật...' : 'Cập nhật dữ liệu'}</button></div>
+          {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
+          {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={() => setLoadVersion(value => value + 1)} className="underline">Thử lại</button></div>}
+        </>}
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
           <GroupBHome
+            userName={user.name}
+            userAvatar={user.avatar}
+            selectedBranchId={homeBranchId}
+            onChangeBranch={setHomeBranchId}
+            loading={dataLoading}
+            error={dataError}
+            onRefresh={() => setLoadVersion(value => value + 1)}
+            metadata={appMetadata}
+            courses={courses}
+            onSelectCourse={course => { setSelectedCourseId(course.id); setAcademyMode('catalog'); setActiveTab('academy'); }}
+            guidelines={guidelines}
             services={services}
             doctors={doctors}
             branches={branches}
@@ -267,8 +308,8 @@ function MasterHomePage() {
               });
             }}
             unreadNotifications={notifications.filter((item) => !item.isRead).length}
-            onOpenBranches={() => setIsBranchDirectoryOpen(true)}
-            onOpenSpecialists={() => setIsSpecialistDirectoryOpen(true)}
+            onOpenBranches={() => { setActiveTab('services'); setIsBranchDirectoryOpen(true); }}
+            onOpenSpecialists={() => { setActiveTab('services'); setIsSpecialistDirectoryOpen(true); }}
           />
         )}
 
@@ -296,14 +337,7 @@ function MasterHomePage() {
 
             {/* Category Pills (Figma Screen 2) */}
             <div className="flex flex-wrap gap-2 text-xs">
-              {[
-                { id: 'all', label: 'Tất cả' },
-                { id: 'massage', label: 'Massage' },
-                { id: 'da', label: 'Chăm sóc da' },
-                { id: 'cothe', label: 'Chăm sóc cơ thể' },
-                { id: 'thugian', label: 'Thư giãn' },
-                { id: 'goilieutrinh', label: 'Gói liệu trình' },
-              ].map((c) => (
+              {[{ id: 'all', label: 'Tất cả' }, ...appMetadata.serviceCategories.map((category: any) => ({ id: category.id, label: category.name }))].map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setServicesCategory(c.id)}
@@ -358,14 +392,6 @@ function MasterHomePage() {
                       alt={service.title}
                       className="w-full h-full object-cover"
                     />
-                    <button
-                      type="button"
-                      onClick={(event) => event.stopPropagation()}
-                      className="absolute top-3 right-3 w-9 h-9 rounded-[8px] bg-white border border-[#E3D7CB] flex items-center justify-center shadow-sm"
-                      aria-label="Yêu thích"
-                    >
-                      <HeartIcon size={18} color="#A65317" />
-                    </button>
                   </div>
                   <Box className="p-3 space-y-2.5">
                     <Box className="min-w-0 space-y-1">
@@ -427,7 +453,7 @@ function MasterHomePage() {
                 <button onClick={() => setIsSpecialistDirectoryOpen(true)} className="h-8 rounded-[7px] border border-[#D8C9BA] bg-white px-3 text-[9px] font-bold text-[#A65317]">Xem tất cả</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {doctors.slice(0, 2).map((doctor) => <button key={doctor.id} onClick={() => setViewingDoctor(doctor)} className="overflow-hidden rounded-[8px] border border-[#E3D7CB] bg-white text-left"><img src={doctor.avatar} alt={doctor.name} className="h-[105px] w-full object-cover" /><div className="p-2.5"><h3 className="line-clamp-1 text-[11px] font-bold text-[#40352F]">{doctor.name}</h3><p className="mt-1 line-clamp-1 text-[9px] text-[#7A685D]">{doctor.title}</p><p className="mt-2 text-[9px] font-semibold text-[#A65317]">★ {doctor.rating} · {doctor.experienceYears} năm</p></div></button>)}
+                {doctors.slice(0, 2).map((doctor) => <button key={doctor.id} onClick={() => setViewingDoctor(doctor)} className="overflow-hidden rounded-[8px] border border-[#E3D7CB] bg-white text-left"><img src={doctor.avatar} alt={doctor.name} className="h-[105px] w-full object-cover" /><div className="p-2.5"><h3 className="line-clamp-1 text-[11px] font-bold text-[#40352F]">{doctor.name}</h3><p className="mt-1 line-clamp-1 text-[9px] text-[#7A685D]">{doctor.title}</p><p className="mt-2 text-[9px] font-semibold text-[#A65317]">{doctor.reviewsCount > 0 ? `★ ${doctor.rating}` : 'Chưa có đánh giá'} · {doctor.experienceYears} năm</p></div></button>)}
               </div>
             </section>
           </Box>
@@ -437,23 +463,42 @@ function MasterHomePage() {
         {activeTab === 'booking' && (
           <AppointmentsManager
             bookings={bookings}
+            branches={branches}
+            loading={dataLoading}
+            error={dataError}
+            onRefresh={() => setLoadVersion(value => value + 1)}
+            onClose={() => setActiveTab('home')}
             onUpdateBookings={(updated) => setBookings(updated)}
             onBookNewService={() => openBooking(services[0])}
-            onRebookService={(title) => {
-              const matched = services.find((s) => s.title === title) || services[0];
-              openBooking(matched);
+            onRebookService={(id) => {
+              const matched = services.find((s) => s.id === id);
+              if (matched) openBooking(matched);
+              else { setDataError('Dịch vụ này không còn nhận đặt lịch. Vui lòng chọn dịch vụ khác.'); setActiveTab('services'); }
             }}
           />
         )}
 
         {/* TAB 4: HỌC VIỆN & ĐÀO TẠO NGHỀ (FIGMA GROUP E) */}
-        {activeTab === 'academy' && <GroupEAcademy key={academyMode} courses={courses} mode={academyMode} />}
+        {activeTab === 'academy' && <GroupEAcademy key={academyMode} courses={courses} mode={academyMode} initialCourseId={academyMode === 'catalog' ? selectedCourseId || undefined : undefined} />}
 
         {/* TAB 5: HỘI VIÊN & CÁ NHÂN (FIGMA GROUP F VIP PASS) */}
         {activeTab === 'profile' && (
           <Box className="space-y-4">
             <GroupFProfile
               user={user}
+              metadata={{ tierRules: appMetadata.membershipTiers, loyalty: appMetadata.loyaltySettings }}
+              onLogout={async () => {
+                apiClient.logout(); setUser({ ...guestUser }); setRegistration(null); setIsTreatmentOpen(false);
+                setIsEMRModalOpen(false); setIsNotificationsOpen(false); setActiveTab('home');
+                setBookings([]); setRecords([]); setVouchers([]); setNotifications([]); setTreatmentPlans([]);
+                setLoadVersion(value => value + 1);
+              }}
+              onSelectVoucher={voucher => {
+                try {
+                  localStorage.setItem('mld_pending_voucher', JSON.stringify({ code: voucher.code, scope: 'service' }));
+                  setActiveTab('services');
+                } catch { setDataError('Không thể giữ lựa chọn voucher trên thiết bị. Bạn có thể nhập mã khi đặt lịch.'); }
+              }}
               onUserUpdated={setUser}
               onOpenAppointments={() => setActiveTab('booking')}
               onOpenPackages={() => {
@@ -465,6 +510,7 @@ function MasterHomePage() {
                 setActiveTab('academy');
               }}
               onOpenCourseCatalog={() => {
+                setSelectedCourseId(null);
                 setAcademyMode('catalog');
                 setActiveTab('academy');
               }}
@@ -519,10 +565,12 @@ function MasterHomePage() {
       {viewingDoctor && (
         <SpecialistDetailModal
           doctor={viewingDoctor}
+          branches={branches}
           onClose={() => setViewingDoctor(null)}
           onBookWithDoctor={(doctor) => {
             setViewingDoctor(null);
-            openBooking(services[0], null, doctor);
+            setIsSpecialistDirectoryOpen(false);
+            openBooking(services[0], branches.find(branch => branch.id === doctor.branchId), doctor);
           }}
         />
       )}
@@ -534,6 +582,8 @@ function MasterHomePage() {
           onClose={() => setViewingBranch(null)}
           onSelectBranch={(br) => {
             setViewingBranch(null);
+            setIsBranchDirectoryOpen(false);
+            setHomeBranchId(br.id);
             openBooking(services[0], br);
           }}
           onOpenDirections={(br) => {
@@ -547,23 +597,26 @@ function MasterHomePage() {
       {directionsBranch && (
         <LocationDirectionsModal
           branch={directionsBranch}
-          onClose={() => setDirectionsBranch(null)}
+          onClose={() => { setViewingBranch(directionsBranch); setDirectionsBranch(null); }}
           onBookAtBranch={(br) => {
             setDirectionsBranch(null);
+            setViewingBranch(null);
+            setIsBranchDirectoryOpen(false);
             openBooking(services[0], br);
           }}
         />
       )}
 
       {isBranchDirectoryOpen && (
+        <div hidden={Boolean(viewingBranch || directionsBranch)}>
         <BranchDirectoryModal
           branches={branches}
           onClose={() => setIsBranchDirectoryOpen(false)}
           onSelectBranch={(branch) => {
-            setIsBranchDirectoryOpen(false);
             setViewingBranch(branch);
           }}
         />
+        </div>
       )}
 
       {isSpecialistDirectoryOpen && (
@@ -571,7 +624,6 @@ function MasterHomePage() {
           doctors={doctors}
           onClose={() => setIsSpecialistDirectoryOpen(false)}
           onSelectDoctor={(doctor) => {
-            setIsSpecialistDirectoryOpen(false);
             setViewingDoctor(doctor);
           }}
         />
@@ -599,6 +651,7 @@ function MasterHomePage() {
       {eTicketBooking && (
         <ETicketGroupC
           booking={eTicketBooking}
+          branches={branches}
           onClose={() => setETicketBooking(null)}
           onGoToAppointments={() => {
             setActiveTab('booking');
@@ -643,23 +696,24 @@ function MasterHomePage() {
         onClose={() => setIsSearchOpen(false)}
         onSelectService={(s) => {
           setIsSearchOpen(false);
-          const found = services.find((x) => x.id === s.id) || services[0];
-          setViewingService(found);
+          const found = services.find((x) => x.id === s.id);
+          if (found) setViewingService(found);
         }}
-        onSelectCourse={() => {
+        onSelectCourse={course => {
           setIsSearchOpen(false);
+          setSelectedCourseId(course.id);
           setAcademyMode('catalog');
           setActiveTab('academy');
         }}
         onSelectBranch={(br) => {
           setIsSearchOpen(false);
-          const found = branches.find((x) => x.id === br.id) || branches[0];
-          setViewingBranch(found);
+          const found = branches.find((x) => x.id === br.id);
+          if (found) setViewingBranch(found);
         }}
         onSelectSpecialist={(sp) => {
           setIsSearchOpen(false);
-          const found = doctors.find((x) => x.name.includes(sp.title)) || doctors[0];
-          setViewingDoctor(found);
+          const found = doctors.find((x) => x.id === sp.id);
+          if (found) setViewingDoctor(found);
         }}
       />
 
@@ -671,6 +725,9 @@ function MasterHomePage() {
               key={treatmentInitialTab}
               initialTab={treatmentInitialTab}
               treatmentPlans={treatmentPlans}
+              records={records}
+              bookings={bookings}
+              onNotificationsChange={setNotifications}
               user={user}
               notifications={notifications}
               onClose={() => setIsTreatmentOpen(false)}
@@ -684,7 +741,7 @@ function MasterHomePage() {
       )}
 
       {/* 13. BOTTOM NAVIGATION BAR (FIGMA DESIGN SYSTEM 02 — 5 TRẠNG THÁI) */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-[#E8DDD2] z-30 shadow-[0_-2px_8px_rgba(64,53,47,0.05)]">
+      <div className="app-bottom-nav absolute bottom-0 left-0 right-0 bg-white border-t border-[#E8DDD2] z-30 shadow-[0_-2px_8px_rgba(64,53,47,0.05)]">
         <div className="grid grid-cols-5 h-[62px] px-1">
           {[
             { key: 'home', label: 'Trang chủ', IconComponent: NavHomeIcon },
@@ -698,11 +755,12 @@ function MasterHomePage() {
             return (
               <button
                 key={tab.key}
+                type="button"
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
+                  setIsSpecialistDirectoryOpen(false);
+                  setIsBranchDirectoryOpen(false);
                   setIsTreatmentOpen(false);
-                  if (tab.key === 'booking') {
-                    openBooking(services[0]);
-                  }
                   if (tab.key === 'academy') setAcademyMode('catalog');
                   setActiveTab(tab.key as any);
                 }}
@@ -723,7 +781,7 @@ function MasterHomePage() {
           })}
         </div>
         {/* iOS Home Indicator Bar */}
-        <div className="w-[104px] h-1 bg-[#1F1B18] rounded-full mx-auto mt-1 mb-1.5" />
+        <div className="app-home-indicator w-[104px] h-1 bg-[#1F1B18] rounded-full mx-auto mt-1 mb-1.5" />
       </div>
     </div>
   </div>

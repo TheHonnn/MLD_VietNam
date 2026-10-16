@@ -195,7 +195,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                           ),
                         ),
                         const Text(
-                          'CHĂM SÓC · MINH HỌA',
+                          'CHĂM SÓC & TRỊ LIỆU',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -293,7 +293,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                   ),
                                   SizedBox(height: 12),
                                   Text(
-                                    'Ban nội dung · Gợi ý minh họa',
+                                    'Ban chuyên môn MLD',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,

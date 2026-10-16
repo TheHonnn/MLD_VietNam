@@ -129,7 +129,8 @@ export async function findZaloAccount(store: Store, phone: string) {
 
 export interface NewZaloCustomer {
   phone: string; name: string; avatar: string | null;
-  email?: string | null; dateOfBirth?: string | null; gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  email?: string | null; dateOfBirth?: string | null; gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  purpose?: 'BEAUTY_SPA' | 'ACADEMY' | 'BOTH';
 }
 
 export async function resolveZaloAccount(store: Store, profile: NewZaloCustomer, options: ZaloAuthOptions) {
@@ -145,9 +146,10 @@ export async function resolveZaloAccount(store: Store, profile: NewZaloCustomer,
         if (!options.zaloAllowSignup) throw new ApiError(409, 'New customer signup is disabled; contact support');
         const userId = randomUUID();
         const referralCode = randomUUID().replace(/-/g, '').slice(0, 20).toUpperCase();
-        await tx.query(Prisma.sql`INSERT INTO public.users (id,phone,full_name,avatar_url,referral_code,email,date_of_birth,gender)
+        await tx.query(Prisma.sql`INSERT INTO public.users (id,phone,full_name,avatar_url,referral_code,email,date_of_birth,gender,purpose)
           VALUES (${userId}::uuid,${profile.phone},${profile.name},${profile.avatar},${referralCode},
-            ${profile.email ?? null},${profile.dateOfBirth ?? null}::date,${profile.gender ?? 'OTHER'}) RETURNING id`);
+            ${profile.email ?? null},${profile.dateOfBirth ?? null}::date,${profile.gender ?? null},
+            ${profile.purpose ?? 'BEAUTY_SPA'}::purpose_interest) RETURNING id`);
         return { userId, isNewUser: true };
       });
     } catch (error: any) {

@@ -110,7 +110,7 @@ class _D04PreServiceConsultationScreenState extends State<D04PreServiceConsultat
                           ),
                         ),
                         const Text(
-                          'CHĂM SÓC · MINH HỌA',
+                          'CHĂM SÓC & TRỊ LIỆU',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -186,7 +186,7 @@ class _D04PreServiceConsultationScreenState extends State<D04PreServiceConsultat
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Buổi 05 · Lịch hẹn minh họa',
+                            'Buổi 05 · Lịch hẹn sắp tới',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
                           ),
                         ],

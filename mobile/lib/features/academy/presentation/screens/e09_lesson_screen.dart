@@ -21,11 +21,11 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Video minh họa',
+        subtitleTag: 'Video bài giảng',
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: AcademyColors.cardBorder, width: 1.0)),
         ),
@@ -108,7 +108,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2. Video Player minh họa [8116:26144] (350x197, r=16)
+            // 2. Video Player [8116:26144] (350x197, r=16)
             Container(
               height: 200,
               width: double.infinity,
@@ -173,9 +173,9 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Row(
+                          const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
+                            children: [
                               Row(
                                 children: [
                                   Icon(Icons.pause, color: Colors.white, size: 16),
@@ -237,7 +237,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Ảnh và điều khiển video là minh họa tĩnh, không phát nội dung thực tế.',
+              'Video bài giảng chuyên đề MLD Academy.',
               style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
             ),
             const SizedBox(height: 20),
@@ -337,9 +337,9 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Tiến độ xem bài học',
                       style: TextStyle(

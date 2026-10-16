@@ -22,7 +22,7 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
   String _selectedDuration = '6–12 tuần';
   String _selectedFeeRange = '4–9 triệu đồng';
   String _selectedFormat = 'Tất cả';
-  final String _selectedBranch = 'Chi nhánh mẫu 01 — Quận 3';
+  final String _selectedBranch = 'Chi nhánh Quận 3';
 
   final List<String> _categories = [
     'Tất cả',
@@ -68,7 +68,7 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -248,11 +248,11 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Row 3: Chi nhánh minh họa
+            // Row 3: Chi nhánh đào tạo
             _buildFilterDropdown(
-              label: 'Chi nhánh minh họa',
+              label: 'Chi nhánh đào tạo',
               value: _selectedBranch,
-              items: const ['Chi nhánh mẫu 01 — Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
+              items: const ['Chi nhánh Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
               onChanged: (_) {},
             ),
             const SizedBox(height: 28),
@@ -319,7 +319,7 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
             // Chú thích chân trang [8116:25245]
             const Center(
               child: Text(
-                'Học phí và chương trình là dữ liệu minh họa, không phải cam kết tuyển sinh thực tế.',
+                'Học phí đã bao gồm trọn gói tài liệu và dụng cụ thực hành.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
@@ -459,7 +459,7 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
                       ),
                     ),
                     const Text(
-                      'Học phí minh họa',
+                      'Học phí',
                       style: TextStyle(
                         fontSize: 12,
                         color: AcademyColors.textSecondary,

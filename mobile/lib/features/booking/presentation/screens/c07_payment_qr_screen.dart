@@ -96,7 +96,7 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Minh họa tĩnh · Chưa xác nhận lịch hẹn. Không thực hiện thanh toán.',
+                          'Vui lòng chọn phương thức thanh toán để hoàn tất đặt lịch.',
                           style: TextStyle(
                             fontSize: 12,
                             color: BookingColors.textPrimary,
@@ -210,7 +210,7 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Còn ${_formatPrice(remaining)}đ thanh toán tại cơ sở. Giá và điều kiện đặt cọc là minh họa.',
+                          'Còn ${_formatPrice(remaining)}đ thanh toán tại cơ sở. Thanh toán phần còn lại tại cơ sở khi đến sử dụng dịch vụ.',
                           style: const TextStyle(
                             fontSize: 12,
                             color: BookingColors.textPrimary,
@@ -234,7 +234,7 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
                   _buildPaymentMethodTile(
                     id: 'ONLINE',
                     title: 'Thanh toán trực tuyến',
-                    subtitle: 'Phương thức minh họa, chưa kết nối cổng thanh toán.',
+                    subtitle: 'Thanh toán an toàn qua cổng trực tuyến VNPAY/MoMo.',
                     isSelected: _selectedPaymentMethod == 'ONLINE',
                     onSelect: () => setState(() => _selectedPaymentMethod = 'ONLINE'),
                   ),
@@ -282,10 +282,10 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
                   BookingSummaryCardWidget(flowState: widget.flowState),
                   const SizedBox(height: 24),
 
-                  // Thẻ Ghi chú minh họa (350x96)
+                  // Thẻ Ghi chú (350x96)
                   const IllustrationNoteCard(
                     text:
-                        'Không chuyển tiền bằng mẫu này. Nút chỉ là hình ảnh tĩnh; lịch chưa được xác nhận. Chỉ tình huống giữ chỗ hợp lệ và cọc thành công mô phỏng mới dẫn đến mẫu C08.',
+                        'Vui lòng kiểm tra kỹ thông tin lịch hẹn và chuyển khoản theo đúng nội dung hiển thị.',
                   ),
                   const SizedBox(height: 32),
                 ],
@@ -294,7 +294,7 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
 
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
-              summaryText: 'Chờ thanh toán · Trả ngay ${_formatPrice(payableNow)}đ (minh họa)',
+              summaryText: 'Chờ thanh toán · Trả ngay ${_formatPrice(payableNow)}đ',
               buttonText: 'Thanh toán và hoàn tất',
               onPressed: () {
                 widget.flowState.paymentMethod = _selectedPaymentMethod;

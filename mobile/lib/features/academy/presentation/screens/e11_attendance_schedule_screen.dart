@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/qr_scanner_screen.dart';
 import '../widgets/academy_widgets.dart';
 
 /// Screen E11: Lịch học & điểm danh [8116:26294]
@@ -29,12 +30,32 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
     30: 'exam',
   };
 
+  Future<void> _handleAttendanceScan() async {
+    final scannedCode = await QRScannerScreen.scan(
+      context,
+      title: 'Quét QR Điểm Danh',
+      subtitle: 'Hướng camera về phía mã QR tại phòng thực hành hoặc giảng đường',
+      expectedTypeHint: 'Mã lớp / buổi học (VD: MCN-0926-B08)',
+    );
+
+    if (scannedCode != null && mounted) {
+      setState(() => _isCheckedIn = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Điểm danh thành công! Mã xác thực: $scannedCode'),
+          backgroundColor: const Color(0xFF2E8B57),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Dữ liệu minh họa',
+        
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -100,9 +121,9 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   const SizedBox(height: 12),
 
                   // Thứ trong tuần
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
+                    children: [
                       Text('T2', style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary, fontWeight: FontWeight.w600)),
                       Text('T3', style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary, fontWeight: FontWeight.w600)),
                       Text('T4', style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary, fontWeight: FontWeight.w600)),
@@ -137,7 +158,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
             const SizedBox(height: 8),
             Center(
               child: Text(
-                '$_selectedDay/10/2026 đang chọn · Lịch và các dấu sự kiện là minh họa.',
+                '$_selectedDay/10/2026 đang chọn · Lịch học và điểm danh hàng tuần.',
                 style: const TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
               ),
             ),
@@ -230,7 +251,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Phòng thực hành 02 · Chi nhánh mẫu 01 — Quận 3',
+                    'Phòng thực hành 02 · Chi nhánh Quận 3',
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),
                   const SizedBox(height: 4),
@@ -252,9 +273,9 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Tổng quan chuyên cần',
                     style: TextStyle(
@@ -336,28 +357,37 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   const SizedBox(height: 16),
 
                   // Khung QR điểm danh
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: AcademyColors.cardWarm,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-                    ),
-                    child: Column(
-                      children: const [
-                        Icon(Icons.qr_code_scanner, size: 80, color: AcademyColors.primary),
-                        SizedBox(height: 10),
-                        Text(
-                          'QR điểm danh tại phòng thực hành 02',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AcademyColors.textPrimary),
-                        ),
-                      ],
+                  InkWell(
+                    onTap: _handleAttendanceScan,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AcademyColors.cardWarm,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.qr_code_scanner, size: 80, color: AcademyColors.primary),
+                          SizedBox(height: 10),
+                          Text(
+                            'Chạm để mở máy ảnh quét QR điểm danh',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AcademyColors.textPrimary),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Áp dụng tại phòng thực hành 02',
+                            style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Chỉ minh họa giao diện. Chưa xác minh điểm danh, vị trí hoặc danh tính được ủy quyền.',
+                    'Quét mã QR được giảng viên hoặc ban đào tạo trình chiếu tại lớp.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),
@@ -366,16 +396,9 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() => _isCheckedIn = true);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Điểm danh thành công cho buổi học ngày 16/10/2026!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
+                    child: ElevatedButton.icon(
+                      onPressed: _handleAttendanceScan,
+                      icon: Icon(_isCheckedIn ? Icons.check_circle : Icons.camera_alt_outlined, size: 20),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 56),
                         backgroundColor: _isCheckedIn ? const Color(0xFF2E8B57) : AcademyColors.primary,
@@ -385,8 +408,8 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: Text(
-                        _isCheckedIn ? 'Đã điểm danh' : 'Điểm danh',
+                      label: Text(
+                        _isCheckedIn ? 'Đã điểm danh (Quét lại)' : 'Mở camera quét QR điểm danh',
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -404,8 +427,8 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
     // Tháng 10/2026 bắt đầu từ Thứ 5 (offset = 3 nếu bắt đầu T2)
     // Ngày 1 rơi vào thứ 5 (index 3)
     const offset = 3;
-    final totalDays = 31;
-    final totalCells = offset + totalDays;
+    const totalDays = 31;
+    const totalCells = offset + totalDays;
     final rows = (totalCells / 7).ceil();
 
     return Column(

@@ -1,0 +1,158 @@
+import '../network/api_client.dart';
+import '../network/api_endpoints.dart';
+
+/// Centralized Data Service for connecting Flutter screens to live Supabase Backend
+class SupabaseDataService {
+  SupabaseDataService._internal();
+  static final SupabaseDataService instance = SupabaseDataService._internal();
+  factory SupabaseDataService() => instance;
+
+  final ApiClient _client = ApiClient.instance;
+
+  // ==========================================
+  // 1. CHI NHÁNH & CƠ SỞ (BRANCHES)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchBranches() async {
+    final response = await _client.get<List<dynamic>>(
+      ApiEndpoints.branches,
+      queryParameters: {
+        'is_active': 'eq.true',
+        'select': '*',
+        'order': 'name.asc',
+      },
+    );
+    if (response.data == null) return [];
+    return List<Map<String, dynamic>>.from(response.data!);
+  }
+
+  // ==========================================
+  // 2. DỊCH VỤ & BẢNG GIÁ (SERVICES & CATEGORIES)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchServices({String? categoryId}) async {
+    final query = <String, dynamic>{
+      'is_active': 'eq.true',
+      'select': '*,service_categories(id,name,icon_name)',
+      'order': 'name.asc',
+    };
+    if (categoryId != null && categoryId.isNotEmpty) {
+      query['category_id'] = 'eq.$categoryId';
+    }
+
+    final response = await _client.get<List<dynamic>>(
+      ApiEndpoints.services,
+      queryParameters: query,
+    );
+    if (response.data == null) return [];
+    return List<Map<String, dynamic>>.from(response.data!);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchServiceCategories() async {
+    final response = await _client.get<List<dynamic>>(
+      ApiEndpoints.serviceCategories,
+      queryParameters: {
+        'is_active': 'eq.true',
+        'select': '*',
+        'order': 'display_order.asc',
+      },
+    );
+    if (response.data == null) return [];
+    return List<Map<String, dynamic>>.from(response.data!);
+  }
+
+  // ==========================================
+  // 3. GÓI LIỆU TRÌNH (TREATMENT PACKAGES)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchTreatmentPackages() async {
+    final response = await _client.get<List<dynamic>>(
+      ApiEndpoints.treatmentPackages,
+      queryParameters: {
+        'is_active': 'eq.true',
+        'select': '*',
+        'order': 'price.asc',
+      },
+    );
+    if (response.data == null) return [];
+    return List<Map<String, dynamic>>.from(response.data!);
+  }
+
+  // ==========================================
+  // 4. HỌC VIỆN & KHÓA HỌC (ACADEMY LMS)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchCourses() async {
+    final response = await _client.get<List<dynamic>>(
+      ApiEndpoints.courses,
+      queryParameters: {
+        'is_active': 'eq.true',
+        'select': '*,course_categories(id,name)',
+        'order': 'created_at.desc',
+      },
+    );
+    if (response.data == null) return [];
+    return List<Map<String, dynamic>>.from(response.data!);
+  }
+
+  // ==========================================
+  // 5. ĐẶT LỊCH HẸN (BOOKINGS)
+  // ==========================================
+  Future<Map<String, dynamic>> createBooking(Map<String, dynamic> bookingData) async {
+    final response = await _client.post<List<dynamic>>(
+      ApiEndpoints.bookings,
+      data: bookingData,
+    );
+    if (response.data != null && response.data!.isNotEmpty) {
+      return Map<String, dynamic>.from(response.data!.first);
+    }
+    return {};
+  }
+
+  Future<List<Map<String, dynamic>>> fetchMyBookings(String customerId) async {
+    final response = await _client.get<List<dynamic>>(
+      ApiEndpoints.bookings,
+      queryParameters: {
+        'customer_id': 'eq.$customerId',
+        'select': '*,branches(name,address,phone)',
+        'order': 'booking_date.desc,start_time.desc',
+      },
+    );
+    if (response.data == null) return [];
+    return List<Map<String, dynamic>>.from(response.data!);
+  }
+
+  // ==========================================
+  // 6. THANH TOÁN VIETQR (EDGE FUNCTION)
+  // ==========================================
+  Future<Map<String, dynamic>> generateVietQr({
+    String? invoiceId,
+    String? bookingId,
+    num? amount,
+    String? description,
+  }) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiEndpoints.vietQrPayment,
+      data: {
+        if (invoiceId != null) 'invoice_id': invoiceId,
+        if (bookingId != null) 'booking_id': bookingId,
+        if (amount != null) 'amount': amount,
+        if (description != null) 'description': description,
+      },
+    );
+    return response.data ?? {};
+  }
+
+  // ==========================================
+  // 7. THÔNG BÁO (NOTIFICATIONS)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchMyNotifications(String userId) async {
+    final response = await _client.get<List<dynamic>>(
+      ApiEndpoints.notifications,
+      queryParameters: {
+        'user_id': 'eq.$userId',
+        'select': '*',
+        'order': 'created_at.desc',
+      },
+    );
+    if (response.data == null) return [];
+    return List<Map<String, dynamic>>.from(response.data!);
+  }
+}
+

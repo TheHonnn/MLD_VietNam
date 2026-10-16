@@ -26,7 +26,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
-        subtitleTag: 'Bài kiểm tra minh họa',
+        subtitleTag: 'Bài kiểm tra',
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: 'Bài làm hiện tại · Chưa nộp, chưa chấm điểm',
@@ -85,8 +85,8 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                     color: AcademyColors.primary,
                   ),
                 ),
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.access_time, color: AcademyColors.primary, size: 18),
                     SizedBox(width: 6),
                     Text(
@@ -129,9 +129,9 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Chọn một đáp án phù hợp nhất',
                     style: TextStyle(
@@ -289,22 +289,22 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Kết quả lần làm trước — minh họa',
+                  Text(
+                    'Kết quả lần làm trước',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         '8.5/10',
                         style: TextStyle(
                           fontSize: 28,
@@ -312,10 +312,10 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                           color: AcademyColors.primary,
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: 16),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             '17 / 20 câu đúng',
                             style: TextStyle(
@@ -332,13 +332,13 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
+                  SizedBox(height: 12),
+                  Text(
                     'Bạn nắm tốt quy trình; hãy ôn lại nội dung an toàn và vệ sinh.',
                     style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary, height: 1.4),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
+                  SizedBox(height: 6),
+                  Text(
                     'Nhận xét của giảng viên · Không phải kết quả bài đang làm.',
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),

@@ -1,65 +1,110 @@
-import React, { useState } from 'react';
-import { apiClient } from '@/api/client';
-import type { User } from '../../../../backend/src/data/database';
+import React, { useRef, useState } from 'react';
+import { ArrowLeftIcon, CameraIcon, CheckIcon, NavProfileIcon } from '@/components/Icons';
+import '@/css/profile-onboarding.scss';
 
-export interface RegistrationChallenge { registrationToken: string; phone: string; }
+export interface RegistrationChallenge {
+  registrationToken: string;
+  phone: string;
+  suggestedName?: string;
+  suggestedAvatar?: string;
+}
 
-export function ZaloProfileForm({ challenge, onComplete, onBack }: {
-  challenge: RegistrationChallenge; onComplete: (user: User) => void; onBack: () => void;
-}) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('OTHER');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [expired, setExpired] = useState(false);
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (busy || !name.trim()) return;
-    setBusy(true);
-    setError('');
-    const result = await apiClient.registerZaloProfile(challenge.registrationToken, {
-      fullName: name.trim(), email: email.trim(), dateOfBirth: dob, gender,
+export interface ProfileDraft {
+  fullName: string;
+  avatarUrl: string;
+  email: string;
+  dateOfBirth: string;
+  gender: string;
+}
+
+async function readAvatar(file: File): Promise<string> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+    throw new Error('Vui lòng chọn ảnh JPG, PNG hoặc WebP không quá 10 MB.');
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('Không thể đọc ảnh. Vui lòng chọn ảnh khác.'));
+      image.src = url;
     });
-    setBusy(false);
-    if (result?.user && result.token) { onComplete(result.user); return; }
-    if (result?.status === 401) {
-      setExpired(true);
-      setError('Phiên xác minh đã hết hạn. Vui lòng xác minh số điện thoại lại.');
-    } else setError(result?.error || 'Không thể lưu hồ sơ. Vui lòng thử lại.');
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 360;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Thiết bị chưa hỗ trợ xử lý ảnh.');
+    const edge = Math.min(image.naturalWidth, image.naturalHeight);
+    context.drawImage(image, (image.naturalWidth - edge) / 2, (image.naturalHeight - edge) / 2, edge, edge, 0, 0, 360, 360);
+    return canvas.toDataURL('image/jpeg', 0.82);
+  } finally { URL.revokeObjectURL(url); }
+}
+
+export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
+  challenge: RegistrationChallenge;
+  draft: ProfileDraft;
+  onContinue: (profile: ProfileDraft) => void;
+  onBack: (profile: ProfileDraft) => void;
+}) {
+  const [profile, setProfile] = useState(draft);
+  const [readingImage, setReadingImage] = useState(false);
+  const [imageError, setImageError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const change = (key: keyof ProfileDraft, value: string) => setProfile(current => ({ ...current, [key]: value }));
+  const chooseAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setReadingImage(true);
+    setImageError('');
+    try { change('avatarUrl', await readAvatar(file)); }
+    catch (error) { setImageError(error instanceof Error ? error.message : 'Không thể đọc ảnh.'); }
+    finally { setReadingImage(false); }
   };
-  const field = 'mt-1 min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800';
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="registration-title"
-      className="absolute inset-0 z-[110] overflow-y-auto bg-[#FAF6F0] px-6 pb-8 pt-16">
-      <form onSubmit={submit} className="mx-auto w-full max-w-sm space-y-4">
-        <h2 id="registration-title" className="text-xl font-bold text-stone-800">Thông tin cá nhân</h2>
-        <label className="block text-sm text-stone-700">Số điện thoại đã xác minh
-          <input value={challenge.phone} readOnly type="tel" className={`${field} bg-stone-100`} />
+    <section className="new-customer-page profile-page" aria-labelledby="profile-heading">
+      <div className="profile-page-content">
+      <header className="onboarding-topbar">
+        <button type="button" onClick={() => onBack(profile)} aria-label="Quay lại" title="Quay lại" className="onboarding-back"><ArrowLeftIcon size={20} /></button>
+        <span>HỒ SƠ CÁ NHÂN</span>
+      </header>
+      <h1 id="profile-heading" tabIndex={-1}>Hoàn thiện hồ sơ</h1>
+      <p className="onboarding-description">Vui lòng cập nhật thông tin để chúng tôi phục vụ bạn tốt hơn.</p>
+      <form className="profile-form" onSubmit={event => { event.preventDefault(); if (!readingImage && profile.fullName.trim()) onContinue({ ...profile, fullName: profile.fullName.trim() }); }}>
+        <div className="profile-avatar-row">
+          <button type="button" className="profile-avatar" onClick={() => input.current?.click()} disabled={readingImage} aria-label="Thay ảnh đại diện" title="Thay ảnh đại diện">
+            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="Ảnh đại diện" onError={() => change('avatarUrl', '')} /> : <NavProfileIcon size={32} />}
+            <span className="profile-camera"><CameraIcon size={14} /></span>
+          </button>
+          <div><button className="profile-photo-label" type="button" onClick={() => input.current?.click()} disabled={readingImage}>{readingImage ? 'Đang xử lý ảnh...' : profile.avatarUrl ? 'Thay ảnh đại diện' : 'Thêm ảnh đại diện'}</button><p>Có thể cập nhật sau</p>{imageError && <p role="alert" className="profile-upload-error">{imageError}</p>}</div>
+          <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseAvatar} hidden />
+        </div>
+        <div className="profile-form-fields">
+        <label className="profile-field">Họ và tên <span className="profile-required">*</span>
+          <input value={profile.fullName} onChange={event => change('fullName', event.target.value)} maxLength={150} autoComplete="name" required placeholder="Nhập họ và tên" aria-required="true" />
         </label>
-        <label className="block text-sm text-stone-700">Họ và tên <span className="text-red-700">*</span>
-          <input value={name} onChange={e => setName(e.target.value)} required maxLength={150} autoComplete="name" className={field} disabled={busy || expired} />
+        <label className="profile-field">Số điện thoại
+          <div className="profile-verified"><input value={challenge.phone} readOnly type="tel" aria-label="Số điện thoại đã xác minh" /><span className="profile-verified-mark" aria-hidden="true"><CheckIcon size={12} color="#40956B" /></span></div>
         </label>
-        <label className="block text-sm text-stone-700">Ngày sinh
-          <input value={dob} onChange={e => setDob(e.target.value)} type="date" max={new Date().toISOString().slice(0,10)} className={field} disabled={busy || expired} />
+        <div className="profile-two-columns">
+          <label className="profile-field">Ngày sinh
+            <input value={profile.dateOfBirth} onChange={event => change('dateOfBirth', event.target.value)} type="date" max={new Date().toISOString().slice(0, 10)} />
+          </label>
+          <label className="profile-field">Giới tính
+            <select value={profile.gender} onChange={event => change('gender', event.target.value)}>
+              <option value="">Chưa chọn</option><option value="FEMALE">Nữ</option><option value="MALE">Nam</option><option value="OTHER">Khác</option>
+            </select>
+          </label>
+        </div>
+        <label className="profile-field">Email
+          <input value={profile.email} onChange={event => change('email', event.target.value)} type="email" inputMode="email" autoComplete="email" maxLength={255} placeholder="Nhập địa chỉ email" />
         </label>
-        <label className="block text-sm text-stone-700">Giới tính
-          <select value={gender} onChange={e => setGender(e.target.value)} className={field} disabled={busy || expired}>
-            <option value="OTHER">Khác / Không cung cấp</option><option value="FEMALE">Nữ</option><option value="MALE">Nam</option>
-          </select>
-        </label>
-        <label className="block text-sm text-stone-700">Email
-          <input value={email} onChange={e => setEmail(e.target.value)} type="email" maxLength={255} autoComplete="email" className={field} disabled={busy || expired} />
-        </label>
-        {error && <p role="alert" className="break-words text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={busy || expired || !name.trim()} className="min-h-12 w-full rounded-lg bg-[#0068FF] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
-          {busy ? 'Đang lưu...' : 'Hoàn tất'}
-        </button>
-        <button type="button" onClick={onBack} disabled={busy} className="min-h-11 w-full text-sm font-semibold text-stone-600 disabled:opacity-50">
-          {expired ? 'Xác minh lại' : 'Quay lại'}
-        </button>
+        </div>
+        <div className="profile-form-actions">
+        <p className="profile-optional">* Bắt buộc. Ngày sinh, giới tính và email là tùy chọn.</p>
+        <button type="submit" disabled={readingImage || !profile.fullName.trim()} className="onboarding-primary">Lưu và tiếp tục</button>
+        </div>
       </form>
-    </div>
+      </div>
+    </section>
   );
 }

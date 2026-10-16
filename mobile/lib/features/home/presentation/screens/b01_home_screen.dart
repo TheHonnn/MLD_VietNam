@@ -36,7 +36,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   final PageController _heroBannerController = PageController();
   int _heroBannerIndex = 0;
   Timer? _heroTimer;
-  String _selectedBranch = 'Chi nhánh mẫu 01 — Quận 3';
+  String _selectedBranch = 'Chi nhánh Quận 3';
 
   final List<Map<String, String>> _heroBanners = [
     {
@@ -214,14 +214,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Chi nhánh mẫu 01 — Quận 3'),
-                subtitle: const Text('123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh'),
-                trailing: _selectedBranch == 'Chi nhánh mẫu 01 — Quận 3'
+                title: const Text('Chi nhánh Quận 3'),
+                subtitle: const Text('123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh'),
+                trailing: _selectedBranch == 'Chi nhánh Quận 3'
                     ? const Icon(Icons.check_circle, color: AppColors.primary)
                     : null,
                 onTap: () {
                   setState(() {
-                    _selectedBranch = 'Chi nhánh mẫu 01 — Quận 3';
+                    _selectedBranch = 'Chi nhánh Quận 3';
                   });
                   Navigator.pop(context);
                 },
@@ -229,14 +229,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               const Divider(),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Chi nhánh mẫu 02 — Cầu Giấy'),
-                subtitle: const Text('45 Đường Minh Họa, Phường Mẫu, Hà Nội'),
-                trailing: _selectedBranch == 'Chi nhánh mẫu 02 — Cầu Giấy'
+                title: const Text('Chi nhánh Cầu Giấy'),
+                subtitle: const Text('45 Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội'),
+                trailing: _selectedBranch == 'Chi nhánh Cầu Giấy'
                     ? const Icon(Icons.check_circle, color: AppColors.primary)
                     : null,
                 onTap: () {
                   setState(() {
-                    _selectedBranch = 'Chi nhánh mẫu 02 — Cầu Giấy';
+                    _selectedBranch = 'Chi nhánh Cầu Giấy';
                   });
                   Navigator.pop(context);
                 },
@@ -367,7 +367,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Địa điểm: Chi nhánh mẫu 01 — Quận 3\n123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
+                        'Địa điểm: Chi nhánh Quận 3\n123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
                         style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                       ),
                     ],
@@ -530,13 +530,13 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               const SizedBox(height: 16),
 
               // ==========================================
-              // 2. LỰA CHỌN CHI NHÁNH (Lựa chọn · Dữ liệu minh họa)
+              // 2. LỰA CHỌN CHI NHÁNH (Lựa chọn)
               // ==========================================
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Chi nhánh đang chọn · Dữ liệu minh họa',
+                    'Chi nhánh đang chọn',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -1133,7 +1133,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Chi nhánh mẫu 01 — Quận 3 · Dữ liệu minh họa',
+                      'Chi nhánh Quận 3',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,

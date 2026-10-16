@@ -1,744 +1,399 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Text } from 'zmp-ui';
+import React, { useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/api/client';
-import {
-  CalendarIcon,
-  ClockIcon,
-  CheckIcon,
-  ArrowRightIcon,
-  ArrowLeftIcon,
-  StarIcon,
-  ChatBubbleIcon,
-  BellIcon,
-  ShieldIcon,
-  CloseIcon,
-  TagIcon,
-  LocationIcon,
-  FileTextIcon,
-} from './Icons';
+import type { User, AppNotification, Booking } from '../../../../backend/src/data/database';
+import type { TreatmentPackage } from '../../../../../database/shared_types';
+import { ArrowLeftIcon, StarIcon } from './Icons';
+import { GroupDRecords, careDate } from './GroupDRecords';
+import type { CareRecord } from './GroupDRecords';
 
-import { User, AppNotification } from '../../../../backend/src/data/database';
-
+type Tab = 'packages' | 'journal' | 'care_guide' | 'support' | 'notifications';
+type Plan = {
+  id: string; status?: string; name?: string; image?: string; serviceName?: string; serviceImage?: string;
+  serviceId?: string; package?: TreatmentPackage; totalSessions?: number; completedSessions?: number;
+  usedSessions?: number; purchasedAt?: string; expiresAt?: string; purchaseDate?: string; expiryDate?: string;
+  sessions?: CareRecord[];
+};
+type Guideline = {
+  id: string; title?: string; summary?: string; content?: string; imageUrl?: string;
+  category?: string; authorName?: string; readTimeMinutes?: number;
+  steps?: (string | { title?: string; content?: string; description?: string })[];
+};
+type Ticket = { id: string; subject?: string; message?: string; status?: string; adminReply?: string; createdAt?: string; resolvedAt?: string };
+type Faq = { id: string; question: string; answer: string };
+type CareBooking = Booking & {
+  reviewId?: string | null;
+};
+type SavedSurvey = {
+  id: string; bookingId?: string | null; focusAreas?: string[]; pressurePref?: string;
+  hasSensitiveSkin?: boolean; hasOilAllergy?: boolean; allergyDetails?: string | null;
+  medicalConditions?: string[]; specialRequests?: string | null; createdAt?: string;
+};
+type SavedReview = {
+  id: string; bookingId?: string; serviceId?: string; rating?: number; comment?: string | null;
+  reviewTags?: string[]; photos?: string[]; branchReply?: string | null; createdAt?: string;
+};
+type ReviewContext = CareRecord & { bookingDate?: string };
 interface GroupDTreatmentProps {
   user: User;
-  notifications: AppNotification[];
+  notifications?: AppNotification[] | null;
   onOpenBooking: () => void;
+  onOpenPlanBooking?: (planId: string, serviceId: string) => void;
   onClose: () => void;
   onOpenConsultation?: () => void;
-  initialTab?: 'packages' | 'journal' | 'care_guide' | 'support' | 'notifications';
-  treatmentPlans: any[];
+  initialTab?: Tab;
+  treatmentPlans?: Plan[] | null;
+  records?: CareRecord[] | null;
+  bookings?: CareBooking[];
+  onNotificationsChange?: (notifications: AppNotification[]) => void;
 }
 
-export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({ onOpenBooking, onClose, initialTab = 'packages', treatmentPlans, user, notifications: serverNotifications }) => {
-  const [activeTab, setActiveTab] = useState<'packages' | 'journal' | 'care_guide' | 'support' | 'notifications'>(initialTab);
-  const [packageTab, setPackageTab] = useState<'active' | 'completed' | 'expired'>('active');
-  const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
-  const [isPreServiceModalOpen, setIsPreServiceModalOpen] = useState(false);
-  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
-  const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
+const tabs: { id: Tab; label: string }[] = [
+  { id: 'packages', label: 'Gói liệu trình' }, { id: 'journal', label: 'Nhật ký' },
+  { id: 'care_guide', label: 'Chăm sóc tại nhà' }, { id: 'support', label: 'Hỗ trợ' },
+  { id: 'notifications', label: 'Thông báo' },
+];
+const button = 'min-h-10 rounded-[8px] border border-[#DED2C5] bg-white px-3 py-2 text-xs font-semibold text-[#6F452C] disabled:opacity-50';
+const input = 'w-full min-w-0 rounded-[8px] border border-[#DED2C5] bg-white p-2 text-sm';
+const list = (value: string) => value.split('\n').map(item => item.trim()).filter(Boolean);
+const count = (value?: number) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+const emptySurvey = { bookingId: '', focusAreas: '', pressurePref: '', hasSensitiveSkin: '', hasOilAllergy: '', allergyDetails: '', medicalConditions: '', specialRequests: '' };
 
-  // Pre-service survey state
-  const [surveyPreferences, setSurveyPreferences] = useState({
-    relaxBody: true,
-    reduceStress: true,
-    skinCare: false,
-  });
+export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
+  user, notifications: serverNotifications, onClose, initialTab = 'packages',
+  treatmentPlans, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange,
+}) => {
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const [packageTab, setPackageTab] = useState('active');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [articleId, setArticleId] = useState<string | null>(null);
+  const [guidelines, setGuidelines] = useState<Guideline[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [records, setRecords] = useState<CareRecord[] | null>(null);
+  const [loadedBookings, setLoadedBookings] = useState<CareBooking[]>([]);
+  const [savedSurveys, setSavedSurveys] = useState<SavedSurvey[] | null>(null);
+  const [myReviews, setMyReviews] = useState<SavedReview[] | null>(null);
+  const [historyRetry, setHistoryRetry] = useState(0);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [localNotifications, setLocalNotifications] = useState(serverNotifications);
+  const [notifFilter, setNotifFilter] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [form, setForm] = useState<'survey' | 'review' | null>(null);
+  const [reviewSession, setReviewSession] = useState<ReviewContext | null>(null);
+  const [reviewedBookings, setReviewedBookings] = useState<string[]>([]);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [tags, setTags] = useState('');
+  const [photos, setPhotos] = useState('');
+  const [survey, setSurvey] = useState(emptySurvey);
+  const [notice, setNotice] = useState('');
+  const busy = useRef(false);
+  const notificationBusy = useRef(false);
+  const error = (key: string, value: string) => setErrors(prev => ({ ...prev, [key]: value }));
 
-  // Rating state
-  const [overallRating, setOverallRating] = useState(5);
-  const [serviceQualityRating, setServiceQualityRating] = useState(5);
-  const [specialistAttitudeRating, setSpecialistAttitudeRating] = useState(5);
-
-  // Notifications state
-  const [notifFilter, setNotifFilter] = useState<'all' | 'appointment' | 'treatment' | 'academy'>('all');
-  const notifications = serverNotifications.map(n => ({ ...n, desc: n.message, time: n.createdAt, unread: !n.isRead }));
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [guidelines, setGuidelines] = useState<any[]>([]);
-  const [supportError, setSupportError] = useState('');
-  const [guidelineError, setGuidelineError] = useState('');
-  const [supportSending, setSupportSending] = useState(false);
-  const [inputMsg, setInputMsg] = useState('');
-  const chatMessages = tickets.reduce<{ sender: string; text: string; time: string }[]>((messages, ticket) => {
-    messages.push({ sender: 'user', text: ticket.message, time: ticket.createdAt });
-    if (ticket.adminReply) messages.push({ sender: 'agent', text: ticket.adminReply, time: ticket.repliedAt || ticket.updatedAt || ticket.createdAt });
-    return messages;
-  }, []);
+  useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
+  useEffect(() => { setLocalNotifications(serverNotifications); }, [serverNotifications]);
   useEffect(() => {
-    apiClient.getSupportTickets().then(result => {
-      if (result?.tickets) setTickets(result.tickets);
-      else setSupportError(result?.error || 'Không thể tải yêu cầu hỗ trợ.');
-    });
-    apiClient.getCareGuidelines().then(result => {
-      if (result?.guidelines) setGuidelines(result.guidelines);
-      else setGuidelineError(result?.error || 'Không thể tải hướng dẫn chăm sóc.');
-    });
-  }, []);
-  const handleSendMessage = async () => {
-    if (!inputMsg.trim() || supportSending) return;
-    setSupportSending(true);
-    setSupportError('');
-    const result = await apiClient.createSupportTicket('Hỗ trợ Mini App', inputMsg.trim());
-    setSupportSending(false);
-    if (!result?.ticket) { setSupportError(result?.error || 'Không thể gửi yêu cầu hỗ trợ.'); return; }
-    setTickets(prev => [...prev, result.ticket]);
-    setInputMsg('');
+    let cancelled = false;
+    setSavedSurveys(null); setMyReviews(null); setReviewedBookings([]);
+    setForm(null); setReviewSession(null); setSurvey(emptySurvey); setNotice('');
+    const load = async (key: string, request: () => Promise<any>, field: string, save: (value: any) => void) => {
+      setLoading(prev => ({ ...prev, [key]: true })); error(key, '');
+      try {
+        const result = await request();
+        if (!cancelled) {
+          if (!result?.error && Array.isArray(result?.[field])) save(result[field]);
+          else error(key, result?.error || 'Lịch sử chưa khả dụng.');
+        }
+      } catch { if (!cancelled) error(key, 'Không thể tải lịch sử. Vui lòng thử lại.'); }
+      finally { if (!cancelled) setLoading(prev => ({ ...prev, [key]: false })); }
+    };
+    if (user.id) {
+      void load('surveys', () => apiClient.getConsultationSurveys(), 'surveys', setSavedSurveys);
+      void load('reviews', () => apiClient.getMyReviews(), 'reviews', setMyReviews);
+    }
+    return () => { cancelled = true; };
+  }, [user.id, historyRetry]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async (key: string, request: () => Promise<any>, field: string, save: (value: any) => void) => {
+      setLoading(prev => ({ ...prev, [key]: true })); error(key, '');
+      try {
+        const result = await request();
+        if (!cancelled) {
+          if (!result?.error && Array.isArray(result?.[field])) save(result[field]);
+          else error(key, result?.error || 'Dữ liệu chưa khả dụng.');
+        }
+      } catch { if (!cancelled) error(key, 'Không thể tải dữ liệu. Vui lòng thử lại.'); }
+      finally { if (!cancelled) setLoading(prev => ({ ...prev, [key]: false })); }
+    };
+    if (activeTab === 'care_guide') void load('guidelines', () => apiClient.getCareGuidelines(), 'guidelines', setGuidelines);
+    if (activeTab === 'support') {
+      void load('tickets', () => apiClient.getSupportTickets(), 'tickets', setTickets);
+      void load('faqs', () => apiClient.getSupportFaqs(), 'faqs', setFaqs);
+    }
+    if (activeTab === 'journal' && suppliedRecords === undefined) void load('records', () => apiClient.getMedicalRecords(), 'records', setRecords);
+    if ((activeTab === 'packages' || activeTab === 'journal') && suppliedBookings === undefined && user.id) void load('bookings', () => apiClient.getBookings(), 'bookings', setLoadedBookings);
+    return () => { cancelled = true; };
+  }, [activeTab, suppliedRecords, suppliedBookings, user.id]);
+
+  const mutate = async (key: string, request: () => Promise<any>, accept: (result: any) => boolean, success: (result: any) => void) => {
+    if (busy.current) return;
+    busy.current = true; setLoading(prev => ({ ...prev, [key]: true })); error(key, ''); setNotice('');
+    try {
+      const result = await request();
+      if (result?.error || !accept(result)) error(key, result?.error || 'Chưa thể xác nhận thao tác. Vui lòng thử lại.');
+      else success(result);
+    } catch { error(key, 'Không thể kết nối máy chủ. Vui lòng thử lại.'); }
+    finally { busy.current = false; setLoading(prev => ({ ...prev, [key]: false })); }
   };
 
-  const handleMarkAllRead = () => {
-    // Read state is managed by the notification center.
+  const markRead = async (id?: string) => {
+    if (notificationBusy.current || !localNotifications) return;
+    notificationBusy.current = true; error('notifications', ''); setLoading(prev => ({ ...prev, notifications: true }));
+    try {
+      const result = id ? await apiClient.markNotificationRead(id) : await apiClient.markAllNotificationsRead();
+      if (result?.error || (id ? result?.notification?.id !== id || result.notification.isRead !== true : result?.updated !== true)) {
+        error('notifications', result?.error || 'Không thể đánh dấu đã đọc.'); return;
+      }
+      const next = localNotifications.map(item => !id || item.id === id ? { ...item, isRead: true } : item);
+      setLocalNotifications(next); onNotificationsChange?.(next);
+    } catch { error('notifications', 'Không thể đánh dấu đã đọc.'); }
+    finally { notificationBusy.current = false; setLoading(prev => ({ ...prev, notifications: false })); }
   };
 
-  const activePlans = treatmentPlans.filter((plan) => plan.status === 'active');
-  const myPackage = activePlans[0] ? {
-    ...activePlans[0],
-    branch: activePlans[0].branch?.name || '',
-    expiryDate: new Date(activePlans[0].expiryDate).toLocaleDateString('vi-VN'),
-    purchaseDate: new Date(activePlans[0].purchaseDate).toLocaleDateString('vi-VN'),
-    sessionsHistory: activePlans[0].sessions.map((session: any) => ({
-      session: `Buổi ${String(session.sessionNumber).padStart(2, '0')}`,
-      date: new Date(session.completedAt || session.scheduledAt || '').toLocaleDateString('vi-VN'),
-      title: session.title,
-      specialist: session.specialistName,
-      completed: session.status === 'completed',
-    })),
-  } : {
-    id: '', name: 'Chưa có gói liệu trình', branch: '', totalSessions: 0, usedSessions: 0,
-    remainingSessions: 0, progressPercent: 0, expiryDate: '--', purchaseDate: '--', sessionsHistory: [],
+  const plans = Array.isArray(treatmentPlans) ? treatmentPlans : [];
+  const bookings = suppliedBookings ?? loadedBookings;
+  const selected = plans.find(plan => plan.id === selectedId);
+  const article = guidelines.find(guide => guide.id === articleId);
+  const visiblePlans = plans.filter(plan => plan.status?.toLowerCase() === packageTab);
+  const sessions = selected?.sessions;
+  const alreadyReviewed = (bookingId?: string | null) => Boolean(bookingId && (
+    reviewedBookings.includes(bookingId) || myReviews?.some(review => review.bookingId === bookingId) ||
+    bookings.some(booking => booking.id === bookingId && booking.reviewId) ||
+    (suppliedRecords ?? records)?.some(item => item.bookingId === bookingId && item.reviewId) ||
+    plans.some(plan => plan.sessions?.some(item => item.bookingId === bookingId && item.reviewId))));
+  const reviewable = (session: CareRecord) => Boolean(user.id && myReviews && !loading.reviews && !errors.reviews && session.bookingId && session.serviceId &&
+    (session.bookingStatus?.toUpperCase() === 'COMPLETED' || bookings.some(booking => booking.id === session.bookingId && booking.status.toLowerCase() === 'completed')) &&
+    !bookings.some(booking => booking.id === session.bookingId && booking.userId && booking.userId !== user.id) &&
+    !session.reviewId && !alreadyReviewed(session.bookingId));
+  const completedBookings = bookings.filter(booking => booking.userId === user.id && booking.status.toLowerCase() === 'completed');
+  const bookingServices = (booking: CareBooking) => (booking.items || []).filter(item => item.serviceId);
+  const bookingContext = (booking: CareBooking, item: ReturnType<typeof bookingServices>[number]): ReviewContext => ({
+    id: booking.id, bookingId: booking.id, serviceId: item.serviceId, serviceName: item.serviceTitle,
+    serviceImage: item.imageUrl, branchName: booking.branchName,
+    technicianName: booking.doctorName, bookingDate: booking.date || undefined, bookingStatus: booking.status, reviewId: booking.reviewId,
+  });
+  const reviewName = (review: SavedReview) => {
+    const booking = bookings.find(item => item.id === review.bookingId);
+    const item = booking && bookingServices(booking).find(service => service.serviceId === review.serviceId);
+    return item?.serviceTitle || 'Tên dịch vụ chưa khả dụng';
   };
+  const title = (plan: Plan) => plan.package?.name || plan.name || 'Tên gói chưa khả dụng';
+  const stats = (plan: Plan) => {
+    const total = count(plan.totalSessions), used = count(plan.completedSessions ?? plan.usedSessions);
+    return <div className="space-y-2 text-xs">
+      <p>Tổng buổi: {total ?? 'Chưa có'} · Đã dùng: {used ?? 'Chưa có'} · Còn lại: {total != null && used != null ? Math.max(0, total - used) : 'Chưa có'}</p>
+      {total != null && total > 0 && used != null && <progress aria-label="Tiến độ liệu trình" value={Math.min(used, total)} max={total} className="h-2 w-full accent-[#98501B]" />}
+      <p>Ngày mua: {careDate(plan.purchasedAt || plan.purchaseDate)}</p><p>Hạn sử dụng: {careDate(plan.expiresAt || plan.expiryDate)}</p>
+    </div>;
+  };
+  const startReview = (session: ReviewContext) => {
+    setReviewSession(session); setRating(0); setComment(''); setTags(''); setPhotos(''); error('form', ''); setNotice(''); setForm('review');
+  };
+  const feedback = (key: string) => <>
+    {loading[key] && <p role="status" className="text-xs">Đang tải...</p>}
+    {errors[key] && <p role="alert" className="text-xs text-red-700">{errors[key]}</p>}
+  </>;
+  const surveyHistory = <section className="space-y-3" aria-label="Phiếu thông tin đã gửi">
+    <h2 className="text-sm font-bold">Phiếu thông tin đã gửi</h2>{feedback('surveys')}
+    {errors.surveys && <button className={button} onClick={() => setHistoryRetry(prev => prev + 1)}>Thử lại</button>}
+    {!loading.surveys && !errors.surveys && <p className="text-xs">{savedSurveys ? savedSurveys.length ? '' : 'Chưa có phiếu thông tin.' : 'Phiếu thông tin chưa khả dụng.'}</p>}
+    {savedSurveys?.map(saved => <article key={saved.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+      <h3 className="font-semibold">{saved.bookingId ? bookings.find(booking => booking.id === saved.bookingId)?.serviceTitle || 'Phiếu theo lịch hẹn' : 'Sở thích chung'}</h3>
+      <p>Ngày gửi: {careDate(saved.createdAt)}</p>
+      {saved.focusAreas?.length ? <p>Vùng cần chăm sóc: {saved.focusAreas.join(', ')}</p> : null}
+      <p>Lực tác động: {({ LIGHT: 'Nhẹ', MEDIUM: 'Vừa', STRONG: 'Mạnh' } as Record<string, string>)[saved.pressurePref || ''] || saved.pressurePref || 'Chưa có'}</p>
+      <p>Da nhạy cảm: {saved.hasSensitiveSkin === true ? 'Có' : saved.hasSensitiveSkin === false ? 'Không' : 'Chưa có'}</p>
+      <p>Dị ứng dầu: {saved.hasOilAllergy === true ? 'Có' : saved.hasOilAllergy === false ? 'Không' : 'Chưa có'}</p>
+      {saved.allergyDetails && <p className="whitespace-pre-wrap">Thông tin dị ứng: {saved.allergyDetails}</p>}
+      {saved.medicalConditions?.length ? <p>Tình trạng sức khỏe: {saved.medicalConditions.join(', ')}</p> : null}
+      {saved.specialRequests && <p className="whitespace-pre-wrap">Yêu cầu riêng: {saved.specialRequests}</p>}
+    </article>)}
+  </section>;
+  const reviewHistory = <section className="space-y-3" aria-label="Lịch sử đánh giá">
+    <h2 className="text-sm font-bold">Lịch sử đánh giá</h2>{feedback('reviews')}
+    {errors.reviews && <button className={button} onClick={() => setHistoryRetry(prev => prev + 1)}>Thử lại</button>}
+    {!loading.reviews && !errors.reviews && <p className="text-xs">{myReviews ? myReviews.length ? '' : 'Chưa có đánh giá.' : 'Lịch sử đánh giá chưa khả dụng.'}</p>}
+    {myReviews?.map(review => <article key={review.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+      <h3 className="font-semibold">{reviewName(review)}</h3><p>Ngày đánh giá: {careDate(review.createdAt)}</p>
+      <p>{Number.isInteger(review.rating) && review.rating! >= 1 && review.rating! <= 5 ? `${review.rating}/5` : 'Mức đánh giá chưa khả dụng'}</p>
+      {review.comment && <p className="whitespace-pre-wrap">{review.comment}</p>}
+      {review.reviewTags?.length ? <p>{review.reviewTags.join(', ')}</p> : null}
+      {review.photos?.length ? <div className="grid grid-cols-2 gap-2">{review.photos.filter(src => typeof src === 'string' && src.trim()).map((src, index) => <img key={index} src={src} alt="Ảnh đánh giá" loading="lazy" className="w-full rounded-[8px]" />)}</div> : null}
+      {review.branchReply && <div><h4 className="font-semibold">Phản hồi chi nhánh</h4><p className="whitespace-pre-wrap">{review.branchReply}</p></div>}
+    </article>)}
+  </section>;
 
-  return (
-    <div className="space-y-3 px-3 pt-3 pb-20">
-      <button onClick={onClose} aria-label="Quay lại" className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DED2C5] bg-white"><ArrowLeftIcon size={18} color="#40352F" /></button>
-      {/* Top Navigation Tabs for Group D (Figma 04 D01 - D08) */}
-      <div className="hidden">
-        {[
-          { id: 'packages', label: 'Gói liệu trình' },
-          { id: 'journal', label: 'Nhật ký chăm sóc' },
-          { id: 'care_guide', label: 'Hướng dẫn tại nhà' },
-          { id: 'support', label: 'Tư vấn & hỗ trợ' },
-          { id: 'notifications', label: 'Thông báo' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition active:scale-95 ${
-              activeTab === tab.id
-                ? 'bg-[#98501B] text-white shadow-sm shadow-[#98501B]/20'
-                : 'bg-white text-[#7A685D] border border-[#EADECF] hover:bg-[#FAF6F0]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+  return <div className="space-y-4 px-3 pt-3 pb-20 text-[#40352F] break-words">
+    <button disabled={loading.form} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
+    {!form && !selected && !article && <nav aria-label="Chăm sóc" className="flex gap-2 overflow-x-auto pb-1">
+      {tabs.map(tab => <button key={tab.id} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
+    </nav>}
+    {notice && <p role="status" className="text-sm">{notice}</p>}
 
-      {/* =========================================================================
-          TAB 1: D01 GÓI LIỆU TRÌNH CỦA TÔI
-      ========================================================================= */}
-      {activeTab === 'packages' && (
-        <div className="space-y-4 animate-fade-in">
-          <div>
-            <h1 className="text-[21px] font-bold text-[#6F452C]">Gói liệu trình của tôi</h1>
-            <p className="text-[11px] text-[#7A685D] mt-1">Quản lý các gói chăm sóc sức khỏe và liệu trình đã đăng ký.</p>
-          </div>
+    {form === 'survey' && <form className="space-y-4" onSubmit={event => {
+      event.preventDefault();
+      const focusAreas = list(survey.focusAreas), medicalConditions = list(survey.medicalConditions);
+      if (focusAreas.length > 30 || medicalConditions.length > 30 || [...focusAreas, ...medicalConditions].some(value => value.length > 200)) { error('form', 'Tối đa 30 mục, mỗi mục tối đa 200 ký tự.'); return; }
+      void mutate('form', () => apiClient.createConsultationSurvey({
+        ...(survey.bookingId ? { bookingId: survey.bookingId } : {}), focusAreas, medicalConditions,
+        pressurePref: survey.pressurePref, hasSensitiveSkin: survey.hasSensitiveSkin === 'yes', hasOilAllergy: survey.hasOilAllergy === 'yes',
+        allergyDetails: survey.allergyDetails.trim() || null, specialRequests: survey.specialRequests.trim() || null,
+      }), result => Boolean(result?.survey?.id), result => {
+        setSavedSurveys(prev => [result.survey, ...(prev || []).filter(item => item.id !== result.survey.id)]);
+        setForm(null); setSurvey(emptySurvey); setNotice('Đã gửi phiếu thông tin.');
+      });
+    }}>
+      <h1 className="text-lg font-bold">Thông tin trước dịch vụ</h1>
+      {feedback('bookings')}
+      <label className="block space-y-1 text-xs">Lịch hẹn<select disabled={loading.bookings} className={input} value={survey.bookingId} onChange={e => setSurvey(prev => ({ ...prev, bookingId: e.target.value }))}>
+        <option value="">Không gắn lịch hẹn</option>{bookings.filter(b => !['cancelled', 'completed', 'no_show'].includes(b.status.toLowerCase())).map(b => <option key={b.id} value={b.id}>{b.serviceTitle || b.code || b.id} · {careDate(b.date)}</option>)}
+      </select></label>
+      {(['focusAreas', 'medicalConditions', 'allergyDetails', 'specialRequests'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{['Vùng cần chăm sóc', 'Tình trạng sức khỏe', 'Thông tin dị ứng', 'Yêu cầu riêng'][index]}<textarea className={input} rows={3} value={survey[field]} onChange={e => setSurvey(prev => ({ ...prev, [field]: e.target.value }))} /></label>)}
+      <label className="block space-y-1 text-xs">Lực tác động<select required className={input} value={survey.pressurePref} onChange={e => setSurvey(prev => ({ ...prev, pressurePref: e.target.value }))}><option value="">Chọn mức lực</option><option value="LIGHT">Nhẹ</option><option value="MEDIUM">Vừa</option><option value="STRONG">Mạnh</option></select></label>
+      {(['hasSensitiveSkin', 'hasOilAllergy'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{index === 0 ? 'Da nhạy cảm' : 'Dị ứng dầu'}<select required className={input} value={survey[field]} onChange={e => setSurvey(prev => ({ ...prev, [field]: e.target.value }))}><option value="">Chọn câu trả lời</option><option value="yes">Có</option><option value="no">Không</option></select></label>)}
+      {feedback('form')}<button disabled={loading.form || loading.surveys} className={button} type="submit">Gửi phiếu thông tin</button>
+    </form>}
 
-          {/* Member Card Banner (Figma D01) */}
-          <div className="rounded-[10px] p-4 bg-[#F3E2CE] border border-[#E5D3C1] flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-11 h-11 rounded-full bg-white text-[#A65317] flex items-center justify-center border border-[#E5D3C1]">
-                <span className="text-lg">♙</span>
-              </div>
-              <div>
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold text-[#40352F]">{user.name || 'Khách'}</span>
-                  <span className="text-[10px] text-[#A65317]">{user.id ? user.tier : ''}</span>
-                </div>
-                <p className="text-[11px] text-[#7A685D] mt-0.5">
-                  {activePlans.length} gói đang dùng • {activePlans.reduce((sum, plan) => sum + plan.remainingSessions, 0)} buổi còn lại • {activePlans.reduce((sum, plan) => sum + plan.usedSessions, 0)} đã dùng
-                </p>
-              </div>
-            </div>
-          </div>
+    {form === 'review' && reviewSession && <form className="space-y-4" onSubmit={event => {
+      event.preventDefault(); if (!reviewable(reviewSession) || rating < 1) return;
+      const reviewTags = list(tags), reviewPhotos = list(photos);
+      if ([reviewTags, reviewPhotos].some(values => values.length > 30 || values.some(value => value.length > 2000))) { error('form', 'Tối đa 30 mục, mỗi mục tối đa 2000 ký tự.'); return; }
+      if (reviewPhotos.some(value => { try { return new URL(value).protocol !== 'https:'; } catch { return true; } })) { error('form', 'Ảnh cần có đường dẫn HTTPS hợp lệ.'); return; }
+      void mutate('form', () => apiClient.createReview({ bookingId: reviewSession.bookingId, serviceId: reviewSession.serviceId, rating, ...(comment.trim() ? { comment: comment.trim() } : {}), reviewTags, photos: reviewPhotos }),
+        result => Boolean(result?.review?.id), result => {
+          setReviewedBookings(prev => [...prev, reviewSession.bookingId!]);
+          setMyReviews(prev => [result.review, ...(prev || []).filter(item => item.id !== result.review.id)]);
+          setForm(null); setNotice('Đã gửi đánh giá.');
+        });
+    }}>
+      <h1 className="text-lg font-bold">Đánh giá trải nghiệm</h1>
+      {reviewSession.serviceImage && <img src={reviewSession.serviceImage} alt={reviewSession.serviceName || ''} className="w-full rounded-[8px]" />}
+      <p className="text-sm">{reviewSession.serviceName || 'Tên dịch vụ chưa khả dụng'}</p>
+      <p className="text-xs">{reviewSession.bookingDate ? 'Ngày hẹn' : 'Ngày chăm sóc'}: {careDate(reviewSession.bookingDate || reviewSession.sessionDate || reviewSession.diagnosisDate)}</p>
+      {reviewSession.branchName && <p className="text-xs">{reviewSession.branchName}</p>}
+      {reviewSession.technicianName && <p className="text-xs">{reviewSession.technicianName}</p>}
+      <div role="group" aria-label="Mức độ hài lòng" className="flex gap-2">{[1, 2, 3, 4, 5].map(value => <button key={value} type="button" aria-label={`${value} sao`} aria-pressed={rating === value} onClick={() => setRating(value)} className={`${button} flex h-10 w-10 items-center justify-center p-0`}><StarIcon size={24} color={value <= rating ? '#A65317' : '#aaa'} /></button>)}</div>
+      <p className="text-xs">{rating ? `${rating}/5` : 'Chưa chọn mức đánh giá'}</p>
+      {(['comment', 'tags', 'photos'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{['Nhận xét', 'Nhãn đánh giá', 'Đường dẫn ảnh'][index]}<textarea className={input} rows={3} maxLength={field === 'comment' ? 10000 : undefined} value={field === 'comment' ? comment : field === 'tags' ? tags : photos} onChange={e => (field === 'comment' ? setComment : field === 'tags' ? setTags : setPhotos)(e.target.value)} /></label>)}
+      {feedback('form')}<button type="submit" disabled={loading.form || !rating || !reviewable(reviewSession)} className={button}>Gửi đánh giá</button>
+    </form>}
 
-          {/* 3 Status Filter Tabs: Đang sử dụng | Đã hoàn thành | Hết hạn */}
-          <div className="flex rounded-[10px] bg-white p-1 border border-[#EADECF]">
-            {[
-              { id: 'active', label: 'Đang sử dụng' },
-              { id: 'completed', label: 'Đã hoàn thành' },
-              { id: 'expired', label: 'Hết hạn' },
-            ].map((st) => (
-              <button
-                key={st.id}
-                onClick={() => setPackageTab(st.id as any)}
-                className={`flex-1 py-2 rounded-[8px] text-[11px] font-semibold transition active:scale-95 ${
-                  packageTab === st.id ? 'bg-[#98501B] text-white shadow-xs' : 'text-[#7A685D] hover:text-[#40352F]'
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
-          </div>
+    {!form && selected && <section className="space-y-4">
+      <h1 className="text-lg font-bold">{title(selected)}</h1>
+      {(selected.package?.imageUrl || selected.image || selected.serviceImage) && <img src={selected.package?.imageUrl || selected.image || selected.serviceImage} alt={title(selected)} className="w-full rounded-[8px]" />}
+      {selected.package?.description && <p className="text-sm whitespace-pre-wrap">{selected.package.description}</p>}{stats(selected)}
+      <button className={button} disabled>Đặt lịch buổi tiếp theo</button>
+      <p className="text-xs">Đặt lịch sử dụng buổi trong gói chưa khả dụng.</p>
+      {feedback('reviews')}
+      <GroupDRecords records={sessions} />
+      {sessions?.map(session => <div key={session.id} className="space-y-2 border-b border-[#EADECF] py-2">
+        <p className="text-xs">{session.serviceName || 'Dịch vụ chưa khả dụng'} · {careDate(session.sessionDate)}</p>
+        <button className={button} disabled={!reviewable(session)} onClick={() => startReview(session)}>{session.reviewId || alreadyReviewed(session.bookingId) ? 'Đã đánh giá' : 'Đánh giá trải nghiệm'}</button>
+        {!reviewable(session) && !session.reviewId && !alreadyReviewed(session.bookingId) && <p className="text-xs">Đánh giá chưa khả dụng cho buổi này.</p>}
+      </div>)}
+    </section>}
 
-          {/* Package Card (Figma D01) */}
-          {packageTab === 'active' && (
-            <div className="bg-white rounded-[10px] border border-[#EFEAE3] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden space-y-3 p-3">
-              <div className="relative rounded-[8px] overflow-hidden h-36">
-                <img
-                  src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80"
-                  alt="Massage"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-xs text-[10px] font-bold text-[#98501B] shadow-xs">
-                  ● Đang sử dụng
-                </span>
-              </div>
+    {!form && article && <article className="space-y-3">
+      <h1 className="text-lg font-bold">{article.title || 'Tiêu đề chưa khả dụng'}</h1>
+      {article.imageUrl && <img src={article.imageUrl} alt={article.title || ''} className="w-full rounded-[8px]" />}
+      {article.category && <p className="text-xs">{article.category}</p>}{article.authorName && <p className="text-xs">{article.authorName}</p>}
+      {article.readTimeMinutes != null && <p className="text-xs">{article.readTimeMinutes} phút</p>}
+      <p className="text-sm whitespace-pre-wrap">{article.content || 'Nội dung chưa khả dụng.'}</p>
+      {Array.isArray(article.steps) && article.steps.map((step, index) => <div key={index} className="text-sm whitespace-pre-wrap">{typeof step === 'string' ? step : <><h2 className="font-bold">{step?.title}</h2><p>{step?.content || step?.description}</p></>}</div>)}
+    </article>}
 
-              <div>
-                <h3 className="text-sm font-bold text-[#40352F]">{myPackage.name}</h3>
-                <p className="text-xs text-[#7A685D]">{myPackage.branch}</p>
-              </div>
+    {!form && !selected && !article && activeTab === 'packages' && <section className="space-y-4">
+      <h1 className="text-lg font-bold">Gói liệu trình của tôi</h1>
+      {user.id && <p className="text-sm">{user.name}{user.tier ? ` · ${user.tier}` : ''}</p>}
+      <label className="block text-xs">Trạng thái gói<select className={input} value={packageTab} onChange={event => setPackageTab(event.target.value)}>{['active', 'completed', 'expired', 'paused', 'cancelled'].map((status, index) => <option key={status} value={status}>{['Đang dùng', 'Hoàn thành', 'Hết hạn', 'Tạm dừng', 'Đã hủy'][index]}</option>)}</select></label>
+      {!treatmentPlans && <p className="text-xs">Gói liệu trình chưa khả dụng.</p>}
+      {treatmentPlans && !visiblePlans.length && <p className="text-xs">Không có gói liệu trình trong mục này.</p>}
+      {visiblePlans.map(plan => <article key={plan.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
+        {(plan.package?.imageUrl || plan.image || plan.serviceImage) && <img src={plan.package?.imageUrl || plan.image || plan.serviceImage} alt={title(plan)} className="w-full rounded-[8px]" />}
+        <h2 className="text-sm font-bold">{title(plan)}</h2>{plan.serviceName && <p className="text-xs">{plan.serviceName}</p>}{stats(plan)}
+        <button className={button} onClick={() => setSelectedId(plan.id)}>Xem chi tiết gói</button>
+      </article>)}
+      <button className={button} onClick={() => { setForm('survey'); error('form', ''); setNotice(''); }}>Thông tin trước dịch vụ</button>
+      {surveyHistory}
+    </section>}
 
-              {/* Stats Counters */}
-              <div className="grid grid-cols-3 gap-2 py-2 border-y border-[#FAF6F0] text-center">
-                <div>
-                  <div className="text-base font-extrabold text-[#98501B]">{myPackage.totalSessions}</div>
-                  <div className="text-[10px] text-[#7A685D]">Tổng buổi</div>
-                </div>
-                <div>
-                  <div className="text-base font-extrabold text-[#40352F]">{myPackage.usedSessions}</div>
-                  <div className="text-[10px] text-[#7A685D]">Đã dùng</div>
-                </div>
-                <div>
-                  <div className="text-base font-extrabold text-emerald-600">{myPackage.remainingSessions}</div>
-                  <div className="text-[10px] text-[#7A685D]">Còn lại</div>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] text-[#7A685D]">
-                  <span>Tiến độ hoàn thành</span>
-                  <span className="font-bold text-[#98501B]">{myPackage.progressPercent}%</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-[#FAF6F0] overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#98501B] to-amber-500 rounded-full"
-                    style={{ width: `${myPackage.progressPercent}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-[#A09085]">Hạn sử dụng: {myPackage.expiryDate}</p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex space-x-2 pt-1">
-                <button
-                  onClick={() => setSelectedPackage(myPackage)}
-                  className="flex-1 py-2.5 rounded-[8px] border border-[#98501B] text-[#98501B] text-[11px] font-bold hover:bg-[#FAF6F0] transition active:scale-95"
-                >
-                  Xem chi tiết gói
-                </button>
-                <button
-                  onClick={onOpenBooking}
-                  className="flex-1 py-2.5 rounded-[8px] bg-[#98501B] hover:bg-[#804215] text-white text-[11px] font-bold transition active:scale-95"
-                >
-                  Đặt lịch buổi tiếp theo
-                </button>
-              </div>
-            </div>
-          )}
-
-          {packageTab !== 'active' && (
-            <div className="bg-white rounded-2xl p-8 text-center border border-[#EADECF] text-xs text-[#7A685D]">
-              Không có gói liệu trình nào trong mục này.
-            </div>
-          )}
-
-          <div className="space-y-2 pt-1">
-            <h2 className="text-[13px] font-bold text-[#40352F]">Chăm sóc & hỗ trợ</h2>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: 'journal', label: 'Nhật ký chăm sóc' },
-                { id: 'care_guide', label: 'Hướng dẫn tại nhà' },
-                { id: 'support', label: 'Tư vấn & hỗ trợ' },
-                { id: 'notifications', label: 'Thông báo' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as typeof activeTab)}
-                  className="min-h-11 rounded-[8px] bg-white border border-[#EFEAE3] px-3 text-left text-[11px] font-semibold text-[#6F452C]"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          TAB 2: D03 NHẬT KÝ CHĂM SÓC
-      ========================================================================= */}
-      {activeTab === 'journal' && <div className="space-y-3">
-        <h1 className="text-sm font-bold">Nhật ký chăm sóc</h1>
-        {!treatmentPlans.some(plan => plan.sessions.length) && <p className="text-xs">Chưa có nhật ký chăm sóc.</p>}
-        {treatmentPlans.map(plan => plan.sessions.map((session: any) => <article key={session.id} className="border-b border-[#EADECF] py-3 text-xs space-y-2">
-          <p>{session.sessionDate}</p><p>{session.treatmentNotes}</p>
-          {session.conditionBefore && <p>Trước chăm sóc: {session.conditionBefore}</p>}
-          {session.conditionAfter && <p>Sau chăm sóc: {session.conditionAfter}</p>}
-          {session.specialistAdvice && <p>{session.specialistAdvice}</p>}
-        </article>))}
-      </div>}
-      {/* =========================================================================
-          TAB 3: D06 HƯỚNG DẪN CHĂM SÓC TẠI NHÀ
-      ========================================================================= */}
-      {activeTab === 'care_guide' && <div className="space-y-3">
-        <h1 className="text-sm font-bold">Hướng dẫn chăm sóc tại nhà</h1>
-        {guidelineError && <p role="alert" className="text-xs text-red-700">{guidelineError}</p>}
-        {!guidelines.length && !guidelineError && <p className="text-xs">Chưa có hướng dẫn chăm sóc.</p>}
-        {guidelines.map(guide => <article key={guide.id} className="border-b border-[#EADECF] py-3 text-xs space-y-2">
-          {guide.imageUrl && <img src={guide.imageUrl} alt={guide.title} className="w-full rounded-[8px]" />}
-          <h3 className="font-bold">{guide.title}</h3><p className="whitespace-pre-wrap">{guide.content}</p>
+    {!form && !selected && !article && activeTab === 'journal' && <>
+      <GroupDRecords records={suppliedRecords === undefined ? records : suppliedRecords} loading={suppliedRecords === undefined && loading.records} error={suppliedRecords === undefined ? errors.records : undefined} />
+      {(suppliedRecords === undefined ? records : suppliedRecords)?.map(record => reviewable(record) && <button key={record.id} className={button} onClick={() => startReview(record)}>Đánh giá {record.serviceName || careDate(record.sessionDate || record.diagnosisDate)}</button>)}
+      <section className="space-y-3" aria-label="Lịch hẹn đã hoàn thành">
+        <h2 className="text-sm font-bold">Lịch hẹn đã hoàn thành</h2>{feedback('bookings')}
+        {!loading.bookings && !errors.bookings && !completedBookings.length && <p className="text-xs">Chưa có lịch hẹn đã hoàn thành.</p>}
+        {completedBookings.map(booking => <article key={booking.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+          <h3 className="font-semibold">{booking.code || 'Lịch hẹn đã hoàn thành'}</h3>
+          <p>Ngày hẹn: {careDate(booking.date)}</p>{booking.branchName && <p>{booking.branchName}</p>}
+          {!bookingServices(booking).length && <p>Dịch vụ chưa khả dụng.</p>}
+          {bookingServices(booking).map((item, index) => {
+            const context = bookingContext(booking, item);
+            return <div key={`${item.serviceId}-${index}`} className="space-y-2">
+              <p>{context.serviceName || 'Tên dịch vụ chưa khả dụng'}</p>
+              <button className={button} disabled={!reviewable(context)} onClick={() => startReview(context)}>{alreadyReviewed(booking.id) ? 'Đã đánh giá' : `Đánh giá ${context.serviceName || 'dịch vụ'}`}</button>
+            </div>;
+          })}
         </article>)}
-      </div>}
-      {/* =========================================================================
-          TAB 4: D07 TƯ VẤN & HỖ TRỢ
-      ========================================================================= */}
-      {activeTab === 'support' && (
-        <div className="space-y-4 animate-fade-in">
-          <div>
-            <h1 className="text-lg font-bold text-[#40352F]">Tư vấn & hỗ trợ</h1>
-            <p className="text-xs text-[#7A685D]">Chúng tôi luôn sẵn sàng đồng hành cùng bạn.</p>
-          </div>
+      </section>
+      {reviewHistory}
+    </>}
 
-          {/* Quick topic chips (Figma D07) */}
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { id: '1', label: 'Tư vấn dịch vụ' },
-              { id: '2', label: 'Hỗ trợ đặt lịch' },
-              { id: '3', label: 'Hỗ trợ liệu trình' },
-              { id: '4', label: 'Hỗ trợ học viên' },
-            ].map((chip) => (
-              <button
-                key={chip.id}
-                onClick={() => setInputMsg(`Tôi cần hỗ trợ về: ${chip.label}`)}
-                className="py-2.5 px-3 rounded-xl bg-white border border-[#EADECF] text-xs font-semibold text-[#40352F] hover:bg-[#FAF6F0] hover:border-[#98501B] transition text-left"
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
+    {!form && !selected && !article && activeTab === 'care_guide' && <section className="space-y-3">
+      <h1 className="text-lg font-bold">Hướng dẫn chăm sóc tại nhà</h1>{feedback('guidelines')}
+      {!loading.guidelines && !errors.guidelines && !guidelines.length && <p className="text-xs">Chưa có hướng dẫn chăm sóc.</p>}
+      {guidelines.map(guide => <article key={guide.id} className="space-y-2 border-b border-[#EADECF] py-3">
+        {guide.imageUrl && <img src={guide.imageUrl} alt={guide.title || ''} loading="lazy" className="w-full rounded-[8px]" />}
+        <h2 className="text-sm font-bold">{guide.title || 'Tiêu đề chưa khả dụng'}</h2>{guide.summary && <p className="text-xs whitespace-pre-wrap">{guide.summary}</p>}
+        <button className={button} onClick={() => setArticleId(guide.id)}>Xem hướng dẫn</button>
+      </article>)}
+    </section>}
 
-          {supportError && <p role="alert" className="text-xs text-red-700">{supportError}</p>}
-          {/* Chat box */}
-          <div className="bg-white rounded-2xl border border-[#EADECF] shadow-sm p-3.5 space-y-3 flex flex-col h-72">
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {chatMessages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl p-2.5 text-xs ${
-                      msg.sender === 'user'
-                        ? 'bg-[#98501B] text-white rounded-br-none'
-                        : 'bg-[#FAF6F0] text-[#40352F] border border-[#EADECF] rounded-bl-none'
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                  <span className="text-[9px] text-[#A09085] mt-0.5 px-1">{msg.time}</span>
-                </div>
-              ))}
-            </div>
+    {!form && !selected && !article && activeTab === 'support' && <section className="space-y-4">
+      <h1 className="text-lg font-bold">Tư vấn & hỗ trợ</h1>{feedback('faqs')}
+      {!loading.faqs && !errors.faqs && !faqs.length && <p className="text-xs">Chưa có câu hỏi thường gặp.</p>}
+      {faqs.map(faq => <details key={faq.id} className="border-b border-[#EADECF] py-2 text-sm"><summary>{faq.question}</summary><p className="mt-2 whitespace-pre-wrap">{faq.answer}</p></details>)}
+      {feedback('tickets')}
+      {!loading.tickets && !errors.tickets && !tickets.length && <p className="text-xs">Chưa có yêu cầu hỗ trợ.</p>}
+      {tickets.map(ticket => <article key={ticket.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+        <h2 className="font-bold">{ticket.subject}</h2><p>{careDate(ticket.createdAt)}{ticket.status ? ` · ${ticket.status}` : ''}</p><p className="whitespace-pre-wrap">{ticket.message}</p>
+        {ticket.adminReply && <div><h3 className="font-semibold">Phản hồi hỗ trợ</h3><p className="whitespace-pre-wrap">{ticket.adminReply}</p>{ticket.resolvedAt && <p>Ngày giải quyết: {careDate(ticket.resolvedAt)}</p>}</div>}
+      </article>)}
+      <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (!subject.trim() || !message.trim()) return;
+        void mutate('send', () => apiClient.createSupportTicket(subject.trim(), message.trim()), result => Boolean(result?.ticket?.id), result => {
+          setTickets(prev => [result.ticket, ...prev.filter(ticket => ticket.id !== result.ticket.id)]); setSubject(''); setMessage(''); setNotice('Đã gửi yêu cầu hỗ trợ.');
+        });
+      }}>
+        <label className="block space-y-1 text-xs">Tiêu đề<input required maxLength={200} className={input} value={subject} onChange={e => setSubject(e.target.value)} /></label>
+        <label className="block space-y-1 text-xs">Nội dung<textarea required maxLength={10000} rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} /></label>
+        {feedback('send')}<button type="submit" className={button} disabled={loading.send || loading.tickets || !subject.trim() || !message.trim()}>Gửi yêu cầu hỗ trợ</button>
+      </form>
+    </section>}
 
-            {/* Input bar */}
-            <div className="flex items-center space-x-2 pt-2 border-t border-[#FAF6F0]">
-              <input
-                type="text"
-                value={inputMsg}
-                onChange={(e) => setInputMsg(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Nhập tin nhắn..."
-                className="flex-1 px-3 py-2 rounded-xl bg-[#FAF6F0] border border-[#EADECF] text-xs text-[#40352F] placeholder-[#A09085] focus:outline-none focus:border-[#98501B]"
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={supportSending}
-                className="px-3 py-2 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition"
-              >
-                Gửi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          TAB 5: D08 THÔNG BÁO
-      ========================================================================= */}
-      {activeTab === 'notifications' && (
-        <div className="space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-bold text-[#40352F]">Thông báo</h1>
-              <p className="text-xs text-[#7A685D]">Cập nhật lịch hẹn và hoạt động chăm sóc.</p>
-            </div>
-            <button
-              onClick={handleMarkAllRead}
-              className="text-xs text-[#98501B] font-bold hover:underline"
-            >
-              Đánh dấu đã đọc
-            </button>
-          </div>
-
-          {/* Filter tabs */}
-          <div className="flex space-x-1.5 overflow-x-auto no-scrollbar py-1">
-            {[
-              { id: 'all', label: 'Tất cả' },
-              { id: 'appointment', label: 'Lịch hẹn' },
-              { id: 'treatment', label: 'Liệu trình' },
-              { id: 'academy', label: 'Đào tạo' },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setNotifFilter(f.id as any)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  notifFilter === f.id
-                    ? 'bg-[#98501B] text-white'
-                    : 'bg-white text-[#7A685D] border border-[#EADECF]'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Notifications List */}
-          <div className="space-y-2.5">
-            {notifications
-              .filter((n) => notifFilter === 'all' || n.type === notifFilter)
-              .map((n) => (
-                <div
-                  key={n.id}
-                  className={`bg-white rounded-2xl p-3.5 border transition ${
-                    n.unread ? 'border-[#98501B]/40 bg-[#FAF6F0]/40 shadow-xs' : 'border-[#EADECF]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#98501B]" />
-                      <h4 className="text-xs font-bold text-[#40352F]">{n.title}</h4>
-                    </div>
-                    <span className="text-[10px] text-[#A09085]">{n.time}</span>
-                  </div>
-                  <p className="text-xs text-[#7A685D] mt-1 leading-relaxed">{n.desc}</p>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          DEDICATED FULL PAGE: D02 CHI TIẾT GÓI LIỆU TRÌNH
-      ========================================================================= */}
-      {selectedPackage && (
-        <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="px-3 pt-3 pb-2 shrink-0">
-            <div className="flex items-center space-x-2.5">
-              <button
-                onClick={() => setSelectedPackage(null)}
-                className="w-8 h-8 rounded-[8px] bg-white border border-[#E7DDD3] flex items-center justify-center text-[#40352F] transition active:scale-95"
-              >
-                <ArrowLeftIcon size={16} color="#40352F" />
-              </button>
-              <h3 className="text-sm font-bold text-[#40352F]">Chi tiết gói liệu trình</h3>
-            </div>
-            <button
-              onClick={() => setSelectedPackage(null)}
-              className="text-xs text-[#98501B] font-bold"
-            >
-              Đóng
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-            <div className="rounded-2xl overflow-hidden shadow-sm border border-[#EADECF]">
-              <img
-                src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80"
-                alt="Package"
-                className="w-full h-44 object-cover"
-              />
-              <div className="p-3 bg-white">
-                <span className="text-[10px] font-bold text-[#98501B] uppercase tracking-wider">Gói cao cấp</span>
-                <h4 className="text-base font-bold text-[#40352F] mt-0.5">{selectedPackage.name}</h4>
-                <p className="text-xs text-[#7A685D] mt-0.5 flex items-center space-x-1">
-                  <LocationIcon size={12} color="#7A685D" />
-                  <span>{selectedPackage.branch}</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-[#EADECF] space-y-3">
-              <div className="flex justify-between items-center border-b border-[#FAF6F0] pb-2">
-                <h5 className="text-xs font-bold text-[#40352F]">Hành trình {selectedPackage.totalSessions} buổi của bạn:</h5>
-                <span className="text-[11px] font-bold text-[#98501B]">{selectedPackage.usedSessions}/{selectedPackage.totalSessions} buổi đã thực hiện</span>
-              </div>
-              <div className="space-y-2">
-                {selectedPackage.sessionsHistory.map((s: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF6F0] text-xs border border-[#EADECF]/50"
-                  >
-                    <div>
-                      <span className="font-bold text-[#40352F]">{s.session}</span>: {s.title}
-                      <div className="text-[10px] text-[#7A685D] mt-0.5">{s.specialist} • {s.date}</div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                        s.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      {s.completed ? '✓ Đã xong' : '⏳ Sắp tới'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-white border-t border-[#EADECF] shrink-0 shadow-lg">
-            <button
-              onClick={() => {
-                setSelectedPackage(null);
-                onOpenBooking();
-              }}
-              className="w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition shadow-md"
-            >
-              Đặt lịch buổi tiếp theo ngay
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          DEDICATED FULL PAGE: D04 PHIẾU THÔNG TIN TRƯỚC DỊCH VỤ
-      ========================================================================= */}
-      {isPreServiceModalOpen && (
-        <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="bg-white px-4 py-3 border-b border-[#EADECF] flex items-center justify-between shadow-xs shrink-0">
-            <div className="flex items-center space-x-2.5">
-              <button
-                onClick={() => setIsPreServiceModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] flex items-center justify-center text-[#40352F] hover:bg-[#EADECF] transition active:scale-95"
-              >
-                <ArrowLeftIcon size={16} color="#40352F" />
-              </button>
-              <div>
-                <h3 className="text-sm font-bold text-[#40352F]">Phiếu thông tin trước dịch vụ</h3>
-                <p className="text-[10px] text-[#7A685D]">Chuẩn bị trải nghiệm phù hợp cho bạn</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsPreServiceModalOpen(false)}
-              className="text-xs text-[#98501B] font-bold"
-            >
-              Đóng
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-            <div className="bg-white p-4 rounded-2xl border border-[#EADECF] space-y-3">
-              <p className="text-xs font-bold text-[#40352F]">Mục tiêu trải nghiệm bạn mong muốn hôm nay?</p>
-              {[
-                { key: 'relaxBody', label: 'Thư giãn toàn thân, giảm căng cứng cơ bắp' },
-                { key: 'reduceStress', label: 'Giảm cảm giác căng thẳng, thư giãn tâm trí' },
-                { key: 'skinCare', label: 'Chăm sóc và phục hồi làn da chuyên sâu' },
-              ].map((item) => (
-                <label
-                  key={item.key}
-                  className="flex items-center justify-between p-3.5 rounded-xl border border-[#EADECF] hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
-                >
-                  <span className="text-[#40352F] font-medium">{item.label}</span>
-                  <input
-                    type="checkbox"
-                    checked={(surveyPreferences as any)[item.key]}
-                    onChange={(e) =>
-                      setSurveyPreferences((prev) => ({ ...prev, [item.key]: e.target.checked }))
-                    }
-                    className="w-4 h-4 text-[#98501B] rounded focus:ring-0 accent-[#98501B]"
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-[#EADECF] space-y-2">
-              <label className="text-xs font-bold text-[#40352F] block">Ghi chú hoặc vị trí cần lưu ý:</label>
-              <textarea
-                placeholder="VD: Đau mỏi vùng vai gáy, tránh lực mạnh ở thắt lưng..."
-                className="w-full p-3 rounded-xl border border-[#EADECF] bg-[#FAF6F0] text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:border-[#98501B] h-24 resize-none"
-              />
-            </div>
-          </div>
-
-          <div className="p-4 bg-white border-t border-[#EADECF] shrink-0 shadow-lg">
-            <button
-              disabled
-              title="Chọn lịch hẹn trước khi gửi khảo sát"
-              className="w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] transition shadow-md"
-            >
-              Cần chọn lịch hẹn để gửi khảo sát
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          DEDICATED FULL PAGE: D05 ĐÁNH GIÁ TRẢI NGHIỆM
-      ========================================================================= */}
-      {isRatingModalOpen && (
-        <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="px-3 pt-3 pb-2 shrink-0">
-            <div className="flex items-center space-x-2.5">
-              <button
-                onClick={() => setIsRatingModalOpen(false)}
-                className="w-8 h-8 rounded-[8px] bg-white border border-[#E7DDD3] flex items-center justify-center text-[#40352F] transition active:scale-95"
-              >
-                <ArrowLeftIcon size={16} color="#40352F" />
-              </button>
-              <div>
-                <h3 className="text-[21px] leading-tight font-bold text-[#6F452C]">Đánh giá trải nghiệm</h3>
-                <p className="text-[9px] text-[#7A685D]">Ý kiến của bạn giúp chúng tôi nâng cao chất lượng dịch vụ.</p>
-              </div>
-            </div>
-              <span className="ml-auto text-[8px] uppercase text-[#A65317] font-semibold">Chăm sóc · Minh họa</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-24">
-            <div className="flex items-center gap-3 rounded-[10px] bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              <img src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=220&auto=format&fit=crop&q=80" alt="Massage thư giãn" className="h-16 w-16 rounded-[8px] object-cover" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold text-[#40352F]">Massage thư giãn toàn thân</p>
-                <p className="mt-1 text-[8px] text-[#7A685D]">Chi nhánh mẫu 01 – Quận 3</p>
-                <p className="text-[8px] text-[#7A685D]">Trần Minh Phương</p>
-              </div>
-              <span className="self-end text-[8px] font-medium text-[#A65317]">Buổi 04</span>
-            </div>
-
-            <div>
-              <p className="mb-2 text-[13px] font-bold leading-snug text-[#6F452C]">Bạn hài lòng với trải nghiệm hôm nay chứ?</p>
-              <div className="bg-[#F3E2CE] p-3 rounded-[10px] space-y-2">
-              <div className="flex space-x-3 text-[24px]">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setOverallRating(star)}
-                    className={`transition active:scale-125 ${star <= overallRating ? 'text-amber-500' : 'text-stone-300'}`}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
-              <p className="text-[9px] text-[#7A5A45] font-medium">{overallRating}/5 · {overallRating === 5 ? 'Rất hài lòng · Bản nhập chưa gửi' : 'Hài lòng'}</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-3 rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] space-y-3 text-[10px]">
-              <h5 className="font-bold text-[#40352F]">Chi tiết mức độ hài lòng</h5>
-              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0]">
-                <span>Chất lượng trị liệu:</span>
-                <span className="font-bold text-[#98501B]">5 / 5 sao ★</span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0]">
-                <span>Thái độ chuyên viên:</span>
-                <span className="font-bold text-[#98501B]">5 / 5 sao ★</span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span>Không gian & phòng trị liệu:</span>
-                <span className="font-bold text-[#98501B]">5 / 5 sao ★</span>
-              </div>
-            </div>
-
-            <div className="bg-white p-3 rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] space-y-2">
-              <label className="text-xs font-bold text-[#40352F] block">Góp ý thêm cho kỹ thuật viên:</label>
-              <textarea
-                placeholder="Chia sẻ cảm nhận chi tiết của bạn để chúng tôi phục vụ tốt hơn..."
-                className="w-full p-3 rounded-[8px] border border-[#E4D3C2] bg-[#FFFDFC] text-[10px] text-stone-800 placeholder-stone-400 focus:outline-none focus:border-[#98501B] h-20 resize-none"
-              />
-            </div>
-          </div>
-
-          <div className="p-3 bg-white border-t border-[#EADECF] shrink-0">
-            <button
-              disabled
-              title="Chọn lịch hẹn đã hoàn thành để gửi đánh giá"
-              className="w-full h-11 rounded-[8px] bg-[#A65317] text-white text-[11px] font-bold"
-            >
-              Cần chọn lịch hẹn đã hoàn thành
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          DEDICATED FULL PAGE: D06 BÀI VIẾT HƯỚNG DẪN CHI TIẾT
-      ========================================================================= */}
-      {isArticleModalOpen && (
-        <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="px-3 pt-3 pb-2 shrink-0">
-            <div className="flex items-center space-x-2.5">
-              <button
-                onClick={() => setIsArticleModalOpen(false)}
-                className="w-8 h-8 rounded-[8px] bg-white border border-[#E7DDD3] flex items-center justify-center text-[#40352F] transition active:scale-95"
-              >
-                <ArrowLeftIcon size={16} color="#40352F" />
-              </button>
-              <h3 className="text-[18px] leading-tight font-bold text-[#6F452C]">Hướng dẫn chăm sóc tại nhà</h3>
-            </div>
-            <button
-              onClick={() => setIsArticleModalOpen(false)}
-              className="text-[8px] uppercase text-[#A65317] font-semibold"
-            >
-              Chăm sóc · Minh họa
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-24">
-            <img
-              src="https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=600&auto=format&fit=crop&q=80"
-              alt="Care"
-              className="w-full h-44 rounded-[10px] object-cover border border-[#EADECF]"
-            />
-
-            <div className="bg-[#F3E2CE] p-3 rounded-[10px] space-y-2">
-              <span className="text-[10px] font-bold text-[#98501B] uppercase tracking-wider">Hướng dẫn sau buổi massage</span>
-              <h4 className="text-base font-bold text-[#40352F]">Chăm sóc cơ thể sau buổi massage thư giãn toàn thân</h4>
-              <div className="text-xs text-[#7A685D] leading-relaxed space-y-2 pt-2 border-t border-[#FAF6F0]">
-                <p>
-                  <strong>1. Uống nước ấm:</strong> Sau khi kích thích tuần hoàn máu và hệ bạch huyết, cơ thể sẽ đào thải độc tố tự nhiên. Hãy uống 300 - 500ml nước ấm trong vòng 30 phút.
-                </p>
-                <p>
-                  <strong>2. Giữ ấm cơ thể:</strong> Không nên tắm nước lạnh hoặc ngồi trực tiếp dưới luồng điều hòa lạnh trong vòng 2 giờ sau liệu trình.
-                </p>
-                <p>
-                  <strong>3. Giữ tinh thần thư thái:</strong> Tránh làm việc căng thẳng ngay lập tức. Dành thời gian nghỉ ngơi hoặc đi dạo nhẹ nhàng.
-                </p>
-                <p>
-                  <strong>4. Vận động nhẹ trước khi ngủ:</strong> Thực hiện các động tác xoay cổ và kéo giãn nhẹ nhàng để các cơ bắp duy trì trạng thái thả lỏng.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-white border-t border-[#EADECF] shrink-0">
-            <button
-              onClick={() => setIsArticleModalOpen(false)}
-              className="w-full h-11 rounded-[8px] bg-[#A65317] text-white text-[11px] font-bold"
-            >
-              Xem hướng dẫn
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    {!form && !selected && !article && activeTab === 'notifications' && <section className="space-y-3">
+      <h1 className="text-lg font-bold">Thông báo</h1>{feedback('notifications')}
+      <button className={button} disabled={loading.notifications || !localNotifications?.some(item => !item.isRead)} onClick={() => void markRead()}>Đánh dấu tất cả đã đọc</button>
+      <label className="block text-xs">Loại thông báo<select className={input} value={notifFilter} onChange={e => setNotifFilter(e.target.value)}><option value="">Tất cả</option>{Array.from(new Set(localNotifications?.map(item => item.type).filter(Boolean))).map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+      {!localNotifications && <p className="text-xs">Thông báo chưa khả dụng.</p>}
+      {localNotifications && !localNotifications.filter(item => !notifFilter || item.type === notifFilter).length && <p className="text-xs">Chưa có thông báo trong mục này.</p>}
+      {localNotifications?.filter(item => !notifFilter || item.type === notifFilter).map(item => <article key={item.id} className={`space-y-2 rounded-[8px] border p-3 text-xs ${item.isRead ? 'border-[#EADECF]' : 'border-[#98501B]'}`}>
+        <h2 className="font-bold">{item.title}</h2><p>{careDate(item.createdAt)}</p><p className="whitespace-pre-wrap">{item.message}</p>
+        {!item.isRead && <button className={button} disabled={loading.notifications} onClick={() => void markRead(item.id)}>Đánh dấu đã đọc</button>}
+      </article>)}
+    </section>}
+  </div>;
 };

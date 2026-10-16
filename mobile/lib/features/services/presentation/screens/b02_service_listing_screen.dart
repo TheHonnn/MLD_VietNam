@@ -18,7 +18,7 @@ class B02ServiceListingScreen extends StatefulWidget {
 class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _selectedCategoryIndex = 0;
-  String _selectedSort = 'Phổ biến (minh họa)';
+  String _selectedSort = 'Phổ biến ';
   final Set<int> _favoriteServices = {0}; // Service 0 is favorite by default per Figma
 
   final List<String> _categories = [
@@ -84,7 +84,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       ),
       builder: (context) {
         final sortOptions = [
-          'Phổ biến (minh họa)',
+          'Phổ biến ',
           'Giá: Thấp đến cao',
           'Giá: Cao đến thấp',
           'Thời lượng ngắn nhất',
@@ -687,7 +687,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               // --- 7. DISCLAIMER FOOTNOTE ---
               const Center(
                 child: Text(
-                  'Danh sách gồm 2 dịch vụ minh họa. Không có đánh giá đã xác thực.',
+                  'Danh sách dịch vụ chăm sóc nổi bật',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,

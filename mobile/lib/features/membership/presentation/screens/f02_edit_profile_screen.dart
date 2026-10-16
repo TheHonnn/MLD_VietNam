@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../data/repositories/mock_membership_repository.dart';
 
@@ -11,6 +12,7 @@ class F02EditProfileScreen extends StatefulWidget {
 }
 
 class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
   final MockMembershipRepository _repo = MockMembershipRepository();
 
   late TextEditingController _fullNameController;
@@ -53,10 +55,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
   }
 
   void _handleSave() {
-    if (_fullNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập họ và tên')),
-      );
+    if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
 
@@ -122,7 +121,9 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
           children: [
             // Top Scrollable Form
             Expanded(
-              child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,14 +150,6 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                                 color: AppColors.textPrimary,
                               ),
                             ),
-                          ),
-                        ),
-                        const Text(
-                          'Dữ liệu minh họa',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -233,6 +226,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                       label: 'Họ và tên *',
                       controller: _fullNameController,
                       hint: 'Nhập họ và tên',
+                      validator: AppValidators.fullName,
                     ),
                     const SizedBox(height: 14),
 
@@ -286,6 +280,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                       controller: _emailController,
                       hint: 'example@email.com',
                       keyboardType: TextInputType.emailAddress,
+                      validator: (val) => AppValidators.email(val, isOptional: true),
                     ),
                     const SizedBox(height: 14),
 
@@ -339,7 +334,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                     const SizedBox(height: 14),
 
                     _buildTextField(
-                      label: 'Địa chỉ liên hệ (minh họa)',
+                      label: 'Địa chỉ liên hệ ',
                       controller: _addressController,
                       hint: 'Địa chỉ nhà...',
                       maxLines: 2,
@@ -386,6 +381,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                       controller: _emergencyPhoneController,
                       hint: 'Nhập số điện thoại',
                       keyboardType: TextInputType.phone,
+                      validator: (val) => val == null || val.trim().isEmpty ? null : AppValidators.phone(val),
                     ),
                     const SizedBox(height: 4),
                     const Text(
@@ -447,7 +443,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
 
                     const Center(
                       child: Text(
-                        'Dữ liệu minh họa · Địa chỉ và nghề nghiệp là ví dụ',
+                        'Thông tin liên hệ của bạn',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
@@ -460,6 +456,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                   ],
                 ),
               ),
+            ),
             ),
 
             // --- 6. HÀNH ĐỘNG CỐ ĐỊNH (Bottom bar, 350x56 button #985018, r=14) ---
@@ -515,6 +512,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
     required String hint,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,10 +533,11 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.border, width: 1.0),
           ),
-          child: TextField(
+          child: TextFormField(
             controller: controller,
             keyboardType: keyboardType,
             maxLines: maxLines,
+            validator: validator,
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w400,
@@ -555,6 +554,8 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
               focusedBorder: InputBorder.none,
               errorBorder: InputBorder.none,
               disabledBorder: InputBorder.none,
+              errorStyle: const TextStyle(fontSize: 12),
+              isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),

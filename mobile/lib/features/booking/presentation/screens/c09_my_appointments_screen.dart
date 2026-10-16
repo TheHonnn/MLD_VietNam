@@ -249,7 +249,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                       const SizedBox(height: 6),
 
                       Text(
-                        '${app.bookingCode} · Dữ liệu minh họa',
+                        app.bookingCode,
                         style: const TextStyle(
                           fontSize: 12,
                           color: BookingColors.textPrimary,
@@ -264,7 +264,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                       const SizedBox(height: 6),
 
                       Text(
-                        'Cọc đã trả ${_formatCurrency(app.depositAmount)} (mô phỏng) · Còn ${_formatCurrency(app.remainingAmount)}',
+                        'Cọc đã trả ${_formatCurrency(app.depositAmount)} · Còn ${_formatCurrency(app.remainingAmount)}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: BookingColors.textPrimary,
@@ -353,10 +353,10 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               }),
 
             const SizedBox(height: 8),
-            // Thẻ Ghi chú minh họa
+            // Thẻ Ghi chú
             const IllustrationNoteCard(
               text:
-                  'Lịch hẹn và thanh toán là tình huống mô phỏng, không phải giao dịch thực. Bộ lọc và thao tác chỉ là giao diện tĩnh.',
+                  'Quản lý và theo dõi trạng thái các lịch hẹn chăm sóc của bạn.',
             ),
             const SizedBox(height: 24),
           ],
