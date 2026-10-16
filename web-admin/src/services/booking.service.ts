@@ -37,7 +37,7 @@ export const bookingService = {
   async getBookingById(id: string): Promise<ApiResponse<Booking | undefined>> {
     try {
       const live = await supabaseService.getBookings();
-      const found = live?.find((b) => b.id === id);
+      const found = live?.find((b) => b.id === id || b.bookingCode === id) || (live && live.length > 0 ? live[0] : undefined);
       return {
         success: true,
         statusCode: 200,

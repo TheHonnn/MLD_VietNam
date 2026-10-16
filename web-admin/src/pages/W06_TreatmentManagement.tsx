@@ -55,9 +55,9 @@ export const W06_TreatmentManagement: React.FC = () => {
       try {
         const [pkgRes, upkgRes, srvRes, jrnRes] = await Promise.all([
           treatmentService.getTreatmentPackages(),
-          treatmentService.getUserPackagesByCustomer('u-minhanh'),
+          treatmentService.getUserPackagesByCustomer(),
           treatmentService.getServices(),
-          treatmentService.getTreatmentJournalsByCustomer('u-minhanh'),
+          treatmentService.getTreatmentJournalsByCustomer(),
         ]);
         if (pkgRes.success) setLivePackages(pkgRes.data);
         if (upkgRes.success) setLiveUserPackages(upkgRes.data);

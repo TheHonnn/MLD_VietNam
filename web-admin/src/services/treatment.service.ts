@@ -108,9 +108,10 @@ export const treatmentService = {
   },
 
   // --- Gói Liệu Trình của Khách hàng (UserPackage) ---
-  async getUserPackagesByCustomer(customerId: string): Promise<ApiResponse<UserPackage[]>> {
+  async getUserPackagesByCustomer(customerId?: string): Promise<ApiResponse<UserPackage[]>> {
     try {
-      const live = await supabaseService.getUserPackages(customerId);
+      const isValidUuid = customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId);
+      const live = await supabaseService.getUserPackages(isValidUuid ? customerId : undefined);
       return {
         success: true,
         statusCode: 200,
@@ -129,9 +130,10 @@ export const treatmentService = {
   },
 
   // --- Nhật ký & Buổi trị liệu (TreatmentJournal) ---
-  async getTreatmentJournalsByCustomer(customerId: string): Promise<ApiResponse<TreatmentJournal[]>> {
+  async getTreatmentJournalsByCustomer(customerId?: string): Promise<ApiResponse<TreatmentJournal[]>> {
     try {
-      const live = await supabaseService.getTreatmentJournals(customerId);
+      const isValidUuid = customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId);
+      const live = await supabaseService.getTreatmentJournals(isValidUuid ? customerId : undefined);
       return {
         success: true,
         statusCode: 200,

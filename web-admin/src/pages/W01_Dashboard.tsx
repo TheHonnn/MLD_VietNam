@@ -43,7 +43,7 @@ export const W01_Dashboard: React.FC = () => {
           posService.getInvoices(),
           bookingService.getBookings(),
           branchService.getAllBranches(),
-          treatmentService.getUserPackagesByCustomer('u-minhanh'),
+          treatmentService.getUserPackagesByCustomer(),
           academyService.getEnrollments(),
         ]);
         if (invRes.success) setInvoices(invRes.data);

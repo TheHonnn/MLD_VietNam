@@ -21,8 +21,8 @@ export const W07_CashierPOS: React.FC = () => {
       try {
         const [invRes, bkRes, custRes] = await Promise.all([
           posService.getInvoices(),
-          bookingService.getBookingById('bk-000128'),
-          customerService.getCustomerById('u-minhanh'),
+          bookingService.getBookingById('44440001-0001-0001-0001-000000000001'),
+          customerService.getCustomerById('00000000-0000-0000-0000-000000000001'),
         ]);
         if (invRes.success) setInvoices(invRes.data);
         if (bkRes.success) setBooking(bkRes.data);
