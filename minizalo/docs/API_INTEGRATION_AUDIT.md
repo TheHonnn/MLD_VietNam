@@ -90,6 +90,8 @@ Missing owner/configuration workflows above require coordination before enabling
   default planned lesson count. Missing gender is distinct from an explicit Other
   selection in onboarding, profile mapping and persistence.
 - Missing API configuration fails closed instead of silently selecting a server.
+  Vite's `envDir` is explicitly the Mini App project directory so the development
+  and production builds read the existing API configuration alongside package.json.
   Requests bypass cache; refresh clears old catalog/configuration values and
   reports care-library failures along with other API failures.
 - The read-only content checker now compares selected names, prices, descriptions,
