@@ -18,6 +18,12 @@ import {
 
 import { adminApi, Listing } from '../admin/api';
 
+const SUPABASE_URL =
+  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
+const SUPABASE_KEY =
+  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58';
+
 class SupabaseService {
   private url: string;
   private key: string;
@@ -38,26 +44,54 @@ class SupabaseService {
   }
 
   private async query<T>(path: string, options: RequestInit = {}): Promise<T | null> {
-    const [table,query='']=path.split('?');
-    const params=new URLSearchParams(query),filter:Record<string,string>={};
-    const [sort,direction] = (params.get('order') || '').split(',')[0].split('.');
-    for(const [name,value] of params.entries())if(value.startsWith('eq.'))filter[name]=value.slice(3);
-    const result:any[]=[];
-    for(let page=1;;page++){
-      const listing=await adminApi<Listing>(`${table}?limit=100&page=${page}&filter=${encodeURIComponent(JSON.stringify(filter))}${sort?`&sort=${encodeURIComponent(sort)}&direction=${direction==='asc'?'asc':'desc'}`:''}`);
-      if(options.method==='PATCH'){
-        if(listing.rows.length!==1)throw new Error('Không tìm thấy bản ghi cần sửa.');
-        const updated=await adminApi(`${table}/update`,{key:{id:listing.rows[0].id},values:JSON.parse(String(options.body)),expectedUpdatedAt:listing.rows[0].updated_at});
-        return [updated] as T;
+    // 1. Direct Supabase Cloud REST API (Primary for live production on Vercel & mobile sync)
+    if (this.url && this.key) {
+      try {
+        const fullUrl = `${this.url}/rest/v1/${path}`;
+        const res = await fetch(fullUrl, {
+          ...options,
+          headers: {
+            ...this.getHeaders(),
+            ...(options.headers || {}),
+          },
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          return json as T;
+        }
+      } catch {
+        // Fallback to local adminApi if direct fetch fails
       }
-      result.push(...listing.rows);if(result.length>=listing.total)break;
     }
-    if(table==='user_packages' && params.get('select')?.includes('package:treatment_packages')){
-      const packages=await this.query<any[]>('treatment_packages?select=*');
-      const byId=new Map((packages||[]).map(pkg=>[pkg.id,pkg]));
-      for(const row of result)row.package=byId.get(row.package_id) ?? null;
+
+    // 2. Fallback to adminApi if local backend is active
+    try {
+      const [table, query = ''] = path.split('?');
+      const params = new URLSearchParams(query), filter: Record<string, string> = {};
+      const [sort, direction] = (params.get('order') || '').split(',')[0].split('.');
+      for (const [name, value] of params.entries()) if (value.startsWith('eq.')) filter[name] = value.slice(3);
+      const result: any[] = [];
+      for (let page = 1; ; page++) {
+        const listing = await adminApi<Listing>(`${table}?limit=100&page=${page}&filter=${encodeURIComponent(JSON.stringify(filter))}${sort ? `&sort=${encodeURIComponent(sort)}&direction=${direction === 'asc' ? 'asc' : 'desc'}` : ''}`);
+        if (options.method === 'PATCH') {
+          if (listing.rows.length !== 1) throw new Error('Không tìm thấy bản ghi cần sửa.');
+          const updated = await adminApi(`${table}/update`, { key: { id: listing.rows[0].id }, values: JSON.parse(String(options.body)), expectedUpdatedAt: listing.rows[0].updated_at });
+          return [updated] as T;
+        }
+        result.push(...listing.rows);
+        if (result.length >= listing.total) break;
+      }
+      if (table === 'user_packages' && params.get('select')?.includes('package:treatment_packages')) {
+        const packages = await this.query<any[]>('treatment_packages?select=*');
+        const byId = new Map((packages || []).map((pkg) => [pkg.id, pkg]));
+        for (const row of result) row.package = byId.get(row.package_id) ?? null;
+      }
+      return result as T;
+    } catch (err) {
+      console.warn(`[Supabase Service Error] Could not query ${path}:`, err);
+      return null;
     }
-    return result as T;
   }
 
   // 1. CHI NHÁNH (BRANCHES)
@@ -488,4 +522,4 @@ class SupabaseService {
   }
 }
 
-export const supabaseService = new SupabaseService('', '');
+export const supabaseService = new SupabaseService(SUPABASE_URL, SUPABASE_KEY);
