@@ -54,9 +54,10 @@ required shared schema with read-only queries. Historical database artifacts
 are archived in `docs/legacy-database/` and must not be executed.
 
 For Zalo login, set the parent application's `ZALO_APP_ID` and `ZALO_APP_SECRET`.
-The frontend requests only phone-sharing permission after an explicit user action.
+The frontend requests phone sharing after an explicit user action and may request
+optional SDK profile sharing for editable name/avatar suggestions.
 The backend verifies the one-time phone code at `/me/info`; it does not call the
-Social `/me` profile endpoint or request name/avatar permission. Existing users
+Social `/me` profile endpoint. Existing users
 sign in directly; new phones receive a five-minute registration proof and must
 complete a profile form before a shared account is created. Form data never
 selects the customer UUID or phone and existing profiles are not overwritten.
@@ -66,10 +67,10 @@ used. Set `ZALO_ALLOW_SIGNUP=true` to allow new shared customers. No schema
 extension or nullable-phone migration is needed. See [login setup](docs/ZALO_LOGIN_SETUP.md)
 and the [database alignment guide](docs/DATABASE_ALIGNMENT.md).
 
-The current experiment tests `/me/info` directly on Render; the confirmed -501
-was from the separate Social `/me` endpoint. If phone verification also rejects
-the overseas IP, use your own [Vietnam relay](docs/VIETNAM_RELAY.md). Only the
-relay holds the Zalo app secret; Render uses a separate signed-request key.
+Zalo phone verification rejected the overseas Render IP with -501 in device
+testing. Use your own [Vietnam relay](docs/VIETNAM_RELAY.md) for that configuration.
+Only the relay holds the Zalo app secret; Render uses a separate key for signed,
+encrypted relay requests. The Vietnam PC and its tunnel must stay online.
 
 This API is separate from the NestJS API in the repository's root `backend/`.
 When configured with the team's database connection and verified phone identity,

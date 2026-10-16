@@ -1,5 +1,9 @@
 # Hien trang va khoang trong
 
+> Historical snapshot from 2026-10-14, not the current Mini App status.
+> For the implemented shared-database APIs, ownership checks, tests and remaining
+> unsupported workflows, see [API integration audit](API_INTEGRATION_AUDIT.md).
+
 Cap nhat: 2026-10-14.
 
 ## Da co

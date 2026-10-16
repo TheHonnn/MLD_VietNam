@@ -1,5 +1,10 @@
 # API contract v1
 
+> Historical proposal for the previous multi-platform backend, not the current
+> Mini App contract. Its mock-status labels and proposed envelopes are outdated.
+> See [API integration audit](API_INTEGRATION_AUDIT.md) and
+> `backend/src/server.ts` for the implemented shared-database endpoints.
+
 Base URL: `{API_BASE_URL}/api`. Tat ca JSON dung UTF-8.
 
 ## Header
