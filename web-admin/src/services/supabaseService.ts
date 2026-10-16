@@ -16,11 +16,7 @@ import {
   TuitionTransaction,
 } from '../types/shared_types';
 
-const SUPABASE_URL =
-  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
-const SUPABASE_KEY =
-  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58';
+import { adminApi, Listing } from '../admin/api';
 
 class SupabaseService {
   private url: string;
@@ -42,26 +38,26 @@ class SupabaseService {
   }
 
   private async query<T>(path: string, options: RequestInit = {}): Promise<T | null> {
-    try {
-      const fullUrl = `${this.url}/rest/v1/${path}`;
-      const res = await fetch(fullUrl, {
-        ...options,
-        headers: {
-          ...this.getHeaders(),
-          ...(options.headers || {}),
-        },
-      });
-
-      if (!res.ok) {
-        console.warn(`[Supabase Query Warn] ${res.status} for ${path}`);
-        return null;
+    const [table,query='']=path.split('?');
+    const params=new URLSearchParams(query),filter:Record<string,string>={};
+    const [sort,direction] = (params.get('order') || '').split(',')[0].split('.');
+    for(const [name,value] of params.entries())if(value.startsWith('eq.'))filter[name]=value.slice(3);
+    const result:any[]=[];
+    for(let page=1;;page++){
+      const listing=await adminApi<Listing>(`${table}?limit=100&page=${page}&filter=${encodeURIComponent(JSON.stringify(filter))}${sort?`&sort=${encodeURIComponent(sort)}&direction=${direction==='asc'?'asc':'desc'}`:''}`);
+      if(options.method==='PATCH'){
+        if(listing.rows.length!==1)throw new Error('Không tìm thấy bản ghi cần sửa.');
+        const updated=await adminApi(`${table}/update`,{key:{id:listing.rows[0].id},values:JSON.parse(String(options.body)),expectedUpdatedAt:listing.rows[0].updated_at});
+        return [updated] as T;
       }
-
-      return (await res.json()) as T;
-    } catch (err) {
-      console.warn(`[Supabase Direct Error] ${err}`);
-      return null;
+      result.push(...listing.rows);if(result.length>=listing.total)break;
     }
+    if(table==='user_packages' && params.get('select')?.includes('package:treatment_packages')){
+      const packages=await this.query<any[]>('treatment_packages?select=*');
+      const byId=new Map((packages||[]).map(pkg=>[pkg.id,pkg]));
+      for(const row of result)row.package=byId.get(row.package_id) ?? null;
+    }
+    return result as T;
   }
 
   // 1. CHI NHÁNH (BRANCHES)
@@ -145,7 +141,7 @@ class SupabaseService {
       result = result.filter(
         (u) =>
           u.fullName.toLowerCase().includes(s) ||
-          u.phone.includes(s) ||
+          (u.phone || '').includes(s) ||
           (u.email && u.email.toLowerCase().includes(s))
       );
     }
@@ -203,7 +199,7 @@ class SupabaseService {
       totalSessions: Number(p.total_sessions),
       price: Number(p.price),
       discountPrice: p.discount_price ? Number(p.discount_price) : undefined,
-      validityMonths: Number(p.validity_months || 6),
+      validityMonths: Number(p.validity_months),
       description: p.description,
       imageUrl: p.image_url,
       isActive: Boolean(p.is_active),
@@ -248,14 +244,14 @@ class SupabaseService {
       shortDescription: c.short_description || '',
       fullDescription: c.full_description || '',
       level: c.level,
-      totalHours: Number(c.total_hours || 144),
-      theoryHours: Number(c.theory_hours || 48),
-      practiceHours: Number(c.practice_hours || 96),
-      totalLessons: Number(c.total_lessons || 20),
+      totalHours: Number(c.total_hours),
+      theoryHours: Number(c.theory_hours),
+      practiceHours: Number(c.practice_hours),
+      totalLessons: Number(c.total_lessons),
       tuitionFee: Number(c.tuition_fee),
       depositAmount: Number(c.deposit_amount),
       learningOutcomes: Array.isArray(c.learning_outcomes) ? c.learning_outcomes : [],
-      certificateTitle: c.certificate_title || 'Chứng chỉ Nghề MLD',
+      certificateTitle: c.certificate_title,
       imageUrl: c.image_url,
       isFeatured: Boolean(c.is_featured),
       isActive: Boolean(c.is_active),
@@ -289,7 +285,7 @@ class SupabaseService {
             totalSessions: Number(p.package.total_sessions),
             price: Number(p.package.price),
             discountPrice: p.package.discount_price ? Number(p.package.discount_price) : undefined,
-            validityMonths: Number(p.package.validity_months || 6),
+            validityMonths: Number(p.package.validity_months),
             description: p.package.description,
             imageUrl: p.package.image_url,
             isActive: Boolean(p.package.is_active),
@@ -492,4 +488,4 @@ class SupabaseService {
   }
 }
 
-export const supabaseService = new SupabaseService(SUPABASE_URL, SUPABASE_KEY);
+export const supabaseService = new SupabaseService('', '');

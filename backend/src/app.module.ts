@@ -9,6 +9,7 @@ import { TreatmentModule } from './modules/treatment/treatment.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AppService } from './app.service';
     AppointmentsModule,
     TreatmentModule,
     MembershipModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

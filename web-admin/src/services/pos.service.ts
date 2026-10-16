@@ -5,6 +5,7 @@ import {
   ApiResponse,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
+import { legacyWrite } from './adminAdapter';
 
 export const posService = {
   async getInvoices(params?: {
@@ -64,28 +65,7 @@ export const posService = {
   },
 
   async createInvoice(data: Partial<Invoice>): Promise<ApiResponse<Invoice>> {
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      invoiceCode: `HD-${Date.now().toString().slice(-6)}`,
-      branchId: data.branchId || '',
-      customerId: data.customerId || '',
-      subtotal: data.subtotal || 0,
-      discountAmount: data.discountAmount || 0,
-      pointsRedeemedAmount: data.pointsRedeemedAmount || 0,
-      vatAmount: data.vatAmount || 0,
-      totalAmount: data.totalAmount || 0,
-      paymentMethod: data.paymentMethod || PaymentMethod.CASH_AT_SPA,
-      paymentStatus: data.paymentStatus || PaymentStatus.PENDING,
-      paidAt: data.paidAt || new Date().toISOString(),
-      refundAmount: data.refundAmount || 0,
-      ...data,
-    };
-    return {
-      success: true,
-      statusCode: 201,
-      message: 'Tạo hóa đơn thành công',
-      data: newInvoice,
-    };
+    return legacyWrite<Invoice>('invoices',data);
   },
 
   async updatePaymentStatus(
@@ -93,11 +73,6 @@ export const posService = {
     status: PaymentStatus,
     method?: PaymentMethod
   ): Promise<ApiResponse<Invoice>> {
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Cập nhật trạng thái thanh toán thành công',
-      data: { id, paymentStatus: status, paymentMethod: method } as Invoice,
-    };
+    return legacyWrite<Invoice>('invoices',{paymentStatus:status,...(method?{paymentMethod:method}:{})},id);
   },
 };
