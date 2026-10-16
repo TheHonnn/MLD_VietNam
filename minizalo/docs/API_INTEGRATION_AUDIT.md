@@ -83,6 +83,10 @@ Missing owner/configuration workflows above require coordination before enabling
 - Removed the unused in-memory `database` container. Runtime lists start empty
   and are populated only by the configured API; isolated test fixtures remain
   under `backend/test` and are never used to populate the shared database.
+- Deleted the obsolete archived seed executable containing demo vouchers,
+  treatment sessions, invoices and point history. No production records were
+  deleted. Simulated network failure in the browser confirmed refresh shows an
+  error without restoring stale service records.
 - Removed invented zero course ratings/consultation fees, empty clinical records,
   unused indicator fields and synthesized completed statuses on journal sessions.
   Service/specialist averages with no reviews remain `null`, not zero-star ratings.
