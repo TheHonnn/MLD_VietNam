@@ -11,6 +11,7 @@ import {
 } from '../types/shared_types';
 
 import { supabaseService } from './supabaseService';
+import { legacyRead, legacyWrite } from './adminAdapter';
 
 export const academyService = {
   // --- Khóa học LMS ---
@@ -145,12 +146,7 @@ export const academyService = {
     id: string,
     status: EnrollmentStatus
   ): Promise<ApiResponse<CourseEnrollment>> {
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Cập nhật trạng thái học viên thành công',
-      data: { id, status } as CourseEnrollment,
-    };
+    return legacyWrite<CourseEnrollment>('course_enrollments',{status},id);
   },
 
   // --- Giao dịch học phí ---
@@ -177,12 +173,7 @@ export const academyService = {
   async recordTuitionPayment(
     data: Partial<TuitionTransaction>
   ): Promise<ApiResponse<TuitionTransaction>> {
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Ghi nhận đóng học phí thành công',
-      data: data as TuitionTransaction,
-    };
+    return legacyWrite<TuitionTransaction>('tuition_transactions',data);
   },
 
   // --- Chứng chỉ tốt nghiệp điện tử ---
@@ -194,18 +185,13 @@ export const academyService = {
       success: true,
       statusCode: 200,
       message: 'Dữ liệu chứng chỉ tốt nghiệp từ Supabase Cloud',
-      data: [],
+      data: (await legacyRead<StudentCertificate>('student_certificates')).filter(c=>(!params?.status||c.status===params.status)&&(!params?.search||c.studentName.toLowerCase().includes(params.search.toLowerCase()))),
     };
   },
 
   async issueCertificate(
     data: Partial<StudentCertificate>
   ): Promise<ApiResponse<StudentCertificate>> {
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Cấp chứng chỉ tốt nghiệp thành công',
-      data: data as StudentCertificate,
-    };
+    return legacyWrite<StudentCertificate>('student_certificates',data);
   },
 };

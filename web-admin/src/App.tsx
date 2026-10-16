@@ -1,6 +1,8 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from './components/layout/Layout';
+import { AdminAuth } from "./admin/Auth";
+import { ResourcePage } from "./admin/ResourcePage";
 import { W01_Dashboard } from './pages/W01_Dashboard';
 import { W02_Branches } from './pages/W02_Branches';
 import { W03_Customers } from './pages/W03_Customers';
@@ -13,31 +15,36 @@ import { W09_Instructors } from './pages/W09_Instructors';
 import { W10_Attendance } from './pages/W10_Attendance';
 import { W11_Curriculum } from './pages/W11_Curriculum';
 import { W12_FinancialReports } from './pages/W12_FinancialReports';
+import { TrainingActions } from './admin/TrainingActions';
+import "./admin/admin.css";
 
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<W01_Dashboard />} />
-          <Route path="branches" element={<W02_Branches />} />
-          <Route path="customers" element={<W03_Customers />} />
-          <Route path="customer-detail" element={<W04_CustomerDetail />} />
-          <Route path="customers/detail" element={<W04_CustomerDetail />} />
-          <Route path="medical-records" element={<W06_TreatmentManagement />} />
-          <Route path="treatment-management" element={<W06_TreatmentManagement />} />
-          <Route path="staff-schedule" element={<W05_StaffSchedule />} />
-          <Route path="technician-schedule" element={<W05_StaffSchedule />} />
-          <Route path="services-catalog" element={<W06_TreatmentManagement />} />
-          <Route path="cashier-pos" element={<W07_CashierPOS />} />
-          <Route path="academy-enrollment" element={<W08_Enrollment />} />
-          <Route path="instructors" element={<W09_Instructors />} />
-          <Route path="attendance" element={<W10_Attendance />} />
-          <Route path="curriculum" element={<W11_Curriculum />} />
-          <Route path="reports" element={<W12_FinancialReports />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
+      <AdminAuth>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<W01_Dashboard />} />
+            <Route path="branches" element={<W02_Branches />} />
+            <Route path="customers" element={<W03_Customers />} />
+            <Route path="customer-detail" element={<W04_CustomerDetail />} />
+            <Route path="customers/detail" element={<W04_CustomerDetail />} />
+            <Route path="medical-records" element={<W06_TreatmentManagement />} />
+            <Route path="treatment-management" element={<W06_TreatmentManagement />} />
+            <Route path="staff-schedule" element={<W05_StaffSchedule />} />
+            <Route path="technician-schedule" element={<W05_StaffSchedule />} />
+            <Route path="services-catalog" element={<W06_TreatmentManagement />} />
+            <Route path="cashier-pos" element={<W07_CashierPOS />} />
+            <Route path="academy-enrollment" element={<W08_Enrollment />} />
+            <Route path="instructors" element={<W09_Instructors />} />
+            <Route path="attendance" element={<W10_Attendance />} />
+            <Route path="curriculum" element={<><TrainingActions /><W11_Curriculum /></>} />
+            <Route path="reports" element={<W12_FinancialReports />} />
+            <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </AdminAuth>
     </BrowserRouter>
   );
 };

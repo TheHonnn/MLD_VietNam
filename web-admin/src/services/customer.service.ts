@@ -25,7 +25,7 @@ export const customerService = {
   async getCustomerById(id: string): Promise<ApiResponse<User | undefined>> {
     try {
       const liveUsers = await supabaseService.getUsers();
-      const found = liveUsers?.find((c) => c.id === id || c.phone === id) || (liveUsers && liveUsers.length > 0 ? liveUsers[0] : undefined);
+      const found = liveUsers?.find((c) => c.id === id || c.phone === id);
       return {
         success: true,
         statusCode: 200,

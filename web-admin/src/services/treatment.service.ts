@@ -6,6 +6,7 @@ import {
   ApiResponse,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
+import { legacyWrite } from './adminAdapter';
 
 export const treatmentService = {
   // --- Danh mục dịch vụ ---
@@ -176,11 +177,6 @@ export const treatmentService = {
     id: string,
     data: Partial<TreatmentJournal>
   ): Promise<ApiResponse<TreatmentJournal>> {
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Cập nhật thành công',
-      data: { id, ...data } as TreatmentJournal,
-    };
+    return legacyWrite<TreatmentJournal>('treatment_journal',data,id);
   },
 };

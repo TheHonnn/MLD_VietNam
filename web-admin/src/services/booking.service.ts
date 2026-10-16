@@ -1,5 +1,6 @@
 import { Booking, BookingStatus, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
+import { legacyWrite } from './adminAdapter';
 
 export const bookingService = {
   async getBookings(params?: {
@@ -37,7 +38,7 @@ export const bookingService = {
   async getBookingById(id: string): Promise<ApiResponse<Booking | undefined>> {
     try {
       const live = await supabaseService.getBookings();
-      const found = live?.find((b) => b.id === id || b.bookingCode === id) || (live && live.length > 0 ? live[0] : undefined);
+      const found = live?.find((b) => b.id === id || b.bookingCode === id);
       return {
         success: true,
         statusCode: 200,
@@ -56,11 +57,6 @@ export const bookingService = {
   },
 
   async updateBookingStatus(id: string, status: BookingStatus): Promise<ApiResponse<Booking>> {
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Cập nhật trạng thái lịch hẹn thành công',
-      data: { id, status } as Booking,
-    };
+    return legacyWrite<Booking>('bookings',{status},id);
   },
 };

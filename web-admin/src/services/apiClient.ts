@@ -3,11 +3,11 @@ import { ApiResponse } from '../types/shared_types';
 /**
  * MLD Việt Nam - Web Admin API Client
  * Chuẩn hóa giao tiếp Backend NestJS tuân thủ ApiResponse<T>
- * Tự động fallback sang mockData khi Backend offline để không gián đoạn trải nghiệm giao diện
+ * Lỗi backend được trả về rõ ràng, không thay bằng dữ liệu mô phỏng.
  */
 
 const API_BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+  (import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1';
 
 export class ApiError extends Error {
   statusCode: number;
@@ -23,7 +23,6 @@ export class ApiError extends Error {
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
-  mockFallback?: () => any;
 }
 
 class ApiClient {
@@ -64,7 +63,7 @@ class ApiClient {
   }
 
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
-    const { params, mockFallback, ...customConfig } = options;
+    const { params, ...customConfig } = options;
     const url = this.buildUrl(endpoint, params);
 
     const config: RequestInit = {
@@ -96,18 +95,6 @@ class ApiClient {
 
       return json as ApiResponse<T>;
     } catch (err: any) {
-      // If mock fallback provided, fallback gracefully
-      if (mockFallback) {
-        // console.warn(`[API Fallback] Backend offline cho "${endpoint}". Sử dụng Mock Data.`);
-        const mockData = await mockFallback();
-        return {
-          success: true,
-          statusCode: 200,
-          message: 'Dữ liệu hệ thống',
-          data: mockData,
-        };
-      }
-
       throw new ApiError(
         err?.message || 'Không thể kết nối đến máy chủ Backend MLD',
         err?.statusCode || 500

@@ -7,6 +7,7 @@ import {
   ApiResponse,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
+import { legacyRead } from './adminAdapter';
 
 export type StaffWithProfile = User & { staffProfile: StaffProfile };
 
@@ -29,24 +30,14 @@ export const staffService = {
         UserRole.SUPER_ADMIN,
       ];
       
-      const filteredUsers = (liveUsers || []).filter((u) => staffRoles.includes(u.role));
-
-      const result: StaffWithProfile[] = filteredUsers.map((u, idx) => ({
-        ...u,
-        staffProfile: {
-          id: `sp-${u.id}`,
-          userId: u.id,
-          branchId: params?.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-          employeeCode: `NV-MLD-00${idx + 1}`,
-          department: u.role === UserRole.INSTRUCTOR ? StaffDepartment.ACADEMY_TRAINING : (u.role === UserRole.CASHIER ? StaffDepartment.CASHIER : StaffDepartment.THERAPY_MASSAGE),
-          position: u.role === UserRole.SUPER_ADMIN ? 'Ban Giám Đốc' : (u.role === UserRole.INSTRUCTOR ? 'Giảng viên' : 'Chuyên viên Spa'),
-          employmentType: EmploymentType.FULL_TIME,
-          baseSalary: 12000000,
-          commissionRate: 5,
-          hireDate: '2025-01-01',
-          isActive: true,
-        },
-      }));
+      const profiles=await legacyRead<StaffProfile>('staff_profiles');
+      const result:StaffWithProfile[]=[];
+      for(const user of liveUsers||[]){
+        if(!staffRoles.includes(user.role)||params?.role&&user.role!==params.role)continue;
+        const profile=profiles.find(p=>p.userId===user.id);
+        if(!profile||params?.branchId&&profile.branchId!==params.branchId||params?.department&&profile.department!==params.department)continue;
+        result.push({...user,staffProfile:profile});
+      }
 
       return {
         success: true,

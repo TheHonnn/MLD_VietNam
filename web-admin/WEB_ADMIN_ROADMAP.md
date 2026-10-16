@@ -1,5 +1,7 @@
 # CẨM NANG & LỘ TRÌNH TỪNG BƯỚC HOÀN THÀNH WEB ADMIN (MLD VIỆT NAM)
 
+> Tài liệu bên dưới mô tả prototype cũ. Triển khai hiện tại dùng API quản trị có xác thực trong backend chung, không dùng mock/fallback. Xem [ADMIN_SETUP.md](ADMIN_SETUP.md) để chạy, cấu hình và kiểm thử các menu CRUD mới.
+
 > **Dự án:** MLD Việt Nam — Hệ Sinh Thái Y Tế, Dưỡng Sinh Spa & Học Viện Đào Tạo Nghề  
 > **Phân hệ phụ trách:** Cổng Quản Trị Web Admin (`web-admin/`)  
 > **Chuẩn thiết kế:** 100% Khớp Ma Trận 12 Màn Hình Figma (W01 — W12) & Ảnh Thiết Kế Thực Tế  
