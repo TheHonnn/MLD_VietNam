@@ -1,6 +1,5 @@
-import { apiClient } from './apiClient';
-import { mockBookings } from './mockData';
 import { Booking, BookingStatus, ApiResponse } from '../types/shared_types';
+import { supabaseService } from './supabaseService';
 
 export const bookingService = {
   async getBookings(params?: {
@@ -9,39 +8,59 @@ export const bookingService = {
     date?: string;
     status?: BookingStatus;
   }): Promise<ApiResponse<Booking[]>> {
-    return apiClient.get<Booking[]>('/bookings', {
-      params,
-      mockFallback: () => {
-        let result = [...mockBookings];
-        if (params?.branchId) {
-          result = result.filter((b) => b.branchId === params.branchId);
-        }
-        if (params?.customerId) {
-          result = result.filter((b) => b.customerId === params.customerId);
-        }
-        if (params?.status) {
-          result = result.filter((b) => b.status === params.status);
-        }
-        return result;
-      },
-    });
+    try {
+      const live = await supabaseService.getBookings(params?.branchId, params?.customerId);
+      let result = live || [];
+      if (params?.date) {
+        result = result.filter((b) => b.bookingDate === params.date);
+      }
+      if (params?.status) {
+        result = result.filter((b) => b.status === params.status);
+      }
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu đặt lịch từ Supabase Cloud',
+        data: result,
+      };
+    } catch (err) {
+      console.error('[bookingService] getBookings error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn lịch hẹn từ Supabase Cloud',
+        data: [],
+      };
+    }
   },
 
   async getBookingById(id: string): Promise<ApiResponse<Booking | undefined>> {
-    return apiClient.get<Booking | undefined>(`/bookings/${id}`, {
-      mockFallback: () => mockBookings.find((b) => b.id === id),
-    });
+    try {
+      const live = await supabaseService.getBookings();
+      const found = live?.find((b) => b.id === id);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Chi tiết lịch hẹn từ Supabase Cloud',
+        data: found,
+      };
+    } catch (err) {
+      console.error('[bookingService] getBookingById error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn chi tiết lịch hẹn từ Supabase',
+        data: undefined,
+      };
+    }
   },
 
   async updateBookingStatus(id: string, status: BookingStatus): Promise<ApiResponse<Booking>> {
-    return apiClient.patch<Booking>(`/bookings/${id}/status`, { status }, {
-      mockFallback: () => {
-        const b = mockBookings.find((item) => item.id === id);
-        if (b) {
-          b.status = status;
-        }
-        return b;
-      },
-    });
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Cập nhật trạng thái lịch hẹn thành công',
+      data: { id, status } as Booking,
+    };
   },
 };

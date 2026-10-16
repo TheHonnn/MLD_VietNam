@@ -1,5 +1,5 @@
 export * from './apiClient';
-export * from './mockData';
+export * from './supabaseService';
 export * from './branch.service';
 export * from './customer.service';
 export * from './booking.service';

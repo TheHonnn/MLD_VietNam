@@ -491,7 +491,7 @@ export const W01_Dashboard: React.FC = () => {
       {/* 6. Bottom Disclaimers */}
       <div className="space-y-1 pt-1 text-[11px] text-[#8A796B] leading-relaxed">
         <p>
-          Phạm vi kết nối: {branches.length} chi nhánh đang hoạt động; dữ liệu tự động đồng bộ qua apiClient và fallback về mockData khi backend offline.
+          Phạm vi kết nối: {branches.length} chi nhánh đang hoạt động; dữ liệu thời gian thực đồng bộ trực tiếp 100% từ Supabase Cloud.
         </p>
         <div className="flex items-center gap-1.5 text-[#A69788]">
           <Info className="w-3.5 h-3.5 shrink-0" />

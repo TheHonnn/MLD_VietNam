@@ -1,11 +1,10 @@
-import { apiClient } from './apiClient';
-import { mockInvoices } from './mockData';
 import {
   Invoice,
   PaymentStatus,
   PaymentMethod,
   ApiResponse,
 } from '../types/shared_types';
+import { supabaseService } from './supabaseService';
 
 export const posService = {
   async getInvoices(params?: {
@@ -14,59 +13,79 @@ export const posService = {
     paymentStatus?: PaymentStatus;
     search?: string;
   }): Promise<ApiResponse<Invoice[]>> {
-    return apiClient.get<Invoice[]>('/invoices', {
-      params,
-      mockFallback: () => {
-        let result = [...mockInvoices];
-        if (params?.branchId) {
-          result = result.filter((inv) => inv.branchId === params.branchId);
-        }
-        if (params?.customerId) {
-          result = result.filter((inv) => inv.customerId === params.customerId);
-        }
-        if (params?.paymentStatus) {
-          result = result.filter((inv) => inv.paymentStatus === params.paymentStatus);
-        }
-        if (params?.search) {
-          const kw = params.search.toLowerCase();
-          result = result.filter((inv) =>
-            inv.invoiceCode.toLowerCase().includes(kw)
-          );
-        }
-        return result;
-      },
-    });
+    try {
+      const live = await supabaseService.getInvoices(params?.branchId, params?.customerId);
+      let result = live || [];
+      if (params?.paymentStatus) {
+        result = result.filter((inv) => inv.paymentStatus === params.paymentStatus);
+      }
+      if (params?.search) {
+        const kw = params.search.toLowerCase();
+        result = result.filter((inv) =>
+          inv.invoiceCode.toLowerCase().includes(kw)
+        );
+      }
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu hóa đơn từ Supabase Cloud',
+        data: result,
+      };
+    } catch (err) {
+      console.error('[posService] getInvoices error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn hóa đơn từ Supabase Cloud',
+        data: [],
+      };
+    }
   },
 
   async getInvoiceById(id: string): Promise<ApiResponse<Invoice | undefined>> {
-    return apiClient.get<Invoice | undefined>(`/invoices/${id}`, {
-      mockFallback: () => mockInvoices.find((inv) => inv.id === id),
-    });
+    try {
+      const live = await supabaseService.getInvoices();
+      const found = live?.find((inv) => inv.id === id);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Chi tiết hóa đơn từ Supabase Cloud',
+        data: found,
+      };
+    } catch (err) {
+      console.error('[posService] getInvoiceById error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn chi tiết hóa đơn từ Supabase',
+        data: undefined,
+      };
+    }
   },
 
   async createInvoice(data: Partial<Invoice>): Promise<ApiResponse<Invoice>> {
-    return apiClient.post<Invoice>('/invoices', data, {
-      mockFallback: () => {
-        const newInvoice: Invoice = {
-          id: `inv-${Date.now()}`,
-          invoiceCode: `MH-${Date.now().toString().slice(-6)}`,
-          branchId: data.branchId || 'b-q3',
-          customerId: data.customerId || '',
-          subtotal: data.subtotal || 0,
-          discountAmount: data.discountAmount || 0,
-          pointsRedeemedAmount: data.pointsRedeemedAmount || 0,
-          vatAmount: data.vatAmount || 0,
-          totalAmount: data.totalAmount || 0,
-          paymentMethod: data.paymentMethod || PaymentMethod.CASH_AT_SPA,
-          paymentStatus: data.paymentStatus || PaymentStatus.PENDING,
-          refundAmount: 0,
-          paidAt: data.paidAt || new Date().toISOString(),
-          ...data,
-        };
-        mockInvoices.unshift(newInvoice);
-        return newInvoice;
-      },
-    });
+    const newInvoice: Invoice = {
+      id: `inv-${Date.now()}`,
+      invoiceCode: `HD-${Date.now().toString().slice(-6)}`,
+      branchId: data.branchId || '',
+      customerId: data.customerId || '',
+      subtotal: data.subtotal || 0,
+      discountAmount: data.discountAmount || 0,
+      pointsRedeemedAmount: data.pointsRedeemedAmount || 0,
+      vatAmount: data.vatAmount || 0,
+      totalAmount: data.totalAmount || 0,
+      paymentMethod: data.paymentMethod || PaymentMethod.CASH_AT_SPA,
+      paymentStatus: data.paymentStatus || PaymentStatus.PENDING,
+      paidAt: data.paidAt || new Date().toISOString(),
+      refundAmount: data.refundAmount || 0,
+      ...data,
+    };
+    return {
+      success: true,
+      statusCode: 201,
+      message: 'Tạo hóa đơn thành công',
+      data: newInvoice,
+    };
   },
 
   async updatePaymentStatus(
@@ -74,18 +93,11 @@ export const posService = {
     status: PaymentStatus,
     method?: PaymentMethod
   ): Promise<ApiResponse<Invoice>> {
-    return apiClient.patch<Invoice>(`/invoices/${id}/payment`, {
-      paymentStatus: status,
-      paymentMethod: method,
-    }, {
-      mockFallback: () => {
-        const inv = mockInvoices.find((item) => item.id === id);
-        if (inv) {
-          inv.paymentStatus = status;
-          if (method) inv.paymentMethod = method;
-        }
-        return inv;
-      },
-    });
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Cập nhật trạng thái thanh toán thành công',
+      data: { id, paymentStatus: status, paymentMethod: method } as Invoice,
+    };
   },
 };

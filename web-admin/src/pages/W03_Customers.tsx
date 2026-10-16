@@ -16,7 +16,7 @@ export const W03_Customers: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<User[]>([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('u-minhanh');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedPackages, setSelectedPackages] = useState<UserPackage[]>([]);
   const [selectedTierFilter, setSelectedTierFilter] = useState<MemberTier | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +30,7 @@ export const W03_Customers: React.FC = () => {
         });
         if (res.success && res.data) {
           setCustomers(res.data);
-          if (res.data.length > 0 && !res.data.find((c) => c.id === selectedCustomerId)) {
+          if (res.data.length > 0 && (!selectedCustomerId || !res.data.find((c) => c.id === selectedCustomerId))) {
             setSelectedCustomerId(res.data[0].id);
           }
         }
@@ -258,7 +258,7 @@ export const W03_Customers: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate('/customer-detail');
+                            navigate(`/customer-detail?id=${c.id}`);
                           }}
                           className="px-3 py-1 rounded-lg text-xs font-bold text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors"
                         >
@@ -347,7 +347,7 @@ export const W03_Customers: React.FC = () => {
             </div>
 
             <button
-              onClick={() => navigate('/customer-detail')}
+              onClick={() => navigate(`/customer-detail?id=${selectedCustomer.id}`)}
               className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2"
             >
               Xem bệnh án & hồ sơ chi tiết

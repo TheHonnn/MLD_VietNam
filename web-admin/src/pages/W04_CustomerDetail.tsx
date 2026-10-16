@@ -23,7 +23,11 @@ import {
   CourseEnrollment,
 } from '../types/shared_types';
 
+import { useSearchParams } from 'react-router-dom';
+
 export const W04_CustomerDetail: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const targetId = searchParams.get('id');
   const [activeTab, setActiveTab] = useState('Tổng quan');
   const [customer, setCustomer] = useState<User | undefined>(undefined);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -44,18 +48,36 @@ export const W04_CustomerDetail: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [custRes, bkRes, pkgRes, jrnRes, enrRes] = await Promise.all([
-          customerService.getCustomerById('u-minhanh'),
-          bookingService.getBookings({ customerId: 'u-minhanh' }),
-          treatmentService.getUserPackagesByCustomer('u-minhanh'),
-          treatmentService.getTreatmentJournalsByCustomer('u-minhanh'),
-          academyService.getEnrollments({ search: 'u-minhanh' }),
-        ]);
-        if (custRes.success) setCustomer(custRes.data);
-        if (bkRes.success) setBookings(bkRes.data);
-        if (pkgRes.success) setPackages(pkgRes.data);
-        if (jrnRes.success) setJournals(jrnRes.data);
-        if (enrRes.success) setEnrollments(enrRes.data);
+        let custId = targetId;
+        let custData: User | undefined;
+
+        if (custId) {
+          const custRes = await customerService.getCustomerById(custId);
+          if (custRes.success) custData = custRes.data;
+        }
+
+        if (!custData) {
+          const listRes = await customerService.getCustomers();
+          if (listRes.success && listRes.data.length > 0) {
+            custData = listRes.data[0];
+            custId = custData.id;
+          }
+        }
+
+        setCustomer(custData);
+
+        if (custId) {
+          const [bkRes, pkgRes, jrnRes, enrRes] = await Promise.all([
+            bookingService.getBookings({ customerId: custId }),
+            treatmentService.getUserPackagesByCustomer(custId),
+            treatmentService.getTreatmentJournalsByCustomer(custId),
+            academyService.getEnrollments(),
+          ]);
+          if (bkRes.success) setBookings(bkRes.data);
+          if (pkgRes.success) setPackages(pkgRes.data);
+          if (jrnRes.success) setJournals(jrnRes.data);
+          if (enrRes.success) setEnrollments((enrRes.data || []).filter((e) => e.studentId === custId));
+        }
       } catch (err) {
         console.error('Failed to load customer profile details:', err);
       } finally {
@@ -63,7 +85,7 @@ export const W04_CustomerDetail: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [targetId]);
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
