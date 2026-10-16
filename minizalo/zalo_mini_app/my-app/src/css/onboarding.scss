@@ -55,19 +55,6 @@
 .profile-two-columns { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; }
 .profile-optional { font-size: 10px; color: #83746a; line-height: 1.6; margin: 4px 0 16px; }
 .onboarding-error { font-size: 12px; line-height: 1.6; color: #ad3030; overflow-wrap: anywhere; padding: 10px 0; }
-.interest-page .onboarding-brand { margin-top: 24px; }
-.interest-page h1 { max-width: 290px; }
-.interest-options { display: grid; gap: 14px; margin: 10px 0 20px; }
-.interest-option { position: relative; display: grid; grid-template-columns: 84px minmax(0, 1fr) 20px; align-items: center; gap: 12px; min-height: 135px; padding: 12px; border: 1px solid #e5d8cb; border-radius: 8px; background: white; cursor: pointer; }
-.interest-option.is-selected { border-color: #98501b; background: #fff9f1; box-shadow: inset 0 0 0 1px #98501b; }
-.interest-option > img { width: 84px; height: 106px; object-fit: cover; border-radius: 6px; }
-.interest-option-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
-.interest-option-copy svg { color: #98501b; }
-.interest-option-copy strong { font-size: 13px; line-height: 1.5; }
-.interest-option-copy > span { font-size: 11px; line-height: 1.6; color: #83746a; }
-.interest-option input { width: 19px; height: 19px; accent-color: #98501b; }
 @media (max-width: 350px) {
   .new-customer-page { padding-left: 16px; padding-right: 16px; }
-  .interest-option { grid-template-columns: 62px minmax(0, 1fr) 19px; gap: 8px; padding: 10px; }
-  .interest-option > img { width: 62px; height: 100px; }
 }

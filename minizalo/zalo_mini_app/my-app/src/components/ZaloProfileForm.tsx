@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ArrowLeftIcon, CameraIcon, CheckIcon, NavProfileIcon } from '@/components/Icons';
+import '@/css/profile-onboarding.scss';
 
 export interface RegistrationChallenge {
   registrationToken: string;
@@ -61,27 +62,28 @@ export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
   };
   return (
     <section className="new-customer-page profile-page" aria-labelledby="profile-heading">
+      <div className="profile-page-content">
       <header className="onboarding-topbar">
         <button type="button" onClick={() => onBack(profile)} aria-label="Quay lại" title="Quay lại" className="onboarding-back"><ArrowLeftIcon size={20} /></button>
         <span>HỒ SƠ CÁ NHÂN</span>
       </header>
       <h1 id="profile-heading" tabIndex={-1}>Hoàn thiện hồ sơ</h1>
       <p className="onboarding-description">Vui lòng cập nhật thông tin để chúng tôi phục vụ bạn tốt hơn.</p>
-      <form onSubmit={event => { event.preventDefault(); if (!readingImage && profile.fullName.trim()) onContinue({ ...profile, fullName: profile.fullName.trim() }); }}>
+      <form className="profile-form" onSubmit={event => { event.preventDefault(); if (!readingImage && profile.fullName.trim()) onContinue({ ...profile, fullName: profile.fullName.trim() }); }}>
         <div className="profile-avatar-row">
           <button type="button" className="profile-avatar" onClick={() => input.current?.click()} disabled={readingImage} aria-label="Thay ảnh đại diện" title="Thay ảnh đại diện">
             {profile.avatarUrl ? <img src={profile.avatarUrl} alt="Ảnh đại diện" onError={() => change('avatarUrl', '')} /> : <NavProfileIcon size={32} />}
             <span className="profile-camera"><CameraIcon size={14} /></span>
           </button>
-          <div><button className="profile-photo-label" type="button" onClick={() => input.current?.click()} disabled={readingImage}>{readingImage ? 'Đang xử lý ảnh...' : profile.avatarUrl ? 'Thay ảnh đại diện' : 'Thêm ảnh đại diện'}</button><p>Có thể cập nhật sau</p></div>
+          <div><button className="profile-photo-label" type="button" onClick={() => input.current?.click()} disabled={readingImage}>{readingImage ? 'Đang xử lý ảnh...' : profile.avatarUrl ? 'Thay ảnh đại diện' : 'Thêm ảnh đại diện'}</button><p>Có thể cập nhật sau</p>{imageError && <p role="alert" className="profile-upload-error">{imageError}</p>}</div>
           <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseAvatar} hidden />
         </div>
-        {imageError && <p role="alert" className="onboarding-error">{imageError}</p>}
+        <div className="profile-form-fields">
         <label className="profile-field">Họ và tên <span className="profile-required">*</span>
-          <input value={profile.fullName} onChange={event => change('fullName', event.target.value)} maxLength={150} autoComplete="name" required placeholder="Nhập họ và tên" />
+          <input value={profile.fullName} onChange={event => change('fullName', event.target.value)} maxLength={150} autoComplete="name" required placeholder="Nhập họ và tên" aria-required="true" />
         </label>
         <label className="profile-field">Số điện thoại
-          <div className="profile-verified"><input value={challenge.phone} readOnly type="tel" aria-label="Số điện thoại đã xác minh" /><CheckIcon size={17} color="#40956B" /></div>
+          <div className="profile-verified"><input value={challenge.phone} readOnly type="tel" aria-label="Số điện thoại đã xác minh" /><span className="profile-verified-mark" aria-hidden="true"><CheckIcon size={12} color="#40956B" /></span></div>
         </label>
         <div className="profile-two-columns">
           <label className="profile-field">Ngày sinh
@@ -94,11 +96,15 @@ export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
           </label>
         </div>
         <label className="profile-field">Email
-          <input value={profile.email} onChange={event => change('email', event.target.value)} type="email" autoComplete="email" maxLength={255} placeholder="Nhập địa chỉ email" />
+          <input value={profile.email} onChange={event => change('email', event.target.value)} type="email" inputMode="email" autoComplete="email" maxLength={255} placeholder="Nhập địa chỉ email" />
         </label>
+        </div>
+        <div className="profile-form-actions">
         <p className="profile-optional">* Bắt buộc. Ngày sinh, giới tính và email là tùy chọn.</p>
         <button type="submit" disabled={readingImage || !profile.fullName.trim()} className="onboarding-primary">Lưu và tiếp tục</button>
+        </div>
       </form>
+      </div>
     </section>
   );
 }

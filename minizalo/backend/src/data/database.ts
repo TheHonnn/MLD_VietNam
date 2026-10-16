@@ -114,6 +114,7 @@ export interface Booking {
   price: number;
   discount: number;
   finalPrice: number;
+  paymentStatus?: string;
   paymentMethod: 'vnpay' | 'momo' | 'zalopay' | 'hospital' | (string & {});
   status: 'confirmed' | 'pending' | 'completed' | 'cancelled' | 'checked_in' | 'in_service' | 'no_show' | (string & {});
   notes?: string;

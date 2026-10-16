@@ -10,7 +10,7 @@ interface HomeMetadata {
   faqs?: { id: string; question: string; answer: string; isActive?: boolean }[];
 }
 
-interface GroupBHomeProps {
+export interface GroupBHomeProps {
   services: ServiceDetails[];
   doctors: DoctorDetails[];
   branches: BranchDetails[];
@@ -40,7 +40,7 @@ const bookingStatuses: Record<string, string> = {
   in_service: 'Đang thực hiện', completed: 'Hoàn thành', cancelled: 'Đã hủy', no_show: 'Không đến',
 };
 
-export const GroupBHome: React.FC<GroupBHomeProps> = ({
+export const HomeCatalog: React.FC<GroupBHomeProps> = ({
   services, doctors, branches, upcomingBooking, userName, metadata, courses = [], guidelines = [],
   onSelectService, onViewServiceDetail, onSelectDoctor, onSelectBranch, onOpenDirections, onSelectCourse,
   onNavigateTab, onOpenSearch, onOpenNotifications, unreadNotifications = 0, onOpenBranches, onOpenSpecialists,

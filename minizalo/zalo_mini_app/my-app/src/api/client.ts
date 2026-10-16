@@ -25,12 +25,16 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (init.signal?.aborted) controller.abort();
+  init.signal?.addEventListener('abort', abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), 30000);
   let response: Response;
+  let envelope: any;
   try {
-    response = await window.fetch(input, { cache: 'no-store', ...init, headers, signal: init.signal ?? controller.signal });
-  } finally { clearTimeout(timeout); }
-  const envelope = await response.json();
+    response = await window.fetch(input, { cache: 'no-store', ...init, headers, signal: controller.signal });
+    envelope = await response.json();
+  } finally { clearTimeout(timeout); init.signal?.removeEventListener('abort', abort); }
   const successful = response.ok && envelope.success === true;
   const payload = successful ? adaptPayload(envelope.data || {})
     : { error: envelope.message || 'Không thể tải dữ liệu. Vui lòng thử lại.', status: envelope.statusCode || response.status };

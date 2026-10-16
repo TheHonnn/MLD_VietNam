@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Page, Box, Text } from 'zmp-ui';
 import { HeaderFigma } from '@/components/HeaderFigma';
-import { GroupBHome } from '@/components/GroupBHome';
+import { GroupBHome } from '@/components/HomeDashboard';
 import { GroupCBooking } from '@/components/GroupCBooking';
 import { AppointmentsManager } from '@/components/AppointmentsManager';
 import { ETicketGroupC } from '@/components/ETicketGroupC';
@@ -12,6 +12,8 @@ import { GroupFProfile } from '@/components/GroupFProfile';
 import { GroupAAuthModal } from '@/components/GroupAAuthModal';
 import { RegistrationChallenge } from '@/components/ZaloProfileForm';
 import { NewCustomerOnboarding } from '@/components/NewCustomerOnboarding';
+import { LaunchScreen } from '@/components/LaunchScreen';
+import { CareIntroScreen } from '@/components/CareIntroScreen';
 import { GroupBSearch } from '@/components/GroupBSearch';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import {
@@ -51,6 +53,8 @@ import {
 } from '@/components/Icons';
 
 function MasterHomePage() {
+  const [showLaunchScreen, setShowLaunchScreen] = useState(true);
+  const [showCareIntro, setShowCareIntro] = useState(true);
   // Navigation Tabs matching Figma Nhóm B & C: 'home' | 'services' | 'booking' | 'academy' | 'profile'
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking' | 'academy' | 'profile'>('home');
   const [academyMode, setAcademyMode] = useState<'catalog' | 'learning'>('catalog');
@@ -60,6 +64,7 @@ function MasterHomePage() {
   const [services, setServices] = useState<MedicalService[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [homeBranchId, setHomeBranchId] = useState('');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -123,6 +128,10 @@ function MasterHomePage() {
       setETicketBooking(null);
       setBookingService(null);
       const metadataRequest = apiClient.getAppMetadata();
+      const catalogRequest = Promise.all([
+        apiClient.getServices(), apiClient.getDoctors(), apiClient.getBranches(),
+        apiClient.getCourses(), apiClient.getCareGuidelines(),
+      ]);
       let authenticated = false;
       const isInsideZalo = /Zalo/i.test(navigator.userAgent) || Boolean((window as any).ZJSBridge);
       if (isInsideZalo) {
@@ -143,15 +152,8 @@ function MasterHomePage() {
         if (session?.user) { setUser(session.user); authenticated = true; }
         else { apiClient.logout(); setUser({ ...guestUser }); }
       }
-      const [metadata, care] = await Promise.all([metadataRequest, apiClient.getCareGuidelines()]);
-      if (cancelled) return;
-      if (!metadata?.error) setAppMetadata(metadata);
-      if (care?.guidelines) setGuidelines(care.guidelines);
-      const [srvData, docData, brData, crsData, recData, membData, bkData, notifData, treatmentData] = await Promise.all([
-        apiClient.getServices(),
-        apiClient.getDoctors(),
-        apiClient.getBranches(),
-        apiClient.getCourses(),
+      const [metadata, [srvData, docData, brData, crsData, care], recData, membData, bkData, notifData, treatmentData] = await Promise.all([
+        metadataRequest, catalogRequest,
         authenticated ? apiClient.getMedicalRecords() : Promise.resolve({}),
         authenticated ? apiClient.getMembership() : Promise.resolve({}),
         authenticated ? apiClient.getBookings() : Promise.resolve({}),
@@ -159,6 +161,8 @@ function MasterHomePage() {
         authenticated ? apiClient.getTreatmentPlans() : Promise.resolve({}),
       ]);
       if (cancelled) return;
+      if (!metadata?.error) setAppMetadata(metadata);
+      if (care?.guidelines) setGuidelines(care.guidelines);
 
       const results = [srvData, docData, brData, crsData, care, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
       if (metadata?.error || results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
@@ -221,7 +225,7 @@ function MasterHomePage() {
   const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null) => {
     if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return; }
     if (!services.length || !branches.length) { setDataError('Chưa có dịch vụ hoặc chi nhánh để đặt lịch.'); return; }
-    setBookingBranch(branch || null);
+    setBookingBranch(branch || branches.find(item => item.id === homeBranchId) || branches[0] || null);
     setBookingDoctor(doctor || null);
     setBookingService(service || services[0] || null);
   };
@@ -244,7 +248,9 @@ function MasterHomePage() {
 
   return (
     <div className="min-h-screen bg-[#EDE7DE] flex justify-center items-start sm:items-center py-0 sm:py-4 text-stone-800 select-none">
-      <div className="mini-app-shell w-full max-w-[390px] sm:h-[844px] sm:max-h-[96vh] bg-[#FAF6F0] sm:rounded-[36px] shadow-2xl relative overflow-hidden flex flex-col border sm:border-[#DCCFC0]">
+      <div className={`mini-app-shell ${activeTab === 'home' ? 'mini-app-shell--home' : ''} ${activeTab === 'booking' || eTicketBooking ? 'mini-app-shell--appointments' : ''} ${bookingService ? 'mini-app-shell--booking' : ''} ${isSpecialistDirectoryOpen || viewingDoctor ? 'mini-app-shell--specialists' : ''} ${isBranchDirectoryOpen || viewingBranch || directionsBranch ? 'mini-app-shell--branches' : ''} ${showLaunchScreen || showCareIntro || registration ? 'mini-app-shell--launch' : ''} w-full max-w-[390px] sm:h-[844px] sm:max-h-[96vh] bg-[#FAF6F0] sm:rounded-[36px] shadow-2xl relative overflow-hidden flex flex-col border sm:border-[#DCCFC0]`}>
+        {showLaunchScreen && <LaunchScreen ready={!dataLoading} onComplete={() => setShowLaunchScreen(false)} />}
+        {!showLaunchScreen && showCareIntro && <CareIntroScreen onContinue={() => setShowCareIntro(false)} onSkip={() => setShowCareIntro(false)} />}
         {(zaloAuthState === 'required' || zaloAuthState === 'checking') && (
           <div className="absolute inset-0 z-[100] flex items-center justify-center bg-[#FAF6F0] p-6">
             <div className="w-full rounded-[8px] border border-[#EADECF] bg-white p-5 text-center shadow-lg">
@@ -260,18 +266,26 @@ function MasterHomePage() {
             </div>
           </div>
         )}
-        {registration && <NewCustomerOnboarding challenge={registration}
+        {registration && <NewCustomerOnboarding challenge={registration} initialStep="growth"
           onBack={() => { setRegistration(null); setZaloAuthState('required'); }}
           onComplete={account => { setRegistration(null); setUser(account); setActiveTab('home'); setZaloAuthState('connected'); setLoadVersion(value => value + 1); }} />}
         {/* Scrollable Body Content */}
-        <div className="flex-1 overflow-y-auto pb-28 overscroll-contain">
-        <div className="flex justify-end px-3 pt-2"><button type="button" disabled={dataLoading} onClick={() => setLoadVersion(value => value + 1)} className="min-h-9 rounded-lg border bg-white px-3 text-xs disabled:opacity-50">{dataLoading ? 'Đang cập nhật...' : 'Cập nhật dữ liệu'}</button></div>
-        {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
-        {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={() => setLoadVersion(value => value + 1)} className="underline">Thử lại</button></div>}
+        <div className={`app-main-content ${activeTab === 'home' ? 'app-main-content--home' : ''} min-h-0 flex-1 overflow-y-auto pb-28 overscroll-contain`}>
+        {activeTab !== 'home' && activeTab !== 'booking' && <>
+          <div className="flex justify-end px-3 pt-2"><button type="button" disabled={dataLoading} onClick={() => setLoadVersion(value => value + 1)} className="min-h-9 rounded-lg border bg-white px-3 text-xs disabled:opacity-50">{dataLoading ? 'Đang cập nhật...' : 'Cập nhật dữ liệu'}</button></div>
+          {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
+          {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={() => setLoadVersion(value => value + 1)} className="underline">Thử lại</button></div>}
+        </>}
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
           <GroupBHome
             userName={user.name}
+            userAvatar={user.avatar}
+            selectedBranchId={homeBranchId}
+            onChangeBranch={setHomeBranchId}
+            loading={dataLoading}
+            error={dataError}
+            onRefresh={() => setLoadVersion(value => value + 1)}
             metadata={appMetadata}
             courses={courses}
             onSelectCourse={course => { setSelectedCourseId(course.id); setAcademyMode('catalog'); setActiveTab('academy'); }}
@@ -294,8 +308,8 @@ function MasterHomePage() {
               });
             }}
             unreadNotifications={notifications.filter((item) => !item.isRead).length}
-            onOpenBranches={() => setIsBranchDirectoryOpen(true)}
-            onOpenSpecialists={() => setIsSpecialistDirectoryOpen(true)}
+            onOpenBranches={() => { setActiveTab('services'); setIsBranchDirectoryOpen(true); }}
+            onOpenSpecialists={() => { setActiveTab('services'); setIsSpecialistDirectoryOpen(true); }}
           />
         )}
 
@@ -449,6 +463,11 @@ function MasterHomePage() {
         {activeTab === 'booking' && (
           <AppointmentsManager
             bookings={bookings}
+            branches={branches}
+            loading={dataLoading}
+            error={dataError}
+            onRefresh={() => setLoadVersion(value => value + 1)}
+            onClose={() => setActiveTab('home')}
             onUpdateBookings={(updated) => setBookings(updated)}
             onBookNewService={() => openBooking(services[0])}
             onRebookService={(id) => {
@@ -546,10 +565,12 @@ function MasterHomePage() {
       {viewingDoctor && (
         <SpecialistDetailModal
           doctor={viewingDoctor}
+          branches={branches}
           onClose={() => setViewingDoctor(null)}
           onBookWithDoctor={(doctor) => {
             setViewingDoctor(null);
-            openBooking(services[0], null, doctor);
+            setIsSpecialistDirectoryOpen(false);
+            openBooking(services[0], branches.find(branch => branch.id === doctor.branchId), doctor);
           }}
         />
       )}
@@ -561,6 +582,8 @@ function MasterHomePage() {
           onClose={() => setViewingBranch(null)}
           onSelectBranch={(br) => {
             setViewingBranch(null);
+            setIsBranchDirectoryOpen(false);
+            setHomeBranchId(br.id);
             openBooking(services[0], br);
           }}
           onOpenDirections={(br) => {
@@ -574,23 +597,26 @@ function MasterHomePage() {
       {directionsBranch && (
         <LocationDirectionsModal
           branch={directionsBranch}
-          onClose={() => setDirectionsBranch(null)}
+          onClose={() => { setViewingBranch(directionsBranch); setDirectionsBranch(null); }}
           onBookAtBranch={(br) => {
             setDirectionsBranch(null);
+            setViewingBranch(null);
+            setIsBranchDirectoryOpen(false);
             openBooking(services[0], br);
           }}
         />
       )}
 
       {isBranchDirectoryOpen && (
+        <div hidden={Boolean(viewingBranch || directionsBranch)}>
         <BranchDirectoryModal
           branches={branches}
           onClose={() => setIsBranchDirectoryOpen(false)}
           onSelectBranch={(branch) => {
-            setIsBranchDirectoryOpen(false);
             setViewingBranch(branch);
           }}
         />
+        </div>
       )}
 
       {isSpecialistDirectoryOpen && (
@@ -598,7 +624,6 @@ function MasterHomePage() {
           doctors={doctors}
           onClose={() => setIsSpecialistDirectoryOpen(false)}
           onSelectDoctor={(doctor) => {
-            setIsSpecialistDirectoryOpen(false);
             setViewingDoctor(doctor);
           }}
         />
@@ -626,6 +651,7 @@ function MasterHomePage() {
       {eTicketBooking && (
         <ETicketGroupC
           booking={eTicketBooking}
+          branches={branches}
           onClose={() => setETicketBooking(null)}
           onGoToAppointments={() => {
             setActiveTab('booking');
@@ -715,7 +741,7 @@ function MasterHomePage() {
       )}
 
       {/* 13. BOTTOM NAVIGATION BAR (FIGMA DESIGN SYSTEM 02 — 5 TRẠNG THÁI) */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-[#E8DDD2] z-30 shadow-[0_-2px_8px_rgba(64,53,47,0.05)]">
+      <div className="app-bottom-nav absolute bottom-0 left-0 right-0 bg-white border-t border-[#E8DDD2] z-30 shadow-[0_-2px_8px_rgba(64,53,47,0.05)]">
         <div className="grid grid-cols-5 h-[62px] px-1">
           {[
             { key: 'home', label: 'Trang chủ', IconComponent: NavHomeIcon },
@@ -729,11 +755,12 @@ function MasterHomePage() {
             return (
               <button
                 key={tab.key}
+                type="button"
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
+                  setIsSpecialistDirectoryOpen(false);
+                  setIsBranchDirectoryOpen(false);
                   setIsTreatmentOpen(false);
-                  if (tab.key === 'booking') {
-                    openBooking(services[0]);
-                  }
                   if (tab.key === 'academy') setAcademyMode('catalog');
                   setActiveTab(tab.key as any);
                 }}
@@ -754,7 +781,7 @@ function MasterHomePage() {
           })}
         </div>
         {/* iOS Home Indicator Bar */}
-        <div className="w-[104px] h-1 bg-[#1F1B18] rounded-full mx-auto mt-1 mb-1.5" />
+        <div className="app-home-indicator w-[104px] h-1 bg-[#1F1B18] rounded-full mx-auto mt-1 mb-1.5" />
       </div>
     </div>
   </div>

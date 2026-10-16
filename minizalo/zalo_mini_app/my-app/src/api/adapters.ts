@@ -71,6 +71,7 @@ export const adaptBooking = (b: BookingResponse): View.Booking => ({
   timeSlot: b.startTime + ' - ' + b.endTime, price: Number(b.baseTotal),
   discount: Number(b.discountAmount) + Number(b.pointsDiscount),
   finalPrice: Number(b.finalPrice), paymentMethod: lower(b.paymentMethod),
+  paymentStatus: b.paymentStatus ? lower(b.paymentStatus) : undefined,
   status: lower(b.status), notes: b.specialNotes || undefined,
   qrCode: b.qrCodeHash || '', createdAt: b.createdAt || '',
 });
