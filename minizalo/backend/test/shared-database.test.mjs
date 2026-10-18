@@ -86,6 +86,27 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       assert.equal(slots.data.slots[0].startTime,'10:00:00');
       assert.equal(slots.data.slots[0].endTime,'11:00:00');
     });
+    await t.test('discovery filters use real categories and only valid active availability', async () => {
+      for (const category of [ids.category, 'MASSAGE', 'Massage']) {
+        const result = await request(`/services?category=${encodeURIComponent(category)}`, { anonymous: true });
+        assert.equal(result.status, 200);
+        assert.deepEqual(result.data.services.map(service => service.id), [ids.service]);
+      }
+      assert.deepEqual((await request('/services?category=not-a-category', { anonymous: true })).data.services, []);
+      const path = `/slots?branchId=${ids.branch}&serviceId=${ids.service}&date=`;
+      for (const day of ['2099-02-31', '2099-13-01', 'invalid']) assert.equal((await request(path + day, { anonymous: true })).status, 400);
+      for (const [table, id] of [['branches', ids.branch], ['service_categories', ids.category], ['technicians', ids.technician], ['services', ids.service]]) {
+        try {
+          await db.query(`UPDATE ${table} SET is_active=false WHERE id=$1`, [id]);
+          assert.deepEqual((await request(path + '2099-01-02', { anonymous: true })).data.slots, []);
+        } finally { await db.query(`UPDATE ${table} SET is_active=true WHERE id=$1`, [id]); }
+      }
+      const available = await request(path + '2099-01-02', { anonymous: true });
+      assert.equal(available.data.slots.length, 1);
+      assert.equal(available.data.slots[0].technicianId, ids.technician);
+      assert.equal('heldByUserId' in available.data.slots[0], false);
+      assert.deepEqual((await request(path + '2099-01-04', { anonymous: true })).data.slots, []);
+    });
     await t.test('no demo user, fake login or unconfigured Zalo identity succeeds', async () => {
       assert.equal((await request('/bookings', { anonymous: true })).status, 401);
       assert.equal((await request('/bookings', { tokenOverride: jwt.sign({ sub: 'usr_001' }, secret) })).status, 400);

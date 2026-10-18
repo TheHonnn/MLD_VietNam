@@ -13,7 +13,8 @@ export function QRCode({ value, size = 180, className = '' }: { value: string; s
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, [value, size]);
-  if (!value || failed) return <p role="status" className="text-xs">Chưa có mã QR hợp lệ.</p>;
+  if (!value) return null;
+  if (failed) return <p role="alert" className="text-xs">Không thể tạo mã QR.</p>;
   return <span className={className} style={{ display: 'inline-flex', width: size, height: size, maxWidth: '100%', alignItems: 'center', justifyContent: 'center' }}>
     {image ? <img src={image} width={size} height={size} alt="Mã QR" /> : <span role="status" className="text-xs">Đang tạo mã QR...</span>}
   </span>;

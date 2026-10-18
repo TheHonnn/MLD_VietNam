@@ -1,0 +1,87 @@
+.academy-screen { position: absolute; inset: 0 0 max(80px, calc(77px + env(safe-area-inset-bottom, 0px))); z-index: 10; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: #f8f1e7; color: #55483e; letter-spacing: 0; }
+.academy-header { flex-shrink: 0; padding: max(16px, env(safe-area-inset-top, 0px)) 16px 12px; }
+.academy-header h1 { margin: 14px 0 8px; font-size: 24px; line-height: 30px; font-weight: 700; color: #78492f; overflow-wrap: anywhere; }
+.academy-header p { font-size: 12px; line-height: 18px; color: #84776c; }
+.academy-back { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #e7d0bc; border-radius: 8px; background: white; }
+.academy-eyebrow { color: #a65317; font-size: 10px; line-height: 16px; }
+.academy-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 18px; font-size: 12px; line-height: 19px; }
+.academy-body > h2 { margin: 22px 0 12px; font-size: 17px; line-height: 23px; font-weight: 700; color: #78492f; }
+.academy-body p { overflow-wrap: anywhere; }
+.academy-body select, .academy-body input:not([type=radio]), .academy-body textarea { width: 100%; min-width: 0; min-height: 42px; padding: 9px 12px; border: 1px solid #e7d0bc; border-radius: 8px; background: white; color: #55483e; font-size: 12px; }
+.academy-body select:disabled { background: #f2e9de; }
+.academy-field { display: grid; gap: 5px; margin: 12px 0; font-size: 11px; }
+.academy-greeting { display: flex; align-items: center; gap: 10px; margin: 4px 0 18px; }
+.academy-greeting > div { flex: 1; min-width: 0; }
+.academy-greeting strong { font-size: 13px; overflow-wrap: anywhere; }
+.academy-greeting p { font-size: 10px; color: #84776c; }
+.academy-greeting > button { width: 36px; height: 36px; display: grid; place-items: center; background: white; color: #a65317; border-radius: 8px; }
+.academy-avatar { display: grid; place-items: center; flex: 0 0 36px; height: 36px; background: #f3e2cb; border-radius: 50%; overflow: hidden; color: #a65317; }
+.academy-avatar-image { width: 36px; height: 36px; object-fit: cover; }
+.academy-feature { margin: 18px 0; overflow: hidden; background: #f3e3cd; }
+.academy-feature-photo { width: 100%; aspect-ratio: 1.9; object-fit: cover; }
+.academy-feature > div:last-child { padding: 14px; }
+.academy-feature h2 { margin: 6px 0; font-size: 20px; line-height: 26px; font-weight: 700; color: #78492f; }
+.academy-feature p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 14px; }
+.academy-outline, .academy-primary { width: 100%; min-height: 44px; padding: 10px 14px; border: 1px solid #a65317; border-radius: 8px; font-size: 13px; font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+.academy-outline { background: white; color: #a65317; }
+.academy-primary { background: #9d4e13; color: white; }
+.academy-primary:disabled { opacity: .5; }
+.academy-footer { flex-shrink: 0; padding: 10px 16px 12px; border-top: 1px solid #e7d0bc; background: #fffdf9; }
+.academy-footer > p { margin-bottom: 7px; font-size: 10px; color: #a65317; overflow-wrap: anywhere; }
+.academy-search { display: flex; align-items: center; gap: 8px; margin: 8px 0 18px; color: #a65317; }
+.academy-search svg { flex-shrink: 0; }
+.academy-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }
+.academy-chips button { max-width: 100%; min-height: 34px; padding: 7px 11px; border-radius: 8px; border: 1px solid #e7d0bc; background: white; font-size: 11px; overflow-wrap: anywhere; }
+.academy-chips [aria-pressed=true] { background: #9d4e13; border-color: #9d4e13; color: white; }
+.academy-body > .academy-filter-title { font-size: 12px; margin: 0 0 8px; }
+.academy-filters { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.academy-filters label { display: grid; gap: 4px; font-size: 10px; }
+.academy-course-card { display: flex; width: 100%; min-width: 0; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e7d0bc; text-align: left; }
+.academy-course-photo { flex: 0 0 90px; width: 90px; height: 82px; object-fit: cover; }
+.academy-course-card > span { display: grid; gap: 5px; min-width: 0; }
+.academy-course-card strong { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.academy-course-card small { font-size: 10px; }
+.academy-course-card b { font-size: 12px; color: #a65317; }
+.academy-cover { width: 100%; aspect-ratio: 1.45; object-fit: cover; margin-bottom: 18px; }
+.academy-summary { padding: 16px; margin: 12px 0 20px; background: #f3e3cd; border: 1px solid #e7d0bc; border-radius: 8px; }
+.academy-summary > span { color: #a65317; font-size: 11px; }
+.academy-summary h2 { font-size: 17px; line-height: 23px; font-weight: 700; margin: 10px 0; color: #78492f; }
+.academy-summary p { margin-top: 6px; font-size: 11px; }
+.academy-metrics { display: flex; gap: 20px; margin: 12px 0; }
+.academy-metrics > div { flex: 1; min-width: 0; }
+.academy-metrics strong { display: block; font-size: 26px; line-height: 32px; font-weight: 700; color: #a65317; overflow-wrap: anywhere; }
+.academy-metrics small { font-size: 10px; color: #84776c; }
+.academy-description { white-space: pre-wrap; }
+.academy-instructor-link { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.academy-instructor-link span { display: grid; gap: 6px; }
+.academy-instructor-link strong { font-size: 14px; }
+.academy-instructor-thumb { width: 64px; height: 72px; flex: 0 0 64px; object-fit: cover; }
+.academy-instructor-bio h2 { font-size: 20px; font-weight: 700; line-height: 26px; margin-bottom: 8px; color: #78492f; }
+.academy-instructor-bio > strong { color: #a65317; }
+.academy-list-row { padding: 10px 0; border-bottom: 1px solid #e7d0bc; }
+.academy-registration-photo { width: 64px; height: 64px; float: left; margin: 0 12px 10px 0; object-fit: cover; }
+.academy-summary:has(.academy-registration-photo)::after { display: block; clear: both; content: ''; }
+.academy-fees { padding: 16px 0; border-top: 1px solid #e7d0bc; }
+.academy-fees h2 { font-size: 17px; font-weight: 700; margin-bottom: 14px; color: #78492f; }
+.academy-fees dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.academy-fees dd { text-align: right; font-weight: 600; }
+.academy-tabs { display: flex; gap: 6px; overflow-x: auto; margin: 14px 0 18px; border-bottom: 1px solid #e7d0bc; }
+.academy-tabs button { min-height: 42px; flex: 1 0 auto; padding: 8px; font-size: 11px; color: #84776c; border-bottom: 2px solid transparent; }
+.academy-tabs [aria-selected=true], .academy-tabs [aria-current=page] { color: #a65317; border-bottom-color: #a65317; }
+.academy-enrollment { padding: 16px; background: white; border: 1px solid #e7d0bc; border-radius: 8px; margin-bottom: 14px; }
+.academy-status { display: inline-block; padding: 4px 7px; background: #f3e3cd; color: #a65317; border-radius: 4px; font-size: 10px; }
+.academy-enrollment h2 { margin: 12px 0 8px; font-size: 16px; line-height: 22px; font-weight: 700; }
+.academy-enrollment p { margin: 5px 0; font-size: 10px; }
+.academy-screen progress { display: block; width: 100%; height: 5px; margin: 10px 0; accent-color: #a65317; }
+.academy-enrollment .academy-primary { margin-top: 10px; }
+.academy-feedback { flex-shrink: 0; max-height: 100px; overflow-y: auto; padding: 6px 16px; font-size: 11px; background: #fffdf9; }
+.academy-error { color: #b42318; font-size: 12px; overflow-wrap: anywhere; }
+.academy-feedback button { padding: 6px; text-decoration: underline; }
+.academy-lesson-row { display: flex; align-items: center; gap: 10px; padding: 14px 0; width: 100%; border-bottom: 1px solid #e7d0bc; text-align: left; font-size: 12px; }
+.academy-lesson-row small { display: block; color: #84776c; font-size: 10px; }
+.academy-learning > select { margin-bottom: 15px; }
+.academy-chapter { border: 1px solid #e7d0bc; border-radius: 8px; background: white; padding: 12px; }
+.academy-chapter summary { padding: 4px 0; font-size: 13px; font-weight: 600; cursor: pointer; }
+.academy-lesson-dialog { position: absolute; inset: 0; z-index: 50; overflow-y: auto; background: #f8f1e7; padding: 18px 16px 24px; }
+.academy-screen button:focus-visible { outline: 2px solid #a65317; outline-offset: 2px; }
+@media (max-height: 700px) { .academy-header { padding-top: max(12px, env(safe-area-inset-top,0px)); } .academy-header h1 { font-size: 22px; line-height: 28px; margin-top: 10px; } .academy-footer { padding-top: 8px; padding-bottom: 8px; } }

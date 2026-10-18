@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MedicalService, Doctor, Branch, Booking } from '../../../../backend/src/data/database';
+import { MedicalService, Doctor, Branch, Booking, User } from '../../../../backend/src/data/database';
 import { apiClient } from '../api/client';
 import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ClockIcon, SearchIcon } from '@/components/Icons';
 import { BranchMap, EntityImage } from './GroupBExtensions';
 import '@/css/booking-flow.scss';
+import { searchText } from '@/utils/catalog';
 
 interface GroupCBookingProps {
+  currentUser?: User;
   initialService: MedicalService | null;
   initialBranch?: Branch | null;
   initialDoctor?: Doctor | null;
@@ -39,7 +41,7 @@ const stepTitles: Record<BookingStep, { title: string; subtitle: string; action:
 };
 
 export const GroupCBooking: React.FC<GroupCBookingProps> = ({
-  initialService, initialBranch, initialDoctor, allServices, doctors, branches, onClose, onBookingSuccess,
+  initialService, initialBranch, initialDoctor, allServices, doctors, branches, onClose, onBookingSuccess, currentUser,
 }) => {
   const [step, setStep] = useState<BookingStep>(1);
   const body = useRef<HTMLElement>(null);
@@ -55,8 +57,8 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [branchMode, setBranchMode] = useState<'list' | 'map'>('list');
   const [doctorSpecialty, setDoctorSpecialty] = useState('');
   const categories = Array.from(new Set(allServices.map(service => service.category))).filter(Boolean);
-  const visibleServices = allServices.filter(service => (!serviceCategory || service.category === serviceCategory) && `${service.title} ${service.description}`.toLowerCase().includes(serviceSearch.toLowerCase()));
-  const visibleBranches = branches.filter(branch => (!branchCity || branch.city === branchCity) && `${branch.name} ${branch.address}`.toLowerCase().includes(branchSearch.toLowerCase()));
+  const visibleServices = allServices.filter(service => (!serviceCategory || service.category === serviceCategory) && searchText(`${service.title} ${service.description}`).includes(searchText(serviceSearch)));
+  const visibleBranches = branches.filter(branch => (!branchCity || branch.city === branchCity) && searchText(`${branch.name} ${branch.address}`).includes(searchText(branchSearch)));
   const today = vietnamToday();
   const [selectedDate, setSelectedDate] = useState(() => shiftDate(vietnamToday(), 1));
   const availableDates = useMemo(() => {
@@ -66,10 +68,10 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   }, [selectedDate]);
   const [selectedTime, setSelectedTime] = useState('');
   const [customerMode, setCustomerMode] = useState<'self' | 'other'>('self');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [selfRecipient, setSelfRecipient] = useState({ name: '', phone: '', email: '' });
+  const [customerName, setCustomerName] = useState(currentUser?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '');
+  const [customerEmail, setCustomerEmail] = useState(currentUser?.email || '');
+  const [selfRecipient, setSelfRecipient] = useState({ name: currentUser?.name || '', phone: currentUser?.phone || '', email: currentUser?.email || '' });
   const recipientMode = useRef<'self' | 'other'>('self');
   const submissionLock = useRef(false);
   const chooseRecipient = (mode: 'self' | 'other') => {
@@ -108,6 +110,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const eveningSlots = labelsFor(18, 24);
 
   useEffect(() => {
+    if (currentUser?.id) return;
     let cancelled = false;
     apiClient.getCurrentUser().then(result => {
       if (cancelled || !result?.user) return;
@@ -116,7 +119,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
       if (recipientMode.current === 'self') { setCustomerName(recipient.name); setCustomerPhone(recipient.phone); setCustomerEmail(recipient.email); }
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (selectedDoctor?.branchId !== selectedBranch?.id) { setAutoAssign(true); }
@@ -224,7 +227,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   };
 
   if (!selectedService || !selectedBranch) return (
-    <section className="booking-flow"><header className="booking-header"><button type="button" onClick={onClose} title="Đóng đặt lịch" className="booking-back"><ArrowLeftIcon size={20} /></button></header><main className="booking-body"><p role="status">Chưa có dịch vụ hoặc chi nhánh để đặt lịch.</p></main><footer className="booking-footer"><div className="booking-footer-summary">Chưa thể đặt lịch</div><button disabled type="button">Tiếp tục</button></footer></section>
+    <section className="booking-flow"><header className="booking-header"><button type="button" onClick={onClose} title="Đóng đặt lịch" className="booking-back"><ArrowLeftIcon size={20} /></button></header><main className="booking-body"><p role="status"></p></main><footer className="booking-footer"><div className="booking-footer-summary">Chưa thể đặt lịch</div><button disabled type="button">Tiếp tục</button></footer></section>
   );
 
   return (
@@ -247,7 +250,6 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
         {step === 1 && <div className="booking-section">
           <SearchField placeholder="Tìm dịch vụ chăm sóc..." value={serviceSearch} onChange={setServiceSearch} />
           <div className="booking-categories" role="group" aria-label="Danh mục dịch vụ">{['', ...categories].map(item => <button key={item} type="button" aria-pressed={serviceCategory === item} onClick={() => setServiceCategory(item)}>{item || 'Tất cả'}</button>)}</div>
-          {!visibleServices.length && <p className="text-xs">Không có dịch vụ phù hợp.</p>}
           {visibleServices.map(service => { const active = selectedService?.id === service.id; return <button key={service.id} type="button" aria-pressed={active} onClick={() => { setSelectedService(service); setSelectedTime(''); }} className="booking-choice booking-service-choice"><div className="booking-choice-heading"><Radio active={active} square />{active ? `Đã chọn · ${service.title}` : service.title}</div><EntityImage src={service.image} alt={service.title} className="booking-service-photo" /><div className="booking-price"><span>{service.durationMinutes} phút</span><strong>{service.price.toLocaleString('vi-VN')}đ</strong></div></button>; })}
         </div>}
 
@@ -255,16 +257,16 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
           <SearchField placeholder="Tìm chi nhánh, địa chỉ..." value={branchSearch} onChange={setBranchSearch} />
           <label className="booking-filter">Tỉnh / thành phố<select aria-label="Tỉnh / thành phố" value={branchCity} onChange={event => setBranchCity(event.target.value)}><option value="">Tất cả tỉnh / thành phố</option>{Array.from(new Set(branches.map(branch => branch.city).filter(Boolean))).map(city => <option key={city} value={city}>{city}</option>)}</select></label>
           <div className="booking-view-modes" role="group" aria-label="Hiển thị chi nhánh"><button type="button" aria-pressed={branchMode === 'list'} onClick={() => setBranchMode('list')}>Danh sách</button><button type="button" aria-pressed={branchMode === 'map'} onClick={() => setBranchMode('map')}>Bản đồ</button></div>
-          {!visibleBranches.length && <p className="text-xs">Không có chi nhánh phù hợp.</p>}
+          {!visibleBranches.length && <p className="text-xs"></p>}
           {branchMode === 'map' && visibleBranches.length > 0 && <div className="booking-branch-map"><label className="booking-filter">Chi nhánh trên bản đồ<select aria-label="Chi nhánh trên bản đồ" value={visibleBranches.some(branch => branch.id === selectedBranch.id) ? selectedBranch.id : ''} onChange={event => { const branch = branches.find(branch => branch.id === event.target.value); if (branch) { setSelectedBranch(branch); setSelectedTime(''); } }}><option value="" disabled>Chọn chi nhánh</option>{visibleBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>{visibleBranches.some(branch => branch.id === selectedBranch.id) && <BranchMap branch={selectedBranch} />}</div>}
-          {branchMode === 'list' && visibleBranches.map(branch => { const active = selectedBranch?.id === branch.id; return <button key={branch.id} type="button" aria-pressed={active} onClick={() => { setSelectedBranch(branch); setSelectedTime(''); }} className="booking-choice booking-branch-choice"><div className="booking-choice-heading"><Radio active={active} /><span>{active ? 'Đang chọn · ' : ''}{branch.name}</span></div><EntityImage src={branch.imageUrl} alt={branch.name} className="booking-branch-photo" /><p className="booking-branch-address">{branch.address || 'Chưa cập nhật địa chỉ'}</p></button>; })}
+          {branchMode === 'list' && visibleBranches.map(branch => { const active = selectedBranch?.id === branch.id; return <button key={branch.id} type="button" aria-pressed={active} onClick={() => { setSelectedBranch(branch); setSelectedTime(''); }} className="booking-choice booking-branch-choice"><div className="booking-choice-heading"><Radio active={active} /><span>{active ? 'Đang chọn · ' : ''}{branch.name}</span></div><EntityImage src={branch.imageUrl} alt={branch.name} className="booking-branch-photo" /><p className="booking-branch-address">{branch.address || ''}</p></button>; })}
         </div>}
 
         {step === 3 && <div className="booking-section">
           <button type="button" onClick={() => { setAutoAssign(true); setSelectedTime(''); }} aria-pressed={autoAssign} className="booking-auto-assign"><span className="booking-choice-heading"><Radio active={autoAssign} />Để trung tâm sắp xếp</span><p>Hệ thống sẽ lựa chọn chuyên viên phù hợp với dịch vụ và lịch hẹn.</p></button>
           <label className="booking-filter">Lọc theo chuyên môn<select aria-label="Lọc theo chuyên môn" value={doctorSpecialty} onChange={event => setDoctorSpecialty(event.target.value)}><option value="">Tất cả · {selectedBranch.name}</option>{specialties.map(specialty => <option key={specialty}>{specialty}</option>)}</select></label>
-          {!visibleDoctors.length && <p className="booking-empty">Chưa có chuyên viên phù hợp tại chi nhánh này.</p>}
-          {visibleDoctors.map(doctor => { const active = !autoAssign && selectedDoctor?.id === doctor.id; return <button key={doctor.id} type="button" aria-pressed={active} onClick={() => { setAutoAssign(false); setSelectedDoctor(doctor); setSelectedTime(''); }} className="booking-choice booking-doctor-choice"><div className="booking-choice-heading"><Radio active={active} />{active ? 'Chuyên viên ưu tiên' : 'Chọn chuyên viên'}</div><div className="booking-doctor-info"><EntityImage src={doctor.avatar} alt={doctor.name} className="booking-doctor-photo" /><div><h2>{doctor.name}</h2><p>{doctor.title || doctor.specialty}</p><span>{doctor.reviewsCount > 0 && Number.isFinite(doctor.rating) ? `${doctor.rating}/5 · ${doctor.reviewsCount} đánh giá` : 'Chưa có đánh giá'}</span>{doctor.experienceYears != null && <p>{doctor.experienceYears} năm kinh nghiệm</p>}</div></div></button>; })}
+          {!visibleDoctors.length && <p className="booking-empty"></p>}
+          {visibleDoctors.map(doctor => { const active = !autoAssign && selectedDoctor?.id === doctor.id; return <button key={doctor.id} type="button" aria-pressed={active} onClick={() => { setAutoAssign(false); setSelectedDoctor(doctor); setSelectedTime(''); }} className="booking-choice booking-doctor-choice"><div className="booking-choice-heading"><Radio active={active} />{active ? 'Chuyên viên ưu tiên' : 'Chọn chuyên viên'}</div><div className="booking-doctor-info"><EntityImage src={doctor.avatar} alt={doctor.name} className="booking-doctor-photo" /><div><h2>{doctor.name}</h2><p>{doctor.title || doctor.specialty}</p><span>{doctor.reviewsCount > 0 && Number.isFinite(doctor.rating) ? `${doctor.rating}/5 · ${doctor.reviewsCount} đánh giá` : ''}</span>{doctor.experienceYears != null && <p>{doctor.experienceYears} năm kinh nghiệm</p>}</div></div></button>; })}
         </div>}
 
         {step === 4 && <div className="booking-section booking-date-section">
@@ -272,7 +274,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
           <div className="booking-calendar"><div className="booking-calendar-heading"><button type="button" title="Tuần trước" disabled={availableDates[0] <= today} onClick={() => chooseDate(shiftDate(selectedDate, -7) < today ? today : shiftDate(selectedDate, -7))}><ArrowLeftIcon size={16} /></button><strong>{new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${selectedDate}T12:00:00Z`))}</strong><button type="button" title="Tuần sau" onClick={() => chooseDate(shiftDate(selectedDate, 7))}><ArrowRightIcon size={16} /></button></div><div className="booking-week">{availableDates.map(date => <button key={date} type="button" aria-label={date} aria-pressed={selectedDate === date} disabled={date < today} onClick={() => chooseDate(date)}><span>{dayLabels[new Date(`${date}T12:00:00Z`).getUTCDay()]}</span><strong>{date.slice(8)}</strong></button>)}</div><label className="booking-month-picker"><CalendarIcon size={17} />Mở lịch tháng<input type="date" aria-label="Chọn ngày trong lịch tháng" min={today} value={selectedDate} onChange={event => chooseDate(event.target.value)} /></label><p className="booking-date-caption">{availableDates[0].split('-').reverse().join('/')} – {availableDates[6].split('-').reverse().join('/')}</p></div>
           {slotsLoading && <p role="status" className="text-xs">Đang tải giờ hẹn...</p>}
           {slotsError && <p role="alert" className="text-xs text-red-700">{slotsError} <button onClick={() => setSlotsVersion(value => value + 1)}>Thử lại</button></p>}
-          {!slotsLoading && !slotsError && !availableSlots.length && <p className="booking-empty">Chưa có giờ hẹn còn trống.</p>}
+          {!slotsLoading && !slotsError && !availableSlots.length && <p className="booking-empty"></p>}
           <TimeSlots title="Buổi sáng" slots={morningSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi chiều" slots={afternoonSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi tối" slots={eveningSlots} selected={selectedTime} onSelect={setSelectedTime} />
         </div>}
 
@@ -284,7 +286,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
 
         {step === 6 && <div className="booking-section">
           <p className="booking-review-notice">Vui lòng kiểm tra thông tin. Lịch hẹn chỉ được lưu sau khi bạn xác nhận ở bước tiếp theo.</p>
-          <article className="booking-review-card"><EntityImage src={selectedService.image} alt={selectedService.title} className="booking-review-photo" /><h2>{selectedService.title}</h2><ReviewRow label="Thời lượng chăm sóc" value={`${selectedService.durationMinutes} phút`} /><button type="button" onClick={() => setStep(1)}>Sửa dịch vụ</button><h3>{selectedBranch.name}</h3><p>{selectedBranch.address || 'Chưa cập nhật địa chỉ'}</p><button type="button" onClick={() => setStep(2)}>Sửa chi nhánh</button><ReviewRow label="Chuyên viên" value={summary.doctor} /><ReviewRow label="Ngày hẹn" value={selectedDate.split('-').reverse().join('/')} /><ReviewRow label="Giờ hẹn" value={selectedTime} /><button type="button" onClick={() => setStep(4)}>Sửa ngày và giờ</button><ReviewRow label="Khách hàng" value={customerName} /><ReviewRow label="Số điện thoại" value={customerPhone} />{customerEmail.trim() && <ReviewRow label="Email liên hệ" value={customerEmail.trim()} />}{note.trim() && <p className="booking-review-note">{note.trim()}</p>}<button type="button" onClick={() => setStep(5)}>Sửa thông tin</button></article>
+          <article className="booking-review-card"><EntityImage src={selectedService.image} alt={selectedService.title} className="booking-review-photo" /><h2>{selectedService.title}</h2><ReviewRow label="Thời lượng chăm sóc" value={`${selectedService.durationMinutes} phút`} /><button type="button" onClick={() => setStep(1)}>Sửa dịch vụ</button><h3>{selectedBranch.name}</h3><p>{selectedBranch.address || ''}</p><button type="button" onClick={() => setStep(2)}>Sửa chi nhánh</button><ReviewRow label="Chuyên viên" value={summary.doctor} /><ReviewRow label="Ngày hẹn" value={selectedDate.split('-').reverse().join('/')} /><ReviewRow label="Giờ hẹn" value={selectedTime} /><button type="button" onClick={() => setStep(4)}>Sửa ngày và giờ</button><ReviewRow label="Khách hàng" value={customerName} /><ReviewRow label="Số điện thoại" value={customerPhone} />{customerEmail.trim() && <ReviewRow label="Email liên hệ" value={customerEmail.trim()} />}{note.trim() && <p className="booking-review-note">{note.trim()}</p>}<button type="button" onClick={() => setStep(5)}>Sửa thông tin</button></article>
         </div>}
 
         {step === 7 && <div className="booking-section">

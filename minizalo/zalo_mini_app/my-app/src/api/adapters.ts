@@ -14,7 +14,7 @@ type Quiz = { id: string; title: string; passingScore: number; questions: {
   id: string; questionText: string; options: string[] | Record<string, string>;
 }[] };
 type CourseResponse = Course & DisplayFields & {
-  studentsCount?: number; instructorName?: string; instructorAvatar?: string; lessons?: Lesson[]; quiz?: Quiz | null;
+  studentsCount?: number; instructorName?: string; instructorAvatar?: string; lessons?: Lesson[]; quiz?: Quiz | null; quizzes?: Quiz[];
 };
 type UserVoucher = {
   id: string; userId: string; couponId: string; status: string;
@@ -46,7 +46,7 @@ export const adaptService = (s: Service & DisplayFields & {ratingAvg?: number | 
   ...s, title: s.name, category: s.categoryName || s.category?.name || '',
   price: Number(s.discountPrice ?? s.price),
   originalPrice: s.discountPrice != null ? Number(s.price) : undefined,
-  image: s.imageUrl, description: s.fullDescription || s.shortDescription,
+  image: s.imageUrl, description: s.fullDescription || s.shortDescription || '',
   rating: s.ratingAvg == null ? null : Number(s.ratingAvg), reviewsCount: Number(s.reviewCount || 0),
 });
 
@@ -76,26 +76,29 @@ export const adaptBooking = (b: BookingResponse): View.Booking => ({
   qrCode: b.qrCodeHash || '', createdAt: b.createdAt || '',
 });
 
+const adaptQuiz = (quiz: Quiz): NonNullable<View.Course['quiz']> => ({
+  id: quiz.id, title: quiz.title, passingScore: Number(quiz.passingScore) * 10,
+  canonicalPassingScore: Number(quiz.passingScore),
+  questionsCount: (quiz.questions || []).length,
+  questions: (quiz.questions || []).map(q => {
+    const keys = Array.isArray(q.options) ? q.options.map((_, index) => String.fromCharCode(65 + index)) : Object.keys(q.options || {}).sort();
+    return { id: q.id, question: q.questionText, optionKeys: keys,
+      options: Array.isArray(q.options) ? q.options : keys.map(key => (q.options as Record<string, string>)[key]) };
+  }),
+});
+
 export const adaptCourse = (c: CourseResponse): View.Course => ({
   ...c, category: c.categoryName || '', price: Number(c.tuitionFee),
   duration: c.totalHours + ' giờ', instructor: c.instructorName || '',
   instructorAvatar: c.instructorAvatar || '', instructorProfile: (c as any).instructor || null, studentsCount: Number(c.studentsCount || 0),
-  image: c.imageUrl, description: c.fullDescription || c.shortDescription,
+  image: c.imageUrl, description: c.fullDescription || c.shortDescription || '',
   depositAmount: Number(c.depositAmount), modulesCount: Number((c as any).modulesCount || 0), lessonsCount: (c.lessons || []).length,
   lessons: (c.lessons || []).map(l => ({
     ...l, duration: l.durationMinutes + ' phút', videoUrl: l.videoUrl || '',
     isCompleted: l.isCompleted === true,
   })),
-  quiz: c.quiz ? {
-    id: c.quiz.id, title: c.quiz.title, passingScore: Number(c.quiz.passingScore) * 10,
-    canonicalPassingScore: Number(c.quiz.passingScore),
-    questionsCount: (c.quiz.questions || []).length,
-    questions: (c.quiz.questions || []).map(q => {
-      const keys = Array.isArray(q.options) ? q.options.map((_, index) => String.fromCharCode(65 + index)) : Object.keys(q.options || {}).sort();
-      return { id: q.id, question: q.questionText, optionKeys: keys,
-        options: Array.isArray(q.options) ? q.options : keys.map(key => (q.options as Record<string, string>)[key]) };
-    }),
-  } : undefined,
+  quizzes: (c.quizzes ?? (c.quiz ? [c.quiz] : [])).map(adaptQuiz),
+  quiz: c.quiz ? adaptQuiz(c.quiz) : undefined,
 });
 
 export const adaptEnrollment = (e: CourseEnrollment & {

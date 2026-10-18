@@ -121,6 +121,63 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       const [enrollment]=(await db.query('SELECT progress_percent FROM course_enrollments WHERE id=$1',[id(15)])).rows;
       assert.equal(enrollment.progress_percent,50);
     });
+    await t.test('all admin quizzes are selectable and submissions cannot target a quiz from another course', async () => {
+      await db.exec(`INSERT INTO course_quizzes(id,course_id,title,passing_score) VALUES
+        ('${id(30)}','${id(9)}','First actual quiz',7),('${id(31)}','${id(9)}','Second actual quiz',8);
+        INSERT INTO quiz_questions(id,quiz_id,question_number,question_text,options,correct_option) VALUES
+        ('${id(32)}','${id(30)}',1,'First actual question','{"A":"One","B":"Two"}','A'),
+        ('${id(33)}','${id(31)}',1,'Second actual question','{"A":"Three","B":"Four"}','B');`);
+      const catalog = (await call('/courses', {anonymous:true})).data.courses[0];
+      assert.equal(catalog.quizzes.length,2);
+      assert.ok(catalog.quizzes.every(quiz => quiz.questions.length === 0));
+      assert.equal(JSON.stringify(catalog).includes('correctOption'),false);
+      const learning = (await call(`/courses/${id(9)}/learning`)).data.course;
+      assert.equal(learning.quizzes.length,2);
+      assert.equal(learning.quizzes[1].questions[0].questionText,'Second actual question');
+      assert.equal(JSON.stringify(learning).includes('correctOption'),false);
+      const result = await call(`/courses/${id(9)}/quiz/submit`, {method:'POST',body:{quizId:id(31),answers:{[id(33)]:'B'}}});
+      assert.equal(result.status,200,JSON.stringify(result));
+      assert.equal(result.data.submission.quizId,id(31));
+      assert.equal(Number(result.data.score),100);
+      assert.equal(result.data.isPassed,true);
+      const history = (await call(`/courses/${id(9)}/learning`)).data.course.quizSubmissions;
+      assert.equal(history[0].quizId,id(31));
+      assert.equal((await call(`/courses/${id(9)}/quiz/submit`, {method:'POST',body:{quizId:id(999),answers:{}}})).status,404);
+      assert.equal((await call(`/courses/${id(9)}/quiz/submit`, {method:'POST',owner:2,body:{quizId:id(31),answers:{[id(33)]:'B'}}})).status,403);
+    });
+    await t.test('academy cards use actual batch, progress and tuition ledger under the signed-in enrollment', async () => {
+      await db.exec(`INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,amount) VALUES
+        ('TUITION1','${id(15)}','${id(1)}','${id(9)}','${id(3)}',500000),
+        ('WRONG_OWNER','${id(15)}','${id(2)}','${id(9)}','${id(3)}',900000);`);
+      const data=(await call('/course-enrollments')).data.enrollments[0];
+      assert.equal(data.batchCode,'BATCH1');
+      assert.equal(data.branchName,'Admin branch');
+      assert.equal(data.instructorName,'Admin instructor');
+      assert.equal(data.totalLessons,2);
+      assert.equal(data.completedLessonsCount,1);
+      assert.equal(data.remainingMinutes,5);
+      assert.equal(data.nextLessonTitle,'Preview lesson');
+      assert.deepEqual(data.tuitionTransactions.map(entry=>entry.transactionCode),['TUITION1']);
+      assert.equal((await call(`/courses/${id(9)}/learning?enrollmentId=${id(15)}`,{owner:2})).status,403);
+      assert.equal((await call(`/courses/${id(9)}/lessons/${id(11)}/progress`,{method:'POST',body:{enrollmentId:id(999),watchedSeconds:1}})).status,403);
+      assert.equal((await call(`/courses/${id(9)}/quiz/submit`,{method:'POST',body:{enrollmentId:id(999),answers:{}}})).status,403);
+    });
+    await t.test('course registration validates real batch eligibility and never marks tuition paid', async () => {
+      assert.equal((await call('/course-enrollments',{method:'POST',owner:2,body:{courseId:id(9),batchId:id(999)}})).status,409);
+      await db.query('UPDATE course_batches SET max_students=1 WHERE id=$1',[id(14)]);
+      assert.equal((await call('/course-enrollments',{method:'POST',owner:2,body:{courseId:id(9),batchId:id(14)}})).status,409);
+      await db.query('UPDATE course_batches SET max_students=20 WHERE id=$1',[id(14)]);
+      const saved=await call('/course-enrollments',{method:'POST',owner:2,body:{courseId:id(9),batchId:id(14),amountPaid:9000000,tuitionTotal:1,status:'ENROLLED',studentId:id(1)}});
+      assert.equal(saved.status,201,JSON.stringify(saved));
+      assert.equal(saved.data.enrollment.studentId,id(2));
+      assert.equal(saved.data.enrollment.batchId,id(14));
+      assert.equal(saved.data.enrollment.status,'CONSULTING');
+      assert.equal(Number(saved.data.enrollment.amountPaid),0);
+      assert.notEqual(Number(saved.data.enrollment.tuitionTotal),1);
+      assert.equal(saved.data.enrollment.tuitionTransactions.length,0);
+      assert.equal((await call(`/courses/${id(9)}/learning?enrollmentId=${saved.data.enrollment.id}`,{owner:2})).status,403);
+      assert.equal((await call('/course-enrollments',{method:'POST',owner:2,body:{courseId:id(9),batchId:id(14)}})).status,409);
+    });
     await t.test('invoice items, loyalty and referral history come only from the signed-in customer', async () => {
       const result=await call('/transactions');
       assert.equal(result.status,200,JSON.stringify(result));
@@ -165,6 +222,14 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       await db.query('UPDATE support_tickets SET admin_reply=$1 WHERE id=$2',['Actual admin reply',ticket.data.ticket.id]);
       assert.equal((await call('/support-tickets')).data.tickets[0].adminReply,'Actual admin reply');
       assert.equal((await call('/support-tickets',{owner:2})).data.tickets.length,0);
+    });
+    await t.test('empty and unpublished catalogs return empty lists without placeholder records', async () => {
+      await db.exec('UPDATE services SET is_active=false; UPDATE technicians SET is_active=false; UPDATE branches SET is_active=false; UPDATE courses SET is_active=false; UPDATE home_care_guidelines SET is_published=false; DELETE FROM support_faqs;');
+      for (const [path,field] of [['/services','services'],['/doctors','doctors'],['/branches','branches'],['/courses','courses'],['/care-guidelines','guidelines'],['/support-faqs','faqs']]) {
+        const response = await call(path,{anonymous:true});
+        assert.equal(response.status,200,JSON.stringify(response));
+        assert.deepEqual(response.data[field],[]);
+      }
     });
   } finally { await new Promise(resolve=>server.close(resolve)); await db.close(); }
 });

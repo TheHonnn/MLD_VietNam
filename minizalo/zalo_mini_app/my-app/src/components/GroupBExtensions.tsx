@@ -1,9 +1,12 @@
 import React from 'react';
 import type { MedicalService, Doctor, Branch } from '../../../../backend/src/data/database';
 import type { Branch as CanonicalBranch } from '../../../../../database/shared_types';
-import { ArrowLeftIcon, MapIcon, SearchIcon, LocationIcon } from '@/components/Icons';
+import { ArrowLeftIcon, MapIcon, SearchIcon, LocationIcon, HeartIcon, ShareIcon } from '@/components/Icons';
 import '@/css/specialists.scss';
 import '@/css/branches.scss';
+import '@/css/service-detail.scss';
+import { searchText, vietnamToday } from '@/utils/catalog';
+import { useDirectorySlots } from '@/hooks/useDirectorySlots';
 
 export interface PublicReview {
   id: string;
@@ -32,12 +35,12 @@ export const EntityImage: React.FC<{ src?: string | null; alt: string; className
   const [failedSource, setFailedSource] = React.useState<string | null>(null);
   return src && failedSource !== src
     ? <img src={src} alt={alt} onError={() => setFailedSource(src)} className={className + ' rounded-[8px] object-cover'} />
-    : <div className={className + ' flex items-center justify-center rounded-[8px] bg-stone-100 p-3 text-center text-xs text-stone-500'}>Chưa có hình ảnh</div>;
+    : <div className={className + ' flex items-center justify-center rounded-[8px] bg-stone-100 p-3 text-center text-xs text-stone-500'}></div>;
 };
 
 export const BranchHours: React.FC<{ branch: BranchDetails }> = ({ branch }) => (
   <p className="text-xs text-stone-600">Giờ hoạt động: {branch.openingTime && branch.closingTime
-    ? branch.openingTime + ' - ' + branch.closingTime : 'Chưa cập nhật'}</p>
+    ? branch.openingTime + ' - ' + branch.closingTime : ''}</p>
 );
 
 const branchCoordinates = (branch: BranchDetails) => {
@@ -55,7 +58,7 @@ const distanceKm = (from: { latitude: number; longitude: number }, to: { latitud
 
 export const BranchMap: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
   const coordinates = branchCoordinates(branch);
-  if (!coordinates) return <p className="branch-empty">Chi nhánh chưa cập nhật tọa độ.</p>;
+  if (!coordinates) return null;
   const { latitude, longitude } = coordinates;
   const params = new URLSearchParams({
     bbox: [Math.max(-180, longitude - .015), Math.max(-90, latitude - .01), Math.min(180, longitude + .015), Math.min(90, latitude + .01)].join(','),
@@ -71,7 +74,7 @@ const MapLink: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
   const destination = hasCoordinates ? latitude + ',' + longitude : branch.address?.trim();
   return destination
     ? <a href={'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(destination)} target="_blank" rel="noopener noreferrer" className={buttonClass + ' inline-flex items-center gap-2'}><MapIcon size={14} />Mở bản đồ</a>
-    : <p className="text-stone-500">Chưa có vị trí chi nhánh.</p>;
+    : <p className="text-stone-500"></p>;
 };
 
 const DetailScreen: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; className?: string }> = ({ title, onClose, children, footer, className = '' }) => (
@@ -91,7 +94,7 @@ const Gallery: React.FC<{ urls?: string[]; name: string }> = ({ urls = [], name 
 
 const Reviews: React.FC<{ reviews?: (PublicReview | Record<string, unknown>)[] }> = ({ reviews }) => (
   <section className="space-y-2"><h2 className="font-bold">Đánh giá</h2>
-    {!reviews?.length ? <p className="text-stone-500">Chưa có đánh giá được cung cấp.</p> : reviews.map((review, index) => (
+    {!reviews?.length ? <p className="text-stone-500"></p> : reviews.map((review, index) => (
       <article key={typeof review.id === 'string' ? review.id : index} className="space-y-2 border-b border-[#EADECF] py-3">
         {review.rating != null && Number.isFinite(Number(review.rating)) && <p className="font-semibold">{Number(review.rating)}/5</p>}
         {typeof review.comment === 'string' && <p className="whitespace-pre-line">{review.comment}</p>}
@@ -104,11 +107,16 @@ const Reviews: React.FC<{ reviews?: (PublicReview | Record<string, unknown>)[] }
 
 export const BranchDirectoryModal: React.FC<{
   branches: BranchDetails[];
+  services?: MedicalService[];
+  initialQuery?: string;
   onClose: () => void;
   onSelectBranch: (branch: Branch) => void;
-}> = ({ branches, onClose, onSelectBranch }) => {
-  const [query, setQuery] = React.useState('');
+}> = ({ branches, services = [], initialQuery = '', onClose, onSelectBranch }) => {
+  const [query, setQuery] = React.useState(initialQuery);
   const [city, setCity] = React.useState('');
+  const [serviceId, setServiceId] = React.useState('');
+  const [date, setDate] = React.useState(vietnamToday);
+  const availability = useDirectorySlots(branches.map(branch => branch.id), serviceId, date);
   const [mode, setMode] = React.useState<'list' | 'map'>('list');
   const [mapBranchId, setMapBranchId] = React.useState('');
   const [position, setPosition] = React.useState<{ latitude: number; longitude: number } | null>(null);
@@ -118,7 +126,8 @@ export const BranchDirectoryModal: React.FC<{
   React.useEffect(() => () => { locationRequest.current++; }, []);
   const cities = Array.from(new Set(branches.map(branch => branch.city).filter(Boolean)));
   const results = branches.filter(branch => (!city || branch.city === city)
-    && (branch.name + ' ' + branch.address).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')))
+    && searchText(`${branch.name} ${branch.address} ${branch.city}`).includes(searchText(query))
+    && (!serviceId || (!!date && !availability.loading && !availability.error && availability.slots.some(slot => slot.branchId === branch.id))))
     .sort((a, b) => {
       if (!position) return a.name.localeCompare(b.name, 'vi');
       const ca = branchCoordinates(a), cb = branchCoordinates(b);
@@ -153,19 +162,21 @@ export const BranchDirectoryModal: React.FC<{
         <button type="button" className="branch-nearby" disabled={locating} aria-pressed={Boolean(position)} onClick={locate}><LocationIcon size={17} />{locating ? 'Đang tìm...' : 'Gần tôi'}</button>
         <div className="branch-view-modes" role="group" aria-label="Kiểu hiển thị chi nhánh"><button type="button" aria-pressed={mode === 'list'} onClick={() => setMode('list')}>Danh sách</button><button type="button" aria-pressed={mode === 'map'} onClick={() => setMode('map')}>Bản đồ</button></div>
       </div>
-      <label className="branch-filter-label">Dịch vụ tại cơ sở<select disabled title="Chưa có dữ liệu liên kết dịch vụ với chi nhánh"><option>Chưa cập nhật</option></select></label>
-      <p className="branch-result-count" role={locationError ? 'alert' : 'status'}>{locationError || `${results.length} chi nhánh phù hợp${position ? ' · Khoảng cách gần đúng' : ''}`}</p>
+      <label className="branch-filter-label">Dịch vụ có lịch trống<select aria-label="Dịch vụ có lịch trống" value={serviceId} onChange={event => setServiceId(event.target.value)}><option value="">Tất cả</option>{services.map(service => <option key={service.id} value={service.id}>{service.title}</option>)}</select></label>
+      {serviceId && <label className="branch-filter-label">Ngày có lịch<input aria-label="Ngày có lịch tại chi nhánh" type="date" min={vietnamToday()} value={date} onChange={event => setDate(event.target.value)} className={inputClass} /></label>}
+      {availability.error && <p role="alert" className="text-xs text-red-700">{availability.error} <button type="button" className={buttonClass} onClick={availability.retry}>Thử lại</button></p>}
+      <p className="branch-result-count" role={locationError ? 'alert' : 'status'}>{locationError || (availability.error ? '' : availability.loading ? 'Đang tải lịch trống...' : `${results.length} chi nhánh phù hợp${position ? ' · Khoảng cách gần đúng' : ''}`)}</p>
     </header>
     <div className="branch-results" tabIndex={0} aria-label="Kết quả chi nhánh">
-      {!results.length && <p className="branch-empty">Không có chi nhánh phù hợp.</p>}
+      {!results.length && <p className="branch-empty"></p>}
       {mode === 'map' && results.length > 0 && <div className="branch-map-results">
-        {mappedBranch ? <><label className="branch-filter-label">Chi nhánh trên bản đồ<select aria-label="Chi nhánh trên bản đồ" value={mappedBranch.id} onChange={event => setMapBranchId(event.target.value)}>{mappedBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label><BranchMap branch={mappedBranch} /><button type="button" className="branch-map-detail" onClick={() => onSelectBranch(mappedBranch)}>Xem chi nhánh</button></> : <p className="branch-empty">Chi nhánh chưa cập nhật tọa độ.</p>}
+        {mappedBranch && <><label className="branch-filter-label">Chi nhánh trên bản đồ<select aria-label="Chi nhánh trên bản đồ" value={mappedBranch.id} onChange={event => setMapBranchId(event.target.value)}>{mappedBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label><BranchMap branch={mappedBranch} /><button type="button" className="branch-map-detail" onClick={() => onSelectBranch(mappedBranch)}>Xem chi nhánh</button></>}
       </div>}
       {mode === 'list' && results.map(branch => {
         const coordinates = branchCoordinates(branch);
         return <button key={branch.id} type="button" onClick={() => onSelectBranch(branch)} className="branch-card">
           <EntityImage src={branch.imageUrl} alt={branch.name} className="branch-card-photo" />
-          <div className="branch-card-copy"><h2>{branch.name}</h2><p>{branch.address || 'Chưa cập nhật địa chỉ'}</p><BranchHours branch={branch} />{position && coordinates && <span className="branch-distance">Cách khoảng {distanceKm(position, coordinates).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km</span>}</div>
+          <div className="branch-card-copy"><h2>{branch.name}</h2><p>{branch.address || ''}</p><BranchHours branch={branch} />{position && coordinates && <span className="branch-distance">Cách khoảng {distanceKm(position, coordinates).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km</span>}</div>
         </button>;
       })}
     </div>
@@ -174,18 +185,26 @@ export const BranchDirectoryModal: React.FC<{
 
 export const SpecialistDirectoryModal: React.FC<{
   doctors: DoctorDetails[];
+  services?: MedicalService[];
+  initialQuery?: string;
   onClose: () => void;
   onSelectDoctor: (doctor: Doctor) => void;
-}> = ({ doctors, onClose, onSelectDoctor }) => {
-  const [query, setQuery] = React.useState('');
+}> = ({ doctors, services = [], initialQuery = '', onClose, onSelectDoctor }) => {
+  const [query, setQuery] = React.useState(initialQuery);
   const [branch, setBranch] = React.useState('');
   const [specialty, setSpecialty] = React.useState('');
+  const [serviceId, setServiceId] = React.useState('');
+  const [date, setDate] = React.useState(vietnamToday);
+  const [time, setTime] = React.useState('');
+  const availability = useDirectorySlots(doctors.map(doctor => doctor.branchId || '').filter(Boolean), serviceId, date);
+  const times = Array.from(new Set(availability.slots.filter(slot => !branch || slot.branchId === branch).map(slot => slot.startTime.slice(0, 5)))).sort();
   const [sort, setSort] = React.useState('name');
   const branches = Array.from(new Map(doctors.filter(doctor => doctor.hospital).map(doctor => [doctor.branchId || doctor.hospital, doctor.hospital])).entries());
   const doctorSpecialties = (doctor: DoctorDetails) => doctor.specialties || doctor.specialty.split(',').map(value => value.trim()).filter(Boolean);
   const specialties = Array.from(new Set(doctors.flatMap(doctorSpecialties)));
-  const results = doctors.filter(doctor => (doctor.name + ' ' + doctor.title + ' ' + doctor.specialty).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi'))
-    && (!branch || (doctor.branchId || doctor.hospital) === branch) && (!specialty || doctorSpecialties(doctor).includes(specialty)))
+  const results = doctors.filter(doctor => searchText(`${doctor.name} ${doctor.title} ${doctor.specialty} ${doctor.hospital}`).includes(searchText(query))
+    && (!branch || (doctor.branchId || doctor.hospital) === branch) && (!specialty || doctorSpecialties(doctor).includes(specialty))
+    && (!serviceId || (!!date && !availability.loading && !availability.error && availability.slots.some(slot => slot.technicianId === doctor.id && (!time || slot.startTime.slice(0,5) === time)))))
     .sort((a, b) => (sort === 'rating' ? (b.rating ?? -1) - (a.rating ?? -1) : 0) || a.name.localeCompare(b.name, 'vi'));
   return <section className="specialist-directory" aria-labelledby="specialist-directory-heading">
     <header className="specialist-filters">
@@ -193,19 +212,20 @@ export const SpecialistDirectoryModal: React.FC<{
       <p className="specialist-subtitle">Đồng hành cùng bạn trên hành trình chăm sóc sức khỏe.</p>
       <label className="specialist-search"><span><SearchIcon size={19} /></span><input aria-label="Tìm chuyên viên" value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm tên hoặc chuyên môn..." /></label>
       <div className="specialist-filter-grid">
-        <label>Chi nhánh<select aria-label="Chi nhánh" value={branch} onChange={event => setBranch(event.target.value)}><option value="">Tất cả</option>{branches.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+        <label>Chi nhánh<select aria-label="Chi nhánh" value={branch} onChange={event => { setBranch(event.target.value); setTime(''); }}><option value="">Tất cả</option>{branches.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
         <label>Chuyên môn<select aria-label="Chuyên môn" value={specialty} onChange={event => setSpecialty(event.target.value)}><option value="">Tất cả</option>{specialties.map(item => <option key={item}>{item}</option>)}</select></label>
-        <label>Dịch vụ<select disabled title="Chưa có dữ liệu phân công dịch vụ"><option>Chưa cập nhật</option></select></label>
-        <label>Giờ làm việc<select disabled title="Chưa có dữ liệu lịch làm việc"><option>Chưa cập nhật</option></select></label>
+        <label>Dịch vụ có lịch trống<select aria-label="Dịch vụ có lịch trống" value={serviceId} onChange={event => { setServiceId(event.target.value); setTime(''); }}><option value="">Tất cả</option>{services.map(service => <option key={service.id} value={service.id}>{service.title}</option>)}</select></label>
+        <label>Giờ trống<select aria-label="Giờ trống" disabled={!serviceId || availability.loading} value={time} onChange={event => setTime(event.target.value)}><option value="">Tất cả</option>{times.map(value => <option key={value}>{value}</option>)}</select></label>
       </div>
+      {serviceId && <label className="specialist-sort">Ngày có lịch<input aria-label="Ngày có lịch chuyên viên" type="date" min={vietnamToday()} value={date} onChange={event => { setDate(event.target.value); setTime(''); }} className={inputClass} /></label>}
       <label className="specialist-sort">Sắp xếp<select aria-label="Sắp xếp" value={sort} onChange={event => setSort(event.target.value)}><option value="name">Theo tên chuyên viên</option><option value="rating">Đánh giá cao nhất</option></select></label>
-      <p className="specialist-result-count" role="status">{results.length} chuyên viên phù hợp</p>
+      {availability.error && <p role="alert" className="text-xs text-red-700">{availability.error} <button type="button" className={buttonClass} onClick={availability.retry}>Thử lại</button></p>}
+      <p className="specialist-result-count" role="status">{availability.error ? '' : availability.loading ? 'Đang tải lịch trống...' : `${results.length} chuyên viên phù hợp`}</p>
     </header>
     <div className="specialist-results" tabIndex={0} aria-label="Kết quả chuyên viên">
-      {!results.length && <p className="specialist-empty">Không tìm thấy chuyên viên phù hợp.</p>}
       {results.map(doctor => <button key={doctor.id} type="button" onClick={() => onSelectDoctor(doctor)} className="specialist-card">
         <EntityImage src={doctor.avatar} alt={doctor.name} className="specialist-card-photo" />
-        <div className="specialist-card-copy"><h2>{doctor.name}</h2><p>{doctor.title || doctor.specialty || 'Chuyên viên'}</p><span>{doctor.hospital || 'Chưa cập nhật chi nhánh'}</span>
+        <div className="specialist-card-copy"><h2>{doctor.name}</h2><p>{doctor.title || doctor.specialty || 'Chuyên viên'}</p><span>{doctor.hospital || ''}</span>
           {doctor.reviewsCount > 0 && Number.isFinite(doctor.rating) && <small>{doctor.rating}/5 · {doctor.reviewsCount} đánh giá</small>}
         </div>
       </button>)}
@@ -218,17 +238,62 @@ export const ServiceDetailModal: React.FC<{
   onClose: () => void;
   onBookNow: (service: MedicalService) => void;
 }> = ({ service, onClose, onBookNow }) => {
+  const [shareStatus, setShareStatus] = React.useState('');
+  const [sharing, setSharing] = React.useState(false);
+  const screen = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    setShareStatus('');
+    const previous = document.activeElement as HTMLElement | null;
+    screen.current?.querySelector<HTMLButtonElement>('.service-detail-back')?.focus({preventScroll:true});
+    return () => { if (previous?.isConnected) previous.focus({preventScroll:true}); };
+  }, [service?.id]);
   if (!service) return null;
-  return <DetailScreen title={service.title} onClose={onClose} footer={<><span className="font-bold">{service.price.toLocaleString('vi-VN')} ₫</span><button onClick={() => onBookNow(service)} className={buttonClass}>Đặt lịch ngay</button></>}>
-    <EntityImage src={service.image} alt={service.title} />
-    <p>{service.category} · {service.durationMinutes} phút</p>
-    {service.reviewsCount > 0 && Number.isFinite(service.rating) && <p>{service.rating}/5 ({service.reviewsCount} đánh giá)</p>}
-    {service.originalPrice != null && service.originalPrice > service.price && <p className="line-through">{service.originalPrice.toLocaleString('vi-VN')} ₫</p>}
-    <section><h2 className="mb-2 font-bold">Giới thiệu dịch vụ</h2><p className="whitespace-pre-line">{service.description || 'Chưa cập nhật mô tả.'}</p></section>
-    <section className="space-y-2"><h2 className="font-bold">Lợi ích</h2>{service.benefits?.length ? <ul className="list-inside list-disc space-y-1">{service.benefits.map((benefit, index) => <li key={index}>{contentText(benefit, 'title') || contentText(benefit, 'description')}</li>)}</ul> : <p className="text-stone-500">Chưa cập nhật lợi ích.</p>}</section>
-    <section className="space-y-2"><h2 className="font-bold">Quy trình trải nghiệm</h2>{service.steps?.length ? service.steps.map((step, index) => <div key={index} className="border-b border-[#EADECF] py-2"><h3 className="font-semibold">{typeof step !== 'string' && typeof step.step === 'number' ? step.step + '. ' : ''}{contentText(step, 'title')}</h3>{typeof step !== 'string' && <p className="whitespace-pre-line">{contentText(step, 'desc') || contentText(step, 'description')}</p>}</div>) : <p className="text-stone-500">Chưa cập nhật quy trình.</p>}</section>
-    <Gallery urls={service.galleryUrls} name={service.title} /><Reviews reviews={service.reviews} />
-  </DetailScreen>;
+  const price = Number.isFinite(service.price) ? `${service.price.toLocaleString('vi-VN')}đ` : '';
+  const duration = Number.isFinite(service.durationMinutes) ? `${service.durationMinutes} phút` : '';
+  const share = async () => {
+    if (sharing) return;
+    setSharing(true); setShareStatus('');
+    const text = [service.title, [price,duration].filter(Boolean).join(' · '), service.description].filter(Boolean).join('\n');
+    try {
+      if (navigator.share) await navigator.share({title:service.title,text});
+      else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setShareStatus('Đã sao chép thông tin dịch vụ.'); }
+      else setShareStatus('Không thể chia sẻ trên thiết bị này.');
+    } catch (error) {
+      if (!(error instanceof Error && error.name === 'AbortError')) setShareStatus('Không thể chia sẻ thông tin dịch vụ.');
+    } finally { setSharing(false); }
+  };
+  return <section ref={screen} className="service-detail" role="dialog" aria-modal="true" aria-labelledby="service-detail-heading" onKeyDown={event => {
+    if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
+    if (event.key === 'Tab') {
+      const items=screen.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex="0"]');
+      if (!items?.length) return;
+      const first=items[0],last=items[items.length-1];
+      if (event.shiftKey && document.activeElement===first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement===last) { event.preventDefault(); first.focus(); }
+    }
+  }}>
+    <main className="service-detail-body" tabIndex={0} aria-label="Thông tin dịch vụ">
+      <div className="service-detail-media">
+        <EntityImage src={service.image} alt={service.title} className="service-detail-photo" />
+        <button type="button" className="service-detail-icon service-detail-back" title="Quay lại" onClick={onClose}><ArrowLeftIcon size={20}/></button>
+        <div className="service-detail-tools">
+          <span title="Chưa cấu hình lưu dịch vụ yêu thích"><button type="button" className="service-detail-icon" aria-label="Yêu thích" disabled><HeartIcon size={21}/></button></span>
+          <button type="button" className="service-detail-icon" title="Chia sẻ dịch vụ" disabled={sharing} onClick={share}><ShareIcon size={20}/></button>
+        </div>
+      </div>
+      {shareStatus && <p className="service-detail-share-status" role="status">{shareStatus}</p>}
+      {service.category && <span className="service-detail-category">{service.category}</span>}
+      <h1 id="service-detail-heading">{service.title}</h1>
+      <div className="service-detail-price"><strong>{price}</strong><span>{duration}</span></div>
+      {service.originalPrice != null && Number.isFinite(service.originalPrice) && service.originalPrice > service.price && <p className="service-detail-original"><s>{service.originalPrice.toLocaleString('vi-VN')}đ</s></p>}
+      <section className="service-detail-section"><h2>Giới thiệu dịch vụ</h2><p>{service.description}</p></section>
+      {!!service.benefits?.length && <section className="service-detail-section"><h2>Trải nghiệm nổi bật</h2><ul>{service.benefits.map((benefit,index)=><li key={index}>{contentText(benefit,'title')||contentText(benefit,'description')}</li>)}</ul></section>}
+      {!!service.steps?.length && <section className="service-detail-section"><h2>Quy trình trải nghiệm</h2>{service.steps.map((step,index)=><div key={index} className="service-detail-step"><h3>{typeof step!=='string'&&typeof step.step==='number'?`${step.step}. `:''}{contentText(step,'title')}</h3>{typeof step!=='string'&&<p>{contentText(step,'desc')||contentText(step,'description')}</p>}</div>)}</section>}
+      <Gallery urls={service.galleryUrls} name={service.title}/>
+      {!!service.reviews?.length && <div className="service-detail-section">{service.reviewsCount>0&&Number.isFinite(service.rating)&&<p>{service.rating}/5 · {service.reviewsCount} đánh giá</p>}<Reviews reviews={service.reviews}/></div>}
+    </main>
+    <footer className="service-detail-footer"><div className="service-detail-footer-summary"><strong>{price}</strong><span>{duration}</span></div><button type="button" className="service-detail-book" onClick={()=>onBookNow(service)}>Đặt lịch ngay</button><span className="service-detail-indicator" aria-hidden="true"/></footer>
+  </section>;
 };
 
 export const SpecialistDetailModal: React.FC<{
@@ -246,13 +311,13 @@ export const SpecialistDetailModal: React.FC<{
       <h1 id="specialist-detail-heading">{doctor.name}</h1>
       {doctor.title && <p className="specialist-role">{doctor.title}</p>}
       {doctor.experienceYears != null && <p className="specialist-experience">{doctor.experienceYears} năm kinh nghiệm</p>}
-      <div className="specialist-location"><p>{branch?.name || doctor.hospital || 'Chưa cập nhật chi nhánh'}</p>{branch?.address && <p>{branch.address}</p>}</div>
-      <section className="specialist-introduction"><h2>Giới thiệu</h2><p>{doctor.bio || 'Chưa cập nhật giới thiệu.'}</p></section>
-      <section className="specialist-introduction"><h2>Chuyên môn</h2><p>{doctor.specialty || 'Chưa cập nhật chuyên môn.'}</p></section>
+      <div className="specialist-location"><p>{branch?.name || doctor.hospital || ''}</p>{branch?.address && <p>{branch.address}</p>}</div>
+      <section className="specialist-introduction"><h2>Giới thiệu</h2><p>{doctor.bio || ''}</p></section>
+      <section className="specialist-introduction"><h2>Chuyên môn</h2><p>{doctor.specialty || ''}</p></section>
       {doctor.reviewsCount > 0 && Number.isFinite(doctor.rating) && <p className="specialist-rating">{doctor.rating}/5 · {doctor.reviewsCount} đánh giá</p>}
       <Reviews reviews={doctor.reviews} />
     </div>
-    <footer className="specialist-booking-footer"><button type="button" disabled={!branch} title={!branch ? 'Chưa có chi nhánh khả dụng cho chuyên viên này' : undefined} onClick={() => onBookWithDoctor(doctor)}>{branch ? 'Đặt lịch với chuyên viên' : 'Chưa thể đặt lịch'}</button></footer>
+    <footer className="specialist-booking-footer"><button type="button" disabled={!branch} title={!branch ? '' : undefined} onClick={() => onBookWithDoctor(doctor)}>{branch ? 'Đặt lịch với chuyên viên' : 'Chưa thể đặt lịch'}</button></footer>
   </section>;
 };
 
@@ -273,9 +338,9 @@ export const BranchDetailModal: React.FC<{
       {branch.city && <p className="branch-city">{branch.city}</p>}
       <button type="button" className="branch-cover" title="Xem ảnh chính của chi nhánh" onClick={() => setSelectedPhoto(null)}><EntityImage src={selectedPhoto || photos[0]} alt={branch.name} className="branch-detail-photo" /></button>
       {photos.length > 1 && <div className="branch-photo-grid">{photos.slice(1).map((url, index) => <button type="button" key={url} aria-pressed={selectedPhoto === url} title={`Xem ảnh chi nhánh ${index + 1}`} onClick={() => setSelectedPhoto(url)}><EntityImage src={url} alt={`Ảnh ${index + 1} của ${branch.name}`} className="branch-gallery-photo" /><span>Ảnh chi nhánh {index + 1}</span></button>)}</div>}
-      <div className="branch-contact"><p>{branch.address || 'Chưa cập nhật địa chỉ'}</p><BranchHours branch={branch} />{branch.phone && <a href={'tel:' + branch.phone}>Hotline: {branch.phone}</a>}</div>
+      <div className="branch-contact"><p>{branch.address || ''}</p><BranchHours branch={branch} />{branch.phone && <a href={'tel:' + branch.phone}>Hotline: {branch.phone}</a>}</div>
       <div className="branch-directions">{onOpenDirections ? <button type="button" onClick={() => onOpenDirections(branch)}><MapIcon size={18} />Chỉ đường</button> : <MapLink branch={branch} />}</div>
-      <section className="branch-amenities"><h2>Tiện nghi</h2>{branch.amenities?.length ? <ul>{branch.amenities.map((amenity, index) => <li key={index}>{contentText(amenity, 'name') || contentText(amenity, 'title')}</li>)}</ul> : <p>Chưa cập nhật tiện nghi.</p>}</section>
+      <section className="branch-amenities"><h2>Tiện nghi</h2>{branch.amenities?.length ? <ul>{branch.amenities.map((amenity, index) => <li key={index}>{contentText(amenity, 'name') || contentText(amenity, 'title')}</li>)}</ul> : <p></p>}</section>
     </div>
     <footer className="branch-booking-footer"><button type="button" onClick={() => onSelectBranch(branch)}>Đặt lịch tại chi nhánh</button></footer>
   </section>;
@@ -297,7 +362,7 @@ export const LocationDirectionsModal: React.FC<{
     } catch { setCopyStatus('Không thể sao chép địa chỉ.'); }
   };
   return <DetailScreen className="branch-location-screen" title="Chỉ đường đến cơ sở" onClose={onClose} footer={onBookAtBranch && <button onClick={() => { onClose(); onBookAtBranch(branch); }} className={buttonClass}>Đặt lịch tại cơ sở này</button>}>
-    <h2 className="text-sm font-bold">{branch.name}</h2><p>{branch.address || 'Chưa cập nhật địa chỉ'}</p>
+    <h2 className="text-sm font-bold">{branch.name}</h2><p>{branch.address || ''}</p>
     {branch.phone && <a className="block" href={'tel:' + branch.phone}>Hotline: {branch.phone}</a>}
     <BranchHours branch={branch} /><MapLink branch={branch} />
     {branch.address && <button onClick={handleCopy} className={buttonClass}>Sao chép địa chỉ</button>}
