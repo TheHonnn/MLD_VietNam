@@ -311,12 +311,24 @@ export async function adminApi<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
+  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const shouldDirectSupabase =
+    (isHttps && base.startsWith("http://")) || (!isLocalhost && base.includes("127.0.0.1"));
+
+  // On production (Vercel) or remote environments, immediately query Supabase to prevent mixed content & delay
+  if (shouldDirectSupabase) {
+    return querySupabaseFallback<T>(path, body, signal);
+  }
+
   const token = sessionStorage.getItem("mld_admin_token");
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) controller.abort();
-  const timeout = window.setTimeout(abort, 6000); // 6s fast fail for local NestJS on production Vercel
+  const timeout = window.setTimeout(abort, 4000); // 4s fast fail for local NestJS
 
   try {
     const response = await fetch(`${base}/admin/${path}`, {
@@ -343,7 +355,7 @@ export async function adminApi<T>(
     }
     return json.data as T;
   } catch (err) {
-    // If backend is not running or unreachable (e.g. running on Vercel), fallback seamlessly to Supabase
+    // If backend is not running or unreachable, fallback seamlessly to Supabase
     try {
       return await querySupabaseFallback<T>(path, body, signal);
     } catch (fallbackErr) {

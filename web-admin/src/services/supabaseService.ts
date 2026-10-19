@@ -68,6 +68,10 @@ class SupabaseService {
     // 2. Fallback to adminApi if local backend is active
     try {
       const [table, query = ''] = path.split('?');
+      if (options.method === 'POST') {
+        const created = await adminApi(`${table}/insert`, { values: JSON.parse(String(options.body)) });
+        return (Array.isArray(created) ? created : [created]) as T;
+      }
       const params = new URLSearchParams(query), filter: Record<string, string> = {};
       const [sort, direction] = (params.get('order') || '').split(',')[0].split('.');
       for (const [name, value] of params.entries()) if (value.startsWith('eq.')) filter[name] = value.slice(3);
@@ -119,6 +123,57 @@ class SupabaseService {
       updatedAt: b.updated_at,
     }));
   }
+
+  async createBranch(branch: Partial<Branch> & { name: string; code: string; phone: string; address: string; district: string }): Promise<Branch | null> {
+    try {
+      const payload = {
+        name: branch.name,
+        code: branch.code,
+        phone: branch.phone,
+        address: branch.address,
+        district: branch.district,
+        city: branch.city || 'TP. Hồ Chí Minh',
+        latitude: branch.latitude ?? 10.7769,
+        longitude: branch.longitude ?? 106.7009,
+        opening_time: branch.openingTime || '08:30:00',
+        closing_time: branch.closingTime || '20:30:00',
+        image_url: branch.imageUrl || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
+        gallery_urls: branch.galleryUrls || [],
+        amenities: branch.amenities || ['Phòng VIP riêng biệt', 'Đỗ xe ô tô', 'Trà thảo mộc'],
+        is_active: branch.isActive !== undefined ? branch.isActive : true,
+      };
+
+      const res = await this.query<any[]>('branches', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (res && res.length > 0) {
+        const b = res[0];
+        return {
+          id: b.id,
+          name: b.name,
+          code: b.code,
+          phone: b.phone,
+          address: b.address,
+          district: b.district,
+          city: b.city,
+          latitude: Number(b.latitude),
+          longitude: Number(b.longitude),
+          openingTime: b.opening_time,
+          closingTime: b.closing_time,
+          imageUrl: b.image_url,
+          galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
+          amenities: Array.isArray(b.amenities) ? b.amenities : [],
+          isActive: Boolean(b.is_active),
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createBranch error:', err);
+    }
+    return null;
+  }
+
 
   // 2. PHÒNG CHI NHÁNH (BRANCH ROOMS)
   async getRooms(branchId?: string): Promise<BranchRoom[] | null> {
@@ -194,6 +249,20 @@ class SupabaseService {
       return false;
     }
   }
+
+  async updateUser(userId: string, updates: Record<string, any>): Promise<boolean> {
+    try {
+      const res = await this.query<any>(`users?id=eq.${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      return res !== null;
+    } catch (err) {
+      console.warn('[SupabaseService] updateUser error:', err);
+      return false;
+    }
+  }
+
 
   // 4. DỊCH VỤ SPA (SERVICES)
   async getServices(): Promise<Service[] | null> {

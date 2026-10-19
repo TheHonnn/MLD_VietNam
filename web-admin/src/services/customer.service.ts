@@ -67,4 +67,42 @@ export const customerService = {
       data: {} as User,
     };
   },
+
+  async updateCustomer(id: string, updates: Partial<User>): Promise<ApiResponse<User>> {
+    try {
+      const payload: Record<string, any> = {};
+      if (updates.fullName !== undefined) payload.full_name = updates.fullName;
+      if (updates.phone !== undefined) payload.phone = updates.phone;
+      if (updates.email !== undefined) payload.email = updates.email || null;
+      if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl || null;
+      if (updates.gender !== undefined) payload.gender = updates.gender;
+      if (updates.dateOfBirth !== undefined) payload.date_of_birth = updates.dateOfBirth || null;
+      if (updates.address !== undefined) payload.address = updates.address || null;
+      if (updates.emergencyContactName !== undefined) payload.emergency_contact_name = updates.emergencyContactName || null;
+      if (updates.emergencyContactPhone !== undefined) payload.emergency_contact_phone = updates.emergencyContactPhone || null;
+      if (updates.membershipTier !== undefined) payload.membership_tier = updates.membershipTier;
+      if (updates.purpose !== undefined) payload.purpose = updates.purpose;
+
+      await supabaseService.updateUser(id, payload);
+      const custRes = await this.getCustomerById(id);
+      if (custRes.success && custRes.data) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: 'Cập nhật thông tin khách hàng thành công',
+          data: custRes.data,
+        };
+      }
+    } catch (err) {
+      console.error('[customerService] updateCustomer error:', err);
+    }
+
+    return {
+      success: false,
+      statusCode: 500,
+      message: 'Không thể cập nhật thông tin khách hàng trên hệ thống',
+      data: {} as User,
+    };
+  },
 };
+
