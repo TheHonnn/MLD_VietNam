@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, LoaderCircle, ShieldCheck, AlertCircle, KeyRound } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LoaderCircle, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAdmin } from './Auth';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAdmin();
-  const [identifier, setIdentifier] = useState('admin@mldvietnam.vn');
-  const [password, setPassword] = useState('AdminMLD@2026');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -34,12 +34,6 @@ export const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillQuickCredentials = () => {
-    setIdentifier('admin@mldvietnam.vn');
-    setPassword('AdminMLD@2026');
-    setErrorMessage('');
   };
 
   return (
@@ -129,19 +123,6 @@ export const LoginPage: React.FC = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </div>
-
-            {/* Quick Demo Fill Pill */}
-            <div className="pt-1 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={fillQuickCredentials}
-                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#8A4F23] hover:text-[#6A3916] transition-colors cursor-pointer"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Điền tài khoản mẫu (Demo)</span>
-              </button>
-              <span className="text-[10px] text-[#A69788]">Supabase Auth Live</span>
             </div>
 
             {/* Submit Button */}
