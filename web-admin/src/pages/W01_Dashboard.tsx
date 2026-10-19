@@ -7,7 +7,6 @@ import {
   GraduationCap,
   ChevronDown,
   Clock,
-  Info,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -202,7 +201,7 @@ export const W01_Dashboard: React.FC = () => {
             Tổng quan vận hành
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Bức tranh vận hành chuỗi spa và học viện • Dữ liệu thời gian thực Supabase Cloud
+            Bức tranh vận hành chuỗi spa và học viện
           </p>
         </div>
         <Link
@@ -277,7 +276,7 @@ export const W01_Dashboard: React.FC = () => {
             <div className="mb-6">
               <h3 className="text-sm font-bold text-[#2C241E]">Thực thu theo ngày</h3>
               <p className="text-[11px] text-[#8A796B] mt-0.5">
-                Đơn vị: VNĐ • Đã thu thực tế theo ngày từ Supabase Cloud
+                Đơn vị: VNĐ • Đã thu thực tế theo ngày
               </p>
             </div>
 
@@ -604,19 +603,6 @@ export const W01_Dashboard: React.FC = () => {
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* 6. Bottom Disclaimers */}
-      <div className="space-y-1 pt-1 text-[11px] text-[#8A796B] leading-relaxed">
-        <p>
-          Phạm vi kết nối: {branches.length} chi nhánh đang hoạt động; dữ liệu thời gian thực đồng bộ trực tiếp 100% từ Supabase Cloud.
-        </p>
-        <div className="flex items-center gap-1.5 text-[#A69788]">
-          <Info className="w-3.5 h-3.5 shrink-0" />
-          <span>
-            Dữ liệu đồng bộ trực tiếp từ tầng Service • MLD Vietnam Healthcare Admin.
-          </span>
         </div>
       </div>
     </div>

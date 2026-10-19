@@ -489,7 +489,7 @@ export const W08_Enrollment: React.FC = () => {
 
             {/* Footer Note */}
             <div className="text-xs text-[#73675F] pt-1">
-              Dữ liệu tuyển sinh được đồng bộ trực tiếp từ máy chủ Supabase Cloud.
+              Dữ liệu tuyển sinh được cập nhật theo thời gian thực.
             </div>
           </div>
         </div>
@@ -594,7 +594,7 @@ export const W08_Enrollment: React.FC = () => {
 
           {/* Footnote */}
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Đồng bộ trạng thái hồ sơ học viên lên máy chủ Supabase Cloud.
+            Đồng bộ trạng thái hồ sơ học viên theo thời gian thực.
           </div>
         </div>
       </div>

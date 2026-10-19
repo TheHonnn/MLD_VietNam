@@ -55,7 +55,7 @@ export const Header: React.FC = () => {
         <div className="mt-1 flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E6F4EA] text-[#137333] leading-tight">
             <span className="w-1.5 h-1.5 rounded-full bg-[#137333]"></span>
-            Supabase Cloud Live
+            Hệ thống trực tuyến
           </span>
         </div>
       </div>

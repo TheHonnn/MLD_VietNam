@@ -250,7 +250,7 @@ export const W07_CashierPOS: React.FC = () => {
 
           {/* Explanatory Note */}
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Hệ thống tự động đồng bộ biên lai thanh toán lên máy chủ Supabase Cloud.
+            Hệ thống tự động đồng bộ biên lai thanh toán theo thời gian thực.
           </div>
         </div>
       </div>

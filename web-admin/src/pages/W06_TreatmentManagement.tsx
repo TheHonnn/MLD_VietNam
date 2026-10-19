@@ -170,7 +170,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             2
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
-            Đồng bộ từ Supabase Cloud
+            Đang hoạt động
           </div>
         </div>
 
@@ -506,7 +506,7 @@ export const W06_TreatmentManagement: React.FC = () => {
               </p>
             </div>
             <div className="text-[11px] text-[#8A4F23] font-medium pt-1">
-              Đồng bộ dữ liệu thời gian thực Supabase
+              Đồng bộ dữ liệu thời gian thực
             </div>
           </div>
         </div>

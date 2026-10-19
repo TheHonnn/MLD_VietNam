@@ -96,7 +96,7 @@ export const W04_CustomerDetail: React.FC = () => {
             Hồ sơ khách hàng
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Khách hàng / {customer?.fullName || 'Nguyễn Mỹ Duyên'} · {customer?.referralCode || 'MLD-VIP-01'} · Dữ liệu từ Supabase Cloud
+            Khách hàng / {customer?.fullName || 'Nguyễn Mỹ Duyên'} · {customer?.referralCode || 'MLD-VIP-01'}
           </p>
         </div>
         <button

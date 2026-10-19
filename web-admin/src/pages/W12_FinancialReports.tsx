@@ -609,7 +609,7 @@ export const W12_FinancialReports: React.FC = () => {
 
       {/* 8. Explanatory Note Above Footer */}
       <div className="text-[11px] text-[#73675F] leading-relaxed">
-        Dữ liệu tài chính được tổng hợp và đối soát thời gian thực từ cơ sở dữ liệu Supabase Cloud của chuỗi thương hiệu MLD Vietnam.
+        Dữ liệu tài chính được tổng hợp và đối soát thời gian thực của chuỗi thương hiệu MLD Vietnam.
       </div>
 
       {/* 9. Bottom Page Disclaimer */}
