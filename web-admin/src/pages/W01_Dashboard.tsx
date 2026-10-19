@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Wallet,
   Receipt,
@@ -9,8 +9,15 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Search,
+  X,
+  Building2,
+  CalendarDays,
+  Check,
+  User,
+  Phone,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   branchService,
   bookingService,
@@ -18,6 +25,7 @@ import {
   treatmentService,
   academyService,
   supabaseService,
+  customerService,
 } from '../services';
 import {
   Invoice,
@@ -27,10 +35,32 @@ import {
   CourseEnrollment,
   TuitionTransaction,
   Technician,
+  User as CustomerUser,
 } from '../types/shared_types';
 
+type DateRangePreset = '7D' | 'TODAY' | '30D' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
+
 export const W01_Dashboard: React.FC = () => {
+  const navigate = useNavigate();
+
+  // Search & Filters State
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    return localStorage.getItem('mld_selected_branch_id') || 'ALL';
+  });
+  const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
+  const branchDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('7D');
+  const [customStartDate, setCustomStartDate] = useState('2026-10-09');
+  const [customEndDate, setCustomEndDate] = useState('2026-10-16');
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Entities Data State
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -38,12 +68,68 @@ export const W01_Dashboard: React.FC = () => {
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [tuitions, setTuitions] = useState<TuitionTransaction[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [customers, setCustomers] = useState<CustomerUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Listen to Global Branch Changes from Header or other modules
+  useEffect(() => {
+    const handleGlobalBranchChange = (e: any) => {
+      const newBranchId = e?.detail?.branchId;
+      if (newBranchId) {
+        setSelectedBranchId(newBranchId);
+      }
+    };
+    window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    return () => {
+      window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    };
+  }, []);
+
+  // Sync selectedBranchId to localStorage and notify other components
+  const handleSelectBranch = (branchId: string) => {
+    setSelectedBranchId(branchId);
+    localStorage.setItem('mld_selected_branch_id', branchId);
+    window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId } }));
+    setIsBranchDropdownOpen(false);
+  };
+
+  // Close dropdowns on outside click or Escape
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (branchDropdownRef.current && !branchDropdownRef.current.contains(target)) {
+        setIsBranchDropdownOpen(false);
+      }
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(target)) {
+        setIsDateDropdownOpen(false);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
+        setIsSearchFocused(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsBranchDropdownOpen(false);
+        setIsDateDropdownOpen(false);
+        setIsSearchFocused(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // Fetch all operational data
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const [invRes, bkRes, brRes, pkgRes, enrRes, tuiRes, liveTechs] = await Promise.all([
+        const [invRes, bkRes, brRes, pkgRes, enrRes, tuiRes, liveTechs, custRes] = await Promise.all([
           posService.getInvoices(),
           bookingService.getBookings(),
           branchService.getAllBranches(),
@@ -51,6 +137,7 @@ export const W01_Dashboard: React.FC = () => {
           academyService.getEnrollments(),
           academyService.getTuitionTransactions(),
           supabaseService.getTechnicians(),
+          customerService.getCustomers(),
         ]);
         if (invRes.success) setInvoices(invRes.data);
         if (bkRes.success) setBookings(bkRes.data);
@@ -59,6 +146,7 @@ export const W01_Dashboard: React.FC = () => {
         if (enrRes.success) setEnrollments(enrRes.data);
         if (tuiRes.success) setTuitions(tuiRes.data);
         if (liveTechs) setTechnicians(liveTechs);
+        if (custRes.success) setCustomers(custRes.data);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
       } finally {
@@ -68,29 +156,141 @@ export const W01_Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  // Compute live KPI metrics
-  const totalInvoiceCollected = invoices.reduce(
+  // Quick lookup maps
+  const customerMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+  const techMap = useMemo(() => new Map(technicians.map((t) => [t.id, t])), [technicians]);
+  const branchMap = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
+
+  // Active Branch Display Label
+  const selectedBranch = branches.find((b) => b.id === selectedBranchId);
+  const selectedBranchLabel =
+    selectedBranchId === 'ALL'
+      ? `Tất cả chi nhánh (${branches.length || 2})`
+      : selectedBranch?.name?.replace('MLD Luxury Spa & Academy - ', '') ||
+        selectedBranch?.name ||
+        'Chi nhánh đã chọn';
+
+  // Compute Active Date Bounds & Display Labels
+  const { startDateStr, endDateStr, labelLine1, labelLine2 } = useMemo(() => {
+    switch (datePreset) {
+      case '7D':
+        return {
+          startDateStr: '2026-10-09',
+          endDateStr: '2026-10-16',
+          labelLine1: '09/10/2026 –',
+          labelLine2: '16/10/2026',
+        };
+      case 'TODAY':
+        return {
+          startDateStr: '2026-10-16',
+          endDateStr: '2026-10-16',
+          labelLine1: 'Hôm nay –',
+          labelLine2: '16/10/2026',
+        };
+      case '30D':
+        return {
+          startDateStr: '2026-09-16',
+          endDateStr: '2026-10-16',
+          labelLine1: '30 ngày qua –',
+          labelLine2: '16/09 – 16/10',
+        };
+      case 'THIS_MONTH':
+        return {
+          startDateStr: '2026-10-01',
+          endDateStr: '2026-10-31',
+          labelLine1: 'Tháng này –',
+          labelLine2: '10/2026',
+        };
+      case 'ALL':
+        return {
+          startDateStr: '',
+          endDateStr: '',
+          labelLine1: 'Toàn thời –',
+          labelLine2: 'gian (Tất cả)',
+        };
+      case 'CUSTOM':
+        return {
+          startDateStr: customStartDate,
+          endDateStr: customEndDate,
+          labelLine1: `${customStartDate.split('-').reverse().slice(0, 2).join('/')} –`,
+          labelLine2: `${customEndDate.split('-').reverse().slice(0, 2).join('/')}`,
+        };
+      default:
+        return {
+          startDateStr: '2026-10-09',
+          endDateStr: '2026-10-16',
+          labelLine1: '09/10/2026 –',
+          labelLine2: '16/10/2026',
+        };
+    }
+  }, [datePreset, customStartDate, customEndDate]);
+
+  // Date In Range Checker
+  const isDateInRange = (dateStr?: string | null) => {
+    if (!startDateStr || !endDateStr) return true;
+    if (!dateStr) return false;
+    const iso = dateStr.slice(0, 10);
+    return iso >= startDateStr && iso <= endDateStr;
+  };
+
+  // 1. FILTERED ENTITIES (By Branch and Date Range)
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((inv) => {
+      const matchBranch = selectedBranchId === 'ALL' || inv.branchId === selectedBranchId;
+      if (!matchBranch) return false;
+      if (datePreset === 'ALL') return true;
+      return isDateInRange(inv.paidAt);
+    });
+  }, [invoices, selectedBranchId, datePreset, startDateStr, endDateStr]);
+
+  const filteredTuitions = useMemo(() => {
+    return tuitions.filter((t) => {
+      const matchBranch = selectedBranchId === 'ALL' || t.branchId === selectedBranchId;
+      if (!matchBranch) return false;
+      if (datePreset === 'ALL') return true;
+      return isDateInRange(t.paidAt);
+    });
+  }, [tuitions, selectedBranchId, datePreset, startDateStr, endDateStr]);
+
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      const matchBranch = selectedBranchId === 'ALL' || b.branchId === selectedBranchId;
+      if (!matchBranch) return false;
+      if (datePreset === 'ALL') return true;
+      return isDateInRange(b.bookingDate);
+    });
+  }, [bookings, selectedBranchId, datePreset, startDateStr, endDateStr]);
+
+  const filteredEnrollments = useMemo(() => {
+    return enrollments.filter((e) => {
+      if (selectedBranchId === 'ALL') return true;
+      return !e.batch?.branchId || e.batch?.branchId === selectedBranchId;
+    });
+  }, [enrollments, selectedBranchId]);
+
+  // 2. LIVE KPI METRICS (Dynamically computed from filtered dataset)
+  const totalInvoiceCollected = filteredInvoices.reduce(
     (sum, inv) => (inv.paymentStatus === 'PAID' ? sum + inv.totalAmount : sum),
     0
   );
-  const totalTuitionCollected = tuitions.reduce(
+  const totalTuitionCollected = filteredTuitions.reduce(
     (sum, t) => (t.paymentStatus === 'PAID' ? sum + t.amount : sum),
     0
   );
   const totalCollected = totalInvoiceCollected + totalTuitionCollected;
 
   const paidCount =
-    invoices.filter((inv) => inv.paymentStatus === 'PAID').length +
-    tuitions.filter((t) => t.paymentStatus === 'PAID').length;
+    filteredInvoices.filter((inv) => inv.paymentStatus === 'PAID').length +
+    filteredTuitions.filter((t) => t.paymentStatus === 'PAID').length;
 
-  const upcomingCount = bookings.length;
+  const upcomingCount = filteredBookings.length;
   const packagesCount = userPackages.length;
-  const enrolledCount = enrollments.length;
+  const enrolledCount = filteredEnrollments.length;
 
-  const pendingBookings = bookings.filter((b) => b.paymentStatus !== 'PAID');
+  const pendingBookings = filteredBookings.filter((b) => b.paymentStatus !== 'PAID');
   const pendingBookingAmount = pendingBookings.reduce((s, b) => s + b.finalPrice, 0);
 
-  const pendingEnrollments = enrollments.filter(
+  const pendingEnrollments = filteredEnrollments.filter(
     (e) => e.status === 'CONSULTING' || e.amountPaid < e.tuitionTotal
   );
   const pendingTuitionAmount = pendingEnrollments.reduce(
@@ -100,11 +300,11 @@ export const W01_Dashboard: React.FC = () => {
   const totalNeedToCollect = pendingBookingAmount + pendingTuitionAmount;
 
   // Breakdown of collections
-  const serviceRevenue = invoices
+  const serviceRevenue = filteredInvoices
     .filter((inv) => inv.paymentStatus === 'PAID' && inv.bookingId)
     .reduce((s, i) => s + i.totalAmount, 0);
 
-  const packageRevenue = invoices
+  const packageRevenue = filteredInvoices
     .filter(
       (inv) =>
         inv.paymentStatus === 'PAID' &&
@@ -113,7 +313,7 @@ export const W01_Dashboard: React.FC = () => {
     .reduce((s, i) => s + i.totalAmount, 0);
 
   const tuitionRevenue =
-    invoices
+    filteredInvoices
       .filter((inv) => inv.paymentStatus === 'PAID' && inv.enrollmentId)
       .reduce((s, i) => s + i.totalAmount, 0) + totalTuitionCollected;
 
@@ -150,47 +350,125 @@ export const W01_Dashboard: React.FC = () => {
     {
       title: 'Khóa đã ghi danh',
       value: `${enrolledCount}`,
-      subtext: `${enrollments.filter((e) => e.status === 'STUDYING' || e.status === 'ENROLLED').length} học viên đang học`,
+      subtext: `${filteredEnrollments.filter((e) => e.status === 'STUDYING' || e.status === 'ENROLLED').length} học viên đang học`,
       icon: GraduationCap,
     },
   ];
 
-  // Daily revenue dynamic calculation across last 8 days
-  const today = new Date('2026-10-16');
-  const revenueChartData = Array.from({ length: 8 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (7 - i));
-    const isoDate = d.toISOString().split('T')[0];
-    const displayDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  // 3. DYNAMIC BAR CHART REVENUE DATA
+  const revenueChartData = useMemo(() => {
+    const anchor = new Date('2026-10-16');
+    const daysCount = 8;
+    return Array.from({ length: daysCount }, (_, i) => {
+      const d = new Date(anchor);
+      d.setDate(d.getDate() - (daysCount - 1 - i));
+      const isoDate = d.toISOString().split('T')[0];
+      const displayDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 
-    const invDay = invoices
-      .filter((inv) => inv.paymentStatus === 'PAID' && inv.paidAt && inv.paidAt.startsWith(isoDate))
-      .reduce((sum, inv) => sum + inv.totalAmount, 0);
+      const invDay = filteredInvoices
+        .filter((inv) => inv.paymentStatus === 'PAID' && inv.paidAt && inv.paidAt.startsWith(isoDate))
+        .reduce((sum, inv) => sum + inv.totalAmount, 0);
 
-    const tuiDay = tuitions
-      .filter((t) => t.paymentStatus === 'PAID' && t.paidAt && t.paidAt.startsWith(isoDate))
-      .reduce((sum, t) => sum + t.amount, 0);
+      const tuiDay = filteredTuitions
+        .filter((t) => t.paymentStatus === 'PAID' && t.paidAt && t.paidAt.startsWith(isoDate))
+        .reduce((sum, t) => sum + t.amount, 0);
 
-    const dayTotal = invDay + tuiDay;
-    return {
-      date: displayDate,
-      amount: dayTotal,
-      label: dayTotal > 0 ? `${dayTotal.toLocaleString('vi-VN')}đ` : '0đ',
-      color: dayTotal > 10000000 ? '#783D19' : dayTotal > 2000000 ? '#BA7E4C' : '#DFBF9F',
-    };
-  });
+      const dayTotal = invDay + tuiDay;
+      return {
+        date: displayDate,
+        amount: dayTotal,
+        label: dayTotal > 0 ? `${dayTotal.toLocaleString('vi-VN')}đ` : '0đ',
+        color: dayTotal > 10000000 ? '#783D19' : dayTotal > 2000000 ? '#BA7E4C' : '#DFBF9F',
+      };
+    });
+  }, [filteredInvoices, filteredTuitions]);
 
   const maxVal = Math.max(...revenueChartData.map((d) => d.amount), 5000000);
 
-  // Filter bookings based on search
-  const filteredBookings = bookings.filter((b) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      b.bookingCode.toLowerCase().includes(term) ||
-      b.id.toLowerCase().includes(term)
-    );
-  });
+  // 4. MULTI-FIELD SEARCH LOGIC (BOOKINGS TABLE)
+  const searchLower = searchTerm.trim().toLowerCase();
+
+  const displayBookings = useMemo(() => {
+    return filteredBookings.filter((b) => {
+      if (!searchLower) return true;
+      const cust = b.customerId ? customerMap.get(b.customerId) : undefined;
+      const tech = b.technicianId ? techMap.get(b.technicianId) : undefined;
+      const br = branchMap.get(b.branchId);
+
+      return (
+        b.bookingCode.toLowerCase().includes(searchLower) ||
+        b.id.toLowerCase().includes(searchLower) ||
+        (b.bookedForName && b.bookedForName.toLowerCase().includes(searchLower)) ||
+        (b.bookedForPhone && b.bookedForPhone.includes(searchLower)) ||
+        (cust?.fullName && cust.fullName.toLowerCase().includes(searchLower)) ||
+        (cust?.phone && cust.phone.includes(searchLower)) ||
+        (b.checkinNotes && b.checkinNotes.toLowerCase().includes(searchLower)) ||
+        (b.specialNotes && b.specialNotes.toLowerCase().includes(searchLower)) ||
+        (tech?.fullName && tech.fullName.toLowerCase().includes(searchLower)) ||
+        (br?.name && br.name.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [filteredBookings, searchLower, customerMap, techMap, branchMap]);
+
+  // 5. QUICK SEARCH AUTOCOMPLETE SUGGESTIONS
+  const quickResults = useMemo(() => {
+    if (!searchLower) {
+      return { bookings: [], customers: [], enrollments: [], invoices: [] };
+    }
+
+    const matchedBookings = bookings
+      .filter((b) => {
+        const cust = b.customerId ? customerMap.get(b.customerId) : undefined;
+        const tech = b.technicianId ? techMap.get(b.technicianId) : undefined;
+        return (
+          b.bookingCode.toLowerCase().includes(searchLower) ||
+          (b.bookedForName && b.bookedForName.toLowerCase().includes(searchLower)) ||
+          (cust?.fullName && cust.fullName.toLowerCase().includes(searchLower)) ||
+          (b.checkinNotes && b.checkinNotes.toLowerCase().includes(searchLower)) ||
+          (tech?.fullName && tech.fullName.toLowerCase().includes(searchLower))
+        );
+      })
+      .slice(0, 3);
+
+    const matchedCustomers = customers
+      .filter((c) => {
+        return (
+          c.fullName.toLowerCase().includes(searchLower) ||
+          (c.phone && c.phone.includes(searchLower)) ||
+          (c.email && c.email.toLowerCase().includes(searchLower))
+        );
+      })
+      .slice(0, 3);
+
+    const matchedEnrollments = enrollments
+      .filter((e) => {
+        return (
+          (e.student?.fullName && e.student.fullName.toLowerCase().includes(searchLower)) ||
+          (e.course?.title && e.course.title.toLowerCase().includes(searchLower)) ||
+          (e.course?.code && e.course.code.toLowerCase().includes(searchLower))
+        );
+      })
+      .slice(0, 3);
+
+    const matchedInvoices = invoices
+      .filter((inv) => {
+        return inv.invoiceCode.toLowerCase().includes(searchLower);
+      })
+      .slice(0, 3);
+
+    return {
+      bookings: matchedBookings,
+      customers: matchedCustomers,
+      enrollments: matchedEnrollments,
+      invoices: matchedInvoices,
+    };
+  }, [searchLower, bookings, customers, enrollments, invoices, customerMap, techMap]);
+
+  const totalQuickMatches =
+    quickResults.bookings.length +
+    quickResults.customers.length +
+    quickResults.enrollments.length +
+    quickResults.invoices.length;
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -212,33 +490,376 @@ export const W01_Dashboard: React.FC = () => {
         </Link>
       </div>
 
-      {/* 2. Filter Bar Box */}
-      <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-col md:flex-row items-stretch md:items-center gap-2.5 shadow-xs">
-        {/* Search input */}
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm khách hàng, lịch hẹn, lớp học..."
-            className="w-full h-10 px-3.5 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
-          />
+      {/* 2. Interactive Filter Bar Box */}
+      <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-col md:flex-row items-stretch md:items-center gap-2.5 shadow-xs relative z-20">
+        {/* Search input with live autocomplete */}
+        <div className="relative flex-1" ref={searchContainerRef}>
+          <div className="relative flex items-center">
+            <Search className="w-4 h-4 text-[#A69788] absolute left-3.5 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onFocus={() => setIsSearchFocused(true)}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm khách hàng, lịch hẹn, lớp học..."
+              className="w-full h-10 pl-9 pr-9 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] transition-colors"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 p-1 rounded-full text-[#A69788] hover:text-[#5C5046] hover:bg-[#FAF8F5] transition-colors"
+                title="Xóa tìm kiếm"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Autocomplete / Instant Search Results Dropdown */}
+          {isSearchFocused && searchLower.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 max-h-[380px] overflow-y-auto p-3 space-y-3 animate-in fade-in-50 zoom-in-95">
+              <div className="flex items-center justify-between pb-2 border-b border-[#EFE4D9] text-[11px] text-[#73675F]">
+                <span>
+                  Kết quả cho từ khóa: <strong className="text-[#985018]">"{searchTerm}"</strong>
+                </span>
+                <span className="text-[10px] bg-[#F5EBE1] text-[#985018] px-2 py-0.5 rounded-full font-bold">
+                  {totalQuickMatches} mục liên quan
+                </span>
+              </div>
+
+              {totalQuickMatches === 0 ? (
+                <div className="py-6 text-center text-[#8C7E72] text-xs">
+                  <Search className="w-8 h-8 mx-auto text-[#D5C2B1] mb-2 stroke-1" />
+                  <p className="font-semibold text-[#4A3E34]">Không tìm thấy kết quả phù hợp</p>
+                  <p className="text-[11px] text-[#8C7E72] mt-0.5">
+                    Thử tìm theo tên khách hàng, số điện thoại hoặc mã lịch hẹn
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Bookings Matches */}
+                  {quickResults.bookings.length > 0 && (
+                    <div>
+                      <div className="text-[10.5px] font-bold text-[#8E4002] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" /> Lịch hẹn ({quickResults.bookings.length})
+                      </div>
+                      <div className="space-y-1">
+                        {quickResults.bookings.map((b) => {
+                          const cust = b.customerId ? customerMap.get(b.customerId) : undefined;
+                          const custName = b.bookedForName || cust?.fullName || 'Khách hàng';
+                          return (
+                            <div
+                              key={b.id}
+                              onClick={() => {
+                                setSearchTerm(b.bookingCode);
+                                setIsSearchFocused(false);
+                              }}
+                              className="p-2 rounded-xl hover:bg-[#FAF8F5] cursor-pointer flex items-center justify-between text-xs transition-colors border border-transparent hover:border-[#EFE4D9]"
+                            >
+                              <div>
+                                <div className="font-bold text-[#2C241E] flex items-center gap-1.5">
+                                  <span>{b.bookingCode}</span>
+                                  <span className="text-[11px] font-medium text-[#73675F]">
+                                    • {custName}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-[#8C7E72]">
+                                  {b.bookingDate} ({b.startTime.slice(0, 5)}) •{' '}
+                                  {b.checkinNotes || 'Massage trị liệu'}
+                                </div>
+                              </div>
+                              <span className="text-[11px] font-bold text-[#985018]">
+                                {b.finalPrice.toLocaleString('vi-VN')}đ
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Customers Matches */}
+                  {quickResults.customers.length > 0 && (
+                    <div>
+                      <div className="text-[10.5px] font-bold text-[#8E4002] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5" /> Khách hàng ({quickResults.customers.length})
+                      </div>
+                      <div className="space-y-1">
+                        {quickResults.customers.map((c) => (
+                          <div
+                            key={c.id}
+                            onClick={() => {
+                              navigate(`/customer-detail?id=${c.id}`);
+                              setIsSearchFocused(false);
+                            }}
+                            className="p-2 rounded-xl hover:bg-[#FAF8F5] cursor-pointer flex items-center justify-between text-xs transition-colors border border-transparent hover:border-[#EFE4D9]"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full bg-[#F5EBE1] text-[#985018] flex items-center justify-center font-bold text-xs">
+                                {c.fullName.slice(0, 1)}
+                              </div>
+                              <div>
+                                <div className="font-bold text-[#2C241E]">{c.fullName}</div>
+                                <div className="text-[11px] text-[#8C7E72] flex items-center gap-1">
+                                  <Phone className="w-3 h-3" /> {c.phone}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#FAF0E6] text-[#8A4F23]">
+                              {c.membershipTier}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Enrollments Matches */}
+                  {quickResults.enrollments.length > 0 && (
+                    <div>
+                      <div className="text-[10.5px] font-bold text-[#8E4002] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5" /> Tuyển sinh & Khóa học (
+                        {quickResults.enrollments.length})
+                      </div>
+                      <div className="space-y-1">
+                        {quickResults.enrollments.map((e) => (
+                          <div
+                            key={e.id}
+                            onClick={() => {
+                              navigate('/academy-enrollment');
+                              setIsSearchFocused(false);
+                            }}
+                            className="p-2 rounded-xl hover:bg-[#FAF8F5] cursor-pointer flex items-center justify-between text-xs transition-colors border border-transparent hover:border-[#EFE4D9]"
+                          >
+                            <div>
+                              <div className="font-bold text-[#2C241E]">
+                                {e.student?.fullName || 'Học viên'}
+                              </div>
+                              <div className="text-[11px] text-[#8C7E72]">
+                                {e.course?.title || e.course?.code || 'Khóa đào tạo Spa chuyên nghiệp'}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#EDE7F6] text-[#5E35B1]">
+                              {e.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Invoices Matches */}
+                  {quickResults.invoices.length > 0 && (
+                    <div>
+                      <div className="text-[10.5px] font-bold text-[#8E4002] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <Receipt className="w-3.5 h-3.5" /> Hóa đơn ({quickResults.invoices.length})
+                      </div>
+                      <div className="space-y-1">
+                        {quickResults.invoices.map((inv) => (
+                          <div
+                            key={inv.id}
+                            onClick={() => {
+                              navigate('/cashier-pos');
+                              setIsSearchFocused(false);
+                            }}
+                            className="p-2 rounded-xl hover:bg-[#FAF8F5] cursor-pointer flex items-center justify-between text-xs transition-colors border border-transparent hover:border-[#EFE4D9]"
+                          >
+                            <div>
+                              <div className="font-bold text-[#2C241E]">{inv.invoiceCode}</div>
+                              <div className="text-[11px] text-[#8C7E72]">{inv.paidAt || 'Vừa xong'}</div>
+                            </div>
+                            <span className="text-[11px] font-bold text-[#2E7D32]">
+                              {inv.totalAmount.toLocaleString('vi-VN')}đ
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Date range dropdown */}
-        <button className="flex items-center justify-between gap-4 px-3.5 py-1 h-10 rounded-xl border border-[#E0D7CC] bg-white text-[11px] font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0">
-          <div className="text-left leading-tight text-[11px]">
-            <div>09/10/2026 –</div>
-            <div>16/10/2026</div>
-          </div>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
-        </button>
+        {/* Date range interactive dropdown */}
+        <div className="relative" ref={dateDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
+            className={`flex items-center justify-between gap-4 px-3.5 py-1 h-10 rounded-xl border bg-white text-[11px] font-medium transition-all shrink-0 cursor-pointer ${
+              isDateDropdownOpen
+                ? 'border-[#985018] ring-2 ring-[#985018]/10 text-[#2C241E]'
+                : 'border-[#E0D7CC] text-[#4A3E34] hover:bg-[#FAF8F5]'
+            }`}
+          >
+            <div className="text-left leading-tight text-[11px]">
+              <div>{labelLine1}</div>
+              <div>{labelLine2}</div>
+            </div>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-[#8C7A6B] transition-transform duration-200 ${
+                isDateDropdownOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {/* Date Range Options Modal / Dropdown */}
+          {isDateDropdownOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 p-3 space-y-2 animate-in fade-in-50 zoom-in-95">
+              <div className="flex items-center justify-between pb-2 border-b border-[#EFE4D9]">
+                <span className="text-xs font-bold text-[#3E200C] flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-[#985018]" />
+                  Khoảng thời gian thống kê
+                </span>
+              </div>
+
+              {/* Presets */}
+              <div className="space-y-1">
+                {[
+                  { key: '7D', label: '7 ngày qua (09/10 – 16/10)', desc: 'Mặc định tuần vận hành' },
+                  { key: 'TODAY', label: 'Hôm nay (16/10/2026)', desc: 'Thời gian thực trong ngày' },
+                  { key: '30D', label: '30 ngày qua (16/09 – 16/10)', desc: 'Thống kê 1 tháng gần nhất' },
+                  { key: 'THIS_MONTH', label: 'Tháng này (Tháng 10/2026)', desc: 'Toàn bộ chu kỳ tháng 10' },
+                  { key: 'ALL', label: 'Toàn thời gian (Tất cả)', desc: 'Không giới hạn ngày' },
+                ].map((item) => {
+                  const isActive = datePreset === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        setDatePreset(item.key as DateRangePreset);
+                        setIsDateDropdownOpen(false);
+                      }}
+                      className={`w-full text-left p-2 rounded-xl text-xs transition-colors flex items-center justify-between ${
+                        isActive
+                          ? 'bg-[#F5EBE1] text-[#985018] font-bold'
+                          : 'text-[#4A3E34] hover:bg-[#FAF8F5]'
+                      }`}
+                    >
+                      <div>
+                        <div>{item.label}</div>
+                        <div className="text-[10px] text-[#8C7E72] font-normal">{item.desc}</div>
+                      </div>
+                      {isActive && <Check className="w-4 h-4 text-[#985018] stroke-[2.5]" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Inputs */}
+              <div className="pt-2 border-t border-[#EFE4D9] space-y-2">
+                <span className="text-[11px] font-semibold text-[#695A4E]">Tùy chọn ngày:</span>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <label className="text-[10px] text-[#8C7E72] block mb-0.5">Từ ngày</label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-[#E0D7CC] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#8C7E72] block mb-0.5">Đến ngày</label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-[#E0D7CC] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDatePreset('CUSTOM');
+                    setIsDateDropdownOpen(false);
+                  }}
+                  className="w-full py-1.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+                >
+                  Áp dụng khoảng ngày
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Branch dropdown */}
-        <button className="flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0">
-          <span>Tất cả chi nhánh ({branches.length})</span>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
-        </button>
+        <div className="relative" ref={branchDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}
+            className={`flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border bg-white text-xs font-medium transition-all shrink-0 cursor-pointer ${
+              isBranchDropdownOpen
+                ? 'border-[#985018] ring-2 ring-[#985018]/10 text-[#2C241E]'
+                : 'border-[#E0D7CC] text-[#4A3E34] hover:bg-[#FAF8F5]'
+            }`}
+          >
+            <span className="truncate max-w-[170px]">{selectedBranchLabel}</span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-[#8C7A6B] transition-transform duration-200 ${
+                isBranchDropdownOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {/* Branch Select Menu */}
+          {isBranchDropdownOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 p-2 space-y-1 animate-in fade-in-50 zoom-in-95">
+              <div className="px-3 py-1.5 border-b border-[#EFE4D9] text-xs font-bold text-[#3E200C] flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-[#985018]" />
+                Chọn chi nhánh vận hành
+              </div>
+
+              {/* All Branches option */}
+              <button
+                type="button"
+                onClick={() => handleSelectBranch('ALL')}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
+                  selectedBranchId === 'ALL'
+                    ? 'bg-[#F5EBE1] text-[#985018] font-bold'
+                    : 'text-[#4A3E34] hover:bg-[#FAF8F5]'
+                }`}
+              >
+                <div>
+                  <div>Tất cả chi nhánh ({branches.length || 2})</div>
+                  <div className="text-[10px] text-[#8C7E72] font-normal">
+                    Tổng hợp toàn bộ chuỗi cơ sở
+                  </div>
+                </div>
+                {selectedBranchId === 'ALL' && <Check className="w-4 h-4 text-[#985018] stroke-[2.5]" />}
+              </button>
+
+              {/* Individual branches */}
+              {branches.map((b) => {
+                const isSelected = selectedBranchId === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => handleSelectBranch(b.id)}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
+                      isSelected
+                        ? 'bg-[#F5EBE1] text-[#985018] font-bold'
+                        : 'text-[#4A3E34] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <div className="truncate mr-2">
+                      <div className="truncate">{b.name}</div>
+                      <div className="text-[10px] text-[#8C7E72] font-normal truncate">
+                        {b.address}
+                      </div>
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 text-[#985018] shrink-0 stroke-[2.5]" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 3. Five KPI Cards Row */}
@@ -248,7 +869,7 @@ export const W01_Dashboard: React.FC = () => {
           return (
             <div
               key={idx}
-              className="bg-white p-4 rounded-2xl border border-[#EFE4D9] flex flex-col justify-between shadow-xs"
+              className="bg-white p-4 rounded-2xl border border-[#EFE4D9] flex flex-col justify-between shadow-xs transition-transform hover:-translate-y-0.5"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-semibold text-[#7A6E63]">{kpi.title}</span>
@@ -273,11 +894,17 @@ export const W01_Dashboard: React.FC = () => {
         <div className="lg:col-span-8 space-y-4">
           {/* Chart Card: Thực thu theo ngày */}
           <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] shadow-xs">
-            <div className="mb-6">
-              <h3 className="text-sm font-bold text-[#2C241E]">Thực thu theo ngày</h3>
-              <p className="text-[11px] text-[#8A796B] mt-0.5">
-                Đơn vị: VNĐ • Đã thu thực tế theo ngày
-              </p>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-sm font-bold text-[#2C241E]">Thực thu theo ngày</h3>
+                <p className="text-[11px] text-[#8A796B] mt-0.5">
+                  Đơn vị: VNĐ • Đã thu thực tế theo ngày •{' '}
+                  <span className="font-semibold text-[#985018]">{selectedBranchLabel}</span>
+                </p>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FAF0E6] text-[#8A4F23]">
+                {labelLine1} {labelLine2}
+              </span>
             </div>
 
             {/* Custom Bar Chart Canvas */}
@@ -287,7 +914,7 @@ export const W01_Dashboard: React.FC = () => {
                 return (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group">
                     <span
-                      className={`text-[9.5px] font-bold mb-1.5 ${
+                      className={`text-[9.5px] font-bold mb-1.5 transition-colors ${
                         item.amount > 0 ? 'text-[#8E4002]' : 'text-[#A8988A]'
                       }`}
                     >
@@ -297,7 +924,7 @@ export const W01_Dashboard: React.FC = () => {
                     <div className="w-full max-w-[34px] bg-transparent rounded-t-md flex items-end justify-center h-full">
                       {item.amount > 0 ? (
                         <div
-                          className="w-full rounded-t-md transition-all duration-500"
+                          className="w-full rounded-t-md transition-all duration-500 group-hover:opacity-90"
                           style={{
                             height: `${heightPercent}%`,
                             backgroundColor: item.color,
@@ -320,7 +947,12 @@ export const W01_Dashboard: React.FC = () => {
           {/* Table Card: Đối chiếu chi nhánh */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
             <div className="p-4 border-b border-[#EFE4D9] flex items-center justify-between">
-              <h3 className="text-sm font-bold text-[#2C241E]">Đối chiếu chi nhánh</h3>
+              <div>
+                <h3 className="text-sm font-bold text-[#2C241E]">Đối chiếu chi nhánh</h3>
+                <p className="text-[11px] text-[#8A796B]">
+                  Nhấp vào chi nhánh để lọc nhanh toàn bộ bảng điều khiển
+                </p>
+              </div>
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F5EBE1] text-[#985018] border border-[#E8DACB]">
                 {branches.length} chi nhánh đang hoạt động
               </span>
@@ -337,21 +969,40 @@ export const W01_Dashboard: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-[#EFE4D9]">
                   {branches.map((b) => {
-                    const branchInvoices = invoices.filter(
+                    const branchInvs = invoices.filter(
                       (inv) => inv.branchId === b.id && inv.paymentStatus === 'PAID'
                     );
-                    const branchTuitions = tuitions.filter(
+                    const branchTuis = tuitions.filter(
                       (t) => t.branchId === b.id && t.paymentStatus === 'PAID'
                     );
                     const branchTotal =
-                      branchInvoices.reduce((s, i) => s + i.totalAmount, 0) +
-                      branchTuitions.reduce((s, t) => s + t.amount, 0);
-                    const branchReceiptCount = branchInvoices.length + branchTuitions.length;
+                      branchInvs.reduce((s, i) => s + i.totalAmount, 0) +
+                      branchTuis.reduce((s, t) => s + t.amount, 0);
+                    const branchReceiptCount = branchInvs.length + branchTuis.length;
+                    const isRowSelected = selectedBranchId === b.id;
 
                     return (
-                      <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
-                        <td className="py-3 px-4 font-semibold text-[#2C241E]">
-                          {b.name}
+                      <tr
+                        key={b.id}
+                        onClick={() => handleSelectBranch(isRowSelected ? 'ALL' : b.id)}
+                        className={`transition-colors cursor-pointer ${
+                          isRowSelected
+                            ? 'bg-[#FDF8F3] font-semibold text-[#8E4002]'
+                            : 'hover:bg-[#FAF8F5]'
+                        }`}
+                      >
+                        <td className="py-3 px-4 text-[#2C241E]">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{b.name}</span>
+                            {isRowSelected && (
+                              <span className="text-[9.5px] px-1.5 py-0.5 bg-[#985018] text-white rounded font-bold">
+                                Đang chọn
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10.5px] text-[#8C7E72] font-normal truncate max-w-sm">
+                            {b.address}
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-[#5C5046]">{branchReceiptCount}</td>
                         <td className="py-3 px-4 text-right font-bold text-[#2C241E]">
@@ -366,7 +1017,9 @@ export const W01_Dashboard: React.FC = () => {
 
             {/* Pagination Footer */}
             <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
-              <span className="text-[11px]">Hiển thị {branches.length} / {branches.length} cơ sở</span>
+              <span className="text-[11px]">
+                Hiển thị {branches.length} / {branches.length} cơ sở
+              </span>
               <div className="flex items-center gap-1.5">
                 <button
                   disabled
@@ -405,7 +1058,7 @@ export const W01_Dashboard: React.FC = () => {
                 </div>
                 <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#783D19] rounded-full"
+                    className="h-full bg-[#783D19] rounded-full transition-all duration-500"
                     style={{ width: `${Math.max(Number(servicePct.replace(',', '.')), 3)}%` }}
                   ></div>
                 </div>
@@ -421,7 +1074,7 @@ export const W01_Dashboard: React.FC = () => {
                 </div>
                 <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#783D19] rounded-full"
+                    className="h-full bg-[#783D19] rounded-full transition-all duration-500"
                     style={{ width: `${Math.max(Number(packagePct.replace(',', '.')), 3)}%` }}
                   ></div>
                 </div>
@@ -437,7 +1090,7 @@ export const W01_Dashboard: React.FC = () => {
                 </div>
                 <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#783D19] rounded-full"
+                    className="h-full bg-[#783D19] rounded-full transition-all duration-500"
                     style={{ width: `${Math.max(Number(tuitionPct.replace(',', '.')), 3)}%` }}
                   ></div>
                 </div>
@@ -445,7 +1098,8 @@ export const W01_Dashboard: React.FC = () => {
             </div>
 
             <p className="text-[10px] text-[#8A796B] pt-2 border-t border-[#EFE4D9] leading-relaxed">
-              Dịch vụ & liệu trình: {(serviceRevenue + packageRevenue).toLocaleString('vi-VN')}đ • Học viện: {tuitionRevenue.toLocaleString('vi-VN')}đ.
+              Dịch vụ & liệu trình: {(serviceRevenue + packageRevenue).toLocaleString('vi-VN')}đ • Học
+              viện: {tuitionRevenue.toLocaleString('vi-VN')}đ.
             </p>
           </div>
 
@@ -465,7 +1119,8 @@ export const W01_Dashboard: React.FC = () => {
                     {pendingBookings.length} khoản cọc dịch vụ chờ thanh toán
                   </h4>
                   <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
-                    {pendingBookings[0].bookingCode} • {pendingBookingAmount.toLocaleString('vi-VN')}đ chờ quyết toán tại cơ sở.
+                    {pendingBookings[0].bookingCode} •{' '}
+                    {pendingBookingAmount.toLocaleString('vi-VN')}đ chờ quyết toán tại cơ sở.
                   </p>
                 </div>
               ) : (
@@ -501,13 +1156,31 @@ export const W01_Dashboard: React.FC = () => {
 
       {/* 5. Bottom Full Width Table: Lịch hẹn sắp tới */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-[#EFE4D9] flex items-center justify-between">
-          <h3 className="text-sm font-bold text-[#2C241E]">
-            Lịch hẹn sắp tới • Live Service Data ({filteredBookings.length})
-          </h3>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F5EBE1] text-[#985018] border border-[#E8DACB]">
-            {filteredBookings.length} bản ghi
-          </span>
+        <div className="p-4 border-b border-[#EFE4D9] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-[#2C241E]">
+              Lịch hẹn sắp tới • Live Service Data ({displayBookings.length})
+            </h3>
+            {searchTerm && (
+              <p className="text-[11px] text-[#985018] mt-0.5 font-medium">
+                Đang lọc theo: "{searchTerm}" (Tìm thấy {displayBookings.length} bản ghi)
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="text-[10.5px] text-[#8C7E72] hover:text-[#2C241E] underline cursor-pointer"
+              >
+                Xóa bộ lọc tìm kiếm
+              </button>
+            )}
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F5EBE1] text-[#985018] border border-[#E8DACB]">
+              {displayBookings.length} bản ghi
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -515,68 +1188,103 @@ export const W01_Dashboard: React.FC = () => {
             <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold">
               <tr>
                 <th className="py-2.5 px-4">Ngày & giờ</th>
-                <th className="py-2.5 px-4">Lịch hẹn / dịch vụ</th>
+                <th className="py-2.5 px-4">Lịch hẹn / Khách hàng / Dịch vụ</th>
                 <th className="py-2.5 px-4">Kỹ thuật viên / cơ sở</th>
                 <th className="py-2.5 px-4">Trạng thái</th>
                 <th className="py-2.5 px-4">Thanh toán</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9]">
-              {filteredBookings.map((b) => {
-                const branch = branches.find((br) => br.id === b.branchId);
-                const branchShort = branch?.name?.includes('Nguyễn Thị Minh Khai')
-                  ? 'Quận 3'
-                  : branch?.name?.includes('Nam Kỳ')
-                  ? 'Quận 1'
-                  : 'Chi nhánh MLD';
+              {displayBookings.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-[#8C7E72]">
+                    <Calendar className="w-10 h-10 mx-auto text-[#D5C2B1] stroke-1 mb-2" />
+                    <p className="text-sm font-semibold text-[#4A3E34]">
+                      Không tìm thấy lịch hẹn phù hợp
+                    </p>
+                    <p className="text-xs text-[#8C7E72] mt-0.5">
+                      Thử thay đổi từ khóa tìm kiếm, khoảng thời gian hoặc chọn "Tất cả chi nhánh"
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm('');
+                        handleSelectBranch('ALL');
+                        setDatePreset('ALL');
+                      }}
+                      className="mt-3 px-3.5 py-1.5 text-xs font-bold text-[#985018] bg-[#F5EBE1] hover:bg-[#ECD9C6] rounded-xl transition-colors cursor-pointer"
+                    >
+                      Đặt lại toàn bộ bộ lọc
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                displayBookings.map((b) => {
+                  const branch = branchMap.get(b.branchId);
+                  const branchShort = branch?.name?.includes('Nguyễn Thị Minh Khai')
+                    ? 'Quận 3'
+                    : branch?.name?.includes('Nam Kỳ')
+                    ? 'Quận 1'
+                    : branch?.name || 'Chi nhánh MLD';
 
-                const tech = technicians.find((t) => t.id === b.technicianId);
-                const techName =
-                  tech?.fullName || (b.technicianId?.includes('1') ? 'Trần Lan Anh' : 'Lê Quỳnh Nga');
+                  const tech = b.technicianId ? techMap.get(b.technicianId) : undefined;
+                  const techName =
+                    tech?.fullName || (b.technicianId?.includes('1') ? 'Trần Lan Anh' : 'Lê Quỳnh Nga');
 
-                return (
-                  <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
-                    <td className="py-3 px-4 font-semibold text-[#2C241E] whitespace-nowrap">
-                      <div>{b.bookingDate}</div>
-                      <div className="text-[11px] text-[#8A796B] font-normal">
-                        {b.startTime.slice(0, 5)}–{b.endTime.slice(0, 5)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-[#2C241E]">{b.bookingCode}</div>
-                      <div className="text-[11px] text-[#5C5046]">
-                        {b.checkinNotes || 'Massage trị liệu & chăm sóc da'}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-[#2C241E]">{techName}</div>
-                      <div className="text-[11px] text-[#8A796B]">
-                        {branchShort} • Phòng {b.assignedBedNumber || '01'}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold ${
-                          b.status === 'CHECKED_IN'
-                            ? 'bg-[#E8EFE5] text-[#526D51]'
-                            : 'bg-[#F5E2D0] text-[#8A4F23]'
-                        }`}
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        {b.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-[#2C241E]">
-                        {b.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'}
-                      </div>
-                      <div className="text-[11px] text-[#8A796B]">
-                        {b.finalPrice.toLocaleString('vi-VN')}đ
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                  const cust = b.customerId ? customerMap.get(b.customerId) : undefined;
+                  const customerName = b.bookedForName || cust?.fullName || 'Khách hàng VIP';
+                  const customerPhone = b.bookedForPhone || cust?.phone || '';
+
+                  return (
+                    <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
+                      <td className="py-3 px-4 font-semibold text-[#2C241E] whitespace-nowrap">
+                        <div>{b.bookingDate}</div>
+                        <div className="text-[11px] text-[#8A796B] font-normal">
+                          {b.startTime.slice(0, 5)}–{b.endTime.slice(0, 5)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#2C241E]">{b.bookingCode}</span>
+                          <span className="text-[10px] font-semibold text-[#8E4002] bg-[#FAF0E6] px-1.5 py-0.5 rounded">
+                            {customerName}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#5C5046] mt-0.5">
+                          {b.checkinNotes || b.specialNotes || 'Massage trị liệu & chăm sóc da'}
+                          {customerPhone ? ` • ${customerPhone}` : ''}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-[#2C241E]">{techName}</div>
+                        <div className="text-[11px] text-[#8A796B]">
+                          {branchShort} • Phòng {b.assignedBedNumber || '01'}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold ${
+                            b.status === 'CHECKED_IN'
+                              ? 'bg-[#E8EFE5] text-[#526D51]'
+                              : 'bg-[#F5E2D0] text-[#8A4F23]'
+                          }`}
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          {b.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-[#2C241E]">
+                          {b.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+                        </div>
+                        <div className="text-[11px] text-[#8A796B]">
+                          {b.finalPrice.toLocaleString('vi-VN')}đ
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -584,7 +1292,7 @@ export const W01_Dashboard: React.FC = () => {
         {/* Table Pagination */}
         <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
           <span className="text-[11px]">
-            Hiển thị {filteredBookings.length} / {filteredBookings.length} bản ghi
+            Hiển thị {displayBookings.length} / {displayBookings.length} bản ghi
           </span>
           <div className="flex items-center gap-1.5">
             <button
