@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Bell, ChevronDown } from 'lucide-react';
+import { Bell, ChevronDown, LogOut } from 'lucide-react';
+import { useAdmin } from '../../admin/Auth';
 
 const breadcrumbs: Record<string, string> = {
   '/': 'Tổng quan vận hành',
@@ -20,9 +21,28 @@ const breadcrumbs: Record<string, string> = {
   '/reports': 'Báo cáo doanh thu',
 };
 
+const roleLabels: Record<string, string> = {
+  SUPER_ADMIN: 'Quản trị tối cao',
+  ADMIN: 'Quản trị viên',
+  BRANCH_MANAGER: 'Quản lý chi nhánh',
+  CASHIER: 'Thu ngân',
+  RECEPTIONIST: 'Lễ tân tiếp đón',
+  INSTRUCTOR: 'Giảng viên',
+  TECHNICIAN: 'Kỹ thuật viên',
+};
+
 export const Header: React.FC = () => {
   const location = useLocation();
+  const { user, logout } = useAdmin();
   const currentTitle = breadcrumbs[location.pathname] || 'Tổng quan vận hành';
+
+  const userInitials = (user?.full_name || 'Admin')
+    .split(' ')
+    .filter(Boolean)
+    .slice(-2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
 
   return (
     <header className="h-[68px] bg-white border-b border-[#EFE4D9] px-6 flex items-center justify-between relative z-20 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -69,15 +89,27 @@ export const Header: React.FC = () => {
           <Bell className="w-4 h-4 stroke-[1.8]" />
         </button>
 
-        {/* User profile */}
-        <div className="flex items-center gap-2.5 pl-2">
+        {/* User profile & Logout */}
+        <div className="flex items-center gap-2.5 pl-2 border-l border-[#EFE4D9]">
           <div className="w-8 h-8 rounded-full bg-[#F0E5D8] text-[#8C4C22] font-bold text-xs flex items-center justify-center shrink-0">
-            QT
+            {userInitials || 'QT'}
           </div>
           <div className="hidden sm:block text-left">
-            <div className="text-xs font-bold text-[#2C241E] leading-tight">Quản lý hệ thống</div>
-            <div className="text-[10px] text-[#137333] font-medium leading-tight mt-0.5">Cloud Synced</div>
+            <div className="text-xs font-bold text-[#2C241E] leading-tight max-w-[140px] truncate" title={user?.full_name}>
+              {user?.full_name || 'Quản lý hệ thống'}
+            </div>
+            <div className="text-[10px] text-[#8A4F23] font-medium leading-tight mt-0.5">
+              {roleLabels[user?.role || ''] || user?.role || 'Admin'}
+            </div>
           </div>
+
+          <button
+            onClick={logout}
+            title="Đăng xuất khỏi hệ thống"
+            className="p-2 ml-1 rounded-xl text-[#7A6D61] hover:text-[#9B1C1C] hover:bg-[#FDF2F2] transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4 stroke-[1.8]" />
+          </button>
         </div>
       </div>
     </header>

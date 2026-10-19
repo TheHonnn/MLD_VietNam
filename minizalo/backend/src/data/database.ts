@@ -169,6 +169,7 @@ export interface Course {
     watchedSeconds?: number;
     studentNotes?: string;
   }[];
+  quizzes?: NonNullable<Course['quiz']>[];
   quiz?: {
     id: string;
     title: string;

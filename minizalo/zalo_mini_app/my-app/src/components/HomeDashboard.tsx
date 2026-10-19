@@ -1,8 +1,7 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { HomeCatalog, GroupBHomeProps } from './GroupBHome';
 import { BellIcon, ChevronDownIcon, CloseIcon, DashboardIcon, NavProfileIcon, RefreshIcon, SearchIcon } from './Icons';
 import { EntityImage } from './GroupBExtensions';
-import reference from '../../../../figma/02 — GROUP B/HOME & SERVICE DISCOVERY.png';
 import '@/css/home-dashboard.scss';
 
 interface HomeDashboardProps extends GroupBHomeProps {
@@ -17,18 +16,19 @@ interface HomeDashboardProps extends GroupBHomeProps {
 export function GroupBHome(props: HomeDashboardProps) {
   const { services, branches, userName, userAvatar, selectedBranchId, onChangeBranch,
     onNavigateTab, onOpenSearch, onOpenNotifications, unreadNotifications = 0, loading, error, onRefresh } = props;
-  const [slideId, setSlideId] = useState('brand');
+  const [slideId, setSlideId] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const clip = useId();
   const featured = services.filter(service => service.isFeatured);
-  const heroServices = (featured.length ? featured : services).slice(0, 2);
-  const slideIds = ['brand', ...heroServices.map(service => service.id)];
+  const heroServices = (featured.length ? featured : services).slice(0, 3);
+  const slideIds = heroServices.map(service => service.id);
   const index = Math.max(0, slideIds.indexOf(slideId));
-  const service = index > 0 ? heroServices[index - 1] : null;
-  const changeSlide = (offset: number) => setSlideId(slideIds[(index + offset + slideIds.length) % slideIds.length]);
+  const service = heroServices[index];
+  const changeSlide = (offset: number) => {
+    if (slideIds.length) setSlideId(slideIds[(index + offset + slideIds.length) % slideIds.length]);
+  };
 
   useEffect(() => { setAvatarFailed(false); }, [userAvatar]);
   useEffect(() => {
@@ -61,7 +61,7 @@ export function GroupBHome(props: HomeDashboardProps) {
         <div className="home-branch-control">
           <select id="home-branch-select" value={branches.some(branch => branch.id === selectedBranchId) ? selectedBranchId : branches[0]?.id || ''}
             onChange={event => onChangeBranch(event.target.value)} disabled={loading || !branches.length}>
-            {!branches.length && <option value="">{loading ? 'Đang tải chi nhánh...' : 'Chưa có chi nhánh'}</option>}
+            {!branches.length && <option value="">{loading ? 'Đang tải chi nhánh...' : ''}</option>}
             {branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
           </select>
           <ChevronDownIcon size={18} />
@@ -87,25 +87,21 @@ export function GroupBHome(props: HomeDashboardProps) {
           if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) changeSlide(dx < 0 ? 1 : -1);
           touchStart.current = null;
         }} onTouchCancel={() => { touchStart.current = null; }}>
-        <button type="button" className="home-feature-photo" title={service ? `Xem ${service.title}` : 'Khám phá dịch vụ chăm sóc'}
+        <button type="button" className="home-feature-photo" disabled={!service} title={service ? `Xem ${service.title}` : undefined}
           onClick={() => service ? props.onViewServiceDetail(service) : onNavigateTab('services')}>
-          {service ? <EntityImage src={service.image} alt={service.title} className="home-service-image" /> :
-            <svg viewBox="68 408 350 176" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Chăm sóc và thư giãn tại spa">
-              <defs><clipPath id={clip}><rect x="68" y="408" width="350" height="176" /></clipPath></defs>
-              <image href={reference} width="1800" height="1944" clipPath={`url(#${clip})`} />
-            </svg>}
+          <EntityImage src={service?.image} alt={service?.title || ''} className="home-service-image" />
         </button>
         <div className="home-feature-copy" aria-live="polite">
           <span className="home-feature-divider" />
-          <h2>{service ? service.title : 'Chăm sóc sức khỏe – Nâng tầm chất lượng sống'}</h2>
-          <p>{service ? service.description || 'Xem thông tin dịch vụ và lựa chọn lịch hẹn phù hợp.' : 'Đặt lịch dễ dàng, tận hưởng dịch vụ chuyên nghiệp.'}</p>
+          <h2>{service?.title}</h2>
+          <p>{service?.description}</p>
           <button type="button" className="home-book-button" disabled={loading || !services.length || !branches.length}
             onClick={() => service ? props.onSelectService(service) : onNavigateTab('services')}>Đặt lịch ngay</button>
         </div>
         <div className="home-feature-footer">
           <div className="home-pagination" aria-label="Chọn nội dung nổi bật">
-            {slideIds.map((id, i) => <button key={id} type="button" aria-label={i ? `Dịch vụ: ${heroServices[i - 1].title}` : 'Chăm sóc sức khỏe'}
-              aria-pressed={index === i} title={i ? heroServices[i - 1].title : 'Chăm sóc sức khỏe'} onClick={() => setSlideId(id)}><span /></button>)}
+            {slideIds.map((id, i) => <button key={id} type="button" aria-label={`Dịch vụ: ${heroServices[i].title}`}
+              aria-pressed={index === i} title={heroServices[i].title} onClick={() => setSlideId(id)}><span /></button>)}
           </div>
           <div className="home-feature-tools">
             <button className="home-icon-button home-refresh" type="button" title="Khám phá dịch vụ và tiện ích" onClick={() => setCatalogOpen(true)}><DashboardIcon size={16} /></button>

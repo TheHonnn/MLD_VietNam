@@ -7,6 +7,16 @@ const source = await readFile(new URL('../../zalo_mini_app/my-app/src/api/adapte
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
 const adapters = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
+test('catalog text filtering supports Vietnamese accents, case and whitespace without inventing matches', async () => {
+  const source = await readFile(new URL('../../zalo_mini_app/my-app/src/utils/catalog.ts', import.meta.url), 'utf8');
+  const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
+  const { searchText, vietnamToday } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+  assert.equal(searchText('  CHĂM  SÓC ĐẦU  '), 'cham soc dau');
+  assert.ok(searchText('Chi nhánh Quận 3').includes(searchText('quan 3')));
+  assert.equal(searchText('Massage').includes(searchText('khóa học')), false);
+  assert.match(vietnamToday(), /^\d{4}-\d{2}-\d{2}$/);
+});
+
 test('catalog adapters preserve admin data without invented ratings or fees', () => {
   const service = adapters.adaptService({ id:'service',name:'Admin title',price:'123000',discountPrice:null,
     imageUrl:'https://example.test/admin.jpg',shortDescription:'Admin text',ratingAvg:null,reviewCount:0 });
@@ -53,4 +63,17 @@ test('care records do not fabricate clinical measurements or prescriptions', () 
   const plan=adapters.adaptTreatmentPlan({totalSessions:5,completedSessions:1,status:'ACTIVE',sessions:[{sessionDate:'2026-10-16',technicianName:'Actual specialist'}]});
   assert.equal(plan.remainingSessions,4);
   assert.equal('status' in plan.sessions[0],false);
+});
+
+test('missing catalog descriptions stay blank and every real quiz retains its own questions', () => {
+  assert.equal(adapters.adaptService({name:'Actual service',price:0}).description,'');
+  const course=adapters.adaptCourse({title:'Actual course',totalHours:0,tuitionFee:0,quizzes:[
+    {id:'q1',title:'First',passingScore:7,questions:[]},
+    {id:'q2',title:'Second',passingScore:8,questions:[{id:'question',questionText:'Actual question',options:{B:'Two',A:'One'},correctOption:'A'}]},
+  ]});
+  assert.equal(course.description,'');
+  assert.equal(course.quizzes.length,2);
+  assert.equal(course.quizzes[1].passingScore,80);
+  assert.deepEqual(course.quizzes[1].questions[0].optionKeys,['A','B']);
+  assert.equal('correctOption' in course.quizzes[1].questions[0],false);
 });

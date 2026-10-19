@@ -15,7 +15,7 @@
 }
 .specialist-directory { z-index: 40; bottom: var(--specialist-nav-height, 75px); container: specialist-directory / size; }
 .specialist-detail { z-index: 50; }
-.specialist-filters { flex-shrink: 0; padding: var(--specialist-safe-top, 24px) 20px 0; }
+.specialist-filters { flex-shrink: 0; max-height: 75%; overflow-y: auto; overscroll-behavior: contain; padding: var(--specialist-safe-top, 24px) 20px 0; }
 .specialist-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .specialist-heading-row h1 { font-size: 24px; line-height: 30px; font-weight: 700; color: #79492f; }
 .specialist-back { width: 34px; height: 34px; flex-shrink: 0; border: 1px solid #e6d2c0; border-radius: 8px; background: #fff; display: grid; place-items: center; color: #61554c; }

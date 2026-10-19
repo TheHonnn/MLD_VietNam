@@ -1,0 +1,8 @@
+{
+  "statements": [
+    "CREATE TABLE IF NOT EXISTS public.miniapp_search_history (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE, query TEXT NOT NULL CHECK (char_length(query) BETWEEN 1 AND 160), query_key TEXT NOT NULL CHECK (char_length(query_key) BETWEEN 1 AND 320), search_count INTEGER NOT NULL DEFAULT 1 CHECK (search_count > 0), last_searched_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT miniapp_search_history_user_query UNIQUE (user_id, query_key))",
+    "ALTER TABLE public.miniapp_search_history ENABLE ROW LEVEL SECURITY",
+    "REVOKE ALL ON public.miniapp_search_history FROM PUBLIC",
+    "DO $migration$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN EXECUTE 'REVOKE ALL ON public.miniapp_search_history FROM anon'; END IF; IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN EXECUTE 'REVOKE ALL ON public.miniapp_search_history FROM authenticated'; END IF; END $migration$"
+  ]
+}

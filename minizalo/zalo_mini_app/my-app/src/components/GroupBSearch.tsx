@@ -1,263 +1,161 @@
-import React, { useState } from 'react';
-import { Box, Text } from 'zmp-ui';
-import {
-  SearchIcon,
-  ArrowLeftIcon,
-  ClockIcon,
-  CloseIcon,
-  TagIcon,
-  StarIcon,
-  LocationIcon,
-  NavAcademyIcon,
-  HeartIcon,
-} from './Icons';
+import React, { useEffect, useRef, useState } from 'react';
+import { apiClient } from '@/api/client';
+import type { Branch, Course, Doctor, MedicalService } from '../../../../backend/src/data/database';
+import { ArrowLeftIcon, ClockIcon, CloseIcon, SearchIcon } from './Icons';
+import { EntityImage } from './GroupBExtensions';
+import '@/css/search.scss';
+import { searchText as fold } from '@/utils/catalog';
 
 interface GroupBSearchProps {
-  services: any[];
-  courses: any[];
-  branches: any[];
-  doctors: any[];
+  services: MedicalService[];
+  courses: Course[];
+  branches: Branch[];
+  doctors: Doctor[];
+  userId: string;
+  onRequireLogin: () => void;
   isOpen: boolean;
   onClose: () => void;
-  onSelectService: (service: any) => void;
-  onSelectCourse: (course: any) => void;
-  onSelectBranch: (branch: any) => void;
-  onSelectSpecialist: (specialist: any) => void;
+  onSelectService: (service: MedicalService) => void;
+  onSelectCourse: (course: Course) => void;
+  onSelectBranch: (branch: Branch) => void;
+  onSelectSpecialist: (specialist: Doctor) => void;
+  onNavigateCategory: (category: Exclude<Category, 'all'>, query: string) => void;
 }
+type Category = 'all' | 'service' | 'course' | 'branch' | 'specialist';
+type HistoryEntry = { id: string; query: string; lastSearchedAt: string };
+const categories: { id: Category; label: string }[] = [
+  { id:'all',label:'Tất cả' }, { id:'service',label:'Dịch vụ' }, { id:'course',label:'Khóa học' },
+  { id:'branch',label:'Chi nhánh' }, { id:'specialist',label:'Chuyên viên' },
+];
+const money = (value: number) => Number.isFinite(value) ? `${value.toLocaleString('vi-VN')}đ` : '';
 
 export const GroupBSearch: React.FC<GroupBSearchProps> = ({
-  services: serviceData, courses: courseData, branches: branchData, doctors: doctorData,
-  isOpen,
-  onClose,
-  onSelectService,
-  onSelectCourse,
-  onSelectBranch,
-  onSelectSpecialist,
+  services, courses, branches, doctors, userId, onRequireLogin, isOpen, onClose,
+  onSelectService, onSelectCourse, onSelectBranch, onSelectSpecialist, onNavigateCategory,
 }) => {
   const [keyword, setKeyword] = useState('');
-  const [activeCategory, setActiveCategory] = useState<'all' | 'service' | 'course' | 'branch' | 'specialist'>('all');
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [category, setCategory] = useState<Category>('all');
+  const [history, setHistory] = useState<HistoryEntry[]>(() => userId ? apiClient.peek('/search/history')?.history || [] : []);
+  const [popular, setPopular] = useState<{query:string}[]>(() => apiClient.peek('/search/popular')?.popularSearches || []);
+  const [error, setError] = useState('');
+  const [popularError, setPopularError] = useState('');
+  const [authRequired, setAuthRequired] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const generation = useRef(0);
+  const revision = useRef(0);
+  const queue = useRef(Promise.resolve());
+  const lastSaved = useRef('');
+
+  useEffect(() => {
+    const current = ++generation.current, version = revision.current;
+    setHistory(userId ? apiClient.peek('/search/history')?.history || [] : []); setPopular(apiClient.peek('/search/popular')?.popularSearches || []); setError(''); setPopularError(''); setAuthRequired(false); setBusy(false);
+    lastSaved.current = '';
+    if (!isOpen) return;
+    apiClient.getPopularSearches().then(result => {
+      if (current !== generation.current) return;
+      if (result?.error || !Array.isArray(result?.popularSearches)) setPopularError('Không thể tải tìm kiếm phổ biến.');
+      else setPopular(result.popularSearches);
+    });
+    if (userId) apiClient.getSearchHistory().then(result => {
+      if (current !== generation.current || version !== revision.current) return;
+      if (result?.status === 401) setAuthRequired(true);
+      else if (result?.error || !Array.isArray(result?.history)) setError(result?.error || 'Không thể tải lịch sử tìm kiếm.');
+      else setHistory(result.history);
+    });
+    return () => { generation.current++; };
+  }, [isOpen, userId, refresh]);
+
+  const mutateHistory = (action: () => Promise<any>, savedQuery = '', refreshHistory = true) => {
+    if (!userId || authRequired) return Promise.resolve();
+    const current = generation.current;
+    revision.current++;
+    queue.current = queue.current.then(async () => {
+      if (current !== generation.current) return;
+      setBusy(true); setError('');
+      try {
+        const result = await action();
+        if (current !== generation.current) return;
+        if (result?.status === 401) { setAuthRequired(true); setHistory([]); return; }
+        if (result?.error || (!result?.entry && result?.deleted !== true)) throw new Error(result?.error || 'Không thể lưu lịch sử tìm kiếm.');
+        if (!refreshHistory) { lastSaved.current = savedQuery; return; }
+        const updated = await apiClient.getSearchHistory();
+        if (current !== generation.current) return;
+        if (updated?.status === 401) { setAuthRequired(true); setHistory([]); return; }
+        if (updated?.error || !Array.isArray(updated?.history)) throw new Error(updated?.error || 'Không thể tải lịch sử tìm kiếm.');
+        setHistory(updated.history);
+        lastSaved.current = savedQuery;
+        const suggestions = await apiClient.getPopularSearches();
+        if (current !== generation.current) return;
+        if (suggestions?.error || !Array.isArray(suggestions?.popularSearches)) setPopularError('Không thể tải tìm kiếm phổ biến.');
+        else { setPopular(suggestions.popularSearches); setPopularError(''); }
+      } catch (failure) {
+        if (current === generation.current) setError(failure instanceof Error ? failure.message : 'Không thể lưu lịch sử tìm kiếm.');
+      } finally { if (current === generation.current) setBusy(false); }
+    });
+    return queue.current;
+  };
+  const commit = (value: string, refreshHistory = true) => {
+    const query = value.normalize('NFC').replace(/\s+/g,' ').trim();
+    setKeyword(query);
+    const key = query.toLocaleLowerCase('vi');
+    if (!query || lastSaved.current === key) return Promise.resolve();
+    return mutateHistory(() => apiClient.saveSearchHistory(query), key, refreshHistory);
+  };
 
   if (!isOpen) return null;
+  const items = [
+    ...services.map(record => ({id:record.id,type:'service' as Category,title:record.title,image:record.image,detail:money(record.price),text:record.description,select:()=>onSelectService(record)})),
+    ...courses.map(record => ({id:record.id,type:'course' as Category,title:record.title,image:record.image,detail:money(record.price),text:`${record.description || ''} ${record.instructor || ''}`,select:()=>onSelectCourse(record)})),
+    ...branches.map(record => ({id:record.id,type:'branch' as Category,title:record.name,image:record.imageUrl,detail:record.address,text:record.address,select:()=>onSelectBranch(record)})),
+    ...doctors.map(record => ({id:record.id,type:'specialist' as Category,title:record.name,image:record.avatar,detail:record.title || record.specialty,text:`${record.specialty || ''} ${record.hospital || ''}`,select:()=>onSelectSpecialist(record)})),
+  ];
+  const query = fold(keyword.trim());
+  const results = items.filter(item => (category === 'all' || item.type === category) && fold(`${item.title} ${item.text || ''}`).includes(query));
 
-  const services = serviceData.map(s => ({ ...s, type: 'service', duration: s.durationMinutes + ' phút', price: s.price.toLocaleString('vi-VN') + 'đ' }));
-  const courses = courseData.map(c => ({ ...c, type: 'course', tuition: c.price.toLocaleString('vi-VN') + 'đ' }));
-  const branches = branchData.map(b => ({ ...b, type: 'branch', title: b.name, image: b.imageUrl || '', distance: '' }));
-  const specialists = doctorData.map(d => ({ ...d, type: 'specialist', title: d.name, role: d.title, branch: d.hospital, image: d.avatar }));
-  // Filtering
-  const cleanKeyword = keyword.trim().toLowerCase();
-  const allItems = [...services, ...courses, ...branches, ...specialists];
-
-  const filteredItems = allItems.filter((item) => {
-    const matchesKeyword = cleanKeyword === '' || item.title.toLowerCase().includes(cleanKeyword);
-    if (!matchesKeyword) return false;
-    if (activeCategory === 'all') return true;
-    if (activeCategory === 'service') return item.type === 'service';
-    if (activeCategory === 'course') return item.type === 'course';
-    if (activeCategory === 'branch') return item.type === 'branch';
-    if (activeCategory === 'specialist') return item.type === 'specialist';
-    return true;
-  });
-
-  const handleSelectTag = (query: string) => {
-    setKeyword(query);
-  };
-
-  const handleRemoveRecent = (itemToRemove: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setRecentSearches((prev) => prev.filter((item) => item !== itemToRemove));
-  };
-
-  return (
-    <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in">
-      {/* Top Search Bar (Figma B02) */}
-      <div className="bg-white border-b border-[#EADECF] px-4 pt-4 pb-3 shadow-sm">
-        <div className="flex items-center space-x-3 mb-3">
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-[#FAF6F0] flex items-center justify-center text-[#40352F] hover:bg-[#F3E8DB] transition active:scale-95"
-          >
-            <ArrowLeftIcon size={18} />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-base font-bold text-[#40352F]">Bạn đang tìm kiếm điều gì?</h1>
-            <p className="text-[11px] text-[#7A685D]">Khám phá dịch vụ, khóa học và chuyên viên MLD</p>
-          </div>
-        </div>
-
-        {/* Input box */}
-        <div className="relative flex items-center">
-          <SearchIcon size={16} className="absolute left-3.5 text-[#98501B]" />
-          <input
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Tìm dịch vụ, khóa học, chuyên viên..."
-            autoFocus
-            className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#FAF6F0] border border-[#EADECF] text-xs font-medium text-[#40352F] placeholder-[#A09085] focus:outline-none focus:border-[#98501B] focus:bg-white transition"
-          />
-          {keyword && (
-            <button
-              onClick={() => setKeyword('')}
-              className="absolute right-3 w-5 h-5 rounded-full bg-[#EADECF] text-[#7A685D] flex items-center justify-center hover:bg-[#98501B] hover:text-white transition"
-            >
-              <CloseIcon size={10} />
-            </button>
-          )}
-        </div>
-
-        {/* Filter Categories Chips (Figma 02 Group B) */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar pt-3">
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'service', label: 'Dịch vụ' },
-            { id: 'course', label: 'Khóa học' },
-            { id: 'branch', label: 'Chi nhánh' },
-            { id: 'specialist', label: 'Chuyên viên' },
-          ].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id as any)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition active:scale-95 ${
-                activeCategory === cat.id
-                  ? 'bg-[#98501B] text-white shadow-sm shadow-[#98501B]/20'
-                  : 'bg-[#FAF6F0] text-[#7A685D] hover:bg-[#F3E8DB]'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+  return <section className="search-screen" aria-labelledby="search-heading">
+    <header className="search-header">
+      <button className="search-back" type="button" title="Quay lại" onClick={onClose}><ArrowLeftIcon size={19} /></button>
+      <h1 id="search-heading">Bạn đang tìm kiếm điều<br />gì?</h1>
+      <form className="search-form" onSubmit={event => { event.preventDefault(); void commit(keyword); }}>
+        <button type="submit" className="search-submit" title="Tìm kiếm"><SearchIcon size={19} /></button>
+        <input aria-label="Từ khóa tìm kiếm" type="search" enterKeyHint="search" value={keyword} maxLength={160}
+          onChange={event => { setKeyword(event.target.value); lastSaved.current = ''; }} placeholder="Tìm dịch vụ, khóa học, chuyên viên..." />
+      </form>
+      <div className="search-categories" role="group" aria-label="Loại kết quả">
+        {categories.map(item => <button key={item.id} type="button" aria-pressed={category === item.id} disabled={busy} onClick={async () => {
+          if (item.id === 'all') { setCategory('all'); return; }
+          const current = generation.current;
+          await commit(keyword, false);
+          if (current === generation.current) onNavigateCategory(item.id, keyword.trim());
+        }}>{item.label}</button>)}
       </div>
-
-      {/* Main Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-        {/* If no keyword entered, show Recent Searches & Popular Tags */}
-        {!keyword.trim() && (
-          <div className="space-y-4">
-            {/* Recent Searches */}
-            {recentSearches.length > 0 && (
-              <div className="bg-white rounded-2xl p-3.5 border border-[#EADECF] shadow-sm space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5 text-xs font-bold text-[#40352F]">
-                    <ClockIcon size={14} className="text-[#98501B]" />
-                    <span>Tìm kiếm gần đây</span>
-                  </div>
-                  <button
-                    onClick={() => setRecentSearches([])}
-                    className="text-[11px] text-[#98501B] hover:underline font-medium"
-                  >
-                    Xóa tất cả
-                  </button>
-                </div>
-
-                <div className="space-y-1">
-                  {recentSearches.map((item) => (
-                    <div
-                      key={item}
-                      onClick={() => handleSelectTag(item)}
-                      className="flex items-center justify-between py-2 px-2.5 rounded-xl hover:bg-[#FAF6F0] cursor-pointer transition text-xs text-[#40352F]"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <ClockIcon size={12} className="text-[#A09085]" />
-                        <span>{item}</span>
-                      </div>
-                      <button
-                        onClick={(e) => handleRemoveRecent(item, e)}
-                        className="p-1 text-[#A09085] hover:text-[#98501B]"
-                      >
-                        <CloseIcon size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Popular Searches */}
-            <div className="bg-white rounded-2xl p-3.5 border border-[#EADECF] shadow-sm space-y-2.5">
-              <div className="flex items-center space-x-1.5 text-xs font-bold text-[#40352F]">
-                <TagIcon size={14} className="text-[#98501B]" />
-                <span>Gợi ý tìm kiếm</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {Array.from(new Set(allItems.map(item => item.title))).slice(0, 8).map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => handleSelectTag(tag)}
-                    className="px-3 py-1.5 rounded-xl bg-[#FAF6F0] hover:bg-[#F3E8DB] border border-[#EADECF] text-xs text-[#40352F] font-medium transition active:scale-95"
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Search Results list */}
-        {keyword.trim() && (
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between text-xs text-[#7A685D] px-1">
-              <span>Kết quả cho "{keyword}"</span>
-              <span className="font-semibold text-[#98501B]">{filteredItems.length} kết quả</span>
-            </div>
-
-            {filteredItems.length === 0 ? (
-              <div className="bg-white rounded-2xl p-8 text-center border border-[#EADECF] shadow-sm space-y-2">
-                <SearchIcon size={32} className="mx-auto text-[#A09085]" />
-                <p className="text-xs font-bold text-[#40352F]">Không tìm thấy kết quả phù hợp</p>
-                <p className="text-[11px] text-[#7A685D]">
-                  Không có mục phù hợp với từ khóa hiện tại.
-                </p>
-              </div>
-            ) : (
-              filteredItems.map((item: any) => (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    if (item.type === 'service') onSelectService(item);
-                    else if (item.type === 'course') onSelectCourse(item);
-                    else if (item.type === 'branch') onSelectBranch(item);
-                    else if (item.type === 'specialist') onSelectSpecialist(item);
-                    onClose();
-                  }}
-                  className="bg-white rounded-2xl p-3 border border-[#EADECF] shadow-sm flex items-center space-x-3 cursor-pointer hover:border-[#98501B] active:bg-[#FAF6F0] transition"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="w-16 h-16 rounded-xl object-cover border border-[#EADECF] shrink-0"
-                  />
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="flex items-center space-x-1.5">
-                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-[#FBF1E8] text-[#98501B] border border-[#EADECF]">
-                        {item.type === 'service'
-                          ? 'Dịch vụ'
-                          : item.type === 'course'
-                          ? 'Khóa học'
-                          : item.type === 'branch'
-                          ? 'Chi nhánh'
-                          : 'Chuyên viên'}
-                      </span>
-                      {item.duration && (
-                        <span className="text-[10px] text-[#7A685D]">{item.duration}</span>
-                      )}
-                    </div>
-                    <p className="text-xs font-bold text-[#40352F] truncate">{item.title}</p>
-                    <p className="text-[11px] text-[#7A685D] truncate">
-                      {item.price || item.tuition || item.address || item.role}
-                    </p>
-                  </div>
-                  <button className="px-2.5 py-1 rounded-lg bg-[#FAF6F0] hover:bg-[#98501B] text-[#98501B] hover:text-white text-[11px] font-bold transition">
-                    Xem
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+      <button className="search-clear" type="button" disabled={busy} onClick={() => { setKeyword(''); lastSaved.current = ''; void mutateHistory(() => apiClient.deleteSearchHistory()); }}>Xóa tìm kiếm</button>
+    </header>
+    <main className="search-content">
+      {error && <p className="search-error" role="alert">{error} <button type="button" onClick={() => setRefresh(value => value+1)}>Thử lại</button></p>}
+      {(!userId || authRequired) && <button type="button" className="search-login" onClick={onRequireLogin}>Đăng nhập</button>}
+      {!query ? <>
+        <section aria-labelledby="search-recent-heading"><h2 id="search-recent-heading">Tìm kiếm gần đây</h2>
+          <ul className="search-history">{history.map(entry => <li key={entry.id}>
+            <button type="button" className="search-history-query" onClick={() => void commit(entry.query)}><ClockIcon size={18} /><span>{entry.query}</span></button>
+            <button type="button" className="search-history-remove" title={`Xóa tìm kiếm: ${entry.query}`} disabled={busy} onClick={() => void mutateHistory(() => apiClient.deleteSearchHistory(entry.id))}><CloseIcon size={15} /></button>
+          </li>)}</ul>
+        </section>
+        <section aria-labelledby="search-popular-heading"><h2 id="search-popular-heading">Tìm kiếm phổ biến</h2>
+          {popularError && <p className="search-error" role="alert">{popularError} <button type="button" onClick={() => setRefresh(value => value+1)}>Thử lại</button></p>}
+          <div className="search-popular">{popular.map(item => <button key={item.query} type="button" onClick={() => void commit(item.query)}>{item.query}</button>)}</div>
+        </section>
+      </> : <section aria-label="Kết quả tìm kiếm" className="search-results">
+        {results.map(item => <button key={`${item.type}-${item.id}`} type="button" className="search-result" onClick={async () => {
+          const current = generation.current;
+          await commit(keyword, false);
+          if (current === generation.current) { item.select(); onClose(); }
+        }}>
+          <EntityImage src={item.image} alt={item.title} className="search-result-photo" />
+          <span className="search-result-copy"><small>{categories.find(value=>value.id===item.type)?.label}</small><strong>{item.title}</strong><span>{item.detail}</span></span>
+        </button>)}
+      </section>}
+    </main>
+  </section>;
 };

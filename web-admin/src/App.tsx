@@ -2,6 +2,8 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from './components/layout/Layout';
 import { ResourcePage } from "./admin/ResourcePage";
+import { AdminAuth, useAdmin } from "./admin/Auth";
+import { LoginPage } from "./admin/LoginPage";
 import { W01_Dashboard } from './pages/W01_Dashboard';
 import { W02_Branches } from './pages/W02_Branches';
 import { W03_Customers } from './pages/W03_Customers';
@@ -17,7 +19,26 @@ import { W12_FinancialReports } from './pages/W12_FinancialReports';
 import { TrainingActions } from './admin/TrainingActions';
 import "./admin/admin.css";
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { user, loading } = useAdmin();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F8F1E8] flex flex-col items-center justify-center p-4 font-['Plus_Jakarta_Sans',sans-serif]">
+        <div className="flex flex-col items-center gap-3.5">
+          <div className="w-10 h-10 border-3 border-[#D8C4B2] border-t-[#8A4F23] rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-[#8A4F23] tracking-wide">
+            Đang xác thực phiên làm việc MLD...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
@@ -43,5 +64,13 @@ export const App: React.FC = () => {
         </Route>
       </Routes>
     </BrowserRouter>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AdminAuth>
+      <AppContent />
+    </AdminAuth>
   );
 };
