@@ -43,63 +43,99 @@ const SUPABASE_KEY =
   (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58";
 
-const COMMON_TABLE_COLUMNS: Record<string, string[]> = {
-  branches: ["id", "name", "code", "phone", "address", "city", "is_active", "created_at"],
-  branch_rooms: ["id", "branch_id", "name", "room_type", "capacity", "is_active", "created_at"],
-  service_categories: ["id", "name", "slug", "description", "display_order", "is_active", "created_at"],
-  services: ["id", "category_id", "name", "code", "price", "duration_minutes", "is_active", "created_at"],
-  treatment_packages: ["id", "name", "code", "total_sessions", "price", "is_active", "created_at"],
-  bookings: ["id", "booking_code", "customer_id", "branch_id", "booking_date", "start_time", "status", "created_at"],
-  booking_items: ["id", "booking_id", "service_id", "price", "quantity", "created_at"],
-  users: ["id", "phone", "full_name", "email", "role", "is_active", "created_at"],
-  consultation_surveys: ["id", "customer_id", "skin_type", "notes", "created_at"],
-  reviews: ["id", "customer_id", "service_id", "rating", "comment", "created_at"],
-  support_tickets: ["id", "customer_id", "title", "status", "priority", "created_at"],
-  support_faqs: ["id", "question", "answer", "category", "is_active", "created_at"],
-  staff_profiles: ["id", "user_id", "branch_id", "employee_code", "department", "position", "is_active", "created_at"],
-  technicians: ["id", "staff_profile_id", "level", "rating_avg", "is_available", "created_at"],
-  technician_shifts: ["id", "technician_id", "shift_date", "start_time", "end_time", "created_at"],
-  technician_slots: ["id", "technician_id", "slot_time", "is_booked", "created_at"],
-  staff_leaves: ["id", "staff_profile_id", "start_date", "end_date", "status", "reason", "created_at"],
-  coupons: ["id", "code", "title", "discount_type", "discount_value", "is_active", "created_at"],
-  voucher_distribution_rules: ["id", "rule_name", "trigger_event", "is_active", "created_at"],
-  user_vouchers: ["id", "user_id", "coupon_id", "is_used", "created_at"],
-  membership_tier_rules: ["id", "tier_name", "min_points", "benefits", "created_at"],
-  loyalty_point_settings: ["id", "earn_rate", "redeem_rate", "is_active", "created_at"],
-  point_transactions: ["id", "user_id", "points", "type", "description", "created_at"],
-  roles: ["id", "name", "description", "is_system", "created_at"],
-  permissions: ["id", "code", "name", "module", "created_at"],
-  role_permissions: ["id", "role_id", "permission_id", "created_at"],
-  user_roles: ["id", "user_id", "role_id", "created_at"],
-  audit_logs: ["id", "user_id", "action", "table_name", "record_id", "created_at"],
-  user_packages: ["id", "user_id", "package_id", "completed_sessions", "status", "created_at"],
-  treatment_journal: ["id", "user_package_id", "technician_id", "session_date", "notes", "created_at"],
-  home_care_guidelines: ["id", "title", "service_id", "instructions", "is_active", "created_at"],
-  course_categories: ["id", "name", "slug", "description", "display_order", "is_active", "created_at"],
-  courses: ["id", "category_id", "title", "code", "tuition_fee", "duration_hours", "is_active", "created_at"],
-  instructors: ["id", "user_id", "name", "bio", "specialties", "rating_avg", "is_active", "created_at"],
-  course_batches: ["id", "course_id", "batch_code", "start_date", "end_date", "status", "created_at"],
-  course_enrollments: ["id", "student_id", "batch_id", "enrollment_date", "tuition_status", "created_at"],
-  batch_schedules: ["id", "batch_id", "instructor_id", "class_date", "start_time", "end_time", "created_at"],
-  student_attendance: ["id", "schedule_id", "student_id", "status", "created_at"],
-  student_academic_records: ["id", "enrollment_id", "theory_score", "practical_score", "grade", "created_at"],
-  course_chapters: ["id", "course_id", "title", "chapter_order", "created_at"],
-  course_lessons: ["id", "chapter_id", "title", "lesson_type", "lesson_order", "duration_minutes", "video_url", "created_at"],
-  course_quizzes: ["id", "course_id", "title", "total_questions", "passing_score", "created_at"],
-  quiz_questions: ["id", "quiz_id", "question_text", "question_number", "correct_option", "options", "created_at"],
-  quiz_submissions: ["id", "quiz_id", "student_id", "score", "is_passed", "submitted_at"],
-  user_lesson_progress: ["id", "user_id", "lesson_id", "is_completed", "completed_at"],
-  certificate_templates: ["id", "title", "background_image_url", "signer_name", "created_at"],
-  student_certificates: ["id", "student_id", "course_id", "certificate_code", "issue_date", "status", "created_at"],
-  tuition_transactions: ["id", "enrollment_id", "amount", "transaction_type", "payment_status", "payment_method", "created_at"],
-  invoices: ["id", "booking_id", "invoice_code", "total_amount", "payment_status", "payment_method", "created_at"],
-  invoice_items: ["id", "invoice_id", "item_name", "unit_price", "quantity", "total_price", "created_at"],
-};
+import { SCHEMA_COLUMNS } from "./schemaMeta";
+
+function sanitizeValues(table: string, values: Record<string, any>, isUpdate = false): Record<string, any> {
+  const schemaCols = SCHEMA_COLUMNS[table];
+  const validColMap = new Map(schemaCols?.map((c) => [c.name, c]) || []);
+  const clean: Record<string, any> = {};
+
+  for (const [k, v] of Object.entries(values)) {
+    // If table schema is known, skip non-existent columns (prevents Supabase schema cache error)
+    if (schemaCols && schemaCols.length > 0 && !validColMap.has(k)) {
+      continue;
+    }
+
+    // On update, do not send primary key in body
+    if (isUpdate && (k === "id" || k === "created_at")) {
+      continue;
+    }
+
+    // On create, do not send empty or auto-generated id/timestamps
+    if (!isUpdate && (k === "created_at" || k === "updated_at")) {
+      continue;
+    }
+    if (!isUpdate && k === "id" && (!v || v === "")) {
+      continue;
+    }
+
+    const colDef = validColMap.get(k);
+
+    // Normalize empty strings to null for nullable / foreign key / numeric / date columns
+    if (v === "") {
+      if (k.endsWith("_id") || colDef?.type === "numeric" || colDef?.type === "timestamptz" || colDef?.type === "date") {
+        clean[k] = null;
+      } else {
+        clean[k] = null;
+      }
+      continue;
+    }
+
+    // Ensure numbers are numeric
+    if (colDef && ["numeric", "int2", "int4", "int8", "float4", "float8"].includes(colDef.type) && typeof v === "string") {
+      const num = Number(v);
+      clean[k] = isNaN(num) ? v : num;
+      continue;
+    }
+
+    // Ensure dates are valid ISO
+    if (colDef && ["timestamptz", "timestamp"].includes(colDef.type) && typeof v === "string" && v) {
+      try {
+        clean[k] = new Date(v).toISOString();
+      } catch {
+        clean[k] = v;
+      }
+      continue;
+    }
+
+    clean[k] = v;
+  }
+  return clean;
+}
 
 function buildColumns(table: string, rows: Row[]): Column[] {
+  const schemaCols = SCHEMA_COLUMNS[table];
+  if (schemaCols && schemaCols.length > 0) {
+    const sample = rows[0] || {};
+    const sampleKeys = Object.keys(sample);
+    const existingNames = new Set(schemaCols.map((c) => c.name));
+    const extraCols: Column[] = sampleKeys
+      .filter((k) => !existingNames.has(k))
+      .map((name) => {
+        const val = sample[name];
+        const isId = name === "id";
+        const isTimestamp = name === "created_at" || name === "updated_at";
+        const isBool = typeof val === "boolean" || name.startsWith("is_");
+        const isNum = typeof val === "number";
+        return {
+          name,
+          type: isNum ? "numeric" : isBool ? "bool" : typeof val === "object" && val !== null ? "jsonb" : "varchar",
+          required: false,
+          hasDefault: isId || isTimestamp || isBool,
+          maxLength: null,
+          options: [],
+          primary: isId,
+          writable: !isId && !isTimestamp,
+          reference: name.endsWith("_id") ? { table: name.replace(/_id$/, "s"), column: "id" } : null,
+        };
+      });
+
+    return [...schemaCols, ...extraCols];
+  }
+
   const sample = rows[0] || {};
   const sampleKeys = Object.keys(sample);
-  const colNames = sampleKeys.length > 0 ? sampleKeys : (COMMON_TABLE_COLUMNS[table] || ["id", "name", "created_at"]);
+  const colNames = sampleKeys.length > 0 ? sampleKeys : ["id", "name", "created_at"];
 
   return colNames.map((name) => {
     const val = sample[name];
@@ -150,10 +186,50 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     const end = offset + limit - 1;
     const sort = q.get("sort");
     const direction = q.get("direction") || "asc";
+    const search = q.get("search");
+    const filterParam = q.get("filter");
 
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=*`;
+
+    // Filter handling
+    if (filterParam) {
+      try {
+        const parsedFilter = JSON.parse(filterParam);
+        for (const [col, val] of Object.entries(parsedFilter)) {
+          if (val !== undefined && val !== null && val !== "") {
+            url += `&${col}=eq.${encodeURIComponent(String(val))}`;
+          }
+        }
+      } catch {}
+    }
+
+    // Search handling
+    if (search && search.trim()) {
+      const s = search.trim();
+      const textCols = (SCHEMA_COLUMNS[table] || [])
+        .filter(
+          (c) =>
+            ["varchar", "text"].includes(c.type) &&
+            !c.name.endsWith("_url") &&
+            !c.name.endsWith("_hash") &&
+            c.name !== "id" &&
+            !c.name.endsWith("_id"),
+        )
+        .map((c) => c.name)
+        .slice(0, 5);
+
+      if (textCols.length > 0) {
+        const orClause = textCols.map((c) => `${c}.ilike.*${encodeURIComponent(s)}*`).join(",");
+        url += `&or=(${orClause})`;
+      }
+    }
+
+    // Sort handling
     if (sort) {
-      url += `&order=${sort}.${direction === "desc" ? "desc" : "asc"}`;
+      const validCols = SCHEMA_COLUMNS[table]?.map((c) => c.name);
+      if (!validCols || validCols.includes(sort)) {
+        url += `&order=${sort}.${direction === "desc" ? "desc" : "asc"}`;
+      }
     }
 
     const res = await fetch(url, {
@@ -199,6 +275,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
   const payload = body as any;
 
   if (action === "create" && payload?.values) {
+    const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
       headers: {
@@ -207,7 +284,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
-      body: JSON.stringify(payload.values),
+      body: JSON.stringify(cleanValues),
       signal,
     });
     if (!res.ok) {
@@ -227,6 +304,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           .map(([k, v]) => `${k}=eq.${encodeURIComponent(String(v))}`)
           .join("&");
 
+    const cleanValues = sanitizeValues(table, payload.values, true);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "PATCH",
       headers: {
@@ -235,7 +313,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
-      body: JSON.stringify(payload.values),
+      body: JSON.stringify(cleanValues),
       signal,
     });
     if (!res.ok) {
