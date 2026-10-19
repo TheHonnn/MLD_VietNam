@@ -10,6 +10,9 @@ import {
   Printer,
   X,
   Sparkles,
+  Banknote,
+  QrCode,
+  CreditCard,
 } from 'lucide-react';
 import { posService, bookingService, customerService, notificationService } from '../services';
 import { toast } from '../components/common';
@@ -240,7 +243,7 @@ export const W07_CashierPOS: React.FC = () => {
           </h2>
 
           {/* Pricing breakdown box */}
-          <div className="border border-[#EFE4D9] rounded-2xl p-4.5 space-y-2 text-xs">
+          <div className="border border-[#EFE4D9] rounded-2xl p-4 sm:p-5 space-y-2.5 text-xs">
             <div className="font-bold text-xs text-[#2C241E] mb-2">
               Chi phí dịch vụ
             </div>
@@ -359,106 +362,160 @@ export const W07_CashierPOS: React.FC = () => {
         {/* Column 1: On-site payment */}
         <div
           onClick={() => setSelectedMethod('onsite')}
-          className={`rounded-2xl border p-4.5 flex flex-col justify-between cursor-pointer transition-all ${
+          className={`rounded-2xl border p-5 flex flex-col justify-between cursor-pointer transition-all duration-200 select-none ${
             selectedMethod === 'onsite'
-              ? 'bg-[#F3E2CE] border-[#D7BBA6]'
-              : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6]'
+              ? 'bg-[#F3E2CE] border-[#D7BBA6] shadow-xs'
+              : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6] hover:bg-[#FAF8F5]'
           }`}
         >
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                  selectedMethod === 'onsite'
-                    ? 'bg-[#8A4F23] text-white'
-                    : 'border-2 border-[#D7BBA6] bg-white'
-                }`}
-              >
-                {selectedMethod === 'onsite' && (
-                  <CheckCircle2 className="w-5 h-5 text-[#8A4F23] fill-white" />
-                )}
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                    selectedMethod === 'onsite'
+                      ? 'bg-[#8A4F23] text-white ring-2 ring-[#8A4F23]/20'
+                      : 'border-2 border-[#D7BBA6] bg-white'
+                  }`}
+                >
+                  {selectedMethod === 'onsite' && (
+                    <CheckCircle2 className="w-5 h-5 text-[#8A4F23] fill-white" />
+                  )}
+                </div>
+                <span className="text-xs font-bold text-[#2C241E]">
+                  Thanh toán tại cơ sở
+                </span>
               </div>
-              <span className="text-xs font-bold text-[#2C241E]">
-                Thanh toán tại cơ sở
-              </span>
+              <div className="w-7 h-7 rounded-lg bg-white/70 border border-[#EFE4D9] flex items-center justify-center text-[#8A4F23]">
+                <Banknote className="w-4 h-4 stroke-[1.8]" />
+              </div>
             </div>
-            <p className="text-[11px] text-[#73675F] leading-relaxed pl-7">
-              Thanh toán tiền mặt hoặc thẻ tại quầy lễ tân cơ sở.
-            </p>
+
+            <div className="mt-3 pl-8">
+              <p className="text-[11.5px] text-[#73675F] leading-relaxed font-medium">
+                Thu tiền mặt hoặc quẹt thẻ POS trực tiếp tại quầy tiếp đón của cơ sở spa.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-[#EFE4D9]/80 pl-8 flex items-center gap-1.5 flex-wrap text-[10.5px] text-[#8C7A6B]">
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              Tiền mặt
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              Thẻ POS
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              Tại quầy lễ tân
+            </span>
           </div>
         </div>
 
         {/* Column 2: Bank Transfer / QR */}
         <div
           onClick={() => setSelectedMethod('transfer')}
-          className={`rounded-2xl border p-4.5 space-y-3 cursor-pointer transition-all ${
+          className={`rounded-2xl border p-5 flex flex-col justify-between cursor-pointer transition-all duration-200 select-none ${
             selectedMethod === 'transfer'
-              ? 'bg-[#F3E2CE] border-[#D7BBA6]'
-              : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6]'
+              ? 'bg-[#F3E2CE] border-[#D7BBA6] shadow-xs'
+              : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6] hover:bg-[#FAF8F5]'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                selectedMethod === 'transfer'
-                  ? 'bg-[#8A4F23] text-white'
-                  : 'border-2 border-[#D7BBA6] bg-white'
-              }`}
-            >
-              {selectedMethod === 'transfer' && (
-                <CheckCircle2 className="w-5 h-5 text-[#8A4F23] fill-white" />
-              )}
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                    selectedMethod === 'transfer'
+                      ? 'bg-[#8A4F23] text-white ring-2 ring-[#8A4F23]/20'
+                      : 'border-2 border-[#D7BBA6] bg-white'
+                  }`}
+                >
+                  {selectedMethod === 'transfer' && (
+                    <CheckCircle2 className="w-5 h-5 text-[#8A4F23] fill-white" />
+                  )}
+                </div>
+                <span className="text-xs font-bold text-[#2C241E]">
+                  Chuyển khoản ngân hàng / QR
+                </span>
+              </div>
+              <div className="w-7 h-7 rounded-lg bg-white/70 border border-[#EFE4D9] flex items-center justify-center text-[#8A4F23]">
+                <QrCode className="w-4 h-4 stroke-[1.8]" />
+              </div>
             </div>
-            <span className="text-xs font-bold text-[#2C241E]">
-              Chuyển khoản ngân hàng / QR
-            </span>
+
+            <div className="mt-3 pl-8 flex items-center gap-3">
+              <div className="w-10 h-10 bg-white rounded-xl border border-[#D7BBA6] flex items-center justify-center text-[#8A4F23] shrink-0 shadow-2xs">
+                <QrCode className="w-5 h-5 stroke-[1.8]" />
+              </div>
+              <div className="text-[11.5px] leading-snug space-y-0.5">
+                <div className="font-bold text-[#2C241E]">Techcombank · 1903688889999</div>
+                <div className="text-[10.5px] text-[#73675F] font-medium">MLD HEALTHCARE & SPA</div>
+              </div>
+            </div>
           </div>
 
-          {/* QR Code and description cleanly contained INSIDE card */}
-          <div className="flex items-center gap-3 pl-7">
-            <div className="w-14 h-14 bg-white rounded-xl border border-dashed border-[#D7BBA6] flex flex-col items-center justify-center text-[10px] text-[#73675F] leading-tight text-center font-medium shrink-0 shadow-2xs">
-              <div>Chưa có</div>
-              <div>QR</div>
-            </div>
-            <p className="text-[11px] text-[#50443D] leading-relaxed">
-              Ngân hàng chưa cấu hình. Ô mẫu không chứa mã quét hoặc tài khoản hợp lệ.
-            </p>
+          <div className="mt-4 pt-3 border-t border-[#EFE4D9]/80 pl-8 flex items-center gap-1.5 flex-wrap text-[10.5px] text-[#8C7A6B]">
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              VietQR 24/7
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              Khớp đơn tự động
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              Miễn phí giao dịch
+            </span>
           </div>
         </div>
 
         {/* Column 3: Online Gateway */}
         <div
           onClick={() => setSelectedMethod('online')}
-          className={`rounded-2xl border p-4.5 flex flex-col justify-between cursor-pointer transition-all ${
+          className={`rounded-2xl border p-5 flex flex-col justify-between cursor-pointer transition-all duration-200 select-none ${
             selectedMethod === 'online'
-              ? 'bg-[#F3E2CE] border-[#D7BBA6]'
-              : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6]'
+              ? 'bg-[#F3E2CE] border-[#D7BBA6] shadow-xs'
+              : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6] hover:bg-[#FAF8F5]'
           }`}
         >
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                  selectedMethod === 'online'
-                    ? 'bg-[#8A4F23] text-white'
-                    : 'border-2 border-[#D7BBA6] bg-white'
-                }`}
-              >
-                {selectedMethod === 'online' && (
-                  <CheckCircle2 className="w-5 h-5 text-[#8A4F23] fill-white" />
-                )}
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                    selectedMethod === 'online'
+                      ? 'bg-[#8A4F23] text-white ring-2 ring-[#8A4F23]/20'
+                      : 'border-2 border-[#D7BBA6] bg-white'
+                  }`}
+                >
+                  {selectedMethod === 'online' && (
+                    <CheckCircle2 className="w-5 h-5 text-[#8A4F23] fill-white" />
+                  )}
+                </div>
+                <span className="text-xs font-bold text-[#2C241E]">
+                  Thanh toán trực tuyến
+                </span>
               </div>
-              <span className="text-xs font-bold text-[#2C241E]">
-                Thanh toán trực tuyến
-              </span>
+              <div className="w-7 h-7 rounded-lg bg-white/70 border border-[#EFE4D9] flex items-center justify-center text-[#8A4F23]">
+                <CreditCard className="w-4 h-4 stroke-[1.8]" />
+              </div>
             </div>
-            <p className="text-[11px] text-[#73675F] leading-relaxed pl-7">
-              Chưa kết nối cổng thanh toán.
-            </p>
+
+            <div className="mt-3 pl-8">
+              <p className="text-[11.5px] text-[#73675F] leading-relaxed font-medium">
+                Cổng liên kết thanh toán qua các ví điện tử hoặc cổng thanh toán số.
+              </p>
+            </div>
           </div>
 
-          <div className="text-[11px] text-[#73675F] pl-7 pt-2">
-            Gói / voucher: chưa áp dụng · Không có phí ẩn.
+          <div className="mt-4 pt-3 border-t border-[#EFE4D9]/80 pl-8 flex items-center gap-1.5 flex-wrap text-[10.5px] text-[#8C7A6B]">
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              Ví MoMo
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              ZaloPay
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
+              VNPay QR
+            </span>
           </div>
         </div>
       </div>
