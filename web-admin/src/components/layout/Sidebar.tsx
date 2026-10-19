@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { SidebarItem, menuResources } from '../../admin/SidebarItem';
 import { adminApi, Resource } from '../../admin/api';
 import { DEFAULT_RESOURCES } from '../../admin/defaultResources';
+import { toast } from '../common';
 import {
   LayoutGrid,
   Store,
@@ -112,11 +113,29 @@ export const Sidebar: React.FC = () => {
 
       {/* Footer Support & Settings */}
       <div className="p-3 border-t border-[#EFE4D9] space-y-0.5 mt-auto">
-        <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors">
+        <button
+          type="button"
+          onClick={() =>
+            toast.info(
+              'Trung tâm hỗ trợ MLD',
+              'Hotline kỹ thuật: 1900 8888 · Email hỗ trợ: support@mldvietnam.vn (08:00–22:00).'
+            )
+          }
+          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+        >
           <HelpCircle className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
           <span>Cần hỗ trợ?</span>
         </button>
-        <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors">
+        <button
+          type="button"
+          onClick={() =>
+            toast.info(
+              'Cấu hình quản trị',
+              'Hệ thống đang hoạt động theo chính sách phân quyền bảo mật MLD Spa & Clinic.'
+            )
+          }
+          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+        >
           <Settings className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
           <span>Cài đặt</span>
         </button>

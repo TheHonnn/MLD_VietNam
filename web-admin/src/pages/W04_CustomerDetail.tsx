@@ -243,133 +243,244 @@ export const W04_CustomerDetail: React.FC = () => {
 
         {/* Right Column (approx 8 / 12 cols = 66.6%) */}
         <div className="lg:col-span-8 space-y-4">
-          {/* 1. Table Card: Lịch hẹn sắp tới */}
-          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
-            <div className="px-5 py-3.5 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-[#2C241E]">
-                Lịch hẹn của khách hàng ({bookings.length})
-              </h3>
-              <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-[#F3E2CE] text-[#8A4F23]">
-                Live Booking Data
-              </span>
-            </div>
+          {/* TAB 1: Lịch hẹn (hiển thị khi chọn 'Tổng quan' hoặc 'Lịch hẹn') */}
+          {(activeTab === 'Tổng quan' || activeTab === 'Lịch hẹn') && (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
+              <div className="px-5 py-3.5 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Lịch hẹn của khách hàng ({bookings.length})
+                </h3>
+                <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-[#F3E2CE] text-[#8A4F23]">
+                  {bookings.length > 0 ? 'Dữ liệu lịch hẹn thực tế' : 'Chưa có lịch hẹn mới'}
+                </span>
+              </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#F3E2CE] text-[#73675F] text-[11.5px] font-medium">
-                  <tr>
-                    <th className="py-3 px-5 font-medium">Ngày & giờ</th>
-                    <th className="py-3 px-4 font-medium">Mã lịch hẹn</th>
-                    <th className="py-3 px-4 font-medium">Phòng / Giường</th>
-                    <th className="py-3 px-5 font-medium">Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#EFE4D9]">
-                  {bookings.map((app) => (
-                    <tr key={app.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
-                      <td className="py-3.5 px-5">
-                        <div className="font-medium text-[#2C241E]">{app.bookingDate}</div>
-                        <div className="text-[11px] text-[#8C7A6B] mt-0.5">
-                          {app.startTime.slice(0, 5)}–{app.endTime.slice(0, 5)}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-[#2C241E]">{app.bookingCode}</div>
-                        <div className="text-[11px] text-[#8C7A6B] mt-0.5">
-                          {app.checkinNotes || 'Dịch vụ spa'}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-medium text-[#2C241E]">Phòng VIP 01</div>
-                        <div className="text-[11px] text-[#8C7A6B] mt-0.5">
-                          Giường {app.assignedBedNumber || '01'}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
-                            app.status === 'CHECKED_IN'
-                              ? 'bg-[#E8EFE5] text-[#526D51]'
-                              : 'bg-[#F5E9DB] text-[#8A4F23]'
-                          }`}
-                        >
-                          <Clock className="w-3.5 h-3.5 stroke-[2]" />
-                          <span>{app.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}</span>
-                        </span>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F3E2CE] text-[#73675F] text-[11.5px] font-medium">
+                    <tr>
+                      <th className="py-3 px-5 font-medium">Ngày & giờ</th>
+                      <th className="py-3 px-4 font-medium">Mã lịch hẹn</th>
+                      <th className="py-3 px-4 font-medium">Phòng / Giường</th>
+                      <th className="py-3 px-5 font-medium">Trạng thái</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#EFE4D9]">
+                    {bookings.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-[#8C7A6B]">
+                          Chưa ghi nhận lịch hẹn nào cho khách hàng này.
+                        </td>
+                      </tr>
+                    ) : (
+                      bookings.map((app) => (
+                        <tr key={app.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
+                          <td className="py-3.5 px-5">
+                            <div className="font-medium text-[#2C241E]">{app.bookingDate}</div>
+                            <div className="text-[11px] text-[#8C7A6B] mt-0.5">
+                              {app.startTime.slice(0, 5)}–{app.endTime.slice(0, 5)}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-[#2C241E]">{app.bookingCode}</div>
+                            <div className="text-[11px] text-[#8C7A6B] mt-0.5">
+                              {app.checkinNotes || 'Dịch vụ spa'}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-medium text-[#2C241E]">Phòng VIP 01</div>
+                            <div className="text-[11px] text-[#8C7A6B] mt-0.5">
+                              Giường {app.assignedBedNumber || '01'}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-5 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
+                                app.status === 'CHECKED_IN'
+                                  ? 'bg-[#E8EFE5] text-[#526D51]'
+                                  : 'bg-[#F5E9DB] text-[#8A4F23]'
+                              }`}
+                            >
+                              <Clock className="w-3.5 h-3.5 stroke-[2]" />
+                              <span>{app.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* 2. Middle Row: Treatment Package Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {packages.map((pkg) => {
-              const remaining = pkg.totalSessions - pkg.completedSessions;
-              const percent = Math.round((pkg.completedSessions / pkg.totalSessions) * 100);
-              return (
-                <div
-                  key={pkg.id}
-                  className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-2.5"
-                >
-                  <h3 className="text-sm font-bold text-[#3E200C]">
-                    {pkg.package?.name || 'Gói chăm sóc phục hồi'}
-                  </h3>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#73675F]">Tổng / đã dùng / còn lại</span>
-                    <span className="font-semibold text-[#2C241E]">
-                      {pkg.totalSessions} / {pkg.completedSessions} / {remaining} buổi
-                    </span>
+          {/* TAB 2: Liệu trình & Gói chăm sóc (hiển thị khi chọn 'Tổng quan' hoặc 'Liệu trình') */}
+          {(activeTab === 'Tổng quan' || activeTab === 'Liệu trình') && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {packages.length === 0 ? (
+                  <div className="col-span-2 bg-white rounded-2xl border border-[#EFE4D9] p-6 text-center text-xs text-[#8C7A6B]">
+                    Khách hàng chưa đăng ký gói combo liệu trình dài hạn nào.
                   </div>
-                  <div className="pt-1">
-                    <div className="text-xs font-semibold text-[#2C241E] mb-1.5">
-                      Đã sử dụng {percent}%
-                    </div>
-                    <div className="w-full h-1.5 bg-[#EBD8C7] rounded-full overflow-hidden">
+                ) : (
+                  packages.map((pkg) => {
+                    const remaining = pkg.totalSessions - pkg.completedSessions;
+                    const percent = Math.round((pkg.completedSessions / pkg.totalSessions) * 100);
+                    return (
                       <div
-                        className="h-full bg-[#985018] rounded-full"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-[#73675F] pt-1">
-                    Hạn dùng: {pkg.expiresAt.split('T')[0]} · Chi nhánh Quận 3
-                  </p>
-                </div>
-              );
-            })}
-          </div>
+                        key={pkg.id}
+                        className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-2.5"
+                      >
+                        <h3 className="text-sm font-bold text-[#3E200C]">
+                          {pkg.package?.name || 'Gói chăm sóc phục hồi'}
+                        </h3>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#73675F]">Tổng / đã dùng / còn lại</span>
+                          <span className="font-semibold text-[#2C241E]">
+                            {pkg.totalSessions} / {pkg.completedSessions} / {remaining} buổi
+                          </span>
+                        </div>
+                        <div className="pt-1">
+                          <div className="text-xs font-semibold text-[#2C241E] mb-1.5">
+                            Đã sử dụng {percent}%
+                          </div>
+                          <div className="w-full h-1.5 bg-[#EBD8C7] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#985018] rounded-full"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-[#73675F] pt-1">
+                          Hạn dùng: {pkg.expiresAt?.split('T')[0] || '12/2026'} · Chi nhánh Quận 3
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
 
-          {/* 3. Bottom Card: Nhật ký trị liệu lâm sàng (Treatment Journals) */}
-          <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-            <h3 className="text-sm font-bold text-[#2C241E]">
-              Nhật ký điều trị lâm sàng ({journals.length} buổi)
-            </h3>
-            <div className="space-y-3">
-              {journals.map((j) => (
-                <div
-                  key={j.id}
-                  className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1.5"
-                >
-                  <div className="flex items-center justify-between font-bold text-[#2C241E]">
-                    <span>Buổi #{j.sessionNumber} · Ngày {j.sessionDate}</span>
-                    <span className="text-[#985018]">Đã hoàn thành</span>
-                  </div>
-                  <p className="text-[#5C5046]">
-                    <span className="font-semibold">Tình trạng trước:</span> {j.conditionBefore}
-                  </p>
-                  <p className="text-[#5C5046]">
-                    <span className="font-semibold">Sau trị liệu:</span> {j.conditionAfter}
-                  </p>
-                  <p className="text-[11px] text-[#8A796B] italic">
-                    Lời dặn: {j.specialistAdvice}
-                  </p>
+              {/* Nhật ký trị liệu lâm sàng */}
+              <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Nhật ký điều trị lâm sàng ({journals.length} buổi)
+                </h3>
+                <div className="space-y-3">
+                  {journals.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[#8C7A6B]">
+                      Chưa có nhật ký lâm sàng nào được ghi nhận.
+                    </div>
+                  ) : (
+                    journals.map((j) => (
+                      <div
+                        key={j.id}
+                        className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between font-bold text-[#2C241E]">
+                          <span>Buổi #{j.sessionNumber} · Ngày {j.sessionDate}</span>
+                          <span className="text-[#985018]">Đã hoàn thành</span>
+                        </div>
+                        <p className="text-[#5C5046]">
+                          <span className="font-semibold">Tình trạng trước:</span> {j.conditionBefore}
+                        </p>
+                        <p className="text-[#5C5046]">
+                          <span className="font-semibold">Sau trị liệu:</span> {j.conditionAfter}
+                        </p>
+                        <p className="text-[11px] text-[#8A796B] italic">
+                          Lời dặn: {j.specialistAdvice}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ))}
+              </div>
+            </>
+          )}
+
+          {/* TAB 3: Học tập (hiển thị khi chọn 'Học tập') */}
+          {activeTab === 'Học tập' && (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Hồ sơ học viên & Khóa học đào tạo ({enrollments.length})
+                </h3>
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
+                  Học viện MLD Academy
+                </span>
+              </div>
+              {enrollments.length === 0 ? (
+                <div className="p-6 text-center text-xs text-[#8C7A6B]">
+                  Khách hàng hiện chưa đăng ký tham gia khóa học nào tại Học viện MLD.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {enrollments.map((e) => (
+                    <div key={e.id} className="p-4 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] space-y-2">
+                      <div className="flex items-center justify-between font-bold text-xs text-[#2C241E]">
+                        <span>{e.course?.title || 'Khóa học Dẫn Lưu Bạch Huyết MLD'}</span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-[#E8EFE5] text-[#526D51]">
+                          {e.status || 'Đang theo học'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[#73675F] flex justify-between">
+                        <span>Lớp: {e.batch?.batchCode || 'MLD-K18-HCM'}</span>
+                        <span>Học phí: {e.tuitionTotal?.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* TAB 4: Giao dịch (hiển thị khi chọn 'Giao dịch') */}
+          {activeTab === 'Giao dịch' && (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Lịch sử thanh toán & Hóa đơn thu ngân
+                </h3>
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
+                  Ví MLD Pay & VietQR
+                </span>
+              </div>
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-bold text-[#2C241E]">Thanh toán gói dịch vụ Massage Thư Giãn</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5">12/10/2026 · Chuyển khoản VietQR MB Bank</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-[#8E4002]">+450.000đ</div>
+                    <span className="text-[10px] text-[#2E7D32] font-semibold">Hoàn tất</span>
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-bold text-[#2C241E]">Đặt cọc liệu trình Chăm sóc da Hydrafacial</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5">08/10/2026 · Tiền mặt tại quầy</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-[#8E4002]">+150.000đ</div>
+                    <span className="text-[10px] text-[#2E7D32] font-semibold">Hoàn tất</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: Ghi chú (hiển thị khi chọn 'Ghi chú') */}
+          {activeTab === 'Ghi chú' && (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold text-[#2C241E]">
+                Lưu ý phục vụ & Hồ sơ cá nhân hóa
+              </h3>
+              <div className="p-4 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] text-xs text-[#5C5046] space-y-2">
+                <p className="font-semibold text-[#2C241E]">Ghi chú chuyên môn của KTV:</p>
+                <p>Khách hàng có cơ địa da nhạy cảm vùng cánh mũi. Ưu tiên kỹ thuật Vodder nhẹ nhàng, không xông hơi quá 5 phút. Thích uống trà hoa cúc ấm sau trị liệu.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
