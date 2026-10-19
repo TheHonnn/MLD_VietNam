@@ -174,6 +174,32 @@ class SupabaseService {
     return null;
   }
 
+  async updateBranch(branchId: string, updates: Partial<Branch>): Promise<boolean> {
+    try {
+      const payload: Record<string, any> = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.code !== undefined) payload.code = updates.code;
+      if (updates.phone !== undefined) payload.phone = updates.phone;
+      if (updates.address !== undefined) payload.address = updates.address;
+      if (updates.district !== undefined) payload.district = updates.district;
+      if (updates.city !== undefined) payload.city = updates.city;
+      if (updates.openingTime !== undefined) payload.opening_time = updates.openingTime;
+      if (updates.closingTime !== undefined) payload.closing_time = updates.closingTime;
+      if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+      if (updates.amenities !== undefined) payload.amenities = updates.amenities;
+      if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+
+      const res = await this.query<any>(`branches?id=eq.${branchId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return res !== null;
+    } catch (err) {
+      console.warn('[SupabaseService] updateBranch error:', err);
+      return false;
+    }
+  }
+
 
   // 2. PHÒNG CHI NHÁNH (BRANCH ROOMS)
   async getRooms(branchId?: string): Promise<BranchRoom[] | null> {

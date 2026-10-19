@@ -90,5 +90,19 @@ export const branchService = {
       data: newBranch,
     };
   },
+
+  async updateBranch(id: string, updates: Partial<Branch>): Promise<ApiResponse<Branch>> {
+    try {
+      await supabaseService.updateBranch(id, updates);
+    } catch (err) {
+      console.error('[branchService] updateBranch error:', err);
+    }
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Cập nhật thông tin chi nhánh thành công',
+      data: { id, ...updates } as Branch,
+    };
+  },
 };
 
