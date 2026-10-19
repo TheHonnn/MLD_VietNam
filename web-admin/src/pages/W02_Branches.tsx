@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   ChevronDown,
-  Info,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
+import { toast } from '../components/common';
 import { Branch, BranchRoom, Service } from '../types/shared_types';
 
 export const W02_Branches: React.FC = () => {
@@ -74,8 +74,8 @@ export const W02_Branches: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng thêm chi nhánh mới')}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+          onClick={() => toast.info('Thêm chi nhánh mới', 'Đang kết nối hệ thống khởi tạo cơ sở chi nhánh.')}
+          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Thêm chi nhánh
         </button>
@@ -258,17 +258,6 @@ export const W02_Branches: React.FC = () => {
                     {rooms.map((r) => r.name).join(', ') || 'Đang cập nhật'}
                   </span>
                 </div>
-              </div>
-
-              {/* Notice Box */}
-              <div className="bg-[#F3E2CE] p-4 rounded-xl space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#8A4F23]">
-                  <Info className="w-4 h-4 text-[#8A4F23] shrink-0" />
-                  <span>Dữ liệu thực tế qua apiClient</span>
-                </div>
-                <p className="text-[11px] text-[#695A4E] leading-relaxed">
-                  Hệ thống kết nối trực tiếp với branchService. Khi backend NestJS hoạt động, danh sách chi nhánh và phòng sẽ tải từ Postgres.
-                </p>
               </div>
             </div>
           )}

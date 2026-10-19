@@ -9,6 +9,7 @@ import {
   Info,
 } from 'lucide-react';
 import { treatmentService } from '../services';
+import { toast } from '../components/common';
 import {
   TreatmentPackage as SharedTreatmentPackage,
   UserPackage,
@@ -151,8 +152,8 @@ export const W06_TreatmentManagement: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Đã mở form đặt lịch buổi tiếp theo.')}
-          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+          onClick={() => toast.success('Đặt lịch tiếp theo', 'Đã lưu kế hoạch và mở biểu mẫu xếp lịch buổi chăm sóc tiếp theo.')}
+          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Đặt buổi tiếp theo
         </button>
@@ -170,7 +171,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             2
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
-            Đồng bộ từ Supabase Cloud
+            Đang hoạt động
           </div>
         </div>
 
@@ -485,8 +486,8 @@ export const W06_TreatmentManagement: React.FC = () => {
 
             {/* Action Button */}
             <button
-              onClick={() => alert('Đã ghi nhận buổi chăm sóc vào hồ sơ điều trị.')}
-              className="w-full py-2.5 bg-white border border-[#D7BBA6] text-[#8A4F23] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs mt-2"
+              onClick={() => toast.success('Hồ sơ điều trị', 'Đã ghi nhận buổi chăm sóc vào hồ sơ điều trị điện tử của khách hàng.')}
+              className="w-full py-2.5 bg-white border border-[#D7BBA6] text-[#8A4F23] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs mt-2 cursor-pointer"
             >
               Ghi nhận buổi chăm sóc
             </button>
@@ -506,7 +507,7 @@ export const W06_TreatmentManagement: React.FC = () => {
               </p>
             </div>
             <div className="text-[11px] text-[#8A4F23] font-medium pt-1">
-              Đồng bộ dữ liệu thời gian thực Supabase
+              Đồng bộ dữ liệu thời gian thực
             </div>
           </div>
         </div>

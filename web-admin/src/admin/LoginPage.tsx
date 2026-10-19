@@ -15,7 +15,7 @@ export const LoginPage: React.FC = () => {
     setErrorMessage('');
 
     if (!identifier.trim()) {
-      setErrorMessage('Vui lòng nhập Email hoặc Số điện thoại quản trị.');
+      setErrorMessage('Vui lòng nhập địa chỉ email quản trị.');
       return;
     }
     if (!password) {
@@ -77,7 +77,7 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-[#4A3E34] mb-1.5">
-                Email hoặc Số điện thoại
+                Địa chỉ email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A69788]">
@@ -86,7 +86,7 @@ export const LoginPage: React.FC = () => {
                 <input
                   type="text"
                   autoComplete="username"
-                  placeholder="admin@mldvietnam.vn hoặc 0901000001"
+                  placeholder="Nhập địa chỉ email"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   disabled={loading}
@@ -108,7 +108,7 @@ export const LoginPage: React.FC = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  placeholder="••••••••••••"
+                  placeholder="Nhập mật khẩu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}

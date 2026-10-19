@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { ToastContainer } from '../common';
 
 export const Layout: React.FC = () => {
   const content = useRef<HTMLElement>(null);
@@ -24,6 +25,9 @@ export const Layout: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Global Toast Container */}
+      <ToastContainer />
     </div>
   );
 };

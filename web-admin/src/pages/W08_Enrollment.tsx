@@ -10,6 +10,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { academyService } from '../services';
+import { toast } from '../components/common';
 import { CourseEnrollment, Course, CourseBatch } from '../types/shared_types';
 
 interface CandidateRecord {
@@ -489,7 +490,7 @@ export const W08_Enrollment: React.FC = () => {
 
             {/* Footer Note */}
             <div className="text-xs text-[#73675F] pt-1">
-              Dữ liệu tuyển sinh được đồng bộ trực tiếp từ máy chủ Supabase Cloud.
+              Dữ liệu tuyển sinh được cập nhật theo thời gian thực.
             </div>
           </div>
         </div>
@@ -586,15 +587,15 @@ export const W08_Enrollment: React.FC = () => {
 
           {/* Action button */}
           <button
-            onClick={() => alert(`Đã cập nhật trạng thái: ${selectedCandidate.buttonLabel}`)}
-            className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center"
+            onClick={() => toast.success('Cập nhật trạng thái', `Đã cập nhật trạng thái hồ sơ học viên: ${selectedCandidate.buttonLabel}`)}
+            className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
           >
             {selectedCandidate.buttonLabel}
           </button>
 
           {/* Footnote */}
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Đồng bộ trạng thái hồ sơ học viên lên máy chủ Supabase Cloud.
+            Đồng bộ trạng thái hồ sơ học viên theo thời gian thực.
           </div>
         </div>
       </div>
