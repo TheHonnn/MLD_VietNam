@@ -13,6 +13,8 @@ import {
   Banknote,
   QrCode,
   CreditCard,
+  Copy,
+  Maximize2,
 } from 'lucide-react';
 import { posService, bookingService, customerService, notificationService } from '../services';
 import { toast } from '../components/common';
@@ -25,6 +27,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [customer, setCustomer] = useState<User | undefined>(undefined);
   const [isPaid, setIsPaid] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showQrZoomModal, setShowQrZoomModal] = useState(false);
   const [newReceipts, setNewReceipts] = useState<Array<{
     id: string;
     date: string;
@@ -33,6 +36,13 @@ export const W07_CashierPOS: React.FC = () => {
     amount: string;
     status: string;
   }>>([]);
+
+  const copyToClipboard = (text: string, label: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      toast.success('Đã sao chép!', `Đã sao chép ${label}: ${text}`);
+    }
+  };
 
   useEffect(() => {
     const fetchPosData = async () => {
@@ -82,7 +92,7 @@ export const W07_CashierPOS: React.FC = () => {
           ? 'Thanh toán tại cơ sở'
           : selectedMethod === 'online'
           ? 'Thanh toán trực tuyến (MoMo)'
-          : 'Chuyển khoản (VietQR / Techcombank)',
+          : 'Chuyển khoản VietQR (MB Bank · 0099999999678)',
       amount: formattedAmount,
       status: 'Đã thanh toán',
     };
@@ -346,7 +356,7 @@ export const W07_CashierPOS: React.FC = () => {
               {booking?.bookingCode || 'BK-20261016-003'} · Tổng đơn {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
             </div>
             <div className="text-[11px] text-[#73675F]">
-              Phương thức: {selectedMethod === 'onsite' ? 'Thanh toán tại quầy cơ sở.' : selectedMethod === 'online' ? 'Thanh toán trực tuyến MoMo.' : 'Chuyển khoản (VietQR / Techcombank).'}
+              Phương thức: {selectedMethod === 'onsite' ? 'Thanh toán tại quầy cơ sở.' : selectedMethod === 'online' ? 'Thanh toán trực tuyến MoMo.' : 'Chuyển khoản VietQR (MB Bank · 0099999999678).'}
             </div>
           </div>
 
@@ -444,25 +454,32 @@ export const W07_CashierPOS: React.FC = () => {
             </div>
 
             <div className="mt-3 pl-8 flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-xl border border-[#D7BBA6] flex items-center justify-center text-[#8A4F23] shrink-0 shadow-2xs">
-                <QrCode className="w-5 h-5 stroke-[1.8]" />
+              <div className="w-11 h-11 bg-white rounded-xl border border-[#D7BBA6] p-0.5 flex items-center justify-center text-[#8A4F23] shrink-0 shadow-2xs overflow-hidden">
+                <img
+                  src="/vietqr-mbbank.png"
+                  alt="QR MB"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
               </div>
               <div className="text-[11.5px] leading-snug space-y-0.5">
-                <div className="font-bold text-[#2C241E]">Techcombank · 1903688889999</div>
-                <div className="text-[10.5px] text-[#73675F] font-medium">MLD HEALTHCARE & SPA</div>
+                <div className="font-bold text-[#2C241E]">MB Bank · 0099999999678</div>
+                <div className="text-[10.5px] text-[#8A4F23] font-bold">LAM XUAN TRUONG</div>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#EFE4D9]/80 pl-8 flex items-center gap-1.5 flex-wrap text-[10.5px] text-[#8C7A6B]">
             <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
-              VietQR 24/7
+              VietQR MB Bank
             </span>
             <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
               Khớp đơn tự động
             </span>
             <span className="px-2 py-0.5 rounded-md bg-white/90 border border-[#EFE4D9] font-medium">
-              Miễn phí giao dịch
+              Quét nhanh 24/7
             </span>
           </div>
         </div>
@@ -519,6 +536,134 @@ export const W07_CashierPOS: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 4.5. Dynamic QR Payment Banner (Shows when 'transfer' is selected) */}
+      {selectedMethod === 'transfer' && (
+        <div className="bg-white rounded-2xl border border-[#D7BBA6] p-5 shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-col lg:flex-row items-center gap-6">
+            {/* Left: QR Image with quick zoom */}
+            <div className="flex flex-col items-center gap-2.5 shrink-0">
+              <div
+                className="relative group cursor-pointer p-2 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] shadow-xs hover:border-[#8A4F23] transition-colors"
+                onClick={() => setShowQrZoomModal(true)}
+                title="Nhấn để phóng to mã QR"
+              >
+                <img
+                  src="/vietqr-mbbank.png"
+                  alt="Mã VietQR MB Bank - 0099999999678"
+                  className="w-48 sm:w-56 h-auto object-contain rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/qr-payment.png';
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/20 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold gap-1.5 backdrop-blur-[1px]">
+                  <Maximize2 className="w-4 h-4" />
+                  <span>Phóng to</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrZoomModal(true)}
+                className="inline-flex items-center gap-1.5 text-xs text-[#8A4F23] hover:text-[#6D4122] font-semibold transition-colors cursor-pointer"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Xem mã QR toàn màn hình</span>
+              </button>
+            </div>
+
+            {/* Right: Bank Account Details with Copy Buttons */}
+            <div className="flex-1 w-full space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#EFE4D9]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E8F6ED] text-[#0D6832]">
+                      VietQR 24/7 · MB Bank
+                    </span>
+                    <span className="text-xs text-[#73675F] font-medium">Khớp lệnh tự động</span>
+                  </div>
+                  <h3 className="text-sm font-bold text-[#2C241E] mt-1">
+                    Quét mã QR để chuyển khoản trực tiếp
+                  </h3>
+                </div>
+              </div>
+
+              {/* Data rows */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                {/* Bank Name */}
+                <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-0.5">
+                  <div className="text-[11px] text-[#73675F]">Ngân hàng thụ hưởng</div>
+                  <div className="font-bold text-[#2C241E]">MB Bank (Quân Đội)</div>
+                </div>
+
+                {/* Account Name */}
+                <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-0.5">
+                  <div className="text-[11px] text-[#73675F]">Chủ tài khoản</div>
+                  <div className="font-bold text-[#8A4F23] uppercase">LAM XUAN TRUONG</div>
+                </div>
+
+                {/* Account Number */}
+                <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-[#73675F]">Số tài khoản</div>
+                    <div className="font-extrabold text-[#2C241E] font-mono text-sm tracking-wide">
+                      0099999999678
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard('0099999999678', 'Số tài khoản')}
+                    className="p-1.5 rounded-lg bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                    title="Sao chép số tài khoản"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Amount */}
+                <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-[#73675F]">Số tiền cần thanh toán</div>
+                    <div className="font-extrabold text-[#0D6832] text-sm">
+                      {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(String(booking?.finalPrice || 390000), 'Số tiền')}
+                    className="p-1.5 rounded-lg bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                    title="Sao chép số tiền"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Transfer Message */}
+                <div className="sm:col-span-2 p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-[#73675F]">Nội dung chuyển khoản (Syntax)</div>
+                    <div className="font-bold text-[#2C241E] font-mono text-xs">
+                      {booking?.bookingCode || 'BK-20261016-003'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(booking?.bookingCode || 'BK-20261016-003', 'Nội dung chuyển khoản')}
+                    className="p-1.5 rounded-lg bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold"
+                    title="Sao chép nội dung chuyển khoản"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Sao chép</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
+                💡 Khách hàng mở app ngân hàng (MB, Vietcombank, Techcombank, Momo...) quét mã để tự động điền đúng số tiền và nội dung.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 5. Previous Receipts Reconciliation Table */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
@@ -669,7 +814,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Hình thức thanh toán:</span>
                   <span className="font-semibold text-[#8A4F23]">
-                    {selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'online' ? 'Cổng trực tuyến MoMo' : 'Chuyển khoản VietQR (Techcombank)'}
+                    {selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'online' ? 'Cổng trực tuyến MoMo' : 'Chuyển khoản VietQR (MB Bank · LAM XUAN TRUONG)'}
                   </span>
                 </div>
 
@@ -714,6 +859,75 @@ export const W07_CashierPOS: React.FC = () => {
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Hoàn tất & Đóng</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Fullscreen / High-Res QR Zoom Modal */}
+      {showQrZoomModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif]"
+          onClick={() => setShowQrZoomModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#F4ECE3] flex items-center justify-between bg-gradient-to-r from-[#FAF6F0] to-white">
+              <div>
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Mã QR Thanh Toán VietQR
+                </h3>
+                <p className="text-[11px] text-[#73675F]">
+                  MB Bank · LAM XUAN TRUONG
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrZoomModal(false)}
+                className="p-1.5 text-[#A69788] hover:text-[#2C241E] rounded-xl hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 text-center space-y-3.5">
+              <div className="p-2.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] inline-block shadow-inner">
+                <img
+                  src="/vietqr-mbbank.png"
+                  alt="Mã VietQR MB Bank"
+                  className="w-64 h-auto object-contain mx-auto rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/qr-payment.png';
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-base font-extrabold text-[#0D6832]">
+                  {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
+                </div>
+                <div className="text-xs font-mono font-bold text-[#2C241E]">
+                  STK: 0099999999678 · {booking?.bookingCode || 'BK-20261016-003'}
+                </div>
+                <div className="text-[11px] text-[#73675F]">
+                  Chủ TK: LAM XUAN TRUONG (MB Bank)
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 pb-5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowQrZoomModal(false)}
+                className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
+              >
+                Đóng
               </button>
             </div>
           </div>
