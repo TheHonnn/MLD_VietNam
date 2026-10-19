@@ -10,6 +10,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { academyService } from '../services';
+import { toast } from '../components/common';
 import { CourseEnrollment, Course, CourseBatch } from '../types/shared_types';
 
 interface CandidateRecord {
@@ -586,8 +587,8 @@ export const W08_Enrollment: React.FC = () => {
 
           {/* Action button */}
           <button
-            onClick={() => alert(`Đã cập nhật trạng thái: ${selectedCandidate.buttonLabel}`)}
-            className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center"
+            onClick={() => toast.success('Cập nhật trạng thái', `Đã cập nhật trạng thái hồ sơ học viên: ${selectedCandidate.buttonLabel}`)}
+            className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
           >
             {selectedCandidate.buttonLabel}
           </button>

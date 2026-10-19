@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Clock,
   ChevronDown,
   Info,
 } from 'lucide-react';
 import { staffService, bookingService, branchService, StaffWithProfile } from '../services';
+import { toast } from '../components/common';
 import { Booking, Branch } from '../types/shared_types';
 
 interface ScheduleAppointment {
@@ -35,6 +37,7 @@ interface ScheduleAppointment {
 }
 
 export const W05_StaffSchedule: React.FC = () => {
+  const navigate = useNavigate();
   const [staffMembers, setStaffMembers] = useState<StaffWithProfile[]>([]);
   const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -236,8 +239,8 @@ export const W05_StaffSchedule: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng Tạo lịch hẹn')}
-          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+          onClick={() => toast.info('Tạo lịch hẹn', 'Đang mở bảng phân công ca trực và điều phối kỹ thuật viên.')}
+          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Tạo lịch hẹn
         </button>
@@ -498,8 +501,11 @@ export const W05_StaffSchedule: React.FC = () => {
 
             {/* Cashier Invoice Action Button */}
             <button
-              onClick={() => alert('Xem đơn thu ngân')}
-              className="w-full py-3 bg-white border border-[#D8BDA7] text-[#904206] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs"
+              onClick={() => {
+                toast.info('Chuyển hướng thu ngân', 'Đang mở màn hình thu ngân chi tiết...');
+                navigate('/cashier-pos');
+              }}
+              className="w-full py-3 bg-white border border-[#D8BDA7] text-[#904206] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer"
             >
               Xem đơn thu ngân
             </button>

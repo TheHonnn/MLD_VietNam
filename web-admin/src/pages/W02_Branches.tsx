@@ -5,6 +5,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
+import { toast } from '../components/common';
 import { Branch, BranchRoom, Service } from '../types/shared_types';
 
 export const W02_Branches: React.FC = () => {
@@ -73,8 +74,8 @@ export const W02_Branches: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng thêm chi nhánh mới')}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+          onClick={() => toast.info('Thêm chi nhánh mới', 'Đang kết nối hệ thống khởi tạo cơ sở chi nhánh.')}
+          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Thêm chi nhánh
         </button>

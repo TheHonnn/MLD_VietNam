@@ -15,6 +15,7 @@ import {
   treatmentService,
   academyService,
 } from '../services';
+import { toast } from '../components/common';
 import {
   User,
   Booking,
@@ -100,8 +101,8 @@ export const W04_CustomerDetail: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng tạo lịch hẹn')}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+          onClick={() => toast.info('Tạo lịch hẹn', `Đang mở giao diện xếp lịch hẹn cho khách hàng ${customer?.fullName || 'Nguyễn Mỹ Duyên'}.`)}
+          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Tạo lịch hẹn
         </button>
@@ -184,8 +185,8 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="mt-3.5 pt-3 border-t border-white/20 relative z-10">
                 <button
-                  onClick={() => alert('Xem mã thẻ điện tử')}
-                  className="w-full flex items-center justify-between text-xs font-bold text-white hover:opacity-90 transition-opacity"
+                  onClick={() => toast.success('Thẻ hội viên QR', `Mã thẻ: ${customer?.referralCode || 'MLD-VIP-01'} · Hạng thẻ: ${customer?.membershipTier || 'KIM CƯƠNG'}`)}
+                  className="w-full flex items-center justify-between text-xs font-bold text-white hover:opacity-90 transition-opacity cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <QrCode className="w-4 h-4 text-[#F3E2CE]" />
@@ -211,8 +212,8 @@ export const W04_CustomerDetail: React.FC = () => {
             </div>
 
             <button
-              onClick={() => alert('Chỉnh sửa thông tin khách hàng')}
-              className="w-full py-2.5 bg-white border border-[#D7BBA6] text-[#8A4F23] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs"
+              onClick={() => toast.info('Chỉnh sửa hồ sơ', `Đang mở biểu mẫu chỉnh sửa thông tin cho ${customer?.fullName || 'khách hàng'}.`)}
+              className="w-full py-2.5 bg-white border border-[#D7BBA6] text-[#8A4F23] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer"
             >
               Chỉnh sửa hồ sơ
             </button>

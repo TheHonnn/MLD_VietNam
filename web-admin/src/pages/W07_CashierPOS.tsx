@@ -6,8 +6,13 @@ import {
   ChevronRight,
   Info,
   CheckCircle2,
+  Receipt,
+  Printer,
+  X,
+  Sparkles,
 } from 'lucide-react';
-import { posService, bookingService, customerService } from '../services';
+import { posService, bookingService, customerService, notificationService } from '../services';
+import { toast } from '../components/common';
 import { Invoice, Booking, User } from '../types/shared_types';
 
 export const W07_CashierPOS: React.FC = () => {
@@ -15,6 +20,16 @@ export const W07_CashierPOS: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [booking, setBooking] = useState<Booking | undefined>(undefined);
   const [customer, setCustomer] = useState<User | undefined>(undefined);
+  const [isPaid, setIsPaid] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [newReceipts, setNewReceipts] = useState<Array<{
+    id: string;
+    date: string;
+    content: string;
+    method: string;
+    amount: string;
+    status: string;
+  }>>([]);
 
   useEffect(() => {
     const fetchPosData = async () => {
@@ -34,8 +49,50 @@ export const W07_CashierPOS: React.FC = () => {
     fetchPosData();
   }, []);
 
-  // Past receipts dataset from service or fallback
-  const pastReceipts = invoices.length > 0
+  const handleProcessPayment = () => {
+    setIsPaid(true);
+    setShowReceiptModal(true);
+
+    const bookingCode = booking?.bookingCode || 'BK-20261016-003';
+    const customerName = customer?.fullName || 'Nguyễn Mỹ Duyên';
+    const amount = booking?.finalPrice || 390000;
+    const formattedAmount = `${amount.toLocaleString('vi-VN')}đ`;
+
+    toast.success(
+      'Ghi nhận thanh toán thành công!',
+      `Đã thu ${formattedAmount} cho hóa đơn ${bookingCode} (${customerName}).`
+    );
+
+    notificationService.addNotification({
+      title: 'Ghi nhận thanh toán thành công',
+      message: `Thu ngân đã quyết toán ${formattedAmount} đơn ${bookingCode} cho khách hàng ${customerName}.`,
+      type: 'PAYMENT',
+      link: '/cashier-pos',
+    });
+
+    const newReceipt = {
+      id: `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`,
+      date: new Intl.DateTimeFormat('vi-VN').format(new Date()),
+      content: 'Massage trị liệu dưỡng sinh (90 phút)',
+      method:
+        selectedMethod === 'onsite'
+          ? 'Thanh toán tại cơ sở'
+          : selectedMethod === 'online'
+          ? 'Thanh toán trực tuyến (MoMo)'
+          : 'Chuyển khoản (VietQR / Techcombank)',
+      amount: formattedAmount,
+      status: 'Đã thanh toán',
+    };
+    setNewReceipts((prev) => [newReceipt, ...prev]);
+  };
+
+  const handleResetForNewOrder = () => {
+    setIsPaid(false);
+    toast.info('Đơn thu ngân mới', 'Đã làm mới thông tin để tiếp nhận đơn thu ngân tiếp theo.');
+  };
+
+  // Past receipts dataset from service or fallback + newly paid receipts
+  const rawPastReceipts = invoices.length > 0
     ? invoices.map((inv) => ({
         id: inv.invoiceCode,
         date: inv.paidAt ? inv.paidAt.split('T')[0] : '16/10/2026',
@@ -45,6 +102,8 @@ export const W07_CashierPOS: React.FC = () => {
         status: inv.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán',
       }))
     : [];
+
+  const pastReceipts = [...newReceipts, ...rawPastReceipts];
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -59,8 +118,8 @@ export const W07_CashierPOS: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Đang mở bộ lọc tra cứu đơn dịch vụ.')}
-          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+          onClick={() => toast.info('Tra cứu đơn dịch vụ', `Đang áp dụng bộ lọc đơn dịch vụ theo mã ${booking?.bookingCode || 'BK-20261016-003'}.`)}
+          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Tra cứu đơn dịch vụ
         </button>
@@ -215,36 +274,76 @@ export const W07_CashierPOS: React.FC = () => {
           </div>
 
           {/* Status banner */}
-          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
-            <Clock className="w-4 h-4 stroke-[2]" />
-            <span>Chờ thanh toán</span>
-          </div>
+          {isPaid ? (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] border border-[#C2E8D1] text-xs font-bold animate-in fade-in duration-300">
+              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+              <span>Đã thanh toán thành công</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
+              <Clock className="w-4 h-4 stroke-[2]" />
+              <span>Chờ thanh toán</span>
+            </div>
+          )}
 
           {/* Secondary badge */}
           <div>
-            <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#EBDCCE] text-[#73675F]">
-              Chưa thu tiền
-            </span>
+            {isPaid ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#D1F4DE] text-[#0A5C2C]">
+                <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                Đã thu {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
+              </span>
+            ) : (
+              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#EBDCCE] text-[#73675F]">
+                Chưa thu tiền
+              </span>
+            )}
           </div>
 
-          {/* Payment action button */}
-          <button
-            onClick={() => alert('Ghi nhận thanh toán thành công!')}
-            className="w-full py-3 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs text-center"
-          >
-            Ghi nhận thanh toán
-          </button>
+          {/* Payment action buttons */}
+          {isPaid ? (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowReceiptModal(true)}
+                className="w-full py-3 bg-[#0D6832] hover:bg-[#0A5C2C] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Receipt className="w-4 h-4" />
+                <span>Xem biên lai thanh toán</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleResetForNewOrder}
+                className="w-full py-2 bg-white hover:bg-[#FAF8F5] border border-[#E8DFD8] text-[#73675F] hover:text-[#2C241E] text-xs font-semibold rounded-xl transition-colors cursor-pointer text-center"
+              >
+                Tiếp nhận đơn thanh toán mới
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleProcessPayment}
+              className="w-full py-3 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
+            >
+              Ghi nhận thanh toán
+            </button>
+          )}
 
           {/* Draft Receipt Box */}
           <div className="bg-[#F6EFE8] rounded-xl p-3.5 space-y-1 text-xs">
-            <div className="font-bold text-xs text-[#2C241E]">
-              Hóa đơn dịch vụ
+            <div className="font-bold text-xs text-[#2C241E] flex items-center justify-between">
+              <span>Hóa đơn dịch vụ</span>
+              {isPaid && (
+                <span className="text-[10px] font-extrabold text-[#0D6832] bg-[#E8F6ED] px-2 py-0.5 rounded-md border border-[#C2E8D1]">
+                  ĐÃ TẤT TOÁN
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-[#73675F]">
               {booking?.bookingCode || 'BK-20261016-003'} · Tổng đơn {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
             </div>
             <div className="text-[11px] text-[#73675F]">
-              Phương thức: Thanh toán tại quầy thu ngân cơ sở.
+              Phương thức: {selectedMethod === 'onsite' ? 'Thanh toán tại quầy cơ sở.' : selectedMethod === 'online' ? 'Thanh toán trực tuyến MoMo.' : 'Chuyển khoản (VietQR / Techcombank).'}
             </div>
           </div>
 
@@ -457,6 +556,112 @@ export const W07_CashierPOS: React.FC = () => {
           Hệ thống thu ngân POS & biên lai điện tử • MLD Vietnam Healthcare Admin.
         </span>
       </div>
+
+      {/* 8. Luxury Electronic Receipt Modal */}
+      {showReceiptModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif]"
+          onClick={() => setShowReceiptModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 pt-6 pb-4 text-center bg-gradient-to-b from-[#FAF6F0] to-white relative border-b border-[#F4ECE3]">
+              <button
+                type="button"
+                onClick={() => setShowReceiptModal(false)}
+                className="absolute top-4 right-4 p-1.5 text-[#A69788] hover:text-[#2C241E] rounded-xl hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-14 h-14 rounded-2xl bg-[#E8F6ED] text-[#0D6832] border border-[#C2E8D1] flex items-center justify-center mx-auto mb-3 shadow-xs">
+                <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
+              </div>
+              <h3 className="text-lg font-extrabold text-[#2C241E] tracking-tight">
+                Ghi nhận thanh toán thành công!
+              </h3>
+              <p className="text-xs text-[#73675F] mt-1 font-medium">
+                Biên lai điện tử MLD Healthcare & Spa
+              </p>
+            </div>
+
+            {/* Receipt Card Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#EFE4D9] space-y-3 text-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-dashed border-[#E0D4C7]">
+                  <span className="text-[#73675F]">Mã hóa đơn / Phiếu thu:</span>
+                  <span className="font-bold text-[#2C241E] font-mono">{booking?.bookingCode || 'BK-20261016-003'}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#73675F]">Khách hàng:</span>
+                  <span className="font-bold text-[#2C241E]">{customer?.fullName || 'Nguyễn Mỹ Duyên'}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#73675F]">Dịch vụ điều trị:</span>
+                  <span className="font-semibold text-[#2C241E]">Massage trị liệu dưỡng sinh (90 phút)</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#73675F]">Hình thức thanh toán:</span>
+                  <span className="font-semibold text-[#8A4F23]">
+                    {selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'online' ? 'Cổng trực tuyến MoMo' : 'Chuyển khoản VietQR (Techcombank)'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#73675F]">Thời gian ghi nhận:</span>
+                  <span className="text-[#2C241E] font-medium">
+                    {new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())}
+                  </span>
+                </div>
+
+                <div className="pt-2.5 border-t border-dashed border-[#E0D4C7] flex items-center justify-between">
+                  <span className="font-bold text-sm text-[#2C241E]">Tổng đã quyết toán:</span>
+                  <span className="text-base font-extrabold text-[#0D6832]">
+                    {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-xs font-semibold">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>Trạng thái: Đã quyết toán 100% · Đồng bộ dữ liệu kế toán</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="px-6 pb-6 pt-1 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  toast.info('In biên lai', 'Đang kết nối lệnh in biên lai nhiệt POS...');
+                  window.print();
+                }}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-[#D7BBA6] hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>In biên lai</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReceiptModal(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Hoàn tất & Đóng</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { customerService, treatmentService } from '../services';
+import { toast } from '../components/common';
 import { User, MemberTier, UserPackage } from '../types/shared_types';
 
 export const W03_Customers: React.FC = () => {
@@ -90,8 +91,8 @@ export const W03_Customers: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => alert('Chức năng thêm khách hàng mới')}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+          onClick={() => toast.info('Thêm khách hàng', 'Mở biểu mẫu tiếp nhận hồ sơ khách hàng mới.')}
+          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Thêm khách hàng
         </button>
