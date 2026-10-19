@@ -1,6 +1,7 @@
 import { createApp } from './server.js';
 import { prisma } from './lib/prisma.js';
 import { createStore, validateSharedSchema } from './store.js';
+import {startReminderScheduler} from './reminders.js';
 
 let startupStage = 'database-connection';
 
@@ -29,6 +30,7 @@ async function main() {
   await validateSharedSchema(store);
   startupStage = 'app-initialization';
   const app = createApp(store,{
+    trustedProxyHops: /^(0|1|2|3)$/.test(process.env.TRUST_PROXY_HOPS ?? '') ? Number(process.env.TRUST_PROXY_HOPS) : 0,
     jwtSecret: process.env.JWT_SECRET ?? '',
     zaloAppId: process.env.ZALO_APP_ID,
     zaloAppSecret: process.env.ZALO_APP_SECRET,
@@ -36,7 +38,10 @@ async function main() {
     zaloRelaySecret: process.env.ZALO_RELAY_SECRET,
     zaloAllowSignup: process.env.ZALO_ALLOW_SIGNUP === 'true',
   });
-  app.listen(Number(process.env.PORT ?? 5000),'0.0.0.0',()=>console.log('Mini App API connected to the shared schema'));
+  const server=app.listen(Number(process.env.PORT ?? 5000),'0.0.0.0',()=>console.log('Mini App API connected to the shared schema'));
+  const stopReminders=startReminderScheduler(store);
+  const shutdown=()=>{stopReminders();server.close(()=>void prisma.$disconnect());};
+  process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
 }
 
 main().catch(async error=>{

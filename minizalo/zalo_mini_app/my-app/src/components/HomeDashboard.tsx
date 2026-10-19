@@ -3,8 +3,11 @@ import { HomeCatalog, GroupBHomeProps } from './GroupBHome';
 import { BellIcon, ChevronDownIcon, CloseIcon, DashboardIcon, NavProfileIcon, RefreshIcon, SearchIcon } from './Icons';
 import { EntityImage } from './GroupBExtensions';
 import '@/css/home-dashboard.scss';
+import { useCarousel } from '@/hooks/useCarousel';
+import { useBackAction } from '@/hooks/useNavigationHistory';
 
 interface HomeDashboardProps extends GroupBHomeProps {
+  carouselPaused?: boolean;
   userAvatar?: string;
   selectedBranchId: string;
   onChangeBranch: (id: string) => void;
@@ -16,19 +19,17 @@ interface HomeDashboardProps extends GroupBHomeProps {
 export function GroupBHome(props: HomeDashboardProps) {
   const { services, branches, userName, userAvatar, selectedBranchId, onChangeBranch,
     onNavigateTab, onOpenSearch, onOpenNotifications, unreadNotifications = 0, loading, error, onRefresh } = props;
-  const [slideId, setSlideId] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
+  useBackAction(catalogOpen,()=>setCatalogOpen(false));
+  const [interacting, setInteracting] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const featured = services.filter(service => service.isFeatured);
   const heroServices = (featured.length ? featured : services).slice(0, 3);
   const slideIds = heroServices.map(service => service.id);
-  const index = Math.max(0, slideIds.indexOf(slideId));
+  const { index, select: setSlideId, move: changeSlide } = useCarousel(slideIds, Boolean(props.carouselPaused) || catalogOpen || interacting || loading);
   const service = heroServices[index];
-  const changeSlide = (offset: number) => {
-    if (slideIds.length) setSlideId(slideIds[(index + offset + slideIds.length) % slideIds.length]);
-  };
 
   useEffect(() => { setAvatarFailed(false); }, [userAvatar]);
   useEffect(() => {
@@ -79,6 +80,7 @@ export function GroupBHome(props: HomeDashboardProps) {
       </div>}
 
       <section className="home-feature" aria-label="Chăm sóc và dịch vụ"
+        onFocusCapture={event => setInteracting(event.target.matches(':focus-visible'))} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}
         onTouchStart={event => { touchStart.current = { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY }; }}
         onTouchEnd={event => {
           if (!touchStart.current) return;
@@ -89,12 +91,12 @@ export function GroupBHome(props: HomeDashboardProps) {
         }} onTouchCancel={() => { touchStart.current = null; }}>
         <button type="button" className="home-feature-photo" disabled={!service} title={service ? `Xem ${service.title}` : undefined}
           onClick={() => service ? props.onViewServiceDetail(service) : onNavigateTab('services')}>
-          <EntityImage src={service?.image} alt={service?.title || ''} className="home-service-image" />
+          <EntityImage key={service?.id} src={service?.image} alt={service?.title || ''} className="home-service-image carousel-enter" />
         </button>
         <div className="home-feature-copy" aria-live="polite">
           <span className="home-feature-divider" />
-          <h2>{service?.title}</h2>
-          <p>{service?.description}</p>
+          <h2 key={`${service?.id}:title`} className="carousel-enter">{service?.title}</h2>
+          <p key={`${service?.id}:description`} className="carousel-enter">{service?.description}</p>
           <button type="button" className="home-book-button" disabled={loading || !services.length || !branches.length}
             onClick={() => service ? props.onSelectService(service) : onNavigateTab('services')}>Đặt lịch ngay</button>
         </div>

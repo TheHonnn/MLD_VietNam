@@ -6,16 +6,17 @@
   "repository": "",
   "license": "UNLICENSED",
   "browserslist": [
-    "Android >= 5",
-    "IOS >= 9.3",
-    "Edge >= 15",
-    "Safari >= 9.1",
-    "Chrome >= 49",
-    "Firefox >= 31",
-    "Samsung >= 5"
+    "Chrome >= 108",
+    "Safari >= 15.4",
+    "iOS >= 15.4",
+    "Edge >= 108",
+    "Firefox >= 109"
   ],
   "scripts": {
     "build": "vite build",
+    "postbuild": "node scripts/check-build-artifacts.mjs",
+    "build:verify": "node scripts/check-build-artifacts.mjs",
+    "release:check": "node scripts/check-release-config.mjs",
     "login": "zmp login",
     "start": "zmp start",
     "start:zalo": "zmp start -Z",
@@ -27,8 +28,8 @@
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zmp-sdk": "latest",
-    "zmp-ui": "latest"
+    "zmp-sdk": "2.53.2",
+    "zmp-ui": "1.11.14"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.6",
@@ -44,6 +45,6 @@
     "tailwindcss": "^3.4.3",
     "vite": "^5.2.13",
     "zmp-cli": "^4.0.3",
-    "zmp-vite-plugin": "latest"
+    "zmp-vite-plugin": "1.1.6"
   }
 }

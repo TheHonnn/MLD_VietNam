@@ -1,16 +1,23 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import {createRateLimiter} from './rate-limit.js';
 import jwt from 'jsonwebtoken';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { camel, Store, Row } from './store.js';
 import { ApiError } from './errors.js';
 import { findZaloAccount, resolveZaloAccount } from './zalo-auth.js';
 import { authenticateZalo, RelayAuthOptions } from './zalo-relay-client.js';
 import { searchHistory, saveSearch, deleteSearch, popularSearches } from './search-history.js';
+import { listNotifications, syncNotifications } from './notifications.js';
+import {ownedEnrollment,recomputeProgress,lessonQuizLinks,startQuiz,submitAttempt,startPlayback,heartbeat,saveQuizDraft} from './learning.js';
+import {inboxFilter,unreadCount} from './notification-inbox.js';
+import {reservePackage} from './package-booking.js';
+import {collectionPage} from './collection-page.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const vietnamToday=()=>new Date(Date.now()+7*60*60*1000).toISOString().slice(0,10);
 export function uuid(value: unknown) {
   if (typeof value !== 'string' || !uuidPattern.test(value)) throw new ApiError(400, 'Expected a shared UUID');
   return value;
@@ -27,20 +34,23 @@ const publicUser = Prisma.sql`id, phone, email, full_name, avatar_url, gender, d
 async function user(store: Store, id: string) {
   const [record] = await store.query(Prisma.sql`SELECT ${publicUser} FROM users WHERE id = ${id}::uuid AND is_active`);
   if (!record) throw new ApiError(401, 'Shared account is missing or inactive');
-  return record;
+  const [schema]=await store.query(Prisma.sql`SELECT to_regclass('public.miniapp_customer_profiles') IS NOT NULL AS ready`);
+  const [profile]=schema.ready?await store.query(Prisma.sql`SELECT preferred_branch_id AS preferred_branch,skin_type,health_notes FROM miniapp_customer_profiles WHERE user_id=${id}::uuid`):[];
+  return {...record,preferred_branch:null,skin_type:'',health_notes:'',...profile};
 }
 
 const bookingSelect = Prisma.sql`
   SELECT b.*, to_char(b.booking_date, 'YYYY-MM-DD') AS booking_date,
     to_char(b.start_time, 'HH24:MI:SS') AS start_time, to_char(b.end_time, 'HH24:MI:SS') AS end_time,
     u.full_name AS customer_name, u.phone AS customer_phone, br.name AS branch_name,
-    t.full_name AS technician_name,
+    t.full_name AS technician_name,pb.user_package_id,pb.state AS package_reservation_state,pack.name AS package_name,
     COALESCE((SELECT json_agg(json_build_object('id', bi.id, 'service_id', bi.service_id,
       'service_title', s.name, 'image_url',s.image_url,'price', bi.price, 'duration_minutes', bi.duration_minutes,
       'technician_id', bi.technician_id)) FROM booking_items bi
       JOIN services s ON s.id = bi.service_id WHERE bi.booking_id = b.id), '[]'::json) AS items
   FROM bookings b JOIN users u ON u.id = b.customer_id JOIN branches br ON br.id = b.branch_id
-  LEFT JOIN technicians t ON t.id = b.technician_id`;
+  LEFT JOIN technicians t ON t.id = b.technician_id
+  LEFT JOIN miniapp_booking_packages pb ON pb.booking_id=b.id LEFT JOIN user_packages owned_pack ON owned_pack.id=pb.user_package_id LEFT JOIN treatment_packages pack ON pack.id=owned_pack.package_id`;
 
 const journalSelect = Prisma.sql`SELECT j.*,t.full_name AS technician_name,br.name AS branch_name,room.name AS room_name,b.status AS booking_status,
   s.id AS service_id,s.name AS service_name,s.image_url AS service_image,r.id AS review_id
@@ -57,6 +67,7 @@ const serviceSelect = Prisma.sql`SELECT s.*,cat.name AS category_name,
   COALESCE((SELECT json_agg(json_build_object('id',r.id,'rating',r.rating,'comment',r.comment,'photos',r.photos,'branchReply',r.branch_reply,'createdAt',r.created_at) ORDER BY r.created_at DESC) FROM reviews r WHERE r.service_id=s.id),'[]'::json) AS reviews
   FROM services s JOIN service_categories cat ON cat.id=s.category_id`;
 const technicianSelect = Prisma.sql`SELECT t.id,t.branch_id,t.full_name,t.title,t.avatar_url,t.experience_years,t.specialties,t.bio,t.is_active,t.created_at,t.updated_at,b.name AS branch_name,
+  COALESCE((SELECT json_agg(ms.service_id) FROM miniapp_technician_services ms JOIN services s ON s.id=ms.service_id JOIN service_categories c ON c.id=s.category_id WHERE ms.technician_id=t.id AND ms.is_active AND s.is_active AND c.is_active),'[]'::json) AS service_ids,
   (SELECT avg(r.rating) FROM reviews r WHERE r.technician_id=t.id) AS rating_avg,
   (SELECT count(*) FROM reviews r WHERE r.technician_id=t.id) AS review_count,
   COALESCE((SELECT json_agg(json_build_object('id',r.id,'rating',r.rating,'comment',r.comment,'createdAt',r.created_at) ORDER BY r.created_at DESC) FROM reviews r WHERE r.technician_id=t.id),'[]'::json) AS reviews
@@ -68,15 +79,17 @@ async function booking(store: Store, id: string, customerId: string) {
   return record;
 }
 
-async function availableSlots(store: Store, branchId: string, day: unknown, duration: number, technicianId: string | null, customerId: string | null, excludedBookingId: string | null = null) {
+async function availableSlots(store: Store, branchId: string, day: unknown, duration: number, technicianId: string | null, customerId: string | null, excludedBookingId: string | null = null,serviceIds:string[] = []) {
   if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day.startsWith('0000') || !Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0,10) !== day) throw new ApiError(400,'Slot date must be a valid YYYY-MM-DD date');
   if (!Number.isInteger(duration) || duration <= 0) return [];
   return store.query(Prisma.sql`SELECT ts.id,ts.technician_id,ts.branch_id,to_char(ts.slot_date,'YYYY-MM-DD') AS slot_date,
     to_char(ts.start_time,'HH24:MI:SS') AS start_time,to_char(ts.start_time + ${duration} * INTERVAL '1 minute','HH24:MI:SS') AS end_time
     FROM technician_slots ts JOIN technicians t ON t.id=ts.technician_id JOIN branches br ON br.id=ts.branch_id
     WHERE ts.branch_id=${branchId}::uuid AND t.branch_id=ts.branch_id AND t.is_active AND br.is_active
+      ${serviceIds.length?Prisma.sql`AND (SELECT count(*) FROM miniapp_technician_services ms WHERE ms.technician_id=t.id AND ms.is_active AND ms.service_id IN (${Prisma.join(serviceIds.map(id=>Prisma.sql`${id}::uuid`))}))=${serviceIds.length}`:Prisma.empty}
       AND (${technicianId}::uuid IS NULL OR ts.technician_id=${technicianId}::uuid)
       AND ts.slot_date=${day}::date AND ts.end_time >= ts.start_time + ${duration} * INTERVAL '1 minute'
+      AND ts.start_time >= br.opening_time AND ts.start_time + ${duration} * INTERVAL '1 minute' <= br.closing_time
       AND (ts.status='AVAILABLE' OR (ts.status='HOLD' AND (ts.held_by_user_id=${customerId}::uuid OR ts.hold_expires_at<CURRENT_TIMESTAMP)))
       AND (ts.slot_date + ts.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh' > CURRENT_TIMESTAMP
       AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.technician_id=ts.technician_id AND b.booking_date=ts.slot_date
@@ -100,13 +113,18 @@ export function bookingTime(date: unknown, time: unknown, duration: number) {
   return { day, start: `${start.slice(0, 5)}:00`, end: `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}:00` };
 }
 
-async function reserveSlot(store: Store, customerId: string, branchId: string, technicianId: string | null, time: ReturnType<typeof bookingTime>, excludedId: string | null = null) {
+async function reserveSlot(store: Store, customerId: string, branchId: string, technicianId: string | null, time: ReturnType<typeof bookingTime>, excludedId: string | null = null,serviceIds:string[] = []) {
   const [slot] = await store.query(Prisma.sql`
     SELECT ts.* FROM technician_slots ts JOIN technicians t ON t.id = ts.technician_id JOIN branches br ON br.id=ts.branch_id
     WHERE ts.branch_id = ${branchId}::uuid AND t.branch_id = ts.branch_id AND t.is_active AND br.is_active
+      ${serviceIds.length?Prisma.sql`AND (SELECT count(*) FROM miniapp_technician_services ms WHERE ms.technician_id=t.id AND ms.is_active AND ms.service_id IN (${Prisma.join(serviceIds.map(id=>Prisma.sql`${id}::uuid`))}))=${serviceIds.length}`:Prisma.empty}
       AND (${technicianId}::uuid IS NULL OR ts.technician_id = ${technicianId}::uuid)
       AND ts.slot_date = ${time.day}::date AND ts.start_time = ${time.start}::time AND ts.end_time >= ${time.end}::time
+      AND ${time.start}::time >= br.opening_time AND ${time.end}::time <= br.closing_time
       AND (ts.status = 'AVAILABLE' OR (ts.status = 'HOLD' AND (ts.held_by_user_id = ${customerId}::uuid OR ts.hold_expires_at < CURRENT_TIMESTAMP)))
+      AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.technician_id=ts.technician_id AND b.booking_date=ts.slot_date
+        AND b.status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE') AND b.start_time<${time.end}::time AND b.end_time>${time.start}::time
+        AND (${excludedId}::uuid IS NULL OR b.id<>${excludedId}::uuid))
     ORDER BY ts.technician_id FOR UPDATE OF ts SKIP LOCKED LIMIT 1`);
   if (!slot) throw new ApiError(409, 'No shared technician slot is available');
   // All Mini App changes for a technician are serialized, including overlapping slots.
@@ -119,11 +137,6 @@ async function reserveSlot(store: Store, customerId: string, branchId: string, t
   if (conflicts.length) throw new ApiError(409, 'Technician has an overlapping booking');
   await store.query(Prisma.sql`UPDATE technician_slots SET status = 'BOOKED', held_by_user_id = NULL, hold_expires_at = NULL WHERE id = ${slot.id}::uuid RETURNING id`);
   return String(slot.technician_id);
-}
-
-async function notify(store: Store, id: string, title: string, message: string, entityId: string) {
-  await store.query(Prisma.sql`INSERT INTO notifications (user_id,title,message,type,data)
-    VALUES (${id}::uuid,${title},${message},'BOOKING',${JSON.stringify({ entityId })}::jsonb) RETURNING id`);
 }
 
 async function voucherForOrder(store: Store, customerId: string, code: string, amount: Prisma.Decimal) {
@@ -147,19 +160,26 @@ async function courseList(store: Store, courseId: string | null = null) {
     (SELECT count(*) FROM course_enrollments ce WHERE ce.course_id = c.id AND ce.status IN ('ENROLLED','STUDYING','GRADUATED')) AS students_count
     FROM courses c JOIN course_categories cat ON cat.id = c.category_id LEFT JOIN instructors i ON i.id = c.primary_instructor_id AND i.is_active
     WHERE c.is_active AND cat.is_active AND (${courseId}::uuid IS NULL OR c.id = ${courseId}::uuid) ORDER BY c.created_at`);
-  for (const course of courses) {
-    course.chapters = await store.query(Prisma.sql`SELECT id,title,description,chapter_order FROM course_chapters WHERE course_id=${course.id}::uuid ORDER BY chapter_order`);
-    course.batches = await store.query(Prisma.sql`SELECT cb.*,br.name AS branch_name,i.full_name AS instructor_name
+  if (!courses.length) return courses;
+  const ids=Prisma.join(courses.map(course=>Prisma.sql`${course.id}::uuid`));
+  const chapters = await store.query(Prisma.sql`SELECT id,course_id,title,description,chapter_order FROM course_chapters WHERE course_id IN (${ids}) ORDER BY chapter_order,id`);
+  const batches = await store.query(Prisma.sql`SELECT cb.*,br.name AS branch_name,i.full_name AS instructor_name
       FROM course_batches cb JOIN branches br ON br.id=cb.branch_id LEFT JOIN instructors i ON i.id=cb.instructor_id
-      WHERE cb.course_id=${course.id}::uuid AND br.is_active AND cb.status='OPEN_FOR_ENROLLMENT' ORDER BY cb.start_date`);
-    course.lessons = await store.query(Prisma.sql`SELECT l.id,l.chapter_id,l.title,l.lesson_type,l.duration_minutes,l.is_free_preview,
+      WHERE cb.course_id IN (${ids}) AND br.is_active AND cb.status='OPEN_FOR_ENROLLMENT' ORDER BY cb.start_date,cb.id`);
+  const lessons = await store.query(Prisma.sql`SELECT l.id,ch.course_id,l.chapter_id,l.title,l.lesson_type,l.duration_minutes,l.is_free_preview,
       l.learning_goals,CASE WHEN l.is_free_preview THEN l.content_text ELSE NULL END AS content_text,
       CASE WHEN l.is_free_preview THEN l.attachments ELSE '[]'::jsonb END AS attachments,
       CASE WHEN l.is_free_preview THEN l.video_url ELSE NULL END AS video_url
       FROM course_lessons l JOIN course_chapters ch ON ch.id = l.chapter_id
-      WHERE ch.course_id = ${course.id}::uuid ORDER BY ch.chapter_order,l.lesson_order`);
-    const quizzes = await store.query(Prisma.sql`SELECT id,title,passing_score,total_questions,time_limit_minutes FROM course_quizzes WHERE course_id = ${course.id}::uuid ORDER BY created_at,id`);
-    course.quizzes = quizzes.map(quiz => ({ ...quiz, questions: [] }));
+      WHERE ch.course_id IN (${ids}) ORDER BY ch.chapter_order,l.lesson_order,l.id`);
+  const quizzes = await store.query(Prisma.sql`SELECT id,course_id,title,passing_score,total_questions,time_limit_minutes FROM course_quizzes WHERE course_id IN (${ids}) ORDER BY created_at,id`);
+  const group=(rows:Row[])=>{const map=new Map<string,Row[]>();for(const row of rows){const key=String(row.course_id);const group=map.get(key)||[];group.push(row);map.set(key,group);}return map;};
+  const groupedChapters=group(chapters),groupedBatches=group(batches),groupedLessons=group(lessons),groupedQuizzes=group(quizzes);
+  for (const course of courses) {
+    course.chapters=groupedChapters.get(String(course.id))||[];
+    course.batches=groupedBatches.get(String(course.id))||[];
+    course.lessons=groupedLessons.get(String(course.id))||[];
+    course.quizzes = (groupedQuizzes.get(String(course.id))||[]).map(quiz => ({ ...quiz, questions: [] }));
     course.quiz = course.quizzes[0] ?? null;
   }
   return courses;
@@ -182,14 +202,21 @@ async function enrollments(store: Store, customerId: string) {
     WHERE ce.student_id = ${customerId}::uuid ORDER BY ce.enrolled_at DESC`);
 }
 
-export interface AppOptions extends RelayAuthOptions { jwtSecret: string; }
+export interface AppOptions extends RelayAuthOptions { jwtSecret: string; trustedProxyHops?:number; }
 
 export function createApp(store: Store, options: AppOptions) {
   if (!options.jwtSecret) throw new Error('JWT_SECRET is required');
   const app = express();
+  if(options.trustedProxyHops)app.set('trust proxy',options.trustedProxyHops);
   app.use((_req,res,next)=>{ res.set('Cache-Control','no-store'); next(); });
-  app.use(cors());
+  app.use(cors({exposedHeaders:['Retry-After']}));
+  const authLimit=createRateLimiter(30);
+  app.use(['/api/auth/zalo','/api/auth/zalo/register'],authLimit);
   app.use(express.json({ limit: '1mb' }));
+  app.use((req,_res,next)=>{
+    if(['POST','PUT','PATCH','DELETE'].includes(req.method)&&(req.body===null||typeof req.body!=='object'||Array.isArray(req.body)))return next(new ApiError(400,'Request body must be an object'));
+    next();
+  });
   const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
     (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
 
@@ -255,7 +282,7 @@ export function createApp(store: Store, options: AppOptions) {
     if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new ApiError(400, 'Invalid email');
     if (gender !== null && !['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400, 'Invalid gender');
     if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob)
-      || !Number.isFinite(Date.parse(dob)) || new Date(dob).toISOString().slice(0,10) !== dob || Date.parse(dob) > Date.now())) {
+      || !Number.isFinite(Date.parse(dob)) || new Date(dob).toISOString().slice(0,10) !== dob || dob > vietnamToday())) {
       throw new ApiError(400, 'Invalid date of birth');
     }
     const identity = await resolveZaloAccount(store, { phone: proof.phone, name, avatar,
@@ -292,7 +319,7 @@ export function createApp(store: Store, options: AppOptions) {
     try { const payload = jwt.verify(req.headers.authorization?.replace(/^Bearer\s+/i,'') ?? '',options.jwtSecret,{algorithms:['HS256']}) as jwt.JwtPayload; customerId = uuid(payload.sub); }
     catch { /* Public users see available slots, but not another user's hold. */ }
     const [service] = await store.query(Prisma.sql`SELECT s.duration_minutes FROM services s JOIN service_categories cat ON cat.id=s.category_id WHERE s.id=${serviceId}::uuid AND s.is_active AND cat.is_active`);
-    const slots = await availableSlots(store,branchId,req.query.date,service ? Number(service.duration_minutes) : 0,technicianId,customerId);
+    const slots = await availableSlots(store,branchId,req.query.date,service ? Number(service.duration_minutes) : 0,technicianId,customerId,null,[serviceId]);
     return success(res,{slots});
   }));
   app.get('/api/courses', route(async (_req,res) => success(res,{courses:await courseList(store)})));
@@ -313,6 +340,8 @@ export function createApp(store: Store, options: AppOptions) {
     res.locals.userId = uuid(payload.sub);
     res.locals.user = await user(store,res.locals.userId);
   }).then(()=>next()).catch(next); });
+  const writeLimit=createRateLimiter(180,60000,(_req,res)=>res.locals.userId);
+  app.use('/api',(req,res,next)=>['GET','HEAD','OPTIONS'].includes(req.method)?next():writeLimit(req,res,next));
 
   app.get('/api/search/history', route(async (_req,res) => success(res,{history:await searchHistory(store,res.locals.userId)})));
   app.post('/api/search/history', route(async (req,res) => success(res,{entry:await saveSearch(store,res.locals.userId,req.body.query)})));
@@ -320,6 +349,18 @@ export function createApp(store: Store, options: AppOptions) {
   app.delete('/api/search/history/:id', route(async (req,res) => success(res,await deleteSearch(store,res.locals.userId,uuid(req.params.id)))));
 
   app.get('/api/auth/me', route(async (_req,res) => success(res,{user:res.locals.user})));
+  app.get('/api/services/:id/favorite',route(async(req,res)=>{
+    const [favorite]=await store.query(Prisma.sql`SELECT is_favorite FROM miniapp_favorite_services WHERE user_id=${res.locals.userId}::uuid AND service_id=${uuid(req.params.id)}::uuid`);
+    return success(res,{isFavorite:favorite?.is_favorite===true});
+  }));
+  app.put('/api/services/:id/favorite',route(async(req,res)=>{
+    if(typeof req.body.isFavorite!=='boolean')throw new ApiError(400,'Invalid favorite state');
+    const id=uuid(req.params.id);
+    const [service]=await store.query(Prisma.sql`SELECT id FROM services WHERE id=${id}::uuid AND (is_active OR NOT ${req.body.isFavorite})`);
+    if(!service)throw new ApiError(404,'Service is unavailable');
+    await store.query(Prisma.sql`INSERT INTO miniapp_favorite_services(user_id,service_id,is_favorite) VALUES(${res.locals.userId}::uuid,${id}::uuid,${req.body.isFavorite}) ON CONFLICT(user_id,service_id) DO UPDATE SET is_favorite=EXCLUDED.is_favorite,updated_at=clock_timestamp() RETURNING service_id`);
+    return success(res,{isFavorite:req.body.isFavorite});
+  }));
   app.get('/api/auth/settings', route(async (_req,res) => {
     const [settings] = await store.query(Prisma.sql`SELECT * FROM user_settings WHERE user_id=${res.locals.userId}::uuid`);
     return success(res,{settings:settings??null});
@@ -343,37 +384,67 @@ export function createApp(store: Store, options: AppOptions) {
     const name = input.fullName ?? input.name ?? res.locals.user.full_name;
     const gender = input.gender === 'Nam' ? 'MALE' : input.gender === 'Nữ' ? 'FEMALE' : input.gender === 'Khác' ? 'OTHER' : input.gender !== undefined ? input.gender : res.locals.user.gender;
     if (typeof name !== 'string' || !name.trim() || name.trim().length>150 || /[\x00-\x1f\x7f]/.test(name) || (gender !== null && !['MALE','FEMALE','OTHER'].includes(gender))) throw new ApiError(400,'Invalid profile');
-    if(input.email!==undefined&&(typeof input.email!=='string'||input.email.length>255||(input.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)))) throw new ApiError(400,'Invalid email');
+    if(input.email!==undefined&&(typeof input.email!=='string'||input.email.trim().length>255||(input.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())))) throw new ApiError(400,'Invalid email');
+    for(const [key,max] of [['address',10000],['emergencyContactName',150],['emergencyContactPhone',20]] as const) {
+      const value=input[key];
+      if(value!==undefined&&(typeof value!=='string'||value.trim().length>max||/[\x00-\x1f\x7f]/.test(value))) throw new ApiError(400,`Invalid ${key}`);
+    }
+    if(input.emergencyContactPhone?.trim()&&!/^(?:0|\+?84)[1-9]\d{8,9}$/.test(input.emergencyContactPhone.trim())) throw new ApiError(400,'Invalid emergency contact phone');
+    const preferredBranch=input.preferredBranch===undefined?res.locals.user.preferred_branch:input.preferredBranch===''||input.preferredBranch===null?null:uuid(input.preferredBranch);
+    const skinType=input.skinType===undefined?res.locals.user.skin_type:input.skinType;
+    const healthNotes=input.healthNotes===undefined?res.locals.user.health_notes:input.healthNotes;
+    if(typeof skinType!=='string'||skinType.trim().length>150||/[\x00-\x1f\x7f]/.test(skinType)||typeof healthNotes!=='string'||healthNotes.length>10000||/\u0000/.test(healthNotes)) throw new ApiError(400,'Invalid health profile');
     const dobValue = input.dateOfBirth !== undefined ? input.dateOfBirth : input.dob !== undefined ? input.dob : res.locals.user.date_of_birth;
     const dob = dobValue instanceof Date ? dobValue.toISOString().slice(0,10) : dobValue;
-    if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob.slice(0,10)) || !Number.isFinite(Date.parse(dob.slice(0,10))) || new Date(dob.slice(0,10)).toISOString().slice(0,10)!==dob.slice(0,10) || Date.parse(dob.slice(0,10))>Date.now())) throw new ApiError(400,'Birth date must be a valid past YYYY-MM-DD');
+    if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob.slice(0,10)) || !Number.isFinite(Date.parse(dob.slice(0,10))) || new Date(dob.slice(0,10)).toISOString().slice(0,10)!==dob.slice(0,10) || dob.slice(0,10)>vietnamToday())) throw new ApiError(400,'Birth date must be a valid past YYYY-MM-DD');
     // Phone changes need the shared verified identity flow, not an editable form.
     if (input.phone && input.phone !== res.locals.user.phone) throw new ApiError(400,'Change phone through the shared verified identity service');
     const avatar = input.avatarUrl ?? input.avatar ?? res.locals.user.avatar_url;
     if (avatar && (typeof avatar !== 'string' || avatar.length > 750000 || !/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/.test(avatar))) throw new ApiError(400,'Invalid profile image');
     const purpose = input.purpose ?? res.locals.user.purpose;
     if (!['BEAUTY_SPA','ACADEMY','BOTH'].includes(purpose)) throw new ApiError(400,'Invalid purpose');
-    const [updated] = await store.query(Prisma.sql`UPDATE users SET full_name = ${name.trim()},gender = ${gender},
-      avatar_url = ${avatar},purpose = ${purpose}::purpose_interest,
-      email = ${input.email ?? res.locals.user.email},address = ${input.address ?? res.locals.user.address},
-      date_of_birth = ${dob ? String(dob).slice(0,10) : null}::date,
-      emergency_contact_name = ${input.emergencyContactName ?? res.locals.user.emergency_contact_name},
-      emergency_contact_phone = ${input.emergencyContactPhone ?? res.locals.user.emergency_contact_phone}
+    const updated = await store.transaction(async tx=>{
+      if(input.preferredBranch!==undefined&&preferredBranch) {
+        const [branch]=await tx.query(Prisma.sql`SELECT id FROM branches WHERE id=${preferredBranch}::uuid AND is_active`);
+        if(!branch)throw new ApiError(400,'Preferred branch is unavailable');
+      }
+      await tx.query(Prisma.sql`UPDATE users SET full_name = CASE WHEN ${input.fullName!==undefined||input.name!==undefined} THEN ${name.trim()} ELSE full_name END,
+      gender = CASE WHEN ${input.gender!==undefined} THEN ${gender} ELSE gender END,
+      avatar_url = CASE WHEN ${input.avatarUrl!==undefined||input.avatar!==undefined} THEN ${avatar} ELSE avatar_url END,
+      purpose = CASE WHEN ${input.purpose!==undefined} THEN ${purpose}::purpose_interest ELSE purpose END,
+      email = CASE WHEN ${input.email!==undefined} THEN ${input.email?.trim()||null} ELSE email END,
+      address = CASE WHEN ${input.address!==undefined} THEN ${input.address?.trim()??null} ELSE address END,
+      date_of_birth = CASE WHEN ${input.dateOfBirth!==undefined||input.dob!==undefined} THEN ${dob ? String(dob).slice(0,10) : null}::date ELSE date_of_birth END,
+      emergency_contact_name = CASE WHEN ${input.emergencyContactName!==undefined} THEN ${input.emergencyContactName?.trim()??null} ELSE emergency_contact_name END,
+      emergency_contact_phone = CASE WHEN ${input.emergencyContactPhone!==undefined} THEN ${input.emergencyContactPhone?.trim()??null} ELSE emergency_contact_phone END
       WHERE id = ${res.locals.userId}::uuid RETURNING ${publicUser}`);
+      await tx.query(Prisma.sql`INSERT INTO miniapp_customer_profiles(user_id,preferred_branch_id,skin_type,health_notes)
+        VALUES(${res.locals.userId}::uuid,${preferredBranch}::uuid,${skinType.trim()},${healthNotes.trim()})
+        ON CONFLICT(user_id) DO UPDATE SET
+        preferred_branch_id=CASE WHEN ${input.preferredBranch!==undefined} THEN EXCLUDED.preferred_branch_id ELSE miniapp_customer_profiles.preferred_branch_id END,
+        skin_type=CASE WHEN ${input.skinType!==undefined} THEN EXCLUDED.skin_type ELSE miniapp_customer_profiles.skin_type END,
+        health_notes=CASE WHEN ${input.healthNotes!==undefined} THEN EXCLUDED.health_notes ELSE miniapp_customer_profiles.health_notes END,
+        updated_at=CURRENT_TIMESTAMP RETURNING user_id`);
+      return user(tx,res.locals.userId);
+    });
     return success(res,{user:updated});
   }));
 
-  app.get('/api/bookings', route(async (_req,res) => success(res,{bookings:await store.query(Prisma.sql`${bookingSelect} WHERE b.customer_id = ${res.locals.userId}::uuid ORDER BY b.created_at DESC`)})));
+  app.get('/api/bookings', route(async (req,res) => {const page=await collectionPage(store,Prisma.sql`${bookingSelect} WHERE b.customer_id = ${res.locals.userId}::uuid`,req.query);return success(res,{bookings:page.rows,nextCursor:page.nextCursor});}));
   app.get('/api/bookings/:id', route(async (req,res) => success(res,{booking:await booking(store,uuid(req.params.id),res.locals.userId)})));
   app.get('/api/bookings/:id/slots', route(async (req,res) => {
     const current = await booking(store,uuid(req.params.id),res.locals.userId);
     if (!['PENDING','CONFIRMED'].includes(current.status)) throw new ApiError(409,'This booking cannot be rescheduled');
-    const [snapshot] = await store.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes FROM booking_items WHERE booking_id=${current.id}::uuid`);
-    return success(res,{slots:await availableSlots(store,String(current.branch_id),req.query.date,Number(snapshot.minutes),current.technician_id?String(current.technician_id):null,res.locals.userId,String(current.id))});
+    const [snapshot] = await store.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes,array_agg(DISTINCT service_id) AS service_ids FROM booking_items WHERE booking_id=${current.id}::uuid`);
+    return success(res,{slots:await availableSlots(store,String(current.branch_id),req.query.date,Number(snapshot.minutes),current.technician_id?String(current.technician_id):null,res.locals.userId,String(current.id),snapshot.service_ids||[])});
   }));
   app.post('/api/bookings', route(async (req,res) => {
+    const requestKey=req.get('Idempotency-Key')?uuid(req.get('Idempotency-Key')):null;
+    const canonical=(value:any):any=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
+    const requestHash=createHash('sha256').update(JSON.stringify(canonical(req.body))).digest('hex');
     if (req.body.paymentMethod != null && req.body.paymentMethod !== 'CASH_AT_SPA') throw new ApiError(400,'Online payment is not configured; choose payment at the spa');
-    if (req.body.userPackageId || req.body.packageId) throw new ApiError(400,'Package redemption requires the shared treatment workflow');
+    if (req.body.packageId) throw new ApiError(400,'Use the owned userPackageId, not a catalog package ID');
+    const userPackageId=req.body.userPackageId?uuid(req.body.userPackageId):null;
     const ids = req.body.serviceIds ?? [req.body.serviceId];
     if (!Array.isArray(ids) || ids.length === 0 || ids.length > 10 || new Set(ids).size !== ids.length) throw new ApiError(400,'Choose 1-10 unique services');
     ids.forEach(uuid);
@@ -387,16 +458,32 @@ export function createApp(store: Store, options: AppOptions) {
       ||(recipientPhone!=null&&(typeof recipientPhone!=='string'||! /^(?:0|\+?84)[1-9]\d{8,9}$/.test(recipientPhone)))
       ||(notes!=null&&(typeof notes!=='string'||notes.length>10000))) throw new ApiError(400,'Invalid booking recipient or notes');
     const result = await store.transaction(async tx => {
+      if(requestKey){
+        await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${customerId+':'+requestKey}))::text AS locked`);
+        const [previous]=await tx.query(Prisma.sql`SELECT * FROM miniapp_booking_requests WHERE user_id=${customerId}::uuid AND request_key=${requestKey}::uuid`);
+        if(previous){
+          if(previous.request_hash!==requestHash)throw new ApiError(409,'Yêu cầu này đã được dùng cho thông tin đặt lịch khác.',{code:'REQUEST_CHANGED'});
+          return booking(tx,previous.booking_id,customerId);
+        }
+      }
       const services = await tx.query(Prisma.sql`SELECT s.* FROM services s JOIN service_categories cat ON cat.id=s.category_id WHERE s.id IN (${Prisma.join(ids.map(id=>Prisma.sql`${id}::uuid`))}) AND s.is_active AND cat.is_active FOR SHARE OF s`);
       if (services.length !== ids.length) throw new ApiError(404,'A service is missing or inactive');
       const [branch] = await tx.query(Prisma.sql`SELECT * FROM branches WHERE id = ${branchId}::uuid AND is_active`);
       if (!branch) throw new ApiError(404,'Branch not found');
       const time = bookingTime(req.body.bookingDate ?? req.body.date,req.body.startTime ?? req.body.timeSlot,services.reduce((sum,s)=>sum+Number(s.duration_minutes),0));
-      const assigned = await reserveSlot(tx,customerId,branchId,technicianId,time);
-      const total = services.reduce<Prisma.Decimal>((sum,s)=>sum.add(s.discount_price ?? s.price),new Prisma.Decimal(0));
+      if(userPackageId) {
+        if(ids.length!==1||req.body.couponCode||req.body.voucherCode||req.body.pointsToUse) throw new ApiError(400,'Mỗi lượt đặt bằng gói chỉ dùng một dịch vụ, không áp thêm ưu đãi.');
+        await reservePackage(tx,customerId,userPackageId,ids[0],time.day,time.end);
+      }
+      const total = userPackageId?new Prisma.Decimal(0):services.reduce<Prisma.Decimal>((sum,s)=>sum.add(s.discount_price ?? s.price),new Prisma.Decimal(0));
       const coupon = req.body.couponCode ?? req.body.voucherCode;
       const applied = coupon ? await voucherForOrder(tx,customerId,String(coupon),total) : null;
+      const finalPrice = total.sub(applied?.discount ?? 0);
+      if (typeof req.body.expectedFinalPrice !== 'number' || !Number.isFinite(req.body.expectedFinalPrice) || !finalPrice.eq(req.body.expectedFinalPrice)) {
+        throw new ApiError(409,'Giá đã thay đổi hoặc chưa được xác nhận. Vui lòng kiểm tra lại trước khi đặt lịch.',{code:'PRICE_CHANGED',pricing:{total:total.toNumber(),discount:Number(applied?.discount??0),finalPrice:finalPrice.toNumber()}});
+      }
       if (req.body.pointsToUse) throw new ApiError(400,'Point redemption must use the shared payment workflow');
+      const assigned = await reserveSlot(tx,customerId,branchId,technicianId,time,null,ids);
       const [saved] = await tx.query(Prisma.sql`INSERT INTO bookings
         (booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,base_total,coupon_id,discount_amount,final_price,
         booked_for_name,booked_for_phone,special_notes,qr_code_hash)
@@ -404,12 +491,14 @@ export function createApp(store: Store, options: AppOptions) {
         'CONFIRMED',${total},${applied?.record.id ?? null}::uuid,${applied?.discount ?? new Prisma.Decimal(0)},${total.sub(applied?.discount ?? 0)},
         ${req.body.bookedForName ?? req.body.userName ?? null},${req.body.bookedForPhone ?? req.body.userPhone ?? null},${req.body.specialNotes ?? req.body.notes ?? null},${randomUUID()}) RETURNING id`);
       for (const service of services) await tx.query(Prisma.sql`INSERT INTO booking_items (booking_id,service_id,technician_id,duration_minutes,price)
-        VALUES (${saved.id}::uuid,${service.id}::uuid,${assigned}::uuid,${service.duration_minutes},${service.discount_price ?? service.price}) RETURNING id`);
+        VALUES (${saved.id}::uuid,${service.id}::uuid,${assigned}::uuid,${service.duration_minutes},${userPackageId?0:(service.discount_price ?? service.price)}) RETURNING id`);
+      if(userPackageId) await tx.query(Prisma.sql`INSERT INTO miniapp_booking_packages(booking_id,user_package_id) VALUES(${saved.id}::uuid,${userPackageId}::uuid) RETURNING booking_id`);
+      if(requestKey)await tx.query(Prisma.sql`INSERT INTO miniapp_booking_requests(user_id,request_key,request_hash,booking_id) VALUES(${customerId}::uuid,${requestKey}::uuid,${requestHash},${saved.id}::uuid) RETURNING booking_id`);
       if (applied) {
         await tx.query(Prisma.sql`UPDATE user_vouchers SET status = 'USED',used_at = CURRENT_TIMESTAMP,used_in_booking_id = ${saved.id}::uuid WHERE id = ${applied.record.wallet_id}::uuid RETURNING id`);
         await tx.query(Prisma.sql`UPDATE coupons SET used_count = used_count + 1 WHERE id = ${applied.record.id}::uuid RETURNING id`);
       }
-      await notify(tx,customerId,'Booking confirmed',`${time.day} ${time.start}`,saved.id);
+      await syncNotifications(tx,customerId);
       return booking(tx,saved.id,customerId);
     });
     return success(res,{booking:result},201);
@@ -421,14 +510,17 @@ export function createApp(store: Store, options: AppOptions) {
       const [current] = await tx.query(Prisma.sql`SELECT *,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time,to_char(end_time,'HH24:MI:SS') AS end_time FROM bookings WHERE id = ${id}::uuid AND customer_id = ${customerId}::uuid FOR UPDATE`);
       if (!current) throw new ApiError(404,'Booking not found');
       if (!['PENDING','CONFIRMED'].includes(current.status)) throw new ApiError(409,'This booking cannot be rescheduled');
-      const [duration] = await tx.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes FROM booking_items WHERE booking_id = ${id}::uuid`);
+      if (Date.parse(`${current.booking_date}T${current.start_time}+07:00`) <= Date.now()) throw new ApiError(409,'Lịch hẹn đã qua giờ, vui lòng liên hệ chi nhánh.');
+      const [duration] = await tx.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes,array_agg(DISTINCT service_id) AS service_ids FROM booking_items WHERE booking_id = ${id}::uuid`);
       const time = bookingTime(req.body.bookingDate ?? req.body.date,req.body.startTime ?? req.body.timeSlot,Number(duration.minutes));
+      const [packageLink]=await tx.query(Prisma.sql`SELECT p.user_package_id,i.service_id FROM miniapp_booking_packages p JOIN booking_items i ON i.booking_id=p.booking_id WHERE p.booking_id=${id}::uuid`);
+      if(packageLink) await reservePackage(tx,customerId,packageLink.user_package_id,packageLink.service_id,time.day,time.end,id);
       if (time.day === current.booking_date && time.start === current.start_time) return booking(tx,id,customerId);
-      const assigned = await reserveSlot(tx,customerId,current.branch_id,current.technician_id,time,id);
+      const assigned = await reserveSlot(tx,customerId,current.branch_id,current.technician_id,time,id,duration.service_ids||[]);
       await tx.query(Prisma.sql`UPDATE technician_slots SET status = 'AVAILABLE' WHERE technician_id = ${current.technician_id}::uuid AND slot_date = ${current.booking_date}::date AND start_time = ${current.start_time}::time AND status = 'BOOKED' RETURNING id`);
       await tx.query(Prisma.sql`UPDATE bookings SET booking_date = ${time.day}::date,start_time = ${time.start}::time,end_time = ${time.end}::time,technician_id=${assigned}::uuid WHERE id = ${id}::uuid RETURNING id`);
       await tx.query(Prisma.sql`UPDATE booking_items SET technician_id=${assigned}::uuid WHERE booking_id=${id}::uuid RETURNING id`);
-      await notify(tx,customerId,'Booking rescheduled',`${time.day} ${time.start}`,id);
+      await syncNotifications(tx,customerId);
       return booking(tx,id,customerId);
     });
     return success(res,{booking:result});
@@ -440,12 +532,13 @@ export function createApp(store: Store, options: AppOptions) {
       const [current] = await tx.query(Prisma.sql`SELECT *,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time FROM bookings WHERE id = ${id}::uuid AND customer_id = ${customerId}::uuid FOR UPDATE`);
       if (!current) throw new ApiError(404,'Booking not found');
       if (!['PENDING','CONFIRMED'].includes(current.status) || current.payment_status === 'PAID' || current.payment_status === 'PARTIAL') throw new ApiError(409,'Use the shared refund workflow for a paid or started booking');
+      if (Date.parse(`${current.booking_date}T${current.start_time}+07:00`) <= Date.now()) throw new ApiError(409,'Lịch hẹn đã qua giờ, vui lòng liên hệ chi nhánh.');
       await tx.query(Prisma.sql`UPDATE bookings SET status = 'CANCELLED',cancellation_reason = ${req.body.reason ?? null},cancelled_by_id = ${customerId}::uuid WHERE id = ${id}::uuid RETURNING id`);
       await tx.query(Prisma.sql`UPDATE technician_slots SET status = 'AVAILABLE' WHERE technician_id = ${current.technician_id}::uuid AND slot_date = ${current.booking_date}::date AND start_time = ${current.start_time}::time AND status = 'BOOKED' RETURNING id`);
       const vouchers = await tx.query(Prisma.sql`UPDATE user_vouchers SET status = 'AVAILABLE',used_at = NULL,used_in_booking_id = NULL
         WHERE user_id = ${customerId}::uuid AND used_in_booking_id = ${id}::uuid AND used_in_invoice_id IS NULL RETURNING coupon_id`);
       for (const voucher of vouchers) await tx.query(Prisma.sql`UPDATE coupons SET used_count = GREATEST(0,used_count - 1) WHERE id = ${voucher.coupon_id}::uuid RETURNING id`);
-      await notify(tx,customerId,'Booking cancelled',String(req.body.reason ?? ''),id);
+      await syncNotifications(tx,customerId);
       return booking(tx,id,customerId);
     });
     return success(res,{booking:result});
@@ -482,8 +575,13 @@ export function createApp(store: Store, options: AppOptions) {
     if (!enrollment) throw new ApiError(403,'Enrollment is required to access course content');
     const [course] = await courseList(store,courseId);
     if (!course) throw new ApiError(404,'Course is unavailable');
+    const quizLimits=await store.query(Prisma.sql`SELECT q.id,COALESCE(l.max_attempts,3) AS max_attempts,(SELECT count(*)::int FROM miniapp_quiz_attempts a WHERE a.enrollment_id=${enrollment.id}::uuid AND a.quiz_id=q.id) AS attempts_used
+      FROM course_quizzes q LEFT JOIN miniapp_quiz_limits l ON l.quiz_id=q.id AND l.enrollment_id=${enrollment.id}::uuid WHERE q.course_id=${courseId}::uuid`);
+    course.quizzes=course.quizzes.map((q:Row)=>({...q,...quizLimits.find(limit=>limit.id===q.id)}));
     course.lessons = await store.query(Prisma.sql`SELECT l.*,COALESCE(p.is_completed,false) AS is_completed,p.watched_seconds,p.student_notes FROM course_lessons l JOIN course_chapters ch ON ch.id = l.chapter_id LEFT JOIN user_lesson_progress p ON p.lesson_id = l.id AND p.enrollment_id = ${enrollment.id}::uuid WHERE ch.course_id = ${courseId}::uuid ORDER BY ch.chapter_order,l.lesson_order`);
-    for (const quiz of course.quizzes) quiz.questions = await store.query(Prisma.sql`SELECT id,question_number,question_text,options FROM quiz_questions WHERE quiz_id = ${quiz.id}::uuid ORDER BY question_number`);
+    const links=await store.query(Prisma.sql`SELECT links.* FROM (${lessonQuizLinks}) links JOIN course_lessons l ON l.id=links.lesson_id JOIN course_chapters ch ON ch.id=l.chapter_id WHERE ch.course_id=${courseId}::uuid`);
+    for (const lesson of course.lessons) if(lesson.lesson_type==='QUIZ') lesson.quiz_id=links.find(link=>link.lesson_id===lesson.id)?.quiz_id??null;
+    course.quizAttempts=await store.query(Prisma.sql`SELECT id,quiz_id,started_at,expires_at,submission_id FROM miniapp_quiz_attempts WHERE enrollment_id=${enrollment.id}::uuid ORDER BY started_at DESC`);
     course.schedules = await store.query(Prisma.sql`SELECT bs.*,a.status AS attendance_status,br.name AS branch_name,r.name AS room_name,i.full_name AS instructor_name FROM batch_schedules bs
       LEFT JOIN student_attendance a ON a.schedule_id=bs.id AND a.enrollment_id=${enrollment.id}::uuid
       JOIN course_batches cb ON cb.id=bs.batch_id JOIN branches br ON br.id=cb.branch_id
@@ -491,7 +589,9 @@ export function createApp(store: Store, options: AppOptions) {
       WHERE bs.batch_id=${enrollment.batch_id}::uuid ORDER BY bs.session_date,bs.start_time`);
     [course.academicRecord] = await store.query(Prisma.sql`SELECT * FROM student_academic_records WHERE enrollment_id=${enrollment.id}::uuid`);
     [course.certificate] = await store.query(Prisma.sql`SELECT * FROM student_certificates WHERE student_id=${customerId}::uuid AND enrollment_id=${enrollment.id}::uuid AND status='ISSUED' ORDER BY issue_date DESC LIMIT 1`);
-    course.quizSubmissions = await store.query(Prisma.sql`SELECT id,quiz_id,score,correct_count,passed,submitted_at,submitted_answers,instructor_feedback FROM quiz_submissions WHERE enrollment_id=${enrollment.id}::uuid ORDER BY submitted_at DESC`);
+    course.quizSubmissions = await store.query(Prisma.sql`SELECT s.id,s.quiz_id,s.score,s.correct_count,s.passed,s.submitted_at,s.submitted_answers,s.instructor_feedback,
+      (SELECT jsonb_agg(jsonb_build_object('id',q->'id','questionText',q->'question_text','options',q->'options')) FROM miniapp_quiz_attempts a CROSS JOIN jsonb_array_elements(a.questions) q WHERE a.submission_id=s.id) AS questions
+      FROM quiz_submissions s WHERE s.enrollment_id=${enrollment.id}::uuid ORDER BY s.submitted_at DESC`);
     return success(res,{course});
   }));
   app.post('/api/courses/:id/lessons/:lessonId/progress',route(async(req,res)=>{
@@ -501,51 +601,36 @@ export function createApp(store: Store, options: AppOptions) {
     if (!Number.isInteger(watched)||watched<0||watched>604800||typeof completed!=='boolean'
       ||(notes!==undefined&&(typeof notes!=='string'||notes.length>10000))) throw new ApiError(400,'Invalid lesson progress');
     const result=await store.transaction(async tx=>{
-      const [enrollment]=await tx.query(Prisma.sql`SELECT id FROM course_enrollments WHERE student_id=${customerId}::uuid AND course_id=${courseId}::uuid AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC LIMIT 1 FOR UPDATE`);
-      if(!enrollment) throw new ApiError(403,'Enrollment is required');
-      const [lesson]=await tx.query(Prisma.sql`SELECT l.id FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE l.id=${lessonId}::uuid AND ch.course_id=${courseId}::uuid`);
+      const enrollment=await ownedEnrollment(tx,customerId,courseId,enrollmentId,true);
+      const [lesson]=await tx.query(Prisma.sql`SELECT l.id,l.lesson_type FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE l.id=${lessonId}::uuid AND ch.course_id=${courseId}::uuid`);
       if(!lesson) throw new ApiError(404,'Lesson not found in this course');
+      if(completed && !['READING_DOC','PRACTICE_GUIDE'].includes(lesson.lesson_type)) throw new ApiError(400,'Video completion and quiz results must be verified by the server');
+      const trustedWatched=lesson.lesson_type==='VIDEO'?0:watched;
       const [saved]=await tx.query(Prisma.sql`INSERT INTO user_lesson_progress(enrollment_id,lesson_id,watched_seconds,is_completed,student_notes,completed_at)
-        VALUES(${enrollment.id}::uuid,${lessonId}::uuid,${watched},${completed},${notes??null},CASE WHEN ${completed} THEN CURRENT_TIMESTAMP ELSE NULL END)
+        VALUES(${enrollment.id}::uuid,${lessonId}::uuid,${trustedWatched},${completed},${notes??null},CASE WHEN ${completed} THEN CURRENT_TIMESTAMP ELSE NULL END)
         ON CONFLICT(enrollment_id,lesson_id) DO UPDATE SET watched_seconds=GREATEST(user_lesson_progress.watched_seconds,EXCLUDED.watched_seconds),
           is_completed=user_lesson_progress.is_completed OR EXCLUDED.is_completed,
           student_notes=COALESCE(${notes??null}::text,user_lesson_progress.student_notes),
           completed_at=COALESCE(user_lesson_progress.completed_at,EXCLUDED.completed_at) RETURNING *`);
-      const [counts]=await tx.query(Prisma.sql`SELECT count(*)::int AS total,count(*) FILTER(WHERE p.is_completed)::int AS completed FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id LEFT JOIN user_lesson_progress p ON p.lesson_id=l.id AND p.enrollment_id=${enrollment.id}::uuid WHERE ch.course_id=${courseId}::uuid`);
-      await tx.query(Prisma.sql`UPDATE course_enrollments SET completed_lessons_count=${counts.completed},progress_percent=${counts.total?Math.floor(counts.completed/counts.total*100):0} WHERE id=${enrollment.id}::uuid RETURNING id`);
+      await recomputeProgress(tx,enrollment);
       return {progress:saved,enrollment:(await enrollments(tx,customerId)).find(item=>item.id===enrollment.id)};
     });
     return success(res,result);
   }));
-  app.post('/api/courses/:id/quiz/submit',route(async(req,res)=>{
-    const courseId = uuid(req.params.id), customerId = res.locals.userId;
-    const enrollmentId=req.body.enrollmentId==null?null:uuid(req.body.enrollmentId);
-    const [enrollment] = await store.query(Prisma.sql`SELECT id FROM course_enrollments WHERE course_id = ${courseId}::uuid AND student_id = ${customerId}::uuid AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC LIMIT 1`);
-    if (!enrollment) throw new ApiError(403,'Enrollment is required');
-    const quizId = req.body.quizId == null ? null : uuid(req.body.quizId);
-    const [quiz] = await store.query(Prisma.sql`SELECT * FROM course_quizzes WHERE course_id = ${courseId}::uuid AND (${quizId}::uuid IS NULL OR id = ${quizId}::uuid) ORDER BY created_at,id LIMIT 1`);
-    if (!quiz) throw new ApiError(404,'Quiz not found');
-    const questions = await store.query(Prisma.sql`SELECT * FROM quiz_questions WHERE quiz_id = ${quiz.id}::uuid ORDER BY question_number`);
-    if (!questions.length) throw new ApiError(409,'Quiz has no questions');
-    const answers = req.body.answers;
-    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) throw new ApiError(400,'Answers must be keyed by question UUID');
-    if (Object.keys(answers).some(id => !questions.some(question => question.id === id))) throw new ApiError(400,'Answers contain a question outside this quiz');
-    const normalized: Record<string,string> = {};
-    for (const question of questions) {
-      const value = answers[question.id];
-      const option = typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < 26 ? String.fromCharCode(65+value) : value;
-      const allowed = Array.isArray(question.options) ? question.options.map((_: unknown,index: number) => String.fromCharCode(65+index)) : Object.keys(question.options || {});
-      if (typeof option !== 'string' || !allowed.includes(option)) throw new ApiError(400,'Answer every question using an available option');
-      normalized[String(question.id)] = option;
-    }
-    const correct = questions.filter(q=>{
-      return normalized[String(q.id)] === q.correct_option;
-    }).length;
-    const score = new Prisma.Decimal(correct).div(questions.length).mul(10).toDecimalPlaces(2);
-    const [submission] = await store.query(Prisma.sql`INSERT INTO quiz_submissions (enrollment_id,quiz_id,score,correct_count,submitted_answers,passed)
-      VALUES (${enrollment.id}::uuid,${quiz.id}::uuid,${score},${correct},${JSON.stringify(normalized)}::jsonb,${score.gte(quiz.passing_score)}) RETURNING *`);
-    return success(res,{submission,score:score.mul(10),correctCount:correct,totalQuestions:questions.length,isPassed:submission.passed,certificateCode:null});
+  app.post('/api/courses/:id/lessons/:lessonId/playback',route(async(req,res)=>success(res,await startPlayback(store,res.locals.userId,uuid(req.params.id),uuid(req.params.lessonId),req.body.enrollmentId?uuid(req.body.enrollmentId):null))));
+  app.post('/api/courses/:id/lessons/:lessonId/heartbeat',route(async(req,res)=>success(res,await heartbeat(store,res.locals.userId,uuid(req.params.id),uuid(req.params.lessonId),uuid(req.body.playbackId),req.body.enrollmentId?uuid(req.body.enrollmentId):null,req.body.position))));
+  app.post('/api/courses/:id/quiz/start',route(async(req,res)=>{
+    const courseId=uuid(req.params.id);
+    const [quiz]=await store.query(Prisma.sql`SELECT id FROM course_quizzes WHERE course_id=${courseId}::uuid AND (${req.body.quizId?uuid(req.body.quizId):null}::uuid IS NULL OR id=${req.body.quizId?uuid(req.body.quizId):null}::uuid) ORDER BY created_at,id LIMIT 1`);
+    if(!quiz) throw new ApiError(404,'Quiz not found');
+    return success(res,await startQuiz(store,res.locals.userId,courseId,quiz.id,req.body.enrollmentId?uuid(req.body.enrollmentId):null));
   }));
+  app.post('/api/courses/:id/quiz/submit',route(async(req,res)=>{
+    const courseId=uuid(req.params.id),enrollmentId=req.body.enrollmentId?uuid(req.body.enrollmentId):null;
+    await ownedEnrollment(store,res.locals.userId,courseId,enrollmentId);
+    return success(res,await submitAttempt(store,res.locals.userId,courseId,uuid(req.body.attemptId),enrollmentId,req.body.answers));
+  }));
+  app.put('/api/courses/:id/quiz/draft',route(async(req,res)=>success(res,await saveQuizDraft(store,res.locals.userId,uuid(req.params.id),uuid(req.body.attemptId),req.body.enrollmentId?uuid(req.body.enrollmentId):null,req.body.answers))));
 
   app.get('/api/records',route(async(_req,res)=>success(res,{records:await store.query(Prisma.sql`${journalSelect} WHERE j.customer_id = ${res.locals.userId}::uuid ORDER BY j.session_date DESC`)})));
   app.get('/api/records/:id',route(async(req,res)=>{
@@ -553,8 +638,8 @@ export function createApp(store: Store, options: AppOptions) {
     if (!record) throw new ApiError(404,'Record not found');
     return success(res,{record});
   }));
-  app.get('/api/support-tickets',route(async(_req,res)=>success(res,{tickets:await store.query(Prisma.sql`SELECT * FROM support_tickets WHERE customer_id = ${res.locals.userId}::uuid ORDER BY created_at DESC`)})));
-  app.get('/api/consultation-surveys',route(async(_req,res)=>success(res,{surveys:await store.query(Prisma.sql`SELECT * FROM consultation_surveys WHERE customer_id=${res.locals.userId}::uuid ORDER BY created_at DESC`)})));
+  app.get('/api/support-tickets',route(async(req,res)=>{const page=await collectionPage(store,Prisma.sql`SELECT * FROM support_tickets WHERE customer_id=${res.locals.userId}::uuid`,req.query);return success(res,{tickets:page.rows,nextCursor:page.nextCursor});}));
+  app.get('/api/consultation-surveys',route(async(req,res)=>{const page=await collectionPage(store,Prisma.sql`SELECT * FROM consultation_surveys WHERE customer_id=${res.locals.userId}::uuid`,req.query);return success(res,{surveys:page.rows,nextCursor:page.nextCursor});}));
   app.get('/api/reviews/mine',route(async(_req,res)=>success(res,{reviews:await store.query(Prisma.sql`SELECT id,booking_id,service_id,rating,review_tags,comment,photos,branch_reply,created_at FROM reviews WHERE customer_id=${res.locals.userId}::uuid ORDER BY created_at DESC`)})));
   app.post('/api/support-tickets',route(async(req,res)=>{
     const subject = String(req.body.subject ?? '').trim(),message = String(req.body.message ?? '').trim();
@@ -596,16 +681,20 @@ export function createApp(store: Store, options: AppOptions) {
     });
     return success(res,{review},201);
   }));
-  app.get('/api/treatment-plans',route(async(_req,res)=>{
-    const plans = await store.query(Prisma.sql`SELECT up.*,row_to_json(tp) AS package,s.name AS service_name,s.image_url AS service_image,s.id AS service_id,
-      s.duration_minutes,s.full_description AS service_description,s.steps AS service_steps,s.benefits AS service_benefits
-      FROM user_packages up JOIN treatment_packages tp ON tp.id = up.package_id LEFT JOIN services s ON s.id=tp.service_id WHERE up.customer_id = ${res.locals.userId}::uuid ORDER BY up.purchased_at DESC`);
-    for (const plan of plans) plan.sessions = await store.query(Prisma.sql`${journalSelect} WHERE j.user_package_id = ${plan.id}::uuid AND j.customer_id = ${res.locals.userId}::uuid ORDER BY j.session_number`);
-    return success(res,{treatmentPlans:plans});
+  app.get('/api/treatment-plans',route(async(req,res)=>{
+    const page = await collectionPage(store,Prisma.sql`SELECT up.*,up.status AS stored_status,CASE WHEN up.status='ACTIVE' AND up.expires_at<=CURRENT_TIMESTAMP THEN 'EXPIRED' ELSE up.status::text END AS status,row_to_json(tp) AS package,s.name AS service_name,s.image_url AS service_image,s.id AS service_id,
+      s.duration_minutes,s.full_description AS service_description,s.steps AS service_steps,s.benefits AS service_benefits,
+      (SELECT count(*)::int FROM miniapp_booking_packages b WHERE b.user_package_id=up.id AND b.state='RESERVED') AS reserved_sessions
+      FROM user_packages up JOIN treatment_packages tp ON tp.id = up.package_id LEFT JOIN services s ON s.id=tp.service_id WHERE up.customer_id = ${res.locals.userId}::uuid`,req.query,'purchased_at');
+    const plans=page.rows;
+    const sessions=plans.length?await store.query(Prisma.sql`${journalSelect} WHERE j.user_package_id IN (${Prisma.join(plans.map(plan=>Prisma.sql`${plan.id}::uuid`))}) AND j.customer_id=${res.locals.userId}::uuid ORDER BY j.session_number,j.id`):[];
+    const grouped=new Map<string,Row[]>();for(const session of sessions){const key=String(session.user_package_id);const group=grouped.get(key)||[];group.push(session);grouped.set(key,group);}
+    for(const plan of plans)plan.sessions=grouped.get(String(plan.id))||[];
+    return success(res,{treatmentPlans:plans,nextCursor:page.nextCursor});
   }));
   app.get('/api/membership',route(async(_req,res)=>{
     const id = res.locals.userId;
-    const vouchers = await store.query(Prisma.sql`SELECT uv.*,row_to_json(c) AS coupon FROM user_vouchers uv JOIN coupons c ON c.id = uv.coupon_id WHERE uv.user_id = ${id}::uuid ORDER BY uv.claimed_at DESC`);
+    const vouchers = await store.query(Prisma.sql`SELECT uv.*,CASE WHEN uv.status='AVAILABLE' AND (uv.expires_at<=CURRENT_TIMESTAMP OR c.valid_to<=CURRENT_TIMESTAMP) THEN 'EXPIRED' ELSE uv.status::text END AS status,row_to_json(c) AS coupon FROM user_vouchers uv JOIN coupons c ON c.id = uv.coupon_id WHERE uv.user_id = ${id}::uuid ORDER BY uv.claimed_at DESC`);
     const [summary] = await store.query(Prisma.sql`SELECT
       (SELECT count(*) FROM bookings WHERE customer_id = ${id}::uuid AND status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE') AND (booking_date + start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh' > CURRENT_TIMESTAMP) AS upcoming_bookings,
       (SELECT COALESCE(sum(total_sessions-completed_sessions),0) FROM user_packages WHERE customer_id = ${id}::uuid AND status = 'ACTIVE' AND expires_at > CURRENT_TIMESTAMP) AS remaining_treatment_sessions,
@@ -623,15 +712,15 @@ export function createApp(store: Store, options: AppOptions) {
     const points = await store.query(Prisma.sql`SELECT * FROM point_transactions WHERE user_id = ${res.locals.userId}::uuid ORDER BY created_at DESC`);
     return success(res,{invoices,pointTransactions:points,totalSpent:res.locals.user.total_spent});
   }));
-  app.get('/api/notifications',route(async(_req,res)=>success(res,{notifications:await store.query(Prisma.sql`SELECT * FROM notifications WHERE user_id = ${res.locals.userId}::uuid ORDER BY created_at DESC LIMIT 50`)})));
+  app.get('/api/notifications',route(async(req,res)=>success(res,await listNotifications(store,res.locals.userId,req.query.cursor))));
   app.patch('/api/notifications/read-all',route(async(_req,res)=>{
-    await store.query(Prisma.sql`UPDATE notifications SET is_read = true WHERE user_id = ${res.locals.userId}::uuid RETURNING id`);
-    return success(res,{updated:true});
+    await store.query(Prisma.sql`UPDATE notifications n SET is_read = true WHERE ${inboxFilter(res.locals.userId)} RETURNING id`);
+    return success(res,{updated:true,unreadCount:await unreadCount(store,res.locals.userId)});
   }));
   app.patch('/api/notifications/:id/read',route(async(req,res)=>{
     const [notification] = await store.query(Prisma.sql`UPDATE notifications SET is_read = true WHERE id = ${uuid(req.params.id)}::uuid AND user_id = ${res.locals.userId}::uuid RETURNING *`);
     if (!notification) throw new ApiError(404,'Notification not found');
-    return success(res,{notification});
+    return success(res,{notification,unreadCount:await unreadCount(store,res.locals.userId)});
   }));
 
   app.post('/api/vouchers/claim',route(async(req,res)=>{
@@ -665,7 +754,7 @@ export function createApp(store: Store, options: AppOptions) {
     const status = error instanceof ApiError ? error.status : retryable ? 409 : error instanceof SyntaxError ? 400 : 500;
     const message = error instanceof ApiError ? error.message : status === 409 ? 'Data changed concurrently; retry the request' : 'Shared database operation failed';
     if (status === 500) console.error('[Mini App database]',error instanceof Error ? error.name : 'Error');
-    res.status(status).json({success:false,statusCode:status,message,error:message});
+    res.status(status).json({success:false,statusCode:status,message,error:message,...(error instanceof ApiError ? error.details : {})});
   });
   return app;
 }

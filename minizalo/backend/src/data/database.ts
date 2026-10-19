@@ -41,11 +41,13 @@ export interface AppNotification {
   message: string;
   type: string;
   entityId?: string;
+  data?: { target?: { screen: 'booking' | 'academy' | 'treatment' | 'profile'; entityId?: string; courseId?: string; enrollmentId?: string; quizId?: string; bookingId?: string; tab?: string } };
   isRead: boolean;
   createdAt: string;
 }
 
 export interface Doctor {
+  serviceIds?:string[];
   id: string;
   branchId?: string;
   name: string;
@@ -96,6 +98,9 @@ export interface Branch {
 }
 
 export interface Booking {
+  userPackageId?: string;
+  packageName?: string;
+  packageReservationState?: 'RESERVED'|'CONSUMED'|'RELEASED';
   id: string;
   code: string;
   userId: string;
@@ -170,7 +175,14 @@ export interface Course {
     studentNotes?: string;
   }[];
   quizzes?: NonNullable<Course['quiz']>[];
+  quizSubmissions?: {
+    id:string;quizId:string;score:number;correctCount:number;passed:boolean;submittedAt:string;
+    submittedAnswers?:Record<string,string|number>;instructorFeedback?:string|null;
+    questions?:NonNullable<Course['quiz']>['questions'];
+  }[];
   quiz?: {
+    maxAttempts?:number;
+    attemptsUsed?:number;
     id: string;
     title: string;
     passingScore: number;

@@ -5,12 +5,14 @@ import { PGlite } from '@electric-sql/pglite';
 import { Prisma } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../dist/server.js';
+import {migrateFixture} from '../test/fixtures/migrations.mjs';
 import { chromium } from '../.relay-local/browser-check/node_modules/playwright/index.mjs';
 
 // All writes in this browser check target only isolated PostgreSQL in memory.
 const db=new PGlite();
 const schema=await readFile(new URL('../../../database/schema.sql',import.meta.url),'utf8');
 await db.exec(schema.split(/\r?\n/).filter(line=>!line.startsWith('CREATE EXTENSION')&&!line.includes('gin_trgm_ops')).join('\n'));
+await migrateFixture(db);
 const id=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
 await db.exec(`INSERT INTO users(id,phone,full_name,referral_code) VALUES('${id(1)}','0900000001','Học viên kiểm thử','ACADEMY1');
   INSERT INTO branches(id,name,code,phone,address,district,latitude,longitude,image_url) VALUES('${id(3)}','Chi nhánh kiểm thử','QA','0900000000','Địa chỉ kiểm thử','Quận kiểm thử',10,106,'');
@@ -38,10 +40,11 @@ const base=`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
 try {
   for(const viewport of [{width:390,height:844},{width:320,height:640},{width:1366,height:900}]) {
-    await db.exec(`DELETE FROM course_enrollments WHERE course_id='${id(19)}'; DELETE FROM user_lesson_progress; DELETE FROM quiz_submissions; UPDATE course_enrollments SET completed_lessons_count=0,progress_percent=0;`);
+    await db.exec(`DELETE FROM miniapp_quiz_attempts; DELETE FROM course_enrollments WHERE course_id='${id(19)}'; DELETE FROM user_lesson_progress; DELETE FROM quiz_submissions; UPDATE course_enrollments SET completed_lessons_count=0,progress_percent=0;`);
     const page=await browser.newPage({viewport});
     await page.route('**/*',route=>['GET','HEAD','OPTIONS'].includes(route.request().method())?route.continue():route.abort());
-    await page.route('http://127.0.0.1:5107/api/**',async route=>{
+    await page.route('**/api/**',async route=>{
+      if(route.request().resourceType()==='script')return route.fallback();
       const request=route.request(),url=new URL(request.url());
       const response=await fetch(base+url.pathname+url.search,{method:request.method(),headers:{Authorization:`Bearer ${jwt.sign({sub:id(1)},secret)}`,'Content-Type':'application/json'},body:request.postData()||undefined});
       await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:await response.text()});
@@ -83,7 +86,9 @@ try {
     await page.getByRole('button',{name:'Đóng bài học',exact:true}).click();
     assert.equal((await db.query('SELECT progress_percent FROM course_enrollments WHERE id=$1',[id(15)])).rows[0].progress_percent,50);
     await page.getByRole('button',{name:'Lịch học',exact:true}).click(); await page.getByText('Buổi học từ database',{exact:true}).waitFor(); await shot('schedule');
-    await page.getByRole('button',{name:'Kiểm tra',exact:true}).click(); await page.getByRole('radio',{name:'Lựa chọn A',exact:true}).check();
+    await page.getByRole('button',{name:'Kiểm tra',exact:true}).click();
+    await page.getByRole('button',{name:'Bắt đầu / tiếp tục làm bài',exact:true}).click();
+    await page.getByRole('radio',{name:'Lựa chọn A',exact:true}).check();
     await page.getByRole('button',{name:'Nộp bài',exact:true}).click();
     await page.getByText(/Điểm: 100%/).waitFor();
     assert.equal((await db.query('SELECT passed FROM quiz_submissions')).rows[0].passed,true);

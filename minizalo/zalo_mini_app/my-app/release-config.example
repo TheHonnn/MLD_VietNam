@@ -1,0 +1,4 @@
+# Public build configuration. Configure real HTTPS URLs for official submission.
+VITE_API_BASE_URL=
+VITE_PRIVACY_POLICY_URL=
+VITE_TERMS_URL=

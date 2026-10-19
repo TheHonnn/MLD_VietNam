@@ -4,12 +4,14 @@ import { PGlite } from '@electric-sql/pglite';
 import { Prisma } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../../dist/server.js';
+import {migrateFixture} from './migrations.mjs';
 
 // Test-only records, always in memory. Never connect this fixture to a shared DB.
 export async function workflowFixture() {
   const db = new PGlite();
   const schema = await readFile(new URL('../../../../database/schema.sql', import.meta.url), 'utf8');
   await db.exec(schema.split(/\r?\n/).filter(line => !line.startsWith('CREATE EXTENSION') && !line.includes('gin_trgm_ops')).join('\n'));
+  await migrateFixture(db);
   const id = n => `10000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
   await db.exec(`
     INSERT INTO users(id,phone,full_name,referral_code) VALUES('${id(1)}','0900000001','Workflow customer','WF1'),('${id(2)}','0900000002','Other customer','WF2');
@@ -52,6 +54,7 @@ export async function workflowFixture() {
       ('${id(29)}','${id(1)}','${id(22)}','${id(30)}','STUDYING'),
       ('${id(32)}','${id(1)}','${id(22)}','${id(33)}','STUDYING');
   `);
+  await db.exec('INSERT INTO miniapp_technician_services(technician_id,service_id) SELECT t.id,s.id FROM technicians t CROSS JOIN services s');
   const store = client => ({ query: async q => (await client.query(q.text,q.values.map(value => Prisma.Decimal.isDecimal(value) ? value.toString() : value))).rows,
     transaction: run => client.transaction(tx => run(store(tx))) });
   const secret = 'isolated-workflow-audit-secret';
@@ -60,6 +63,11 @@ export async function workflowFixture() {
   const base = `http://127.0.0.1:${server.address().port}`;
   const headers = (owner=1) => ({'Content-Type':'application/json',Authorization:`Bearer ${jwt.sign({sub:id(owner)},secret)}`});
   const request = async (path,{method='GET',body,owner=1,anonymous=false}={}) => {
+    if(method==='POST' && /\/quiz\/submit$/.test(path) && !Object.hasOwn(body || {},'attemptId')) {
+      const started=await request(path.replace('/submit','/start'),{method:'POST',body:{quizId:body?.quizId,enrollmentId:body?.enrollmentId},owner,anonymous});
+      if(started.status!==200) return started;
+      body={...body,attemptId:started.data.attempt.id};
+    }
     const response = await fetch(base+'/api'+path,{method,headers:anonymous?{'Content-Type':'application/json'}:headers(owner),body:body===undefined?undefined:JSON.stringify(body)});
     return {status:response.status,...await response.json()};
   };

@@ -6,7 +6,11 @@ import { createStore, validateSharedSchema } from '../dist/store.js';
 
 // Local catalog preview only. Do not use this process as the production API.
 try {
-  const store = createStore(prisma);
+  const readOnlyTransaction = run => prisma.$transaction(async tx => {
+    await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+    return run(createStore(tx));
+  });
+  const store = { query: query => readOnlyTransaction(tx => tx.query(query)), transaction: readOnlyTransaction };
   await validateSharedSchema(store);
   const app = express();
   app.use((req, res, next) => {

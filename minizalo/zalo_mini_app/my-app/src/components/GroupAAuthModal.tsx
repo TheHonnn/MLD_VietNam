@@ -4,6 +4,8 @@ import { User } from '../../../../backend/src/data/database';
 import { CloseIcon, LeafIcon } from '@/components/Icons';
 import { RegistrationChallenge } from '@/components/ZaloProfileForm';
 import { NewCustomerOnboarding } from '@/components/NewCustomerOnboarding';
+import { useBackAction } from '@/hooks/useNavigationHistory';
+import { LegalLinks } from './LegalLinks';
 
 interface GroupAAuthModalProps {
   isOpen: boolean;
@@ -19,13 +21,19 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
   const [error, setError] = useState('');
   const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
   const attempt = useRef(0);
+  const loginLock = useRef(false);
+  useBackAction(isOpen && !registration, () => {
+    if(registration) { setRegistration(null); return; }
+    attempt.current++; loginLock.current=false;apiClient.cancelZaloLogin();setBusy(false);
+    if(canClose)onClose();
+  },2);
 
   useEffect(() => {
     attempt.current++;
     setBusy(false);
     setError('');
     setRegistration(null);
-    return () => { attempt.current++; };
+    return () => { attempt.current++; loginLock.current=false; if(isOpen) apiClient.cancelZaloLogin(); };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -33,12 +41,14 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
     onComplete={user => { onLoginSuccess(user); onClose(); }} />;
 
   const login = async () => {
-    if (busy) return;
+    if (loginLock.current) return;
+    loginLock.current=true;
     const current = ++attempt.current;
     setBusy(true);
     setError('');
     const result = await apiClient.loginWithZalo(true);
     if (current !== attempt.current) return;
+    loginLock.current=false;
     setBusy(false);
     if (result?.registrationRequired && result.registrationToken) {
       setRegistration({ registrationToken: result.registrationToken, phone: result.phone, suggestedName: result.suggestedName, suggestedAvatar: result.suggestedAvatar });
@@ -56,7 +66,7 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
     <div role="dialog" aria-modal="true" aria-labelledby="zalo-login-title"
       className="absolute inset-0 z-50 flex flex-col overflow-y-auto bg-[#FAF6F0] p-6">
       {canClose && (
-        <button type="button" onClick={onClose} disabled={busy} title="Đóng" aria-label="Đóng"
+        <button type="button" onClick={() => { attempt.current++; loginLock.current=false; apiClient.cancelZaloLogin(); onClose(); }} title="Đóng" aria-label="Đóng"
           className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center text-stone-600 disabled:opacity-50">
           <CloseIcon size={18} color="#40352F" />
         </button>
@@ -67,6 +77,7 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
         <h2 id="zalo-login-title" className="text-xl font-bold text-stone-800">Đăng nhập</h2>
         <p className="mt-3 text-sm leading-6 text-stone-600">Kết nối bằng số điện thoại Zalo. Tên và ảnh đại diện chỉ được sử dụng khi bạn đồng ý chia sẻ.</p>
         {error && <p role="alert" className="mt-4 break-words text-sm text-red-700">{error}</p>}
+        <LegalLinks />
         <button type="button" onClick={login} disabled={busy} aria-busy={busy}
           className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0068FF] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
           {busy && <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white border-t-transparent" />}

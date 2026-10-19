@@ -1,10 +1,12 @@
 import React from 'react';
+import {shareService} from '@/utils/service-links';
 import type { MedicalService, Doctor, Branch } from '../../../../backend/src/data/database';
 import type { Branch as CanonicalBranch } from '../../../../../database/shared_types';
 import { ArrowLeftIcon, MapIcon, SearchIcon, LocationIcon, HeartIcon, ShareIcon } from '@/components/Icons';
 import '@/css/specialists.scss';
 import '@/css/branches.scss';
 import '@/css/service-detail.scss';
+import {apiClient} from '@/api/client';
 import { searchText, vietnamToday } from '@/utils/catalog';
 import { useDirectorySlots } from '@/hooks/useDirectorySlots';
 
@@ -234,12 +236,25 @@ export const SpecialistDirectoryModal: React.FC<{
 };
 
 export const ServiceDetailModal: React.FC<{
+  userId?:string;
+  onRequireLogin?:()=>void;
   service: ServiceDetails | null;
   onClose: () => void;
   onBookNow: (service: MedicalService) => void;
-}> = ({ service, onClose, onBookNow }) => {
+}> = ({ service, onClose, onBookNow,userId,onRequireLogin }) => {
   const [shareStatus, setShareStatus] = React.useState('');
   const [sharing, setSharing] = React.useState(false);
+  const [favorite,setFavorite]=React.useState(false);
+  const [favoriteBusy,setFavoriteBusy]=React.useState(false);
+  const favoriteLock=React.useRef(false);
+  const favoriteScope=React.useRef('');favoriteScope.current=`${userId||''}/${service?.id||''}`;
+  React.useEffect(()=>{
+    let cancelled=false;setFavorite(false);setFavoriteBusy(false);
+    if(!service?.id||!userId)return;
+    setFavoriteBusy(true);
+    void apiClient.getServiceFavorite(service.id).then(result=>{if(!cancelled){if(result?.error)setShareStatus(result.error);else setFavorite(result.isFavorite===true);}}).finally(()=>{if(!cancelled)setFavoriteBusy(false);});
+    return()=>{cancelled=true;};
+  },[service?.id,userId]);
   const screen = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
     setShareStatus('');
@@ -253,11 +268,8 @@ export const ServiceDetailModal: React.FC<{
   const share = async () => {
     if (sharing) return;
     setSharing(true); setShareStatus('');
-    const text = [service.title, [price,duration].filter(Boolean).join(' · '), service.description].filter(Boolean).join('\n');
     try {
-      if (navigator.share) await navigator.share({title:service.title,text});
-      else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setShareStatus('Đã sao chép thông tin dịch vụ.'); }
-      else setShareStatus('Không thể chia sẻ trên thiết bị này.');
+      setShareStatus(await shareService(service));
     } catch (error) {
       if (!(error instanceof Error && error.name === 'AbortError')) setShareStatus('Không thể chia sẻ thông tin dịch vụ.');
     } finally { setSharing(false); }
@@ -277,7 +289,11 @@ export const ServiceDetailModal: React.FC<{
         <EntityImage src={service.image} alt={service.title} className="service-detail-photo" />
         <button type="button" className="service-detail-icon service-detail-back" title="Quay lại" onClick={onClose}><ArrowLeftIcon size={20}/></button>
         <div className="service-detail-tools">
-          <span title="Chưa cấu hình lưu dịch vụ yêu thích"><button type="button" className="service-detail-icon" aria-label="Yêu thích" disabled><HeartIcon size={21}/></button></span>
+          <button type="button" className="service-detail-icon" title={favorite?'Bỏ yêu thích':'Yêu thích'} aria-label="Yêu thích" aria-pressed={favorite} disabled={favoriteBusy} onClick={async()=>{
+            if(!userId){onRequireLogin?.();return;}
+            if(favoriteLock.current)return;const scope=favoriteScope.current;favoriteLock.current=true;setFavoriteBusy(true);setShareStatus('');
+            try{const result=await apiClient.setServiceFavorite(service.id,!favorite);if(favoriteScope.current!==scope)return;if(result?.error)setShareStatus(result.error);else setFavorite(result.isFavorite===true);}finally{favoriteLock.current=false;if(favoriteScope.current===scope)setFavoriteBusy(false);}
+          }}><HeartIcon size={21}/></button>
           <button type="button" className="service-detail-icon" title="Chia sẻ dịch vụ" disabled={sharing} onClick={share}><ShareIcon size={20}/></button>
         </div>
       </div>

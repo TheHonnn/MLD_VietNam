@@ -22,7 +22,7 @@ type UserVoucher = {
 };
 type Notification = {
   id: string; userId: string; title: string; message: string; type: string;
-  data?: { entityId?: string; bookingId?: string; courseId?: string };
+  data?: View.AppNotification['data'] & { entityId?: string; bookingId?: string; courseId?: string };
   isRead: boolean; createdAt: string;
 };
 type PointTransaction = {
@@ -77,6 +77,7 @@ export const adaptBooking = (b: BookingResponse): View.Booking => ({
 });
 
 const adaptQuiz = (quiz: Quiz): NonNullable<View.Course['quiz']> => ({
+  maxAttempts:(quiz as any).maxAttempts,attemptsUsed:(quiz as any).attemptsUsed,
   id: quiz.id, title: quiz.title, passingScore: Number(quiz.passingScore) * 10,
   canonicalPassingScore: Number(quiz.passingScore),
   questionsCount: (quiz.questions || []).length,
@@ -99,6 +100,9 @@ export const adaptCourse = (c: CourseResponse): View.Course => ({
   })),
   quizzes: (c.quizzes ?? (c.quiz ? [c.quiz] : [])).map(adaptQuiz),
   quiz: c.quiz ? adaptQuiz(c.quiz) : undefined,
+  quizSubmissions: (c as any).quizSubmissions?.map((submission: any) => ({...submission,
+    questions: adaptQuiz({id:submission.quizId,title:'',passingScore:0,questions:submission.questions||[]} as Quiz).questions,
+  })),
 });
 
 export const adaptEnrollment = (e: CourseEnrollment & {
@@ -151,6 +155,7 @@ export const adaptNotification = (n: Notification): View.AppNotification => ({
 });
 
 const adapters: Record<string, (value: any) => any> = {
+  quiz: adaptQuiz,
   user: adaptUser, services: adaptService, doctors: adaptDoctor, branches: adaptBranch,
   courses: adaptCourse, course: adaptCourse, bookings: adaptBooking, booking: adaptBooking,
   records: adaptRecord, vouchers: adaptVoucher, voucher: adaptVoucher,
@@ -177,6 +182,7 @@ export function profileToCanonical(profile: Record<string, any>) {
     gender: gender === 'Nam' ? 'MALE' : gender === 'Nữ' ? 'FEMALE' : gender === 'Khác' ? 'OTHER' : gender === '' ? null : gender,
     email: rest.email, address: rest.address,
     emergencyContactName: rest.emergencyContactName, emergencyContactPhone: rest.emergencyContactPhone,
+    preferredBranch:rest.preferredBranch,skinType:rest.skinType,healthNotes:rest.healthNotes,
     ...(rest.purpose ? { purpose: rest.purpose } : {}),
   };
 }
