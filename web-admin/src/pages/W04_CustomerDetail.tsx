@@ -24,9 +24,10 @@ import {
   CourseEnrollment,
 } from '../types/shared_types';
 
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 export const W04_CustomerDetail: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const targetId = searchParams.get('id');
   const [activeTab, setActiveTab] = useState('Tổng quan');
@@ -101,8 +102,11 @@ export const W04_CustomerDetail: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => toast.info('Tạo lịch hẹn', `Đang mở giao diện xếp lịch hẹn cho khách hàng ${customer?.fullName || 'Nguyễn Mỹ Duyên'}.`)}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+          onClick={() => {
+            const customerName = customer?.fullName || 'Nguyễn Mỹ Duyên';
+            navigate(`/staff-schedule?create=true&customer=${encodeURIComponent(customerName)}`);
+          }}
+          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
         >
           Tạo lịch hẹn
         </button>
