@@ -7,3 +7,4 @@ export * from './treatment.service';
 export * from './staff.service';
 export * from './pos.service';
 export * from './academy.service';
+export * from './notification.service';
