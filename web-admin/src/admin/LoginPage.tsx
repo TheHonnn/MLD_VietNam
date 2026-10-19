@@ -86,7 +86,7 @@ export const LoginPage: React.FC = () => {
                 <input
                   type="text"
                   autoComplete="username"
-                  placeholder="admin@mldvietnam.vn hoặc 0901000001"
+                  placeholder="Nhập email hoặc số điện thoại"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   disabled={loading}
@@ -108,7 +108,7 @@ export const LoginPage: React.FC = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  placeholder="••••••••••••"
+                  placeholder="Nhập mật khẩu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
