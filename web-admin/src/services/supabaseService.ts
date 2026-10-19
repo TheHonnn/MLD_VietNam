@@ -195,6 +195,20 @@ class SupabaseService {
     }
   }
 
+  async updateUser(userId: string, updates: Record<string, any>): Promise<boolean> {
+    try {
+      const res = await this.query<any>(`users?id=eq.${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      return res !== null;
+    } catch (err) {
+      console.warn('[SupabaseService] updateUser error:', err);
+      return false;
+    }
+  }
+
+
   // 4. DỊCH VỤ SPA (SERVICES)
   async getServices(): Promise<Service[] | null> {
     const raw = await this.query<any[]>('services?select=*&order=name.asc');

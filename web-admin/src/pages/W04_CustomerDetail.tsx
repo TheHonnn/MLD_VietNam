@@ -8,6 +8,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  X,
+  User as UserIcon,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  Sparkles,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import {
   customerService,
@@ -22,6 +31,8 @@ import {
   UserPackage,
   TreatmentJournal,
   CourseEnrollment,
+  MemberTier,
+  PurposeInterest,
 } from '../types/shared_types';
 
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -37,6 +48,29 @@ export const W04_CustomerDetail: React.FC = () => {
   const [journals, setJournals] = useState<TreatmentJournal[]>([]);
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Edit Profile Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preferredTech, setPreferredTech] = useState<string>('Trần Lan Anh');
+  const [clinicalNotes, setClinicalNotes] = useState<string>(
+    'Ưu tiên kỹ thuật Vodder lực nhẹ, chườm ấm cổ vai gáy, phòng yên tĩnh có tinh dầu sả chanh.'
+  );
+
+  const [formData, setFormData] = useState({
+    fullName: '',
+    phone: '',
+    email: '',
+    gender: 'FEMALE' as 'MALE' | 'FEMALE' | 'OTHER',
+    dateOfBirth: '',
+    membershipTier: MemberTier.GOLD,
+    address: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    purpose: PurposeInterest.BEAUTY_SPA,
+    preferredTechnician: 'Trần Lan Anh',
+    clinicalNotes: 'Ưu tiên kỹ thuật Vodder lực nhẹ, chườm ấm cổ vai gáy, phòng yên tĩnh có tinh dầu sả chanh.',
+  });
 
   const tabs = [
     'Tổng quan',
@@ -66,6 +100,18 @@ export const W04_CustomerDetail: React.FC = () => {
           }
         }
 
+        if (custId) {
+          const localCache = localStorage.getItem(`mld_cust_${custId}`);
+          if (localCache) {
+            try {
+              const parsed = JSON.parse(localCache);
+              if (parsed.preferredTechnician) setPreferredTech(parsed.preferredTechnician);
+              if (parsed.clinicalNotes) setClinicalNotes(parsed.clinicalNotes);
+              if (custData) custData = { ...custData, ...parsed };
+            } catch {}
+          }
+        }
+
         setCustomer(custData);
 
         if (custId) {
@@ -88,6 +134,87 @@ export const W04_CustomerDetail: React.FC = () => {
     };
     fetchData();
   }, [targetId]);
+
+  const handleOpenEditModal = () => {
+    if (!customer) return;
+    setFormData({
+      fullName: customer.fullName || '',
+      phone: customer.phone || '',
+      email: customer.email || '',
+      gender: (customer.gender as 'MALE' | 'FEMALE' | 'OTHER') || 'FEMALE',
+      dateOfBirth: customer.dateOfBirth ? customer.dateOfBirth.slice(0, 10) : '',
+      membershipTier: customer.membershipTier || MemberTier.GOLD,
+      address: customer.address || '',
+      emergencyContactName: customer.emergencyContactName || '',
+      emergencyContactPhone: customer.emergencyContactPhone || '',
+      purpose: customer.purpose || PurposeInterest.BEAUTY_SPA,
+      preferredTechnician: preferredTech,
+      clinicalNotes: clinicalNotes,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customer) return;
+
+    if (!formData.fullName.trim()) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập họ và tên khách hàng.');
+      return;
+    }
+    if (!formData.phone.trim()) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập số điện thoại khách hàng.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const updatedFields: Partial<User> = {
+        fullName: formData.fullName.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim() || null,
+        gender: formData.gender,
+        dateOfBirth: formData.dateOfBirth || null,
+        membershipTier: formData.membershipTier,
+        address: formData.address.trim() || null,
+        emergencyContactName: formData.emergencyContactName.trim() || null,
+        emergencyContactPhone: formData.emergencyContactPhone.trim() || null,
+        purpose: formData.purpose,
+      };
+
+      // Call customerService
+      const res = await customerService.updateCustomer(customer.id, updatedFields);
+
+      // Local state update
+      const newCustomerState: User = {
+        ...customer,
+        ...updatedFields,
+        ...(res.success && res.data ? res.data : {}),
+      };
+      setCustomer(newCustomerState);
+      setPreferredTech(formData.preferredTechnician.trim() || 'Trần Lan Anh');
+      setClinicalNotes(formData.clinicalNotes.trim());
+
+      // Save to localStorage for instant local reactivity & reload preservation
+      localStorage.setItem(`mld_cust_${customer.id}`, JSON.stringify({
+        ...updatedFields,
+        preferredTechnician: formData.preferredTechnician.trim(),
+        clinicalNotes: formData.clinicalNotes.trim(),
+      }));
+
+      toast.success(
+        'Cập nhật thành công',
+        `Hồ sơ của khách hàng ${formData.fullName} đã được lưu lại.`
+      );
+      setIsEditModalOpen(false);
+    } catch (err) {
+      console.error('Lỗi khi cập nhật hồ sơ khách hàng:', err);
+      toast.error('Có lỗi xảy ra', 'Không thể lưu hồ sơ khách hàng vào lúc này.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -159,8 +286,9 @@ export const W04_CustomerDetail: React.FC = () => {
                 </div>
               </div>
               <button
-                title="Chỉnh sửa"
-                className="p-1 rounded-lg text-[#8A4F23] hover:bg-[#FAF8F5] transition-colors"
+                onClick={handleOpenEditModal}
+                title="Chỉnh sửa hồ sơ"
+                className="p-1 rounded-lg text-[#8A4F23] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
               >
                 <Pencil className="w-4 h-4 stroke-[2]" />
               </button>
@@ -216,22 +344,32 @@ export const W04_CustomerDetail: React.FC = () => {
             </div>
 
             <button
-              onClick={() => toast.info('Chỉnh sửa hồ sơ', `Đang mở biểu mẫu chỉnh sửa thông tin cho ${customer?.fullName || 'khách hàng'}.`)}
-              className="w-full py-2.5 bg-white border border-[#D7BBA6] text-[#8A4F23] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer"
+              onClick={handleOpenEditModal}
+              className="w-full py-2.5 bg-white border border-[#D7BBA6] text-[#8A4F23] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer flex items-center justify-center gap-1.5"
             >
-              Chỉnh sửa hồ sơ
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Chỉnh sửa hồ sơ</span>
             </button>
           </div>
 
           {/* Card: Sở thích & ghi chú điều trị */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3">
-            <h3 className="text-sm font-bold text-[#3E200C]">Sở thích & ghi chú lâm sàng</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#3E200C]">Sở thích & ghi chú lâm sàng</h3>
+              <button
+                onClick={handleOpenEditModal}
+                title="Sửa ghi chú"
+                className="text-[#8A4F23] hover:text-[#985018] p-1 rounded-lg hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <p className="text-xs text-[#4A3E34] leading-relaxed">
-              Ưu tiên kỹ thuật Vodder lực nhẹ, chườm ấm cổ vai gáy, phòng yên tĩnh có tinh dầu sả chanh.
+              {clinicalNotes}
             </p>
             <div>
               <span className="inline-block px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                Kỹ thuật viên phụ trách: Trần Lan Anh
+                Kỹ thuật viên phụ trách: {preferredTech}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs pt-1">
@@ -472,17 +610,328 @@ export const W04_CustomerDetail: React.FC = () => {
           {/* TAB 5: Ghi chú (hiển thị khi chọn 'Ghi chú') */}
           {activeTab === 'Ghi chú' && (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold text-[#2C241E]">
-                Lưu ý phục vụ & Hồ sơ cá nhân hóa
-              </h3>
+              <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Lưu ý phục vụ & Hồ sơ cá nhân hóa
+                </h3>
+                <button
+                  onClick={handleOpenEditModal}
+                  className="px-3 py-1.5 rounded-xl border border-[#D7BBA6] text-[#8A4F23] text-xs font-bold hover:bg-[#FAF8F5] transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Cập nhật ghi chú</span>
+                </button>
+              </div>
               <div className="p-4 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] text-xs text-[#5C5046] space-y-2">
-                <p className="font-semibold text-[#2C241E]">Ghi chú chuyên môn của KTV:</p>
-                <p>Khách hàng có cơ địa da nhạy cảm vùng cánh mũi. Ưu tiên kỹ thuật Vodder nhẹ nhàng, không xông hơi quá 5 phút. Thích uống trà hoa cúc ấm sau trị liệu.</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-[#2C241E]">Ghi chú chuyên môn của KTV phụ trách ({preferredTech}):</p>
+                  <span className="text-[10.5px] px-2 py-0.5 rounded-md bg-[#F3E2CE] text-[#8A4F23] font-bold">
+                    Hồ sơ VIP
+                  </span>
+                </div>
+                <p className="leading-relaxed">{clinicalNotes}</p>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* 4. Modal Chỉnh Sửa Hồ Sơ Khách Hàng */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#EFE4D9] bg-[#FAF8F5]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#F3E2CE] flex items-center justify-center text-[#8A4F23] shrink-0">
+                  <Pencil className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-extrabold text-[#3E200C]">Chỉnh sửa hồ sơ khách hàng</h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                      MLD VIP Client
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#73675F] mt-0.5">
+                    Cập nhật thông tin định danh cá nhân, phân hạng VIP và ghi chú lâm sàng
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white border border-[#E8DFD8] flex items-center justify-center text-[#73675F] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form onSubmit={handleSaveProfile} className="overflow-y-auto p-5 sm:p-6 space-y-5">
+              {/* PHẦN 1: THÔNG TIN ĐỊNH DANH & LIÊN HỆ */}
+              <div>
+                <h4 className="text-xs font-bold text-[#8A4F23] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <UserIcon className="w-3.5 h-3.5" />
+                  <span>1. Thông tin định danh & liên hệ</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Họ và tên <span className="text-[#985018]">*</span>
+                    </label>
+                    <div className="relative">
+                      <UserIcon className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        required
+                        value={formData.fullName}
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                        placeholder="Ví dụ: Nguyễn Mỹ Duyên"
+                        className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Số điện thoại <span className="text-[#985018]">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        required
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="Ví dụ: 0988123456"
+                        className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Email liên hệ
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="email@example.com"
+                        className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Ngày sinh
+                    </label>
+                    <div className="relative">
+                      <Calendar className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="date"
+                        value={formData.dateOfBirth}
+                        onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Giới tính
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: 'FEMALE', label: 'Nữ' },
+                      { key: 'MALE', label: 'Nam' },
+                      { key: 'OTHER', label: 'Khác' },
+                    ].map((g) => {
+                      const isSel = formData.gender === g.key;
+                      return (
+                        <button
+                          type="button"
+                          key={g.key}
+                          onClick={() => setFormData({ ...formData, gender: g.key as any })}
+                          className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                            isSel
+                              ? 'bg-[#FAF0E4] border-[#985018] text-[#985018] ring-1 ring-[#985018]'
+                              : 'bg-white border-[#E8DFD8] text-[#73675F] hover:border-[#D7BBA6]'
+                          }`}
+                        >
+                          {g.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* PHẦN 2: PHÂN HẠNG HỘI VIÊN & MỤC ĐÍCH */}
+              <div className="pt-2 border-t border-[#EFE4D9]">
+                <h4 className="text-xs font-bold text-[#8A4F23] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>2. Hạng thẻ hội viên VIP & Nhu cầu</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Hạng thẻ thành viên
+                    </label>
+                    <select
+                      value={formData.membershipTier}
+                      onChange={(e) => setFormData({ ...formData, membershipTier: e.target.value as MemberTier })}
+                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#8A4F23] focus:outline-none focus:border-[#985018] cursor-pointer"
+                    >
+                      <option value={MemberTier.STANDARD}>STANDARD · Hạng Tiêu Chuẩn</option>
+                      <option value={MemberTier.SILVER}>SILVER · Hội viên Bạc</option>
+                      <option value={MemberTier.GOLD}>GOLD · Hội viên Vàng (VIP)</option>
+                      <option value={MemberTier.PLATINUM}>PLATINUM · Bạch Kim</option>
+                      <option value={MemberTier.DIAMOND}>DIAMOND · Kim Cương (VVIP)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Mục đích quan tâm chính
+                    </label>
+                    <select
+                      value={formData.purpose}
+                      onChange={(e) => setFormData({ ...formData, purpose: e.target.value as PurposeInterest })}
+                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
+                    >
+                      <option value={PurposeInterest.BEAUTY_SPA}>Trị liệu Spa & Thẩm mỹ</option>
+                      <option value={PurposeInterest.ACADEMY}>Đào tạo Học viện Academy</option>
+                      <option value={PurposeInterest.BOTH}>Cả Trị liệu Spa & Đào tạo</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* PHẦN 3: ĐỊA CHỈ & LIÊN HỆ KHẨN CẤP */}
+              <div className="pt-2 border-t border-[#EFE4D9]">
+                <h4 className="text-xs font-bold text-[#8A4F23] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>3. Địa chỉ & Thông tin liên hệ khẩn cấp</span>
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Địa chỉ liên hệ thường trú
+                    </label>
+                    <div className="relative">
+                      <MapPin className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        placeholder="Ví dụ: 15/2 Đặng Thai Mai, Phường 7, Phú Nhuận, TP.HCM"
+                        className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Người liên hệ khẩn cấp
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.emergencyContactName}
+                        onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                        placeholder="Họ tên người thân"
+                        className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Số ĐT liên hệ khẩn cấp
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.emergencyContactPhone}
+                        onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+                        placeholder="SĐT người thân"
+                        className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* PHẦN 4: KỸ THUẬT VIÊN & GHI CHÚ LÂM SÀNG */}
+              <div className="pt-2 border-t border-[#EFE4D9]">
+                <h4 className="text-xs font-bold text-[#8A4F23] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>4. Chuyên môn & Ghi chú dịch vụ cá nhân hóa</span>
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Kỹ thuật viên phụ trách ưu tiên
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.preferredTechnician}
+                      onChange={(e) => setFormData({ ...formData, preferredTechnician: e.target.value })}
+                      placeholder="Ví dụ: Trần Lan Anh"
+                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Sở thích & Ghi chú lâm sàng
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.clinicalNotes}
+                      onChange={(e) => setFormData({ ...formData, clinicalNotes: e.target.value })}
+                      placeholder="Ghi chú sở thích khách hàng, tiền sử dị ứng hoặc yêu cầu trị liệu đặc biệt..."
+                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018] resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Actions Footer */}
+              <div className="pt-4 border-t border-[#EFE4D9] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2.5 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Lưu thay đổi hồ sơ</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
