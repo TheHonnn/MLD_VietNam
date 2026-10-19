@@ -74,7 +74,6 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
         <label>Danh mục<select value={category} onChange={event => setCategory(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <label>Sắp xếp<select value={sort} onChange={event => setSort(event.target.value)} className={inputClass + ' mt-1'}><option value="name">Tên dịch vụ</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option><option value="duration">Thời lượng</option></select></label>
       </div>
-      {!visibleServices.length && <p className="text-stone-500">Không có dịch vụ phù hợp.</p>}
       {visibleServices.map(service => <article key={service.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
         <button onClick={() => onViewServiceDetail(service)} className="block w-full space-y-2 text-left"><h3 className="font-bold">{service.title}</h3><EntityImage src={service.image} alt={service.title} /><p>{service.description}</p></button>
         <p>{service.durationMinutes} phút · {service.price.toLocaleString('vi-VN')} ₫</p>
@@ -85,16 +84,16 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
     <section className="space-y-2">
       <h2 className="text-sm font-bold">Lịch hẹn sắp tới</h2>
       {upcomingBooking ? <div className="space-y-2">
-        <h3 className="font-bold">{upcomingBooking.serviceTitle || 'Chưa có tên dịch vụ'}</h3>
-        <p>{upcomingBooking.date} · {upcomingBooking.timeSlot}</p><p>{upcomingBooking.branchName || branches.find(branch => branch.id === upcomingBooking.branchId)?.name || 'Chưa có tên chi nhánh'}</p>
+        <h3 className="font-bold">{upcomingBooking.serviceTitle || ''}</h3>
+        <p>{upcomingBooking.date} · {upcomingBooking.timeSlot}</p><p>{upcomingBooking.branchName || branches.find(branch => branch.id === upcomingBooking.branchId)?.name || ''}</p>
         <p>{bookingStatuses[upcomingBooking.status.toLowerCase()] || upcomingBooking.status}</p>
-      </div> : <p className="text-stone-500">Chưa có lịch hẹn sắp tới.</p>}
+      </div> : <p className="text-stone-500"></p>}
       <button onClick={() => onNavigateTab('booking')} className={buttonClass}>Xem lịch hẹn</button>
     </section>
 
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold">Chuyên viên</h2>{onOpenSpecialists && <button onClick={onOpenSpecialists} className={buttonClass}>Xem tất cả</button>}</div>
-      {!doctors.length && <p className="text-stone-500">Chưa có thông tin chuyên viên.</p>}
+      {!doctors.length && <p className="text-stone-500"></p>}
       {doctors.slice(0, 2).map(doctor => <button key={doctor.id} onClick={() => onSelectDoctor(doctor)} className="flex w-full items-center gap-3 rounded-[8px] border border-[#EADECF] bg-white p-3 text-left">
         <EntityImage src={doctor.avatar} alt={doctor.name} className="h-16 w-16 shrink-0" /><div className="min-w-0 space-y-1"><h3 className="font-bold">{doctor.name}</h3><p>{doctor.title}</p><p>{doctor.specialty}</p><p>{doctor.hospital}</p></div>
       </button>)}
@@ -102,7 +101,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
 
     <section className="space-y-3">
       <h2 className="text-sm font-bold">Khóa học</h2>
-      {!courses.length && <p className="text-stone-500">Chưa có thông tin khóa học.</p>}
+      {!courses.length && <p className="text-stone-500"></p>}
       {courses.slice(0, 2).map(course => <article key={course.id} className="space-y-2 rounded-[8px] border border-[#EADECF] bg-white p-3"><EntityImage src={course.image} alt={course.title} /><h3 className="font-bold">{course.title}</h3><p>{course.description}</p><p>{course.duration} · {course.price.toLocaleString('vi-VN')} ₫</p>{onSelectCourse && <button onClick={() => onSelectCourse(course)} className={buttonClass}>Xem chi tiết</button>}</article>)}
       <button onClick={() => onNavigateTab('academy')} className={buttonClass}>Xem khóa học</button>
     </section>
@@ -110,9 +109,9 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold">Chi nhánh</h2>{onOpenBranches && <button onClick={onOpenBranches} className={buttonClass}>Xem tất cả · {branches.length}</button>}</div>
       <label className="block">Tỉnh / thành phố<select value={city} onChange={event => setCity(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{cities.map(item => <option key={item}>{item}</option>)}</select></label>
-      {!visibleBranches.length && <p className="text-stone-500">Không có chi nhánh phù hợp.</p>}
+      {!visibleBranches.length && <p className="text-stone-500"></p>}
       {visibleBranches.map(branch => <article key={branch.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
-        <EntityImage src={branch.imageUrl} alt={branch.name} /><h3 className="font-bold">{branch.name}</h3><p>{branch.address || 'Chưa cập nhật địa chỉ'}</p><BranchHours branch={branch} />
+        <EntityImage src={branch.imageUrl} alt={branch.name} /><h3 className="font-bold">{branch.name}</h3><p>{branch.address || ''}</p><BranchHours branch={branch} />
         <div className="flex flex-wrap gap-2"><button onClick={() => onSelectBranch(branch)} className={buttonClass}>Xem chi tiết</button><button onClick={() => onOpenDirections(branch)} className={buttonClass}>Chỉ đường</button></div>
         {!!branch.galleryUrls?.length && <div className="grid grid-cols-2 gap-2">{branch.galleryUrls.filter(Boolean).map((url, index) => <EntityImage key={url + index} src={url} alt={branch.name} className="h-28 w-full" />)}</div>}
       </article>)}

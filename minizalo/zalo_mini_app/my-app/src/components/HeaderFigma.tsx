@@ -50,7 +50,7 @@ export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
           <Box className="min-w-0 break-words">
             <Box className="flex items-center space-x-1.5">
               <Text className="font-bold text-sm text-white tracking-wide leading-none">
-                {brandName || 'Chưa có thông tin thương hiệu'}
+                {brandName || ''}
               </Text>
               {brandVerified === true && <span className="w-4 h-4 rounded-full bg-amber-400 text-[#98501B] flex items-center justify-center text-[10px]">
                 <CheckIcon size={10} color="#98501B" />
@@ -108,7 +108,7 @@ export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
               Xin chào, {userRole}
             </Text>
             <Text className="text-sm font-bold text-white leading-tight">
-              {userName || 'Chưa có thông tin tài khoản'}
+              {userName || ''}
             </Text>
           </Box>
         </Box>
@@ -116,7 +116,7 @@ export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
         {/* Loyalty Points Badge */}
         <Box className="max-w-[45%] shrink-0 px-3 py-1.5 rounded-xl bg-amber-400 text-amber-950 text-xs font-bold flex items-center space-x-1.5 shadow-sm border border-amber-300">
           <TrophyIcon size={14} color="#451A03" />
-          <span>{points != null && Number.isFinite(points) ? `${points.toLocaleString('vi-VN')} Điểm` : 'Chưa có điểm'}</span>
+          <span>{points != null && Number.isFinite(points) ? `${points.toLocaleString('vi-VN')} Điểm` : ''}</span>
         </Box>
       </Box>
     </Box>

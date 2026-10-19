@@ -25,6 +25,7 @@ import {
   SpecialistDirectoryModal,
 } from '@/components/GroupBExtensions';
 import { apiClient } from '@/api/client';
+import { searchText } from '@/utils/catalog';
 import {
   guestUser,
   MedicalService,
@@ -98,6 +99,12 @@ function MasterHomePage() {
   // Services Tab Filter State
   const [servicesSearch, setServicesSearch] = useState('');
   const [servicesCategory, setServicesCategory] = useState('all');
+  const [showServiceFilters, setShowServiceFilters] = useState(false);
+  const [minServicePrice, setMinServicePrice] = useState('');
+  const [maxServicePrice, setMaxServicePrice] = useState('');
+  const [maxServiceDuration, setMaxServiceDuration] = useState('');
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [catalogSearch, setCatalogSearch] = useState<{query: string; id: number} | undefined>();
   const [servicesSort, setServicesSort] = useState<'popular' | 'priceAsc' | 'priceDesc'>('popular');
 
   const [dataLoading, setDataLoading] = useState(true);
@@ -106,6 +113,7 @@ function MasterHomePage() {
   const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
   const [appMetadata, setAppMetadata] = useState<any>({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
   const [guidelines, setGuidelines] = useState<any[]>([]);
+  const refreshData = () => { apiClient.clearReadCache(); setLoadVersion(value => value + 1); };
   // Fetch real data from Backend on mount
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +135,7 @@ function MasterHomePage() {
       setMemberSummary({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
       setETicketBooking(null);
       setBookingService(null);
+      const publicPreload = apiClient.preloadPublicData();
       const metadataRequest = apiClient.getAppMetadata();
       const catalogRequest = Promise.all([
         apiClient.getServices(), apiClient.getDoctors(), apiClient.getBranches(),
@@ -152,6 +161,7 @@ function MasterHomePage() {
         if (session?.user) { setUser(session.user); authenticated = true; }
         else { apiClient.logout(); setUser({ ...guestUser }); }
       }
+      const privatePreload = authenticated ? apiClient.preloadPrivateData() : Promise.resolve([]);
       const [metadata, [srvData, docData, brData, crsData, care], recData, membData, bkData, notifData, treatmentData] = await Promise.all([
         metadataRequest, catalogRequest,
         authenticated ? apiClient.getMedicalRecords() : Promise.resolve({}),
@@ -159,6 +169,7 @@ function MasterHomePage() {
         authenticated ? apiClient.getBookings() : Promise.resolve({}),
         authenticated ? apiClient.getNotifications() : Promise.resolve({}),
         authenticated ? apiClient.getTreatmentPlans() : Promise.resolve({}),
+        publicPreload, privatePreload,
       ]);
       if (cancelled) return;
       if (!metadata?.error) setAppMetadata(metadata);
@@ -206,6 +217,13 @@ function MasterHomePage() {
     setZaloAuthState('required');
   };
 
+  const refreshBookingRelatedData = () => {
+    apiClient.getNotifications().then(response => response?.notifications && setNotifications(response.notifications));
+    apiClient.getMembership().then(response => {
+      if (response?.summary) setMemberSummary(response.summary);
+      if (response?.vouchers) setVouchers(response.vouchers);
+    });
+  };
   const handleBookingSuccess = (newBooking: Booking) => {
     setBookingService(null);
     setBookingBranch(null);
@@ -213,8 +231,7 @@ function MasterHomePage() {
     setViewingService(null);
     setBookings((prev) => [newBooking, ...prev]);
     setETicketBooking(newBooking);
-    apiClient.getNotifications().then((response) => response?.notifications && setNotifications(response.notifications));
-    apiClient.getMembership().then((response) => response?.summary && setMemberSummary(response.summary));
+    refreshBookingRelatedData();
   };
 
   // Find latest upcoming confirmed booking
@@ -224,7 +241,7 @@ function MasterHomePage() {
 
   const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null) => {
     if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return; }
-    if (!services.length || !branches.length) { setDataError('Chưa có dịch vụ hoặc chi nhánh để đặt lịch.'); return; }
+    if (!services.length || !branches.length) return;
     setBookingBranch(branch || branches.find(item => item.id === homeBranchId) || branches[0] || null);
     setBookingDoctor(doctor || null);
     setBookingService(service || services[0] || null);
@@ -234,16 +251,18 @@ function MasterHomePage() {
   const catalogServices = services
     .filter((s) => {
       const matchSearch =
-        s.title.toLowerCase().includes(servicesSearch.toLowerCase()) ||
-        s.description.toLowerCase().includes(servicesSearch.toLowerCase());
+        searchText(`${s.title} ${s.category} ${s.description}`).includes(searchText(servicesSearch));
       const matchCat =
         servicesCategory === 'all' || s.categoryId === servicesCategory;
-      return matchSearch && matchCat;
+      return matchSearch && matchCat
+        && (!minServicePrice || s.price >= Number(minServicePrice))
+        && (!maxServicePrice || s.price <= Number(maxServicePrice))
+        && (!maxServiceDuration || s.durationMinutes <= Number(maxServiceDuration));
     })
     .sort((a, b) => {
       if (servicesSort === 'priceAsc') return a.price - b.price;
       if (servicesSort === 'priceDesc') return b.price - a.price;
-      return (b.rating ?? 0) - (a.rating ?? 0);
+      return Number(Boolean(b.isFeatured)) - Number(Boolean(a.isFeatured)) || (b.rating ?? 0) - (a.rating ?? 0);
     });
 
   return (
@@ -272,9 +291,9 @@ function MasterHomePage() {
         {/* Scrollable Body Content */}
         <div className={`app-main-content ${activeTab === 'home' ? 'app-main-content--home' : ''} min-h-0 flex-1 overflow-y-auto pb-28 overscroll-contain`}>
         {activeTab !== 'home' && activeTab !== 'booking' && <>
-          <div className="flex justify-end px-3 pt-2"><button type="button" disabled={dataLoading} onClick={() => setLoadVersion(value => value + 1)} className="min-h-9 rounded-lg border bg-white px-3 text-xs disabled:opacity-50">{dataLoading ? 'Đang cập nhật...' : 'Cập nhật dữ liệu'}</button></div>
+          <div className="flex justify-end px-3 pt-2"><button type="button" disabled={dataLoading} onClick={refreshData} className="min-h-9 rounded-lg border bg-white px-3 text-xs disabled:opacity-50">{dataLoading ? 'Đang cập nhật...' : 'Cập nhật dữ liệu'}</button></div>
           {dataLoading && <p role="status" className="p-3 text-xs">Đang tải dữ liệu...</p>}
-          {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={() => setLoadVersion(value => value + 1)} className="underline">Thử lại</button></div>}
+          {dataError && <div role="alert" className="p-3 text-xs text-red-700">{dataError} <button onClick={refreshData} className="underline">Thử lại</button></div>}
         </>}
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
@@ -285,7 +304,7 @@ function MasterHomePage() {
             onChangeBranch={setHomeBranchId}
             loading={dataLoading}
             error={dataError}
-            onRefresh={() => setLoadVersion(value => value + 1)}
+            onRefresh={refreshData}
             metadata={appMetadata}
             courses={courses}
             onSelectCourse={course => { setSelectedCourseId(course.id); setAcademyMode('catalog'); setActiveTab('academy'); }}
@@ -308,8 +327,8 @@ function MasterHomePage() {
               });
             }}
             unreadNotifications={notifications.filter((item) => !item.isRead).length}
-            onOpenBranches={() => { setActiveTab('services'); setIsBranchDirectoryOpen(true); }}
-            onOpenSpecialists={() => { setActiveTab('services'); setIsSpecialistDirectoryOpen(true); }}
+            onOpenBranches={() => { setDirectoryQuery(''); setActiveTab('services'); setIsBranchDirectoryOpen(true); }}
+            onOpenSpecialists={() => { setDirectoryQuery(''); setActiveTab('services'); setIsSpecialistDirectoryOpen(true); }}
           />
         )}
 
@@ -322,18 +341,12 @@ function MasterHomePage() {
             </div>
 
             {/* Search */}
-            <button
-              type="button"
-              onClick={() => setIsSearchOpen(true)}
-              className="w-full flex items-center gap-2 text-left"
-            >
-              <span className="w-10 h-10 rounded-[7px] bg-white border border-[#DED2C5] flex items-center justify-center shrink-0">
+            <div className="w-full flex items-center gap-2 text-left">
+              <button type="button" title="Tìm kiếm tất cả" onClick={() => setIsSearchOpen(true)} className="w-10 h-10 rounded-[7px] bg-white border border-[#DED2C5] flex items-center justify-center shrink-0">
                 <SearchIcon size={17} color="#A65317" />
-              </span>
-              <span className="h-10 flex-1 rounded-[7px] bg-white border border-[#DED2C5] px-3 flex items-center text-[10px] text-[#8A7D74]">
-                Tìm dịch vụ chăm sóc...
-              </span>
-            </button>
+              </button>
+              <input type="search" aria-label="Tìm dịch vụ chăm sóc" placeholder="Tìm dịch vụ chăm sóc..." value={servicesSearch} onChange={event => setServicesSearch(event.target.value)} className="h-10 min-w-0 flex-1 rounded-[7px] bg-white border border-[#DED2C5] px-3 text-xs text-[#40352F]" />
+            </div>
 
             {/* Category Pills (Figma Screen 2) */}
             <div className="flex flex-wrap gap-2 text-xs">
@@ -355,7 +368,10 @@ function MasterHomePage() {
             {/* Filter & Sort Bar */}
             <div className="flex items-end justify-between gap-3 pt-1">
               <button
-                onClick={() => setServicesCategory('all')}
+                type="button"
+                aria-expanded={showServiceFilters}
+                aria-controls="service-filters"
+                onClick={() => setShowServiceFilters(value => !value)}
                 className="h-10 px-3 rounded-[7px] bg-white border border-[#D8C9BA] font-semibold text-[10px] text-[#A65317] flex items-center space-x-1.5"
               >
                 <FilterIcon size={13} color="#98501B" />
@@ -363,18 +379,28 @@ function MasterHomePage() {
               </button>
 
               <div className="flex-1 max-w-[210px] space-y-1 text-[10px] text-[#6F625B]">
-                <span className="block">Sắp xếp theo</span>
+                <label htmlFor="service-sort" className="block">Sắp xếp theo</label>
                 <select
+                  id="service-sort"
                   value={servicesSort}
                   onChange={(e) => setServicesSort(e.target.value as any)}
                   className="w-full h-10 bg-white border border-[#D8C9BA] rounded-[7px] px-3 font-medium text-[10px] text-[#40352F] outline-none cursor-pointer"
                 >
-                  <option value="popular">Phổ biến (minh họa)</option>
+                  <option value="popular">Nổi bật</option>
                   <option value="priceAsc">Giá tăng dần</option>
                   <option value="priceDesc">Giá giảm dần</option>
                 </select>
               </div>
             </div>
+
+            {showServiceFilters && <fieldset id="service-filters" className="grid grid-cols-2 gap-3 border-y border-[#E8DDD2] py-3 text-xs text-[#6F625B]">
+              <legend className="font-semibold">Lọc dịch vụ</legend>
+              <label>Giá từ<input aria-label="Giá dịch vụ từ" type="number" min="0" value={minServicePrice} onChange={event => setMinServicePrice(event.target.value)} className="mt-1 h-10 w-full min-w-0 rounded-[7px] border border-[#DED2C5] bg-white px-2" /></label>
+              <label>Giá đến<input aria-label="Giá dịch vụ đến" type="number" min="0" value={maxServicePrice} onChange={event => setMaxServicePrice(event.target.value)} className="mt-1 h-10 w-full min-w-0 rounded-[7px] border border-[#DED2C5] bg-white px-2" /></label>
+              <label className="col-span-2">Thời lượng tối đa<select aria-label="Thời lượng dịch vụ tối đa" value={maxServiceDuration} onChange={event => setMaxServiceDuration(event.target.value)} className="mt-1 h-10 w-full rounded-[7px] border border-[#DED2C5] bg-white px-2"><option value="">Tất cả</option>{Array.from(new Set(services.map(service => service.durationMinutes).filter(Number.isFinite))).sort((a,b) => a-b).map(minutes => <option key={minutes} value={minutes}>{minutes} phút</option>)}</select></label>
+              {minServicePrice && maxServicePrice && Number(minServicePrice) > Number(maxServicePrice) && <p role="alert" className="col-span-2 text-red-700">Giá đến phải lớn hơn hoặc bằng giá từ.</p>}
+              <button type="button" className="col-span-2 justify-self-start py-2 font-semibold text-[#A65317]" onClick={() => { setMinServicePrice(''); setMaxServicePrice(''); setMaxServiceDuration(''); setServicesCategory('all'); }}>Xóa bộ lọc</button>
+            </fieldset>}
 
             <div className="text-[11px] font-bold text-[#40352F]">
               {catalogServices.length} dịch vụ phù hợp
@@ -384,7 +410,7 @@ function MasterHomePage() {
                 <Box
                   key={service.id}
                   onClick={() => setViewingService(service)}
-                  className="bg-white rounded-[8px] border border-[#E3D7CB] overflow-hidden cursor-pointer hover:border-[#A65317] transition"
+                  className="service-catalog-card bg-white rounded-[8px] border border-[#E3D7CB] overflow-hidden cursor-pointer hover:border-[#A65317] transition"
                 >
                   <div className="relative w-full h-[190px]">
                     <img
@@ -450,10 +476,10 @@ function MasterHomePage() {
             <section className="space-y-3 border-t border-[#E8DDD2] pt-4">
               <div className="flex items-center justify-between">
                 <div><h2 className="text-[14px] font-bold text-[#6F452C]">Đội ngũ chuyên viên</h2><p className="mt-0.5 text-[9px] text-[#7A685D]">Chọn chuyên viên phù hợp với nhu cầu chăm sóc.</p></div>
-                <button onClick={() => setIsSpecialistDirectoryOpen(true)} className="h-8 rounded-[7px] border border-[#D8C9BA] bg-white px-3 text-[9px] font-bold text-[#A65317]">Xem tất cả</button>
+                <button onClick={() => { setDirectoryQuery(''); setIsSpecialistDirectoryOpen(true); }} className="h-8 rounded-[7px] border border-[#D8C9BA] bg-white px-3 text-[9px] font-bold text-[#A65317]">Xem tất cả</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {doctors.slice(0, 2).map((doctor) => <button key={doctor.id} onClick={() => setViewingDoctor(doctor)} className="overflow-hidden rounded-[8px] border border-[#E3D7CB] bg-white text-left"><img src={doctor.avatar} alt={doctor.name} className="h-[105px] w-full object-cover" /><div className="p-2.5"><h3 className="line-clamp-1 text-[11px] font-bold text-[#40352F]">{doctor.name}</h3><p className="mt-1 line-clamp-1 text-[9px] text-[#7A685D]">{doctor.title}</p><p className="mt-2 text-[9px] font-semibold text-[#A65317]">{doctor.reviewsCount > 0 ? `★ ${doctor.rating}` : 'Chưa có đánh giá'} · {doctor.experienceYears} năm</p></div></button>)}
+                {doctors.slice(0, 2).map((doctor) => <button key={doctor.id} onClick={() => setViewingDoctor(doctor)} className="overflow-hidden rounded-[8px] border border-[#E3D7CB] bg-white text-left"><img src={doctor.avatar} alt={doctor.name} className="h-[105px] w-full object-cover" /><div className="p-2.5"><h3 className="line-clamp-1 text-[11px] font-bold text-[#40352F]">{doctor.name}</h3><p className="mt-1 line-clamp-1 text-[9px] text-[#7A685D]">{doctor.title}</p><p className="mt-2 text-[9px] font-semibold text-[#A65317]">{doctor.reviewsCount > 0 ? `★ ${doctor.rating}` : ''} · {doctor.experienceYears} năm</p></div></button>)}
               </div>
             </section>
           </Box>
@@ -466,9 +492,9 @@ function MasterHomePage() {
             branches={branches}
             loading={dataLoading}
             error={dataError}
-            onRefresh={() => setLoadVersion(value => value + 1)}
+            onRefresh={refreshData}
             onClose={() => setActiveTab('home')}
-            onUpdateBookings={(updated) => setBookings(updated)}
+            onUpdateBookings={(updated) => { setBookings(updated); refreshBookingRelatedData(); }}
             onBookNewService={() => openBooking(services[0])}
             onRebookService={(id) => {
               const matched = services.find((s) => s.id === id);
@@ -479,12 +505,17 @@ function MasterHomePage() {
         )}
 
         {/* TAB 4: HỌC VIỆN & ĐÀO TẠO NGHỀ (FIGMA GROUP E) */}
-        {activeTab === 'academy' && <GroupEAcademy key={academyMode} courses={courses} mode={academyMode} initialCourseId={academyMode === 'catalog' ? selectedCourseId || undefined : undefined} />}
+        {activeTab === 'academy' && <GroupEAcademy key={`${user.id}:${academyMode}`} courses={courses} userId={user.id} user={user} branches={branches}
+          loading={dataLoading} error={dataError} onRefresh={refreshData}
+          onOpenNotifications={() => { if (user.id) setIsNotificationsOpen(true); else { setCanCloseAuth(true); setIsAuthOpen(true); } }}
+          onRequireLogin={() => { setCanCloseAuth(true); setIsAuthOpen(true); }}
+          mode={academyMode} catalogSearch={catalogSearch} initialCourseId={academyMode === 'catalog' ? selectedCourseId || undefined : undefined} />}
 
         {/* TAB 5: HỘI VIÊN & CÁ NHÂN (FIGMA GROUP F VIP PASS) */}
         {activeTab === 'profile' && (
           <Box className="space-y-4">
             <GroupFProfile
+              key={user.id}
               user={user}
               metadata={{ tierRules: appMetadata.membershipTiers, loyalty: appMetadata.loyaltySettings }}
               onLogout={async () => {
@@ -611,6 +642,8 @@ function MasterHomePage() {
         <div hidden={Boolean(viewingBranch || directionsBranch)}>
         <BranchDirectoryModal
           branches={branches}
+          services={services}
+          initialQuery={directoryQuery}
           onClose={() => setIsBranchDirectoryOpen(false)}
           onSelectBranch={(branch) => {
             setViewingBranch(branch);
@@ -622,6 +655,8 @@ function MasterHomePage() {
       {isSpecialistDirectoryOpen && (
         <SpecialistDirectoryModal
           doctors={doctors}
+          services={services}
+          initialQuery={directoryQuery}
           onClose={() => setIsSpecialistDirectoryOpen(false)}
           onSelectDoctor={(doctor) => {
             setViewingDoctor(doctor);
@@ -632,6 +667,7 @@ function MasterHomePage() {
       {/* 8. GROUP C: 4-STEP BOOKING FLOW MODAL (C01 -> C07) */}
       {bookingService && (
         <GroupCBooking
+          currentUser={user}
           initialService={bookingService}
           initialBranch={bookingBranch}
           initialDoctor={bookingDoctor}
@@ -688,6 +724,24 @@ function MasterHomePage() {
 
       {/* 11. ZOOM SEARCH MODAL (FIGMA B02) */}
       <GroupBSearch
+        onNavigateCategory={(category, query) => {
+          setIsSearchOpen(false);
+          if (category === 'course') {
+            setSelectedCourseId(null); setAcademyMode('catalog');
+            setCatalogSearch({query, id: Date.now()}); setActiveTab('academy');
+          } else {
+            setActiveTab('services');
+            if (category === 'service') {
+              setServicesSearch(query); setServicesCategory('all'); setMinServicePrice(''); setMaxServicePrice(''); setMaxServiceDuration('');
+            } else {
+              setDirectoryQuery(query);
+              if (category === 'branch') setIsBranchDirectoryOpen(true);
+              else setIsSpecialistDirectoryOpen(true);
+            }
+          }
+        }}
+        userId={user.id}
+        onRequireLogin={() => { setCanCloseAuth(true); setIsAuthOpen(true); }}
         services={services}
         courses={courses}
         branches={branches}
@@ -722,7 +776,7 @@ function MasterHomePage() {
         <div className="absolute inset-x-0 top-0 bottom-[68px] z-20 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in">
           <div className="flex-1 overflow-y-auto">
             <GroupDTreatment
-              key={treatmentInitialTab}
+              key={`${user.id}:${treatmentInitialTab}`}
               initialTab={treatmentInitialTab}
               treatmentPlans={treatmentPlans}
               records={records}
@@ -750,7 +804,7 @@ function MasterHomePage() {
             { key: 'academy', label: 'Học viện', IconComponent: NavAcademyIcon },
             { key: 'profile', label: 'Cá nhân', IconComponent: NavProfileIcon },
           ].map((tab) => {
-            const isActive = activeTab === tab.key;
+            const isActive = (isSearchOpen ? 'services' : activeTab) === tab.key;
             const TabIcon = tab.IconComponent;
             return (
               <button
@@ -758,6 +812,7 @@ function MasterHomePage() {
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
+                  setIsSearchOpen(false);
                   setIsSpecialistDirectoryOpen(false);
                   setIsBranchDirectoryOpen(false);
                   setIsTreatmentOpen(false);

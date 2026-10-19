@@ -13,6 +13,12 @@ try {
   }
   const [available] = await store.query(Prisma.sql`SELECT count(*)::int AS count FROM technician_slots WHERE status='AVAILABLE' AND (slot_date+start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh' > CURRENT_TIMESTAMP`);
   counts.future_available_slots = available.count;
+  const [historyTable] = await store.query(Prisma.sql`SELECT c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='miniapp_search_history'`);
+  if (historyTable) {
+    const [history] = await store.query(Prisma.sql`SELECT count(*)::int AS count FROM miniapp_search_history`);
+    counts.miniapp_search_history = history.count;
+    counts.search_history_rls_enabled = historyTable.relrowsecurity;
+  }
   console.log(JSON.stringify({ readOnly: true, counts }, null, 2));
   if (process.argv.includes('--compare-deployed')) {
     const checks = {};

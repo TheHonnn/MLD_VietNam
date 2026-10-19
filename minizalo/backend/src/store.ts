@@ -58,6 +58,7 @@ export const requiredColumns: Record<string, string[]> = {
   referrals:['id','referrer_id','referee_id','reward_points','is_rewarded'],
   course_batches:['id','course_id','branch_id','instructor_id','status'],
   invoice_items:['id','invoice_id','item_name','quantity','unit_price','amount'],
+  tuition_transactions:['id','enrollment_id','student_id','amount','payment_status','receipt_pdf_url'],
 };
 
 export async function validateSharedSchema(store: Store) {

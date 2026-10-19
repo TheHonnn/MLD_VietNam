@@ -60,15 +60,16 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   summary,
 }) => {
   type Settings = { biometricEnabled: boolean; appointmentReminder: boolean; promotionNotify: boolean; systemNotify: boolean; language: string };
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [settingsStatus, setSettingsStatus] = useState<'loading' | 'missing' | 'loaded' | 'error'>('loading');
+  const [settings, setSettings] = useState<Settings | null>(() => apiClient.peek('/auth/settings')?.settings || null);
+  const [settingsStatus, setSettingsStatus] = useState<'loading' | 'missing' | 'loaded' | 'error'>(() => { const cached=apiClient.peek('/auth/settings'); return cached ? cached.settings ? 'loaded' : 'missing' : 'loading'; });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [membership, setMembership] = useState<{ membershipTiers?: NonNullable<GroupFProfileProps['metadata']>['tierRules']; loyaltySettings?: NonNullable<GroupFProfileProps['metadata']>['loyalty']; referrals?: { id: string; rewardPoints: number; isRewarded: boolean; createdAt: string }[]; referralCode?: string } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    setSettings(null);
-    setSettingsStatus('loading');
-    setMembership(null);
+    const cachedSettings = apiClient.peek('/auth/settings'), cachedMembership = apiClient.peek('/membership');
+    setSettings(cachedSettings?.settings || null);
+    setSettingsStatus(cachedSettings ? cachedSettings.settings ? 'loaded' : 'missing' : 'loading');
+    setMembership(cachedMembership ? {...cachedMembership,referralCode:cachedMembership.user?.referralCode} : null);
     apiClient.getSettings().then(result => {
       if (cancelled) return;
       if (result && !result.error && result.settings) {
@@ -114,7 +115,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const [userProfile, setUserProfile] = useState({
     name: user.name,
     phone: user.phone,
-    tier: user.tier || 'Chưa có thông tin hạng',
+    tier: user.tier || '',
     points: user.points,
     dob: user.dob,
     gender: user.gender,
@@ -128,15 +129,16 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     avatar: user.avatar,
   });
   const [savingProfile, setSavingProfile] = useState(false);
-  const [transactions, setTransactions] = useState<{ invoices: ProfileInvoice[]; pointTransactions: { id: string; description: string; createdAt: string; points: number }[]; totalSpent: number } | null>(null);
-  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [transactions, setTransactions] = useState<{ invoices: ProfileInvoice[]; pointTransactions: { id: string; description: string; createdAt: string; points: number }[]; totalSpent: number } | null>(() => { const cached=apiClient.peek('/transactions'); return cached ? {...cached,totalSpent:Number(cached.totalSpent)} : null; });
+  const [transactionsLoading, setTransactionsLoading] = useState(() => !apiClient.peek('/transactions'));
   const [transactionsError, setTransactionsError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setTransactions(null);
+    const cached = apiClient.peek('/transactions');
+    setTransactions(cached ? {...cached,totalSpent:Number(cached.totalSpent)} : null);
     setSelectedInvoice(null);
-    setTransactionsLoading(true);
+    setTransactionsLoading(!cached);
     setTransactionsError(false);
     apiClient.getTransactions().then((result) => {
       if (cancelled) return;
@@ -191,7 +193,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       address: user.address,
       avatar: user.avatar,
       points: user.points,
-      tier: user.tier || 'Chưa có thông tin hạng',
+      tier: user.tier || '',
       preferredBranch: user.preferredBranch || '',
       skinType: user.skinType || '',
       healthNotes: user.healthNotes || '',
@@ -250,7 +252,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const voucherLabel = (voucher: Voucher) => {
     if (voucher.discountType === 'percent') return `GIẢM ${voucher.discountValue}%`;
     const amount = voucher.discountValue ?? voucher.discountAmount;
-    if (amount == null) return 'Chưa có thông tin mức giảm';
+    if (amount == null) return '';
     return `GIẢM ${amount.toLocaleString('vi-VN')} đ`;
   };
 
@@ -284,8 +286,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     showToast(response.message || `Đã thêm mã ${clean} vào ví ưu đãi!`);
   };
 
-  const money = (value: unknown) => value != null && Number.isFinite(Number(value)) ? `${Number(value).toLocaleString('vi-VN')} ₫` : 'Chưa có dữ liệu';
-  const dateLabel = (value?: string) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleString('vi-VN') : 'Chưa có dữ liệu';
+  const money = (value: unknown) => value != null && Number.isFinite(Number(value)) ? `${Number(value).toLocaleString('vi-VN')} ₫` : '';
+  const dateLabel = (value?: string) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleString('vi-VN') : '';
   const transactionMessage = transactionsLoading ? 'Đang tải giao dịch...' : transactionsError ? 'Không thể tải giao dịch. Vui lòng mở lại trang.' : null;
   const receiptUrl = (value?: string | null) => {
     if (!value) return undefined;
@@ -347,7 +349,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
         <div className="my-3">
           <p className="text-[22px] font-bold text-white">{userProfile.points.toLocaleString()} điểm</p>
-          <p className="mt-1 text-[9px] text-white/75">Mã thẻ · {metadata?.membershipCardCode || 'Chưa được cấp'}</p>
+          <p className="mt-1 text-[9px] text-white/75">Mã thẻ · {metadata?.membershipCardCode || ''}</p>
         </div>
 
         <div className="flex justify-between items-center text-[9px] text-white border-t border-white/20 pt-2">
@@ -741,7 +743,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               <div className="my-4">
                 <p className="text-sm uppercase font-bold text-white tracking-wide">{user.name}</p>
                 <p className="text-[11px] text-[#D2A066] mt-0.5">
-                  MÃ THẺ: {metadata?.membershipCardCode || 'Chưa được cấp'}
+                  MÃ THẺ: {metadata?.membershipCardCode || ''}
                 </p>
               </div>
 
@@ -773,9 +775,9 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               </div>
 
               <div className="w-44 h-44 mx-auto bg-white p-2 rounded-2xl border border-[#EADECF] flex items-center justify-center text-xs text-[#7A685D]">
-                {cardCodeType === 'qr' ? 'Chưa có mã QR hội viên được cấp.' : 'Chưa có mã vạch hội viên được cấp.'}
+                {cardCodeType === 'qr' ? '' : ''}
               </div>
-              <p className="font-mono text-sm font-bold text-[#98501B]">{metadata?.membershipCardCode || 'Chưa có mã thẻ'}</p>
+              <p className="font-mono text-sm font-bold text-[#98501B]">{metadata?.membershipCardCode || ''}</p>
 
               <div className="flex space-x-2 pt-1">
                 <button
@@ -807,7 +809,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   <p>Giảm giá dịch vụ: {currentTierRule.discountServicePercent}%</p>
                   <p>Buổi head spa miễn phí: {currentTierRule.freeHeadSpaSessions}</p>
                   <p>Ưu tiên đặt lịch: {currentTierRule.priorityBooking ? 'Có' : 'Không'}</p>
-                </> : <p>Chưa có thông tin quyền lợi.</p>}
+                </> : <p></p>}
               </div>
             </div>
           </div>
@@ -871,8 +873,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               <div className="text-3xl font-black text-[#98501B]">{userProfile.points.toLocaleString()} điểm</div>
               <p className="text-xs">{userProfile.tier}</p>
             </div>
-            {pointsTab === 'rewards' && <div className="space-y-2 text-xs"><p>Chưa có danh mục đổi quà được cung cấp.</p>{loyalty && <><p>Tích 1 điểm / {money(loyalty.earnAmountPerPoint)}</p><p>Giá trị 1 điểm: {money(loyalty.redeemValuePerPoint)}</p><p>Giới hạn sử dụng: {loyalty.maxRedeemPercentPerOrder}% mỗi đơn</p><p>Thời hạn điểm: {loyalty.pointExpiryMonths} tháng</p></>}</div>}
-            {pointsTab === 'tiers' && <div className="space-y-2 text-xs">{tierRules ? tierRules.map(rule => <div key={rule.tier} className="p-3 bg-white rounded-xl border border-[#EADECF]"><p className="font-bold">{rule.tier}</p><p>Chi tiêu tối thiểu: {money(rule.minAccumulatedSpent)}</p><p>Tỷ lệ tích điểm: {rule.pointEarningRate}%</p><p>{rule.description}</p></div>) : <p>Chưa có bảng hạng hội viên.</p>}</div>}
+            {pointsTab === 'rewards' && <div className="space-y-2 text-xs"><p></p>{loyalty && <><p>Tích 1 điểm / {money(loyalty.earnAmountPerPoint)}</p><p>Giá trị 1 điểm: {money(loyalty.redeemValuePerPoint)}</p><p>Giới hạn sử dụng: {loyalty.maxRedeemPercentPerOrder}% mỗi đơn</p><p>Thời hạn điểm: {loyalty.pointExpiryMonths} tháng</p></>}</div>}
+            {pointsTab === 'tiers' && <div className="space-y-2 text-xs">{tierRules ? tierRules.map(rule => <div key={rule.tier} className="p-3 bg-white rounded-xl border border-[#EADECF]"><p className="font-bold">{rule.tier}</p><p>Chi tiêu tối thiểu: {money(rule.minAccumulatedSpent)}</p><p>Tỷ lệ tích điểm: {rule.pointEarningRate}%</p><p>{rule.description}</p></div>) : <p></p>}</div>}
 
             {pointsTab === 'history' && (
               <div className="space-y-2.5">
@@ -889,7 +891,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                     </span>
                   </div>
                 ))}
-                {transactions && !transactions.pointTransactions.length && <p className="py-8 text-center text-xs text-[#7A685D]">Chưa có giao dịch điểm.</p>}
+                {transactions && !transactions.pointTransactions.length && <p className="py-8 text-center text-xs text-[#7A685D]"></p>}
               </div>
             )}
           </div>
@@ -1029,7 +1031,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-[#40352F]">Danh sách hóa đơn:</h4>
               {transactions?.invoices.map((item) => {
-                const inv = { id: item.invoiceCode, service: item.items?.map(line => line.itemName).join(', ') || 'Chưa có chi tiết mặt hàng', branch: item.branchName || item.branch?.name || 'Chưa có thông tin chi nhánh', date: dateLabel(item.paidAt), method: item.paymentMethod, price: money(item.totalAmount), status: item.paymentStatus };
+                const inv = { id: item.invoiceCode, service: item.items?.map(line => line.itemName).join(', ') || '', branch: item.branchName || item.branch?.name || '', date: dateLabel(item.paidAt), method: item.paymentMethod, price: money(item.totalAmount), status: item.paymentStatus };
                 return <div key={item.id} className="p-4 rounded-2xl border border-[#EADECF] bg-white shadow-xs space-y-2 text-xs">
                   <div className="flex justify-between items-start">
                     <div>
@@ -1068,7 +1070,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   </div>
                 </div>;
               })}
-              {transactions && !transactions.invoices.length && <p className="py-8 text-center text-xs text-[#7A685D]">Chưa có hóa đơn.</p>}
+              {transactions && !transactions.invoices.length && <p className="py-8 text-center text-xs text-[#7A685D]"></p>}
             </div>
           </div>
         </div>
@@ -1098,23 +1100,23 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
             <div className="bg-white p-5 rounded-2xl border border-[#EADECF] shadow-sm space-y-3 text-xs">
               <div className="border-b border-[#FAF6F0] pb-2 text-center">
-                <h4 className="font-black text-sm text-[#40352F]">{selectedInvoice.branchName || selectedInvoice.branch?.name || 'Chưa có thông tin chi nhánh'}</h4>
-                <p className="text-[10px] text-stone-500 mt-0.5">Chưa có thông tin pháp nhân và mã số thuế.</p>
+                <h4 className="font-black text-sm text-[#40352F]">{selectedInvoice.branchName || selectedInvoice.branch?.name || ''}</h4>
+                <p className="text-[10px] text-stone-500 mt-0.5"></p>
                 <p className="font-mono text-xs font-bold text-[#98501B] mt-1">Số: {selectedInvoice.invoiceCode}</p>
               </div>
 
               <div className="space-y-1.5 text-stone-600">
                 <div className="flex justify-between">
                   <span>Khách hàng hiện tại:</span>
-                  <span className="font-bold text-stone-900">{selectedInvoice.customer?.fullName || 'Chưa có thông tin khách hàng'}</span>
+                  <span className="font-bold text-stone-900">{selectedInvoice.customer?.fullName || ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Số điện thoại hiện tại:</span>
-                  <span className="font-bold text-stone-900">{selectedInvoice.customer?.phone || 'Chưa có số điện thoại'}</span>
+                  <span className="font-bold text-stone-900">{selectedInvoice.customer?.phone || ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Dịch vụ thực hiện:</span>
-                  <span className="font-bold text-[#40352F]">{selectedInvoice.items?.map(line => `${line.itemName} × ${line.quantity}: ${money(line.amount)}`).join('; ') || 'Chưa có chi tiết mặt hàng'}</span>
+                  <span className="font-bold text-[#40352F]">{selectedInvoice.items?.map(line => `${line.itemName} × ${line.quantity}: ${money(line.amount)}`).join('; ') || ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Thời gian ghi nhận:</span>
@@ -1150,7 +1152,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               </div>
             </div>
 
-            {receiptUrl(selectedInvoice.receiptPdfUrl) ? <a href={receiptUrl(selectedInvoice.receiptPdfUrl)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="block text-center w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold">Mở hóa đơn điện tử PDF</a> : <p className="text-center text-xs text-[#7A685D]">Chưa có bản PDF hóa đơn.</p>}
+            {receiptUrl(selectedInvoice.receiptPdfUrl) ? <a href={receiptUrl(selectedInvoice.receiptPdfUrl)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="block text-center w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold">Mở hóa đơn điện tử PDF</a> : <p className="text-center text-xs text-[#7A685D]"></p>}
           </div>
         </div>
       )}
@@ -1170,20 +1172,20 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               </button>
             </div>
             <h2 className="mt-2 text-[21px] font-bold text-[#6F452C]">Giới thiệu bạn bè</h2>
-            <p className="mt-1 text-[10px] text-[#7A685D]">{metadata?.referral?.terms || 'Chưa có chính sách thưởng giới thiệu được công bố.'}</p>
+            <p className="mt-1 text-[10px] text-[#7A685D]">{metadata?.referral?.terms || ''}</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-24">
             <div className="overflow-hidden rounded-[10px] bg-white">
               <div className="p-3">
                 <h4 className="text-[13px] font-bold text-[#6F452C]">Mời bạn cùng trải nghiệm</h4>
-                <p className="mt-2 text-[9px] leading-relaxed text-[#7A685D]">Chưa có liên kết mời được cấp để chia sẻ.</p>
+                <p className="mt-2 text-[9px] leading-relaxed text-[#7A685D]"></p>
               </div>
             </div>
 
             <div className="p-3 rounded-[10px] bg-[#F3E2CE] space-y-3">
               <span className="text-[9px] text-[#7A685D]">Mã giới thiệu của bạn</span>
-              <p className="text-[13px] font-bold text-[#A65317]">{referralCode || 'Chưa có mã giới thiệu'}</p>
+              <p className="text-[13px] font-bold text-[#A65317]">{referralCode || ''}</p>
               <div className="flex space-x-2">
                 <button
                   disabled={!referralCode}
@@ -1194,7 +1196,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 </button>
                 <button
                   disabled
-                  title="Chưa có liên kết mời được cấp"
+                  title=''
                   className="flex-1 h-10 rounded-[8px] bg-white text-[#A65317] text-[10px] font-bold border border-[#A65317]"
                 >
                   Chia sẻ
@@ -1214,12 +1216,12 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   </div>
                 ))}
                 {!membership?.referrals && <p>Không thể tải lịch sử giới thiệu.</p>}
-                {membership?.referrals?.length === 0 && <p>Chưa có lượt giới thiệu.</p>}
+                {membership?.referrals?.length === 0 && <p></p>}
               </div>
             </div>
           </div>
           <div className="shrink-0 border-t border-[#EADECF] bg-white p-3">
-            <button disabled title="Chưa có liên kết mời được cấp" className="h-11 w-full rounded-[8px] bg-[#A65317] text-[11px] font-bold text-white opacity-50">Chia sẻ chưa khả dụng</button>
+            <button disabled title='' className="h-11 w-full rounded-[8px] bg-[#A65317] text-[11px] font-bold text-white opacity-50">Chia sẻ chưa khả dụng</button>
           </div>
         </div>
       )}
@@ -1248,7 +1250,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               <div className="overflow-hidden rounded-[10px] bg-white divide-y divide-[#EFEAE3]">
                 {['Thông tin cá nhân', 'Bảo mật tài khoản', 'Số điện thoại liên kết'].map((label, index) => (
                   <button key={label} disabled={index === 1} onClick={() => setActiveModal('edit_profile')} className="flex min-h-11 w-full items-center justify-between px-3 text-left">
-                    <span className="text-[10px] text-[#40352F]">{label}{index === 1 && <small className="block text-[8px] text-[#8A7D74]">Chưa khả dụng</small>}{index === 2 && <small className="block text-[8px] text-[#8A7D74]">{user.phone || 'Chưa có số điện thoại'}</small>}</span><span className="text-[#A09085]">›</span>
+                    <span className="text-[10px] text-[#40352F]">{label}{index === 1 && <small className="block text-[8px] text-[#8A7D74]">Chưa khả dụng</small>}{index === 2 && <small className="block text-[8px] text-[#8A7D74]">{user.phone || ''}</small>}</span><span className="text-[#A09085]">›</span>
                   </button>
                 ))}
               </div>
@@ -1256,7 +1258,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
             <div>
               <h3 className="mb-2 text-[13px] font-bold text-[#6F452C]">Thông báo</h3>
-              {!settings && <p className="text-xs text-[#7A685D]">{settingsStatus === 'loading' ? 'Đang tải cài đặt...' : settingsStatus === 'missing' ? 'Chưa có cài đặt đã lưu.' : 'Không thể tải cài đặt tài khoản.'}</p>}
+              {!settings && <p className="text-xs text-[#7A685D]">{settingsStatus === 'loading' ? 'Đang tải cài đặt...' : settingsStatus === 'missing' ? '' : 'Không thể tải cài đặt tài khoản.'}</p>}
               {settingsStatus === 'missing' && <button disabled={settingsSaving} onClick={() => saveSetting({})} className="my-2 text-xs font-bold text-[#98501B]">{settingsSaving ? 'Đang lưu...' : 'Lưu cài đặt mặc định của hệ thống'}</button>}
               <div className="bg-white p-2 rounded-[10px] divide-y divide-[#EFEAE3] text-xs">
               {[
@@ -1265,7 +1267,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 { key: 'promotionNotify' as const, label: 'Chương trình ưu đãi' },
               ].map((st) => (
                 <label key={st.key} className="flex justify-between items-center p-2 cursor-pointer">
-                  <span className="text-[10px] text-[#40352F]">{st.label}<small className="block text-[8px] text-[#8A7D74]">{settings ? settings[st.key] ? 'Đang bật' : 'Đang tắt' : 'Chưa có dữ liệu'}</small></span>
+                  <span className="text-[10px] text-[#40352F]">{st.label}<small className="block text-[8px] text-[#8A7D74]">{settings ? settings[st.key] ? 'Đang bật' : 'Đang tắt' : ''}</small></span>
                   <input
                     type="checkbox"
                     checked={settings?.[st.key] === true}
@@ -1283,7 +1285,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               <label className="flex items-center justify-between gap-2">
                 <span>Ngôn ngữ tài khoản</span>
                 <select value={settings?.language || ''} disabled={!settings || settingsSaving} onChange={event => saveSetting({ language: event.target.value })} className="border border-[#EADECF] rounded p-2">
-                  <option value="" disabled>Chưa có dữ liệu</option>
+                  <option value="" disabled></option>
                   <option value="vi">Tiếng Việt</option>
                   <option value="en">English</option>
                 </select>
@@ -1291,7 +1293,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               <label className="flex justify-between items-center p-3 rounded-xl border border-[#EADECF] cursor-pointer hover:bg-[#FAF6F0]">
                 <div>
                   <p className="font-medium text-[#40352F]">Tùy chọn sinh trắc học</p>
-                  <p className="text-[10px] text-stone-400">Chưa có tích hợp xác thực Face ID / Vân tay.</p>
+                  <p className="text-[10px] text-stone-400"></p>
                 </div>
                 <input
                   type="checkbox"
