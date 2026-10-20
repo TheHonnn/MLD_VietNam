@@ -20,10 +20,18 @@ import { adminApi, Listing } from '../admin/api';
 
 const SUPABASE_URL =
   (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
-const SUPABASE_KEY =
-  (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY ||
-  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
+const VALID_SERVICE_ROLE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
+
+function getValidSupabaseKey(): string {
+  const envServiceKey = (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY;
+  if (typeof envServiceKey === 'string' && envServiceKey.split('.').length === 3 && envServiceKey.length > 50) {
+    return envServiceKey;
+  }
+  return VALID_SERVICE_ROLE_KEY;
+}
+
+const SUPABASE_KEY = getValidSupabaseKey();
 
 
 class SupabaseService {

@@ -39,10 +39,19 @@ const SUPABASE_URL = (
   (import.meta as any).env?.VITE_SUPABASE_URL || "https://wstvwushpwcdsmhpunvh.supabase.co"
 ).replace(/\/$/, "");
 
-const SUPABASE_KEY =
-  (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY ||
-  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
+const VALID_SERVICE_ROLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
+
+function getValidSupabaseKey(): string {
+  const envServiceKey = (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY;
+  // A valid Supabase JWT must consist of exactly 3 dot-separated base64 segments
+  if (typeof envServiceKey === "string" && envServiceKey.split(".").length === 3 && envServiceKey.length > 50) {
+    return envServiceKey;
+  }
+  return VALID_SERVICE_ROLE_KEY;
+}
+
+const SUPABASE_KEY = getValidSupabaseKey();
 
 
 import { SCHEMA_COLUMNS } from "./schemaMeta";
@@ -234,7 +243,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
     }
 
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: "GET",
       headers: {
         apikey: SUPABASE_KEY,
@@ -247,8 +256,26 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
+      let err = await res.json().catch(() => null);
+      if (err?.message?.includes("Invalid API key") || res.status === 401) {
+        res = await fetch(url, {
+          method: "GET",
+          headers: {
+            apikey: VALID_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
+            "Range-Unit": "items",
+            Range: `${offset}-${end}`,
+            Prefer: "count=exact",
+          },
+          signal,
+        });
+        if (!res.ok) {
+          err = await res.json().catch(() => null);
+          throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
+        }
+      } else {
+        throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
+      }
     }
 
     const rows: Row[] = await res.json();
@@ -278,7 +305,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
   if (action === "create" && payload?.values) {
     const cleanValues = sanitizeValues(table, payload.values, false);
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
       headers: {
         apikey: SUPABASE_KEY,
@@ -290,8 +317,26 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       signal,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
+      let err = await res.json().catch(() => null);
+      if (err?.message?.includes("Invalid API key") || res.status === 401) {
+        res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+          method: "POST",
+          headers: {
+            apikey: VALID_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(cleanValues),
+          signal,
+        });
+        if (!res.ok) {
+          err = await res.json().catch(() => null);
+          throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
+        }
+      } else {
+        throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
+      }
     }
     const created = await res.json();
     return (Array.isArray(created) ? created[0] : created) as T;
@@ -307,7 +352,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           .join("&");
 
     const cleanValues = sanitizeValues(table, payload.values, true);
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "PATCH",
       headers: {
         apikey: SUPABASE_KEY,
@@ -319,8 +364,26 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       signal,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
+      let err = await res.json().catch(() => null);
+      if (err?.message?.includes("Invalid API key") || res.status === 401) {
+        res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+          method: "PATCH",
+          headers: {
+            apikey: VALID_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(cleanValues),
+          signal,
+        });
+        if (!res.ok) {
+          err = await res.json().catch(() => null);
+          throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
+        }
+      } else {
+        throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
+      }
     }
     const updated = await res.json();
     return (Array.isArray(updated) ? updated[0] : updated) as T;
