@@ -23,6 +23,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
+  Archive,
+  RotateCcw,
+  Info,
+  ShieldCheck,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
@@ -61,6 +65,8 @@ export const W02_Branches: React.FC = () => {
   const [activeManageTab, setActiveManageTab] = useState<'info' | 'rooms' | 'actions'>('info');
   const [isSavingBranch, setIsSavingBranch] = useState(false);
   const [manageRooms, setManageRooms] = useState<BranchRoom[]>([]);
+  const [archivedRooms, setArchivedRooms] = useState<BranchRoom[]>([]);
+  const [showArchivedRooms, setShowArchivedRooms] = useState(false);
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomData, setNewRoomData] = useState({
@@ -268,7 +274,10 @@ export const W02_Branches: React.FC = () => {
     });
 
     try {
-      const res = await branchService.getRoomsByBranch(branch.id);
+      const [res, archRes] = await Promise.all([
+        branchService.getRoomsByBranch(branch.id),
+        branchService.getArchivedRooms(branch.id),
+      ]);
       let branchRooms: BranchRoom[] = res.success && res.data.length > 0 ? res.data : [];
       const cached = localStorage.getItem(`mld_rooms_${branch.id}`);
       if (cached) {
@@ -311,8 +320,10 @@ export const W02_Branches: React.FC = () => {
         ];
       }
       setManageRooms(branchRooms);
+      setArchivedRooms(archRes.success ? archRes.data : []);
     } catch {
       setManageRooms(rooms);
+      setArchivedRooms([]);
     }
 
     setShowAddRoom(false);
@@ -416,14 +427,62 @@ export const W02_Branches: React.FC = () => {
   const handleDeleteRoom = async (roomId: string) => {
     if (!managingBranch) return;
     const target = manageRooms.find((r) => r.id === roomId);
+    if (!target) return;
+
+    // 1. Gỡ khỏi danh sách phòng hoạt động trên hệ thống
     const updated = manageRooms.filter((r) => r.id !== roomId);
     setManageRooms(updated);
     localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
     if (selectedBranchId === managingBranch.id) {
       setRooms(updated);
     }
-    toast.info('Đã xóa phòng', `Phòng "${target?.name || ''}" đã được xóa khỏi sơ đồ cơ sở.`);
+
+    // 2. Đưa vào danh sách phòng lưu trữ trong CSDL (Soft Delete)
+    const archivedTarget: BranchRoom = {
+      ...target,
+      isAvailable: false,
+      isArchived: true,
+      archivedAt: new Date().toISOString(),
+    };
+    setArchivedRooms((prev) => [archivedTarget, ...prev.filter((r) => r.id !== roomId)]);
+
+    toast.success(
+      'Đã xóa phòng khỏi hệ thống',
+      `Phòng "${target.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi vẫn được bảo toàn nguyên vẹn trong cơ sở dữ liệu.`
+    );
+
+    // 3. Cập nhật soft-delete trên Supabase Cloud (PATCH [ARCHIVED] thay vì DELETE)
     await branchService.deleteRoom(roomId);
+  };
+
+  const handleRestoreRoom = async (roomId: string) => {
+    if (!managingBranch) return;
+    const target = archivedRooms.find((r) => r.id === roomId);
+    if (!target) return;
+
+    // 1. Gỡ khỏi danh sách lưu trữ CSDL
+    setArchivedRooms((prev) => prev.filter((r) => r.id !== roomId));
+
+    // 2. Khôi phục lại danh sách phòng hoạt động trên hệ thống
+    const restoredTarget: BranchRoom = {
+      ...target,
+      isAvailable: true,
+      isArchived: false,
+    };
+    const updated = [...manageRooms, restoredTarget];
+    setManageRooms(updated);
+    localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
+    if (selectedBranchId === managingBranch.id) {
+      setRooms(updated);
+    }
+
+    toast.success(
+      'Khôi phục thành công',
+      `Phòng "${target.name}" đã được khôi phục trở lại hệ thống vận hành.`
+    );
+
+    // 3. Cập nhật restore trên Supabase Cloud
+    await branchService.restoreRoom(roomId);
   };
 
   // Save Branch Updates
@@ -1396,6 +1455,17 @@ export const W02_Branches: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Data Preservation Policy Banner */}
+                <div className="flex items-start gap-2.5 p-3 bg-[#FAF3EC] border border-[#E8DFD8] rounded-xl text-xs text-[#73675F]">
+                  <ShieldCheck className="w-4 h-4 text-[#985018] shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-[#3E200C]">Chính sách bảo toàn dữ liệu phòng</p>
+                    <p className="text-[11px] text-[#73675F] leading-relaxed">
+                      Khi xóa phòng, hệ thống sẽ ẩn phòng khỏi hoạt động vận hành và đặt hẹn, đồng thời <span className="font-bold text-[#985018]">bảo lưu 100% bản ghi trong cơ sở dữ liệu Supabase</span> để giữ toàn vẹn lịch sử đối soát và liên kết với các lượt đặt trước đó.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Form thêm phòng mới */}
                 {showAddRoom && (
                   <form
@@ -1555,6 +1625,64 @@ export const W02_Branches: React.FC = () => {
                     ))
                   )}
                 </div>
+
+                {/* Danh sách phòng đã lưu trữ trong CSDL (Soft-deleted) */}
+                {archivedRooms.length > 0 && (
+                  <div className="pt-2 border-t border-[#EFE4D9] space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowArchivedRooms(!showArchivedRooms)}
+                      className="w-full flex items-center justify-between p-2.5 bg-[#FAF8F5] hover:bg-[#F3EFEA] rounded-xl border border-[#EFE4D9] text-xs font-bold text-[#73675F] hover:text-[#2C241E] transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Archive className="w-3.5 h-3.5 text-[#985018]" />
+                        <span>Phòng đã lưu trữ trong cơ sở dữ liệu ({archivedRooms.length})</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#985018]">
+                        <span>{showArchivedRooms ? 'Thu gọn' : 'Xem chi tiết'}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showArchivedRooms ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+
+                    {showArchivedRooms && (
+                      <div className="space-y-2 pt-1 animate-in fade-in-50">
+                        {archivedRooms.map((room) => (
+                          <div
+                            key={room.id}
+                            className="p-3 bg-[#FCFAF8] rounded-xl border border-dashed border-[#DDD2C6] flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-[#EFE4D9] text-[#73675F] flex items-center justify-center font-bold">
+                                <Archive className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="font-bold text-[#4A3E34] flex items-center gap-2">
+                                  <span>{room.name}</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-[#EFE4D9] text-[#73675F]">
+                                    Lưu trữ trong CSDL
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-[#8C7A6B] mt-0.5">
+                                  {roomTypeLabels[room.roomType] || room.roomType} • {room.bedCapacity} giường
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreRoom(room.id)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF3EC] text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-2xs"
+                              title="Khôi phục phòng này vào lại hệ thống vận hành"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Khôi phục</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="pt-3 border-t border-[#EFE4D9] flex justify-end">
                   <button
