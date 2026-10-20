@@ -1,5 +1,5 @@
 // MLD Healthcare & Spa - W02 Branch Management & Facility Configuration
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
@@ -78,9 +78,14 @@ export const W02_Branches: React.FC = () => {
   const [globalWorkingBranchId, setGlobalWorkingBranchId] = useState<string>(() => {
     return localStorage.getItem('mld_selected_branch_id') || '';
   });
-  const [rooms, setRooms] = useState<BranchRoom[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Dynamic Pagination State for Branches & Rooms tables
+  const [branchPage, setBranchPage] = useState<number>(1);
+  const [branchPageSize, setBranchPageSize] = useState<number>(25);
+  const [roomPage, setRoomPage] = useState<number>(1);
+  const [roomPageSize, setRoomPageSize] = useState<number>(25);
 
   // Main Top-level Tabs: 'branches' (Chi nhánh) vs 'rooms' (Phòng dịch vụ)
   const [activeMainTab, setActiveMainTab] = useState<'branches' | 'rooms'>('branches');
@@ -146,6 +151,13 @@ export const W02_Branches: React.FC = () => {
   const [isDeleteBranchModalOpen, setIsDeleteBranchModalOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
   const [isDeletingBranch, setIsDeletingBranch] = useState(false);
+
+  // Delete Room Modal State (Soft-delete confirmation modal)
+  const [isDeleteRoomModalOpen, setIsDeleteRoomModalOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<
+    (BranchRoom & { branchName?: string; branchCode?: string }) | null
+  >(null);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
 
   // Create Branch Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -347,13 +359,6 @@ export const W02_Branches: React.FC = () => {
         } else {
           setGlobalWorkingBranchId('ALL');
         }
-
-        const roomRes = await branchService.getRoomsByBranch(targetId);
-        if (roomRes.success && roomRes.data.length > 0) {
-          setRooms(roomRes.data);
-        } else {
-          loadRoomsForBranch(targetId);
-        }
       }
       if (srvRes.success) setServices(srvRes.data);
 
@@ -409,12 +414,6 @@ export const W02_Branches: React.FC = () => {
       }
     } catch {}
 
-    if (selectedBranchId === room.branchId) {
-      setRooms((prev) =>
-        prev.map((r) => (r.id === room.id ? { ...r, isAvailable: nextAvail } : r))
-      );
-    }
-
     if (managingBranch && managingBranch.id === room.branchId) {
       setManageRooms((prev) =>
         prev.map((r) => (r.id === room.id ? { ...r, isAvailable: nextAvail } : r))
@@ -429,60 +428,77 @@ export const W02_Branches: React.FC = () => {
     await branchService.updateRoom(room.id, { isAvailable: nextAvail });
   };
 
-  // Soft delete room from cross-branch view (Xóa khỏi hệ thống, giữ trong CSDL)
-  const handleDeleteCrossBranchRoom = async (
-    room: BranchRoom & { branchName?: string }
+  // Open Room Deletion Confirmation Modal (Soft delete with branded dialog)
+  const handleOpenDeleteRoomModal = (
+    room: BranchRoom & { branchName?: string; branchCode?: string }
   ) => {
-    if (
-      !window.confirm(
-        `Bạn có chắc chắn muốn xóa phòng "${room.name}" (${room.branchName || 'Cơ sở'}) khỏi hệ thống vận hành?\n\nLưu ý: Dữ liệu phòng vẫn được bảo toàn 100% trong cơ sở dữ liệu Supabase để giữ toàn vẹn lịch sử đặt hẹn.`
-      )
-    ) {
-      return;
-    }
-
-    // 1. Remove from allRooms
-    setAllRooms((prev) => prev.filter((r) => r.id !== room.id));
-
-    // 2. Add to allArchivedRooms
-    const archivedItem: BranchRoom & { branchName?: string; branchCode?: string } = {
+    const resolvedBranch = branches.find((b) => b.id === room.branchId) || managingBranch;
+    setRoomToDelete({
       ...room,
-      isAvailable: false,
-      isArchived: true,
-      archivedAt: new Date().toISOString(),
-    };
-    setAllArchivedRooms((prev) => [archivedItem, ...prev.filter((r) => r.id !== room.id)]);
+      branchName: room.branchName || resolvedBranch?.name || 'Cơ sở MLD',
+      branchCode: room.branchCode || resolvedBranch?.code || '',
+    });
+    setIsDeleteRoomModalOpen(true);
+  };
 
-    // 3. Update localStorage
+  const handleDeleteCrossBranchRoom = (
+    room: BranchRoom & { branchName?: string; branchCode?: string }
+  ) => {
+    handleOpenDeleteRoomModal(room);
+  };
+
+  const handleConfirmDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setIsDeletingRoom(true);
     try {
-      const cached = localStorage.getItem(`mld_rooms_${room.branchId}`);
-      if (cached) {
-        const parsed: BranchRoom[] = JSON.parse(cached);
-        localStorage.setItem(
-          `mld_rooms_${room.branchId}`,
-          JSON.stringify(parsed.filter((r) => r.id !== room.id))
-        );
+      const room = roomToDelete;
+
+      // 1. Remove from allRooms
+      setAllRooms((prev) => prev.filter((r) => r.id !== room.id));
+
+      // 2. Add to allArchivedRooms
+      const archivedItem: BranchRoom & { branchName?: string; branchCode?: string } = {
+        ...room,
+        isAvailable: false,
+        isArchived: true,
+        archivedAt: new Date().toISOString(),
+      };
+      setAllArchivedRooms((prev) => [archivedItem, ...prev.filter((r) => r.id !== room.id)]);
+
+      // 3. Update localStorage
+      try {
+        const cached = localStorage.getItem(`mld_rooms_${room.branchId}`);
+        if (cached) {
+          const parsed: BranchRoom[] = JSON.parse(cached);
+          localStorage.setItem(
+            `mld_rooms_${room.branchId}`,
+            JSON.stringify(parsed.filter((r) => r.id !== room.id))
+          );
+        }
+      } catch {}
+
+      // 4. Update manage modal rooms if managing this branch
+      if (managingBranch && managingBranch.id === room.branchId) {
+        setManageRooms((prev) => prev.filter((r) => r.id !== room.id));
+        setArchivedRooms((prev) => [archivedItem, ...prev.filter((r) => r.id !== room.id)]);
       }
-    } catch {}
 
-    // 4. Update current branch rooms if open
-    if (selectedBranchId === room.branchId) {
-      setRooms((prev) => prev.filter((r) => r.id !== room.id));
+      toast.success(
+        'Đã xóa phòng khỏi hệ thống',
+        `Phòng "${room.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi vẫn được bảo toàn nguyên vẹn trong cơ sở dữ liệu.`
+      );
+
+      setIsDeleteRoomModalOpen(false);
+      setRoomToDelete(null);
+
+      // 5. Update Supabase Cloud (PATCH [ARCHIVED])
+      await branchService.deleteRoom(room.id);
+    } catch (err) {
+      console.error('Failed to delete room:', err);
+      toast.error('Lỗi khi xóa phòng', 'Không thể hoàn tất thao tác xóa phòng.');
+    } finally {
+      setIsDeletingRoom(false);
     }
-
-    // 5. Update manage modal rooms if managing this branch
-    if (managingBranch && managingBranch.id === room.branchId) {
-      setManageRooms((prev) => prev.filter((r) => r.id !== room.id));
-      setArchivedRooms((prev) => [archivedItem, ...prev.filter((r) => r.id !== room.id)]);
-    }
-
-    toast.success(
-      'Đã xóa phòng khỏi hệ thống',
-      `Phòng "${room.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi vẫn được bảo toàn nguyên vẹn trong cơ sở dữ liệu.`
-    );
-
-    // 6. Update Supabase Cloud (PATCH [ARCHIVED])
-    await branchService.deleteRoom(room.id);
   };
 
   // Restore archived room in cross-branch view
@@ -521,10 +537,6 @@ export const W02_Branches: React.FC = () => {
         ])
       );
     } catch {}
-
-    if (selectedBranchId === room.branchId) {
-      setRooms((prev) => [...prev.filter((r) => r.id !== room.id), restoredItem]);
-    }
 
     // 4. Update manage modal rooms if managing this branch
     if (managingBranch && managingBranch.id === room.branchId) {
@@ -612,10 +624,6 @@ export const W02_Branches: React.FC = () => {
           JSON.stringify([...parsed, createdRoom])
         );
       } catch {}
-
-      if (selectedBranchId === createdRoom.branchId) {
-        setRooms((prev) => [...prev, createdRoom]);
-      }
 
       if (managingBranch && managingBranch.id === createdRoom.branchId) {
         setManageRooms((prev) => [...prev, createdRoom]);
@@ -747,14 +755,6 @@ export const W02_Branches: React.FC = () => {
         }
       } catch {}
 
-      if (selectedBranchId === crossBranchEditRoomForm.branchId) {
-        setRooms((prev) =>
-          prev.map((r) =>
-            r.id === editingCrossBranchRoom.id ? { ...r, ...updates } : r
-          )
-        );
-      }
-
       if (managingBranch) {
         if (
           managingBranch.id === editingCrossBranchRoom.branchId &&
@@ -873,7 +873,6 @@ export const W02_Branches: React.FC = () => {
         const nextBranch = remainingBranches[0];
         if (nextBranch) {
           setSelectedBranchId(nextBranch.id);
-          loadRoomsForBranch(nextBranch.id);
         }
       }
 
@@ -985,61 +984,8 @@ export const W02_Branches: React.FC = () => {
     );
   };
 
-  const loadRoomsForBranch = (branchId: string) => {
-    const cached = localStorage.getItem(`mld_rooms_${branchId}`);
-    if (cached) {
-      try {
-        const parsed: BranchRoom[] = JSON.parse(cached);
-        const filtered = parsed.filter(
-          (r) =>
-            !(
-              r.id.match(/^r-.*-[123]$/) &&
-              (r.name === 'Phòng VIP Hoàng Gia' ||
-                r.name === 'Phòng Trị Liệu Vodder 01' ||
-                r.name === 'Phòng Skincare Hydrafacial')
-            )
-        );
-        setRooms(filtered);
-        return;
-      } catch {}
-    }
-    setRooms([]);
-  };
-
-  const handleSelectBranch = async (branchId: string) => {
+  const handleSelectBranch = (branchId: string) => {
     setSelectedBranchId(branchId);
-    try {
-      const roomRes = await branchService.getRoomsByBranch(branchId);
-      if (roomRes.success && roomRes.data.length > 0) {
-        // Merge with any locally added rooms in localStorage
-        const cached = localStorage.getItem(`mld_rooms_${branchId}`);
-        if (cached) {
-          try {
-            const localRooms: BranchRoom[] = JSON.parse(cached);
-            const liveIds = new Set(roomRes.data.map((r) => r.id));
-            const merged = [...roomRes.data];
-            for (const lr of localRooms) {
-              const isLegacyFake =
-                lr.id.match(/^r-.*-[123]$/) &&
-                (lr.name === 'Phòng VIP Hoàng Gia' ||
-                  lr.name === 'Phòng Trị Liệu Vodder 01' ||
-                  lr.name === 'Phòng Skincare Hydrafacial');
-              if (!liveIds.has(lr.id) && !isLegacyFake) {
-                merged.push(lr);
-              }
-            }
-            setRooms(merged);
-            return;
-          } catch {}
-        }
-        setRooms(roomRes.data);
-      } else {
-        loadRoomsForBranch(branchId);
-      }
-    } catch (err) {
-      console.error('Failed to load rooms:', err);
-      loadRoomsForBranch(branchId);
-    }
   };
 
   // Open Manage Modal
@@ -1149,9 +1095,6 @@ export const W02_Branches: React.FC = () => {
       const updated = [...manageRooms, newRoom];
       setManageRooms(updated);
       localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
-      if (selectedBranchId === managingBranch.id) {
-        setRooms(updated);
-      }
       const joinedNewRoom: BranchRoom & { branchName?: string; branchCode?: string } = {
         ...newRoom,
         branchName: managingBranch.name,
@@ -1179,9 +1122,6 @@ export const W02_Branches: React.FC = () => {
       const updated = [...manageRooms, fallbackRoom];
       setManageRooms(updated);
       localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
-      if (selectedBranchId === managingBranch.id) {
-        setRooms(updated);
-      }
       const joinedFallback: BranchRoom & { branchName?: string; branchCode?: string } = {
         ...fallbackRoom,
         branchName: managingBranch.name,
@@ -1205,51 +1145,21 @@ export const W02_Branches: React.FC = () => {
     );
     setManageRooms(updated);
     localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
-    if (selectedBranchId === managingBranch.id) {
-      setRooms(updated);
-    }
     setAllRooms((prev) =>
       prev.map((r) => (r.id === roomId ? { ...r, isAvailable: nextAvail } : r))
     );
     await branchService.updateRoom(roomId, { isAvailable: nextAvail });
   };
 
-  const handleDeleteRoom = async (roomId: string) => {
+  const handleDeleteRoom = (roomId: string) => {
     if (!managingBranch) return;
     const target = manageRooms.find((r) => r.id === roomId);
     if (!target) return;
-
-    // 1. Gỡ khỏi danh sách phòng hoạt động trên hệ thống
-    const updated = manageRooms.filter((r) => r.id !== roomId);
-    setManageRooms(updated);
-    localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
-    if (selectedBranchId === managingBranch.id) {
-      setRooms(updated);
-    }
-    setAllRooms((prev) => prev.filter((r) => r.id !== roomId));
-
-    // 2. Đưa vào danh sách phòng lưu trữ trong CSDL (Soft Delete)
-    const archivedTarget: BranchRoom = {
+    handleOpenDeleteRoomModal({
       ...target,
-      isAvailable: false,
-      isArchived: true,
-      archivedAt: new Date().toISOString(),
-    };
-    setArchivedRooms((prev) => [archivedTarget, ...prev.filter((r) => r.id !== roomId)]);
-    const archivedJoined: BranchRoom & { branchName?: string; branchCode?: string } = {
-      ...archivedTarget,
       branchName: managingBranch.name,
       branchCode: managingBranch.code,
-    };
-    setAllArchivedRooms((prev) => [archivedJoined, ...prev.filter((r) => r.id !== roomId)]);
-
-    toast.success(
-      'Đã xóa phòng khỏi hệ thống',
-      `Phòng "${target.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi vẫn được bảo toàn nguyên vẹn trong cơ sở dữ liệu.`
-    );
-
-    // 3. Cập nhật soft-delete trên Supabase Cloud (PATCH [ARCHIVED] thay vì DELETE)
-    await branchService.deleteRoom(roomId);
+    });
   };
 
   const handleRestoreRoom = async (roomId: string) => {
@@ -1270,9 +1180,6 @@ export const W02_Branches: React.FC = () => {
     const updated = [...manageRooms, restoredTarget];
     setManageRooms(updated);
     localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
-    if (selectedBranchId === managingBranch.id) {
-      setRooms(updated);
-    }
     const restoredJoined: BranchRoom & { branchName?: string; branchCode?: string } = {
       ...restoredTarget,
       branchName: managingBranch.name,
@@ -1338,9 +1245,6 @@ export const W02_Branches: React.FC = () => {
 
       // Persist rooms
       localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(manageRooms));
-      if (selectedBranchId === managingBranch.id) {
-        setRooms(manageRooms);
-      }
 
       toast.success('Cập nhật cơ sở thành công', `Đã lưu thông tin cơ sở ${editForm.name}.`);
       setIsManageModalOpen(false);
@@ -1442,7 +1346,6 @@ export const W02_Branches: React.FC = () => {
 
       // Cơ sở mới tạo để trống sơ đồ phòng (không tự ý chèn phòng mẫu)
       localStorage.setItem(`mld_rooms_${createdBranch.id}`, JSON.stringify([]));
-      setRooms([]);
 
       toast.success(
         'Thêm chi nhánh thành công',
@@ -1474,25 +1377,37 @@ export const W02_Branches: React.FC = () => {
 
   const hasActiveFilter = searchTerm.trim().length > 0 || selectedCity !== 'ALL' || selectedStatus !== 'ALL';
 
-  const filteredBranches = branches.filter((b) => {
-    if (selectedCity !== 'ALL' && !matchSearch(b.city, selectedCity)) {
-      return false;
-    }
-    if (selectedStatus === 'ACTIVE' && !b.isActive) return false;
-    if (selectedStatus === 'INACTIVE' && b.isActive) return false;
+  const filteredBranches = useMemo(() => {
+    return branches.filter((b) => {
+      if (selectedCity !== 'ALL' && !matchSearch(b.city, selectedCity)) {
+        return false;
+      }
+      if (selectedStatus === 'ACTIVE' && !b.isActive) return false;
+      if (selectedStatus === 'INACTIVE' && b.isActive) return false;
 
-    if (!searchTerm.trim()) return true;
-    return matchSearch(
-      [b.name, b.code, b.address, b.district, b.city, b.phone],
-      searchTerm
+      if (!searchTerm.trim()) return true;
+      return matchSearch(
+        [b.name, b.code, b.address, b.district, b.city, b.phone],
+        searchTerm
+      );
+    });
+  }, [branches, selectedCity, selectedStatus, searchTerm]);
+
+  const totalBranchPages = Math.max(1, Math.ceil(filteredBranches.length / branchPageSize));
+
+  const paginatedBranches = useMemo(() => {
+    const start = (branchPage - 1) * branchPageSize;
+    return filteredBranches.slice(start, start + branchPageSize);
+  }, [filteredBranches, branchPage, branchPageSize]);
+
+  const selectedBranch = useMemo(() => {
+    return (
+      filteredBranches.find((b) => b.id === selectedBranchId) ||
+      filteredBranches[0] ||
+      branches.find((b) => b.id === selectedBranchId) ||
+      branches[0]
     );
-  });
-
-  const selectedBranch =
-    filteredBranches.find((b) => b.id === selectedBranchId) ||
-    filteredBranches[0] ||
-    branches.find((b) => b.id === selectedBranchId) ||
-    branches[0];
+  }, [filteredBranches, branches, selectedBranchId]);
 
   const hasActiveRoomFilter =
     roomSearchTerm.trim().length > 0 ||
@@ -1500,23 +1415,46 @@ export const W02_Branches: React.FC = () => {
     selectedRoomType !== 'ALL' ||
     selectedRoomAvailability !== 'ALL';
 
-  const filteredRooms = allRooms.filter((r) => {
-    if (selectedRoomBranch !== 'ALL' && r.branchId !== selectedRoomBranch) return false;
-    if (selectedRoomType !== 'ALL' && r.roomType !== selectedRoomType) return false;
-    if (selectedRoomAvailability === 'YES' && !r.isAvailable) return false;
-    if (selectedRoomAvailability === 'NO' && r.isAvailable) return false;
+  const filteredRooms = useMemo(() => {
+    return allRooms.filter((r) => {
+      if (selectedRoomBranch !== 'ALL' && r.branchId !== selectedRoomBranch) return false;
+      if (selectedRoomType !== 'ALL' && r.roomType !== selectedRoomType) return false;
+      if (selectedRoomAvailability === 'YES' && !r.isAvailable) return false;
+      if (selectedRoomAvailability === 'NO' && r.isAvailable) return false;
 
-    if (!roomSearchTerm.trim()) return true;
-    return matchSearch(
-      [
-        r.name,
-        r.branchName || '',
-        r.branchCode || '',
-        roomTypeLabels[r.roomType] || r.roomType,
-      ],
-      roomSearchTerm
-    );
-  });
+      if (!roomSearchTerm.trim()) return true;
+      return matchSearch(
+        [
+          r.name,
+          r.branchName || '',
+          r.branchCode || '',
+          roomTypeLabels[r.roomType] || r.roomType,
+        ],
+        roomSearchTerm
+      );
+    });
+  }, [allRooms, selectedRoomBranch, selectedRoomType, selectedRoomAvailability, roomSearchTerm]);
+
+  const totalRoomPages = Math.max(1, Math.ceil(filteredRooms.length / roomPageSize));
+
+  const paginatedRooms = useMemo(() => {
+    const start = (roomPage - 1) * roomPageSize;
+    return filteredRooms.slice(start, start + roomPageSize);
+  }, [filteredRooms, roomPage, roomPageSize]);
+
+  // Derived rooms for selected branch inspection (Single Source of Truth)
+  const rooms = useMemo(() => {
+    return allRooms.filter((r) => r.branchId === selectedBranchId);
+  }, [allRooms, selectedBranchId]);
+
+  // Reset pagination when search/filter criteria change
+  useEffect(() => {
+    setBranchPage(1);
+  }, [searchTerm, selectedCity, selectedStatus, branchPageSize]);
+
+  useEffect(() => {
+    setRoomPage(1);
+  }, [roomSearchTerm, selectedRoomBranch, selectedRoomType, selectedRoomAvailability, roomPageSize]);
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -1747,7 +1685,7 @@ export const W02_Branches: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredBranches.map((branch) => {
+                paginatedBranches.map((branch) => {
                   const isSelected = branch.id === selectedBranchId;
                   return (
                     <tr
@@ -1867,23 +1805,41 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Pagination Footer */}
-        <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
-          <span className="text-[11px]">
-            Hiển thị {filteredBranches.length} / {branches.length} cơ sở
+        <div className="p-3 bg-white border-t border-[#EFE4D9] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#8A796B]">
+          <span className="text-[12px] font-medium text-[#73675F]">
+            {filteredBranches.length.toLocaleString('vi-VN')} bản ghi
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="Số bản ghi mỗi trang"
+              value={branchPageSize}
+              onChange={(e) => setBranchPageSize(Number(e.target.value))}
+              className="px-2.5 py-1 text-xs bg-white border border-[#E0D7CC] rounded-lg text-[#2C241E] focus:outline-none focus:ring-1 focus:ring-[#985018] cursor-pointer"
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n} / trang
+                </option>
+              ))}
+            </select>
             <button
-              disabled
-              className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+              type="button"
+              title="Trang trước"
+              disabled={branchPage <= 1}
+              onClick={() => setBranchPage((p) => Math.max(1, p - 1))}
+              className="w-7 h-7 rounded-lg flex items-center justify-center border border-[#E0D7CC] bg-white text-[#73675F] hover:bg-[#FAF8F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <button className="w-6 h-6 rounded-md flex items-center justify-center bg-[#E6D4C3] text-[#783D19] font-bold text-[11px]">
-              1
-            </button>
+            <span className="px-1 text-xs font-semibold text-[#2C241E]">
+              {branchPage} / {totalBranchPages}
+            </span>
             <button
-              disabled
-              className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+              type="button"
+              title="Trang sau"
+              disabled={branchPage >= totalBranchPages}
+              onClick={() => setBranchPage((p) => Math.min(totalBranchPages, p + 1))}
+              className="w-7 h-7 rounded-lg flex items-center justify-center border border-[#E0D7CC] bg-white text-[#73675F] hover:bg-[#FAF8F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -2288,7 +2244,7 @@ export const W02_Branches: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredRooms.map((room) => (
+                paginatedRooms.map((room) => (
                   <tr key={room.id} className="hover:bg-[#FAF6F0] transition-colors bg-white">
                     {/* Tên */}
                     <td className="py-3.5 px-5">
@@ -2387,23 +2343,41 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Pagination Footer */}
-        <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
-          <span className="text-[11px]">
-            Hiển thị {filteredRooms.length} / {allRooms.length} phòng dịch vụ toàn hệ thống
+        <div className="p-3 bg-white border-t border-[#EFE4D9] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#8A796B]">
+          <span className="text-[12px] font-medium text-[#73675F]">
+            {filteredRooms.length.toLocaleString('vi-VN')} bản ghi
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="Số phòng mỗi trang"
+              value={roomPageSize}
+              onChange={(e) => setRoomPageSize(Number(e.target.value))}
+              className="px-2.5 py-1 text-xs bg-white border border-[#E0D7CC] rounded-lg text-[#2C241E] focus:outline-none focus:ring-1 focus:ring-[#985018] cursor-pointer"
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n} / trang
+                </option>
+              ))}
+            </select>
             <button
-              disabled
-              className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+              type="button"
+              title="Trang trước"
+              disabled={roomPage <= 1}
+              onClick={() => setRoomPage((p) => Math.max(1, p - 1))}
+              className="w-7 h-7 rounded-lg flex items-center justify-center border border-[#E0D7CC] bg-white text-[#73675F] hover:bg-[#FAF8F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <button className="w-6 h-6 rounded-md flex items-center justify-center bg-[#E6D4C3] text-[#783D19] font-bold text-[11px]">
-              1
-            </button>
+            <span className="px-1 text-xs font-semibold text-[#2C241E]">
+              {roomPage} / {totalRoomPages}
+            </span>
             <button
-              disabled
-              className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+              type="button"
+              title="Trang sau"
+              disabled={roomPage >= totalRoomPages}
+              onClick={() => setRoomPage((p) => Math.min(totalRoomPages, p + 1))}
+              className="w-7 h-7 rounded-lg flex items-center justify-center border border-[#E0D7CC] bg-white text-[#73675F] hover:bg-[#FAF8F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -4221,6 +4195,113 @@ export const W02_Branches: React.FC = () => {
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Xác nhận xóa chi nhánh</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 5: XÁC NHẬN XÓA PHÒNG DỊCH VỤ (SOFT DELETE - PRESERVE CSDL) */}
+      {/* ============================================================== */}
+      {isDeleteRoomModalOpen && roomToDelete && (
+        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
+          <div className="bg-[#FAF8F5] rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#2C241E]">
+                    Xác nhận xóa phòng dịch vụ
+                  </h3>
+                  <p className="text-xs text-[#73675F]">
+                    Ẩn phòng khỏi hệ thống và bảo toàn dữ liệu trong CSDL
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteRoomModalOpen(false);
+                  setRoomToDelete(null);
+                }}
+                className="w-8 h-8 rounded-full hover:bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B] hover:text-[#2C241E] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 space-y-4">
+              <div className="p-4 bg-white rounded-2xl border border-[#EFE4D9] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-[#2C241E]">{roomToDelete.name}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium border ${getRoomTypeBadgeStyle(
+                      roomToDelete.roomType
+                    )}`}
+                  >
+                    {roomTypeLabels[roomToDelete.roomType] || roomToDelete.roomType}
+                  </span>
+                </div>
+                <div className="text-xs text-[#73675F] flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-[#985018]" />
+                  <span>
+                    {roomToDelete.branchName || 'Cơ sở MLD'}{' '}
+                    {roomToDelete.branchCode ? `(${roomToDelete.branchCode})` : ''}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#8C7A6B] flex items-center gap-1.5">
+                  <Bed className="w-3.5 h-3.5 text-[#8C7A6B]" />
+                  <span>
+                    Sức chứa:{' '}
+                    <strong className="text-[#2C241E]">{roomToDelete.bedCapacity} giường trị liệu</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Policy alert */}
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-amber-900 leading-relaxed">
+                  <strong>Chính sách lưu trữ cơ sở dữ liệu:</strong> Khi xóa, phòng sẽ được ẩn khỏi hệ thống vận hành, sơ đồ phòng và không tiếp nhận đặt hẹn mới. Dữ liệu phòng cùng toàn bộ lịch sử sử dụng phòng <strong>vẫn được bảo toàn nguyên vẹn 100% trong CSDL Supabase</strong> và có thể khôi phục lại bất kỳ lúc nào.
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-white border-t border-[#EFE4D9] flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeletingRoom}
+                onClick={() => {
+                  setIsDeleteRoomModalOpen(false);
+                  setRoomToDelete(null);
+                }}
+                className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingRoom}
+                onClick={handleConfirmDeleteRoom}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                {isDeletingRoom ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xác nhận xóa phòng</span>
                   </>
                 )}
               </button>
