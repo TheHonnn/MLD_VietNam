@@ -971,6 +971,20 @@ export const W02_Branches: React.FC = () => {
     await branchService.restoreBranch(branch.id);
   };
 
+  const handleSetWorkingBranch = (branchId: string, branchName: string) => {
+    setGlobalWorkingBranchId(branchId);
+    localStorage.setItem('mld_selected_branch_id', branchId);
+    window.dispatchEvent(
+      new CustomEvent('mld_branch_changed', {
+        detail: { branchId },
+      })
+    );
+    toast.success(
+      'Đã đổi chi nhánh làm việc',
+      `Đã kích hoạt "${branchName}" làm cơ sở làm việc hiện tại trên toàn hệ thống.`
+    );
+  };
+
   const loadRoomsForBranch = (branchId: string) => {
     const cached = localStorage.getItem(`mld_rooms_${branchId}`);
     if (cached) {
@@ -1964,14 +1978,32 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleOpenManageModal(selectedBranch)}
-                  className="px-3 py-1.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 self-start cursor-pointer"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                  <span>Quản lý cơ sở này</span>
-                </button>
+                <div className="flex items-center gap-2 self-start flex-wrap">
+                  {selectedBranch.id === globalWorkingBranchId ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Cơ sở làm việc chính</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSetWorkingBranch(selectedBranch.id, selectedBranch.name)}
+                      className="px-2.5 py-1.5 bg-[#FAF0E4] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DACB] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      title="Đặt làm cơ sở làm việc hiện tại trên toàn hệ thống"
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Đặt làm cơ sở làm việc</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenManageModal(selectedBranch)}
+                    className="px-3 py-1.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>Quản lý cơ sở này</span>
+                  </button>
+                </div>
               </div>
 
               <div className="text-xs font-semibold text-[#2C241E] mt-1">
