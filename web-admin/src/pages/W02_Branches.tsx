@@ -394,6 +394,50 @@ export const W02_Branches: React.FC = () => {
     };
   }, []);
 
+  // Global Escape key listener to dismiss topmost active modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isDeleteRoomModalOpen && !isDeletingRoom) {
+          setIsDeleteRoomModalOpen(false);
+          setRoomToDelete(null);
+        } else if (isDeleteBranchModalOpen && !isDeletingBranch) {
+          setIsDeleteBranchModalOpen(false);
+          setBranchToDelete(null);
+        } else if (isCrossBranchViewRoomOpen) {
+          setIsCrossBranchViewRoomOpen(false);
+          setViewingCrossBranchRoom(null);
+        } else if (isCrossBranchEditRoomOpen && !isCrossBranchEditingRoom) {
+          setIsCrossBranchEditRoomOpen(false);
+          setEditingCrossBranchRoom(null);
+        } else if (isCrossBranchCreateRoomOpen && !isCrossBranchCreatingRoom) {
+          setIsCrossBranchCreateRoomOpen(false);
+        } else if (isManageModalOpen && !isSavingBranch) {
+          setIsManageModalOpen(false);
+        } else if (isCreateModalOpen && !isSubmitting) {
+          setIsCreateModalOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isDeleteRoomModalOpen,
+    isDeletingRoom,
+    isDeleteBranchModalOpen,
+    isDeletingBranch,
+    isCrossBranchViewRoomOpen,
+    isCrossBranchEditRoomOpen,
+    isCrossBranchEditingRoom,
+    isCrossBranchCreateRoomOpen,
+    isCrossBranchCreatingRoom,
+    isManageModalOpen,
+    isSavingBranch,
+    isCreateModalOpen,
+    isSubmitting,
+  ]);
+
   // Toggle availability of room in cross-branch view
   const handleToggleCrossBranchRoomAvailability = async (
     room: BranchRoom & { branchName?: string }
@@ -554,8 +598,14 @@ export const W02_Branches: React.FC = () => {
 
   // Open cross-branch create room modal
   const handleOpenCrossBranchCreateRoom = () => {
+    const defaultBranchId =
+      (selectedRoomBranch !== 'ALL' && selectedRoomBranch) ||
+      (selectedBranchId && branches.some((b) => b.id === selectedBranchId)
+        ? selectedBranchId
+        : branches[0]?.id || '');
+
     setCrossBranchCreateRoomForm({
-      branchId: selectedBranchId || (branches[0]?.id ?? ''),
+      branchId: defaultBranchId,
       name: '',
       roomType: '',
       bedCapacity: '',
@@ -1246,6 +1296,30 @@ export const W02_Branches: React.FC = () => {
       // Persist rooms
       localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(manageRooms));
 
+      // Sync updated branch name and code across room master lists
+      setAllRooms((prev) =>
+        prev.map((r) =>
+          r.branchId === managingBranch.id
+            ? {
+                ...r,
+                branchName: updates.name || r.branchName,
+                branchCode: updates.code || r.branchCode,
+              }
+            : r
+        )
+      );
+      setAllArchivedRooms((prev) =>
+        prev.map((r) =>
+          r.branchId === managingBranch.id
+            ? {
+                ...r,
+                branchName: updates.name || r.branchName,
+                branchCode: updates.code || r.branchCode,
+              }
+            : r
+        )
+      );
+
       toast.success('Cập nhật cơ sở thành công', `Đã lưu thông tin cơ sở ${editForm.name}.`);
       setIsManageModalOpen(false);
       window.dispatchEvent(new CustomEvent('mld_branches_updated'));
@@ -1409,6 +1483,13 @@ export const W02_Branches: React.FC = () => {
     );
   }, [filteredBranches, branches, selectedBranchId]);
 
+  const activeBranchIds = useMemo(() => new Set(branches.map((b) => b.id)), [branches]);
+
+  const activeRoomsCount = useMemo(
+    () => allRooms.filter((r) => activeBranchIds.has(r.branchId)).length,
+    [allRooms, activeBranchIds]
+  );
+
   const hasActiveRoomFilter =
     roomSearchTerm.trim().length > 0 ||
     selectedRoomBranch !== 'ALL' ||
@@ -1417,6 +1498,8 @@ export const W02_Branches: React.FC = () => {
 
   const filteredRooms = useMemo(() => {
     return allRooms.filter((r) => {
+      // Ẩn phòng thuộc các chi nhánh đã xóa/lưu trữ khỏi danh sách phòng vận hành
+      if (!activeBranchIds.has(r.branchId)) return false;
       if (selectedRoomBranch !== 'ALL' && r.branchId !== selectedRoomBranch) return false;
       if (selectedRoomType !== 'ALL' && r.roomType !== selectedRoomType) return false;
       if (selectedRoomAvailability === 'YES' && !r.isAvailable) return false;
@@ -1433,7 +1516,7 @@ export const W02_Branches: React.FC = () => {
         roomSearchTerm
       );
     });
-  }, [allRooms, selectedRoomBranch, selectedRoomType, selectedRoomAvailability, roomSearchTerm]);
+  }, [allRooms, activeBranchIds, selectedRoomBranch, selectedRoomType, selectedRoomAvailability, roomSearchTerm]);
 
   const totalRoomPages = Math.max(1, Math.ceil(filteredRooms.length / roomPageSize));
 
@@ -1446,6 +1529,13 @@ export const W02_Branches: React.FC = () => {
   const rooms = useMemo(() => {
     return allRooms.filter((r) => r.branchId === selectedBranchId);
   }, [allRooms, selectedBranchId]);
+
+  // Auto-reset selectedRoomBranch if selected branch was deleted
+  useEffect(() => {
+    if (selectedRoomBranch !== 'ALL' && !activeBranchIds.has(selectedRoomBranch)) {
+      setSelectedRoomBranch('ALL');
+    }
+  }, [activeBranchIds, selectedRoomBranch]);
 
   // Reset pagination when search/filter criteria change
   useEffect(() => {
@@ -1538,7 +1628,7 @@ export const W02_Branches: React.FC = () => {
                 : 'bg-[#F4ECE3] text-[#73675F]'
             }`}
           >
-            {allRooms.length}
+            {activeRoomsCount}
           </span>
           {activeMainTab === 'rooms' && (
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#985018] rounded-t-full" />
@@ -2053,23 +2143,36 @@ export const W02_Branches: React.FC = () => {
                 rooms.map((r) => (
                   <div
                     key={r.id}
-                    className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] flex items-center justify-between text-xs"
+                    className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] flex items-center justify-between text-xs hover:border-[#D7BBA6] transition-colors group"
                   >
-                    <div>
-                      <div className="font-bold text-[#2C241E]">{r.name}</div>
+                    <div className="min-w-0 flex-1 pr-2">
+                      <div className="font-bold text-[#2C241E] truncate">{r.name}</div>
                       <div className="text-[10px] text-[#8C7A6B]">
                         {roomTypeLabels[r.roomType] || r.roomType} • {r.bedCapacity} giường
                       </div>
                     </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        r.isAvailable
-                          ? 'bg-[#E8EFE5] text-[#526D51]'
-                          : 'bg-[#FBEBEB] text-[#B83E3E]'
-                      }`}
-                    >
-                      {r.isAvailable ? 'Sẵn sàng' : 'Đang bận'}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCrossBranchRoomAvailability(r)}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                          r.isAvailable
+                            ? 'bg-[#E8EFE5] text-[#526D51] hover:bg-[#D5E3CF]'
+                            : 'bg-[#FBEBEB] text-[#B83E3E] hover:bg-[#F3D5D5]'
+                        }`}
+                        title="Bấm để chuyển đổi trạng thái sẵn sàng"
+                      >
+                        {r.isAvailable ? 'Sẵn sàng' : 'Đang bận'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCrossBranchEditRoom(r)}
+                        className="p-1 text-[#8C7A6B] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer opacity-70 group-hover:opacity-100"
+                        title="Chỉnh sửa thông tin phòng"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -2426,8 +2529,16 @@ export const W02_Branches: React.FC = () => {
 
       {/* 5. Modal Quản Lý Cơ Sở Chi Nhánh (Full Interactive Management Modal) */}
       {isManageModalOpen && managingBranch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div
+          onClick={() => {
+            if (!isSavingBranch) setIsManageModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          >
             {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b border-[#EFE4D9] bg-[#FAF8F5]">
               <div className="flex items-center gap-3">
@@ -3228,8 +3339,16 @@ export const W02_Branches: React.FC = () => {
 
       {/* 6. Modal Thêm Chi Nhánh Mới */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div
+          onClick={() => {
+            if (!isSubmitting) setIsCreateModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          >
             {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b border-[#EFE4D9] bg-[#FAF8F5]">
               <div className="flex items-center gap-3">
@@ -3539,8 +3658,16 @@ export const W02_Branches: React.FC = () => {
       {/* MODAL 1: TẠO PHÒNG DỊCH VỤ TOÀN HỆ THỐNG (CROSS-BRANCH CREATE) */}
       {/* ============================================================== */}
       {isCrossBranchCreateRoomOpen && (
-        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div
+          onClick={() => {
+            if (!isCrossBranchCreatingRoom) setIsCrossBranchCreateRoomOpen(false);
+          }}
+          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Header */}
             <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
@@ -3738,8 +3865,19 @@ export const W02_Branches: React.FC = () => {
       {/* MODAL 2: CHỈNH SỬA PHÒNG DỊCH VỤ TOÀN HỆ THỐNG (EDIT ROOM)   */}
       {/* ============================================================== */}
       {isCrossBranchEditRoomOpen && editingCrossBranchRoom && (
-        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div
+          onClick={() => {
+            if (!isCrossBranchEditingRoom) {
+              setIsCrossBranchEditRoomOpen(false);
+              setEditingCrossBranchRoom(null);
+            }
+          }}
+          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Header */}
             <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
@@ -3941,8 +4079,17 @@ export const W02_Branches: React.FC = () => {
       {/* MODAL 3: XEM CHI TIẾT PHÒNG DỊCH VỤ (VIEW ROOM DETAILS)        */}
       {/* ============================================================== */}
       {isCrossBranchViewRoomOpen && viewingCrossBranchRoom && (
-        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div
+          onClick={() => {
+            setIsCrossBranchViewRoomOpen(false);
+            setViewingCrossBranchRoom(null);
+          }}
+          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Header */}
             <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
@@ -4084,8 +4231,19 @@ export const W02_Branches: React.FC = () => {
       {/* MODAL 4: XÁC NHẬN XÓA CHI NHÁNH (SOFT DELETE - PRESERVE CSDL) */}
       {/* ============================================================== */}
       {isDeleteBranchModalOpen && branchToDelete && (
-        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-[#FAF8F5] rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div
+          onClick={() => {
+            if (!isDeletingBranch) {
+              setIsDeleteBranchModalOpen(false);
+              setBranchToDelete(null);
+            }
+          }}
+          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FAF8F5] rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Header */}
             <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
@@ -4179,8 +4337,19 @@ export const W02_Branches: React.FC = () => {
       {/* MODAL 5: XÁC NHẬN XÓA PHÒNG DỊCH VỤ (SOFT DELETE - PRESERVE CSDL) */}
       {/* ============================================================== */}
       {isDeleteRoomModalOpen && roomToDelete && (
-        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
-          <div className="bg-[#FAF8F5] rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div
+          onClick={() => {
+            if (!isDeletingRoom) {
+              setIsDeleteRoomModalOpen(false);
+              setRoomToDelete(null);
+            }
+          }}
+          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-[60] p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FAF8F5] rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Header */}
             <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
