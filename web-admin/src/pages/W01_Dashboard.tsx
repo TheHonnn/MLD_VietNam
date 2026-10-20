@@ -43,7 +43,6 @@ import {
   DailyRevenueItem,
 } from '../components/dashboard/MultiColorLineChart';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { RealtimeStatusBadge } from '../components/common/RealtimeStatusBadge';
 
 type DateRangePreset = '7D' | 'TODAY' | '30D' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
 
@@ -633,18 +632,15 @@ export const W01_Dashboard: React.FC = () => {
             Tổng quan vận hành
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Bức tranh vận hành chuỗi spa và học viện • <span className="text-[#15803D] font-semibold">Đồng bộ trực tiếp</span>
+            Bức tranh vận hành chuỗi spa và học viện
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
-          <RealtimeStatusBadge onRefresh={() => fetchData(false)} />
-          <Link
-            to="/reports"
-            className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center shrink-0"
-          >
-            Xem báo cáo doanh thu
-          </Link>
-        </div>
+        <Link
+          to="/reports"
+          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center shrink-0"
+        >
+          Xem báo cáo doanh thu
+        </Link>
       </div>
 
       {/* 2. Interactive Filter Bar Box */}
