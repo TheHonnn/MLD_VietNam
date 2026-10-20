@@ -28,6 +28,10 @@ import {
   Info,
   ShieldCheck,
   Copy,
+  RefreshCw,
+  Eye,
+  Pencil,
+  Filter,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
@@ -44,6 +48,25 @@ const roomTypeLabels: Record<string, string> = {
   PRACTICE_LAB: 'Phòng Thực Hành Lâm Sàng Lab',
 };
 
+const getRoomTypeBadgeStyle = (type: string) => {
+  switch (type) {
+    case 'VIP_ROOM':
+      return 'bg-amber-50 text-amber-800 border-amber-200';
+    case 'MASSAGE_ROOM':
+      return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+    case 'HEAD_SPA_ROOM':
+      return 'bg-cyan-50 text-cyan-800 border-cyan-200';
+    case 'SKINCARE_ROOM':
+      return 'bg-rose-50 text-rose-800 border-rose-200';
+    case 'ACADEMY_CLASSROOM':
+      return 'bg-purple-50 text-purple-800 border-purple-200';
+    case 'PRACTICE_LAB':
+      return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+    default:
+      return 'bg-[#FAF0E4] text-[#8A4F23] border-[#E8DACB]';
+  }
+};
+
 export const W02_Branches: React.FC = () => {
   const navigate = useNavigate();
 
@@ -58,6 +81,62 @@ export const W02_Branches: React.FC = () => {
   const [rooms, setRooms] = useState<BranchRoom[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Main Top-level Tabs: 'branches' (Chi nhánh) vs 'rooms' (Phòng dịch vụ)
+  const [activeMainTab, setActiveMainTab] = useState<'branches' | 'rooms'>('branches');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // All Rooms Across System (Tab 'Phòng dịch vụ')
+  const [allRooms, setAllRooms] = useState<(BranchRoom & { branchName?: string; branchCode?: string })[]>([]);
+  const [allArchivedRooms, setAllArchivedRooms] = useState<(BranchRoom & { branchName?: string; branchCode?: string })[]>([]);
+  const [roomSearchTerm, setRoomSearchTerm] = useState('');
+  const [selectedRoomBranch, setSelectedRoomBranch] = useState('ALL');
+  const [selectedRoomType, setSelectedRoomType] = useState('ALL');
+  const [selectedRoomAvailability, setSelectedRoomAvailability] = useState('ALL');
+  const [showAllArchivedDrawer, setShowAllArchivedDrawer] = useState(false);
+
+  // Cross-Branch Create Room Modal
+  const [isCrossBranchCreateRoomOpen, setIsCrossBranchCreateRoomOpen] = useState(false);
+  const [isCrossBranchCreatingRoom, setIsCrossBranchCreatingRoom] = useState(false);
+  const [crossBranchCreateRoomForm, setCrossBranchCreateRoomForm] = useState<{
+    branchId: string;
+    name: string;
+    roomType: RoomType | '';
+    bedCapacity: number | '';
+    isAvailable: boolean;
+  }>({
+    branchId: '',
+    name: '',
+    roomType: '',
+    bedCapacity: '',
+    isAvailable: true,
+  });
+
+  // Cross-Branch Edit Room Modal
+  const [isCrossBranchEditRoomOpen, setIsCrossBranchEditRoomOpen] = useState(false);
+  const [isCrossBranchEditingRoom, setIsCrossBranchEditingRoom] = useState(false);
+  const [editingCrossBranchRoom, setEditingCrossBranchRoom] = useState<
+    (BranchRoom & { branchName?: string; branchCode?: string }) | null
+  >(null);
+  const [crossBranchEditRoomForm, setCrossBranchEditRoomForm] = useState<{
+    branchId: string;
+    name: string;
+    roomType: RoomType | '';
+    bedCapacity: number | '';
+    isAvailable: boolean;
+  }>({
+    branchId: '',
+    name: '',
+    roomType: '',
+    bedCapacity: '',
+    isAvailable: true,
+  });
+
+  // Cross-Branch View Room Modal
+  const [isCrossBranchViewRoomOpen, setIsCrossBranchViewRoomOpen] = useState(false);
+  const [viewingCrossBranchRoom, setViewingCrossBranchRoom] = useState<
+    (BranchRoom & { branchName?: string; branchCode?: string }) | null
+  >(null);
 
   // Create Branch Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -150,55 +229,124 @@ export const W02_Branches: React.FC = () => {
     setIsCustomEditDistrict(false);
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const loadAllData = async (isManualRefresh = false) => {
+    if (isManualRefresh) setIsRefreshing(true);
+    try {
+      const [brRes, srvRes, allRoomsRes, archivedRoomsRes] = await Promise.all([
+        branchService.getAllBranches(),
+        treatmentService.getServices(),
+        branchService.getAllRooms(),
+        branchService.getAllArchivedRooms(),
+      ]);
+
+      let allBranches = brRes.success && brRes.data.length > 0 ? brRes.data : [];
+
+      // Merge with local storage branches
       try {
-        const [brRes, srvRes] = await Promise.all([
-          branchService.getAllBranches(),
-          treatmentService.getServices(),
-        ]);
+        const stored = localStorage.getItem('mld_custom_branches');
+        if (stored) {
+          const parsed: Branch[] = JSON.parse(stored);
+          const remoteIds = new Set(allBranches.map((b) => b.id));
+          const newCustom = parsed.filter((b) => !remoteIds.has(b.id));
+          allBranches = [...newCustom, ...allBranches];
+        }
+      } catch {}
 
-        let allBranches = brRes.success && brRes.data.length > 0 ? brRes.data : [];
+      setBranches(allBranches);
 
-        // Merge with local storage branches
-        try {
-          const stored = localStorage.getItem('mld_custom_branches');
-          if (stored) {
-            const parsed: Branch[] = JSON.parse(stored);
-            const remoteIds = new Set(allBranches.map((b) => b.id));
-            const newCustom = parsed.filter((b) => !remoteIds.has(b.id));
-            allBranches = [...newCustom, ...allBranches];
-          }
-        } catch {}
+      // Join rooms with branch info
+      let combinedRooms: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
+      if (allRoomsRes.success && allRoomsRes.data) {
+        combinedRooms = allRoomsRes.data.map((r) => {
+          const b = allBranches.find((item) => item.id === r.branchId);
+          return {
+            ...r,
+            branchName: b?.name || 'Cơ sở MLD',
+            branchCode: b?.code || '',
+          };
+        });
+      }
 
-        setBranches(allBranches);
-        if (allBranches.length > 0) {
-          const savedPref = localStorage.getItem('mld_selected_branch_id');
-          const targetId = savedPref && allBranches.some((b) => b.id === savedPref)
+      // Merge cached local rooms
+      for (const b of allBranches) {
+        const cached = localStorage.getItem(`mld_rooms_${b.id}`);
+        if (cached) {
+          try {
+            const parsed: BranchRoom[] = JSON.parse(cached);
+            for (const lr of parsed) {
+              const isLegacyFake =
+                lr.id.match(/^r-.*-[123]$/) &&
+                (lr.name === 'Phòng VIP Hoàng Gia' ||
+                  lr.name === 'Phòng Trị Liệu Vodder 01' ||
+                  lr.name === 'Phòng Skincare Hydrafacial');
+              if (!combinedRooms.some((cr) => cr.id === lr.id) && !isLegacyFake) {
+                combinedRooms.push({
+                  ...lr,
+                  branchName: b.name,
+                  branchCode: b.code,
+                });
+              }
+            }
+          } catch {}
+        }
+      }
+      setAllRooms(combinedRooms);
+
+      // Join archived rooms with branch info
+      let combinedArchived: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
+      if (archivedRoomsRes.success && archivedRoomsRes.data) {
+        combinedArchived = archivedRoomsRes.data.map((r) => {
+          const b = allBranches.find((item) => item.id === r.branchId);
+          return {
+            ...r,
+            branchName: b?.name || 'Cơ sở MLD',
+            branchCode: b?.code || '',
+          };
+        });
+      }
+      setAllArchivedRooms(combinedArchived);
+
+      if (allBranches.length > 0) {
+        const savedPref = localStorage.getItem('mld_selected_branch_id');
+        const targetId =
+          savedPref && allBranches.some((b) => b.id === savedPref)
             ? savedPref
             : allBranches[0].id;
-          setSelectedBranchId(targetId);
-          if (savedPref && savedPref !== 'ALL') {
-            setGlobalWorkingBranchId(savedPref);
-          } else {
-            setGlobalWorkingBranchId(allBranches[0].id);
-          }
-
-          const roomRes = await branchService.getRoomsByBranch(targetId);
-          if (roomRes.success && roomRes.data.length > 0) {
-            setRooms(roomRes.data);
-          } else {
-            loadRoomsForBranch(targetId);
-          }
+        setSelectedBranchId(targetId);
+        if (savedPref && savedPref !== 'ALL') {
+          setGlobalWorkingBranchId(savedPref);
+        } else {
+          setGlobalWorkingBranchId(allBranches[0].id);
         }
-        if (srvRes.success) setServices(srvRes.data);
-      } catch (err) {
-        console.error('Failed to load branches:', err);
-      } finally {
-        setIsLoading(false);
+
+        const roomRes = await branchService.getRoomsByBranch(targetId);
+        if (roomRes.success && roomRes.data.length > 0) {
+          setRooms(roomRes.data);
+        } else {
+          loadRoomsForBranch(targetId);
+        }
       }
-    };
-    fetchData();
+      if (srvRes.success) setServices(srvRes.data);
+
+      if (isManualRefresh) {
+        toast.success(
+          'Đã làm mới dữ liệu',
+          'Danh mục chi nhánh và phòng dịch vụ đã được đồng bộ trực tiếp từ Supabase Cloud.'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to load branches & rooms:', err);
+      if (isManualRefresh) {
+        toast.error('Lỗi làm mới', 'Không thể đồng bộ dữ liệu vào lúc này.');
+      }
+    } finally {
+      setIsLoading(false);
+      if (isManualRefresh) setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
 
     const handleGlobalBranchChange = (e: any) => {
       const bId = e?.detail?.branchId;
@@ -211,6 +359,404 @@ export const W02_Branches: React.FC = () => {
       window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
     };
   }, []);
+
+  // Toggle availability of room in cross-branch view
+  const handleToggleCrossBranchRoomAvailability = async (
+    room: BranchRoom & { branchName?: string }
+  ) => {
+    const nextAvail = !room.isAvailable;
+    setAllRooms((prev) =>
+      prev.map((r) => (r.id === room.id ? { ...r, isAvailable: nextAvail } : r))
+    );
+
+    try {
+      const cached = localStorage.getItem(`mld_rooms_${room.branchId}`);
+      if (cached) {
+        const parsed: BranchRoom[] = JSON.parse(cached);
+        const updated = parsed.map((r) =>
+          r.id === room.id ? { ...r, isAvailable: nextAvail } : r
+        );
+        localStorage.setItem(`mld_rooms_${room.branchId}`, JSON.stringify(updated));
+      }
+    } catch {}
+
+    if (selectedBranchId === room.branchId) {
+      setRooms((prev) =>
+        prev.map((r) => (r.id === room.id ? { ...r, isAvailable: nextAvail } : r))
+      );
+    }
+
+    toast.info(
+      'Cập nhật trạng thái phòng',
+      `Phòng "${room.name}" hiện ${nextAvail ? 'sẵn sàng đón khách' : 'tạm dừng nhận khách'}.`
+    );
+
+    await branchService.updateRoom(room.id, { isAvailable: nextAvail });
+  };
+
+  // Soft delete room from cross-branch view (Xóa khỏi hệ thống, giữ trong CSDL)
+  const handleDeleteCrossBranchRoom = async (
+    room: BranchRoom & { branchName?: string }
+  ) => {
+    if (
+      !window.confirm(
+        `Bạn có chắc chắn muốn xóa phòng "${room.name}" (${room.branchName || 'Cơ sở'}) khỏi hệ thống vận hành?\n\nLưu ý: Dữ liệu phòng vẫn được bảo toàn 100% trong cơ sở dữ liệu Supabase để giữ toàn vẹn lịch sử đặt hẹn.`
+      )
+    ) {
+      return;
+    }
+
+    // 1. Remove from allRooms
+    setAllRooms((prev) => prev.filter((r) => r.id !== room.id));
+
+    // 2. Add to allArchivedRooms
+    const archivedItem: BranchRoom & { branchName?: string; branchCode?: string } = {
+      ...room,
+      isAvailable: false,
+      isArchived: true,
+      archivedAt: new Date().toISOString(),
+    };
+    setAllArchivedRooms((prev) => [archivedItem, ...prev.filter((r) => r.id !== room.id)]);
+
+    // 3. Update localStorage
+    try {
+      const cached = localStorage.getItem(`mld_rooms_${room.branchId}`);
+      if (cached) {
+        const parsed: BranchRoom[] = JSON.parse(cached);
+        localStorage.setItem(
+          `mld_rooms_${room.branchId}`,
+          JSON.stringify(parsed.filter((r) => r.id !== room.id))
+        );
+      }
+    } catch {}
+
+    // 4. Update current branch rooms if open
+    if (selectedBranchId === room.branchId) {
+      setRooms((prev) => prev.filter((r) => r.id !== room.id));
+    }
+
+    toast.success(
+      'Đã xóa phòng khỏi hệ thống',
+      `Phòng "${room.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi vẫn được bảo toàn nguyên vẹn trong cơ sở dữ liệu.`
+    );
+
+    // 5. Update Supabase Cloud (PATCH [ARCHIVED])
+    await branchService.deleteRoom(room.id);
+  };
+
+  // Restore archived room in cross-branch view
+  const handleRestoreCrossBranchRoom = async (
+    room: BranchRoom & { branchName?: string }
+  ) => {
+    // 1. Remove from allArchivedRooms
+    setAllArchivedRooms((prev) => prev.filter((r) => r.id !== room.id));
+
+    // 2. Add back to allRooms
+    const restoredItem: BranchRoom & { branchName?: string; branchCode?: string } = {
+      ...room,
+      isAvailable: true,
+      isArchived: false,
+    };
+    setAllRooms((prev) => [restoredItem, ...prev.filter((r) => r.id !== room.id)]);
+
+    // 3. Update localStorage
+    try {
+      const cached = localStorage.getItem(`mld_rooms_${room.branchId}`);
+      const parsed: BranchRoom[] = cached ? JSON.parse(cached) : [];
+      localStorage.setItem(
+        `mld_rooms_${room.branchId}`,
+        JSON.stringify([
+          ...parsed.filter((r) => r.id !== room.id),
+          {
+            id: room.id,
+            branchId: room.branchId,
+            name: room.name,
+            roomType: room.roomType,
+            bedCapacity: room.bedCapacity,
+            isAvailable: true,
+            isArchived: false,
+            createdAt: room.createdAt,
+          },
+        ])
+      );
+    } catch {}
+
+    if (selectedBranchId === room.branchId) {
+      setRooms((prev) => [...prev.filter((r) => r.id !== room.id), restoredItem]);
+    }
+
+    toast.success(
+      'Khôi phục thành công',
+      `Phòng "${room.name}" đã được khôi phục trở lại hệ thống vận hành.`
+    );
+
+    await branchService.restoreRoom(room.id);
+  };
+
+  // Open cross-branch create room modal
+  const handleOpenCrossBranchCreateRoom = () => {
+    setCrossBranchCreateRoomForm({
+      branchId: selectedBranchId || (branches[0]?.id ?? ''),
+      name: '',
+      roomType: '',
+      bedCapacity: '',
+      isAvailable: true,
+    });
+    setIsCrossBranchCreateRoomOpen(true);
+  };
+
+  // Save cross-branch create room
+  const handleSaveCrossBranchCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!crossBranchCreateRoomForm.branchId) {
+      toast.error('Thiếu thông tin', 'Vui lòng chọn cơ sở chi nhánh cho phòng.');
+      return;
+    }
+    if (!crossBranchCreateRoomForm.name.trim()) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập tên phòng dịch vụ.');
+      return;
+    }
+    if (!crossBranchCreateRoomForm.roomType) {
+      toast.error('Thiếu thông tin', 'Vui lòng chọn loại phòng dịch vụ.');
+      return;
+    }
+    if (
+      crossBranchCreateRoomForm.bedCapacity === '' ||
+      Number(crossBranchCreateRoomForm.bedCapacity) <= 0
+    ) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập số giường sức chứa (tối thiểu 1 giường).');
+      return;
+    }
+
+    setIsCrossBranchCreatingRoom(true);
+    try {
+      const targetBranch = branches.find((b) => b.id === crossBranchCreateRoomForm.branchId);
+      const roomPayload = {
+        branchId: crossBranchCreateRoomForm.branchId,
+        name: crossBranchCreateRoomForm.name.trim(),
+        roomType: crossBranchCreateRoomForm.roomType as RoomType,
+        bedCapacity: Number(crossBranchCreateRoomForm.bedCapacity),
+        isAvailable: crossBranchCreateRoomForm.isAvailable,
+      };
+
+      const res = await branchService.createRoom(roomPayload);
+      const createdRoom: BranchRoom = res.data || {
+        id: `r-${Date.now()}`,
+        ...roomPayload,
+        isArchived: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const newJoinedRoom: BranchRoom & { branchName?: string; branchCode?: string } = {
+        ...createdRoom,
+        branchName: targetBranch?.name || 'Cơ sở MLD',
+        branchCode: targetBranch?.code || '',
+      };
+
+      // Add to allRooms state
+      setAllRooms((prev) => [newJoinedRoom, ...prev]);
+
+      // Update localStorage
+      try {
+        const cached = localStorage.getItem(`mld_rooms_${createdRoom.branchId}`);
+        const parsed: BranchRoom[] = cached ? JSON.parse(cached) : [];
+        localStorage.setItem(
+          `mld_rooms_${createdRoom.branchId}`,
+          JSON.stringify([...parsed, createdRoom])
+        );
+      } catch {}
+
+      if (selectedBranchId === createdRoom.branchId) {
+        setRooms((prev) => [...prev, createdRoom]);
+      }
+
+      toast.success(
+        'Thêm phòng thành công',
+        `Phòng "${createdRoom.name}" đã được bổ sung vào cơ sở ${targetBranch?.name || ''}.`
+      );
+
+      setIsCrossBranchCreateRoomOpen(false);
+      setCrossBranchCreateRoomForm({
+        branchId: branches[0]?.id || '',
+        name: '',
+        roomType: '',
+        bedCapacity: '',
+        isAvailable: true,
+      });
+    } catch (err) {
+      console.error('Lỗi khi thêm phòng:', err);
+      toast.error('Có lỗi xảy ra', 'Không thể khởi tạo phòng mới vào lúc này.');
+    } finally {
+      setIsCrossBranchCreatingRoom(false);
+    }
+  };
+
+  // Open cross-branch edit room modal
+  const handleOpenCrossBranchEditRoom = (
+    room: BranchRoom & { branchName?: string; branchCode?: string }
+  ) => {
+    setEditingCrossBranchRoom(room);
+    setCrossBranchEditRoomForm({
+      branchId: room.branchId,
+      name: room.name,
+      roomType: room.roomType,
+      bedCapacity: room.bedCapacity,
+      isAvailable: room.isAvailable,
+    });
+    setIsCrossBranchEditRoomOpen(true);
+  };
+
+  // Save cross-branch edit room
+  const handleSaveCrossBranchEditRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCrossBranchRoom) return;
+
+    if (!crossBranchEditRoomForm.branchId) {
+      toast.error('Thiếu thông tin', 'Vui lòng chọn cơ sở chi nhánh cho phòng.');
+      return;
+    }
+    if (!crossBranchEditRoomForm.name.trim()) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập tên phòng dịch vụ.');
+      return;
+    }
+    if (!crossBranchEditRoomForm.roomType) {
+      toast.error('Thiếu thông tin', 'Vui lòng chọn loại phòng dịch vụ.');
+      return;
+    }
+    if (
+      crossBranchEditRoomForm.bedCapacity === '' ||
+      Number(crossBranchEditRoomForm.bedCapacity) <= 0
+    ) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập số giường sức chứa (tối thiểu 1 giường).');
+      return;
+    }
+
+    setIsCrossBranchEditingRoom(true);
+    try {
+      const targetBranch = branches.find((b) => b.id === crossBranchEditRoomForm.branchId);
+      const updates: Partial<BranchRoom> = {
+        branchId: crossBranchEditRoomForm.branchId,
+        name: crossBranchEditRoomForm.name.trim(),
+        roomType: crossBranchEditRoomForm.roomType as RoomType,
+        bedCapacity: Number(crossBranchEditRoomForm.bedCapacity),
+        isAvailable: crossBranchEditRoomForm.isAvailable,
+      };
+
+      await branchService.updateRoom(editingCrossBranchRoom.id, updates);
+
+      // Update allRooms state
+      setAllRooms((prev) =>
+        prev.map((r) =>
+          r.id === editingCrossBranchRoom.id
+            ? {
+                ...r,
+                ...updates,
+                branchName: targetBranch?.name || r.branchName,
+                branchCode: targetBranch?.code || r.branchCode,
+              }
+            : r
+        )
+      );
+
+      // Update localStorage
+      try {
+        const oldCached = localStorage.getItem(
+          `mld_rooms_${editingCrossBranchRoom.branchId}`
+        );
+        if (oldCached) {
+          const parsed: BranchRoom[] = JSON.parse(oldCached);
+          if (editingCrossBranchRoom.branchId !== crossBranchEditRoomForm.branchId) {
+            localStorage.setItem(
+              `mld_rooms_${editingCrossBranchRoom.branchId}`,
+              JSON.stringify(
+                parsed.filter((r) => r.id !== editingCrossBranchRoom.id)
+              )
+            );
+            const newCached = localStorage.getItem(
+              `mld_rooms_${crossBranchEditRoomForm.branchId}`
+            );
+            const newParsed: BranchRoom[] = newCached ? JSON.parse(newCached) : [];
+            localStorage.setItem(
+              `mld_rooms_${crossBranchEditRoomForm.branchId}`,
+              JSON.stringify([
+                ...newParsed,
+                { ...editingCrossBranchRoom, ...updates },
+              ])
+            );
+          } else {
+            localStorage.setItem(
+              `mld_rooms_${editingCrossBranchRoom.branchId}`,
+              JSON.stringify(
+                parsed.map((r) =>
+                  r.id === editingCrossBranchRoom.id ? { ...r, ...updates } : r
+                )
+              )
+            );
+          }
+        }
+      } catch {}
+
+      if (selectedBranchId === crossBranchEditRoomForm.branchId) {
+        setRooms((prev) =>
+          prev.map((r) =>
+            r.id === editingCrossBranchRoom.id ? { ...r, ...updates } : r
+          )
+        );
+      }
+
+      toast.success(
+        'Cập nhật phòng thành công',
+        `Phòng "${crossBranchEditRoomForm.name}" đã được lưu thay đổi.`
+      );
+
+      setIsCrossBranchEditRoomOpen(false);
+      setEditingCrossBranchRoom(null);
+    } catch (err) {
+      console.error('Lỗi khi cập nhật phòng:', err);
+      toast.error('Có lỗi xảy ra', 'Không thể lưu thay đổi vào lúc này.');
+    } finally {
+      setIsCrossBranchEditingRoom(false);
+    }
+  };
+
+  // Open cross-branch view room modal
+  const handleOpenCrossBranchViewRoom = (
+    room: BranchRoom & { branchName?: string; branchCode?: string }
+  ) => {
+    setViewingCrossBranchRoom(room);
+    setIsCrossBranchViewRoomOpen(true);
+  };
+
+  // Toggle active status for branch directly from master table
+  const handleToggleBranchActive = async (
+    branch: Branch,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    const nextActive = !branch.isActive;
+    const updated = branches.map((b) =>
+      b.id === branch.id ? { ...b, isActive: nextActive } : b
+    );
+    setBranches(updated);
+
+    try {
+      const stored = localStorage.getItem('mld_custom_branches');
+      if (stored) {
+        const parsed: Branch[] = JSON.parse(stored);
+        const updatedCustom = parsed.map((b) =>
+          b.id === branch.id ? { ...b, isActive: nextActive } : b
+        );
+        localStorage.setItem('mld_custom_branches', JSON.stringify(updatedCustom));
+      }
+    } catch {}
+
+    toast.info(
+      'Cập nhật cơ sở',
+      `Chi nhánh "${branch.name}" hiện ${nextActive ? 'đang hoạt động' : 'tạm dừng hoạt động'}.`
+    );
+
+    await branchService.updateBranch(branch.id, { isActive: nextActive });
+  };
 
   const loadRoomsForBranch = (branchId: string) => {
     const cached = localStorage.getItem(`mld_rooms_${branchId}`);
@@ -690,26 +1236,124 @@ export const W02_Branches: React.FC = () => {
     branches.find((b) => b.id === selectedBranchId) ||
     branches[0];
 
+  const hasActiveRoomFilter =
+    roomSearchTerm.trim().length > 0 ||
+    selectedRoomBranch !== 'ALL' ||
+    selectedRoomType !== 'ALL' ||
+    selectedRoomAvailability !== 'ALL';
+
+  const filteredRooms = allRooms.filter((r) => {
+    if (selectedRoomBranch !== 'ALL' && r.branchId !== selectedRoomBranch) return false;
+    if (selectedRoomType !== 'ALL' && r.roomType !== selectedRoomType) return false;
+    if (selectedRoomAvailability === 'YES' && !r.isAvailable) return false;
+    if (selectedRoomAvailability === 'NO' && r.isAvailable) return false;
+
+    if (!roomSearchTerm.trim()) return true;
+    return matchSearch(
+      [
+        r.name,
+        r.branchName || '',
+        r.branchCode || '',
+        roomTypeLabels[r.roomType] || r.roomType,
+      ],
+      roomSearchTerm
+    );
+  });
+
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
-      {/* 1. Page Header Title & Action Button */}
+      {/* 1. Page Header Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
           <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
-            Quản lý chi nhánh
+            Quản lý chi nhánh & Phòng dịch vụ
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Danh mục cơ sở, dịch vụ và cấu hình vận hành trực tuyến từ Service Layer.
+            Hệ thống danh mục cơ sở, dịch vụ và sơ đồ phòng trị liệu toàn hệ thống từ Service Layer.
           </p>
         </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => loadAllData(true)}
+            disabled={isRefreshing}
+            className="p-2.5 bg-white hover:bg-[#FAF8F5] border border-[#E0D7CC] text-[#73675F] hover:text-[#985018] rounded-2xl transition-all shadow-xs cursor-pointer flex items-center justify-center shrink-0"
+            title="Làm mới dữ liệu từ Supabase Cloud"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#985018]' : ''}`} />
+          </button>
+          <button
+            onClick={() => {
+              if (activeMainTab === 'branches') {
+                setIsCreateModalOpen(true);
+              } else {
+                handleOpenCrossBranchCreateRoom();
+              }
+            }}
+            className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>{activeMainTab === 'branches' ? 'Thêm chi nhánh' : 'Thêm phòng dịch vụ'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Sub-Navigation Tabs: Chi nhánh | Phòng dịch vụ */}
+      <div className="flex items-center gap-1 border-b border-[#EFE4D9] pb-0 bg-transparent">
         <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+          type="button"
+          onClick={() => setActiveMainTab('branches')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
+            activeMainTab === 'branches'
+              ? 'text-[#985018]'
+              : 'text-[#73675F] hover:text-[#2C241E]'
+          }`}
         >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Thêm chi nhánh</span>
+          <Building2 className="w-4 h-4" />
+          <span>Chi nhánh</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeMainTab === 'branches'
+                ? 'bg-[#FAF0E4] text-[#8A4F23]'
+                : 'bg-[#F4ECE3] text-[#73675F]'
+            }`}
+          >
+            {branches.length}
+          </span>
+          {activeMainTab === 'branches' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#985018] rounded-t-full" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('rooms')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
+            activeMainTab === 'rooms'
+              ? 'text-[#985018]'
+              : 'text-[#73675F] hover:text-[#2C241E]'
+          }`}
+        >
+          <DoorOpen className="w-4 h-4" />
+          <span>Phòng dịch vụ</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeMainTab === 'rooms'
+                ? 'bg-[#FAF0E4] text-[#8A4F23]'
+                : 'bg-[#F4ECE3] text-[#73675F]'
+            }`}
+          >
+            {allRooms.length}
+          </span>
+          {activeMainTab === 'rooms' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#985018] rounded-t-full" />
+          )}
         </button>
       </div>
+
+      {/* 3. Tab Content */}
+      {activeMainTab === 'branches' ? (
+        <>
 
       {/* 2. Search & Filter Bar */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
@@ -805,17 +1449,19 @@ export const W02_Branches: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold">
               <tr>
-                <th className="py-2.5 px-5">Cơ sở & địa chỉ</th>
-                <th className="py-2.5 px-4">Giờ mở cửa</th>
-                <th className="py-2.5 px-4">Tiện ích / dịch vụ</th>
+                <th className="py-2.5 px-5">Tên</th>
+                <th className="py-2.5 px-4">Mã</th>
                 <th className="py-2.5 px-4">Số điện thoại</th>
-                <th className="py-2.5 px-6 text-center">Trạng thái / thao tác</th>
+                <th className="py-2.5 px-4">Địa chỉ</th>
+                <th className="py-2.5 px-4">Tỉnh / Thành phố</th>
+                <th className="py-2.5 px-4 text-center">Đang hoạt động</th>
+                <th className="py-2.5 px-6 text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9]">
               {filteredBranches.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[#73675F]">
+                  <td colSpan={7} className="py-12 text-center text-[#73675F]">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                       <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
                         <Search className="w-5 h-5" />
@@ -853,80 +1499,100 @@ export const W02_Branches: React.FC = () => {
                         isSelected ? 'bg-[#F8F1E8]' : 'bg-white'
                       } hover:bg-[#FAF6F0] transition-colors`}
                     >
-                    {/* Name & Address */}
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-[#2C241E]">{branch.name}</span>
-                        {branch.code && (
-                          <span className="text-[9.5px] px-1.5 py-0.2 bg-[#FAF0E4] text-[#8A4F23] rounded font-mono font-bold">
-                            {branch.code}
-                          </span>
-                        )}
-                        {branch.id === globalWorkingBranchId && (
-                          <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold border border-emerald-200">
-                            Cơ sở chính
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-[#8C7A6B] mt-0.5">{branch.address}</div>
-                    </td>
+                      {/* Tên */}
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Building2 className="w-4 h-4 text-[#985018] shrink-0" />
+                          <span className="font-bold text-[#2C241E]">{branch.name}</span>
+                          {branch.id === globalWorkingBranchId && (
+                            <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold border border-emerald-200">
+                              Cơ sở chính
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                    {/* Open Hours */}
-                    <td className="py-3.5 px-4 font-semibold text-[#2C241E] whitespace-nowrap">
-                      {branch.openingTime ? branch.openingTime.slice(0, 5) : '08:30'}–
-                      {branch.closingTime ? branch.closingTime.slice(0, 5) : '20:30'}
-                    </td>
-
-                    {/* Amenities / Services */}
-                    <td className="py-3.5 px-4">
-                      {branch.amenities && branch.amenities.length > 0 ? (
-                        branch.amenities.map((a, aIdx) => (
-                          <div key={aIdx} className="text-xs text-[#2C241E] leading-relaxed">
-                            • {a}
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-[#8C7A6B]">Tiêu chuẩn MLD Spa</span>
-                      )}
-                    </td>
-
-                    {/* Resources */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-medium text-[#2C241E]">{branch.phone}</div>
-                      <div className="text-[11px] text-[#8C7A6B] mt-0.5">
-                        {branch.district}, {branch.city}
-                      </div>
-                    </td>
-
-                    {/* Status & Action */}
-                    <td className="py-3.5 px-6 text-center">
-                      <div className="flex flex-col items-center justify-center gap-1.5">
-                        <span
-                          className={`inline-block px-3 py-1 rounded-lg text-[11px] font-semibold ${
-                            branch.isActive
-                              ? 'bg-[#F3E2CE] text-[#8A4F23]'
-                              : 'bg-[#FBEBEB] text-[#B83E3E]'
-                          }`}
-                        >
-                          {branch.isActive ? 'Đang hoạt động' : 'Tạm dừng'}
+                      {/* Mã */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-[#8A4F23]">
+                        <span className="px-2 py-0.5 rounded text-[11px] bg-[#FAF0E4]">
+                          {branch.code || 'MLD-NEW'}
                         </span>
+                      </td>
+
+                      {/* Số điện thoại */}
+                      <td className="py-3.5 px-4 font-semibold text-[#2C241E]">
+                        <a
+                          href={`tel:${branch.phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:text-[#985018] hover:underline"
+                        >
+                          {branch.phone}
+                        </a>
+                      </td>
+
+                      {/* Địa chỉ */}
+                      <td className="py-3.5 px-4 text-[#4A3E34]">
+                        <div>{branch.address}</div>
+                        <div className="text-[11px] text-[#8C7A6B]">{branch.district}</div>
+                      </td>
+
+                      {/* Tỉnh / Thành phố */}
+                      <td className="py-3.5 px-4 font-medium text-[#2C241E]">
+                        {branch.city}
+                      </td>
+
+                      {/* Đang hoạt động */}
+                      <td className="py-3.5 px-4 text-center">
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenManageModal(branch);
-                          }}
-                          className="px-2.5 py-1 text-xs font-bold text-[#8A4F23] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          onClick={(e) => handleToggleBranchActive(branch, e)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-colors ${
+                            branch.isActive
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                          }`}
+                          title="Nhấp để thay đổi trạng thái hoạt động của cơ sở"
                         >
-                          <Settings className="w-3 h-3" />
-                          <span>Quản lý cơ sở</span>
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              branch.isActive ? 'bg-emerald-600' : 'bg-rose-500'
+                            }`}
+                          />
+                          <span>{branch.isActive ? 'Có' : 'Không'}</span>
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                      </td>
+
+                      {/* Thao tác */}
+                      <td className="py-3.5 px-6 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectBranch(branch.id);
+                            }}
+                            className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
+                            title="Xem chi tiết cơ sở"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenManageModal(branch);
+                            }}
+                            className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
+                            title="Chỉnh sửa thông tin cơ sở"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -1108,6 +1774,357 @@ export const W02_Branches: React.FC = () => {
           </div>
         </div>
       </div>
+    </>
+  ) : (
+    /* Tab 2: Phòng dịch vụ toàn hệ thống (Cross-branch rooms master view) */
+    <div className="space-y-4">
+      {/* Rooms Search & Filter Bar */}
+      <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={roomSearchTerm}
+            onChange={(e) => setRoomSearchTerm(e.target.value)}
+            placeholder="Tìm theo tên phòng, chi nhánh, loại phòng..."
+            className="w-full h-10 pl-10 pr-9 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
+          />
+          {roomSearchTerm && (
+            <button
+              type="button"
+              onClick={() => setRoomSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Branch Filter */}
+        <div className="relative shrink-0 flex-1 sm:flex-none">
+          <select
+            value={selectedRoomBranch}
+            onChange={(e) => setSelectedRoomBranch(e.target.value)}
+            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+          >
+            <option value="ALL">Tất cả chi nhánh ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.code})
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Room Type Filter */}
+        <div className="relative shrink-0 flex-1 sm:flex-none">
+          <select
+            value={selectedRoomType}
+            onChange={(e) => setSelectedRoomType(e.target.value)}
+            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+          >
+            <option value="ALL">Tất cả loại phòng</option>
+            {Object.entries(roomTypeLabels).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Availability Filter */}
+        <div className="relative shrink-0 flex-1 sm:flex-none">
+          <select
+            value={selectedRoomAvailability}
+            onChange={(e) => setSelectedRoomAvailability(e.target.value)}
+            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+          >
+            <option value="ALL">Có thể sử dụng: Tất cả</option>
+            <option value="YES">Có (Đang sẵn sàng đón khách)</option>
+            <option value="NO">Không (Đang bận / bảo trì)</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Reset button when filters are active */}
+        {hasActiveRoomFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setRoomSearchTerm('');
+              setSelectedRoomBranch('ALL');
+              setSelectedRoomType('ALL');
+              setSelectedRoomAvailability('ALL');
+            }}
+            className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại toàn bộ bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
+
+        {/* Archived rooms toggle button */}
+        <button
+          type="button"
+          onClick={() => setShowAllArchivedDrawer(!showAllArchivedDrawer)}
+          className={`flex items-center gap-1.5 px-3.5 h-10 rounded-xl border text-xs font-bold transition-colors shrink-0 cursor-pointer ${
+            showAllArchivedDrawer
+              ? 'bg-[#FAF0E4] border-[#BA7E4C] text-[#8D4B1A]'
+              : 'bg-white border-[#E0D7CC] text-[#73675F] hover:bg-[#FAF8F5]'
+          }`}
+          title="Xem danh sách phòng đã xóa và lưu trữ trong CSDL"
+        >
+          <Archive className="w-3.5 h-3.5" />
+          <span>Phòng đã lưu trữ CSDL ({allArchivedRooms.length})</span>
+        </button>
+      </div>
+
+      {/* Rooms Master Table Card */}
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
+        <div className="p-4 border-b border-[#EFE4D9] flex items-center justify-between">
+          <h3 className="text-sm font-bold text-[#2C241E]">Danh sách phòng dịch vụ toàn hệ thống</h3>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F5EBE1] text-[#985018] border border-[#E8DACB]">
+            {filteredRooms.length} phòng
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold">
+              <tr>
+                <th className="py-2.5 px-5">Tên</th>
+                <th className="py-2.5 px-4">Chi nhánh</th>
+                <th className="py-2.5 px-4">Loại phòng</th>
+                <th className="py-2.5 px-4">Sức chứa (giường)</th>
+                <th className="py-2.5 px-4 text-center">Có thể sử dụng</th>
+                <th className="py-2.5 px-6 text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#EFE4D9]">
+              {filteredRooms.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-[#73675F]">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                        <Search className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy phòng dịch vụ phù hợp</p>
+                      <p className="text-xs text-[#8C7A6B]">
+                        {roomSearchTerm.trim()
+                          ? `Không có phòng nào khớp với từ khóa "${roomSearchTerm}". Hãy thử tìm theo tên phòng, tên chi nhánh hoặc loại phòng.`
+                          : 'Không có phòng nào khớp với bộ lọc đã chọn.'}
+                      </p>
+                      {hasActiveRoomFilter && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoomSearchTerm('');
+                            setSelectedRoomBranch('ALL');
+                            setSelectedRoomType('ALL');
+                            setSelectedRoomAvailability('ALL');
+                          }}
+                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                        >
+                          Xóa bộ lọc tìm kiếm
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredRooms.map((room) => (
+                  <tr key={room.id} className="hover:bg-[#FAF6F0] transition-colors bg-white">
+                    {/* Tên */}
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-2">
+                        <DoorOpen className="w-4 h-4 text-[#985018] shrink-0" />
+                        <span className="font-bold text-[#2C241E]">{room.name}</span>
+                      </div>
+                    </td>
+
+                    {/* Chi nhánh */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-[#2C241E]">{room.branchName || 'Cơ sở MLD'}</span>
+                        {room.branchCode && (
+                          <span className="text-[9.5px] px-1.5 py-0.2 bg-[#FAF0E4] text-[#8A4F23] rounded font-mono font-bold">
+                            {room.branchCode}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Loại phòng */}
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold ${getRoomTypeBadgeStyle(
+                          room.roomType
+                        )}`}
+                      >
+                        {roomTypeLabels[room.roomType] || room.roomType}
+                      </span>
+                    </td>
+
+                    {/* Sức chứa (giường) */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5 font-bold text-[#2C241E]">
+                        <Bed className="w-3.5 h-3.5 text-[#8C7A6B]" />
+                        <span>{room.bedCapacity} giường</span>
+                      </div>
+                    </td>
+
+                    {/* Có thể sử dụng */}
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCrossBranchRoomAvailability(room)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-colors ${
+                          room.isAvailable
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                        }`}
+                        title="Nhấp để thay đổi trạng thái khả dụng của phòng"
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            room.isAvailable ? 'bg-emerald-600' : 'bg-rose-500'
+                          }`}
+                        />
+                        <span>{room.isAvailable ? 'Có' : 'Không'}</span>
+                      </button>
+                    </td>
+
+                    {/* Thao tác */}
+                    <td className="py-3.5 px-6 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCrossBranchViewRoom(room)}
+                          className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
+                          title="Xem chi tiết phòng"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCrossBranchEditRoom(room)}
+                          className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
+                          title="Chỉnh sửa thông tin phòng"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCrossBranchRoom(room)}
+                          className="p-1.5 text-[#B0A294] hover:text-[#B83E3E] hover:bg-[#FDF2F2] rounded-lg transition-colors cursor-pointer"
+                          title="Xóa phòng khỏi hệ thống (lưu trữ CSDL)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
+          <span className="text-[11px]">
+            Hiển thị {filteredRooms.length} / {allRooms.length} phòng dịch vụ toàn hệ thống
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled
+              className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button className="w-6 h-6 rounded-md flex items-center justify-center bg-[#E6D4C3] text-[#783D19] font-bold text-[11px]">
+              1
+            </button>
+            <button
+              disabled
+              className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Archived Rooms Section (When toggled open) */}
+      {showAllArchivedDrawer && (
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3 animate-in fade-in-50">
+          <div className="flex items-center justify-between pb-2 border-b border-[#EFE4D9]">
+            <div className="flex items-center gap-2">
+              <Archive className="w-4 h-4 text-[#985018]" />
+              <h3 className="text-sm font-bold text-[#2C241E]">
+                Danh sách phòng đã lưu trữ trong cơ sở dữ liệu ({allArchivedRooms.length})
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAllArchivedDrawer(false)}
+              className="p-1 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-start gap-2.5 p-3 bg-[#FAF3EC] border border-[#E8DFD8] rounded-xl text-xs text-[#73675F]">
+            <ShieldCheck className="w-4 h-4 text-[#985018] shrink-0 mt-0.5" />
+            <p className="text-[11px] leading-relaxed">
+              Tất cả các phòng trong danh sách này đã được xóa khỏi hệ thống vận hành nhưng{' '}
+              <strong className="text-[#985018]">vẫn được bảo toàn nguyên vẹn 100% trong CSDL Supabase Cloud</strong>.
+              Bạn có thể nhấn <strong>Khôi phục</strong> bất kỳ lúc nào để đưa phòng trở lại hoạt động.
+            </p>
+          </div>
+
+          {allArchivedRooms.length === 0 ? (
+            <div className="py-8 text-center text-xs text-[#8C7A6B]">
+              Chưa có phòng nào bị xóa hoặc lưu trữ trong CSDL.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              {allArchivedRooms.map((room) => (
+                <div
+                  key={room.id}
+                  className="p-3.5 bg-[#FAF8F5] rounded-xl border border-dashed border-[#D8C9BA] flex items-center justify-between text-xs"
+                >
+                  <div>
+                    <div className="font-bold text-[#2C241E] flex items-center gap-2">
+                      <span>{room.name}</span>
+                      <span className="text-[9.5px] px-1.5 py-0.2 bg-[#EFE4D9] text-[#73675F] rounded font-bold">
+                        Lưu trữ CSDL
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#8C7A6B] mt-0.5">
+                      {room.branchName} • {roomTypeLabels[room.roomType] || room.roomType} • {room.bedCapacity} giường
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRestoreCrossBranchRoom(room)}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF0E4] rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs shrink-0"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Khôi phục</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )}
 
       {/* 5. Modal Quản Lý Cơ Sở Chi Nhánh (Full Interactive Management Modal) */}
       {isManageModalOpen && managingBranch && (
@@ -2189,6 +3206,551 @@ export const W02_Branches: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 1: TẠO PHÒNG DỊCH VỤ TOÀN HỆ THỐNG (CROSS-BRANCH CREATE) */}
+      {/* ============================================================== */}
+      {isCrossBranchCreateRoomOpen && (
+        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+                  <DoorOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#2C241E]">
+                    Thêm phòng dịch vụ mới
+                  </h3>
+                  <p className="text-xs text-[#73675F]">
+                    Bổ sung phòng vào hệ thống vận hành và phân bổ giường
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCrossBranchCreateRoomOpen(false)}
+                className="w-8 h-8 rounded-full hover:bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B] hover:text-[#2C241E] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveCrossBranchCreateRoom} className="p-6 space-y-4">
+              {/* Chi nhánh */}
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Cơ sở chi nhánh <span className="text-[#985018]">*</span>
+                </label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <select
+                    required
+                    value={crossBranchCreateRoomForm.branchId}
+                    onChange={(e) =>
+                      setCrossBranchCreateRoomForm({
+                        ...crossBranchCreateRoomForm,
+                        branchId: e.target.value,
+                      })
+                    }
+                    className="w-full appearance-none pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      -- Chọn chi nhánh áp dụng --
+                    </option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.code})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Tên phòng */}
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Tên phòng dịch vụ <span className="text-[#985018]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={crossBranchCreateRoomForm.name}
+                  onChange={(e) =>
+                    setCrossBranchCreateRoomForm({
+                      ...crossBranchCreateRoomForm,
+                      name: e.target.value,
+                    })
+                  }
+                  placeholder="VD: Phòng VIP 01 - Hoa Sen"
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20"
+                />
+              </div>
+
+              {/* Grid: Loại phòng & Sức chứa */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Loại phòng <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      required
+                      value={crossBranchCreateRoomForm.roomType}
+                      onChange={(e) =>
+                        setCrossBranchCreateRoomForm({
+                          ...crossBranchCreateRoomForm,
+                          roomType: e.target.value as RoomType,
+                        })
+                      }
+                      className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 cursor-pointer"
+                    >
+                      <option value="" disabled>
+                        -- Chọn loại phòng --
+                      </option>
+                      {Object.entries(roomTypeLabels).map(([val, label]) => (
+                        <option key={val} value={val}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Sức chứa (giường) <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Bed className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="50"
+                      value={crossBranchCreateRoomForm.bedCapacity}
+                      onChange={(e) =>
+                        setCrossBranchCreateRoomForm({
+                          ...crossBranchCreateRoomForm,
+                          bedCapacity: e.target.value === '' ? '' : Number(e.target.value),
+                        })
+                      }
+                      placeholder="VD: 2"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Trạng thái sử dụng */}
+              <div className="p-3.5 bg-white rounded-2xl border border-[#EFE4D9] flex items-center justify-between shadow-xs">
+                <div>
+                  <div className="text-xs font-bold text-[#2C241E]">Có thể sử dụng đón khách</div>
+                  <div className="text-[11px] text-[#73675F]">
+                    Phòng sẽ xuất hiện trên sơ đồ điều phối và thu ngân POS
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCrossBranchCreateRoomForm({
+                      ...crossBranchCreateRoomForm,
+                      isAvailable: !crossBranchCreateRoomForm.isAvailable,
+                    })
+                  }
+                  className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${
+                    crossBranchCreateRoomForm.isAvailable ? 'bg-[#985018]' : 'bg-[#D7C9BF]'
+                  }`}
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                      crossBranchCreateRoomForm.isAvailable ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCrossBranchCreateRoomOpen(false)}
+                  className="px-4 py-2.5 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCrossBranchCreatingRoom}
+                  className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isCrossBranchCreatingRoom ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang tạo phòng...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>Thêm phòng dịch vụ</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 2: CHỈNH SỬA PHÒNG DỊCH VỤ TOÀN HỆ THỐNG (EDIT ROOM)   */}
+      {/* ============================================================== */}
+      {isCrossBranchEditRoomOpen && editingCrossBranchRoom && (
+        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+                  <Pencil className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#2C241E]">
+                    Chỉnh sửa phòng dịch vụ
+                  </h3>
+                  <p className="text-xs text-[#73675F]">
+                    Cập nhật thông tin phòng:{' '}
+                    <span className="font-semibold text-[#985018]">
+                      {editingCrossBranchRoom.name}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCrossBranchEditRoomOpen(false);
+                  setEditingCrossBranchRoom(null);
+                }}
+                className="w-8 h-8 rounded-full hover:bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B] hover:text-[#2C241E] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveCrossBranchEditRoom} className="p-6 space-y-4">
+              {/* Cơ sở */}
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Cơ sở chi nhánh <span className="text-[#985018]">*</span>
+                </label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <select
+                    required
+                    value={crossBranchEditRoomForm.branchId}
+                    onChange={(e) =>
+                      setCrossBranchEditRoomForm({
+                        ...crossBranchEditRoomForm,
+                        branchId: e.target.value,
+                      })
+                    }
+                    className="w-full appearance-none pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 cursor-pointer"
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.code})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Tên phòng */}
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Tên phòng dịch vụ <span className="text-[#985018]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={crossBranchEditRoomForm.name}
+                  onChange={(e) =>
+                    setCrossBranchEditRoomForm({
+                      ...crossBranchEditRoomForm,
+                      name: e.target.value,
+                    })
+                  }
+                  placeholder="VD: Phòng VIP 01 - Hoa Sen"
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20"
+                />
+              </div>
+
+              {/* Grid: Loại phòng & Sức chứa */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Loại phòng <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      required
+                      value={crossBranchEditRoomForm.roomType}
+                      onChange={(e) =>
+                        setCrossBranchEditRoomForm({
+                          ...crossBranchEditRoomForm,
+                          roomType: e.target.value as RoomType,
+                        })
+                      }
+                      className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 cursor-pointer"
+                    >
+                      {Object.entries(roomTypeLabels).map(([val, label]) => (
+                        <option key={val} value={val}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Sức chứa (giường) <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Bed className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="50"
+                      value={crossBranchEditRoomForm.bedCapacity}
+                      onChange={(e) =>
+                        setCrossBranchEditRoomForm({
+                          ...crossBranchEditRoomForm,
+                          bedCapacity: e.target.value === '' ? '' : Number(e.target.value),
+                        })
+                      }
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Trạng thái sử dụng */}
+              <div className="p-3.5 bg-white rounded-2xl border border-[#EFE4D9] flex items-center justify-between shadow-xs">
+                <div>
+                  <div className="text-xs font-bold text-[#2C241E]">Có thể sử dụng đón khách</div>
+                  <div className="text-[11px] text-[#73675F]">
+                    {crossBranchEditRoomForm.isAvailable
+                      ? 'Phòng đang mở cửa tiếp nhận đặt hẹn và xếp lịch trị liệu'
+                      : 'Phòng đang tạm ngưng đón khách (bảo trì hoặc tạm đóng)'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCrossBranchEditRoomForm({
+                      ...crossBranchEditRoomForm,
+                      isAvailable: !crossBranchEditRoomForm.isAvailable,
+                    })
+                  }
+                  className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${
+                    crossBranchEditRoomForm.isAvailable ? 'bg-[#985018]' : 'bg-[#D7C9BF]'
+                  }`}
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                      crossBranchEditRoomForm.isAvailable ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCrossBranchEditRoomOpen(false);
+                    setEditingCrossBranchRoom(null);
+                  }}
+                  className="px-4 py-2.5 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCrossBranchEditingRoom}
+                  className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isCrossBranchEditingRoom ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Lưu thay đổi</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 3: XEM CHI TIẾT PHÒNG DỊCH VỤ (VIEW ROOM DETAILS)        */}
+      {/* ============================================================== */}
+      {isCrossBranchViewRoomOpen && viewingCrossBranchRoom && (
+        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FAF8F5] rounded-3xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+                  <DoorOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#2C241E]">
+                    {viewingCrossBranchRoom.name}
+                  </h3>
+                  <p className="text-xs text-[#73675F]">
+                    {viewingCrossBranchRoom.branchName || 'Cơ sở MLD'} (
+                    {viewingCrossBranchRoom.branchCode || viewingCrossBranchRoom.branchId})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCrossBranchViewRoomOpen(false);
+                  setViewingCrossBranchRoom(null);
+                }}
+                className="w-8 h-8 rounded-full hover:bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B] hover:text-[#2C241E] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 space-y-4">
+              {/* Badge status */}
+              <div className="flex items-center justify-between p-3.5 bg-white rounded-2xl border border-[#EFE4D9] shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#2C241E]">Trạng thái vận hành:</span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                      viewingCrossBranchRoom.isAvailable
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        viewingCrossBranchRoom.isAvailable ? 'bg-emerald-500' : 'bg-amber-500'
+                      }`}
+                    />
+                    {viewingCrossBranchRoom.isAvailable ? 'Có thể sử dụng' : 'Tạm ngưng đón khách'}
+                  </span>
+                </div>
+                <div className="text-xs text-[#8C7A6B]">
+                  Sức chứa:{' '}
+                  <span className="font-bold text-[#2C241E]">
+                    {viewingCrossBranchRoom.bedCapacity} giường
+                  </span>
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 bg-white rounded-xl border border-[#EFE4D9] space-y-1">
+                  <div className="text-[11px] font-semibold text-[#8C7A6B]">Phân loại dịch vụ</div>
+                  <div>
+                    <span
+                      className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${getRoomTypeBadgeStyle(
+                        viewingCrossBranchRoom.roomType
+                      )}`}
+                    >
+                      {roomTypeLabels[viewingCrossBranchRoom.roomType] ||
+                        viewingCrossBranchRoom.roomType}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-[#EFE4D9] space-y-1">
+                  <div className="text-[11px] font-semibold text-[#8C7A6B]">Cơ sở trực thuộc</div>
+                  <div className="text-xs font-bold text-[#2C241E] truncate">
+                    {viewingCrossBranchRoom.branchName || 'MLD Beauty & Spa'}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-[#EFE4D9] space-y-1">
+                  <div className="text-[11px] font-semibold text-[#8C7A6B]">Mã định danh (ID)</div>
+                  <div className="text-xs font-mono text-[#5C4D42] truncate">
+                    {viewingCrossBranchRoom.id}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-[#EFE4D9] space-y-1">
+                  <div className="text-[11px] font-semibold text-[#8C7A6B]">Thời gian tạo</div>
+                  <div className="text-xs text-[#5C4D42]">
+                    {viewingCrossBranchRoom.createdAt
+                      ? new Date(viewingCrossBranchRoom.createdAt).toLocaleDateString('vi-VN')
+                      : 'Hệ thống chuẩn'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Database Preservation Banner */}
+              <div className="p-3.5 bg-[#FAF0E4]/60 rounded-2xl border border-[#E8DFD8] flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-[#985018] shrink-0 mt-0.5" />
+                <div className="text-[11px] text-[#73675F] leading-relaxed">
+                  <span className="font-bold text-[#3E200C]">Chính sách lưu trữ cơ sở dữ liệu:</span>{' '}
+                  Phòng được đồng bộ thực tế trên Supabase Cloud. Khi xóa, hệ thống sẽ thực hiện Soft-Delete lưu trữ an toàn nhằm bảo vệ lịch sử phân ca và phiếu liệu trình liên quan.
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-white border-t border-[#EFE4D9] flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCrossBranchViewRoomOpen(false);
+                  setViewingCrossBranchRoom(null);
+                }}
+                className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const roomToEdit = viewingCrossBranchRoom;
+                  setIsCrossBranchViewRoomOpen(false);
+                  setViewingCrossBranchRoom(null);
+                  handleOpenCrossBranchEditRoom(roomToEdit);
+                }}
+                className="px-5 py-2 bg-[#985018] hover:bg-[#854412] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Chỉnh sửa phòng này</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
