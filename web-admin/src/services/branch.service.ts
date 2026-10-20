@@ -63,6 +63,46 @@ export const branchService = {
     }
   },
 
+  async getAllRooms(includeArchived = false): Promise<ApiResponse<BranchRoom[]>> {
+    try {
+      const live = await supabaseService.getRooms(undefined, includeArchived);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[branchService] getAllRooms error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi tải danh sách tất cả phòng từ Supabase Cloud',
+        data: [],
+      };
+    }
+  },
+
+  async getAllArchivedRooms(): Promise<ApiResponse<BranchRoom[]>> {
+    try {
+      const live = await supabaseService.getArchivedRooms();
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[branchService] getAllArchivedRooms error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi tải danh sách phòng lưu trữ từ Supabase Cloud',
+        data: [],
+      };
+    }
+  },
+
   async createRoom(roomData: {
     branchId: string;
     name: string;

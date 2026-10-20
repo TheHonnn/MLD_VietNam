@@ -52,6 +52,9 @@ export const W02_Branches: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('b-q3');
+  const [globalWorkingBranchId, setGlobalWorkingBranchId] = useState<string>(() => {
+    return localStorage.getItem('mld_selected_branch_id') || '';
+  });
   const [rooms, setRooms] = useState<BranchRoom[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -170,12 +173,16 @@ export const W02_Branches: React.FC = () => {
 
         setBranches(allBranches);
         if (allBranches.length > 0) {
-          const preferredBranch =
-            localStorage.getItem('mld_selected_branch_id') || allBranches[0].id;
-          const targetId = allBranches.some((b) => b.id === preferredBranch)
-            ? preferredBranch
+          const savedPref = localStorage.getItem('mld_selected_branch_id');
+          const targetId = savedPref && allBranches.some((b) => b.id === savedPref)
+            ? savedPref
             : allBranches[0].id;
           setSelectedBranchId(targetId);
+          if (savedPref && savedPref !== 'ALL') {
+            setGlobalWorkingBranchId(savedPref);
+          } else {
+            setGlobalWorkingBranchId(allBranches[0].id);
+          }
 
           const roomRes = await branchService.getRoomsByBranch(targetId);
           if (roomRes.success && roomRes.data.length > 0) {
@@ -192,6 +199,17 @@ export const W02_Branches: React.FC = () => {
       }
     };
     fetchData();
+
+    const handleGlobalBranchChange = (e: any) => {
+      const bId = e?.detail?.branchId;
+      if (bId) {
+        setGlobalWorkingBranchId(bId);
+      }
+    };
+    window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    return () => {
+      window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    };
   }, []);
 
   const loadRoomsForBranch = (branchId: string) => {
@@ -837,11 +855,16 @@ export const W02_Branches: React.FC = () => {
                     >
                     {/* Name & Address */}
                     <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-[#2C241E]">{branch.name}</span>
                         {branch.code && (
                           <span className="text-[9.5px] px-1.5 py-0.2 bg-[#FAF0E4] text-[#8A4F23] rounded font-mono font-bold">
                             {branch.code}
+                          </span>
+                        )}
+                        {branch.id === globalWorkingBranchId && (
+                          <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold border border-emerald-200">
+                            Cơ sở chính
                           </span>
                         )}
                       </div>
@@ -1678,7 +1701,7 @@ export const W02_Branches: React.FC = () => {
                     Đặt cơ sở <strong>"{managingBranch.name}"</strong> làm chi nhánh làm việc
                     mặc định cho tài khoản của bạn trên tất cả trang Tổng quan, Lịch hẹn và Thu ngân.
                   </p>
-                  {selectedBranchId === managingBranch.id ? (
+                  {managingBranch.id === globalWorkingBranchId ? (
                     <div className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>✓ Đang là chi nhánh làm việc chính của tài khoản</span>
@@ -1687,7 +1710,7 @@ export const W02_Branches: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        handleSelectBranch(managingBranch.id);
+                        setGlobalWorkingBranchId(managingBranch.id);
                         localStorage.setItem('mld_selected_branch_id', managingBranch.id);
                         window.dispatchEvent(
                           new CustomEvent('mld_branch_changed', {
@@ -1711,7 +1734,7 @@ export const W02_Branches: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div
                     onClick={() => {
-                      handleSelectBranch(managingBranch.id);
+                      setGlobalWorkingBranchId(managingBranch.id);
                       localStorage.setItem('mld_selected_branch_id', managingBranch.id);
                       window.dispatchEvent(
                         new CustomEvent('mld_branch_changed', {
@@ -1736,7 +1759,7 @@ export const W02_Branches: React.FC = () => {
 
                   <div
                     onClick={() => {
-                      handleSelectBranch(managingBranch.id);
+                      setGlobalWorkingBranchId(managingBranch.id);
                       localStorage.setItem('mld_selected_branch_id', managingBranch.id);
                       window.dispatchEvent(
                         new CustomEvent('mld_branch_changed', {
