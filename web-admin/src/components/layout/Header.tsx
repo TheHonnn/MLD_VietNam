@@ -590,17 +590,23 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                                 : 'Hệ thống'}
                             </span>
                             <div className="flex items-center gap-1.5">
-                              {item.link && (
-                                <span className="text-[10px] text-[#985018] font-bold hover:underline flex items-center gap-0.5">
-                                  <span>Xem chi tiết</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </span>
-                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleItemClick(item);
+                                }}
+                                className="text-[11px] text-[#985018] hover:text-[#5B3314] font-bold hover:underline flex items-center gap-1 cursor-pointer py-0.5 px-1.5 rounded hover:bg-[#F3E2CE]/60 transition-colors"
+                                title="Xem chi tiết"
+                              >
+                                <span>Xem chi tiết</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={(e) => handleDelete(e, item.id)}
                                 title="Xóa thông báo"
-                                className="p-1 text-[#B0A294] hover:text-[#B83E3E] rounded transition-colors"
+                                className="p-1 text-[#B0A294] hover:text-[#B83E3E] rounded transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -648,6 +654,117 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
           </button>
         </div>
       </div>
+
+      {/* Modal Xem Chi Tiết Thông Báo */}
+      {selectedNotifDetail && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedNotifDetail(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-[#2C241E]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 pt-5 pb-4 border-b border-[#F4ECE3] bg-gradient-to-r from-[#FAF6F0] to-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+                    getCategoryConfig(selectedNotifDetail.type).bg
+                  } ${getCategoryConfig(selectedNotifDetail.type).textColor} ${
+                    getCategoryConfig(selectedNotifDetail.type).borderColor
+                  }`}
+                >
+                  {React.createElement(getCategoryConfig(selectedNotifDetail.type).icon, {
+                    className: 'w-4 h-4 stroke-[2]',
+                  })}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2C241E]">
+                    Chi tiết thông báo
+                  </h3>
+                  <span className="text-[10px] text-[#A69788]">
+                    {formatTimeAgo(selectedNotifDetail.createdAt)}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedNotifDetail(null)}
+                className="p-1.5 text-[#A69788] hover:text-[#2C241E] rounded-xl hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 space-y-4 text-xs">
+              <div>
+                <div className="text-[11px] text-[#8C7A6B] font-semibold mb-1">
+                  TIÊU ĐỀ
+                </div>
+                <div className="text-sm font-bold text-[#2C241E]">
+                  {selectedNotifDetail.title}
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] space-y-2">
+                <div className="text-[11px] text-[#8C7A6B] font-semibold">
+                  NỘI DUNG CHI TIẾT
+                </div>
+                <p className="text-xs text-[#4A3E34] leading-relaxed">
+                  {selectedNotifDetail.message}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="text-[#8C7A6B]">Phân loại:</span>
+                <span className="font-semibold px-2 py-0.5 rounded-md bg-[#F5EBE1] text-[#8A4F23]">
+                  {selectedNotifDetail.type === 'BOOKING'
+                    ? 'Lịch hẹn dịch vụ'
+                    : selectedNotifDetail.type === 'PAYMENT'
+                    ? 'Thanh toán & Thu ngân'
+                    : selectedNotifDetail.type === 'ACADEMY'
+                    ? 'Đào tạo & Học phí'
+                    : 'Thông báo hệ thống'}
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="px-6 pb-5 pt-2 flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSelectedNotifDetail(null)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-[#D7BBA6] hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-colors text-center cursor-pointer"
+              >
+                Đóng
+              </button>
+              {(selectedNotifDetail.link || selectedNotifDetail.type === 'PAYMENT' || selectedNotifDetail.type === 'BOOKING') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleItemClick(selectedNotifDetail);
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>
+                    {selectedNotifDetail.type === 'PAYMENT'
+                      ? 'Xem biên lai POS'
+                      : selectedNotifDetail.type === 'BOOKING'
+                      ? 'Xem lịch hẹn'
+                      : 'Mở trang liên quan'}
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
