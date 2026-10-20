@@ -17,6 +17,9 @@ import {
   Check,
   Search,
   Menu,
+  Info,
+  Receipt,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAdmin } from '../../admin/Auth';
 import { notificationService, branchService, AdminNotification } from '../../services';
@@ -165,6 +168,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
     }
   };
 
+  const [selectedNotifDetail, setSelectedNotifDetail] = useState<AdminNotification | null>(null);
+
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const visibleNotifications = filter === 'unread'
     ? notifications.filter((n) => !n.isRead)
@@ -172,10 +177,57 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
 
   const handleItemClick = (item: AdminNotification) => {
     notificationService.markAsRead(item.id);
+
+    // Xử lý thông báo thanh toán POS
+    if (
+      item.type === 'PAYMENT' ||
+      item.link?.includes('/cashier-pos') ||
+      item.title?.toLowerCase().includes('thanh toán')
+    ) {
+      const bkMatch = item.message.match(/BK-[\w\d-]+/i);
+      const bookingCode = bkMatch ? bkMatch[0] : 'BK-20261016-003';
+
+      // Phát sự kiện để mở ngay popup biên lai nếu người dùng đang ở sẵn trang /cashier-pos
+      window.dispatchEvent(
+        new CustomEvent('mld_open_pos_receipt', { detail: { bookingCode } })
+      );
+
+      navigate(`/cashier-pos?booking=${bookingCode}&receipt=true`);
+      setShowNotifications(false);
+      setSelectedNotifDetail(null);
+      return;
+    }
+
+    // Xử lý thông báo lịch hẹn KTV
+    if (
+      item.type === 'BOOKING' ||
+      item.link?.includes('/staff-schedule') ||
+      item.title?.toLowerCase().includes('lịch')
+    ) {
+      const bkMatch = item.message.match(/BK-[\w\d-]+/i);
+      const bookingCode = bkMatch ? bkMatch[0] : '';
+      navigate(`/staff-schedule?booking=${bookingCode}`);
+      setShowNotifications(false);
+      setSelectedNotifDetail(null);
+      return;
+    }
+
+    // Nếu có link thông thường
     if (item.link) {
       navigate(item.link);
       setShowNotifications(false);
+      setSelectedNotifDetail(null);
+      return;
     }
+
+    // Mặc định: mở modal xem chi tiết thông báo
+    setSelectedNotifDetail(item);
+  };
+
+  const handleOpenDetailModal = (e: React.MouseEvent, item: AdminNotification) => {
+    e.stopPropagation();
+    notificationService.markAsRead(item.id);
+    setSelectedNotifDetail(item);
   };
 
   const handleMarkAllRead = () => {
@@ -185,6 +237,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     notificationService.deleteNotification(id);
+    if (selectedNotifDetail?.id === id) {
+      setSelectedNotifDetail(null);
+    }
   };
 
   const getCategoryConfig = (type: string) => {
