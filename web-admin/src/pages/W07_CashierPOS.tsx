@@ -332,9 +332,12 @@ export const W07_CashierPOS: React.FC = () => {
         const curSpent = Number(customer?.totalSpent || 0);
         const curPoints = Number(customer?.rewardPoints || 0);
         const earnedPoints = Math.floor(amount / 10000);
+        const newTotalSpent = curSpent + amount;
+        const newTier = supabaseService.calculateTier(newTotalSpent);
         await supabaseService.updateUser(custId, {
-          total_spent: curSpent + amount,
+          total_spent: newTotalSpent,
           reward_points: curPoints + earnedPoints,
+          member_tier: newTier,
           updated_at: new Date().toISOString(),
         });
       }

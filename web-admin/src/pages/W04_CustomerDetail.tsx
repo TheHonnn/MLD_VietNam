@@ -16,6 +16,7 @@ import {
   Calendar,
   Sparkles,
   Check,
+  CheckCircle2,
   Loader2,
 } from 'lucide-react';
 import {
@@ -33,6 +34,7 @@ import {
   CourseEnrollment,
   MemberTier,
   PurposeInterest,
+  PackageStatus,
 } from '../types/shared_types';
 
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -134,6 +136,50 @@ export const W04_CustomerDetail: React.FC = () => {
     };
     fetchData();
   }, [targetId]);
+
+  const [isProcessingSession, setIsProcessingSession] = useState(false);
+  const handleCompleteSession = async (pkg: UserPackage) => {
+    if (!customer?.id) return;
+    setIsProcessingSession(true);
+    try {
+      const res = await treatmentService.completePackageSession(
+        pkg.id,
+        pkg.completedSessions,
+        pkg.totalSessions,
+        {
+          customerId: customer.id,
+          conditionBefore: 'Theo dõi liệu trình định kỳ',
+          conditionAfter: 'Hoàn tất buổi chăm sóc theo phác đồ',
+          specialistAdvice: 'Uống đủ 2 lít nước ấm, giữ ấm vùng cổ vai gáy',
+        }
+      );
+      if (res.success) {
+        setPackages((prev) =>
+          prev.map((p) => {
+            if (p.id === pkg.id) {
+              const nextCount = p.completedSessions + 1;
+              return {
+                ...p,
+                completedSessions: nextCount,
+                status: nextCount >= p.totalSessions ? PackageStatus.COMPLETED : p.status,
+              };
+            }
+            return p;
+          })
+        );
+        toast.success(
+          'Ghi nhận buổi trị liệu',
+          `Đã hoàn thành buổi #${pkg.completedSessions + 1} cho gói "${pkg.package?.name || 'Liệu trình'}"!`
+        );
+      } else {
+        toast.error('Lỗi', res.message || 'Không thể ghi nhận buổi trị liệu');
+      }
+    } catch (err) {
+      toast.error('Lỗi', 'Không thể hoàn tất thao tác.');
+    } finally {
+      setIsProcessingSession(false);
+    }
+  };
 
   const handleOpenEditModal = () => {
     if (!customer) return;
@@ -492,6 +538,22 @@ export const W04_CustomerDetail: React.FC = () => {
                         <p className="text-[11px] text-[#73675F] pt-1">
                           Hạn dùng: {pkg.expiresAt?.split('T')[0] || '12/2026'} · Chi nhánh Quận 3
                         </p>
+
+                        {remaining > 0 ? (
+                          <button
+                            type="button"
+                            disabled={isProcessingSession}
+                            onClick={() => handleCompleteSession(pkg)}
+                            className="w-full mt-2 py-2 px-3 bg-[#FAF3EC] hover:bg-[#F3E2CE] text-[#8A4F23] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>{isProcessingSession ? 'Đang ghi nhận...' : 'Ghi nhận thực hiện 1 buổi'}</span>
+                          </button>
+                        ) : (
+                          <div className="mt-2 py-1.5 px-3 bg-[#E8F6ED] text-[#0D6832] rounded-xl text-xs font-bold text-center border border-[#C2E8D1]">
+                            ✓ Đã hoàn tất 100% phác đồ
+                          </div>
+                        )}
                       </div>
                     );
                   })

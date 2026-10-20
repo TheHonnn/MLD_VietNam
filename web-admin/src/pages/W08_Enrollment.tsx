@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { academyService, customerService } from '../services';
 import { toast } from '../components/common';
-import { CourseEnrollment, Course, CourseBatch, User } from '../types/shared_types';
+import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus } from '../types/shared_types';
 
 interface CandidateRecord {
   id: string;
@@ -24,6 +24,7 @@ interface CandidateRecord {
   classBatch: string;
   tuitionTotal: string;
   tuitionDeposit: string;
+  rawStatus: EnrollmentStatus;
   stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending';
   stageLabel: string;
   // Detail info for right panel
@@ -136,6 +137,7 @@ export const W08_Enrollment: React.FC = () => {
         classBatch: `${batchCode} · ${bat?.scheduleText || 'Lịch chuẩn'}`,
         tuitionTotal: `${total.toLocaleString('vi-VN')}đ`,
         tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc',
+        rawStatus: enr.status,
         stage,
         stageLabel,
         experience: 'Đào tạo chuẩn nghề MLD',
@@ -172,6 +174,7 @@ export const W08_Enrollment: React.FC = () => {
       classBatch: 'Chưa xếp lớp',
       tuitionTotal: '0đ',
       tuitionDeposit: '0đ',
+      rawStatus: EnrollmentStatus.CONSULTING,
       stage: 'new',
       stageLabel: 'Hồ sơ mới',
       experience: '',
@@ -187,6 +190,34 @@ export const W08_Enrollment: React.FC = () => {
       statusBadge: 'Chưa có hồ sơ',
       buttonLabel: 'Tạo hồ sơ',
     };
+
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const handleUpdateEnrollmentStatus = async (enrollmentId: string, nextStatus: EnrollmentStatus) => {
+    setIsUpdatingStatus(true);
+    try {
+      const res = await academyService.updateEnrollmentStatus(enrollmentId, nextStatus);
+      if (res.success) {
+        setLiveEnrollments((prev) =>
+          prev.map((e) => (e.id === enrollmentId ? { ...e, status: nextStatus } : e))
+        );
+        const statusMap: Record<string, string> = {
+          [EnrollmentStatus.ENROLLED]: 'Đã nhập học / Ghi danh',
+          [EnrollmentStatus.STUDYING]: 'Đang học tập',
+          [EnrollmentStatus.GRADUATED]: 'Đã tốt nghiệp',
+        };
+        toast.success(
+          'Cập nhật thành công',
+          `Trạng thái hồ sơ học viên đã chuyển thành: ${statusMap[nextStatus] || nextStatus}`
+        );
+      } else {
+        toast.error('Lỗi', res.message || 'Không thể cập nhật trạng thái hồ sơ');
+      }
+    } catch (err) {
+      toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   // Filter candidates
   const filteredCandidates = candidatesData.filter((c) => {
@@ -594,19 +625,68 @@ export const W08_Enrollment: React.FC = () => {
             </div>
           </div>
 
-          {/* Status banner */}
-          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
+          {/* Status banner with dynamic colors */}
+          <div
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
+              selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED
+                ? 'bg-[#E8F6ED] text-[#0D6832]'
+                : selectedCandidate.rawStatus === EnrollmentStatus.STUDYING
+                ? 'bg-[#EBF5FB] text-[#1B4F72]'
+                : selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED
+                ? 'bg-[#FEF9E7] text-[#7D6608]'
+                : 'bg-[#F3E2CE] text-[#8A4F23]'
+            }`}
+          >
             <Clock className="w-4 h-4 stroke-[2]" />
-            <span>{selectedCandidate.stageLabel}</span>
+            <span>Trạng thái: {selectedCandidate.stageLabel}</span>
           </div>
 
-          {/* Action button */}
-          <button
-            onClick={() => toast.success('Cập nhật trạng thái', `Đã cập nhật trạng thái hồ sơ học viên: ${selectedCandidate.buttonLabel}`)}
-            className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
-          >
-            {selectedCandidate.buttonLabel}
-          </button>
+          {/* Interactive FSM Action buttons */}
+          {selectedCandidate.id && (
+            <div className="space-y-2 pt-1">
+              {selectedCandidate.rawStatus === EnrollmentStatus.CONSULTING && (
+                <button
+                  type="button"
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.ENROLLED)}
+                  className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Ghi nhận đóng cọc / Nhập học'}</span>
+                </button>
+              )}
+
+              {selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED && (
+                <button
+                  type="button"
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.STUDYING)}
+                  className="w-full py-2.5 bg-[#1B4F72] hover:bg-[#153e5b] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xếp lớp & Bắt đầu học'}</span>
+                </button>
+              )}
+
+              {selectedCandidate.rawStatus === EnrollmentStatus.STUDYING && (
+                <button
+                  type="button"
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.GRADUATED)}
+                  className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xét tốt nghiệp & Cấp chứng chỉ'}</span>
+                </button>
+              )}
+
+              {selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED && (
+                <div className="p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-xs font-bold text-center border border-[#C2E8D1]">
+                  🎓 Học viên đã tốt nghiệp xuất sắc
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Footnote */}
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
