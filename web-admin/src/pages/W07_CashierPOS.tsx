@@ -16,17 +16,19 @@ import {
   Copy,
   Maximize2,
 } from 'lucide-react';
-import { posService, bookingService, customerService, notificationService } from '../services';
+import { posService, bookingService, customerService, notificationService, supabaseService } from '../services';
 import { toast } from '../components/common';
-import { Invoice, Booking, User } from '../types/shared_types';
+import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus } from '../types/shared_types';
 
 export const W07_CashierPOS: React.FC = () => {
   const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>('transfer');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [booking, setBooking] = useState<Booking | undefined>(undefined);
   const [customer, setCustomer] = useState<User | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
   const [isPaid, setIsPaid] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showQrZoomModal, setShowQrZoomModal] = useState(false);
   const [newReceipts, setNewReceipts] = useState<Array<{
@@ -55,13 +57,16 @@ export const W07_CashierPOS: React.FC = () => {
         ]);
         if (invRes.success) setInvoices(invRes.data);
         
-        const allBookings = bkRes.success ? bkRes.data : [];
-        const pendingBk = allBookings.find(
+        const bks = bkRes.success ? bkRes.data : [];
+        setAllBookings(bks);
+        
+        const pendingBk = bks.find(
           (b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING'
-        ) || allBookings[0];
+        ) || bks[0];
 
         if (pendingBk) {
           setBooking(pendingBk);
+          setIsPaid(pendingBk.paymentStatus === 'PAID');
           const allCustomers = custRes.success ? custRes.data : [];
           const matchedCust = pendingBk.customer || allCustomers.find((c) => c.id === pendingBk.customerId);
           if (matchedCust) {
@@ -77,6 +82,51 @@ export const W07_CashierPOS: React.FC = () => {
     };
     fetchPosData();
   }, []);
+
+  const handleSearchBooking = (queryStr: string) => {
+    setSearchTerm(queryStr);
+    if (!queryStr.trim()) return;
+    const kw = queryStr.toLowerCase().trim();
+    const found = allBookings.find(
+      (b) =>
+        b.bookingCode.toLowerCase().includes(kw) ||
+        (b.customer?.fullName && b.customer.fullName.toLowerCase().includes(kw)) ||
+        (b.customer?.phone && b.customer.phone.includes(kw)) ||
+        (b.bookedForName && b.bookedForName.toLowerCase().includes(kw))
+    );
+    if (found) {
+      setBooking(found);
+      setIsPaid(found.paymentStatus === 'PAID');
+      if (found.customer) {
+        setCustomer(found.customer);
+      }
+    }
+  };
+
+  const handleLookupClick = () => {
+    if (!searchTerm.trim()) {
+      toast.info('Tra cứu đơn dịch vụ', 'Vui lòng nhập mã đơn hoặc tên khách hàng để tìm kiếm.');
+      return;
+    }
+    const kw = searchTerm.toLowerCase().trim();
+    const found = allBookings.find(
+      (b) =>
+        b.bookingCode.toLowerCase().includes(kw) ||
+        (b.customer?.fullName && b.customer.fullName.toLowerCase().includes(kw)) ||
+        (b.customer?.phone && b.customer.phone.includes(kw)) ||
+        (b.bookedForName && b.bookedForName.toLowerCase().includes(kw))
+    );
+    if (found) {
+      setBooking(found);
+      setIsPaid(found.paymentStatus === 'PAID');
+      if (found.customer) {
+        setCustomer(found.customer);
+      }
+      toast.success('Tìm thấy đơn dịch vụ', `Đã chuyển sang đơn ${found.bookingCode} - ${found.customer?.fullName || 'Khách hàng'}.`);
+    } else {
+      toast.warning('Không tìm thấy', `Không tìm thấy đơn dịch vụ khớp với từ khóa "${searchTerm}".`);
+    }
+  };
 
   const primaryItem = booking?.items?.[0];
   const serviceName = primaryItem?.service?.name || 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy';
@@ -97,45 +147,152 @@ export const W07_CashierPOS: React.FC = () => {
   const customerName = customer?.fullName || booking?.customer?.fullName || booking?.bookedForName || 'Xuân Trường';
   const customerPhone = customer?.phone || booking?.customer?.phone || booking?.bookedForPhone || '0334750241';
 
-  const handleProcessPayment = () => {
-    setIsPaid(true);
-    setShowReceiptModal(true);
+  const handleProcessPayment = async () => {
+    if (!booking) {
+      toast.error('Lỗi', 'Không tìm thấy thông tin đơn đặt lịch để thanh toán.');
+      return;
+    }
 
-    const bookingCode = booking?.bookingCode || 'BK-20261016-003';
-    const amount = booking?.finalPrice || 390000;
-    const formattedAmount = `${amount.toLocaleString('vi-VN')}đ`;
+    setIsProcessing(true);
+    try {
+      const paymentMethodEnum =
+        selectedMethod === 'onsite'
+          ? PaymentMethod.CASH_AT_SPA
+          : selectedMethod === 'online'
+          ? PaymentMethod.MOMO
+          : PaymentMethod.BANK_TRANSFER;
 
-    toast.success(
-      'Ghi nhận thanh toán thành công!',
-      `Đã thu ${formattedAmount} cho hóa đơn ${bookingCode} (${customerName}).`
-    );
+      const bookingCode = booking.bookingCode || 'BK-20261016-003';
+      const amount = booking.finalPrice || 390000;
+      const formattedAmount = `${amount.toLocaleString('vi-VN')}đ`;
+      const datePart = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const randPart = Math.floor(1000 + Math.random() * 9000);
+      const generatedInvoiceCode = `HD-${datePart}-${randPart}`;
 
-    notificationService.addNotification({
-      title: 'Ghi nhận thanh toán thành công',
-      message: `Thu ngân đã quyết toán ${formattedAmount} đơn ${bookingCode} cho khách hàng ${customerName}.`,
-      type: 'PAYMENT',
-      link: '/cashier-pos',
-    });
+      // 1. Lưu hóa đơn vào Supabase Cloud (bảng invoices)
+      const resInvoice = await posService.createInvoice({
+        invoiceCode: generatedInvoiceCode,
+        branchId: booking.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+        customerId: customer?.id || booking.customerId || '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
+        bookingId: booking.id,
+        subtotal: booking.baseTotal || amount,
+        discountAmount: booking.discountAmount || 0,
+        pointsRedeemedAmount: booking.pointsDiscount || 0,
+        vatAmount: 0,
+        totalAmount: amount,
+        paymentMethod: paymentMethodEnum,
+        paymentStatus: PaymentStatus.PAID,
+        paidAt: new Date().toISOString(),
+      });
 
-    const newReceipt = {
-      id: `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`,
-      date: new Intl.DateTimeFormat('vi-VN').format(new Date()),
-      content: `${serviceName} (${serviceDuration} phút)`,
-      method:
+      // 2. Cập nhật trạng thái Booking trên Supabase Cloud (bảng bookings)
+      await bookingService.updateBookingStatus(
+        booking.id,
+        BookingStatus.COMPLETED,
+        PaymentStatus.PAID,
+        paymentMethodEnum
+      );
+
+      // 3. Tích điểm và cập nhật chi tiêu cho khách hàng (Supabase bảng users)
+      const custId = customer?.id || booking.customerId;
+      if (custId) {
+        const curSpent = Number(customer?.totalSpent || 0);
+        const curPoints = Number(customer?.rewardPoints || 0);
+        const earnedPoints = Math.floor(amount / 10000);
+        await supabaseService.updateUser(custId, {
+          total_spent: curSpent + amount,
+          reward_points: curPoints + earnedPoints,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      // 4. Đồng bộ State giao diện lập tức
+      setIsPaid(true);
+      setShowReceiptModal(true);
+
+      if (resInvoice.success && resInvoice.data) {
+        setInvoices((prev) => [resInvoice.data, ...prev]);
+      }
+
+      setBooking((prev) =>
+        prev
+          ? {
+              ...prev,
+              paymentStatus: PaymentStatus.PAID,
+              status: BookingStatus.COMPLETED,
+              paymentMethod: paymentMethodEnum,
+            }
+          : undefined
+      );
+
+      setAllBookings((prev) =>
+        prev.map((b) =>
+          b.id === booking.id
+            ? {
+                ...b,
+                paymentStatus: PaymentStatus.PAID,
+                status: BookingStatus.COMPLETED,
+                paymentMethod: paymentMethodEnum,
+              }
+            : b
+        )
+      );
+
+      const methodLabel =
         selectedMethod === 'onsite'
           ? 'Thanh toán tại cơ sở'
           : selectedMethod === 'online'
           ? 'Thanh toán trực tuyến (MoMo)'
-          : 'Chuyển khoản VietQR (MB Bank · 0099999999678)',
-      amount: formattedAmount,
-      status: 'Đã thanh toán',
-    };
-    setNewReceipts((prev) => [newReceipt, ...prev]);
+          : 'Chuyển khoản VietQR (MB Bank · 0099999999678)';
+
+      const newReceipt = {
+        id: generatedInvoiceCode,
+        date: new Intl.DateTimeFormat('vi-VN').format(new Date()),
+        content: `${serviceName} (${serviceDuration} phút)`,
+        method: methodLabel,
+        amount: formattedAmount,
+        status: 'Đã thanh toán',
+      };
+      setNewReceipts((prev) => [newReceipt, ...prev]);
+
+      toast.success(
+        'Ghi nhận thanh toán thành công!',
+        `Đã thu ${formattedAmount} cho hóa đơn ${bookingCode} (${customerName}) và lưu tự động vào Supabase Cloud.`
+      );
+
+      notificationService.addNotification({
+        title: 'Ghi nhận thanh toán thành công',
+        message: `Thu ngân đã quyết toán ${formattedAmount} đơn ${bookingCode} cho khách hàng ${customerName}.`,
+        type: 'PAYMENT',
+        link: '/cashier-pos',
+      });
+    } catch (err: any) {
+      console.error('Lỗi khi ghi nhận thanh toán:', err);
+      toast.error('Lỗi lưu thanh toán', 'Không thể lưu hóa đơn vào CSDL Supabase. Vui lòng thử lại.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleResetForNewOrder = () => {
-    setIsPaid(false);
-    toast.info('Đơn thu ngân mới', 'Đã làm mới thông tin để tiếp nhận đơn thu ngân tiếp theo.');
+    const nextUnpaid = allBookings.find(
+      (b) => b.id !== booking?.id && (b.paymentStatus === 'UNPAID' || b.status === 'PENDING')
+    );
+    if (nextUnpaid) {
+      setBooking(nextUnpaid);
+      setIsPaid(nextUnpaid.paymentStatus === 'PAID');
+      if (nextUnpaid.customer) {
+        setCustomer(nextUnpaid.customer);
+        setSearchTerm(`${nextUnpaid.customer.fullName} / ${nextUnpaid.bookingCode}`);
+      } else {
+        setSearchTerm(`${nextUnpaid.bookedForName || 'Khách vãng lai'} / ${nextUnpaid.bookingCode}`);
+      }
+      toast.info('Đơn thu ngân mới', `Đã chuyển sang đơn tiếp theo: ${nextUnpaid.bookingCode}.`);
+    } else {
+      setIsPaid(false);
+      toast.info('Đơn thu ngân mới', 'Đã làm mới thông tin để tiếp nhận đơn thu ngân tiếp theo.');
+    }
   };
 
   // Past receipts dataset from service or fallback + newly paid receipts
@@ -165,7 +322,7 @@ export const W07_CashierPOS: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => toast.info('Tra cứu đơn dịch vụ', `Đang áp dụng bộ lọc đơn dịch vụ theo mã ${booking?.bookingCode || 'BK-20261016-003'}.`)}
+          onClick={handleLookupClick}
           className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
           Tra cứu đơn dịch vụ
@@ -179,7 +336,10 @@ export const W07_CashierPOS: React.FC = () => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearchBooking(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleLookupClick();
+            }}
             placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
             className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018]"
           />
@@ -374,10 +534,22 @@ export const W07_CashierPOS: React.FC = () => {
           ) : (
             <button
               type="button"
+              disabled={isProcessing}
               onClick={handleProcessPayment}
-              className="w-full py-3 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
+              className={`w-full py-3 ${
+                isProcessing
+                  ? 'bg-[#A88874] cursor-wait'
+                  : 'bg-[#985018] hover:bg-[#854412] cursor-pointer'
+              } text-white text-xs font-bold rounded-xl transition-all shadow-xs text-center flex items-center justify-center gap-2`}
             >
-              Ghi nhận thanh toán
+              {isProcessing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Đang ghi nhận vào Supabase...</span>
+                </>
+              ) : (
+                'Ghi nhận thanh toán'
+              )}
             </button>
           )}
 

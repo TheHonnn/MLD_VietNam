@@ -10,6 +10,9 @@ import {
   UserPackage,
   TreatmentJournal,
   Booking,
+  BookingStatus,
+  PaymentStatus,
+  PaymentMethod,
   Invoice,
   CourseBatch,
   CourseEnrollment,
@@ -580,6 +583,40 @@ class SupabaseService {
     }));
   }
 
+  // Cập nhật trạng thái và thông tin Booking
+  async updateBooking(
+    bookingId: string,
+    updates: {
+      status?: BookingStatus;
+      paymentStatus?: PaymentStatus;
+      paymentMethod?: PaymentMethod;
+      assignedRoomId?: string | null;
+      assignedBedNumber?: string | null;
+      technicianId?: string | null;
+    }
+  ): Promise<boolean> {
+    try {
+      const payload: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (updates.status !== undefined) payload.status = updates.status;
+      if (updates.paymentStatus !== undefined) payload.payment_status = updates.paymentStatus;
+      if (updates.paymentMethod !== undefined) payload.payment_method = updates.paymentMethod;
+      if (updates.assignedRoomId !== undefined) payload.assigned_room_id = updates.assignedRoomId;
+      if (updates.assignedBedNumber !== undefined) payload.assigned_bed_number = updates.assignedBedNumber;
+      if (updates.technicianId !== undefined) payload.technician_id = updates.technicianId;
+
+      const res = await this.query<any[]>(`bookings?id=eq.${bookingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return Boolean(res && res.length > 0);
+    } catch (err) {
+      console.warn('[SupabaseService] updateBooking error:', err);
+      return false;
+    }
+  }
+
   // 11. HÓA ĐƠN THU NGÂN (INVOICES)
   async getInvoices(branchId?: string, customerId?: string): Promise<Invoice[] | null> {
     let path = `invoices?select=*&order=paid_at.desc`;
@@ -609,6 +646,76 @@ class SupabaseService {
       refundAmount: Number(inv.refund_amount || 0),
       paidAt: inv.paid_at,
     }));
+  }
+
+  // Tạo mới Hóa đơn Thu ngân (Invoice) trực tiếp trên Supabase
+  async createInvoice(invoice: {
+    invoiceCode: string;
+    branchId: string;
+    customerId: string;
+    cashierId?: string | null;
+    bookingId?: string | null;
+    userPackageId?: string | null;
+    enrollmentId?: string | null;
+    subtotal: number;
+    discountAmount?: number;
+    pointsRedeemedAmount?: number;
+    vatAmount?: number;
+    totalAmount: number;
+    paymentMethod: PaymentMethod;
+    paymentStatus?: PaymentStatus;
+    paidAt?: string;
+  }): Promise<Invoice | null> {
+    try {
+      const payload = {
+        invoice_code: invoice.invoiceCode,
+        branch_id: invoice.branchId,
+        customer_id: invoice.customerId,
+        cashier_id: invoice.cashierId || 'bbbbbbbb-0001-0001-0001-000000000002',
+        booking_id: invoice.bookingId || null,
+        user_package_id: invoice.userPackageId || null,
+        enrollment_id: invoice.enrollmentId || null,
+        subtotal: invoice.subtotal,
+        discount_amount: invoice.discountAmount || 0,
+        points_redeemed_amount: invoice.pointsRedeemedAmount || 0,
+        vat_amount: invoice.vatAmount || 0,
+        total_amount: invoice.totalAmount,
+        payment_method: invoice.paymentMethod,
+        payment_status: invoice.paymentStatus || 'PAID',
+        paid_at: invoice.paidAt || new Date().toISOString(),
+      };
+
+      const res = await this.query<any[]>('invoices', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (!res || res.length === 0) return null;
+      const inv = res[0];
+      return {
+        id: inv.id,
+        invoiceCode: inv.invoice_code,
+        branchId: inv.branch_id,
+        customerId: inv.customer_id,
+        cashierId: inv.cashier_id,
+        bookingId: inv.booking_id,
+        userPackageId: inv.user_package_id,
+        enrollmentId: inv.enrollment_id,
+        subtotal: Number(inv.subtotal),
+        discountAmount: Number(inv.discount_amount || 0),
+        pointsRedeemedAmount: Number(inv.points_redeemed_amount || 0),
+        vatAmount: Number(inv.vat_amount || 0),
+        totalAmount: Number(inv.total_amount),
+        paymentMethod: inv.payment_method,
+        paymentStatus: inv.payment_status,
+        gatewayTransactionId: inv.gateway_transaction_id,
+        refundAmount: Number(inv.refund_amount || 0),
+        paidAt: inv.paid_at,
+      };
+    } catch (err) {
+      console.warn('[SupabaseService] createInvoice error:', err);
+      return null;
+    }
   }
 
   // 12. LỚP HỌC THEO KHÓA (COURSE BATCHES)

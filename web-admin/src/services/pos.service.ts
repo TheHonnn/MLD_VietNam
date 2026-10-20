@@ -64,8 +64,38 @@ export const posService = {
     }
   },
 
-  async createInvoice(data: Partial<Invoice>): Promise<ApiResponse<Invoice>> {
-    return legacyWrite<Invoice>('invoices',data);
+  async createInvoice(data: any): Promise<ApiResponse<Invoice>> {
+    try {
+      const created = await supabaseService.createInvoice({
+        invoiceCode: data.invoiceCode || `HD-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        branchId: data.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+        customerId: data.customerId || '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        cashierId: data.cashierId || 'bbbbbbbb-0001-0001-0001-000000000002',
+        bookingId: data.bookingId || null,
+        userPackageId: data.userPackageId || null,
+        enrollmentId: data.enrollmentId || null,
+        subtotal: data.subtotal || data.totalAmount || 0,
+        discountAmount: data.discountAmount || 0,
+        pointsRedeemedAmount: data.pointsRedeemedAmount || 0,
+        vatAmount: data.vatAmount || 0,
+        totalAmount: data.totalAmount || 0,
+        paymentMethod: data.paymentMethod || PaymentMethod.CASH_AT_SPA,
+        paymentStatus: data.paymentStatus || PaymentStatus.PAID,
+        paidAt: data.paidAt || new Date().toISOString(),
+      });
+
+      if (created) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Tạo hóa đơn thành công trên Supabase Cloud',
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error('[posService] createInvoice error:', err);
+    }
+    return legacyWrite<Invoice>('invoices', data);
   },
 
   async updatePaymentStatus(

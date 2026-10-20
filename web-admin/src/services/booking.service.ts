@@ -1,4 +1,4 @@
-import { Booking, BookingStatus, ApiResponse } from '../types/shared_types';
+import { Booking, BookingStatus, PaymentStatus, PaymentMethod, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
 
@@ -56,7 +56,33 @@ export const bookingService = {
     }
   },
 
-  async updateBookingStatus(id: string, status: BookingStatus): Promise<ApiResponse<Booking>> {
-    return legacyWrite<Booking>('bookings',{status},id);
+  async updateBookingStatus(
+    id: string,
+    status?: BookingStatus,
+    paymentStatus?: PaymentStatus,
+    paymentMethod?: PaymentMethod
+  ): Promise<ApiResponse<Booking>> {
+    try {
+      const ok = await supabaseService.updateBooking(id, {
+        status,
+        paymentStatus,
+        paymentMethod,
+      });
+      if (ok) {
+        const live = await supabaseService.getBookings();
+        const updated = live?.find((b) => b.id === id);
+        if (updated) {
+          return {
+            success: true,
+            statusCode: 200,
+            message: 'Cập nhật lịch hẹn thành công trên Supabase Cloud',
+            data: updated,
+          };
+        }
+      }
+    } catch (err) {
+      console.error('[bookingService] updateBookingStatus error:', err);
+    }
+    return legacyWrite<Booking>('bookings', { status, ...(paymentStatus ? { paymentStatus } : {}) }, id);
   },
 };
