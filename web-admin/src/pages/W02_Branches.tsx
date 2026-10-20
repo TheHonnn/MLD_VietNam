@@ -28,6 +28,7 @@ import { branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
 import { Branch, BranchRoom, Service, RoomType } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
+import { VIETNAM_LOCATIONS_2026, VIETNAM_PROVINCE_NAMES } from '../data/vietnamLocations';
 
 const roomTypeLabels: Record<string, string> = {
   VIP_ROOM: 'Phòng VIP Hoàng Gia',
@@ -105,169 +106,24 @@ export const W02_Branches: React.FC = () => {
     'Học viện đào tạo chuyên sâu',
   ];
 
-  // Dữ liệu phân cấp hành chính chuẩn hóa theo quy hoạch hành chính năm 2026
-  const CITY_DISTRICTS: Record<string, string[]> = {
-    'TP. Hồ Chí Minh': [
-      'Quận 1',
-      'Quận 3',
-      'Quận 4',
-      'Quận 5',
-      'Quận 6',
-      'Quận 7',
-      'Quận 8',
-      'Quận 10',
-      'Quận 11',
-      'Quận 12',
-      'Bình Thạnh',
-      'Phú Nhuận',
-      'Gò Vấp',
-      'Tân Bình',
-      'Tân Phú',
-      'Bình Tân',
-      'Thành phố Thủ Đức',
-      'Bình Chánh',
-      'Hóc Môn',
-      'Củ Chi',
-      'Nhà Bè',
-      'Cần Giờ',
-    ],
-    'Hà Nội': [
-      'Ba Đình',
-      'Hoàn Kiếm',
-      'Tây Hồ',
-      'Long Biên',
-      'Cầu Giấy',
-      'Đống Đa',
-      'Hai Bà Trưng',
-      'Hoàng Mai',
-      'Thanh Xuân',
-      'Hà Đông',
-      'Nam Từ Liêm',
-      'Bắc Từ Liêm',
-      'Đông Anh',
-      'Gia Lâm',
-      'Thanh Trì',
-      'Hoài Đức',
-      'Đan Phượng',
-      'Sóc Sơn',
-      'Mê Linh',
-      'Thường Tín',
-      'Thị xã Sơn Tây',
-    ],
-    'Đà Nẵng': [
-      'Hải Châu',
-      'Thanh Khê',
-      'Sơn Trà',
-      'Ngũ Hành Sơn',
-      'Liên Chiểu',
-      'Cẩm Lệ',
-      'Hòa Vang',
-      'Hoàng Sa',
-    ],
-    'Hải Phòng': [
-      'Thành phố Thủy Nguyên',
-      'Quận An Dương',
-      'Hồng Bàng',
-      'Ngô Quyền',
-      'Lê Chân',
-      'Hải An',
-      'Kiến An',
-      'Đồ Sơn',
-      'Dương Kinh',
-      'Kiến Thụy',
-      'An Lão',
-      'Tiên Lãng',
-      'Vĩnh Bảo',
-      'Cát Hải',
-    ],
-    'Cần Thơ': [
-      'Ninh Kiều',
-      'Bình Thủy',
-      'Cái Răng',
-      'Ô Môn',
-      'Thốt Nốt',
-      'Phong Điền',
-      'Cờ Đỏ',
-      'Thới Lai',
-      'Vĩnh Thạnh',
-    ],
-    'Bình Dương': [
-      'Thành phố Thủ Dầu Một',
-      'Thành phố Thuận An',
-      'Thành phố Dĩ An',
-      'Thành phố Tân Uyên',
-      'Thành phố Bến Cát',
-      'Bàu Bàng',
-      'Bắc Tân Uyên',
-      'Dầu Tiếng',
-      'Phú Giáo',
-    ],
-    'Đồng Nai': [
-      'Thành phố Biên Hòa',
-      'Thành phố Long Khánh',
-      'Long Thành',
-      'Nhơn Trạch',
-      'Trảng Bom',
-      'Vĩnh Cửu',
-      'Thống Nhất',
-      'Cẩm Mỹ',
-      'Định Quán',
-      'Xuân Lộc',
-      'Tân Phú',
-    ],
-    'Bà Rịa - Vũng Tàu': [
-      'Thành phố Vũng Tàu',
-      'Thành phố Bà Rịa',
-      'Thành phố Phú Mỹ',
-      'Huyện Long Đất',
-      'Châu Đức',
-      'Xuyên Mộc',
-      'Côn Đảo',
-    ],
-    'Huế': [
-      'Quận Thuận Hóa',
-      'Quận Phú Xuân',
-      'Thị xã Hương Thủy',
-      'Thị xã Hương Trà',
-      'Thị xã Phong Điền',
-      'Phú Vang',
-      'Quảng Điền',
-      'A Lưới',
-      'Phú Lộc',
-    ],
-    'Quảng Ninh': [
-      'Thành phố Hạ Long',
-      'Thành phố Cẩm Phả',
-      'Thành phố Uông Bí',
-      'Thành phố Móng Cái',
-      'Thành phố Đông Triều',
-      'Thị xã Quảng Yên',
-      'Vân Đồn',
-    ],
-    'Khánh Hòa': [
-      'Thành phố Nha Trang',
-      'Thành phố Cam Ranh',
-      'Thị xã Ninh Hòa',
-      'Cam Lâm',
-      'Diên Khánh',
-      'Vạn Ninh',
-    ],
-  };
+  const [isCustomDistrict, setIsCustomDistrict] = useState(false);
+  const [isCustomEditDistrict, setIsCustomEditDistrict] = useState(false);
 
-  const cityOptions = Object.keys(CITY_DISTRICTS);
+  const cityOptions = VIETNAM_PROVINCE_NAMES;
 
   const handleCityChange = (newCity: string) => {
-    const districts = CITY_DISTRICTS[newCity] || [];
+    const districts = VIETNAM_LOCATIONS_2026[newCity] || [];
     const defaultDistrict = districts[0] || '';
     setFormData((prev) => ({
       ...prev,
       city: newCity,
       district: defaultDistrict,
     }));
+    setIsCustomDistrict(false);
   };
 
   const handleEditCityChange = (newCity: string) => {
-    const districts = CITY_DISTRICTS[newCity] || [];
+    const districts = VIETNAM_LOCATIONS_2026[newCity] || [];
     const defaultDistrict = districts.includes(editForm.district)
       ? editForm.district
       : districts[0] || '';
@@ -276,6 +132,7 @@ export const W02_Branches: React.FC = () => {
       city: newCity,
       district: defaultDistrict,
     }));
+    setIsCustomEditDistrict(false);
   };
 
   useEffect(() => {
@@ -1348,23 +1205,53 @@ export const W02_Branches: React.FC = () => {
                   </div>
 
                   <div className="w-full min-w-0">
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5 truncate">
-                      Quận / Huyện
-                    </label>
-                    <div className="relative w-full min-w-0">
-                      <select
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-[#2C241E] truncate">
+                        Quận / Huyện
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomEditDistrict(!isCustomEditDistrict)}
+                        className="text-[11px] text-[#985018] hover:underline font-semibold shrink-0"
+                      >
+                        {isCustomEditDistrict ? '← Chọn danh sách' : '+ Tự nhập'}
+                      </button>
+                    </div>
+                    {isCustomEditDistrict ? (
+                      <input
+                        type="text"
+                        placeholder="Nhập quận / huyện / phường..."
                         value={editForm.district}
                         onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
-                        className="w-full appearance-none pl-3.5 pr-8 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] truncate cursor-pointer box-border"
-                      >
-                        {(CITY_DISTRICTS[editForm.city] || []).map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] box-border"
+                      />
+                    ) : (
+                      <div className="relative w-full min-w-0">
+                        <select
+                          value={editForm.district}
+                          onChange={(e) => {
+                            if (e.target.value === '__CUSTOM__') {
+                              setIsCustomEditDistrict(true);
+                              setEditForm({ ...editForm, district: '' });
+                            } else {
+                              setEditForm({ ...editForm, district: e.target.value });
+                            }
+                          }}
+                          className="w-full appearance-none pl-3.5 pr-8 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] truncate cursor-pointer box-border"
+                        >
+                          {editForm.district && !(VIETNAM_LOCATIONS_2026[editForm.city] || []).includes(editForm.district) && (
+                            <option value={editForm.district}>{editForm.district}</option>
+                          )}
+                          {(VIETNAM_LOCATIONS_2026[editForm.city] || []).map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                          <option value="__CUSTOM__">+ Nhập quận / huyện / phường khác...</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
@@ -1880,23 +1767,50 @@ export const W02_Branches: React.FC = () => {
                   </div>
 
                   <div className="w-full min-w-0">
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5 truncate">
-                      Quận / Huyện <span className="text-[#985018]">*</span>
-                    </label>
-                    <div className="relative w-full min-w-0">
-                      <select
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-[#2C241E] truncate">
+                        Quận / Huyện <span className="text-[#985018]">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomDistrict(!isCustomDistrict)}
+                        className="text-[11px] text-[#985018] hover:underline font-semibold shrink-0"
+                      >
+                        {isCustomDistrict ? '← Chọn danh sách' : '+ Tự nhập'}
+                      </button>
+                    </div>
+                    {isCustomDistrict ? (
+                      <input
+                        type="text"
+                        placeholder="Nhập quận / huyện / phường..."
                         value={formData.district}
                         onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                        className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all truncate cursor-pointer box-border"
-                      >
-                        {(CITY_DISTRICTS[formData.city] || []).map((district) => (
-                          <option key={district} value={district}>
-                            {district}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
+                        className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all box-border"
+                      />
+                    ) : (
+                      <div className="relative w-full min-w-0">
+                        <select
+                          value={formData.district}
+                          onChange={(e) => {
+                            if (e.target.value === '__CUSTOM__') {
+                              setIsCustomDistrict(true);
+                              setFormData({ ...formData, district: '' });
+                            } else {
+                              setFormData({ ...formData, district: e.target.value });
+                            }
+                          }}
+                          className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all truncate cursor-pointer box-border"
+                        >
+                          {(VIETNAM_LOCATIONS_2026[formData.city] || []).map((district) => (
+                            <option key={district} value={district}>
+                              {district}
+                            </option>
+                          ))}
+                          <option value="__CUSTOM__">+ Nhập quận / huyện / phường khác...</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">

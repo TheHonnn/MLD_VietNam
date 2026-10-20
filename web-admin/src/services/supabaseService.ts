@@ -219,20 +219,45 @@ class SupabaseService {
 
 
   // 2. PHÒNG CHI NHÁNH (BRANCH ROOMS)
-  async getRooms(branchId?: string): Promise<BranchRoom[] | null> {
+  async getRooms(branchId?: string, includeArchived = false): Promise<BranchRoom[] | null> {
     const queryPath = branchId
       ? `branch_rooms?branch_id=eq.${branchId}&select=*`
       : 'branch_rooms?select=*';
     const raw = await this.query<any[]>(queryPath);
     if (!raw || raw.length === 0) return null;
 
-    return raw.map((r) => ({
+    const filtered = includeArchived
+      ? raw
+      : raw.filter((r) => !r.name?.startsWith('[ARCHIVED]') && !r.name?.startsWith('[DELETED]'));
+
+    return filtered.map((r) => ({
       id: r.id,
       branchId: r.branch_id,
       name: r.name,
       roomType: r.room_type,
       bedCapacity: Number(r.bed_capacity),
       isAvailable: Boolean(r.is_available),
+      isArchived: Boolean(r.name?.startsWith('[ARCHIVED]') || r.name?.startsWith('[DELETED]')),
+      createdAt: r.created_at,
+    }));
+  }
+
+  async getArchivedRooms(branchId?: string): Promise<BranchRoom[]> {
+    const queryPath = branchId
+      ? `branch_rooms?branch_id=eq.${branchId}&select=*`
+      : 'branch_rooms?select=*';
+    const raw = await this.query<any[]>(queryPath);
+    if (!raw || raw.length === 0) return [];
+
+    const archived = raw.filter((r) => r.name?.startsWith('[ARCHIVED]') || r.name?.startsWith('[DELETED]'));
+    return archived.map((r) => ({
+      id: r.id,
+      branchId: r.branch_id,
+      name: (r.name || '').replace(/^\[(ARCHIVED|DELETED)\]\s*/, ''),
+      roomType: r.room_type,
+      bedCapacity: Number(r.bed_capacity),
+      isAvailable: Boolean(r.is_available),
+      isArchived: true,
       createdAt: r.created_at,
     }));
   }
@@ -267,6 +292,7 @@ class SupabaseService {
           roomType: r.room_type,
           bedCapacity: Number(r.bed_capacity),
           isAvailable: Boolean(r.is_available),
+          isArchived: false,
           createdAt: r.created_at,
         };
       }
@@ -295,14 +321,99 @@ class SupabaseService {
     }
   }
 
+  /**
+   * Xóa phòng khỏi hệ thống vận hành (SOFT DELETE):
+   * Bảo toàn 100% dữ liệu phòng trong cơ sở dữ liệu Supabase Cloud.
+   * Bản ghi KHÔNG bị xóa cứng (DELETE) để giữ nguyên vẹn khóa ngoại và lịch sử đặt hẹn,
+   * thay vào đó được gắn tag [ARCHIVED] và tắt trạng thái sẵn sàng để ẩn hoàn toàn khỏi hệ thống.
+   */
   async deleteRoom(roomId: string): Promise<boolean> {
     try {
-      const res = await this.query<any>(`branch_rooms?id=eq.${roomId}`, {
-        method: 'DELETE',
-      });
-      return res !== null;
+      // 1. Tra cứu bản ghi phòng hiện tại trên database
+      const existing = await this.query<any[]>(`branch_rooms?id=eq.${roomId}&select=*`);
+      if (existing && existing.length > 0) {
+        const room = existing[0];
+        const originalName = room.name || '';
+        const cleanName = originalName.replace(/^\[(ARCHIVED|DELETED)\]\s*/, '');
+        const archivedName = `[ARCHIVED] ${cleanName}`.slice(0, 100);
+
+        // 2. Cập nhật trạng thái lưu trữ trên Supabase (PATCH thay vì DELETE vật lý)
+        const patchRes = await this.query<any>(`branch_rooms?id=eq.${roomId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: archivedName,
+            is_available: false,
+          }),
+        });
+
+        // 3. Ghi vết kiểm toán (Audit Log)
+        try {
+          await this.query('audit_logs', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'SOFT_DELETE_ROOM',
+              table_name: 'branch_rooms',
+              record_id: roomId,
+              old_data: room,
+              new_data: {
+                status: 'ARCHIVED',
+                note: 'Phòng đã xóa khỏi hệ thống vận hành, bảo lưu toàn vẹn trong cơ sở dữ liệu',
+                archived_at: new Date().toISOString(),
+              },
+            }),
+          });
+        } catch {}
+
+        return patchRes !== null;
+      }
+
+      return true;
     } catch (err) {
-      console.warn('[SupabaseService] deleteRoom error:', err);
+      console.warn('[SupabaseService] deleteRoom (soft delete) error:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Khôi phục phòng đã xóa/lưu trữ về lại hệ thống vận hành
+   */
+  async restoreRoom(roomId: string): Promise<boolean> {
+    try {
+      const existing = await this.query<any[]>(`branch_rooms?id=eq.${roomId}&select=*`);
+      if (existing && existing.length > 0) {
+        const room = existing[0];
+        const cleanName = (room.name || '').replace(/^\[(ARCHIVED|DELETED)\]\s*/, '');
+
+        const patchRes = await this.query<any>(`branch_rooms?id=eq.${roomId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: cleanName,
+            is_available: true,
+          }),
+        });
+
+        try {
+          await this.query('audit_logs', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'RESTORE_ROOM',
+              table_name: 'branch_rooms',
+              record_id: roomId,
+              old_data: room,
+              new_data: {
+                status: 'ACTIVE',
+                note: 'Khôi phục phòng vào lại hệ thống vận hành',
+                restored_at: new Date().toISOString(),
+              },
+            }),
+          });
+        } catch {}
+
+        return patchRes !== null;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[SupabaseService] restoreRoom error:', err);
       return false;
     }
   }

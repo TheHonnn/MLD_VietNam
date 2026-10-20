@@ -120,7 +120,9 @@ export const branchService = {
       return {
         success: ok,
         statusCode: ok ? 200 : 400,
-        message: ok ? 'Xóa phòng thành công' : 'Lỗi xóa phòng',
+        message: ok
+          ? 'Đã xóa phòng khỏi hệ thống vận hành và bảo toàn dữ liệu trong cơ sở dữ liệu'
+          : 'Lỗi khi xóa phòng',
         data: ok,
       };
     } catch (err) {
@@ -130,6 +132,46 @@ export const branchService = {
         statusCode: 500,
         message: 'Lỗi kết nối khi xóa phòng',
         data: false,
+      };
+    }
+  },
+
+  async restoreRoom(roomId: string): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.restoreRoom(roomId);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Khôi phục phòng vào hệ thống thành công' : 'Lỗi khi khôi phục phòng',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[branchService] restoreRoom error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi kết nối khi khôi phục phòng',
+        data: false,
+      };
+    }
+  },
+
+  async getArchivedRooms(branchId: string): Promise<ApiResponse<BranchRoom[]>> {
+    try {
+      const archived = await supabaseService.getArchivedRooms(branchId);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Lấy danh sách phòng lưu trữ trong CSDL thành công',
+        data: archived,
+      };
+    } catch (err) {
+      console.error('[branchService] getArchivedRooms error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi kết nối khi lấy phòng lưu trữ',
+        data: [],
       };
     }
   },
