@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Clock,
@@ -6,7 +6,7 @@ import {
   Info,
   Calendar,
   X,
-  User,
+  User as UserIcon,
   Phone,
   Sparkles,
   CheckCircle2,
@@ -15,13 +15,13 @@ import {
   Check,
   Plus,
 } from 'lucide-react';
-import { staffService, bookingService, branchService, notificationService, StaffWithProfile } from '../services';
+import { staffService, bookingService, branchService, notificationService, customerService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
-import { Booking, Branch } from '../types/shared_types';
+import { Booking, Branch, User, Technician } from '../types/shared_types';
 
 interface ScheduleAppointment {
   id: string;
-  technicianId: 'tech-1' | 'tech-2' | 'tech-3';
+  technicianId: string;
   title: string;
   subtitle: string;
   customer: string;
@@ -51,7 +51,7 @@ export interface ServiceOption {
   name: string;
   shortName: string;
   category: string;
-  defaultTech: 'tech-1' | 'tech-2' | 'tech-3';
+  defaultTech: string;
   durationMinutes: number;
   durationHours: number;
   price: number;
@@ -155,20 +155,23 @@ export const TIME_SLOT_OPTIONS = [
 
 export const W05_StaffSchedule: React.FC = () => {
   const navigate = useNavigate();
-  const [staffMembers, setStaffMembers] = useState<StaffWithProfile[]>([]);
+  const [liveTechnicians, setLiveTechnicians] = useState<Technician[]>([]);
   const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
 
   useEffect(() => {
     const fetchScheduleData = async () => {
       try {
-        const [stfRes, bkRes, brRes] = await Promise.all([
-          staffService.getStaffList(),
+        const [bkRes, techRes, custRes, brRes] = await Promise.all([
           bookingService.getBookings(),
+          supabaseService.getTechnicians(),
+          customerService.getCustomers(),
           branchService.getAllBranches(),
         ]);
-        if (stfRes.success) setStaffMembers(stfRes.data);
         if (bkRes.success) setLiveBookings(bkRes.data);
+        if (techRes) setLiveTechnicians(techRes);
+        if (custRes.success) setCustomers(custRes.data);
         if (brRes.success) setBranches(brRes.data);
       } catch (err) {
         console.error('Failed to load schedule data:', err);
@@ -176,127 +179,87 @@ export const W05_StaffSchedule: React.FC = () => {
     };
     fetchScheduleData();
   }, []);
-  // Appointments list matching the Figma mockup 100%
-  const appointments: ScheduleAppointment[] = [
-    {
-      id: 'app-huy',
-      technicianId: 'tech-1',
-      title: 'Massage · Đặng Quốc Huy',
-      subtitle: '09:30–10:30 · Lịch chuẩn',
-      customer: 'Đặng Quốc Huy',
-      customerCode: 'WM-000104 · BK-20261016-001',
-      service: 'Massage trị liệu cổ vai gáy',
-      timeRange: '09:30–10:30',
-      date: '12/10/2026',
-      technicianName: 'Trần Lan Anh',
-      resource: 'Phòng 01 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '450.000đ',
-      deposit: '150.000đ',
-      remaining: '300.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 10:45',
-      bufferDesc: 'Vùng đệm vệ sinh: 10:30–10:45. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 9.5,
-      durationHours: 1.0,
-    },
-    {
-      id: 'app-minh-anh',
-      technicianId: 'tech-1',
-      title: 'Massage · Nguyễn Mỹ Duyên',
-      subtitle: '14:00–15:00 · Chờ thanh toán',
-      customer: 'Nguyễn Mỹ Duyên',
-      customerCode: 'MLD-VIP-01 · BK-20261016-003',
-      avatar: '/avatar_minh_anh.png',
-      service: 'Massage thư giãn toàn thân',
-      timeRange: '14:00–15:00',
-      date: '12/10/2026',
-      technicianName: 'Trần Lan Anh',
-      resource: 'Phòng 01 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '450.000đ',
-      deposit: '150.000đ',
-      remaining: '300.000đ',
-      status: 'Chờ thanh toán',
-      statusType: 'waiting_payment',
-      bufferTitle: 'Giữ nguồn lực đến 15:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 15:00–15:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 14.0,
-      durationHours: 1.0,
-      hasCleaningBuffer: true,
-      cleaningText: '15:00–15:15 · Vệ sinh / giữ phòng',
-    },
-    {
-      id: 'app-linh',
-      technicianId: 'tech-2',
-      title: 'Chăm sóc da · Trần Ngọc Linh',
-      subtitle: '10:00–11:00 · Lịch chuẩn',
-      customer: 'Trần Ngọc Linh',
-      customerCode: 'WM-000115 · BK-20261016-002',
-      service: 'Chăm sóc da chuyên sâu Hydrafacial',
-      timeRange: '10:00–11:00',
-      date: '12/10/2026',
-      technicianName: 'Nguyễn Thu Hà',
-      resource: 'Phòng 02 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '500.000đ',
-      deposit: '150.000đ',
-      remaining: '350.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 11:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 11:00–11:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 10.0,
-      durationHours: 1.0,
-    },
-    {
-      id: 'app-ngoc',
-      technicianId: 'tech-2',
-      title: 'Chăm sóc da · Lê Bảo Ngọc',
-      subtitle: '13:30–14:30 · Lịch chuẩn',
-      customer: 'Lê Bảo Ngọc',
-      customerCode: 'WM-000130 · BK-20261016-005',
-      service: 'Trẻ hóa da điện di Vitamin C',
-      timeRange: '13:30–14:30',
-      date: '12/10/2026',
-      technicianName: 'Nguyễn Thu Hà',
-      resource: 'Phòng 02 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '480.000đ',
-      deposit: '150.000đ',
-      remaining: '330.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 14:45',
-      bufferDesc: 'Vùng đệm vệ sinh: 14:30–14:45 (gồm 15 phút vệ sinh sau liệu trình).',
-      startHour: 13.5,
-      durationHours: 1.0,
-    },
-    {
-      id: 'app-yen',
-      technicianId: 'tech-3',
-      title: 'Chăm sóc cơ thể · Võ Hải Yến',
-      subtitle: '11:00–12:00 · Lịch chuẩn',
-      customer: 'Võ Hải Yến',
-      customerCode: 'WM-000122 · BK-20261016-006',
-      service: 'Chăm sóc cơ thể thảo dược ấm',
-      timeRange: '11:00–12:00',
-      date: '12/10/2026',
-      technicianName: 'Lê Hoài An',
-      resource: 'Phòng 03 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '520.000đ',
-      deposit: '150.000đ',
-      remaining: '370.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 12:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 12:00–12:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 11.0,
-      durationHours: 1.0,
-    },
-  ];
+
+  const technicians = useMemo(() => {
+    if (liveTechnicians && liveTechnicians.length > 0) {
+      return liveTechnicians.slice(0, 4).map((t, idx) => ({
+        id: t.id,
+        name: t.fullName,
+        room: `${t.title?.split('&')[0]?.trim() || 'Trị liệu'} · Phòng 0${idx + 1}`,
+        role: t.title,
+      }));
+    }
+    return [];
+  }, [liveTechnicians]);
+
+  // Appointments mapped directly from live Supabase bookings
+  const appointments: ScheduleAppointment[] = useMemo(() => {
+    if (!liveBookings || liveBookings.length === 0) return [];
+
+    const custMap = new Map(customers.map((c) => [c.id, c]));
+    const techMap = new Map((liveTechnicians || []).map((t) => [t.id, t]));
+
+    return liveBookings.map((b) => {
+      const cust = custMap.get(b.customerId);
+      const tech = techMap.get(b.technicianId || '');
+
+      const [sH, sM] = (b.startTime || '09:00').split(':').map(Number);
+      const [eH, eM] = (b.endTime || '10:00').split(':').map(Number);
+      const startHour = (isNaN(sH) ? 9 : sH) + (isNaN(sM) ? 0 : sM) / 60;
+      const endHour = (isNaN(eH) ? 10 : eH) + (isNaN(eM) ? 0 : eM) / 60;
+      const durationHours = Math.max(0.75, endHour - startHour);
+
+      const customerName = cust?.fullName || b.bookedForName || 'Khách hàng';
+      const techName = tech?.fullName || 'Kỹ thuật viên';
+      const statusLabel =
+        b.status === 'CONFIRMED'
+          ? 'Đã xác nhận'
+          : b.status === 'IN_SERVICE'
+          ? 'Đang thực hiện'
+          : b.status === 'COMPLETED'
+          ? 'Hoàn thành'
+          : 'Chờ thanh toán';
+
+      const statusType: 'waiting_payment' | 'independent' =
+        b.paymentStatus === 'UNPAID' ? 'waiting_payment' : 'independent';
+
+      const srvName = b.specialNotes || 'Chăm sóc da & Trị liệu';
+      const dateParts = b.bookingDate ? b.bookingDate.split('-') : [];
+      const dateDisplay = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : '12/10/2026';
+      const timeRange = `${(b.startTime || '').slice(0, 5)}–${(b.endTime || '').slice(0, 5)}`;
+
+      return {
+        id: b.id,
+        technicianId: b.technicianId || '',
+        title: `${srvName.split(' ')[0]} · ${customerName}`,
+        subtitle: `${timeRange} · ${statusLabel}`,
+        customer: customerName,
+        customerCode: `${cust?.referralCode || 'KH'} · ${b.bookingCode}`,
+        avatar: cust?.avatarUrl || undefined,
+        service: srvName,
+        timeRange,
+        date: dateDisplay,
+        technicianName: techName,
+        resource: b.assignedBedNumber || 'Phòng VIP · Quận 3',
+        durationText: `Dịch vụ ${Math.round(durationHours * 60)} phút`,
+        price: `${(b.finalPrice || b.baseTotal || 500000).toLocaleString('vi-VN')}đ`,
+        deposit: `${(b.discountAmount || 150000).toLocaleString('vi-VN')}đ`,
+        remaining: `${Math.max(0, (b.finalPrice || 0) - (b.discountAmount || 0)).toLocaleString('vi-VN')}đ`,
+        status: statusLabel,
+        statusType,
+        bufferTitle: `Giữ nguồn lực đến ${(b.endTime || '').slice(0, 5)}`,
+        bufferDesc: `Vùng đệm vệ sinh 15 phút sau liệu trình. ${
+          statusType === 'waiting_payment'
+            ? 'Khoản phí chưa thu, đang theo dõi thực hiện.'
+            : 'Đã thanh toán đầy đủ.'
+        }`,
+        startHour,
+        durationHours,
+        hasCleaningBuffer: true,
+        cleaningText: `${(b.endTime || '').slice(0, 5)} · Vệ sinh / giữ phòng`,
+      };
+    });
+  }, [liveBookings, customers, liveTechnicians]);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
@@ -316,37 +279,20 @@ export const W05_StaffSchedule: React.FC = () => {
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState(SERVICE_OPTIONS[0].id);
-  const [selectedTechId, setSelectedTechId] = useState<'tech-1' | 'tech-2' | 'tech-3'>('tech-1');
+  const [selectedTechId, setSelectedTechId] = useState<string>('');
   const [appDate] = useState('12/10/2026');
   const [selectedSlotIndex, setSelectedSlotIndex] = useState(5); // default 15:00–16:00
   const [statusType, setStatusType] = useState<'waiting_payment' | 'independent'>('waiting_payment');
   const [notes, setNotes] = useState('');
 
-  // Default active appointment is "Nguyễn Mỹ Duyên"
-  const [selectedAppId, setSelectedAppId] = useState<string>('app-minh-anh');
+  const [selectedAppId, setSelectedAppId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Technicians config
-  const technicians = [
-    {
-      id: 'tech-1' as const,
-      name: 'Trần Lan Anh',
-      room: 'Massage · Phòng 01',
-      role: 'KTV Trưởng Massage',
-    },
-    {
-      id: 'tech-2' as const,
-      name: 'Nguyễn Thu Hà',
-      room: 'Chăm sóc da · Phòng 02',
-      role: 'Chuyên viên Da liễu',
-    },
-    {
-      id: 'tech-3' as const,
-      name: 'Lê Hoài An',
-      room: 'Cơ thể · Phòng 03',
-      role: 'Chuyên viên Body Care',
-    },
-  ];
+  useEffect(() => {
+    if (technicians.length > 0 && (!selectedTechId || !technicians.some((t) => t.id === selectedTechId))) {
+      setSelectedTechId(technicians[0].id);
+    }
+  }, [technicians, selectedTechId]);
 
   // Auto trigger modal if navigated with query params ?create=true&customer=...
   useEffect(() => {
@@ -359,7 +305,6 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   }, [searchParams]);
 
-  // Combined appointments list
   const allAppointments = [...customAppointments, ...appointments];
 
   const displayedAppointments = allAppointments.filter((app) => {
@@ -373,8 +318,38 @@ export const W05_StaffSchedule: React.FC = () => {
     );
   });
 
-  const selectedApp =
-    allAppointments.find((a) => a.id === selectedAppId) || allAppointments[0] || appointments[1];
+  useEffect(() => {
+    if (allAppointments.length > 0 && (!selectedAppId || !allAppointments.some((a) => a.id === selectedAppId))) {
+      setSelectedAppId(allAppointments[0].id);
+    }
+  }, [allAppointments, selectedAppId]);
+
+  const selectedApp: ScheduleAppointment =
+    allAppointments.find((a) => a.id === selectedAppId) ||
+    allAppointments[0] || {
+      id: '',
+      technicianId: '',
+      title: 'Chưa chọn lịch hẹn',
+      subtitle: 'Chọn lịch hẹn từ bảng để xem chi tiết',
+      customer: 'Khách hàng',
+      customerCode: 'Mã lịch hẹn',
+      avatar: '/avatar_minh_anh.png',
+      service: 'Dịch vụ trị liệu',
+      timeRange: '--:--',
+      date: 'Hôm nay',
+      technicianName: 'Kỹ thuật viên',
+      resource: 'Phòng VIP',
+      durationText: 'Thời lượng --',
+      price: '0đ',
+      deposit: '0đ',
+      remaining: '0đ',
+      status: 'Chờ phân công',
+      statusType: 'waiting_payment',
+      bufferTitle: 'Vùng đệm bảo lưu',
+      bufferDesc: 'Thông tin vùng đệm vệ sinh phòng.',
+      startHour: 9,
+      durationHours: 1,
+    };
 
   // Auto select default technician when service changed
   const handleServiceSelect = (id: string) => {
@@ -861,7 +836,7 @@ export const W05_StaffSchedule: React.FC = () => {
                     Họ và tên khách hàng <span className="text-[#985018]">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <UserIcon className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required

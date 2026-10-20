@@ -49,12 +49,24 @@ export const W07_CashierPOS: React.FC = () => {
       try {
         const [invRes, bkRes, custRes] = await Promise.all([
           posService.getInvoices(),
-          bookingService.getBookingById('44440001-0001-0001-0001-000000000001'),
-          customerService.getCustomerById('00000000-0000-0000-0000-000000000001'),
+          bookingService.getBookings(),
+          customerService.getCustomers(),
         ]);
         if (invRes.success) setInvoices(invRes.data);
-        if (bkRes.success) setBooking(bkRes.data);
-        if (custRes.success) setCustomer(custRes.data);
+        
+        const allBookings = bkRes.success ? bkRes.data : [];
+        const pendingBk = allBookings.find(
+          (b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING'
+        ) || allBookings[0];
+
+        if (pendingBk) {
+          setBooking(pendingBk);
+          const allCustomers = custRes.success ? custRes.data : [];
+          const matchedCust = allCustomers.find((c) => c.id === pendingBk.customerId);
+          if (matchedCust) {
+            setCustomer(matchedCust);
+          }
+        }
       } catch (err) {
         console.error('Failed to load POS data:', err);
       }

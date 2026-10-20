@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -9,8 +9,8 @@ import {
   CheckCircle2,
   Calendar,
 } from 'lucide-react';
-import { academyService } from '../services';
-import { Course, CourseBatch } from '../types/shared_types';
+import { academyService, staffService, StaffWithProfile } from '../services';
+import { Course, CourseBatch, BatchStatus } from '../types/shared_types';
 
 interface PracticalSession {
   id: string;
@@ -45,103 +45,6 @@ interface TrainingClassRecord {
   statusLabel: string;
 }
 
-const practicalSessionsData: PracticalSession[] = [
-  {
-    id: 'ps-mc',
-    room: 'Phòng thực hành 01',
-    dateKey: '2026-10-14',
-    dateLabel: '14/10/2026',
-    subject: 'Chăm sóc da',
-    timeRange: '09:00–12:00',
-    instructorName: 'Trần Minh Châu',
-    className: 'CSD-0926 · Phòng 01',
-    status: 'Chưa diễn ra',
-    videoTopic: 'Thực hành kỹ thuật làm sạch & dưỡng da chuyên sâu',
-    videoDuration: '15 phút',
-    practiceDuration: '150 phút',
-    prepTime: '08:45–09:00',
-    note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học; không có điểm danh QR thực tế.',
-  },
-  {
-    id: 'ps-qb',
-    room: 'Phòng thực hành 03',
-    dateKey: '2026-10-15',
-    dateLabel: '15/10/2026',
-    subject: 'Chăm sóc cơ thể',
-    timeRange: '09:00–12:00',
-    instructorName: 'Lê Quốc Bảo',
-    className: 'CTC-0926 · Phòng 03',
-    status: 'Chưa diễn ra',
-    videoTopic: 'Thực hành kỹ thuật bấm huyệt & đắp thảo dược ấm',
-    videoDuration: '20 phút',
-    practiceDuration: '145 phút',
-    prepTime: '08:45–09:00',
-    note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học; không có điểm danh QR thực tế.',
-  },
-  {
-    id: 'ps-th',
-    room: 'Phòng thực hành 02',
-    dateKey: '2026-10-16',
-    dateLabel: '16/10/2026',
-    subject: 'MCN-0926',
-    timeRange: '13:00–17:00',
-    instructorName: 'Nguyễn Thanh Hương',
-    className: 'MCN-0926 · Phòng 02',
-    status: 'Chưa diễn ra',
-    videoTopic: 'Thực hành kỹ thuật massage cơ bản',
-    videoDuration: '18 phút',
-    practiceDuration: '120 phút',
-    prepTime: '12:45–13:00',
-    note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học; không có điểm danh QR thực tế.',
-  },
-];
-
-const trainingClasses: TrainingClassRecord[] = [
-  {
-    id: 'cls-1',
-    courseTitle: 'Kỹ thuật Massage Chuyên Nghiệp',
-    classBatch: 'MCN-0926 · Khóa hiện tại',
-    instructor: 'Nguyễn Thanh Hương',
-    branch: 'Quận 3',
-    room: 'Thực hành 02',
-    scheduleDays: 'Thứ 6 – 7 – CN · 13:00–17:00',
-    timeSlot: 'Đang triển khai',
-    startDateStatus: 'Đang triển khai',
-    studentCount: '16/20',
-    status: 'active',
-    statusLabel: 'Đang học',
-  },
-  {
-    id: 'cls-2',
-    courseTitle: 'Kỹ thuật Massage Chuyên Nghiệp',
-    classBatch: 'MCN-1026 · Đợt tuyển sinh mới',
-    instructor: 'Nguyễn Thanh Hương',
-    branch: 'Quận 3',
-    room: 'Thực hành 02 · Dự kiến',
-    scheduleDays: 'Thứ 6 – 7 – CN · 13:00–17:00',
-    timeSlot: 'Bắt đầu 23/10/2026',
-    startDateStatus: 'Bắt đầu 23/10/2026',
-    studentCount: '0/20',
-    status: 'waiting',
-    statusLabel: 'Chờ hồ sơ / cọc',
-  },
-  {
-    id: 'cls-3',
-    courseTitle: 'Chăm sóc da',
-    classBatch: 'CSD-1026 · Khóa sắp học',
-    instructor: 'Trần Minh Châu',
-    instructorRole: 'Phân công mẫu',
-    branch: 'Quận 3',
-    room: 'Thực hành 01 · Dự kiến',
-    scheduleDays: 'Bắt đầu 30/10/2026',
-    timeSlot: 'Khung giờ chưa chốt',
-    startDateStatus: 'Khung giờ chưa chốt',
-    studentCount: '1/16',
-    status: 'upcoming',
-    statusLabel: 'Sắp mở',
-  },
-];
-
 const weekDays = [
   { label: 'Thứ hai', date: '12/10/2026', key: '2026-10-12' },
   { label: 'Thứ ba', date: '13/10/2026', key: '2026-10-13' },
@@ -158,25 +61,45 @@ const roomsList = [
   'Phòng thực hành 03',
 ];
 
+const defaultSession: PracticalSession = {
+  id: 'ps-default',
+  room: 'Phòng thực hành 01',
+  dateKey: '2026-10-16',
+  dateLabel: '16/10/2026',
+  subject: 'Kỹ thuật Massage Trị Liệu',
+  timeRange: '13:00–17:00',
+  instructorName: 'Nguyễn Thảo Ngọc',
+  className: 'K26-SPA-Q1 · Phòng 01',
+  status: 'Sắp diễn ra',
+  videoTopic: 'Thực hành kỹ thuật bấm huyệt và massage cơ bản',
+  videoDuration: '20 phút',
+  practiceDuration: '150 phút',
+  prepTime: '12:45–13:00',
+  note: 'Nhân sự đào tạo và giảng viên đối chiếu chuyên cần sau buổi học theo quy chế học viện MLD.',
+};
+
 export const W11_Curriculum: React.FC = () => {
-  const [selectedSessionId, setSelectedSessionId] = useState<string>('ps-th');
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('week-12-18');
-  const [branchFilter, setBranchFilter] = useState<string>('quận 3');
+  const [branchFilter, setBranchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
+  const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
     const fetchCurriculum = async () => {
       try {
-        const [crsRes, batRes] = await Promise.all([
+        const [crsRes, batRes, instRes] = await Promise.all([
           academyService.getCourses(),
           academyService.getCourseBatches(),
+          staffService.getInstructors(),
         ]);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
+        if (instRes.success) setInstructors(instRes.data);
       } catch (err) {
         console.error('Failed to load curriculum data:', err);
       }
@@ -184,13 +107,84 @@ export const W11_Curriculum: React.FC = () => {
     fetchCurriculum();
   }, []);
 
+  const trainingClasses: TrainingClassRecord[] = useMemo(() => {
+    if (!liveBatches || liveBatches.length === 0) return [];
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const instMap = new Map(instructors.map((i) => [i.id, i]));
+
+    return liveBatches.map((bat, idx) => {
+      const crs = crsMap.get(bat.courseId);
+      const inst = instMap.get(bat.instructorId || '');
+      const branchName = bat.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3';
+      const status: 'active' | 'waiting' | 'upcoming' =
+        (bat.status as any) === 'OPEN' || (bat.status as any) === 'OPEN_FOR_ENROLLMENT' || bat.status === BatchStatus.IN_PROGRESS
+          ? 'active'
+          : bat.status === BatchStatus.UPCOMING
+          ? 'upcoming'
+          : 'waiting';
+      const statusLabel =
+        status === 'active' ? 'Đang học' : status === 'upcoming' ? 'Sắp mở' : 'Chờ hồ sơ / cọc';
+
+      return {
+        id: bat.id,
+        courseTitle: crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên',
+        classBatch: `${bat.batchCode} · ${crs?.code || 'Academy'}`,
+        instructor: inst?.fullName || 'Nguyễn Thảo Ngọc',
+        instructorRole: (inst as any)?.title || 'Giảng viên chính',
+        branch: branchName,
+        room: idx % 2 === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02',
+        scheduleDays: bat.scheduleText || 'Thứ 2 – 4 – 6 · 08:30–11:30',
+        timeSlot: 'Đang triển khai',
+        startDateStatus: bat.startDate ? `Khai giảng: ${new Date(bat.startDate).toLocaleDateString('vi-VN')}` : 'Đang triển khai',
+        studentCount: `${bat.enrolledCount}/${bat.maxStudents}`,
+        status,
+        statusLabel,
+      };
+    });
+  }, [liveBatches, liveCourses, instructors]);
+
+  const practicalSessionsData: PracticalSession[] = useMemo(() => {
+    if (!liveBatches || liveBatches.length === 0) return [defaultSession];
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const instMap = new Map(instructors.map((i) => [i.id, i]));
+
+    const sessions: PracticalSession[] = [];
+    liveBatches.forEach((bat, idx) => {
+      const crs = crsMap.get(bat.courseId);
+      const inst = instMap.get(bat.instructorId || '');
+      const room = idx === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02';
+      const dateKey = idx === 0 ? '2026-10-14' : '2026-10-16';
+      const dateLabel = idx === 0 ? '14/10/2026' : '16/10/2026';
+      const timeRange = idx === 0 ? '09:00–12:00' : '13:00–17:00';
+
+      sessions.push({
+        id: `ps-${bat.id}`,
+        room,
+        dateKey,
+        dateLabel,
+        subject: crs?.title || 'Chăm sóc trị liệu',
+        timeRange,
+        instructorName: inst?.fullName || 'Nguyễn Thảo Ngọc',
+        className: `${bat.batchCode} · ${room}`,
+        status: 'Chưa diễn ra',
+        videoTopic: `Thực hành kỹ thuật chuyên sâu - ${bat.batchCode}`,
+        videoDuration: '18 phút',
+        practiceDuration: '140 phút',
+        prepTime: '08:45–09:00',
+        note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học theo chuẩn học viện MLD.',
+      });
+    });
+
+    return sessions.length > 0 ? sessions : [defaultSession];
+  }, [liveBatches, liveCourses, instructors]);
+
   // Modals state
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   const selectedSession =
-    practicalSessionsData.find((ps) => ps.id === selectedSessionId) || practicalSessionsData[2];
+    practicalSessionsData.find((ps) => ps.id === selectedSessionId) || practicalSessionsData[0] || defaultSession;
 
   const showToast = (message: string) => {
     setSuccessToast(message);
@@ -304,7 +298,7 @@ export const W11_Curriculum: React.FC = () => {
               Lịch phòng thực hành tuần
             </h2>
             <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-              3 buổi mẫu đã lập
+              {practicalSessionsData.length} buổi thực hành đã lập
             </span>
           </div>
 
@@ -374,7 +368,7 @@ export const W11_Curriculum: React.FC = () => {
 
           {/* Footnote below schedule grid */}
           <div className="text-xs text-[#73675F] pt-1">
-            MCN-0926 có lịch định kỳ thứ 6–7–Chủ nhật, 13:00–17:00. Tuần chọn chỉ hiển thị buổi 16/10/2026 đã có nội dung mẫu; các buổi khác chưa lập chi tiết.
+            Lịch thực hành được phân bổ dựa trên thời khóa biểu và phòng lab thực tế của các lớp học viện MLD.
           </div>
         </div>
 
@@ -499,7 +493,7 @@ export const W11_Curriculum: React.FC = () => {
                     <div className="text-[11px] text-[#73675F] mt-0.5">{cls.startDateStatus}</div>
                   </td>
 
-                  {/* Sĩ số mẫu */}
+                  {/* Sĩ số */}
                   <td className="py-3.5 px-4 font-medium text-xs text-[#2C241E]">
                     {cls.studentCount}
                   </td>
@@ -547,7 +541,7 @@ export const W11_Curriculum: React.FC = () => {
         </div>
       </div>
 
-      {/* 5. TẦNG 3: Chương trình đào tạo & Theo dõi học tập mẫu */}
+      {/* 5. TẦNG 3: Chương trình đào tạo & Theo dõi học tập */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left: Chương trình · 20 bài / 5 chương */}
         <div className="lg:col-span-7 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
@@ -655,9 +649,12 @@ export const W11_Curriculum: React.FC = () => {
               <div>
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Tên chương trình đào tạo</label>
                 <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                  <option value="mcn">Kỹ thuật Massage Chuyên Nghiệp</option>
-                  <option value="csd">Chăm sóc da chuyên sâu</option>
-                  <option value="ctc">Chăm sóc cơ thể dưỡng sinh</option>
+                  {liveCourses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                  {liveCourses.length === 0 && (
+                    <option value="default">Khóa Đào Tạo Kỹ Thuật Viên Spa</option>
+                  )}
                 </select>
               </div>
 
@@ -666,7 +663,7 @@ export const W11_Curriculum: React.FC = () => {
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Mã lớp đào tạo</label>
                   <input
                     type="text"
-                    defaultValue="MCN-1126"
+                    defaultValue="K27-SPA"
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -674,7 +671,7 @@ export const W11_Curriculum: React.FC = () => {
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Sĩ số tối đa</label>
                   <input
                     type="number"
-                    defaultValue={20}
+                    defaultValue={15}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -684,9 +681,12 @@ export const W11_Curriculum: React.FC = () => {
                 <div>
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Giảng viên chủ nhiệm</label>
                   <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                    <option value="th">Nguyễn Thanh Hương</option>
-                    <option value="mc">Trần Minh Châu</option>
-                    <option value="qb">Lê Quốc Bảo</option>
+                    {instructors.map((i) => (
+                      <option key={i.id} value={i.id}>{i.fullName} (Giảng viên)</option>
+                    ))}
+                    {instructors.length === 0 && (
+                      <option value="default">Nguyễn Thảo Ngọc</option>
+                    )}
                   </select>
                 </div>
                 <div>

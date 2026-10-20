@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -12,13 +12,20 @@ import {
   X,
   Download,
 } from 'lucide-react';
-import { posService, academyService } from '../services';
-import { Invoice, TuitionTransaction, StudentCertificate } from '../types/shared_types';
+import { posService, academyService, bookingService, branchService } from '../services';
+import {
+  Invoice,
+  TuitionTransaction,
+  StudentCertificate,
+  Booking,
+  Branch,
+} from '../types/shared_types';
 
 interface CompletedInvoice {
   id: string;
   code: string;
   date: string;
+  dateKey: string;
   description: string;
   method: string;
   methodType: 'pos' | 'online' | 'bank';
@@ -26,92 +33,31 @@ interface CompletedInvoice {
   amountNumber: number;
   amount: string;
   statusText: string;
+  branchId: string;
 }
 
 interface ReceivableItem {
   id: string;
   code: string;
   description: string;
+  totalContractNumber: number;
   totalContract: string;
+  dueNowNumber: number;
   dueNow: string;
   remainingAfter: string;
   statusText: string;
 }
 
-const completedInvoicesData: CompletedInvoice[] = [
-  {
-    id: 'inv-1',
-    code: 'HD-20261016-001',
-    date: '16/10/2026',
-    description: 'Massage trị liệu & chăm sóc da',
-    method: 'Thanh toán tại cơ sở',
-    methodType: 'pos',
-    category: 'service',
-    amountNumber: 600000,
-    amount: '600.000đ',
-    statusText: 'Đã thanh toán',
-  },
-  {
-    id: 'inv-2',
-    code: 'HD-20261016-002',
-    date: '16/10/2026',
-    description: 'Massage trị liệu chuyên sâu',
-    method: 'Ví điện tử MoMo',
-    methodType: 'online',
-    category: 'service',
-    amountNumber: 850000,
-    amount: '850.000đ',
-    statusText: 'Đã thanh toán',
-  },
-  {
-    id: 'inv-3',
-    code: 'HD-20261016-003',
-    date: '16/10/2026',
-    description: 'Gói liệu trình chăm sóc da 8 buổi',
-    method: 'Chuyển khoản QR Code',
-    methodType: 'bank',
-    category: 'package',
-    amountNumber: 3000000,
-    amount: '3.000.000đ',
-    statusText: 'Đã thanh toán',
-  },
-];
-
-const receivableItemsData: ReceivableItem[] = [
-  {
-    id: 'rec-1',
-    code: 'BK-20261016-003',
-    description: 'Massage trị liệu · 16/10/2026 · Chờ quyết toán tại quầy',
-    totalContract: '390.000đ',
-    dueNow: '390.000đ',
-    remainingAfter: '0đ',
-    statusText: 'Chờ thanh toán',
-  },
-  {
-    id: 'rec-2',
-    code: 'HV-2026-002',
-    description: 'Kỹ thuật Massage Trị Liệu & Dưỡng Sinh · K08',
-    totalContract: '12.000.000đ',
-    dueNow: '7.000.000đ',
-    remainingAfter: '0đ',
-    statusText: 'Chờ thanh toán',
-  },
-];
-
-// Daily revenue chart bars
-const dailyChartBars = [
-  { date: '01/10/2026', amountText: '4.500.000đ', heightPx: 96, barColor: 'bg-[#8D4B1A]' },
-  { date: '02/10/2026', amountText: '0đ', heightPx: 4, barColor: 'bg-[#D7BBA6]' },
-  { date: '03/10/2026', amountText: '0đ', heightPx: 4, barColor: 'bg-[#D7BBA6]' },
-  { date: '04/10/2026', amountText: '0đ', heightPx: 4, barColor: 'bg-[#D7BBA6]' },
-  { date: '05/10/2026', amountText: '3.600.000đ', heightPx: 76, barColor: 'bg-[#BA7E4C]' },
-  { date: '06/10/2026', amountText: '0đ', heightPx: 4, barColor: 'bg-[#D7BBA6]' },
-  { date: '07/10/2026', amountText: '0đ', heightPx: 4, barColor: 'bg-[#D7BBA6]' },
-  { date: '08/10/2026', amountText: '450.000đ', heightPx: 18, barColor: 'bg-[#EBD8C6]' },
-];
+interface DailyRevenueBar {
+  date: string;
+  amountNumber: number;
+  amountText: string;
+  heightPx: number;
+  barColor: string;
+}
 
 export const W12_FinancialReports: React.FC = () => {
-  const [dateRange, setDateRange] = useState('01/10/2026 – 08/10/2026');
+  const [dateRange, setDateRange] = useState('Tháng 10/2026');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -119,18 +65,24 @@ export const W12_FinancialReports: React.FC = () => {
   const [liveInvoices, setLiveInvoices] = useState<Invoice[]>([]);
   const [liveTuitionTrans, setLiveTuitionTrans] = useState<TuitionTransaction[]>([]);
   const [liveCertificates, setLiveCertificates] = useState<StudentCertificate[]>([]);
+  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
+  const [liveBranches, setLiveBranches] = useState<Branch[]>([]);
 
   useEffect(() => {
     const fetchReportsData = async () => {
       try {
-        const [invRes, ttRes, certRes] = await Promise.all([
+        const [invRes, ttRes, certRes, bkRes, brRes] = await Promise.all([
           posService.getInvoices(),
           academyService.getTuitionTransactions(),
           academyService.getCertificates(),
+          bookingService.getBookings(),
+          branchService.getAllBranches(),
         ]);
         if (invRes.success) setLiveInvoices(invRes.data);
         if (ttRes.success) setLiveTuitionTrans(ttRes.data);
         if (certRes.success) setLiveCertificates(certRes.data);
+        if (bkRes.success) setLiveBookings(bkRes.data);
+        if (brRes.success) setLiveBranches(brRes.data);
       } catch (err) {
         console.error('Failed to load financial reports data:', err);
       }
@@ -149,14 +101,276 @@ export const W12_FinancialReports: React.FC = () => {
     }, 3500);
   };
 
-  // Filter invoices
-  const filteredInvoices = completedInvoicesData.filter((inv) => {
-    const matchCategory =
-      categoryFilter === 'all' || inv.category === categoryFilter;
-    const matchMethod =
-      methodFilter === 'all' || inv.methodType === methodFilter;
-    return matchCategory && matchMethod;
-  });
+  // 1. Dynamic Completed Invoices
+  const completedInvoicesData: CompletedInvoice[] = useMemo(() => {
+    const list: CompletedInvoice[] = [];
+
+    // From Invoices
+    liveInvoices
+      .filter((inv) => inv.paymentStatus === 'PAID')
+      .forEach((inv) => {
+        const d = inv.paidAt ? new Date(inv.paidAt) : new Date();
+        const dateStr = d.toLocaleDateString('vi-VN');
+        const dateKey = d.toISOString().split('T')[0];
+
+        const isPackage = inv.userPackageId || inv.subtotal >= 2000000;
+        const category: 'service' | 'package' | 'course' = isPackage ? 'package' : 'service';
+        const methodType: 'pos' | 'online' | 'bank' =
+          inv.paymentMethod === 'MOMO'
+            ? 'online'
+            : inv.paymentMethod === 'BANK_TRANSFER'
+            ? 'bank'
+            : 'pos';
+        const method =
+          inv.paymentMethod === 'MOMO'
+            ? 'Ví điện tử MoMo'
+            : inv.paymentMethod === 'BANK_TRANSFER'
+            ? 'Chuyển khoản QR'
+            : 'Thanh toán tại cơ sở';
+
+        list.push({
+          id: inv.id,
+          code: inv.invoiceCode,
+          date: dateStr,
+          dateKey,
+          description: isPackage
+            ? 'Gói liệu trình chăm sóc da 8 buổi'
+            : 'Dịch vụ Massage trị liệu & chăm sóc da',
+          method,
+          methodType,
+          category,
+          amountNumber: inv.totalAmount,
+          amount: `${inv.totalAmount.toLocaleString('vi-VN')}đ`,
+          statusText: 'Đã thanh toán',
+          branchId: inv.branchId,
+        });
+      });
+
+    // From Tuition Transactions
+    liveTuitionTrans
+      .filter((tt) => tt.paymentStatus === 'PAID')
+      .forEach((tt) => {
+        const d = tt.paidAt ? new Date(tt.paidAt) : tt.dueDate ? new Date(tt.dueDate) : new Date();
+        const dateStr = d.toLocaleDateString('vi-VN');
+        const dateKey = d.toISOString().split('T')[0];
+
+        const methodType: 'pos' | 'online' | 'bank' =
+          tt.paymentMethod === 'MOMO'
+            ? 'online'
+            : tt.paymentMethod === 'BANK_TRANSFER'
+            ? 'bank'
+            : 'pos';
+        const method =
+          tt.paymentMethod === 'MOMO'
+            ? 'Ví điện tử MoMo'
+            : tt.paymentMethod === 'BANK_TRANSFER'
+            ? 'Chuyển khoản QR'
+            : 'Thanh toán tại cơ sở';
+
+        list.push({
+          id: tt.id,
+          code: tt.transactionCode,
+          date: dateStr,
+          dateKey,
+          description: tt.notes || 'Học phí đào tạo kỹ thuật viên',
+          method,
+          methodType,
+          category: 'course',
+          amountNumber: tt.amount,
+          amount: `${tt.amount.toLocaleString('vi-VN')}đ`,
+          statusText: 'Đã thanh toán',
+          branchId: tt.branchId,
+        });
+      });
+
+    return list;
+  }, [liveInvoices, liveTuitionTrans]);
+
+  // 2. Dynamic Receivable Items
+  const receivableItemsData: ReceivableItem[] = useMemo(() => {
+    const list: ReceivableItem[] = [];
+
+    // Pending/Unpaid Bookings
+    liveBookings
+      .filter((b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING')
+      .forEach((b) => {
+        const price = b.finalPrice || 390000;
+        list.push({
+          id: b.id,
+          code: b.bookingCode,
+          description: `Massage trị liệu · ${b.bookingDate || '16/10/2026'} · Chờ quyết toán tại quầy`,
+          totalContractNumber: price,
+          totalContract: `${price.toLocaleString('vi-VN')}đ`,
+          dueNowNumber: price,
+          dueNow: `${price.toLocaleString('vi-VN')}đ`,
+          remainingAfter: '0đ',
+          statusText: 'Chờ thanh toán',
+        });
+      });
+
+    // Unpaid Tuitions
+    liveTuitionTrans
+      .filter((tt) => tt.paymentStatus !== 'PAID')
+      .forEach((tt) => {
+        list.push({
+          id: tt.id,
+          code: tt.transactionCode,
+          description: tt.notes || 'Học phí đào tạo kỹ thuật viên · Đợt nộp tiếp theo',
+          totalContractNumber: tt.amount,
+          totalContract: `${tt.amount.toLocaleString('vi-VN')}đ`,
+          dueNowNumber: tt.amount,
+          dueNow: `${tt.amount.toLocaleString('vi-VN')}đ`,
+          remainingAfter: '0đ',
+          statusText: 'Chờ thanh toán',
+        });
+      });
+
+    return list;
+  }, [liveBookings, liveTuitionTrans]);
+
+  // 3. Filtered Invoices
+  const filteredInvoices = useMemo(() => {
+    return completedInvoicesData.filter((inv) => {
+      const matchCategory =
+        categoryFilter === 'all' || inv.category === categoryFilter;
+      const matchMethod =
+        methodFilter === 'all' || inv.methodType === methodFilter;
+
+      let matchBranch = true;
+      if (branchFilter === 'quận 3') {
+        matchBranch = inv.branchId.includes('0001');
+      } else if (branchFilter === 'quận 1') {
+        matchBranch = inv.branchId.includes('0002');
+      }
+
+      return matchCategory && matchMethod && matchBranch;
+    });
+  }, [completedInvoicesData, categoryFilter, methodFilter, branchFilter]);
+
+  // 4. Financial KPI Aggregates
+  const totalCollected = useMemo(() => {
+    return filteredInvoices.reduce((sum, inv) => sum + inv.amountNumber, 0);
+  }, [filteredInvoices]);
+
+  const totalRefund = 0;
+  const netRevenue = totalCollected - totalRefund;
+
+  const totalReceivables = useMemo(() => {
+    return receivableItemsData.reduce((sum, rec) => sum + rec.dueNowNumber, 0);
+  }, [receivableItemsData]);
+
+  const totalContractOpen = useMemo(() => {
+    return receivableItemsData.reduce((sum, rec) => sum + rec.totalContractNumber, 0);
+  }, [receivableItemsData]);
+
+  // 5. Category Breakdown
+  const categoryBreakdown = useMemo(() => {
+    const serviceTotal = filteredInvoices
+      .filter((i) => i.category === 'service')
+      .reduce((sum, i) => sum + i.amountNumber, 0);
+    const packageTotal = filteredInvoices
+      .filter((i) => i.category === 'package')
+      .reduce((sum, i) => sum + i.amountNumber, 0);
+    const courseTotal = filteredInvoices
+      .filter((i) => i.category === 'course')
+      .reduce((sum, i) => sum + i.amountNumber, 0);
+
+    const sPct = totalCollected > 0 ? ((serviceTotal / totalCollected) * 100).toFixed(1) : '0';
+    const pPct = totalCollected > 0 ? ((packageTotal / totalCollected) * 100).toFixed(1) : '0';
+    const cPct = totalCollected > 0 ? ((courseTotal / totalCollected) * 100).toFixed(1) : '0';
+
+    return {
+      serviceTotal,
+      packageTotal,
+      courseTotal,
+      sPct,
+      pPct,
+      cPct,
+    };
+  }, [filteredInvoices, totalCollected]);
+
+  // 6. Payment Method Breakdown
+  const methodBreakdown = useMemo(() => {
+    const posTotal = filteredInvoices
+      .filter((i) => i.methodType === 'pos')
+      .reduce((sum, i) => sum + i.amountNumber, 0);
+    const bankTotal = filteredInvoices
+      .filter((i) => i.methodType === 'bank')
+      .reduce((sum, i) => sum + i.amountNumber, 0);
+    const onlineTotal = filteredInvoices
+      .filter((i) => i.methodType === 'online')
+      .reduce((sum, i) => sum + i.amountNumber, 0);
+
+    return {
+      posTotal,
+      bankTotal,
+      onlineTotal,
+    };
+  }, [filteredInvoices]);
+
+  // 7. Branch Comparison
+  const branchComparison = useMemo(() => {
+    const q3Invoices = completedInvoicesData.filter((i) => i.branchId.includes('0001'));
+    const q1Invoices = completedInvoicesData.filter((i) => i.branchId.includes('0002'));
+
+    const q3Total = q3Invoices.reduce((sum, i) => sum + i.amountNumber, 0);
+    const q1Total = q1Invoices.reduce((sum, i) => sum + i.amountNumber, 0);
+
+    return {
+      q3Count: q3Invoices.length,
+      q3Total,
+      q1Count: q1Invoices.length,
+      q1Total,
+    };
+  }, [completedInvoicesData]);
+
+  // 8. Daily Revenue Chart Bars
+  const dailyChartBars: DailyRevenueBar[] = useMemo(() => {
+    const days = [
+      '10/10/2026',
+      '11/10/2026',
+      '12/10/2026',
+      '13/10/2026',
+      '14/10/2026',
+      '15/10/2026',
+      '16/10/2026',
+    ];
+
+    const dayTotals: Record<string, number> = {};
+    days.forEach((d) => (dayTotals[d] = 0));
+
+    completedInvoicesData.forEach((inv) => {
+      if (dayTotals[inv.date] !== undefined) {
+        dayTotals[inv.date] += inv.amountNumber;
+      } else {
+        // Fallback default to 16/10 if outside array
+        dayTotals['16/10/2026'] = (dayTotals['16/10/2026'] || 0) + inv.amountNumber;
+      }
+    });
+
+    const maxAmount = Math.max(...Object.values(dayTotals), 1);
+
+    return days.map((date, idx) => {
+      const amount = dayTotals[date] || 0;
+      const height = amount > 0 ? Math.max(16, Math.round((amount / maxAmount) * 100)) : 4;
+      const color =
+        amount > 10000000
+          ? 'bg-[#8D4B1A]'
+          : amount > 2000000
+          ? 'bg-[#BA7E4C]'
+          : amount > 0
+          ? 'bg-[#DEC6B0]'
+          : 'bg-[#D7BBA6]';
+
+      return {
+        date,
+        amountNumber: amount,
+        amountText: amount > 0 ? `${(amount / 1000000).toFixed(1)}Tr` : '0đ',
+        heightPx: height,
+        barColor: color,
+      };
+    });
+  }, [completedInvoicesData]);
 
   return (
     <div className="space-y-5 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -173,7 +387,7 @@ export const W12_FinancialReports: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Báo cáo doanh thu</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            01/10/2026 – 08/10/2026 · Tất cả chi nhánh · Chỉ tính biên nhận hoàn tất
+            Tổng hợp dữ liệu đối soát trực tiếp · Toàn bộ hệ thống MLD Vietnam
           </p>
         </div>
 
@@ -220,9 +434,9 @@ export const W12_FinancialReports: React.FC = () => {
             className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả phương thức</option>
-            <option value="pos">Tại cơ sở / tiền mặt</option>
-            <option value="online">Cổng trực tuyến</option>
-            <option value="bank">Chuyển khoản</option>
+            <option value="pos">Tại cơ sở / Tiền mặt</option>
+            <option value="online">Cổng trực tuyến (MoMo)</option>
+            <option value="bank">Chuyển khoản QR</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -236,7 +450,7 @@ export const W12_FinancialReports: React.FC = () => {
           >
             <option value="all">Tất cả chi nhánh</option>
             <option value="quận 3">Quận 3</option>
-            <option value="cầu giấy">Cầu Giấy</option>
+            <option value="quận 1">Quận 1</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -251,10 +465,10 @@ export const W12_FinancialReports: React.FC = () => {
             <Receipt className="w-4 h-4 text-[#8D4B1A] stroke-[1.8]" />
           </div>
           <div className="text-[26px] font-bold text-[#8D4B1A] tracking-tight mt-3">
-            8.550.000đ
+            {totalCollected.toLocaleString('vi-VN')}đ
           </div>
           <div className="text-xs text-[#73675F] mt-3">
-            3 biên nhận hoàn tất
+            {filteredInvoices.length} biên nhận hoàn tất
           </div>
         </div>
 
@@ -265,7 +479,7 @@ export const W12_FinancialReports: React.FC = () => {
             <RotateCcw className="w-4 h-4 text-[#8D4B1A] stroke-[1.8]" />
           </div>
           <div className="text-[26px] font-bold text-[#8D4B1A] tracking-tight mt-3">
-            0đ
+            {totalRefund.toLocaleString('vi-VN')}đ
           </div>
           <div className="text-xs text-[#73675F] mt-3">
             Không có khoản hoàn trong kỳ
@@ -279,7 +493,7 @@ export const W12_FinancialReports: React.FC = () => {
             <Wallet className="w-4 h-4 text-[#8D4B1A] stroke-[1.8]" />
           </div>
           <div className="text-[26px] font-bold text-[#8D4B1A] tracking-tight mt-3">
-            8.550.000đ
+            {netRevenue.toLocaleString('vi-VN')}đ
           </div>
           <div className="text-xs text-[#73675F] mt-3">
             Đã trừ hoàn tiền
@@ -293,10 +507,10 @@ export const W12_FinancialReports: React.FC = () => {
             <Clock className="w-4 h-4 text-[#8D4B1A] stroke-[1.8]" />
           </div>
           <div className="text-[26px] font-bold text-[#8D4B1A] tracking-tight mt-3">
-            2.150.000đ
+            {totalReceivables.toLocaleString('vi-VN')}đ
           </div>
           <div className="text-xs text-[#73675F] mt-3">
-            Cọc chưa thu · Không là doanh thu
+            {receivableItemsData.length} khoản công nợ / chờ quyết toán
           </div>
         </div>
       </div>
@@ -354,10 +568,15 @@ export const W12_FinancialReports: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[#73675F]">Dịch vụ</span>
-                <span className="text-[#2C241E] font-semibold">450.000đ · 5,26%</span>
+                <span className="text-[#2C241E] font-semibold">
+                  {categoryBreakdown.serviceTotal.toLocaleString('vi-VN')}đ · {categoryBreakdown.sPct}%
+                </span>
               </div>
               <div className="w-full bg-[#EFE4D9] h-2 rounded-full overflow-hidden">
-                <div className="bg-[#DEC6B0] h-full rounded-full" style={{ width: '5.26%' }} />
+                <div
+                  className="bg-[#DEC6B0] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${categoryBreakdown.sPct}%` }}
+                />
               </div>
             </div>
 
@@ -365,10 +584,15 @@ export const W12_FinancialReports: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[#73675F]">Liệu trình</span>
-                <span className="text-[#2C241E] font-semibold">3.600.000đ · 42,11%</span>
+                <span className="text-[#2C241E] font-semibold">
+                  {categoryBreakdown.packageTotal.toLocaleString('vi-VN')}đ · {categoryBreakdown.pPct}%
+                </span>
               </div>
               <div className="w-full bg-[#EFE4D9] h-2 rounded-full overflow-hidden">
-                <div className="bg-[#8D4B1A] h-full rounded-full" style={{ width: '42.11%' }} />
+                <div
+                  className="bg-[#8D4B1A] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${categoryBreakdown.pPct}%` }}
+                />
               </div>
             </div>
 
@@ -376,10 +600,15 @@ export const W12_FinancialReports: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[#73675F]">Học phí</span>
-                <span className="text-[#2C241E] font-semibold">4.500.000đ · 52,63%</span>
+                <span className="text-[#2C241E] font-semibold">
+                  {categoryBreakdown.courseTotal.toLocaleString('vi-VN')}đ · {categoryBreakdown.cPct}%
+                </span>
               </div>
               <div className="w-full bg-[#EFE4D9] h-2 rounded-full overflow-hidden">
-                <div className="bg-[#BA7E4C] h-full rounded-full" style={{ width: '52.63%' }} />
+                <div
+                  className="bg-[#BA7E4C] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${categoryBreakdown.cPct}%` }}
+                />
               </div>
             </div>
           </div>
@@ -391,25 +620,33 @@ export const W12_FinancialReports: React.FC = () => {
         {/* Card: Đối chiếu phương thức */}
         <div className="lg:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
           <h2 className="text-base font-bold text-[#2C241E]">
-            Đối chiếu phương thức
+            Đối chiếu phương thức thanh toán
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-xs pt-3">
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Tại cơ sở / tiền mặt mẫu</span>
-              <span className="text-[#2C241E] font-semibold">450.000đ</span>
+              <span>Tại cơ sở / Tiền mặt</span>
+              <span className="text-[#2C241E] font-semibold">
+                {methodBreakdown.posTotal.toLocaleString('vi-VN')}đ
+              </span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Chuyển khoản mẫu</span>
-              <span className="text-[#2C241E] font-semibold">4.500.000đ</span>
+              <span>Chuyển khoản QR</span>
+              <span className="text-[#2C241E] font-semibold">
+                {methodBreakdown.bankTotal.toLocaleString('vi-VN')}đ
+              </span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Cổng trực tuyến mẫu</span>
-              <span className="text-[#2C241E] font-semibold">3.600.000đ</span>
+              <span>Cổng trực tuyến (MoMo)</span>
+              <span className="text-[#2C241E] font-semibold">
+                {methodBreakdown.onlineTotal.toLocaleString('vi-VN')}đ
+              </span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Tổng</span>
-              <span className="text-[#2C241E] font-bold">8.550.000đ</span>
+              <span>Tổng cộng</span>
+              <span className="text-[#2C241E] font-bold">
+                {totalCollected.toLocaleString('vi-VN')}đ
+              </span>
             </div>
           </div>
         </div>
@@ -422,17 +659,21 @@ export const W12_FinancialReports: React.FC = () => {
 
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-[#73675F]">Quận 3 · 3 biên nhận</span>
-              <span className="text-[#2C241E] font-semibold">8.550.000đ</span>
+              <span className="text-[#73675F]">Quận 3 · {branchComparison.q3Count} biên nhận</span>
+              <span className="text-[#2C241E] font-semibold">
+                {branchComparison.q3Total.toLocaleString('vi-VN')}đ
+              </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[#73675F]">Cầu Giấy · 0 biên nhận</span>
-              <span className="text-[#2C241E] font-semibold">0đ</span>
+              <span className="text-[#73675F]">Quận 1 · {branchComparison.q1Count} biên nhận</span>
+              <span className="text-[#2C241E] font-semibold">
+                {branchComparison.q1Total.toLocaleString('vi-VN')}đ
+              </span>
             </div>
           </div>
 
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Cầu Giấy chưa có biên nhận đã ghi trong tập mẫu, không phải đánh giá hiệu quả kinh doanh.
+            Dữ liệu tài chính đối soát trực tiếp theo từng cơ sở trực thuộc chuỗi MLD Vietnam.
           </div>
         </div>
       </div>
@@ -500,7 +741,7 @@ export const W12_FinancialReports: React.FC = () => {
         {/* Footer */}
         <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
           <span>
-            Hiển thị 3 / 3 biên nhận · Tổng: 8.550.000đ · Hoàn tiền: 0đ · Thực thu: 8.550.000đ
+            Hiển thị {filteredInvoices.length} / {completedInvoicesData.length} biên nhận · Tổng: {totalCollected.toLocaleString('vi-VN')}đ · Hoàn tiền: {totalRefund.toLocaleString('vi-VN')}đ · Thực thu: {netRevenue.toLocaleString('vi-VN')}đ
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -585,7 +826,7 @@ export const W12_FinancialReports: React.FC = () => {
         {/* Footer */}
         <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
           <span>
-            2 / 2 khoản phải thu · Tổng hợp đồng mở: 9.450.000đ = cần thu ngay 2.150.000đ + trả sau 7.300.000đ
+            {receivableItemsData.length} khoản phải thu · Tổng hợp đồng mở: {totalContractOpen.toLocaleString('vi-VN')}đ = cần thu ngay {totalReceivables.toLocaleString('vi-VN')}đ
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -671,9 +912,9 @@ export const W12_FinancialReports: React.FC = () => {
               <div>
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Phạm vi dữ liệu</label>
                 <div className="p-3 bg-[#FAF5EF] rounded-xl border border-[#EFE4D9] space-y-1 text-[#73675F]">
-                  <div>• Tổng thực thu trong kỳ: 8.550.000đ (3 biên nhận)</div>
-                  <div>• Tổng công nợ cần thu ngay: 2.150.000đ</div>
-                  <div>• Chi nhánh: Quận 3 và Cầu Giấy</div>
+                  <div>• Tổng thực thu trong kỳ: {netRevenue.toLocaleString('vi-VN')}đ ({filteredInvoices.length} biên nhận)</div>
+                  <div>• Tổng công nợ cần thu ngay: {totalReceivables.toLocaleString('vi-VN')}đ</div>
+                  <div>• Chi nhánh: Quận 3 và Quận 1</div>
                 </div>
               </div>
 

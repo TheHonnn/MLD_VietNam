@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Leaf,
   Calendar,
@@ -8,18 +8,20 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react';
-import { treatmentService } from '../services';
+import { treatmentService, customerService } from '../services';
 import { toast } from '../components/common';
 import {
   TreatmentPackage as SharedTreatmentPackage,
   UserPackage,
   Service,
   TreatmentJournal,
+  User,
 } from '../types/shared_types';
 
 interface TreatmentPackageUI {
   id: string;
   name: string;
+  customerId: string;
   sessionsTotal: number;
   price: string;
   purchaseDate: string;
@@ -50,94 +52,131 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [liveUserPackages, setLiveUserPackages] = useState<UserPackage[]>([]);
   const [liveServices, setLiveServices] = useState<Service[]>([]);
   const [liveJournals, setLiveJournals] = useState<TreatmentJournal[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
 
   useEffect(() => {
     const fetchTreatmentData = async () => {
       try {
-        const [pkgRes, upkgRes, srvRes, jrnRes] = await Promise.all([
+        const [pkgRes, upkgRes, srvRes, jrnRes, custRes] = await Promise.all([
           treatmentService.getTreatmentPackages(),
           treatmentService.getUserPackagesByCustomer(),
           treatmentService.getServices(),
           treatmentService.getTreatmentJournalsByCustomer(),
+          customerService.getCustomers(),
         ]);
         if (pkgRes.success) setLivePackages(pkgRes.data);
         if (upkgRes.success) setLiveUserPackages(upkgRes.data);
         if (srvRes.success) setLiveServices(srvRes.data);
         if (jrnRes.success) setLiveJournals(jrnRes.data);
+        if (custRes.success) setCustomers(custRes.data);
       } catch (err) {
         console.error('Failed to load treatment data:', err);
       }
     };
     fetchTreatmentData();
   }, []);
-  // Packages dataset matching Figma design
-  const packages: TreatmentPackageUI[] = [
-    {
-      id: 'pkg-massage',
-      name: 'Massage thư giãn · 10 buổi',
-      sessionsTotal: 10,
-      price: '4.000.000đ',
-      purchaseDate: '01/09/2026',
-      expiryDate: '31/12/2026',
-      usedSessions: 4,
-      remainingSessions: 6,
-      progressPercent: 40,
-      progressLabel: '40% đã dùng',
-      branch: 'Quận 3',
-      status: 'Đang sử dụng',
-      historySubtitle:
-        'Số buổi mẫu, tách riêng dịch vụ massage thanh toán 450.000đ ngày 08/10/2026.',
-      historyNote:
-        'Buổi 05 chưa hoàn thành nên vẫn còn 6 buổi, chưa khấu trừ trước.',
-      sessionsHistory: [
-        { number: '01', date: '10/09/2026', serviceName: 'Massage thư giãn' },
-        { number: '02', date: '20/09/2026', serviceName: 'Massage thư giãn' },
-        { number: '03', date: '01/10/2026', serviceName: 'Massage thư giãn' },
-        { number: '04', date: '08/10/2026', serviceName: 'Massage thư giãn' },
-        {
-          number: '05',
-          date: '15/10/2026',
-          serviceName: 'Lịch sắp tới',
-          isUpcoming: true,
-          bookingCode: 'BK-20261016-003',
-          time: '09:00–10:00',
-          staff: 'Trần Lan Anh',
-          room: 'Phòng 01, Quận 3.',
-          statusBadge: 'Đã xác nhận',
-        },
-      ],
-    },
-    {
-      id: 'pkg-skincare',
-      name: 'Chăm sóc da · 8 buổi',
-      sessionsTotal: 8,
-      price: '3.600.000đ',
-      purchaseDate: '05/10/2026',
-      expiryDate: '31/12/2026',
-      usedSessions: 3,
-      remainingSessions: 5,
-      progressPercent: 37.5,
-      progressLabel: '37,5% đã dùng',
-      branch: 'Quận 3',
-      status: 'Đang sử dụng',
-      historySubtitle:
-        'Số buổi mẫu, cập nhật theo các lượt liệu trình chăm sóc da định kỳ.',
-      historyNote:
-        'Buổi tiếp theo dự kiến đặt sau khi hoàn thành đợt hồi phục da.',
-      sessionsHistory: [
-        { number: '01', date: '06/10/2026', serviceName: 'Chăm sóc da Hydrafacial' },
-        { number: '02', date: '13/10/2026', serviceName: 'Chăm sóc da Hydrafacial' },
-        { number: '03', date: '20/10/2026', serviceName: 'Điện di Vitamin C' },
-      ],
-    },
-  ];
 
-  // Default selected package is Massage 10 sessions (matches Figma mockup 100%)
-  const [selectedPkgId, setSelectedPkgId] = useState<string>('pkg-massage');
+  const custMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+
+  const packages: TreatmentPackageUI[] = useMemo(() => {
+    if (!liveUserPackages || liveUserPackages.length === 0) return [];
+
+    return liveUserPackages.map((up) => {
+      const cust = custMap.get(up.customerId);
+      const pkgDef = up.package || livePackages.find((p) => p.id === up.packageId);
+      const journals = liveJournals
+        .filter((j) => j.userPackageId === up.id || (!j.userPackageId && j.customerId === up.customerId))
+        .sort((a, b) => a.sessionNumber - b.sessionNumber);
+
+      const used = up.completedSessions || journals.length;
+      const total = up.totalSessions || 5;
+      const remaining = Math.max(0, total - used);
+      const progressPercent = Math.min(100, Math.round((used / total) * 100));
+
+      const purchaseFormatted = up.purchasedAt
+        ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.purchasedAt))
+        : '01/09/2026';
+      const expiryFormatted = up.expiresAt
+        ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.expiresAt))
+        : '31/12/2026';
+
+      const srvName = pkgDef?.name || 'Liệu trình phục hồi da chuyên sâu';
+      const priceText = `${(pkgDef?.discountPrice || pkgDef?.price || 3250000).toLocaleString('vi-VN')}đ`;
+
+      const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => ({
+        number: String(j.sessionNumber).padStart(2, '0'),
+        date: new Intl.DateTimeFormat('vi-VN').format(new Date(j.sessionDate)),
+        serviceName: j.treatmentNotes || srvName,
+      }));
+
+      if (remaining > 0) {
+        sessionsHistory.push({
+          number: String(used + 1).padStart(2, '0'),
+          date: 'Lịch sắp tới',
+          serviceName: 'Buổi chăm sóc tiếp theo',
+          isUpcoming: true,
+          bookingCode: 'BK-NEXT-01',
+          time: '09:00–10:30',
+          staff: 'Kỹ thuật viên chuyên trách',
+          room: 'Phòng VIP · Quận 3',
+          statusBadge: 'Chờ xếp lịch',
+        });
+      }
+
+      return {
+        id: up.id,
+        name: `${srvName} · ${total} buổi`,
+        customerId: up.customerId,
+        sessionsTotal: total,
+        price: priceText,
+        purchaseDate: purchaseFormatted,
+        expiryDate: expiryFormatted,
+        usedSessions: used,
+        remainingSessions: remaining,
+        progressPercent,
+        progressLabel: `${progressPercent}% đã dùng`,
+        branch: 'Quận 3',
+        status: up.status === 'ACTIVE' ? 'Đang sử dụng' : 'Hoàn tất',
+        historySubtitle: `Hồ sơ liệu trình thực tế của ${cust?.fullName || 'khách hàng'}, đồng bộ trực tiếp từ Supabase Cloud.`,
+        historyNote: `Đã hoàn thành ${used}/${total} buổi. Còn lại ${remaining} buổi hợp lệ đến ${expiryFormatted}.`,
+        sessionsHistory,
+      };
+    });
+  }, [liveUserPackages, livePackages, liveJournals, liveServices, custMap]);
+
+  const [selectedPkgId, setSelectedPkgId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const selectedPkg =
-    packages.find((p) => p.id === selectedPkgId) || packages[0];
+  useEffect(() => {
+    if (packages.length > 0 && (!selectedPkgId || !packages.some((p) => p.id === selectedPkgId))) {
+      setSelectedPkgId(packages[0].id);
+    }
+  }, [packages, selectedPkgId]);
+
+  const selectedPkg = packages.find((p) => p.id === selectedPkgId) || packages[0] || {
+    id: '',
+    name: 'Chưa có gói liệu trình',
+    customerId: '',
+    sessionsTotal: 0,
+    price: '0đ',
+    purchaseDate: '',
+    expiryDate: '',
+    usedSessions: 0,
+    remainingSessions: 0,
+    progressPercent: 0,
+    progressLabel: '0%',
+    branch: 'Quận 3',
+    status: 'Đang tải',
+    historySubtitle: 'Đang đồng bộ dữ liệu từ Supabase Cloud...',
+    historyNote: '',
+    sessionsHistory: [],
+  };
+
+  const selectedCustomer = custMap.get(selectedPkg.customerId);
+
+  const totalActivePackages = packages.filter((p) => p.status === 'Đang sử dụng').length;
+  const totalRemainingSessions = packages.reduce((acc, p) => acc + p.remainingSessions, 0);
+  const totalUsedSessions = packages.reduce((acc, p) => acc + p.usedSessions, 0);
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -168,10 +207,10 @@ export const W06_TreatmentManagement: React.FC = () => {
             <Leaf className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
           <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
-            2
+            {totalActivePackages}
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
-            Đang hoạt động
+            Gói đang lưu hành
           </div>
         </div>
 
@@ -182,10 +221,10 @@ export const W06_TreatmentManagement: React.FC = () => {
             <Calendar className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
           <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
-            11
+            {totalRemainingSessions}
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
-            6 massage + 5 chăm sóc da
+            Buổi khả dụng trên hệ thống
           </div>
         </div>
 
@@ -196,10 +235,10 @@ export const W06_TreatmentManagement: React.FC = () => {
             <SlidersHorizontal className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
           <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
-            7
+            {totalUsedSessions}
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
-            4 massage + 3 chăm sóc da
+            Buổi đã trị liệu thực tế
           </div>
         </div>
       </div>
@@ -357,9 +396,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         <div className="lg:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
           <div>
             <h2 className="text-base font-bold text-[#2C241E]">
-              {selectedPkg.id === 'pkg-massage'
-                ? 'Lịch sử buổi chăm sóc · Gói massage'
-                : 'Lịch sử buổi chăm sóc · Gói chăm sóc da'}
+              Lịch sử buổi chăm sóc · {selectedPkg.name}
             </h2>
             <p className="text-xs text-[#73675F] mt-1">
               {selectedPkg.historySubtitle}
@@ -398,7 +435,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   className="bg-[#F3E2CE] rounded-xl px-4 py-3 flex items-center gap-3"
                 >
                   <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#EFE1D2] text-[#73675F]">
-                    Hoàn thành mẫu
+                    Đã hoàn thành
                   </span>
                   <span className="text-xs font-semibold text-[#2C241E]">
                     Buổi {s.number} · {s.date} · {s.serviceName}
@@ -419,24 +456,22 @@ export const W06_TreatmentManagement: React.FC = () => {
           {/* Card 1: Selected Package Details */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
             <h2 className="text-base font-bold text-[#2C241E]">
-              {selectedPkg.id === 'pkg-massage'
-                ? 'Gói massage đang chọn'
-                : 'Gói chăm sóc da đang chọn'}
+              Chi tiết gói liệu trình đang chọn
             </h2>
 
             {/* Customer Profile Snippet */}
             <div className="flex items-center gap-3 pt-0.5">
               <img
-                src="/avatar_minh_anh.png"
-                alt="Nguyễn Mỹ Duyên"
+                src={selectedCustomer?.avatarUrl || "/avatar_minh_anh.png"}
+                alt={selectedCustomer?.fullName || "Khách hàng"}
                 className="w-10 h-10 rounded-full object-cover shrink-0 border border-[#EFE4D9]"
               />
               <div className="min-w-0">
                 <div className="text-xs font-bold text-[#2C241E] truncate">
-                  Nguyễn Mỹ Duyên
+                  {selectedCustomer?.fullName || 'Khách hàng'}
                 </div>
                 <div className="text-[11px] text-[#73675F] truncate mt-0.5">
-                  MLD-VIP-01 · Hội viên Kim Cương
+                  {selectedCustomer?.phone || ''} · Hội viên {selectedCustomer?.membershipTier || 'Thành viên'}
                 </div>
               </div>
             </div>

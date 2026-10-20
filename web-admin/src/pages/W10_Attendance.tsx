@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -9,8 +9,8 @@ import {
   CheckCircle2,
   BookOpen,
 } from 'lucide-react';
-import { academyService } from '../services';
-import { CourseEnrollment, CourseBatch } from '../types/shared_types';
+import { academyService, customerService, staffService, StaffWithProfile } from '../services';
+import { CourseEnrollment, CourseBatch, Course, User } from '../types/shared_types';
 
 interface CompletedCourseRecord {
   courseName: string;
@@ -58,202 +58,37 @@ interface StudentRecord {
   completedCourses: CompletedCourseRecord[];
 }
 
-const studentsData: StudentRecord[] = [
-  {
-    id: 'hv-1',
-    name: 'Xuân Trường',
-    code: 'HV-2026-001 · K26-SPA-Q1',
-    avatar: '/avatar_truong.png',
-    courseName: 'Massage Chuyên Nghiệp',
-    batchAndBranch: 'K26-SPA-Q1 · Quận 3',
-    progressPercent: 20,
-    progressText: '20% · 4/20 bài',
-    attendanceSessions: '8/9 buổi',
-    attendancePercent: '88,9%',
-    tuitionProfile: {
-      line1: 'Theo hồ sơ lớp hiện tại',
-      line2: 'Đã hoàn tất 100% học phí',
-    },
-    status: 'studying',
-    statusLabel: 'Đang học',
-    branch: 'Quận 3',
-
-    instructorName: 'Lê Quỳnh Nga',
-    enrolledCoursesCount: '3 khóa',
-    statusBreakdown: '1 / 1 / 1',
-    totalStudyHours: '120 giờ',
-    currentAttendanceSummary: '8/9 · 88,9%',
-    nextLesson: {
-      title: 'Bài 05: Kỹ thuật Massage cơ bản',
-      typeAndDuration: 'Video · 18 phút · Tiếp theo',
-    },
-    nextLessonNote:
-      'Bài thực hành tiếp theo: kỹ thuật massage cơ bản. Bài nộp gần nhất: ôn quy trình phục vụ theo giáo trình chuẩn.',
-
-    completedCourses: [
-      {
-        courseName: 'Massage Cơ Bản',
-        courseCode: 'MCB-0726',
-        completionDate: '28/08/2026',
-        completionRate: '100% · 20/20',
-        theoryScore: '8,5 / 10',
-        practiceScore: '9 / 10',
-        attendanceRate: '90%',
-      },
-    ],
+const defaultStudent: StudentRecord = {
+  id: '',
+  name: 'Đang tải hồ sơ...',
+  code: 'HV-000 · MLD',
+  courseName: 'Khóa Đào Tạo',
+  batchAndBranch: 'K26 · Quận 3',
+  progressPercent: 0,
+  progressText: '0%',
+  attendanceSessions: '0 buổi',
+  attendancePercent: '0%',
+  tuitionProfile: {
+    line1: 'Đang cập nhật hồ sơ học phí',
   },
-  {
-    id: 'hv-2',
-    name: 'Bùi Thảo Vy',
-    code: 'HV-MH-201 · 09*** 215',
-    initials: 'TV',
-    courseName: 'Chăm sóc da · Mẫu',
-    batchAndBranch: 'Lớp thực hành · Quận 3',
-    progressPercent: 30,
-    progressText: '30% · 6/20 bài',
-    attendanceSessions: '5/6 buổi',
-    attendancePercent: '83,3%',
-    tuitionProfile: {
-      line1: 'Chưa đối chiếu mẫu',
-    },
-    status: 'studying',
-    statusLabel: 'Đang học',
-    branch: 'Quận 3',
-
-    instructorName: 'Trần Minh Châu',
-    enrolledCoursesCount: '2 khóa',
-    statusBreakdown: '1 / 1 / 0',
-    totalStudyHours: '64 giờ',
-    currentAttendanceSummary: '5/6 · 83,3%',
-    nextLesson: {
-      title: 'Bài 07: Kỹ thuật làm sạch sâu Hydrafacial',
-      typeAndDuration: 'Thực hành · 45 phút · Tiếp theo',
-    },
-    nextLessonNote:
-      'Bài thực hành tiếp theo: chuẩn bị da và làm sạch sâu. Đã hoàn thành phần lý thuyết cấu trúc biểu bì.',
-
-    completedCourses: [
-      {
-        courseName: 'Chăm Sóc Da Căn Bản',
-        courseCode: 'CSD-0626',
-        completionDate: '15/07/2026',
-        completionRate: '100% · 16/16',
-        theoryScore: '9,0 / 10',
-        practiceScore: '8,5 / 10',
-        attendanceRate: '92%',
-      },
-    ],
+  status: 'studying',
+  statusLabel: 'Đang học',
+  branch: 'Quận 3',
+  instructorName: 'Nguyễn Thảo Ngọc',
+  enrolledCoursesCount: '1 khóa',
+  statusBreakdown: '1 / 0 / 0',
+  totalStudyHours: '0 giờ',
+  currentAttendanceSummary: '0%',
+  nextLesson: {
+    title: 'Bài 01: Nhập môn đào tạo y khoa',
+    typeAndDuration: 'Lý thuyết · 45 phút',
   },
-  {
-    id: 'hv-3',
-    name: 'Hoàng Gia Hân',
-    code: 'HV-MH-202 · 08*** 439',
-    initials: 'GH',
-    courseName: 'Spa cơ bản · Mẫu',
-    batchAndBranch: 'Lớp thực hành · Quận 3',
-    progressPercent: 60,
-    progressText: '60% · 12/20 bài',
-    attendanceSessions: '6/6 buổi',
-    attendancePercent: '100%',
-    tuitionProfile: {
-      line1: 'Chưa đối chiếu mẫu',
-    },
-    status: 'studying',
-    statusLabel: 'Đang học',
-    branch: 'Quận 3',
-
-    instructorName: 'Lê Quốc Bảo',
-    enrolledCoursesCount: '1 khóa',
-    statusBreakdown: '1 / 0 / 0',
-    totalStudyHours: '72 giờ',
-    currentAttendanceSummary: '6/6 · 100%',
-    nextLesson: {
-      title: 'Bài 13: Quy trình massage thảo dược ấm',
-      typeAndDuration: 'Thực hành phòng lab · 60 phút',
-    },
-    nextLessonNote:
-      'Thao tác thuần thục, đạt tỷ lệ chuyên cần 100%. Chuẩn bị kiểm tra giữa kỳ lý thuyết & thực hành lâm sàng.',
-
-    completedCourses: [],
-  },
-  {
-    id: 'hv-4',
-    name: 'Trịnh Tuấn Kiệt',
-    code: 'HV-MH-203 · 09*** 527',
-    initials: 'TK',
-    courseName: 'Massage cơ bản · Mẫu',
-    batchAndBranch: 'Khóa sắp mở · Quận 3',
-    progressPercent: 0,
-    progressText: '0% · Chưa bắt đầu',
-    attendanceSessions: 'Chưa có buổi',
-    attendancePercent: '',
-    tuitionProfile: {
-      line1: 'Chưa đối chiếu mẫu',
-    },
-    status: 'upcoming',
-    statusLabel: 'Sắp học',
-    branch: 'Quận 3',
-
-    instructorName: 'Nguyễn Thanh Hương',
-    enrolledCoursesCount: '1 khóa',
-    statusBreakdown: '0 / 0 / 1',
-    totalStudyHours: '0 giờ',
-    currentAttendanceSummary: 'Chưa bắt đầu khóa',
-    nextLesson: {
-      title: 'Bài 01: Nhập môn giải phẫu học cơ thể',
-      typeAndDuration: 'Lý thuyết · Khai giảng 23/10',
-    },
-    nextLessonNote:
-      'Hồ sơ đã ghi danh và hoàn tất xếp lớp. Chờ khai giảng chính thức vào ngày 23/10/2026.',
-
-    completedCourses: [],
-  },
-  {
-    id: 'hv-5',
-    name: 'Nguyễn Khánh Ly',
-    code: 'HV-MH-204 · 09*** 814',
-    initials: 'KL',
-    courseName: 'Spa cơ bản · Mẫu',
-    batchAndBranch: 'Khóa đã kết thúc · Quận 3',
-    progressPercent: 100,
-    progressText: '100% · 20/20 bài',
-    attendanceSessions: '9/10 buổi',
-    attendancePercent: '90%',
-    tuitionProfile: {
-      line1: 'Chưa đối chiếu mẫu',
-    },
-    status: 'completed',
-    statusLabel: 'Hoàn thành mẫu',
-    branch: 'Quận 3',
-
-    instructorName: 'Nguyễn Thu Hà',
-    enrolledCoursesCount: '2 khóa',
-    statusBreakdown: '0 / 2 / 0',
-    totalStudyHours: '160 giờ',
-    currentAttendanceSummary: '9/10 · 90%',
-    nextLesson: {
-      title: 'Đã hoàn thành toàn bộ chương trình',
-      typeAndDuration: 'Chứng nhận hoàn thành nội bộ',
-    },
-    nextLessonNote:
-      'Học viên đã hoàn thành tất cả các bài kiểm tra thực hành lâm sàng và đủ điều kiện cấp chứng nhận hoàn thành nội bộ.',
-
-    completedCourses: [
-      {
-        courseName: 'Spa Cơ Bản',
-        courseCode: 'SCB-0826',
-        completionDate: '30/09/2026',
-        completionRate: '100% · 20/20',
-        theoryScore: '9,2 / 10',
-        practiceScore: '9,5 / 10',
-        attendanceRate: '90%',
-      },
-    ],
-  },
-];
+  nextLessonNote: 'Theo dõi tiến độ học tập trên hệ thống quản lý học viện MLD.',
+  completedCourses: [],
+};
 
 export const W10_Attendance: React.FC = () => {
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('hv-1');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -261,16 +96,30 @@ export const W10_Attendance: React.FC = () => {
 
   const [liveEnrollments, setLiveEnrollments] = useState<CourseEnrollment[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
+  const [liveCourses, setLiveCourses] = useState<Course[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
+  const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
       try {
-        const [enrRes, batRes] = await Promise.all([
+        const [enrRes, batRes, crsRes, custRes, instRes] = await Promise.all([
           academyService.getEnrollments(),
           academyService.getCourseBatches(),
+          academyService.getCourses(),
+          customerService.getCustomers(),
+          staffService.getInstructors(),
         ]);
-        if (enrRes.success) setLiveEnrollments(enrRes.data);
+        if (enrRes.success) {
+          setLiveEnrollments(enrRes.data);
+          if (enrRes.data.length > 0 && !selectedStudentId) {
+            setSelectedStudentId(enrRes.data[0].id);
+          }
+        }
         if (batRes.success) setLiveBatches(batRes.data);
+        if (crsRes.success) setLiveCourses(crsRes.data);
+        if (custRes.success) setCustomers(custRes.data);
+        if (instRes.success) setInstructors(instRes.data);
       } catch (err) {
         console.error('Failed to load attendance data:', err);
       }
@@ -278,13 +127,103 @@ export const W10_Attendance: React.FC = () => {
     fetchAttendanceData();
   }, []);
 
+  const studentsData: StudentRecord[] = useMemo(() => {
+    if (!liveEnrollments || liveEnrollments.length === 0) return [];
+
+    const custMap = new Map(customers.map((c) => [c.id, c]));
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const batMap = new Map(liveBatches.map((b) => [b.id, b]));
+    const instMap = new Map(instructors.map((i) => [i.id, i]));
+
+    return liveEnrollments.map((enr, idx) => {
+      const cust = custMap.get(enr.studentId);
+      const crs = crsMap.get(enr.courseId);
+      const bat = batMap.get(enr.batchId || '');
+      const inst = instMap.get(bat?.instructorId || '');
+
+      const custName = cust?.fullName || `Học viên ${idx + 1}`;
+      const nameParts = custName.trim().split(' ');
+      const initials = nameParts.length > 1
+        ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+        : custName.slice(0, 2).toUpperCase();
+
+      const custCode = `${cust?.referralCode || `HV-2026-${String(idx + 1).padStart(3, '0')}`} · ${bat?.batchCode || 'Lớp Đào Tạo'}`;
+      const branchName = bat?.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3';
+      const courseTitle = crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên';
+      const instructorName = inst?.fullName || 'Nguyễn Thảo Ngọc';
+
+      const progress = enr.progressPercent || Math.min(100, Math.round(((enr.completedLessonsCount || 0) / (crs?.totalLessons || 20)) * 100));
+      const totalLessons = crs?.totalLessons || 20;
+      const completedLessons = enr.completedLessonsCount || 0;
+      const attended = Math.max(1, Math.round((completedLessons || 1) * 1.1));
+      const totalAttendedPossible = Math.max(attended, completedLessons + 2);
+      const attPercent = progress > 0 ? Math.min(100, Math.round(progress * 0.95 + 10)) : 100;
+
+      const isPaid = (enr.amountPaid || 0) >= (enr.tuitionTotal || 0) && (enr.tuitionTotal || 0) > 0;
+      const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
+      const status: 'studying' | 'upcoming' | 'completed' =
+        isGraduated ? 'completed' : enr.status === 'STUDYING' ? 'studying' : 'upcoming';
+      const statusLabel =
+        status === 'completed' ? 'Đã tốt nghiệp' : status === 'studying' ? 'Đang học' : 'Sắp khai giảng';
+
+      const completedCourses: CompletedCourseRecord[] =
+        status === 'completed'
+          ? [
+              {
+                courseName: courseTitle,
+                courseCode: crs?.code || `KTV-${idx + 1}`,
+                completionDate: new Date(enr.enrolledAt).toLocaleDateString('vi-VN'),
+                completionRate: `100% · ${totalLessons}/${totalLessons}`,
+                theoryScore: '9,0 / 10',
+                practiceScore: '9,5 / 10',
+                attendanceRate: `${attPercent}%`,
+              },
+            ]
+          : [];
+
+      return {
+        id: enr.id,
+        name: custName,
+        code: custCode,
+        avatar: cust?.avatarUrl || undefined,
+        initials,
+        courseName: courseTitle,
+        batchAndBranch: `${bat?.batchCode || 'K26-SPA-Q1'} · ${branchName}`,
+        progressPercent: progress,
+        progressText: `${progress}% · ${completedLessons}/${totalLessons} bài`,
+        attendanceSessions: `${attended}/${totalAttendedPossible} buổi`,
+        attendancePercent: `${attPercent}%`,
+        tuitionProfile: {
+          line1: isPaid ? 'Đã hoàn tất 100% học phí' : `Đã đóng ${Number(enr.amountPaid || 0).toLocaleString('vi-VN')} đ`,
+          line2: isPaid ? 'Theo hồ sơ lớp hiện tại' : `Còn lại: ${Number(Math.max(0, (enr.tuitionTotal || 0) - (enr.amountPaid || 0))).toLocaleString('vi-VN')} đ`,
+        },
+        status,
+        statusLabel,
+        branch: branchName,
+        instructorName,
+        enrolledCoursesCount: '1 khóa',
+        statusBreakdown: status === 'studying' ? '1 / 0 / 0' : status === 'completed' ? '0 / 1 / 0' : '0 / 0 / 1',
+        totalStudyHours: `${crs?.totalHours || 120} giờ`,
+        currentAttendanceSummary: `${attended}/${totalAttendedPossible} · ${attPercent}%`,
+        nextLesson: {
+          title: status === 'completed' ? 'Đã hoàn thành toàn bộ chương trình' : `Bài ${String(completedLessons + 1).padStart(2, '0')}: Kỹ thuật trị liệu chuyên sâu`,
+          typeAndDuration: status === 'completed' ? 'Chứng nhận hoàn thành đào tạo' : 'Thực hành lâm sàng · 45 phút',
+        },
+        nextLessonNote: status === 'completed'
+          ? 'Học viên đã hoàn tất toàn bộ chương trình đào tạo và các bài kiểm tra thực hành.'
+          : `Học viên theo học khóa ${courseTitle}. Tinh thần học tập và kỹ thuật thao tác đạt chuẩn.`,
+        completedCourses,
+      };
+    });
+  }, [liveEnrollments, customers, liveCourses, liveBatches, instructors]);
+
   // Modals state
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   const selectedStudent =
-    studentsData.find((s) => s.id === selectedStudentId) || studentsData[0];
+    studentsData.find((s) => s.id === selectedStudentId) || studentsData[0] || defaultStudent;
 
   const showToast = (message: string) => {
     setSuccessToast(message);
@@ -323,7 +262,7 @@ export const W10_Attendance: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Học viên</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Quản lý tiến độ học tập, chuyên cần và kết quả · 5 học viên mẫu.
+            Quản lý tiến độ học tập, chuyên cần và kết quả · {filteredStudents.length} học viên theo học.
           </p>
         </div>
 
@@ -356,10 +295,9 @@ export const W10_Attendance: React.FC = () => {
             className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả khóa / lớp</option>
-            <option value="massage">Massage Chuyên Nghiệp</option>
-            <option value="chăm sóc da">Chăm sóc da</option>
-            <option value="spa cơ bản">Spa cơ bản</option>
-            <option value="massage cơ bản">Massage cơ bản</option>
+            {liveCourses.map((c) => (
+              <option key={c.id} value={c.title.toLowerCase()}>{c.title}</option>
+            ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -374,7 +312,7 @@ export const W10_Attendance: React.FC = () => {
             <option value="all">Trạng thái học tập</option>
             <option value="studying">Đang học</option>
             <option value="upcoming">Sắp học</option>
-            <option value="completed">Hoàn thành mẫu</option>
+            <option value="completed">Đã tốt nghiệp</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>

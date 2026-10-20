@@ -12,45 +12,6 @@ export interface AdminNotification {
 
 const STORAGE_KEY = 'mld_admin_notifications';
 
-const INITIAL_NOTIFICATIONS: AdminNotification[] = [
-  {
-    id: 'notif-1',
-    title: 'Lịch hẹn mới tại Cơ sở Quận 3',
-    message: 'Khách hàng Trần Ngọc Linh vừa đặt dịch vụ Chăm sóc da chuyên sâu Hydrafacial lúc 10:00.',
-    type: 'BOOKING',
-    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    isRead: false,
-    link: '/staff-schedule',
-  },
-  {
-    id: 'notif-2',
-    title: 'Thanh toán thành công đơn #BK-20261016-003',
-    message: 'Đơn hàng 390.000đ của khách hàng Lê Bảo Ngọc đã được thanh toán tại quầy thu ngân cơ sở.',
-    type: 'PAYMENT',
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    isRead: false,
-    link: '/cashier-pos',
-  },
-  {
-    id: 'notif-3',
-    title: 'Đăng ký khóa học mới',
-    message: 'Học viên Nguyễn Mỹ Duyên vừa hoàn tất hồ sơ ghi danh khóa Kỹ thuật viên Dẫn Lưu Bạch Huyết MLD K18.',
-    type: 'ACADEMY',
-    createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    isRead: false,
-    link: '/academy-enrollment',
-  },
-  {
-    id: 'notif-4',
-    title: 'Sẵn sàng điều phối phòng trị liệu',
-    message: 'Phòng VIP 01 - Hoa Sen (Quận 3) đã hoàn tất chuẩn bị và sẵn sàng đón khách lượt tiếp theo.',
-    type: 'SYSTEM',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    isRead: true,
-    link: '/branches',
-  },
-];
-
 class NotificationService {
   private listeners: Array<(items: AdminNotification[]) => void> = [];
   private items: AdminNotification[] = [];
@@ -66,11 +27,10 @@ class NotificationService {
       if (stored) {
         this.items = JSON.parse(stored);
       } else {
-        this.items = [...INITIAL_NOTIFICATIONS];
-        this.saveToStorage();
+        this.items = [];
       }
     } catch {
-      this.items = [...INITIAL_NOTIFICATIONS];
+      this.items = [];
     }
   }
 

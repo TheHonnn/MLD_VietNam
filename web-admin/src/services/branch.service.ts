@@ -78,16 +78,11 @@ export const branchService = {
       console.error('[branchService] createBranch error:', err);
     }
 
-    const fallbackId = `branch-${Date.now()}`;
-    const newBranch: Branch = {
-      id: fallbackId,
-      ...branchData,
-    };
     return {
-      success: true,
-      statusCode: 201,
-      message: 'Khởi tạo cơ sở chi nhánh mới thành công',
-      data: newBranch,
+      success: false,
+      statusCode: 500,
+      message: 'Không thể khởi tạo cơ sở chi nhánh trên Supabase Cloud',
+      data: {} as Branch,
     };
   },
 

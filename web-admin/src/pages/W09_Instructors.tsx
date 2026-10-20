@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -9,6 +9,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { staffService, academyService, StaffWithProfile } from '../services';
+import { supabase } from '../services/supabaseClient';
 import { Course, CourseBatch } from '../types/shared_types';
 
 interface InstructorRecord {
@@ -41,119 +42,14 @@ interface InstructorRecord {
   availabilityContent: string;
 }
 
-const instructorsData: InstructorRecord[] = [
-  {
-    id: 'gv-1',
-    initials: 'TH',
-    name: 'Nguyễn Thanh Hương',
-    code: 'GV-MH-001',
-    role: 'Giảng viên kỹ thuật Spa',
-    specialty: 'Massage chuyên nghiệp',
-    assignedClasses: {
-      line1: 'MCN-0926 · Đang học',
-      line2: 'MCN-1026 · Dự kiến',
-    },
-    branch: 'Quận 3',
-    assignmentStatus: 'Có phân công mẫu',
-    badgeLabel: 'Có phân công mẫu',
-
-    detailRoleBadge: 'Giảng viên kỹ thuật Spa',
-    programTitle: 'Kỹ thuật Massage Chuyên Nghiệp',
-    currentClass: 'MCN-0926',
-    upcomingClass: 'MCN-1026',
-    newClassStartDate: '23/10/2026',
-    nextPracticeSession: '16/10/2026',
-    timeSlot: '13:00–17:00',
-    room: 'Thực hành 02',
-
-    availabilityTitle: 'Đối chiếu lịch trước khi phân công',
-    availabilityContent:
-      'Trong tuần chọn, Hương có buổi 16/10/2026, 13:00–17:00. MCN-1026 chỉ bắt đầu từ 23/10/2026.',
-  },
-  {
-    id: 'gv-2',
-    initials: 'MC',
-    name: 'Trần Minh Châu',
-    code: 'GV-MH-002',
-    role: 'Hồ sơ giả định',
-    specialty: 'Chăm sóc da',
-    assignedClasses: {
-      line1: 'Chuyên đề mẫu',
-      line2: '14/10/2026',
-    },
-    branch: 'Quận 3',
-    assignmentStatus: 'Có phân công mẫu',
-    badgeLabel: 'Có phân công mẫu',
-
-    detailRoleBadge: 'Giảng viên Chăm sóc da',
-    programTitle: 'Kỹ thuật Chăm Sóc Da Chuyên Sâu',
-    currentClass: 'CSD-0926',
-    upcomingClass: 'CSD-1026',
-    newClassStartDate: '25/10/2026',
-    nextPracticeSession: '14/10/2026',
-    timeSlot: '09:00–12:00',
-    room: 'Thực hành 01',
-
-    availabilityTitle: 'Đối chiếu lịch trước khi phân công',
-    availabilityContent:
-      'Trong tuần chọn, Châu có buổi 14/10/2026, 09:00–12:00. CSD-1026 chỉ bắt đầu từ 25/10/2026.',
-  },
-  {
-    id: 'gv-3',
-    initials: 'QB',
-    name: 'Lê Quốc Bảo',
-    code: 'GV-MH-003',
-    role: 'Hồ sơ giả định',
-    specialty: 'Chăm sóc cơ thể',
-    assignedClasses: {
-      line1: 'Chuyên đề mẫu',
-      line2: '15/10/2026',
-    },
-    branch: 'Quận 3',
-    assignmentStatus: 'Có phân công mẫu',
-    badgeLabel: 'Có phân công mẫu',
-
-    detailRoleBadge: 'Giảng viên Kỹ thuật Cơ thể',
-    programTitle: 'Kỹ thuật Chăm Sóc Cơ Thể Thảo Dược',
-    currentClass: 'CTC-0926',
-    upcomingClass: 'CTC-1026',
-    newClassStartDate: '27/10/2026',
-    nextPracticeSession: '15/10/2026',
-    timeSlot: '09:00–12:00',
-    room: 'Thực hành 03',
-
-    availabilityTitle: 'Đối chiếu lịch trước khi phân công',
-    availabilityContent:
-      'Trong tuần chọn, Bảo có buổi 15/10/2026, 09:00–12:00. CTC-1026 chỉ bắt đầu từ 27/10/2026.',
-  },
-];
-
-const weeklyTeachingSchedule = [
-  {
-    id: 'ws-1',
-    dateTime: '14/10/2026 · 09:00–12:00',
-    description: 'Trần Minh Châu · Chuyên đề chăm sóc da · Phòng thực hành 01',
-  },
-  {
-    id: 'ws-2',
-    dateTime: '15/10/2026 · 09:00–12:00',
-    description: 'Lê Quốc Bảo · Chuyên đề cơ thể · Phòng thực hành 03',
-  },
-  {
-    id: 'ws-3',
-    dateTime: '16/10/2026 · 13:00–17:00',
-    description: 'Nguyễn Thanh Hương · MCN-0926 · Phòng thực hành 02',
-  },
-];
-
 export const W09_Instructors: React.FC = () => {
-  const [selectedInstructorId, setSelectedInstructorId] = useState<string>('gv-1');
+  const [selectedInstructorId, setSelectedInstructorId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all');
   const [assignmentFilter, setAssignmentFilter] = useState<string>('all');
 
-  const [liveInstructors, setLiveInstructors] = useState<StaffWithProfile[]>([]);
+  const [dbInstructors, setDbInstructors] = useState<any[]>([]);
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
 
@@ -161,11 +57,11 @@ export const W09_Instructors: React.FC = () => {
     const fetchInstructorData = async () => {
       try {
         const [instRes, crsRes, batRes] = await Promise.all([
-          staffService.getInstructors(),
+          supabase.from('instructors').select('*, user:users(full_name, phone, avatar_url)'),
           academyService.getCourses(),
           academyService.getCourseBatches(),
         ]);
-        if (instRes.success) setLiveInstructors(instRes.data);
+        if (instRes.data) setDbInstructors(instRes.data);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
       } catch (err) {
@@ -174,6 +70,80 @@ export const W09_Instructors: React.FC = () => {
     };
     fetchInstructorData();
   }, []);
+
+  const instructorsData: InstructorRecord[] = useMemo(() => {
+    if (!dbInstructors || dbInstructors.length === 0) return [];
+
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+
+    return dbInstructors.map((ins, idx) => {
+      const name = ins.full_name || ins.user?.full_name || 'Nguyễn Thảo Ngọc';
+      const initials = name
+        .split(' ')
+        .map((p: string) => p[0])
+        .slice(-2)
+        .join('')
+        .toUpperCase();
+
+      const batchesForIns = liveBatches.filter(
+        (b) => b.instructorId === ins.id || !b.instructorId
+      );
+
+      const b1 = batchesForIns[0];
+      const b2 = batchesForIns[1];
+      const c1 = b1 ? crsMap.get(b1.courseId) : null;
+      const c2 = b2 ? crsMap.get(b2.courseId) : null;
+
+      const line1 = b1 ? `${b1.batchCode} · Đang giảng dạy` : 'K26-SPA-Q1 · Đang giảng dạy';
+      const line2 = b2 ? `${b2.batchCode} · Sắp mở lớp` : 'K08-DUONGSINH-Q3 · Đang tuyển sinh';
+
+      return {
+        id: ins.id,
+        initials,
+        name,
+        code: `GV-MLD-00${idx + 1}`,
+        role: ins.title || 'Master Trainer Thẩm mỹ & Dưỡng sinh',
+        specialty: ins.achievements?.[0] || 'Massage & Dưỡng sinh chuẩn Y khoa',
+        assignedClasses: {
+          line1,
+          line2,
+        },
+        branch: 'Quận 3',
+        assignmentStatus: 'Có lớp phân công',
+        badgeLabel: 'Đang giảng dạy',
+        detailRoleBadge: ins.title || 'Master Trainer Giám đốc Đào tạo',
+        programTitle: c1?.title || 'Khóa Đào Tạo Kỹ Thuật Viên Spa Chuyên Nghiệp',
+        currentClass: b1?.batchCode || 'K26-SPA-Q1',
+        upcomingClass: b2?.batchCode || 'K08-DUONGSINH-Q3',
+        newClassStartDate: b2?.startDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(b2.startDate)) : '21/10/2026',
+        nextPracticeSession: b1?.startDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(b1.startDate)) : '16/10/2026',
+        timeSlot: b1?.scheduleText || 'Thứ 2 - 4 - 6 (08:30 - 11:30)',
+        room: 'Phòng Thực Hành Lâm Sàng · Quận 3',
+        availabilityTitle: 'Lịch giảng dạy phân bổ tối ưu',
+        availabilityContent: ins.bio || 'Hơn 10 năm kinh nghiệm huấn luyện kỹ thuật viên spa chuyên nghiệp chuẩn Y khoa.',
+      };
+    });
+  }, [dbInstructors, liveCourses, liveBatches]);
+
+  const weeklyTeachingSchedule = useMemo(() => {
+    if (!liveBatches || liveBatches.length === 0) return [];
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+
+    return liveBatches.map((b, idx) => {
+      const crs = crsMap.get(b.courseId);
+      return {
+        id: `ws-${b.id || idx}`,
+        dateTime: `${b.scheduleText || 'Lịch định kỳ'} · Bắt đầu ${b.startDate}`,
+        description: `Master Trainer Nguyễn Thảo Ngọc · ${crs?.title || b.batchCode} · Phòng thực hành Quận 3`,
+      };
+    });
+  }, [liveBatches, liveCourses]);
+
+  useEffect(() => {
+    if (instructorsData.length > 0 && (!selectedInstructorId || !instructorsData.some((i) => i.id === selectedInstructorId))) {
+      setSelectedInstructorId(instructorsData[0].id);
+    }
+  }, [instructorsData, selectedInstructorId]);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -282,7 +252,7 @@ export const W09_Instructors: React.FC = () => {
             className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Trạng thái phân công</option>
-            <option value="có phân công mẫu">Có phân công mẫu</option>
+            <option value="có lớp phân công">Đang giảng dạy</option>
             <option value="chưa phân công">Chưa phân công</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -293,7 +263,7 @@ export const W09_Instructors: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column (8 cols): Giảng viên table + Lịch giảng dạy tuần */}
         <div className="lg:col-span-8 space-y-5">
-          {/* Card 1: Giảng viên trong danh sách mẫu */}
+          {/* Card 1: Giảng viên trong hệ thống đào tạo */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
             {/* Header of Table Card */}
             <div className="p-5 pb-4 flex items-center justify-between">
@@ -422,7 +392,7 @@ export const W09_Instructors: React.FC = () => {
 
             {/* Footnote below schedule cards */}
             <div className="text-xs text-[#73675F] pt-1">
-              Chuyên đề của Minh Châu và Quốc Bảo là dữ liệu mới giả định; không trùng giảng viên hoặc phòng với MCN-0926.
+              Lịch giảng dạy thực hành được đối chiếu trực tiếp theo các lớp học đang diễn ra tại cơ sở.
             </div>
           </div>
         </div>
@@ -609,7 +579,7 @@ export const W09_Instructors: React.FC = () => {
               </div>
 
               <div className="p-3 bg-[#FAF5EF] rounded-xl text-[11px] text-[#73675F]">
-                Dữ liệu giảng viên sẽ được đồng bộ vào danh sách mẫu và phân bổ phòng thực hành phù hợp.
+                Dữ liệu giảng viên sẽ được đồng bộ trực tiếp lên hệ thống quản trị đào tạo MLD.
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2.5">

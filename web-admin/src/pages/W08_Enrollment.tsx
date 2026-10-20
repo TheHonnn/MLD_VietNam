@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   ChevronDown,
@@ -9,9 +9,9 @@ import {
   X,
   CheckCircle2,
 } from 'lucide-react';
-import { academyService } from '../services';
+import { academyService, customerService } from '../services';
 import { toast } from '../components/common';
-import { CourseEnrollment, Course, CourseBatch } from '../types/shared_types';
+import { CourseEnrollment, Course, CourseBatch, User } from '../types/shared_types';
 
 interface CandidateRecord {
   id: string;
@@ -41,111 +41,8 @@ interface CandidateRecord {
   buttonLabel: string;
 }
 
-const candidatesData: CandidateRecord[] = [
-  {
-    id: 'c1',
-    name: 'Bùi Khương Duy',
-    code: 'HV-2026-002',
-    phone: '0912 888 999',
-    avatar: '/avatar_khuong_duy.png',
-    program: 'Kỹ thuật Massage Trị Liệu & Dưỡng Sinh',
-    classBatch: 'K08-DUONGSINH-Q3 · 23/10/2026',
-    tuitionTotal: '12.000.000đ',
-    tuitionDeposit: 'Cọc 5.000.000đ đã thu',
-    stage: 'payment_pending',
-    stageLabel: 'Chờ thanh toán',
-    experience: 'Đã học cơ bản',
-    branch: 'Quận 3',
-    expectedClass: 'K08-DUONGSINH-Q3',
-    startDate: '23/10/2026',
-    schedule: 'Thứ 6–7–CN',
-    timeSlot: '13:00–17:00',
-    instructor: 'Lê Quỳnh Nga',
-    contractTuition: '12.000.000đ',
-    requiredDeposit: '5.000.000đ',
-    remainingAmount: '7.000.000đ',
-    statusBadge: 'Đã đóng cọc tuyển sinh',
-    buttonLabel: 'Gửi thông tin lớp',
-  },
-  {
-    id: 'c2',
-    name: 'Xuân Trường',
-    code: 'HV-2026-001',
-    phone: '0978 999 000',
-    avatar: '/avatar_truong.png',
-    program: 'Kỹ thuật Spa Cơ bản',
-    classBatch: 'K26-SPA-Q1 · Đang diễn ra',
-    tuitionTotal: 'Đã thu 18.500.000đ',
-    tuitionDeposit: 'TT-2026-001 · 16/10/2026',
-    stage: 'class_pending',
-    stageLabel: 'Đang học',
-    experience: 'Chưa có kinh nghiệm',
-    branch: 'Quận 3',
-    expectedClass: 'K26-SPA-Q1',
-    startDate: '01/10/2026',
-    schedule: 'Tối 2–4–6',
-    timeSlot: '18:00–21:00',
-    instructor: 'Lê Quỳnh Nga',
-    contractTuition: '18.500.000đ',
-    requiredDeposit: 'Đã thu 18.500.000đ',
-    remainingAmount: '0đ',
-    statusBadge: 'Đã hoàn tất học phí',
-    buttonLabel: 'Xem hồ sơ học viên',
-  },
-  {
-    id: 'c3',
-    name: 'Phạm Thanh Mai',
-    code: 'HV-MH-003 · 09*** 503',
-    phone: '0903 123 503',
-    initials: 'TM',
-    program: 'Chăm sóc da cơ bản',
-    classBatch: 'Quan tâm lịch cuối tuần',
-    tuitionTotal: 'Báo giá tham khảo',
-    tuitionDeposit: 'Chưa có hợp đồng',
-    stage: 'new',
-    stageLabel: 'Hồ sơ mới',
-    experience: 'Người mới bắt đầu',
-    branch: 'Tất cả chi nhánh',
-    expectedClass: 'Cuối tuần',
-    startDate: 'Dự kiến tháng 11',
-    schedule: 'Thứ 7 – CN',
-    timeSlot: '09:00–12:00',
-    instructor: 'Đang phân công',
-    contractTuition: 'Báo giá tham khảo',
-    requiredDeposit: 'Chưa có hợp đồng',
-    remainingAmount: 'Chưa phát sinh',
-    statusBadge: 'Hồ sơ mới nhận',
-    buttonLabel: 'Tạo báo giá tư vấn',
-  },
-  {
-    id: 'c4',
-    name: 'Trần Ngọc Linh',
-    code: 'HV-MH-004 · 09*** 214',
-    phone: '0988 777 214',
-    initials: 'NL',
-    program: 'Kỹ thuật Spa Cơ bản',
-    classBatch: 'Chờ tư vấn khung giờ',
-    tuitionTotal: 'Chưa chốt học phí',
-    tuitionDeposit: 'Chưa phát sinh khoản thu',
-    stage: 'consulting',
-    stageLabel: 'Chờ tư vấn',
-    experience: 'Tự học tại nhà',
-    branch: 'Quận 3',
-    expectedClass: 'Khóa K25',
-    startDate: 'Chờ sắp lịch',
-    schedule: 'Linh hoạt',
-    timeSlot: 'Chờ tư vấn khung giờ',
-    instructor: 'Chưa chỉ định',
-    contractTuition: 'Chưa chốt học phí',
-    requiredDeposit: '0đ',
-    remainingAmount: 'Chưa phát sinh',
-    statusBadge: 'Chờ tư vấn lịch',
-    buttonLabel: 'Liên hệ tư vấn',
-  },
-];
-
 export const W08_Enrollment: React.FC = () => {
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string>('c1');
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
@@ -163,18 +60,21 @@ export const W08_Enrollment: React.FC = () => {
   const [liveEnrollments, setLiveEnrollments] = useState<CourseEnrollment[]>([]);
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
 
   useEffect(() => {
     const fetchAcademyData = async () => {
       try {
-        const [enrRes, crsRes, batRes] = await Promise.all([
+        const [enrRes, crsRes, batRes, custRes] = await Promise.all([
           academyService.getEnrollments(),
           academyService.getCourses(),
           academyService.getCourseBatches(),
+          customerService.getCustomers(),
         ]);
         if (enrRes.success) setLiveEnrollments(enrRes.data);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
+        if (custRes.success) setCustomers(custRes.data);
       } catch (err) {
         console.error('Failed to load academy data:', err);
       }
@@ -182,9 +82,111 @@ export const W08_Enrollment: React.FC = () => {
     fetchAcademyData();
   }, []);
 
+  const candidatesData: CandidateRecord[] = useMemo(() => {
+    if (!liveEnrollments || liveEnrollments.length === 0) return [];
+
+    const custMap = new Map(customers.map((c) => [c.id, c]));
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const batMap = new Map(liveBatches.map((b) => [b.id, b]));
+
+    return liveEnrollments.map((enr, idx) => {
+      const cust = custMap.get(enr.studentId);
+      const crs = crsMap.get(enr.courseId);
+      const bat = batMap.get(enr.batchId || '');
+
+      const custName = cust?.fullName || `Học viên ${idx + 1}`;
+      const custPhone = cust?.phone || '0900000000';
+      const custCode = cust?.referralCode || `HV-2026-${String(idx + 1).padStart(3, '0')}`;
+      const programTitle = crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên';
+      const batchCode = bat?.batchCode || 'K26-SPA-Q1';
+
+      const total = enr.tuitionTotal || 15000000;
+      const paid = enr.amountPaid || 0;
+      const remaining = Math.max(0, total - paid);
+
+      const isFullyPaid = paid >= total && total > 0;
+      const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
+      const stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending' =
+        enr.status === 'STUDYING' || isGraduated
+          ? 'class_pending'
+          : paid > 0 && !isFullyPaid
+          ? 'payment_pending'
+          : paid === 0
+          ? 'consulting'
+          : 'class_pending';
+
+      const stageLabel =
+        stage === 'class_pending'
+          ? (isGraduated ? 'Tốt nghiệp' : 'Đang học')
+          : stage === 'payment_pending'
+          ? 'Chờ thanh toán'
+          : 'Chờ tư vấn';
+
+      const startDateFormatted = bat?.startDate
+        ? new Intl.DateTimeFormat('vi-VN').format(new Date(bat.startDate))
+        : '01/10/2026';
+
+      return {
+        id: enr.id,
+        name: custName,
+        code: custCode,
+        phone: custPhone,
+        avatar: cust?.avatarUrl || undefined,
+        program: programTitle,
+        classBatch: `${batchCode} · ${bat?.scheduleText || 'Lịch chuẩn'}`,
+        tuitionTotal: `${total.toLocaleString('vi-VN')}đ`,
+        tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc',
+        stage,
+        stageLabel,
+        experience: 'Đào tạo chuẩn nghề MLD',
+        branch: 'Quận 3',
+        expectedClass: batchCode,
+        startDate: startDateFormatted,
+        schedule: bat?.scheduleText || 'Thứ 2 - 4 - 6',
+        timeSlot: '08:30–11:30',
+        instructor: 'Master Trainer Nguyễn Thảo Ngọc',
+        contractTuition: `${total.toLocaleString('vi-VN')}đ`,
+        requiredDeposit: `${paid.toLocaleString('vi-VN')}đ`,
+        remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
+        statusBadge: isFullyPaid ? 'Đã hoàn tất học phí' : paid > 0 ? 'Đã đóng cọc tuyển sinh' : 'Chờ tư vấn học phí',
+        buttonLabel: isFullyPaid ? 'Xem hồ sơ học viên' : 'Gửi thông tin lớp',
+      };
+    });
+  }, [liveEnrollments, liveCourses, liveBatches, customers]);
+
+  useEffect(() => {
+    if (candidatesData.length > 0 && (!selectedCandidateId || !candidatesData.some((c) => c.id === selectedCandidateId))) {
+      setSelectedCandidateId(candidatesData[0].id);
+    }
+  }, [candidatesData, selectedCandidateId]);
+
   // Currently selected candidate
-  const selectedCandidate =
-    candidatesData.find((c) => c.id === selectedCandidateId) || candidatesData[0];
+  const selectedCandidate: CandidateRecord =
+    candidatesData.find((c) => c.id === selectedCandidateId) ||
+    candidatesData[0] || {
+      id: '',
+      name: 'Chưa có hồ sơ',
+      code: 'HV-000',
+      phone: '',
+      program: 'Chưa chọn khóa học',
+      classBatch: 'Chưa xếp lớp',
+      tuitionTotal: '0đ',
+      tuitionDeposit: '0đ',
+      stage: 'new',
+      stageLabel: 'Hồ sơ mới',
+      experience: '',
+      branch: 'Quận 3',
+      expectedClass: '',
+      startDate: '',
+      schedule: '',
+      timeSlot: '',
+      instructor: '',
+      contractTuition: '0đ',
+      requiredDeposit: '0đ',
+      remainingAmount: '0đ',
+      statusBadge: 'Chưa có hồ sơ',
+      buttonLabel: 'Tạo hồ sơ',
+    };
 
   // Filter candidates
   const filteredCandidates = candidatesData.filter((c) => {
@@ -198,6 +200,11 @@ export const W08_Enrollment: React.FC = () => {
     return matchSearch && matchStage && matchProgram;
   });
 
+  const countNew = candidatesData.filter((c) => c.stage === 'new').length;
+  const countConsulting = candidatesData.filter((c) => c.stage === 'consulting').length;
+  const countPending = candidatesData.filter((c) => c.stage === 'payment_pending').length;
+  const countStudying = candidatesData.filter((c) => c.stage === 'class_pending').length;
+
   return (
     <div className="space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* 1. Header Title & Top CTA */}
@@ -205,7 +212,7 @@ export const W08_Enrollment: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Tuyển sinh</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Theo dõi hồ sơ tư vấn, khoản cọc và kế hoạch xếp lớp · 4 hồ sơ mẫu.
+            Theo dõi hồ sơ tư vấn, khoản cọc và kế hoạch xếp lớp trực tiếp từ Supabase Cloud.
           </p>
         </div>
 
@@ -227,8 +234,10 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Hồ sơ mới</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ mẫu</div>
-          <div className="text-xs text-[#73675F] mt-3">Phạm Thanh Mai</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countNew} hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'new')?.name || 'Chưa phát sinh mới'}
+          </div>
         </div>
 
         {/* KPI 2 */}
@@ -239,8 +248,10 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ tư vấn</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">Trần Ngọc Linh</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countConsulting} hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'consulting')?.name || 'Đã liên hệ hết'}
+          </div>
         </div>
 
         {/* KPI 3 */}
@@ -251,8 +262,10 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ thanh toán</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">Bùi Khương Duy · HV-2026-002</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countPending} hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'payment_pending')?.name || 'Không có khoản nợ đọng'}
+          </div>
         </div>
 
         {/* KPI 4 */}
@@ -263,8 +276,10 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Đang theo học</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">Xuân Trường · Spa K26</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countStudying} học viên</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'class_pending')?.name || 'Lớp chưa khởi động'}
+          </div>
         </div>
       </div>
 
