@@ -42,8 +42,6 @@ interface GroupFProfileProps {
   metadata?: {
     brandName?: string;
     phoneVerified?: boolean;
-    membershipCardCode?: string;
-    membershipExpiresAt?: string;
     benefits?: string[];
     tierRules?: MembershipTierRule[];
     loyalty?: LoyaltyPointSetting;
@@ -81,7 +79,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const [settings, setSettings] = useState<Settings | null>(() => apiClient.peek('/auth/settings')?.settings || null);
   const [settingsStatus, setSettingsStatus] = useState<'loading' | 'missing' | 'loaded' | 'error'>(() => { const cached=apiClient.peek('/auth/settings'); return cached ? cached.settings ? 'loaded' : 'missing' : 'loading'; });
   const [settingsSaving, setSettingsSaving] = useState(false);
-  const [membership, setMembership] = useState<{ membershipTiers?: NonNullable<GroupFProfileProps['metadata']>['tierRules']; loyaltySettings?: NonNullable<GroupFProfileProps['metadata']>['loyalty']; referrals?: { id: string; rewardPoints: number; isRewarded: boolean; createdAt: string }[]; referralCode?: string } | null>(null);
+  const settingsSaveLock=useRef(false);
+  const [membership, setMembership] = useState<{ membershipCard?:{cardCode:string;expiresAt:string|null}|null; membershipTiers?: NonNullable<GroupFProfileProps['metadata']>['tierRules']; loyaltySettings?: NonNullable<GroupFProfileProps['metadata']>['loyalty']; referrals?: { id: string; rewardPoints: number; isRewarded: boolean; createdAt: string }[]; referralCode?: string } | null>(null);
   useEffect(() => {
     let cancelled = false;
     const cachedSettings = apiClient.peek('/auth/settings'), cachedMembership = apiClient.peek('/membership');
@@ -101,21 +100,36 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     return () => { cancelled = true; };
   }, [user.id]);
   const saveSetting = async (patch: Partial<Settings>) => {
-    if (settingsSaving || (!settings && settingsStatus !== 'missing')) return;
+    if (settingsSaveLock.current || (!settings && settingsStatus !== 'missing')) return;
+    settingsSaveLock.current=true;
     setSettingsSaving(true);
     try {
       const result = await apiClient.updateSettings(patch);
+      if(!mounted.current)return;
       if (result?.settings && !result.error) {
         setSettings(result.settings);
         setSettingsStatus('loaded');
       }
       else showToast(result?.error || 'Không thể lưu cài đặt.');
     } catch { showToast('Không thể lưu cài đặt.'); }
-    finally { setSettingsSaving(false); }
+    finally { settingsSaveLock.current=false;if(mounted.current)setSettingsSaving(false); }
   };
   const tierRules = membership?.membershipTiers ?? metadata?.tierRules;
   const loyalty = membership?.loyaltySettings ?? metadata?.loyalty;
   const referralCode = membership?.referralCode ?? metadata?.referral?.code;
+  const membershipCardCode = membership?.membershipCard?.cardCode;
+  const membershipExpiresAt = membership?.membershipCard?.expiresAt;
+  useEffect(()=>{
+    if(!membershipExpiresAt)return;
+    let timer:number;
+    const check=()=>{
+      const remaining=Date.parse(membershipExpiresAt)-Date.now();
+      if(remaining<=0)setMembership(current=>current?{...current,membershipCard:null}:current);
+      else timer=window.setTimeout(check,Math.min(remaining,2147483647));
+    };
+    check();
+    return()=>clearTimeout(timer);
+  },[membershipExpiresAt]);
   const currentTierRule = tierRules?.find(rule => rule.tier.toLowerCase() === user.tier.toLowerCase());
   // Modal states for F02 - F08 screens
   const [activeModal, setActiveModal] = useState<
@@ -128,6 +142,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const toastTimer = useRef<number>();
   const copyTimer = useRef<number>();
   const avatarRead = useRef<AbortController | null>(null);
+  const [avatarReading,setAvatarReading]=useState(false);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current=true;
@@ -187,6 +202,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     avatarRead.current?.abort();
     const controller = new AbortController();
     avatarRead.current = controller;
+    setAvatarReading(true);
     try {
       const avatar = await readAvatar(file,controller.signal);
       if (controller.signal.aborted) return;
@@ -194,10 +210,13 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       showToast('Đã chọn ảnh. Nhấn Lưu để cập nhật hồ sơ.');
     } catch (error) {
       if (!controller.signal.aborted) showToast(error instanceof Error ? error.message : 'Không đọc được ảnh.');
+    } finally {
+      if(avatarRead.current===controller){avatarRead.current=null;if(mounted.current)setAvatarReading(false);}
     }
   };
 
   useEffect(() => {
+    if(activeModal==='edit_profile')return;
     setUserProfile((current) => ({
       ...current,
       name: user.name,
@@ -215,10 +234,12 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       emergencyContactName: user.emergencyContactName || '',
       emergencyContactPhone: user.emergencyContactPhone || '',
     }));
-  }, [user]);
+  }, [user,activeModal]);
+
+  useEffect(()=>()=>{avatarRead.current?.abort();},[activeModal]);
 
   const saveProfile = async () => {
-    if (profileSaveLock.current) return;
+    if (profileSaveLock.current||avatarRead.current) return;
     profileSaveLock.current=true;
     setSavingProfile(true);
     try {
@@ -244,9 +265,9 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const cardShareLock=useRef(false);
   const [sharingCard,setSharingCard]=useState(false);
   const shareCard=async()=>{
-    if(!metadata?.membershipCardCode||cardShareLock.current)return;
+    if(!membershipCardCode||cardShareLock.current)return;
     cardShareLock.current=true;setSharingCard(true);
-    const text=[user.name,metadata.membershipCardCode].filter(Boolean).join('\n');
+    const text=[user.name,membershipCardCode].filter(Boolean).join('\n');
     try {
       if(/Zalo/i.test(navigator.userAgent)||Boolean((window as any).ZJSBridge)) {
         await openShareSheet({type:'text',data:{text}});
@@ -391,7 +412,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
         <div className="my-3">
           <p className="text-[22px] font-bold text-white">{userProfile.points.toLocaleString()} điểm</p>
-          <p className="mt-1 text-[9px] text-white/75">Mã thẻ · {metadata?.membershipCardCode || ''}</p>
+          <p className="mt-1 text-[9px] text-white/75">Mã thẻ · {membershipCardCode || ''}</p>
         </div>
 
         <div className="flex justify-between items-center text-[9px] text-white border-t border-white/20 pt-2">
@@ -539,7 +560,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
             <button
               onClick={saveProfile}
-              disabled={savingProfile}
+              disabled={savingProfile||avatarReading}
+              aria-busy={savingProfile||avatarReading}
               className="text-xs font-bold text-[#98501B] px-2.5 py-1 rounded-lg bg-[#FAF1E6] hover:bg-[#F3E2CE]"
             >
               {savingProfile ? 'Đang lưu...' : 'Lưu'}
@@ -570,7 +592,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+          <fieldset disabled={savingProfile} className="m-0 min-w-0 flex-1 overflow-y-auto border-0 p-4 space-y-4 pb-24">
             {profileSubTab === 'personal' ? (
               <>
                 {/* Avatar Picker */}
@@ -583,9 +605,9 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   <div>
                     <p className="text-xs font-bold text-[#40352F]">Ảnh đại diện</p>
                     <label htmlFor="profile-avatar-file" className="mx-auto mt-3 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[#98501B] bg-white text-xs font-bold text-[#98501B]">
-                      <CameraIcon size={17} /> Chọn ảnh từ thiết bị
+                      <CameraIcon size={17} /> {avatarReading?'Đang xử lý ảnh...':'Chọn ảnh từ thiết bị'}
                     </label>
-                    <input id="profile-avatar-file" type="file" accept="image/*" onChange={selectAvatarFile} className="hidden" />
+                    <input id="profile-avatar-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectAvatarFile} className="hidden" />
                   </div>
                 </div>
 
@@ -741,12 +763,12 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
             <button
               onClick={saveProfile}
-              disabled={savingProfile}
+              disabled={savingProfile||avatarReading}
               className="w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] shadow-md transition active:scale-95"
             >
               {savingProfile ? 'Đang lưu...' : 'Lưu thay đổi hồ sơ'}
             </button>
-          </div>
+          </fieldset>
         </ProfileLayer>
       )}
 
@@ -767,7 +789,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
             <button
               type="button"
-              disabled={!metadata?.membershipCardCode||sharingCard}
+              disabled={!membershipCardCode||sharingCard}
               onClick={shareCard}
               title="Chia sẻ thẻ"
               className="text-xs font-bold text-[#98501B] px-2 py-1"
@@ -792,13 +814,13 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               <div className="my-4">
                 <p className="text-sm uppercase font-bold text-white tracking-wide">{user.name}</p>
                 <p className="text-[11px] text-[#D2A066] mt-0.5">
-                  MÃ THẺ: {metadata?.membershipCardCode || ''}
+                  MÃ THẺ: {membershipCardCode || ''}
                 </p>
               </div>
 
               <div className="flex justify-between items-end text-[10px] text-white/80 border-t border-[#8C4E20]/40 pt-2">
                 <span>{userProfile.points.toLocaleString()} điểm khả dụng</span>
-                <span>Hạn thẻ: {dateLabel(metadata?.membershipExpiresAt)}</span>
+                <span>Hạn thẻ: {dateLabel(membershipExpiresAt||undefined)}</span>
               </div>
             </div>
 
@@ -809,9 +831,9 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               </div>
 
               <div className="w-44 h-44 mx-auto bg-white p-2 rounded-2xl border border-[#EADECF] flex items-center justify-center text-xs text-[#7A685D]">
-                {metadata?.membershipCardCode&&<QRCode value={metadata.membershipCardCode} size={160}/>}
+                {membershipCardCode&&<QRCode value={membershipCardCode} size={160}/>}
               </div>
-              <p className="font-mono text-sm font-bold text-[#98501B]">{metadata?.membershipCardCode || ''}</p>
+              <p className="font-mono text-sm font-bold text-[#98501B]">{membershipCardCode || ''}</p>
 
               <div className="flex space-x-2 pt-1">
                 <button
@@ -822,8 +844,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   Lưu vào Ví điện tử
                 </button>
                 <button
-                  disabled={!metadata?.membershipCardCode}
-                  onClick={() => metadata?.membershipCardCode && handleCopy(metadata.membershipCardCode)}
+                  disabled={!membershipCardCode}
+                  onClick={() => membershipCardCode && handleCopy(membershipCardCode)}
                   className="flex-1 py-2 rounded-xl bg-stone-100 text-stone-700 text-xs font-bold hover:bg-stone-200"
                 >
                   Sao chép mã thẻ

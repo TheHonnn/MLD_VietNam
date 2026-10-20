@@ -99,7 +99,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   const [survey, setSurvey] = useState(emptySurvey);
   const [notice, setNotice] = useState('');
   const busy = useRef(false);
-  useBackAction(Boolean(form || articleId || selectedId || loading.form), () => {
+  useBackAction(Boolean(form || articleId || selectedId || loading.form || loading.send), () => {
     if (busy.current) return;
     if (form) setForm(null);
     else if (articleId) setArticleId(null);
@@ -262,7 +262,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   </section>;
 
   return <div className="space-y-4 px-3 pt-3 pb-20 text-[#40352F] break-words">
-    <button disabled={loading.form} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
+    <button disabled={loading.form||loading.send} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
     {!form && !selected && !article && <nav aria-label="Chăm sóc" className="flex gap-2 overflow-x-auto pb-1">
       {tabs.map(tab => <button key={tab.id} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
     </nav>}
@@ -281,6 +281,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
         setForm(null); setSurvey(emptySurvey); setNotice('Đã gửi phiếu thông tin.');
       });
     }}>
+      <fieldset disabled={Boolean(loading.form)} className="min-w-0 space-y-4 border-0 p-0">
       <h1 className="text-lg font-bold">Thông tin trước dịch vụ</h1>
       {feedback('bookings')}
       <label className="block space-y-1 text-xs">Lịch hẹn<select disabled={loading.bookings} className={input} value={survey.bookingId} onChange={e => setSurvey(prev => ({ ...prev, bookingId: e.target.value }))}>
@@ -290,6 +291,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <label className="block space-y-1 text-xs">Lực tác động<select required className={input} value={survey.pressurePref} onChange={e => setSurvey(prev => ({ ...prev, pressurePref: e.target.value }))}><option value="">Chọn mức lực</option><option value="LIGHT">Nhẹ</option><option value="MEDIUM">Vừa</option><option value="STRONG">Mạnh</option></select></label>
       {(['hasSensitiveSkin', 'hasOilAllergy'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{index === 0 ? 'Da nhạy cảm' : 'Dị ứng dầu'}<select required className={input} value={survey[field]} onChange={e => setSurvey(prev => ({ ...prev, [field]: e.target.value }))}><option value="">Chọn câu trả lời</option><option value="yes">Có</option><option value="no">Không</option></select></label>)}
       {feedback('form')}<button disabled={loading.form || loading.surveys} className={button} type="submit">Gửi phiếu thông tin</button>
+      </fieldset>
     </form>}
 
     {form === 'review' && reviewSession && <form className="space-y-4" onSubmit={event => {
@@ -304,6 +306,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
           setForm(null); setNotice('Đã gửi đánh giá.');
         });
     }}>
+      <fieldset disabled={Boolean(loading.form)} className="min-w-0 space-y-4 border-0 p-0">
       <h1 className="text-lg font-bold">Đánh giá trải nghiệm</h1>
       {reviewSession.serviceImage && <img src={reviewSession.serviceImage} alt={reviewSession.serviceName || ''} className="w-full rounded-[8px]" />}
       <p className="text-sm">{reviewSession.serviceName || 'Tên dịch vụ chưa khả dụng'}</p>
@@ -314,6 +317,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <p className="text-xs">{rating ? `${rating}/5` : 'Chưa chọn mức đánh giá'}</p>
       {(['comment', 'tags', 'photos'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{['Nhận xét', 'Nhãn đánh giá', 'Đường dẫn ảnh'][index]}<textarea className={input} rows={3} maxLength={field === 'comment' ? 10000 : undefined} value={field === 'comment' ? comment : field === 'tags' ? tags : photos} onChange={e => (field === 'comment' ? setComment : field === 'tags' ? setTags : setPhotos)(e.target.value)} /></label>)}
       {feedback('form')}<button type="submit" disabled={loading.form || !rating || !reviewable(reviewSession)} className={button}>Gửi đánh giá</button>
+      </fieldset>
     </form>}
 
     {!form && selected && <section className="space-y-4">
@@ -409,9 +413,11 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
           setTickets(prev => [result.ticket, ...prev.filter(ticket => ticket.id !== result.ticket.id)]); setSubject(''); setMessage(''); setNotice('Đã gửi yêu cầu hỗ trợ.');
         });
       }}>
+        <fieldset disabled={Boolean(loading.send)} className="min-w-0 space-y-3 border-0 p-0">
         <label className="block space-y-1 text-xs">Tiêu đề<input required maxLength={200} className={input} value={subject} onChange={e => setSubject(e.target.value)} /></label>
         <label className="block space-y-1 text-xs">Nội dung<textarea required maxLength={10000} rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} /></label>
         {feedback('send')}<button type="submit" className={button} disabled={loading.send || loading.tickets || !subject.trim() || !message.trim()}>Gửi yêu cầu hỗ trợ</button>
+        </fieldset>
       </form>
     </section>}
 

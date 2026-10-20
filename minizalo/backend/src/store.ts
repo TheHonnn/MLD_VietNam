@@ -19,6 +19,9 @@ export const createStore = (client: PrismaClient | Prisma.TransactionClient): St
 
 // This is a read/write contract, not a second schema or a migration source.
 export const requiredColumns: Record<string, string[]> = {
+  miniapp_customer_requests:['user_id','scope','request_key','payload_hash','resource_id','created_at'],
+  miniapp_course_delivery:['course_id','delivery_format','updated_at'],
+  miniapp_membership_cards:['user_id','card_code','expires_at','is_active','updated_at'],
   miniapp_customer_profiles:['user_id','preferred_branch_id','skin_type','health_notes','updated_at'],
   miniapp_booking_requests:['user_id','request_key','request_hash','booking_id'],
   miniapp_favorite_services:['user_id','service_id','is_favorite'],

@@ -14,6 +14,8 @@ import {ownedEnrollment,recomputeProgress,lessonQuizLinks,startQuiz,submitAttemp
 import {inboxFilter,unreadCount} from './notification-inbox.js';
 import {reservePackage} from './package-booking.js';
 import {collectionPage} from './collection-page.js';
+import {customerRequest} from './customer-request.js';
+import {profileAvatar,profileBirthDate} from './profile-input.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -155,6 +157,7 @@ async function voucherForOrder(store: Store, customerId: string, code: string, a
 
 async function courseList(store: Store, courseId: string | null = null) {
   const courses = await store.query(Prisma.sql`SELECT c.*, cat.name AS category_name, i.full_name AS instructor_name,
+    (SELECT delivery_format FROM miniapp_course_delivery WHERE course_id=c.id) AS delivery_format,
     i.avatar_url AS instructor_avatar,CASE WHEN i.is_active THEN row_to_json(i) ELSE NULL END AS instructor,
     (SELECT count(*) FROM course_chapters ch WHERE ch.course_id=c.id) AS modules_count,
     (SELECT count(*) FROM course_enrollments ce WHERE ce.course_id = c.id AND ce.status IN ('ENROLLED','STUDYING','GRADUATED')) AS students_count
@@ -215,6 +218,13 @@ export function createApp(store: Store, options: AppOptions) {
   app.use(express.json({ limit: '1mb' }));
   app.use((req,_res,next)=>{
     if(['POST','PUT','PATCH','DELETE'].includes(req.method)&&(req.body===null||typeof req.body!=='object'||Array.isArray(req.body)))return next(new ApiError(400,'Request body must be an object'));
+    // PostgreSQL text/jsonb cannot represent NUL or unpaired UTF-16 surrogates.
+    const pending:unknown[]=[req.body];
+    while(pending.length){
+      const value=pending.pop();
+      if(typeof value==='string'&&/\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(value))return next(new ApiError(400,'Invalid text encoding'));
+      if(value&&typeof value==='object')for(const [key,item] of Object.entries(value)){pending.push(key,item);}
+    }
     next();
   });
   const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
@@ -262,29 +272,16 @@ export function createApp(store: Store, options: AppOptions) {
     }
     const input = req.body;
     const name = typeof input.fullName === 'string' ? input.fullName.trim() : '';
+    if(input.email!=null&&typeof input.email!=='string')throw new ApiError(400,'Invalid email');
     const email = typeof input.email === 'string' ? input.email.trim() : '';
-    const dob = input.dateOfBirth || null;
+    const dob = profileBirthDate(input.dateOfBirth,vietnamToday());
     const gender = input.gender === '' || input.gender == null ? null : input.gender;
     const purpose = input.purpose ?? 'BEAUTY_SPA';
-    const avatar = input.avatarUrl || null;
+    const avatar = profileAvatar(input.avatarUrl);
     if (!['BEAUTY_SPA','ACADEMY','BOTH'].includes(purpose)) throw new ApiError(400, 'Invalid purpose');
-    if (avatar !== null) {
-      if (typeof avatar !== 'string' || avatar.length > 750000) throw new ApiError(400, 'Invalid profile image');
-      const localImage = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(avatar);
-      let remoteImage = false;
-      try {
-        const url = new URL(avatar);
-        remoteImage = url.protocol === 'https:' && !url.username && !url.password;
-      } catch { /* Uploaded images use a bounded data URL instead. */ }
-      if (!localImage && !remoteImage) throw new ApiError(400, 'Invalid profile image');
-    }
     if (!name || name.length > 150 || /[\x00-\x1f\x7f]/.test(name)) throw new ApiError(400, 'Full name is required, up to 150 characters');
     if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new ApiError(400, 'Invalid email');
     if (gender !== null && !['MALE','FEMALE','OTHER'].includes(gender)) throw new ApiError(400, 'Invalid gender');
-    if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob)
-      || !Number.isFinite(Date.parse(dob)) || new Date(dob).toISOString().slice(0,10) !== dob || dob > vietnamToday())) {
-      throw new ApiError(400, 'Invalid date of birth');
-    }
     const identity = await resolveZaloAccount(store, { phone: proof.phone, name, avatar,
       email: email || null, dateOfBirth: dob, gender, purpose }, options);
     const record = await user(store, uuid(identity.userId));
@@ -381,7 +378,7 @@ export function createApp(store: Store, options: AppOptions) {
   }));
   app.put('/api/auth/profile', route(async (req,res) => {
     const input = req.body;
-    const name = input.fullName ?? input.name ?? res.locals.user.full_name;
+    const name = input.fullName!==undefined?input.fullName:input.name!==undefined?input.name:res.locals.user.full_name;
     const gender = input.gender === 'Nam' ? 'MALE' : input.gender === 'Nữ' ? 'FEMALE' : input.gender === 'Khác' ? 'OTHER' : input.gender !== undefined ? input.gender : res.locals.user.gender;
     if (typeof name !== 'string' || !name.trim() || name.trim().length>150 || /[\x00-\x1f\x7f]/.test(name) || (gender !== null && !['MALE','FEMALE','OTHER'].includes(gender))) throw new ApiError(400,'Invalid profile');
     if(input.email!==undefined&&(typeof input.email!=='string'||input.email.trim().length>255||(input.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())))) throw new ApiError(400,'Invalid email');
@@ -394,13 +391,10 @@ export function createApp(store: Store, options: AppOptions) {
     const skinType=input.skinType===undefined?res.locals.user.skin_type:input.skinType;
     const healthNotes=input.healthNotes===undefined?res.locals.user.health_notes:input.healthNotes;
     if(typeof skinType!=='string'||skinType.trim().length>150||/[\x00-\x1f\x7f]/.test(skinType)||typeof healthNotes!=='string'||healthNotes.length>10000||/\u0000/.test(healthNotes)) throw new ApiError(400,'Invalid health profile');
-    const dobValue = input.dateOfBirth !== undefined ? input.dateOfBirth : input.dob !== undefined ? input.dob : res.locals.user.date_of_birth;
-    const dob = dobValue instanceof Date ? dobValue.toISOString().slice(0,10) : dobValue;
-    if (dob && (typeof dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dob.slice(0,10)) || !Number.isFinite(Date.parse(dob.slice(0,10))) || new Date(dob.slice(0,10)).toISOString().slice(0,10)!==dob.slice(0,10) || dob.slice(0,10)>vietnamToday())) throw new ApiError(400,'Birth date must be a valid past YYYY-MM-DD');
+    const dob = profileBirthDate(input.dateOfBirth!==undefined?input.dateOfBirth:input.dob,vietnamToday());
     // Phone changes need the shared verified identity flow, not an editable form.
     if (input.phone && input.phone !== res.locals.user.phone) throw new ApiError(400,'Change phone through the shared verified identity service');
-    const avatar = input.avatarUrl ?? input.avatar ?? res.locals.user.avatar_url;
-    if (avatar && (typeof avatar !== 'string' || avatar.length > 750000 || !/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/.test(avatar))) throw new ApiError(400,'Invalid profile image');
+    const avatar = profileAvatar(input.avatarUrl!==undefined?input.avatarUrl:input.avatar);
     const purpose = input.purpose ?? res.locals.user.purpose;
     if (!['BEAUTY_SPA','ACADEMY','BOTH'].includes(purpose)) throw new ApiError(400,'Invalid purpose');
     const updated = await store.transaction(async tx=>{
@@ -571,8 +565,7 @@ export function createApp(store: Store, options: AppOptions) {
   app.get('/api/courses/:id/learning',route(async (req,res)=>{
     const courseId = uuid(req.params.id), customerId = res.locals.userId;
     const enrollmentId = req.query.enrollmentId == null ? null : uuid(req.query.enrollmentId);
-    const [enrollment] = await store.query(Prisma.sql`SELECT id,batch_id FROM course_enrollments WHERE course_id = ${courseId}::uuid AND student_id = ${customerId}::uuid AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC LIMIT 1`);
-    if (!enrollment) throw new ApiError(403,'Enrollment is required to access course content');
+    const enrollment = await ownedEnrollment(store,customerId,courseId,enrollmentId);
     const [course] = await courseList(store,courseId);
     if (!course) throw new ApiError(404,'Course is unavailable');
     const quizLimits=await store.query(Prisma.sql`SELECT q.id,COALESCE(l.max_attempts,3) AS max_attempts,(SELECT count(*)::int FROM miniapp_quiz_attempts a WHERE a.enrollment_id=${enrollment.id}::uuid AND a.quiz_id=q.id) AS attempts_used
@@ -642,22 +635,28 @@ export function createApp(store: Store, options: AppOptions) {
   app.get('/api/consultation-surveys',route(async(req,res)=>{const page=await collectionPage(store,Prisma.sql`SELECT * FROM consultation_surveys WHERE customer_id=${res.locals.userId}::uuid`,req.query);return success(res,{surveys:page.rows,nextCursor:page.nextCursor});}));
   app.get('/api/reviews/mine',route(async(_req,res)=>success(res,{reviews:await store.query(Prisma.sql`SELECT id,booking_id,service_id,rating,review_tags,comment,photos,branch_reply,created_at FROM reviews WHERE customer_id=${res.locals.userId}::uuid ORDER BY created_at DESC`)})));
   app.post('/api/support-tickets',route(async(req,res)=>{
-    const subject = String(req.body.subject ?? '').trim(),message = String(req.body.message ?? '').trim();
+    if(typeof req.body.subject!=='string'||typeof req.body.message!=='string') throw new ApiError(400,'A subject and message must be text');
+    const subject = req.body.subject.trim(),message = req.body.message.trim();
     if (!subject || subject.length>200 || !message || message.length>10000) throw new ApiError(400,'A subject and message are required');
-    const [ticket] = await store.query(Prisma.sql`INSERT INTO support_tickets(customer_id,subject,message) VALUES (${res.locals.userId}::uuid,${subject},${message}) RETURNING *`);
+    const ticket = await customerRequest(store,res.locals.userId,'support',req.headers['idempotency-key'],{subject,message},async tx=>{
+      const [record]=await tx.query(Prisma.sql`INSERT INTO support_tickets(customer_id,subject,message) VALUES (${res.locals.userId}::uuid,${subject},${message}) RETURNING *`);return record;
+    });
     return success(res,{ticket},201);
   }));
   app.post('/api/consultation-surveys',route(async(req,res)=>{
     const id = req.body.bookingId ? uuid(req.body.bookingId) : null,customerId = res.locals.userId;
     if (id) await booking(store,id,customerId);
-    const pressure = req.body.pressurePref ?? 'MEDIUM';
+    const pressure = req.body.pressurePref;
     if (!['LIGHT','MEDIUM','STRONG'].includes(pressure)) throw new ApiError(400,'Invalid pressure preference');
-    if (['hasSensitiveSkin','hasOilAllergy'].some(key => req.body[key] !== undefined && typeof req.body[key] !== 'boolean')
+    if (['hasSensitiveSkin','hasOilAllergy'].some(key => typeof req.body[key] !== 'boolean')
       || ['allergyDetails','specialRequests'].some(key => req.body[key] != null && (typeof req.body[key] !== 'string' || req.body[key].length > 10000))) throw new ApiError(400,'Invalid consultation details');
     const areas = req.body.focusAreas ?? [],conditions = req.body.medicalConditions ?? [];
     if (![areas,conditions].every(values=>Array.isArray(values)&&values.length<=30&&values.every(value=>typeof value==='string'&&value.length<=200))) throw new ApiError(400,'Invalid consultation details');
-    const [survey] = await store.query(Prisma.sql`INSERT INTO consultation_surveys(customer_id,booking_id,focus_areas,pressure_pref,has_sensitive_skin,has_oil_allergy,allergy_details,medical_conditions,special_requests)
+    const survey = await customerRequest(store,customerId,'consultation',req.headers['idempotency-key'],{id,areas,pressure,sensitive:req.body.hasSensitiveSkin,allergy:req.body.hasOilAllergy,allergyDetails:req.body.allergyDetails??null,conditions,specialRequests:req.body.specialRequests??null},async tx=>{
+    const [record] = await tx.query(Prisma.sql`INSERT INTO consultation_surveys(customer_id,booking_id,focus_areas,pressure_pref,has_sensitive_skin,has_oil_allergy,allergy_details,medical_conditions,special_requests)
       VALUES (${customerId}::uuid,${id}::uuid,${areas}::text[],${pressure},${req.body.hasSensitiveSkin===true},${req.body.hasOilAllergy===true},${req.body.allergyDetails??null},${conditions}::text[],${req.body.specialRequests??null}) RETURNING *`);
+      return record;
+    });
     return success(res,{survey},201);
   }));
   app.post('/api/reviews',route(async(req,res)=>{
@@ -702,7 +701,8 @@ export function createApp(store: Store, options: AppOptions) {
     const membershipTiers=await store.query(Prisma.sql`SELECT * FROM membership_tier_rules ORDER BY min_accumulated_spent`);
     const [loyaltySettings]=await store.query(Prisma.sql`SELECT * FROM loyalty_point_settings WHERE id=1 AND is_active`);
     const referrals=await store.query(Prisma.sql`SELECT id,reward_points,is_rewarded,rewarded_at,created_at FROM referrals WHERE referrer_id=${id}::uuid ORDER BY created_at DESC`);
-    return success(res,{user:res.locals.user,vouchers,summary,membershipTiers,loyaltySettings:loyaltySettings??null,referrals});
+    const [membershipCard]=await store.query(Prisma.sql`SELECT card_code,expires_at FROM miniapp_membership_cards WHERE user_id=${res.locals.userId}::uuid AND is_active AND (expires_at IS NULL OR expires_at>clock_timestamp())`);
+    return success(res,{user:res.locals.user,vouchers,summary,membershipTiers,loyaltySettings:loyaltySettings??null,referrals,membershipCard:membershipCard??null});
   }));
   app.get('/api/transactions',route(async(_req,res)=>{
     const invoices = await store.query(Prisma.sql`SELECT inv.*,b.name AS branch_name,b.address AS branch_address,b.phone AS branch_phone,
@@ -712,7 +712,7 @@ export function createApp(store: Store, options: AppOptions) {
     const points = await store.query(Prisma.sql`SELECT * FROM point_transactions WHERE user_id = ${res.locals.userId}::uuid ORDER BY created_at DESC`);
     return success(res,{invoices,pointTransactions:points,totalSpent:res.locals.user.total_spent});
   }));
-  app.get('/api/notifications',route(async(req,res)=>success(res,await listNotifications(store,res.locals.userId,req.query.cursor))));
+  app.get('/api/notifications',route(async(req,res)=>success(res,await listNotifications(store,res.locals.userId,req.query.cursor,req.query.filter??'all'))));
   app.patch('/api/notifications/read-all',route(async(_req,res)=>{
     await store.query(Prisma.sql`UPDATE notifications n SET is_read = true WHERE ${inboxFilter(res.locals.userId)} RETURNING id`);
     return success(res,{updated:true,unreadCount:await unreadCount(store,res.locals.userId)});
@@ -751,8 +751,10 @@ export function createApp(store: Store, options: AppOptions) {
   app.use((_req,res)=>res.status(404).json({success:false,statusCode:404,message:'Endpoint not available',error:'Endpoint not available'}));
   app.use((error: unknown,_req:Request,res:Response,_next:NextFunction)=>{
     const retryable = error instanceof Prisma.PrismaClientKnownRequestError && (['P2034','P2002'].includes(error.code) || ['23505','40001','40P01'].includes(String(error.meta?.code)));
-    const status = error instanceof ApiError ? error.status : retryable ? 409 : error instanceof SyntaxError ? 400 : 500;
-    const message = error instanceof ApiError ? error.message : status === 409 ? 'Data changed concurrently; retry the request' : 'Shared database operation failed';
+    const parserType = error && typeof error==='object' && 'type' in error ? error.type : null;
+    const parserStatus=parserType==='entity.too.large'?413:['encoding.unsupported','charset.unsupported'].includes(String(parserType))?415:['entity.parse.failed','request.aborted','request.size.invalid'].includes(String(parserType))?400:null;
+    const status = error instanceof ApiError ? error.status : parserStatus ?? (retryable ? 409 : error instanceof SyntaxError ? 400 : 500);
+    const message = error instanceof ApiError ? error.message : status===413 ? 'Request body is too large' : status===415 ? 'Unsupported request encoding' : status===400 ? 'Invalid JSON request body' : status === 409 ? 'Data changed concurrently; retry the request' : 'Shared database operation failed';
     if (status === 500) console.error('[Mini App database]',error instanceof Error ? error.name : 'Error');
     res.status(status).json({success:false,statusCode:status,message,error:message,...(error instanceof ApiError ? error.details : {})});
   });

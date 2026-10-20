@@ -273,7 +273,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       assert.equal(ticket.status,201,JSON.stringify(ticket));
       assert.equal(ticket.data.ticket.customerId,ids.user);
       assert.equal((await request('/support-tickets')).data.tickets.length,1);
-      const survey = await request('/consultation-surveys',{method:'POST',body:{focusAreas:['Neck'],pressurePref:'LIGHT',customerId:ids.other}});
+      const survey = await request('/consultation-surveys',{method:'POST',body:{focusAreas:['Neck'],pressurePref:'LIGHT',hasSensitiveSkin:false,hasOilAllergy:false,customerId:ids.other}});
       assert.equal(survey.status,201,JSON.stringify(survey));
       assert.equal(survey.data.survey.customerId,ids.user);
       assert.deepEqual(survey.data.survey.focusAreas,['Neck']);

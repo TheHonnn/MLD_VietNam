@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '@/api/client';
 import { AppNotification } from '../../../../backend/src/data/database';
 import { ArrowLeftIcon, BellIcon, CalendarIcon, NavAcademyIcon } from '@/components/Icons';
@@ -16,6 +16,8 @@ interface NotificationCenterProps {
   hasMore:boolean;
   loadingMore:boolean;
   onLoadMore:()=>void;
+  filter:'all'|'unread';
+  onFilter:(filter:'all'|'unread')=>void;
 }
 
 const relativeTime = (value: string) => {
@@ -28,26 +30,29 @@ const relativeTime = (value: string) => {
   return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
 };
 
-export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, onClose, onChange, onOpen, loadError, onRefresh,unreadCount,totalCount,onUnreadCount,hasMore,loadingMore,onLoadMore }) => {
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, onClose, onChange, onOpen, loadError, onRefresh,unreadCount,totalCount,onUnreadCount,hasMore,loadingMore,onLoadMore,filter,onFilter:setFilter }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const lock = useRef(false);
+  const mounted=useRef(true);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const visible = useMemo(() => filter === 'unread' ? notifications.filter((item) => !item.isRead) : notifications, [filter, notifications]);
 
   const readOne = async (item: AppNotification) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
+    const epoch=apiClient.sessionVersion();
     try {
       if (!item.isRead) {
         const response = await apiClient.markNotificationRead(item.id);
+        if(!mounted.current||epoch!==apiClient.sessionVersion())return;
         if (!response?.notification || response.error) throw new Error(response?.error || 'Không thể cập nhật thông báo. Vui lòng thử lại.');
         onChange(current => current.map(value => value.id === item.id ? {...value,isRead:true} : value));
         if(Number.isInteger(response.unreadCount))onUnreadCount(response.unreadCount);
       }
-      await onOpen(item);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Không thể mở thông báo. Vui lòng thử lại.'); }
-    finally { lock.current = false; setBusy(false); }
+      if(mounted.current&&epoch===apiClient.sessionVersion())await onOpen(item);
+    } catch (failure) { if(mounted.current&&epoch===apiClient.sessionVersion())setError(failure instanceof Error ? failure.message : 'Không thể mở thông báo. Vui lòng thử lại.'); }
+    finally { lock.current = false; if(mounted.current)setBusy(false); }
   };
 
   const readAll = async () => {
@@ -56,13 +61,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
     setBusy(true);
     setError('');
     const ids = new Set(notifications.map(item => item.id));
+    const epoch=apiClient.sessionVersion();
     try {
       const response = await apiClient.markAllNotificationsRead();
+      if(!mounted.current||epoch!==apiClient.sessionVersion())return;
       if (!response?.updated || response.error) throw new Error(response?.error || 'Không thể cập nhật thông báo. Vui lòng thử lại.');
       onChange(current => current.map(item => ids.has(item.id) ? {...item,isRead:true} : item));
       if(Number.isInteger(response.unreadCount))onUnreadCount(response.unreadCount);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Không thể cập nhật thông báo.'); }
-    finally { lock.current = false; setBusy(false); }
+    } catch (failure) { if(mounted.current&&epoch===apiClient.sessionVersion())setError(failure instanceof Error ? failure.message : 'Không thể cập nhật thông báo.'); }
+    finally { lock.current = false; if(mounted.current)setBusy(false); }
   };
 
   return <div className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#FAF6F0] text-[#40352F]">

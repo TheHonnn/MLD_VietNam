@@ -13,7 +13,9 @@ Prepare a private JSON document containing only UUIDs from the actual database:
 {
   "technicianServices": [],
   "lessonQuizzes": [],
-  "quizLimits": []
+  "quizLimits": [],
+  "courseDelivery": [],
+  "membershipCards": []
 }
 ```
 
@@ -26,6 +28,25 @@ Accepted entry fields:
   same course as the quiz. Reconfiguration does not remove submissions.
 - `quizLimits`: `enrollmentId`, `quizId`, `maxAttempts` (1-50), `reason`.
   The limit is a total allowance, not a count to add. Attempts are never erased.
+- `courseDelivery`: `courseId`, `deliveryFormat` (`ONLINE`, `ONSITE`, `HYBRID`).
+  Requires migration 007. Add only the actual delivery mode confirmed by the
+  academy. Existing courses remain unset; video availability does not infer it.
+- `membershipCards`: `userId`, actual issued `cardCode` (1-100 characters), optional
+  `expiresAt` (UTC ISO timestamp with milliseconds or null), optional `isActive`.
+  Requires migration 007. Cards are not issued automatically. Expired/revoked
+  cards are not returned to the customer. Revoke with `isActive: false`; existing
+  rows remain. A QR is an identifier, not proof of authentication or payment.
+
+Build first, then apply the additive schema before deploying this backend:
+
+```powershell
+node scripts/apply-audit-integrity.mjs
+node scripts/apply-audit-integrity.mjs --apply
+```
+
+This operator bridge does not change the separate admin application. Card and
+delivery entries remain empty until an operator supplies actual records. Never
+commit private configuration files or customer identifiers to Git.
 
 Run from `minizalo/backend` with private database credentials in the environment:
 

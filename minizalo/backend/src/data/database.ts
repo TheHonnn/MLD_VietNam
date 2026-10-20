@@ -129,6 +129,7 @@ export interface Booking {
 }
 
 export interface Course {
+  deliveryFormat?: 'ONLINE'|'ONSITE'|'HYBRID'|null;
   id: string;
   title: string;
   category: string;

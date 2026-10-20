@@ -83,13 +83,21 @@ function MasterHomePage() {
   const [notificationTotalCount,setNotificationTotalCount]=useState(0);
   const [notificationCursor,setNotificationCursor]=useState<string|null>(null);
   const [notificationLoadingMore,setNotificationLoadingMore]=useState(false);
+  const [notificationFilter,setNotificationFilter]=useState<'all'|'unread'>('all');
+  const notificationFilterRef=useRef<'all'|'unread'>('all');
+  const notificationPageEpoch=useRef(0);
+  const notificationMoreLock=useRef(false);
   const notificationPaged=useRef(false);
   const notificationReadRevision=useRef(0);
   const resetInbox=()=>{
+    notificationPageEpoch.current++;notificationMoreLock.current=false;
+    notificationFilterRef.current='all';setNotificationFilter('all');
     setNotifications([]);setNotificationUnreadCount(0);setNotificationTotalCount(0);
     setNotificationCursor(null);setNotificationLoadingMore(false);notificationPaged.current=false;
   };
-  const applyNotificationPage=(response:any,more=false,readRevision=notificationReadRevision.current)=>{
+  const applyNotificationPage=(response:any,more=false,readRevision=notificationReadRevision.current,filter:'all'|'unread'='all')=>{
+    if(notificationFilterRef.current!==filter)return;
+    if(readRevision!==notificationReadRevision.current)return;
     if(!Array.isArray(response?.notifications))return;
     const preserveOlder=notificationPaged.current;
     if(readRevision===notificationReadRevision.current)setNotificationUnreadCount(Number(response.unreadCount)||0);
@@ -126,12 +134,12 @@ function MasterHomePage() {
       if(event instanceof CustomEvent&&event.detail?.path==='/auth/settings')notificationPaged.current=false;
       if (document.hidden || busy || cancelled) return;
       busy = true;
-      const readRevision=notificationReadRevision.current;
+      const readRevision=notificationReadRevision.current,epoch=notificationPageEpoch.current;
       try {
-        const response = await apiClient.getNotifications(true);
-        if (cancelled) return;
+        const response = await apiClient.getNotifications(true,undefined,notificationFilter);
+        if (cancelled||epoch!==notificationPageEpoch.current) return;
         if (!Array.isArray(response?.notifications)) setNotificationError(response?.error || 'Không thể tải thông báo. Vui lòng thử lại.');
-        else { applyNotificationPage(response,false,readRevision); setNotificationError(''); }
+        else { applyNotificationPage(response,false,readRevision,notificationFilter); setNotificationError(''); }
       } catch { if (!cancelled) setNotificationError('Không thể tải thông báo. Vui lòng thử lại.'); }
       finally { busy = false; }
     };
@@ -141,7 +149,7 @@ function MasterHomePage() {
     window.addEventListener('focus', refresh);
     window.addEventListener('mld:activity', refresh);
     return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('focus', refresh); window.removeEventListener('mld:activity', refresh); };
-  }, [user.id, isNotificationsOpen, notificationRefresh]);
+  }, [user.id, isNotificationsOpen, notificationRefresh,notificationFilter]);
 
   useEffect(() => {
     if (activeTab !== 'academy') setAcademyTarget(undefined);
@@ -277,7 +285,7 @@ function MasterHomePage() {
         else { apiClient.logout(); setUser({ ...guestUser }); }
       }
       if (authenticated) void apiClient.preloadPrivateData().catch(() => {});
-      const authEpoch=apiClient.sessionVersion();
+      const authEpoch=apiClient.sessionVersion(),inboxEpoch=notificationPageEpoch.current,inboxReadRevision=notificationReadRevision.current;
       const [recData, membData, bkData, notifData, treatmentData] = await Promise.all([
         authenticated ? apiClient.getMedicalRecords() : Promise.resolve({}),
         authenticated ? apiClient.getMembership() : Promise.resolve({}),
@@ -292,7 +300,7 @@ function MasterHomePage() {
       if (membData?.user) setUser((prev) => ({ ...prev, ...membData.user }));
       if (membData?.summary) setMemberSummary(membData.summary);
       if (bkData?.bookings) setBookings(bkData.bookings);
-      if (notifData?.notifications) applyNotificationPage(notifData);
+      if (notifData?.notifications&&inboxEpoch===notificationPageEpoch.current) applyNotificationPage(notifData,false,inboxReadRevision);
       if (treatmentData?.treatmentPlans) setTreatmentPlans(treatmentData.treatmentPlans);
       await publicReady;
     }
@@ -329,8 +337,12 @@ function MasterHomePage() {
   };
 
   const refreshBookingRelatedData = () => {
-    apiClient.getNotifications(true).then(response => applyNotificationPage(response));
+    const owner=currentUserId.current,epoch=notificationPageEpoch.current,filter=notificationFilterRef.current,revision=notificationReadRevision.current;
+    apiClient.getNotifications(true,undefined,filter).then(response => {
+      if(owner===currentUserId.current&&epoch===notificationPageEpoch.current)applyNotificationPage(response,false,revision,filter);
+    });
     apiClient.getMembership().then(response => {
+      if(owner!==currentUserId.current)return;
       if (response?.summary) setMemberSummary(response.summary);
       if (response?.vouchers) setVouchers(response.vouchers);
     });
@@ -500,12 +512,7 @@ function MasterHomePage() {
             onOpenDirections={(br) => setDirectionsBranch(br)}
             onNavigateTab={(tabKey) => setActiveTab(tabKey as any)}
             onOpenSearch={() => setIsSearchOpen(true)}
-            onOpenNotifications={() => {
-              apiClient.getNotifications().then((response) => {
-                if (response?.notifications) applyNotificationPage(response);
-                setIsNotificationsOpen(true);
-              });
-            }}
+            onOpenNotifications={() => setIsNotificationsOpen(true)}
             unreadNotifications={notificationUnreadCount}
             onOpenBranches={() => { setDirectoryQuery(''); setActiveTab('services'); setIsBranchDirectoryOpen(true); }}
             onOpenSpecialists={() => { setDirectoryQuery(''); setActiveTab('services'); setIsSpecialistDirectoryOpen(true); }}
@@ -748,21 +755,31 @@ function MasterHomePage() {
 
       {isNotificationsOpen && (
         <NotificationCenter
+          key={user.id}
           notifications={notifications}
+          filter={notificationFilter}
+          onFilter={filter=>{
+            if(notificationFilterRef.current===filter)return;
+            notificationFilterRef.current=filter;notificationPageEpoch.current++;
+            notificationMoreLock.current=false;notificationPaged.current=false;
+            setNotificationLoadingMore(false);setNotifications([]);setNotificationCursor(null);
+            setNotificationError('');setNotificationFilter(filter);
+          }}
           onChange={setNotifications}
           unreadCount={notificationUnreadCount}
           totalCount={notificationTotalCount}
-          onUnreadCount={value=>{notificationReadRevision.current++;setNotificationUnreadCount(value);}}
+          onUnreadCount={value=>{notificationReadRevision.current++;setNotificationUnreadCount(value);setNotificationRefresh(current=>current+1);}}
           hasMore={Boolean(notificationCursor)}
           loadingMore={notificationLoadingMore}
           onLoadMore={()=>{
-            if(notificationLoadingMore||!notificationCursor)return;
-            const owner=user.id,readRevision=notificationReadRevision.current;setNotificationLoadingMore(true);
-            void apiClient.getNotifications(false,notificationCursor).then(response=>{
-              if(currentUserId.current!==owner)return;
+            if(notificationMoreLock.current||!notificationCursor)return;
+            notificationMoreLock.current=true;
+            const owner=user.id,readRevision=notificationReadRevision.current,epoch=notificationPageEpoch.current;setNotificationLoadingMore(true);
+            void apiClient.getNotifications(false,notificationCursor,notificationFilter).then(response=>{
+              if(currentUserId.current!==owner||epoch!==notificationPageEpoch.current)return;
               if(response?.error||!Array.isArray(response?.notifications)){setNotificationError(response?.error||'Không thể tải thông báo.');return;}
-              notificationPaged.current=true;applyNotificationPage(response,true,readRevision);
-            }).catch(()=>setNotificationError('Không thể tải thông báo.')).finally(()=>setNotificationLoadingMore(false));
+              notificationPaged.current=true;applyNotificationPage(response,true,readRevision,notificationFilter);
+            }).catch(()=>{if(epoch===notificationPageEpoch.current)setNotificationError('Không thể tải thông báo.');}).finally(()=>{if(epoch===notificationPageEpoch.current){notificationMoreLock.current=false;setNotificationLoadingMore(false);}});
           }}
           onOpen={openNotification}
           loadError={notificationError}

@@ -132,6 +132,25 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   });
 };
 const responseJson = async (res: Response) => res.json();
+const createCustomerRecord=async(scope:'support-tickets'|'consultation-surveys',body:unknown)=>{
+  const token=session.get(),epoch=sessionEpoch;
+  if(!token)return {error:'Vui lòng đăng nhập.',status:401};
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));
+  let identity=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  try{
+    // This claim only namespaces a retry key; the backend still verifies every token.
+    const part=token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    const {sub}=JSON.parse(atob(part.padEnd(Math.ceil(part.length/4)*4,'=')));
+    if(typeof sub==='string'&&/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(sub))identity=sub.toLowerCase();
+  }catch{/* Non-JWT sessions use only their irreversible token fingerprint. */}
+  const owner=scope+':'+identity;
+  const key=await bookingRequest(owner,body);
+  if(session.get()!==token||sessionEpoch!==epoch)return {error:'Phiên đăng nhập đã thay đổi.',status:401};
+  const response=await fetch(`${API_BASE_URL}/${scope}`,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify(body)});
+  const result=await responseJson(response);
+  if(response.ok&&!result.error)completeBookingRequest(owner,key);
+  return result;
+};
 const searchWrites = new OwnerWriteQueue(() => String(sessionEpoch));
 
 export const apiClient = {
@@ -206,7 +225,7 @@ export const apiClient = {
     catch { return { error: 'Không thể tải câu hỏi thường gặp.' }; }
   },
   async createConsultationSurvey(body: Record<string, unknown>) {
-    try { return await responseJson(await fetch(`${API_BASE_URL}/consultation-surveys`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    try { return await createCustomerRecord('consultation-surveys',body); }
     catch { return { error: 'Không thể lưu khảo sát.' }; }
   },
   async getConsultationSurveys() {
@@ -482,9 +501,7 @@ export const apiClient = {
     catch { return { error: 'Không thể tải yêu cầu hỗ trợ.' }; }
   },
   async createSupportTicket(subject: string, message: string) {
-    try { return await responseJson(await fetch(`${API_BASE_URL}/support-tickets`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, message }),
-    })); }
+    try { return await createCustomerRecord('support-tickets',{subject,message}); }
     catch { return { error: 'Không thể gửi yêu cầu hỗ trợ.' }; }
   },
   async getCareGuidelines() {
@@ -582,10 +599,13 @@ export const apiClient = {
     }
   },
 
-  async getNotifications(fresh = false,cursor?:string) {
+  async getNotifications(fresh = false,cursor?:string,filter:'all'|'unread'='all') {
     if (fresh) invalidatePaths(['/notifications']);
     try {
-      const res = await fetch(`${API_BASE_URL}/notifications${cursor?`?cursor=${encodeURIComponent(cursor)}`:''}`);
+      const query=new URLSearchParams();
+      if(cursor)query.set('cursor',cursor);
+      if(filter!=='all')query.set('filter',filter);
+      const res = await fetch(`${API_BASE_URL}/notifications${query.size?`?${query}`:''}`);
       return await responseJson(res);
     } catch {
       return null;

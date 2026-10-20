@@ -46,6 +46,7 @@ type AcademyCourse = Omit<Course, 'lessons' | 'quizSubmissions'> & {
   certificate?: { status: string; certificateCode: string; studentName: string; courseTitle: string; issueDate: string; finalGrade: string; certificatePdfUrl?: string; qrVerificationCode?: string };
 };
 type Tab = 'catalog' | 'my_courses' | 'content' | 'schedule' | 'documents' | 'exam' | 'results';
+type ProgressSave='saved'|'retry'|'blocked';
 type QuizResult = { courseId: string; score: number; correctCount: number; totalQuestions: number; isPassed: boolean };
 const accessible = (status: string) => ['enrolled', 'studying', 'graduated'].includes(status.toLowerCase());
 const isReadingLesson = (lesson: Lesson) => ['TEXT', 'PDF', 'READING_DOC', 'PRACTICE_GUIDE'].includes(lesson.lessonType?.toUpperCase() || '');
@@ -95,7 +96,9 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const [lessonId, setLessonId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const noteKey = (courseId:string,enrollmentId:string,lessonId:string) => `mld_lesson_notes:${userId}:${courseId}:${enrollmentId}:${lessonId}`;
-  const pendingNoteSave = useRef<() => Promise<boolean>>(async () => true);
+  const pendingNoteSave = useRef<() => Promise<ProgressSave>>(async () => 'saved');
+  const [lessonExitBlocked,setLessonExitBlocked]=useState(false);
+  const [draftStorageFailed,setDraftStorageFailed]=useState(false);
   const [progressSaving, setProgressSaving] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizId, setQuizId] = useState('');
@@ -114,15 +117,17 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const draftKey=(attemptId:string)=>`mld_quiz_draft:${userId}:${attemptId}`;
   const chooseAnswer=(questionId:string,value:string)=>{
     if(!quizAttempt||!activeCourseId||quizSubmitting||performance.now()>=quizDeadline.current)return;
-    const next={...answers,[questionId]:value},attemptId=quizAttempt.id,courseId=activeCourseId,enrollmentId=activeEnrollmentId,scope=activeScope.current;
-    try{localStorage.setItem(draftKey(attemptId),JSON.stringify(next));}catch{/* The server save still runs with restricted storage. */}
+    const next={...answers,[questionId]:value},attemptId=quizAttempt.id,courseId=activeCourseId,enrollmentId=activeEnrollmentId,scope=selectedQuizScope.current,request=quizRequest.current;
+    let draftStored=false;
+    try{localStorage.setItem(draftKey(attemptId),JSON.stringify(next));draftStored=true;}catch{/* The server save still runs with restricted storage. */}
+    const canReport=()=>quizRequest.current===request&&selectedQuizScope.current===scope&&!quizLock.current&&!submittedAttempts.current.has(attemptId);
     setAnswers(next);
     draftQueue.current=draftQueue.current.then(async()=>{
       if(submittedAttempts.current.has(attemptId))return;
       const result=await apiClient.saveQuizDraft(courseId,attemptId,enrollmentId,next);
-      if(result?.error&&activeScope.current===scope&&!submittedAttempts.current.has(attemptId))setActionError(result.error);
+      if(result?.error&&canReport())setActionError(result.error);
       if(!result?.error)try{if(localStorage.getItem(draftKey(attemptId))===JSON.stringify(next))localStorage.removeItem(draftKey(attemptId));}catch{}
-    }).catch(()=>{if(activeScope.current===scope)setActionError('Chưa đồng bộ đáp án. Bản nháp được giữ trên thiết bị.');});
+    }).catch(()=>{if(canReport())setActionError(draftStored?'Chưa đồng bộ đáp án. Bản nháp được giữ trên thiết bị.':'Chưa lưu được đáp án. Vui lòng kiểm tra kết nối và thử lại.');});
   };
   const playback=useRef<{id:string;lessonId:string;enrollmentId:string;courseId:string}|null>(null);
   const heartbeatPending=useRef<Promise<boolean>|null>(null);
@@ -196,7 +201,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const quizzes = loadedStudy?.quizzes ?? (loadedStudy?.quiz ? [loadedStudy.quiz] : []);
   const study = loadedStudy ? { ...loadedStudy, quiz: quizzes.find(quiz => quiz.id === quizId) || quizzes[0] } : null;
   const selected = courses.find(course => course.id === selectedId) as AcademyCourse | undefined;
-  const activeLesson = study?.lessons.find(lesson => lesson.id === lessonId);
+  const activeLesson = tab!=='catalog'?study?.lessons.find(lesson => lesson.id === lessonId):undefined;
   const previewLesson = selected?.lessons.find(lesson => lesson.id === lessonId && lesson.isFreePreview === true);
   const lesson = activeLesson || previewLesson;
   selectedQuizScope.current = `${activeScope.current}/${study?.quiz?.id || ''}`;
@@ -236,7 +241,9 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
         const result=await apiClient.videoHeartbeat(session.courseId,session.lessonId,session.enrollmentId,session.id,position);
         if(activeScope.current!==`${session.courseId}/${session.enrollmentId}`)return false;
         if(result?.error){setActionError(result.error);return false;}
-        if(result?.progress)setLearning(current=>current?{...current,lessons:current.lessons.map(item=>item.id===session.lessonId?{...item,...result.progress}:item)}:current);
+        if(result?.progress)setLearning(current=>current?{...current,lessons:current.lessons.map(item=>item.id===session.lessonId?{
+          ...item,watchedSeconds:result.progress.watchedSeconds,isCompleted:result.progress.isCompleted===true,
+        }:item)}:current);
         return true;
       }catch{setActionError('Không thể lưu tiến độ video. Vui lòng thử lại.');return false;}
     })();
@@ -267,7 +274,9 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   useEffect(()=>{setQuizAttempt(null);setQuizResult(null);setAnswers({});},[activeCourseId,activeEnrollmentId,quizId]);
 
   const openLesson = (item: Lesson) => {
-    if (item.lessonType === 'QUIZ' && study?.lessons.some(lesson => lesson.id === item.id)) {
+    setLessonExitBlocked(false);setDraftStorageFailed(false);
+    const ownedLesson=Boolean(tab!=='catalog'&&study?.lessons.some(lesson=>lesson.id===item.id)&&activeEnrollmentId);
+    if (item.lessonType === 'QUIZ' && ownedLesson) {
       if(!item.quizId){setActionError('Bài học chưa được liên kết với bài kiểm tra. Vui lòng liên hệ giảng viên.');return;}
       setQuizId(item.quizId);setQuizAttempt(null);setQuizResult(null);setAnswers({});setTab('exam');setLessonId(null);setActionError('');setNotice('');return;
     }
@@ -275,7 +284,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     watched.current = Number(item.watchedSeconds) || 0;
     lastPlaybackTime.current = null;
     let savedNotes = item.studentNotes || '';
-    if(study && activeEnrollmentId)try {
+    if(ownedLesson && study && activeEnrollmentId)try {
       const draft=JSON.parse(localStorage.getItem(noteKey(study.id,activeEnrollmentId,item.id)) || 'null');
       if(typeof draft==='string')savedNotes=draft;
     }catch{/* Server notes remain available with restricted storage. */}
@@ -283,7 +292,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     setLessonId(item.id);
     playback.current=null;
     const generation=++playbackGeneration.current;
-    if(item.lessonType==='VIDEO'&&study&&activeEnrollmentId) {
+    if(item.lessonType==='VIDEO'&&ownedLesson&&study&&activeEnrollmentId) {
       const scope=activeScope.current;
       void apiClient.startPlayback(study.id,item.id,activeEnrollmentId).then(result=>{
         if(activeScope.current!==scope||playbackGeneration.current!==generation)return;
@@ -292,8 +301,10 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       });
     }
   };
-  const saveProgress = async (completed = false, studentNotes?: string) => {
-    if (!study || !activeLesson || progressLock.current) return false;
+  const saveProgress = async (completed = false, studentNotes?: string):Promise<ProgressSave> => {
+    if (!study || !activeLesson) return 'blocked';
+    if(progressLock.current)return 'retry';
+    if(studentNotes!==undefined&&studentNotes.length>10000){setActionError('Ghi chú tối đa 10.000 ký tự.');return 'blocked';}
     const courseId = study.id, savedLessonId = activeLesson.id;
     const scope = activeScope.current;
     progressLock.current = true; setProgressSaving(true); setActionError('');
@@ -303,9 +314,12 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
         watchedSeconds: Math.floor(watched.current), ...(completed ? { isCompleted: true } : {}),
         ...(studentNotes !== undefined ? { studentNotes } : {}),
       });
-      if (!response || response.error || !response.progress) throw new Error(response?.error || 'Không thể lưu tiến trình học.');
+      if (!response || response.error || !response.progress){
+        if(activeScope.current===scope)setActionError(response?.error||'Không thể lưu tiến trình học.');
+        return !response?.status||response.status===429||response.status>=500?'retry':'blocked';
+      }
       const progress = response.progress;
-      if (activeScope.current !== scope) return false;
+      if (activeScope.current !== scope) return 'blocked';
       if(studentNotes!==undefined)try {
         const key=noteKey(courseId,activeEnrollmentId || '',savedLessonId);
         if(localStorage.getItem(key)===JSON.stringify(studentNotes))localStorage.removeItem(key);
@@ -316,8 +330,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       if (response.enrollment) setEnrollments(current => current.map(item => item.id === response.enrollment.id ? response.enrollment : item));
       else setEnrollmentVersion(value => value + 1);
       setNotice(completed && isReadingLesson(activeLesson) && progress.isCompleted ? 'Đã ghi nhận xác nhận đã đọc.' : 'Đã lưu tiến trình học.');
-      return true;
-    } catch (error) { if (activeScope.current === scope) setActionError(error instanceof Error ? error.message : 'Không thể lưu tiến trình học.'); return false; }
+      return 'saved';
+    } catch (error) { if (activeScope.current === scope) setActionError(error instanceof Error ? error.message : 'Không thể lưu tiến trình học.'); return 'retry'; }
     finally { progressLock.current = false; setProgressSaving(false); }
   };
   pendingNoteSave.current=()=>saveProgress(false,notes);
@@ -326,24 +340,35 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     let cancelled=false,timer:number;
     const save=async()=>{
       const saved=await pendingNoteSave.current();
-      if(!saved&&!cancelled)timer=window.setTimeout(()=>void save(),3000);
+      if(saved==='retry'&&!cancelled)timer=window.setTimeout(()=>void save(),3000);
     };
     timer=window.setTimeout(()=>void save(),800);
     return()=>{cancelled=true;clearTimeout(timer);};
-  },[notes,activeLesson?.id,activeCourseId,activeEnrollmentId]);
+  },[notes,activeLesson?.id,activeLesson?.studentNotes,activeCourseId,activeEnrollmentId]);
   const closeLesson = async () => {
     if (closingLesson.current || progressLock.current) return;
     closingLesson.current=true;
     videoRef.current?.pause();
     try {
-      if (!await flushHeartbeat()) return;
-      if (!activeLesson || await saveProgress(false,notes)) {
+      if (!await flushHeartbeat()){setLessonExitBlocked(true);return;}
+      if (!activeLesson || await saveProgress(false,notes)==='saved') {
         playbackGeneration.current++; playback.current=null; setLessonId(null);
-      }
+        setLessonExitBlocked(false);
+      }else setLessonExitBlocked(true);
     } finally { closingLesson.current=false; }
   };
+  const leaveLessonWithDraft=(discard=false)=>{
+    if(progressLock.current||closingLesson.current)return;
+    if(discard&&study&&activeLesson&&activeEnrollmentId)try{localStorage.removeItem(noteKey(study.id,activeEnrollmentId,activeLesson.id));}catch{/* Restricted storage cannot supply this draft on reopen either. */}
+    if(!discard&&study&&activeLesson&&activeEnrollmentId&&notes!==(activeLesson.studentNotes||'')){
+      try{localStorage.setItem(noteKey(study.id,activeEnrollmentId,activeLesson.id),JSON.stringify(notes));}
+      catch{setDraftStorageFailed(true);setActionError('Thiết bị không giữ được bản nháp. Ghi chú chưa được lưu lên hệ thống.');return;}
+    }
+    closingLesson.current=true;videoRef.current?.pause();closingLesson.current=false;
+    playbackGeneration.current++;playback.current=null;setLessonId(null);setLessonExitBlocked(false);
+  };
   useBackAction(Boolean(lesson) || tab !== 'catalog' || catalogView !== 'home', () => {
-    if (lesson) { void closeLesson(); return; }
+    if (lesson) { if(lessonExitBlocked)leaveLessonWithDraft();else void closeLesson();return; }
     if (registering || quizSubmitting || attemptBusy || progressSaving) return;
     if (tab !== 'catalog') { setTab(tab==='my_courses'?'catalog':'my_courses'); return; }
     if (catalogView === 'registration' || catalogView === 'instructor' || catalogView === 'payment') { setCatalogView('course'); return; }
@@ -402,7 +427,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     })), []).filter(Boolean);
     return links.length ? links : <Empty></Empty>;
   };
-  const renderLesson = (item: Lesson) => <button key={item.id} className="academy-lesson-row" onClick={() => openLesson(item)}>
+  const renderLesson = (item: Lesson) => <button key={item.id} data-lesson-id={item.id} className="academy-lesson-row" onClick={() => openLesson(item)}>
     {isReadingLesson(item) ? <FileTextIcon size={18} /> : <PlayCircleIcon size={18} />}<span className="min-w-0 break-words">{item.title}<small className="block font-normal">{item.duration}{item.isCompleted ? ' · Đã hoàn thành' : ''}</small></span>
   </button>;
   const renderQuizHistory = () => <section className="space-y-2 text-xs" aria-label="Lịch sử bài kiểm tra">
@@ -512,6 +537,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
         <button className={buttonClass} disabled={progressSaving} onClick={() => void closeLesson()} aria-label="Đóng bài học"><ArrowLeftIcon size={16} /></button>
         <h2 className="text-lg font-bold break-words">{lesson.title}</h2>
         {actionError && <p role="alert" className="text-xs text-red-700">{actionError}</p>}
+        {lessonExitBlocked&&<div className="space-y-2"><button className={buttonClass} disabled={progressSaving} onClick={()=>leaveLessonWithDraft()}>Đóng và giữ bản nháp</button>{draftStorageFailed&&<button className={buttonClass} disabled={progressSaving} onClick={()=>leaveLessonWithDraft(true)}>Đóng và bỏ ghi chú chưa lưu</button>}</div>}
         {notice && <p role="status" className="text-xs">{notice}</p>}
         {safeUrl(lesson.videoUrl) ? <video ref={videoRef} key={`${study?.id || selected?.id}-${lesson.id}`} controls playsInline src={safeUrl(lesson.videoUrl)} className="aspect-video w-full bg-black"
           onPlay={event => { lastPlaybackTime.current = event.currentTarget.currentTime; }}
@@ -526,9 +552,9 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
             }
             lastPlaybackTime.current = video.currentTime;
           }}
-          onPause={event => { if (activeLesson && !event.currentTarget.ended && !closingLesson.current) {void flushHeartbeat().then(saved=>saved?saveProgress(false, notes):false);} }}
+          onPause={event => { if (activeLesson && !event.currentTarget.ended && !closingLesson.current) {void flushHeartbeat().then(async saved=>{if(saved)await saveProgress(false,notes);});} }}
           onEnded={event => {
-            if (activeLesson) {void flushHeartbeat().then(saved=>saved?saveProgress(false,notes):false);}
+            if (activeLesson) {void flushHeartbeat().then(async saved=>{if(saved)await saveProgress(false,notes);});}
           }}
           onError={() => setActionError('Không thể phát video bài học.')}
         /> : !isReadingLesson(lesson) && <Empty></Empty>}
@@ -538,7 +564,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
         {activeLesson && isReadingLesson(activeLesson) && <button className={buttonClass} disabled={progressSaving || activeLesson.isCompleted} onClick={() => void saveProgress(true, notes)}>
           {progressSaving ? 'Đang lưu...' : activeLesson.isCompleted ? 'Đã xác nhận đã đọc' : 'Đánh dấu đã đọc'}
         </button>}
-        {activeLesson && <><label className="block text-xs font-semibold">Ghi chú<textarea aria-label="Ghi chú" value={notes} onChange={event => {
+        {activeLesson && <><label className="block text-xs font-semibold">Ghi chú<textarea aria-label="Ghi chú" maxLength={10000} value={notes} onChange={event => {
           const value=event.target.value;setNotes(value);
           if(study && activeEnrollmentId)try{localStorage.setItem(noteKey(study.id,activeEnrollmentId,activeLesson.id),JSON.stringify(value));}catch{}
         }} className="mt-2 min-h-28 w-full rounded-[8px] border p-3 text-sm" /></label><button className={buttonClass} disabled={progressSaving} onClick={() => void saveProgress(false, notes)}>{progressSaving ? 'Đang lưu...' : 'Lưu ghi chú'}</button></>}

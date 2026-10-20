@@ -226,7 +226,7 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       const services=await call('/services',{anonymous:true});
       assert.equal(Number(services.data.services[0].ratingAvg),4);
       assert.equal(services.data.services[0].reviews[0].comment,body.comment);
-      const survey=await call('/consultation-surveys',{method:'POST',body:{bookingId:id(20),focusAreas:['Shoulder'],pressurePref:'LIGHT'}});
+      const survey=await call('/consultation-surveys',{method:'POST',body:{bookingId:id(20),focusAreas:['Shoulder'],pressurePref:'LIGHT',hasSensitiveSkin:false,hasOilAllergy:false}});
       assert.equal(survey.status,201,JSON.stringify(survey));
       assert.equal((await call('/consultation-surveys')).data.surveys[0].focusAreas[0],'Shoulder');
       assert.equal((await call('/consultation-surveys',{owner:2})).data.surveys.length,0);

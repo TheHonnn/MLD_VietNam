@@ -4,6 +4,8 @@ import {ApiError} from './errors.js';
 
 export const MAX_QUIZ_ATTEMPTS = 3;
 export async function ownedEnrollment(store:Store,userId:string,courseId:string,enrollmentId:string|null,lock=false) {
+  const [available]=await store.query(Prisma.sql`SELECT c.id FROM courses c JOIN course_categories cat ON cat.id=c.category_id WHERE c.id=${courseId}::uuid AND c.is_active AND cat.is_active`);
+  if(!available) throw new ApiError(404,'Course is unavailable');
   const [entry]=await store.query(Prisma.sql`SELECT * FROM course_enrollments WHERE student_id=${userId}::uuid AND course_id=${courseId}::uuid
     AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC LIMIT 1 ${lock?Prisma.sql`FOR UPDATE`:Prisma.empty}`);
   if(!entry) throw new ApiError(403,'Enrollment is required');
@@ -35,6 +37,18 @@ export async function recomputeProgress(store:Store,enrollment:Row) {
 
 const publicAttempt=(attempt:Row,maxAttempts:number)=>({id:attempt.id,quizId:attempt.quiz_id,enrollmentId:attempt.enrollment_id,startedAt:attempt.started_at,expiresAt:attempt.expires_at,submissionId:attempt.submission_id,maxAttempts,draftAnswers:attempt.draft_answers});
 const publicQuestions=(questions:Row[])=>questions.map(({id,question_number,question_text,options})=>({id,question_number,question_text,options}));
+function validateQuizConfiguration(quiz:Row,questions:Row[]) {
+  const passing=Number(quiz.passing_score);
+  if(!Number.isFinite(passing)||passing<0||passing>10)throw new ApiError(409,'Quiz passing score is not configured correctly');
+  for(const question of questions){
+    const options=question.options;
+    if(!options||typeof options!=='object')throw new ApiError(409,'Quiz questions are not configured correctly');
+    const entries=Array.isArray(options)?options.map((value,index)=>[String.fromCharCode(65+index),value]):Object.entries(options);
+    if(typeof question.question_text!=='string'||!question.question_text.trim()||entries.length<2||entries.length>26
+      ||entries.some(([key,value])=>!key.trim()||key.length>5||typeof value!=='string'||!value.trim())
+      ||!entries.some(([key])=>key===question.correct_option))throw new ApiError(409,'Quiz questions are not configured correctly');
+  }
+}
 export async function saveQuizDraft(store:Store,userId:string,courseId:string,attemptId:string,enrollmentId:string|null,answers:unknown) {
   return store.transaction(async tx=>{
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
@@ -64,6 +78,7 @@ export async function startQuiz(store:Store,userId:string,courseId:string,quizId
       const questions=await tx.query(Prisma.sql`SELECT id,question_number,question_text,options,correct_option FROM quiz_questions WHERE quiz_id=${quizId}::uuid ORDER BY question_number,id`);
       if(!questions.length) throw new ApiError(409,'Quiz has no questions');
       if(!Number.isInteger(quiz.time_limit_minutes)||quiz.time_limit_minutes<=0) throw new ApiError(409,'Quiz duration is not configured');
+      validateQuizConfiguration(quiz,questions);
       [attempt]=await tx.query(Prisma.sql`INSERT INTO miniapp_quiz_attempts(enrollment_id,quiz_id,expires_at,questions,passing_score)
         VALUES(${enrollment.id}::uuid,${quizId}::uuid,clock_timestamp()+${quiz.time_limit_minutes}*interval '1 minute',${JSON.stringify(questions)}::jsonb,${quiz.passing_score}) RETURNING *`);
     }

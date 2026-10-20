@@ -9,13 +9,22 @@ try {
     const fixture=await workflowFixture();
     const {db,id,base,headers}=fixture;
     const page=await browser.newPage({viewport});
+    let releaseDraft,releaseSubmit,draftPending=false,submitPending=false,draftRequests=0,rejectedDrafts=0;
+    const draftGate=new Promise(resolve=>releaseDraft=resolve),submitGate=new Promise(resolve=>releaseSubmit=resolve);
     try {
       await page.route('**/*',route=>['GET','HEAD','OPTIONS'].includes(route.request().method())?route.continue():route.abort());
       await page.route('**/api/**',async route=>{
         if(route.request().resourceType()==='script')return route.fallback();
         const request=route.request(),url=new URL(request.url());
         const response=await fetch(base+url.pathname+url.search,{method:request.method(),headers:headers(),body:request.postData()||undefined});
-        await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:await response.text()});
+        const body=await response.text();
+        if(url.pathname.endsWith('/quiz/draft')){
+          draftRequests++;
+          if(draftRequests===1){draftPending=true;await draftGate;}
+          if(response.status===409)rejectedDrafts++;
+        }
+        if(url.pathname.endsWith('/quiz/submit')){submitPending=true;await submitGate;}
+        await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body});
       });
       await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5177/',{waitUntil:'domcontentloaded'});
       await page.getByRole('button',{name:'Bỏ qua',exact:true}).click();
@@ -81,9 +90,19 @@ try {
       await page.getByRole('button',{name:'Bắt đầu / tiếp tục làm bài',exact:true}).click();
       const groups=page.locator('fieldset');
       await groups.nth(0).getByRole('radio').nth(0).check();
+      for(let n=0;n<100&&!draftPending;n++)await page.waitForTimeout(20);
+      assert.equal(draftPending,true);
       await groups.nth(1).getByRole('radio').nth(1).check();
       await page.getByRole('button',{name:'Nộp bài',exact:true}).click();
+      for(let n=0;n<100&&!submitPending;n++)await page.waitForTimeout(20);
+      assert.equal(submitPending,true);releaseDraft();
+      for(let n=0;n<100&&!rejectedDrafts;n++)await page.waitForTimeout(20);
+      assert.equal(rejectedDrafts,1,'A queued draft arrives after the real submission has committed');
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.academy-feedback [role="alert"]').count(),0,'A stale draft failure must not interrupt the submission in progress');
+      releaseSubmit();
       await page.getByText('Điểm: 100% · 2/2 câu đúng · Đạt',{exact:true}).waitFor();
+      assert.equal(await page.locator('.academy-feedback [role="alert"]').count(),0,'A late draft error must not contradict a successful submission');
       await page.getByText('Đáp án đã chọn',{exact:true}).click();
       await screenshot('quiz-history');
       const saved=(await db.query('SELECT submitted_answers FROM quiz_submissions')).rows;
@@ -131,6 +150,6 @@ try {
       console.error(JSON.stringify({viewport,visibleText:(await page.locator('body').innerText()).slice(-6000)}));
       await page.screenshot({path:fileURLToPath(new URL(`../.relay-local/workflow-failure-${viewport.width}.png`,import.meta.url))});
       throw failure;
-    } finally {await page.close();await fixture.close();}
+    } finally {releaseDraft();releaseSubmit();await page.close();await fixture.close();}
   }
 } finally {await browser.close();}

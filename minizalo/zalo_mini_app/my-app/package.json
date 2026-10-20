@@ -5,6 +5,11 @@
   "description": "zmp-blank-templates",
   "repository": "",
   "license": "UNLICENSED",
+  "overrides": {
+    "zmp-ui": {
+      "react-router-dom": "7.18.4"
+    }
+  },
   "browserslist": [
     "Chrome >= 108",
     "Safari >= 15.4",

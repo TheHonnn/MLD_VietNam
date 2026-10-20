@@ -176,13 +176,13 @@ export function adaptPayload(payload: Record<string, any>) {
 export function profileToCanonical(profile: Record<string, any>) {
   const { name, dob, avatar, gender, ...rest } = profile;
   return {
-    fullName: name ?? rest.fullName,
-    dateOfBirth: dob !== undefined ? dob || null : rest.dateOfBirth !== undefined ? rest.dateOfBirth || null : undefined,
-    avatarUrl: avatar ?? rest.avatarUrl,
+    fullName: name !== undefined ? name : rest.fullName,
+    dateOfBirth: dob !== undefined ? dob === '' ? null : dob : rest.dateOfBirth === '' ? null : rest.dateOfBirth,
+    avatarUrl: avatar !== undefined ? avatar : rest.avatarUrl,
     gender: gender === 'Nam' ? 'MALE' : gender === 'Nữ' ? 'FEMALE' : gender === 'Khác' ? 'OTHER' : gender === '' ? null : gender,
     email: rest.email, address: rest.address,
     emergencyContactName: rest.emergencyContactName, emergencyContactPhone: rest.emergencyContactPhone,
     preferredBranch:rest.preferredBranch,skinType:rest.skinType,healthNotes:rest.healthNotes,
-    ...(rest.purpose ? { purpose: rest.purpose } : {}),
+    ...(rest.purpose !== undefined ? { purpose: rest.purpose } : {}),
   };
 }

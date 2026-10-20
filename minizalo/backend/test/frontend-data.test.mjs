@@ -7,6 +7,18 @@ const source = await readFile(new URL('../../zalo_mini_app/my-app/src/api/adapte
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
 const adapters = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
+test('profile adapters preserve explicit clearing and never coerce mistyped optional fields',()=>{
+  const clear=adapters.profileToCanonical({avatar:null,dob:'',name:'Actual name'});
+  assert.equal(clear.avatarUrl,null);assert.equal(clear.dateOfBirth,null);
+  assert.equal(adapters.profileToCanonical({}).dateOfBirth,undefined);
+  for(const value of [false,0,[],{}]){
+    assert.equal(adapters.profileToCanonical({dob:value}).dateOfBirth,value);
+    assert.equal(adapters.profileToCanonical({avatar:value}).avatarUrl,value);
+  }
+  assert.equal(adapters.profileToCanonical({name:null}).fullName,null);
+  assert.equal(adapters.profileToCanonical({purpose:false}).purpose,false);
+});
+
 test('catalog text filtering supports Vietnamese accents, case and whitespace without inventing matches', async () => {
   const source = await readFile(new URL('../../zalo_mini_app/my-app/src/utils/catalog.ts', import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });

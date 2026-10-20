@@ -133,12 +133,12 @@ export async function syncNotifications(store: Store, userId: string) {
   if (pending.length) await store.query(Prisma.sql`INSERT INTO notifications(user_id,title,message,type,data,created_at) VALUES ${Prisma.join(pending.map(item => Prisma.sql`(${userId}::uuid,${item.title},${item.message},${item.type},${JSON.stringify(item.data)}::jsonb,${item.created})`))} RETURNING id`);
 }
 
-export async function listNotifications(store: Store, userId: string, cursor?:unknown) {
+export async function listNotifications(store: Store, userId: string, cursor?:unknown,filter:unknown='all') {
   for (let attempt = 0; ; attempt++) {
     try {
       return await store.transaction(async tx => {
         if(!cursor) await syncNotifications(tx, userId);
-        return inboxPage(tx,userId,cursor);
+        return inboxPage(tx,userId,cursor,filter);
       });
     } catch (error) {
       const failure = error as {code?:string; meta?:{code?:string}};

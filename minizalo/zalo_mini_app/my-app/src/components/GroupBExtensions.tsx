@@ -35,8 +35,15 @@ const inputClass = 'mt-1 h-10 w-full min-w-0 rounded-[8px] border border-[#DED2C
 
 export const EntityImage: React.FC<{ src?: string | null; alt: string; className?: string }> = ({ src, alt, className = 'h-44 w-full' }) => {
   const [failedSource, setFailedSource] = React.useState<string | null>(null);
+  React.useEffect(()=>{setFailedSource(null);},[src]);
+  React.useEffect(()=>{
+    if(!failedSource)return;
+    const retry=()=>setFailedSource(null);
+    window.addEventListener('online',retry);
+    return()=>window.removeEventListener('online',retry);
+  },[failedSource]);
   return src && failedSource !== src
-    ? <img src={src} alt={alt} onError={() => setFailedSource(src)} className={className + ' rounded-[8px] object-cover'} />
+    ? <img key={src} src={src} alt={alt} onError={() => setFailedSource(src)} className={className + ' rounded-[8px] object-cover'} />
     : <div className={className + ' flex items-center justify-center rounded-[8px] bg-stone-100 p-3 text-center text-xs text-stone-500'}></div>;
 };
 
