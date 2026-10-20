@@ -43,6 +43,7 @@ import {
   DailyRevenueItem,
 } from '../components/dashboard/MultiColorLineChart';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { matchSearch } from '../utils/searchUtils';
 
 type DateRangePreset = '7D' | 'TODAY' | '30D' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
 
@@ -522,33 +523,34 @@ export const W01_Dashboard: React.FC = () => {
   }, [startDateStr, endDateStr, filteredInvoices, filteredTuitions]);
 
   // 4. MULTI-FIELD SEARCH LOGIC (BOOKINGS TABLE)
-  const searchLower = searchTerm.trim().toLowerCase();
-
   const displayBookings = useMemo(() => {
     return filteredBookings.filter((b) => {
-      if (!searchLower) return true;
+      if (!searchTerm.trim()) return true;
       const cust = b.customerId ? customerMap.get(b.customerId) : undefined;
       const tech = b.technicianId ? techMap.get(b.technicianId) : undefined;
       const br = branchMap.get(b.branchId);
 
-      return (
-        b.bookingCode.toLowerCase().includes(searchLower) ||
-        b.id.toLowerCase().includes(searchLower) ||
-        (b.bookedForName && b.bookedForName.toLowerCase().includes(searchLower)) ||
-        (b.bookedForPhone && b.bookedForPhone.includes(searchLower)) ||
-        (cust?.fullName && cust.fullName.toLowerCase().includes(searchLower)) ||
-        (cust?.phone && cust.phone.includes(searchLower)) ||
-        (b.checkinNotes && b.checkinNotes.toLowerCase().includes(searchLower)) ||
-        (b.specialNotes && b.specialNotes.toLowerCase().includes(searchLower)) ||
-        (tech?.fullName && tech.fullName.toLowerCase().includes(searchLower)) ||
-        (br?.name && br.name.toLowerCase().includes(searchLower))
+      return matchSearch(
+        [
+          b.bookingCode,
+          b.id,
+          b.bookedForName,
+          b.bookedForPhone,
+          cust?.fullName,
+          cust?.phone,
+          b.checkinNotes,
+          b.specialNotes,
+          tech?.fullName,
+          br?.name,
+        ],
+        searchTerm
       );
     });
-  }, [filteredBookings, searchLower, customerMap, techMap, branchMap]);
+  }, [filteredBookings, searchTerm, customerMap, techMap, branchMap]);
 
   // 5. QUICK SEARCH AUTOCOMPLETE SUGGESTIONS
   const quickResults = useMemo(() => {
-    if (!searchLower) {
+    if (!searchTerm.trim()) {
       return { bookings: [], customers: [], enrollments: [], invoices: [] };
     }
 
@@ -556,39 +558,39 @@ export const W01_Dashboard: React.FC = () => {
       .filter((b) => {
         const cust = b.customerId ? customerMap.get(b.customerId) : undefined;
         const tech = b.technicianId ? techMap.get(b.technicianId) : undefined;
-        return (
-          b.bookingCode.toLowerCase().includes(searchLower) ||
-          (b.bookedForName && b.bookedForName.toLowerCase().includes(searchLower)) ||
-          (cust?.fullName && cust.fullName.toLowerCase().includes(searchLower)) ||
-          (b.checkinNotes && b.checkinNotes.toLowerCase().includes(searchLower)) ||
-          (tech?.fullName && tech.fullName.toLowerCase().includes(searchLower))
+        return matchSearch(
+          [
+            b.bookingCode,
+            b.bookedForName,
+            b.bookedForPhone,
+            cust?.fullName,
+            cust?.phone,
+            b.checkinNotes,
+            tech?.fullName,
+          ],
+          searchTerm
         );
       })
       .slice(0, 3);
 
     const matchedCustomers = customers
       .filter((c) => {
-        return (
-          c.fullName.toLowerCase().includes(searchLower) ||
-          (c.phone && c.phone.includes(searchLower)) ||
-          (c.email && c.email.toLowerCase().includes(searchLower))
-        );
+        return matchSearch([c.fullName, c.phone, c.email, c.address], searchTerm);
       })
       .slice(0, 3);
 
     const matchedEnrollments = enrollments
       .filter((e) => {
-        return (
-          (e.student?.fullName && e.student.fullName.toLowerCase().includes(searchLower)) ||
-          (e.course?.title && e.course.title.toLowerCase().includes(searchLower)) ||
-          (e.course?.code && e.course.code.toLowerCase().includes(searchLower))
+        return matchSearch(
+          [e.student?.fullName, e.student?.phone, e.course?.title, e.course?.code],
+          searchTerm
         );
       })
       .slice(0, 3);
 
     const matchedInvoices = invoices
       .filter((inv) => {
-        return inv.invoiceCode.toLowerCase().includes(searchLower);
+        return matchSearch([inv.invoiceCode, inv.totalAmount], searchTerm);
       })
       .slice(0, 3);
 
@@ -598,7 +600,7 @@ export const W01_Dashboard: React.FC = () => {
       enrollments: matchedEnrollments,
       invoices: matchedInvoices,
     };
-  }, [searchLower, bookings, customers, enrollments, invoices, customerMap, techMap]);
+  }, [searchTerm, bookings, customers, enrollments, invoices, customerMap, techMap]);
 
   const totalQuickMatches =
     quickResults.bookings.length +
@@ -670,7 +672,7 @@ export const W01_Dashboard: React.FC = () => {
           </div>
 
           {/* Autocomplete / Instant Search Results Dropdown */}
-          {isSearchFocused && searchLower.length > 0 && (
+          {isSearchFocused && searchTerm.trim().length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 max-h-[380px] overflow-y-auto p-3 space-y-3 animate-in fade-in-50 zoom-in-95">
               <div className="flex items-center justify-between pb-2 border-b border-[#EFE4D9] text-[11px] text-[#73675F]">
                 <span>

@@ -8,9 +8,11 @@ import {
   X,
   CheckCircle2,
   BookOpen,
+  Search,
 } from 'lucide-react';
 import { academyService, customerService, staffService, StaffWithProfile } from '../services';
 import { CourseEnrollment, CourseBatch, Course, User } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 interface CompletedCourseRecord {
   courseName: string;
@@ -233,18 +235,23 @@ export const W10_Attendance: React.FC = () => {
   };
 
   // Filtering
-  const filteredStudents = studentsData.filter((s) => {
-    const matchSearch =
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.batchAndBranch.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchCourse =
-      courseFilter === 'all' || s.courseName.toLowerCase().includes(courseFilter.toLowerCase());
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
-    const matchBranch = branchFilter === 'all' || s.branch.toLowerCase().includes(branchFilter.toLowerCase());
+  const hasActiveFilter =
+    searchTerm.trim().length > 0 ||
+    courseFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    branchFilter !== 'all';
 
-    return matchSearch && matchCourse && matchStatus && matchBranch;
+  const filteredStudents = studentsData.filter((s) => {
+    const matchSearchQuery = matchSearch(
+      [s.name, s.code, s.courseName, s.batchAndBranch],
+      searchTerm
+    );
+    const matchCourse =
+      courseFilter === 'all' || matchSearch(s.courseName, courseFilter);
+    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
+    const matchBranch = branchFilter === 'all' || matchSearch(s.branch, branchFilter);
+
+    return matchSearchQuery && matchCourse && matchStatus && matchBranch;
   });
 
   return (
@@ -277,14 +284,25 @@ export const W10_Attendance: React.FC = () => {
       {/* 2. Search & Filter Bar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm học viên, mã hồ sơ hoặc lớp..."
-            className="w-full pl-3.5 pr-8 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Filter: Tất cả khóa / lớp */}
@@ -330,6 +348,24 @@ export const W10_Attendance: React.FC = () => {
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
+
+        {/* Reset filter button */}
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setCourseFilter('all');
+              setStatusFilter('all');
+              setBranchFilter('all');
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 3. Main 2-Column Grid */}
@@ -362,16 +398,47 @@ export const W10_Attendance: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFE4D9] text-xs">
-                  {filteredStudents.map((student) => {
-                    const isSelected = student.id === selectedStudentId;
-                    return (
-                      <tr
-                        key={student.id}
-                        onClick={() => setSelectedStudentId(student.id)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-[#FBF6F0]' : 'bg-white hover:bg-[#FAF6F0]'
-                        }`}
-                      >
+                  {filteredStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-[#73675F]">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                          <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                            <Search className="w-5 h-5" />
+                          </div>
+                          <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy học viên</p>
+                          <p className="text-xs text-[#8C7A6B]">
+                            {searchTerm.trim()
+                              ? `Không có học viên nào khớp với từ khóa "${searchTerm}".`
+                              : 'Không có học viên nào phù hợp với bộ lọc.'}
+                          </p>
+                          {hasActiveFilter && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchTerm('');
+                                setCourseFilter('all');
+                                setStatusFilter('all');
+                                setBranchFilter('all');
+                              }}
+                              className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                            >
+                              Xóa bộ lọc
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredStudents.map((student) => {
+                      const isSelected = student.id === selectedStudentId;
+                      return (
+                        <tr
+                          key={student.id}
+                          onClick={() => setSelectedStudentId(student.id)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected ? 'bg-[#FBF6F0]' : 'bg-white hover:bg-[#FAF6F0]'
+                          }`}
+                        >
                         {/* 1. Học viên */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
@@ -457,7 +524,7 @@ export const W10_Attendance: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>

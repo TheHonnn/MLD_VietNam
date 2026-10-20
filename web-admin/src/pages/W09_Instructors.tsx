@@ -7,9 +7,11 @@ import {
   X,
   Plus,
   CheckCircle2,
+  Search,
 } from 'lucide-react';
 import { academyService, supabaseService } from '../services';
 import { Course, CourseBatch } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 interface InstructorRecord {
   id: string;
@@ -197,17 +199,24 @@ export const W09_Instructors: React.FC = () => {
     defaultInstructor;
 
   // Filtering
-  const filteredInstructors = instructorsData.filter((ins) => {
-    const matchSearch =
-      ins.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ins.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchBranch = branchFilter === 'all' || ins.branch.toLowerCase().includes(branchFilter.toLowerCase());
-    const matchSpecialty =
-      specialtyFilter === 'all' || ins.specialty.toLowerCase().includes(specialtyFilter.toLowerCase());
-    const matchAssignment =
-      assignmentFilter === 'all' || ins.assignmentStatus.toLowerCase().includes(assignmentFilter.toLowerCase());
+  const hasActiveFilter =
+    searchTerm.trim().length > 0 ||
+    branchFilter !== 'all' ||
+    specialtyFilter !== 'all' ||
+    assignmentFilter !== 'all';
 
-    return matchSearch && matchBranch && matchSpecialty && matchAssignment;
+  const filteredInstructors = instructorsData.filter((ins) => {
+    const matchSearchQuery = matchSearch(
+      [ins.name, ins.code, ins.role, ins.specialty, ins.branch, ins.programTitle],
+      searchTerm
+    );
+    const matchBranch = branchFilter === 'all' || matchSearch(ins.branch, branchFilter);
+    const matchSpecialty =
+      specialtyFilter === 'all' || matchSearch(ins.specialty, specialtyFilter);
+    const matchAssignment =
+      assignmentFilter === 'all' || matchSearch(ins.assignmentStatus, assignmentFilter);
+
+    return matchSearchQuery && matchBranch && matchSpecialty && matchAssignment;
   });
 
   const showToast = (message: string) => {
@@ -294,14 +303,25 @@ export const W09_Instructors: React.FC = () => {
       {/* 2. Search & Filter Bar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm tên hoặc mã giảng viên..."
-            className="w-full pl-3.5 pr-8 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Filter: Tất cả cơ sở */}
@@ -346,6 +366,24 @@ export const W09_Instructors: React.FC = () => {
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
+
+        {/* Reset filter button */}
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setBranchFilter('all');
+              setSpecialtyFilter('all');
+              setAssignmentFilter('all');
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 3. Main 2-Column Grid */}
@@ -376,16 +414,47 @@ export const W09_Instructors: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFE4D9] text-xs">
-                  {filteredInstructors.map((ins) => {
-                    const isSelected = ins.id === selectedInstructorId;
-                    return (
-                      <tr
-                        key={ins.id}
-                        onClick={() => setSelectedInstructorId(ins.id)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-[#FBF6F0]' : 'bg-white hover:bg-[#FAF6F0]'
-                        }`}
-                      >
+                  {filteredInstructors.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-[#73675F]">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                          <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                            <Search className="w-5 h-5" />
+                          </div>
+                          <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy giảng viên</p>
+                          <p className="text-xs text-[#8C7A6B]">
+                            {searchTerm.trim()
+                              ? `Không có giảng viên nào khớp với từ khóa "${searchTerm}".`
+                              : 'Không có giảng viên nào phù hợp với bộ lọc.'}
+                          </p>
+                          {hasActiveFilter && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchTerm('');
+                                setBranchFilter('all');
+                                setSpecialtyFilter('all');
+                                setAssignmentFilter('all');
+                              }}
+                              className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                            >
+                              Xóa bộ lọc
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInstructors.map((ins) => {
+                      const isSelected = ins.id === selectedInstructorId;
+                      return (
+                        <tr
+                          key={ins.id}
+                          onClick={() => setSelectedInstructorId(ins.id)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected ? 'bg-[#FBF6F0]' : 'bg-white hover:bg-[#FAF6F0]'
+                          }`}
+                        >
                         {/* 1. Giảng viên */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
@@ -429,7 +498,7 @@ export const W09_Instructors: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>

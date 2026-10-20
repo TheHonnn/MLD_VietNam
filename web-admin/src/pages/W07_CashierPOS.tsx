@@ -202,7 +202,7 @@ export const W07_CashierPOS: React.FC = () => {
       toast.success('Tìm thấy đơn dịch vụ', `Đã chuyển sang đơn ${found.bookingCode} - ${found.customer?.fullName || 'Khách hàng'}.`);
     } else {
       // Check fallback for demo booking code if searched
-      if (kw.includes('bk-20261016-003') || kw.includes('xuân trường') || kw.includes('xuan truong')) {
+      if (matchSearch(['BK-20261016-003', 'Xuân Trường'], searchTerm)) {
         setSearchTerm('Xuân Trường / BK-20261016-003');
         setCustomer({
           id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',

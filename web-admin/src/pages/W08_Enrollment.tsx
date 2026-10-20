@@ -12,6 +12,7 @@ import {
 import { academyService, customerService } from '../services';
 import { toast } from '../components/common';
 import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 interface CandidateRecord {
   id: string;
@@ -221,20 +222,24 @@ export const W08_Enrollment: React.FC = () => {
 
   // Filter candidates
   const filteredCandidates = candidatesData.filter((c) => {
-    const matchSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm);
+    const isSearchMatch = matchSearch([c.name, c.code, c.phone, c.program, c.branch], searchTerm);
     const matchStage = stageFilter === 'all' || c.stage === stageFilter;
     const matchProgram =
       programFilter === 'all' || c.program.toLowerCase().includes(programFilter.toLowerCase());
-    return matchSearch && matchStage && matchProgram;
+    return isSearchMatch && matchStage && matchProgram;
   });
 
   const countNew = candidatesData.filter((c) => c.stage === 'new').length;
   const countConsulting = candidatesData.filter((c) => c.stage === 'consulting').length;
   const countPending = candidatesData.filter((c) => c.stage === 'payment_pending').length;
   const countStudying = candidatesData.filter((c) => c.stage === 'class_pending').length;
+
+  const hasActiveFilter = Boolean(
+    searchTerm.trim() ||
+      programFilter !== 'all' ||
+      stageFilter !== 'all' ||
+      branchFilter !== 'all'
+  );
 
   return (
     <div className="space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -317,14 +322,25 @@ export const W08_Enrollment: React.FC = () => {
       {/* 3. Search & Filter Bar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm tên, số điện thoại, mã hồ sơ..."
-            className="w-full pl-3.5 pr-8 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Filter: Tất cả chương trình */}
@@ -371,6 +387,24 @@ export const W08_Enrollment: React.FC = () => {
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
+
+        {/* Reset filter button */}
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setProgramFilter('all');
+              setStageFilter('all');
+              setBranchFilter('all');
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 4. Main 2-Column Grid */}
@@ -401,16 +435,47 @@ export const W08_Enrollment: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFE4D9] text-xs">
-                  {filteredCandidates.map((candidate) => {
-                    const isSelected = candidate.id === selectedCandidateId;
-                    return (
-                      <tr
-                        key={candidate.id}
-                        onClick={() => setSelectedCandidateId(candidate.id)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-[#F8F1E8]' : 'bg-white hover:bg-[#FAF6F0]'
-                        }`}
-                      >
+                  {filteredCandidates.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-[#73675F]">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                          <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                            <Search className="w-5 h-5" />
+                          </div>
+                          <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy hồ sơ học viên</p>
+                          <p className="text-xs text-[#8C7A6B]">
+                            {searchTerm.trim()
+                              ? `Không có ứng viên nào khớp với từ khóa "${searchTerm}".`
+                              : 'Không có hồ sơ nào với bộ lọc đã chọn.'}
+                          </p>
+                          {hasActiveFilter && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchTerm('');
+                                setProgramFilter('all');
+                                setStageFilter('all');
+                                setBranchFilter('all');
+                              }}
+                              className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                            >
+                              Xóa bộ lọc
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCandidates.map((candidate) => {
+                      const isSelected = candidate.id === selectedCandidateId;
+                      return (
+                        <tr
+                          key={candidate.id}
+                          onClick={() => setSelectedCandidateId(candidate.id)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected ? 'bg-[#F8F1E8]' : 'bg-white hover:bg-[#FAF6F0]'
+                          }`}
+                        >
                         {/* 1. Ứng viên / Mã hồ sơ */}
                         <td className="py-3 px-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-2.5">
@@ -482,7 +547,7 @@ export const W08_Enrollment: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>

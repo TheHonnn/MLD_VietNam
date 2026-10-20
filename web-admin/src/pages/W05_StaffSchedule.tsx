@@ -14,10 +14,12 @@ import {
   MapPin,
   Check,
   Plus,
+  Search,
 } from 'lucide-react';
 import { staffService, bookingService, branchService, notificationService, customerService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
 import { Booking, Branch, User, Technician, BookingStatus } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 interface ScheduleAppointment {
   id: string;
@@ -331,12 +333,9 @@ export const W05_StaffSchedule: React.FC = () => {
 
   const displayedAppointments = allAppointments.filter((app) => {
     if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      app.customer.toLowerCase().includes(term) ||
-      app.customerCode.toLowerCase().includes(term) ||
-      app.service.toLowerCase().includes(term) ||
-      app.technicianName.toLowerCase().includes(term)
+    return matchSearch(
+      [app.customer, app.customerCode, app.service, app.technicianName, app.resource, app.status],
+      searchTerm
     );
   });
 
@@ -541,14 +540,25 @@ export const W05_StaffSchedule: React.FC = () => {
       {/* 2. Filter Toolbar (White Card with 4 Controls) */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap lg:flex-nowrap items-center gap-3">
         {/* Search input */}
-        <div className="flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm khách hàng hoặc mã lịch hẹn..."
-            className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Date dropdown */}

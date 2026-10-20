@@ -105,20 +105,112 @@ export const W02_Branches: React.FC = () => {
     'Học viện đào tạo chuyên sâu',
   ];
 
-  const cityOptions = ['TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Cần Thơ'];
+  const CITY_DISTRICTS: Record<string, string[]> = {
+    'TP. Hồ Chí Minh': [
+      'Quận 1',
+      'Quận 3',
+      'Quận 4',
+      'Quận 5',
+      'Quận 6',
+      'Quận 7',
+      'Quận 8',
+      'Quận 10',
+      'Quận 11',
+      'Quận 12',
+      'Bình Thạnh',
+      'Phú Nhuận',
+      'Gò Vấp',
+      'Tân Bình',
+      'Tân Phú',
+      'Bình Tân',
+      'TP. Thủ Đức',
+      'Bình Chánh',
+      'Hóc Môn',
+      'Củ Chi',
+      'Nhà Bè',
+    ],
+    'Hà Nội': [
+      'Ba Đình',
+      'Hoàn Kiếm',
+      'Tây Hồ',
+      'Long Biên',
+      'Cầu Giấy',
+      'Đống Đa',
+      'Hai Bà Trưng',
+      'Hoàng Mai',
+      'Thanh Xuân',
+      'Hà Đông',
+      'Nam Từ Liêm',
+      'Bắc Từ Liêm',
+      'Gia Lâm',
+      'Đông Anh',
+      'Thanh Trì',
+      'Sóc Sơn',
+    ],
+    'Đà Nẵng': [
+      'Hải Châu',
+      'Thanh Khê',
+      'Sơn Trà',
+      'Ngũ Hành Sơn',
+      'Liên Chiểu',
+      'Cẩm Lệ',
+      'Hòa Vang',
+    ],
+    'Cần Thơ': [
+      'Ninh Kiều',
+      'Bình Thủy',
+      'Cái Răng',
+      'Ô Môn',
+      'Thốt Nốt',
+      'Phong Điền',
+    ],
+    'Hải Phòng': [
+      'Hồng Bàng',
+      'Ngô Quyền',
+      'Lê Chân',
+      'Hải An',
+      'Kiến An',
+      'Đồ Sơn',
+      'Thủy Nguyên',
+    ],
+    'Bình Dương': [
+      'Thủ Dầu Một',
+      'Thuận An',
+      'Dĩ An',
+      'Tân Uyên',
+      'Bến Cát',
+    ],
+    'Đồng Nai': [
+      'Biên Hòa',
+      'Long Khánh',
+      'Long Thành',
+      'Nhơn Trạch',
+    ],
+  };
 
-  const districtPresets = [
-    'Quận 1',
-    'Quận 3',
-    'Quận 5',
-    'Quận 7',
-    'Quận 10',
-    'Bình Thạnh',
-    'Phú Nhuận',
-    'Gò Vấp',
-    'Tân Bình',
-    'TP. Thủ Đức',
-  ];
+  const cityOptions = Object.keys(CITY_DISTRICTS);
+
+  const handleCityChange = (newCity: string) => {
+    const districts = CITY_DISTRICTS[newCity] || [];
+    const defaultDistrict = districts[0] || '';
+    setFormData((prev) => ({
+      ...prev,
+      city: newCity,
+      district: defaultDistrict,
+    }));
+  };
+
+  const handleEditCityChange = (newCity: string) => {
+    const districts = CITY_DISTRICTS[newCity] || [];
+    const defaultDistrict = districts.includes(editForm.district)
+      ? editForm.district
+      : districts[0] || '';
+    setEditForm((prev) => ({
+      ...prev,
+      city: newCity,
+      district: defaultDistrict,
+    }));
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1175,7 +1267,7 @@ export const W02_Branches: React.FC = () => {
                     </label>
                     <select
                       value={editForm.city}
-                      onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                      onChange={(e) => handleEditCityChange(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                     >
                       {cityOptions.map((c) => (
@@ -1195,7 +1287,7 @@ export const W02_Branches: React.FC = () => {
                       onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
                       className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                     >
-                      {districtPresets.map((d) => (
+                      {(CITY_DISTRICTS[editForm.city] || []).map((d) => (
                         <option key={d} value={d}>
                           {d}
                         </option>
@@ -1701,7 +1793,7 @@ export const W02_Branches: React.FC = () => {
                     </label>
                     <select
                       value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      onChange={(e) => handleCityChange(e.target.value)}
                       className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                     >
                       {cityOptions.map((city) => (
@@ -1721,7 +1813,7 @@ export const W02_Branches: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, district: e.target.value })}
                       className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                     >
-                      {districtPresets.map((district) => (
+                      {(CITY_DISTRICTS[formData.city] || []).map((district) => (
                         <option key={district} value={district}>
                           {district}
                         </option>
