@@ -116,11 +116,15 @@ class SupabaseService {
   }
 
   // 1. CHI NHÁNH (BRANCHES)
-  async getBranches(): Promise<Branch[] | null> {
+  async getBranches(includeArchived = false): Promise<Branch[] | null> {
     const raw = await this.query<any[]>('branches?select=*&order=code.asc');
     if (!raw || raw.length === 0) return null;
 
-    return raw.map((b) => ({
+    const filtered = includeArchived
+      ? raw
+      : raw.filter((b) => !b.name?.startsWith('[ARCHIVED]') && !b.name?.startsWith('[DELETED]'));
+
+    return filtered.map((b) => ({
       id: b.id,
       name: b.name,
       code: b.code,
@@ -136,6 +140,34 @@ class SupabaseService {
       galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
       amenities: Array.isArray(b.amenities) ? b.amenities : [],
       isActive: Boolean(b.is_active),
+      isArchived: Boolean(b.name?.startsWith('[ARCHIVED]') || b.name?.startsWith('[DELETED]')),
+      createdAt: b.created_at,
+      updatedAt: b.updated_at,
+    }));
+  }
+
+  async getArchivedBranches(): Promise<Branch[]> {
+    const raw = await this.query<any[]>('branches?select=*&order=code.asc');
+    if (!raw || raw.length === 0) return [];
+
+    const archived = raw.filter((b) => b.name?.startsWith('[ARCHIVED]') || b.name?.startsWith('[DELETED]'));
+    return archived.map((b) => ({
+      id: b.id,
+      name: (b.name || '').replace(/^\[(ARCHIVED|DELETED)\]\s*/, ''),
+      code: b.code,
+      phone: b.phone,
+      address: b.address,
+      district: b.district,
+      city: b.city,
+      latitude: Number(b.latitude),
+      longitude: Number(b.longitude),
+      openingTime: b.opening_time,
+      closingTime: b.closing_time,
+      imageUrl: b.image_url,
+      galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
+      amenities: Array.isArray(b.amenities) ? b.amenities : [],
+      isActive: false,
+      isArchived: true,
       createdAt: b.created_at,
       updatedAt: b.updated_at,
     }));
@@ -213,6 +245,92 @@ class SupabaseService {
       return res !== null;
     } catch (err) {
       console.warn('[SupabaseService] updateBranch error:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Xóa chi nhánh khỏi hệ thống vận hành (SOFT DELETE):
+   * Bảo toàn 100% dữ liệu chi nhánh trong cơ sở dữ liệu Supabase Cloud.
+   * Bản ghi KHÔNG bị xóa cứng (DELETE) để giữ nguyên vẹn liên kết khóa ngoại với lịch hẹn,
+   * nhân sự, phòng dịch vụ và báo cáo tài chính.
+   */
+  async deleteBranch(branchId: string): Promise<boolean> {
+    try {
+      const existing = await this.query<any[]>(`branches?id=eq.${branchId}&select=*`);
+      if (existing && existing.length > 0) {
+        const br = existing[0];
+        const originalName = br.name || '';
+        const cleanName = originalName.replace(/^\[(ARCHIVED|DELETED)\]\s*/, '');
+        const archivedName = `[ARCHIVED] ${cleanName}`.slice(0, 100);
+
+        const patchRes = await this.query<any>(`branches?id=eq.${branchId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: archivedName,
+            is_active: false,
+          }),
+        });
+
+        try {
+          await this.query('audit_logs', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'SOFT_DELETE_BRANCH',
+              table_name: 'branches',
+              record_id: branchId,
+              old_data: br,
+              new_data: {
+                status: 'ARCHIVED',
+                note: 'Chi nhánh đã xóa khỏi hệ thống vận hành, bảo lưu toàn vẹn trong cơ sở dữ liệu',
+                archived_at: new Date().toISOString(),
+              },
+            }),
+          });
+        } catch {}
+
+        return patchRes !== null;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[SupabaseService] deleteBranch (soft delete) error:', err);
+      return false;
+    }
+  }
+
+  async restoreBranch(branchId: string): Promise<boolean> {
+    try {
+      const existing = await this.query<any[]>(`branches?id=eq.${branchId}&select=*`);
+      if (existing && existing.length > 0) {
+        const br = existing[0];
+        const originalName = br.name || '';
+        const restoredName = originalName.replace(/^\[(ARCHIVED|DELETED)\]\s*/, '');
+
+        const patchRes = await this.query<any>(`branches?id=eq.${branchId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: restoredName,
+            is_active: true,
+          }),
+        });
+
+        try {
+          await this.query('audit_logs', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'RESTORE_BRANCH',
+              table_name: 'branches',
+              record_id: branchId,
+              restored_at: new Date().toISOString(),
+            }),
+          });
+        } catch {}
+
+        return patchRes !== null;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[SupabaseService] restoreBranch error:', err);
       return false;
     }
   }

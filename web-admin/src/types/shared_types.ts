@@ -251,6 +251,10 @@ export interface Branch {
   galleryUrls: string[];
   amenities: string[];
   isActive: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BranchRoom {

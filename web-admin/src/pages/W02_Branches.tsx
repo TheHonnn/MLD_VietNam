@@ -138,6 +138,15 @@ export const W02_Branches: React.FC = () => {
     (BranchRoom & { branchName?: string; branchCode?: string }) | null
   >(null);
 
+  // Archived Branches (Soft-deleted branches)
+  const [allArchivedBranches, setAllArchivedBranches] = useState<Branch[]>([]);
+  const [showArchivedBranchesDrawer, setShowArchivedBranchesDrawer] = useState(false);
+
+  // Delete Branch Modal State
+  const [isDeleteBranchModalOpen, setIsDeleteBranchModalOpen] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [isDeletingBranch, setIsDeletingBranch] = useState(false);
+
   // Create Branch Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -232,27 +241,45 @@ export const W02_Branches: React.FC = () => {
   const loadAllData = async (isManualRefresh = false) => {
     if (isManualRefresh) setIsRefreshing(true);
     try {
-      const [brRes, srvRes, allRoomsRes, archivedRoomsRes] = await Promise.all([
+      const [brRes, srvRes, allRoomsRes, archivedRoomsRes, archivedBrRes] = await Promise.all([
         branchService.getAllBranches(),
         treatmentService.getServices(),
         branchService.getAllRooms(),
         branchService.getAllArchivedRooms(),
+        branchService.getArchivedBranches(),
       ]);
 
       let allBranches = brRes.success && brRes.data.length > 0 ? brRes.data : [];
+      let archivedBranchesList: Branch[] =
+        archivedBrRes.success && archivedBrRes.data.length > 0 ? archivedBrRes.data : [];
 
       // Merge with local storage branches
       try {
+        const storedArchived = localStorage.getItem('mld_archived_custom_branches');
+        const archivedIds = new Set(archivedBranchesList.map((b) => b.id));
+        if (storedArchived) {
+          const parsedArchived: Branch[] = JSON.parse(storedArchived);
+          for (const ab of parsedArchived) {
+            if (!archivedIds.has(ab.id)) {
+              archivedBranchesList.push(ab);
+              archivedIds.add(ab.id);
+            }
+          }
+        }
+
         const stored = localStorage.getItem('mld_custom_branches');
         if (stored) {
           const parsed: Branch[] = JSON.parse(stored);
           const remoteIds = new Set(allBranches.map((b) => b.id));
-          const newCustom = parsed.filter((b) => !remoteIds.has(b.id));
+          const newCustom = parsed.filter(
+            (b) => !remoteIds.has(b.id) && !archivedIds.has(b.id)
+          );
           allBranches = [...newCustom, ...allBranches];
         }
       } catch {}
 
       setBranches(allBranches);
+      setAllArchivedBranches(archivedBranchesList);
 
       // Join rooms with branch info
       let combinedRooms: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
@@ -309,14 +336,16 @@ export const W02_Branches: React.FC = () => {
       if (allBranches.length > 0) {
         const savedPref = localStorage.getItem('mld_selected_branch_id');
         const targetId =
-          savedPref && allBranches.some((b) => b.id === savedPref)
+          savedPref && savedPref !== 'ALL' && allBranches.some((b) => b.id === savedPref)
             ? savedPref
             : allBranches[0].id;
         setSelectedBranchId(targetId);
-        if (savedPref && savedPref !== 'ALL') {
+        if (savedPref === 'ALL') {
+          setGlobalWorkingBranchId('ALL');
+        } else if (savedPref && allBranches.some((b) => b.id === savedPref)) {
           setGlobalWorkingBranchId(savedPref);
         } else {
-          setGlobalWorkingBranchId(allBranches[0].id);
+          setGlobalWorkingBranchId('ALL');
         }
 
         const roomRes = await branchService.getRoomsByBranch(targetId);
@@ -386,6 +415,12 @@ export const W02_Branches: React.FC = () => {
       );
     }
 
+    if (managingBranch && managingBranch.id === room.branchId) {
+      setManageRooms((prev) =>
+        prev.map((r) => (r.id === room.id ? { ...r, isAvailable: nextAvail } : r))
+      );
+    }
+
     toast.info(
       'Cập nhật trạng thái phòng',
       `Phòng "${room.name}" hiện ${nextAvail ? 'sẵn sàng đón khách' : 'tạm dừng nhận khách'}.`
@@ -435,12 +470,18 @@ export const W02_Branches: React.FC = () => {
       setRooms((prev) => prev.filter((r) => r.id !== room.id));
     }
 
+    // 5. Update manage modal rooms if managing this branch
+    if (managingBranch && managingBranch.id === room.branchId) {
+      setManageRooms((prev) => prev.filter((r) => r.id !== room.id));
+      setArchivedRooms((prev) => [archivedItem, ...prev.filter((r) => r.id !== room.id)]);
+    }
+
     toast.success(
       'Đã xóa phòng khỏi hệ thống',
       `Phòng "${room.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi vẫn được bảo toàn nguyên vẹn trong cơ sở dữ liệu.`
     );
 
-    // 5. Update Supabase Cloud (PATCH [ARCHIVED])
+    // 6. Update Supabase Cloud (PATCH [ARCHIVED])
     await branchService.deleteRoom(room.id);
   };
 
@@ -483,6 +524,12 @@ export const W02_Branches: React.FC = () => {
 
     if (selectedBranchId === room.branchId) {
       setRooms((prev) => [...prev.filter((r) => r.id !== room.id), restoredItem]);
+    }
+
+    // 4. Update manage modal rooms if managing this branch
+    if (managingBranch && managingBranch.id === room.branchId) {
+      setArchivedRooms((prev) => prev.filter((r) => r.id !== room.id));
+      setManageRooms((prev) => [...prev.filter((r) => r.id !== room.id), restoredItem]);
     }
 
     toast.success(
@@ -568,6 +615,10 @@ export const W02_Branches: React.FC = () => {
 
       if (selectedBranchId === createdRoom.branchId) {
         setRooms((prev) => [...prev, createdRoom]);
+      }
+
+      if (managingBranch && managingBranch.id === createdRoom.branchId) {
+        setManageRooms((prev) => [...prev, createdRoom]);
       }
 
       toast.success(
@@ -704,6 +755,27 @@ export const W02_Branches: React.FC = () => {
         );
       }
 
+      if (managingBranch) {
+        if (
+          managingBranch.id === editingCrossBranchRoom.branchId &&
+          editingCrossBranchRoom.branchId !== crossBranchEditRoomForm.branchId
+        ) {
+          setManageRooms((prev) =>
+            prev.filter((r) => r.id !== editingCrossBranchRoom.id)
+          );
+        } else if (managingBranch.id === crossBranchEditRoomForm.branchId) {
+          setManageRooms((prev) => {
+            const exists = prev.some((r) => r.id === editingCrossBranchRoom.id);
+            if (exists) {
+              return prev.map((r) =>
+                r.id === editingCrossBranchRoom.id ? { ...r, ...updates } : r
+              );
+            }
+            return [...prev, { ...editingCrossBranchRoom, ...updates } as BranchRoom];
+          });
+        }
+      }
+
       toast.success(
         'Cập nhật phòng thành công',
         `Phòng "${crossBranchEditRoomForm.name}" đã được lưu thay đổi.`
@@ -755,7 +827,148 @@ export const W02_Branches: React.FC = () => {
       `Chi nhánh "${branch.name}" hiện ${nextActive ? 'đang hoạt động' : 'tạm dừng hoạt động'}.`
     );
 
+    window.dispatchEvent(new CustomEvent('mld_branches_updated'));
     await branchService.updateBranch(branch.id, { isActive: nextActive });
+  };
+
+  // Open Delete Branch confirmation modal
+  const handleOpenDeleteBranchModal = (branch: Branch) => {
+    setBranchToDelete(branch);
+    setIsDeleteBranchModalOpen(true);
+  };
+
+  // Confirm delete branch (Soft Delete - preserve in CSDL)
+  const handleConfirmDeleteBranch = async () => {
+    if (!branchToDelete) return;
+
+    if (branches.length <= 1) {
+      toast.error(
+        'Không thể xóa',
+        'Hệ thống yêu cầu duy trì tối thiểu 01 cơ sở chi nhánh để vận hành lịch hẹn và POS.'
+      );
+      setIsDeleteBranchModalOpen(false);
+      setBranchToDelete(null);
+      return;
+    }
+
+    setIsDeletingBranch(true);
+    const target = branchToDelete;
+
+    try {
+      // 1. Remove from active branches state
+      const remainingBranches = branches.filter((b) => b.id !== target.id);
+      setBranches(remainingBranches);
+
+      // 2. Add to allArchivedBranches state
+      const archivedItem: Branch = {
+        ...target,
+        isActive: false,
+        isArchived: true,
+        archivedAt: new Date().toISOString(),
+      };
+      setAllArchivedBranches((prev) => [archivedItem, ...prev.filter((b) => b.id !== target.id)]);
+
+      // 3. Switch selected branch if it was deleted
+      if (selectedBranchId === target.id) {
+        const nextBranch = remainingBranches[0];
+        if (nextBranch) {
+          setSelectedBranchId(nextBranch.id);
+          loadRoomsForBranch(nextBranch.id);
+        }
+      }
+
+      // 4. Switch global working branch if it was deleted
+      if (globalWorkingBranchId === target.id) {
+        const nextBranch = remainingBranches[0];
+        if (nextBranch) {
+          setGlobalWorkingBranchId(nextBranch.id);
+          localStorage.setItem('mld_selected_branch_id', nextBranch.id);
+          window.dispatchEvent(
+            new CustomEvent('mld_branch_changed', {
+              detail: { branchId: nextBranch.id, branch: nextBranch },
+            })
+          );
+        }
+      }
+
+      // 5. Update localStorage
+      try {
+        const stored = localStorage.getItem('mld_custom_branches');
+        if (stored) {
+          const parsed: Branch[] = JSON.parse(stored);
+          localStorage.setItem(
+            'mld_custom_branches',
+            JSON.stringify(parsed.filter((b) => b.id !== target.id))
+          );
+        }
+        const storedArchived = localStorage.getItem('mld_archived_custom_branches');
+        const parsedArchived: Branch[] = storedArchived ? JSON.parse(storedArchived) : [];
+        localStorage.setItem(
+          'mld_archived_custom_branches',
+          JSON.stringify([archivedItem, ...parsedArchived.filter((b) => b.id !== target.id)])
+        );
+      } catch {}
+
+      toast.success(
+        'Đã xóa chi nhánh khỏi hệ thống',
+        `Cơ sở "${target.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi cơ sở và dữ liệu giao dịch vẫn được bảo toàn nguyên vẹn trong CSDL.`
+      );
+
+      setIsDeleteBranchModalOpen(false);
+      setBranchToDelete(null);
+
+      window.dispatchEvent(new CustomEvent('mld_branches_updated'));
+
+      // 6. Update Supabase Cloud (PATCH [ARCHIVED])
+      await branchService.deleteBranch(target.id);
+    } catch (err) {
+      console.error('Lỗi khi xóa chi nhánh:', err);
+      toast.error('Có lỗi xảy ra', 'Không thể xóa chi nhánh vào lúc này.');
+    } finally {
+      setIsDeletingBranch(false);
+    }
+  };
+
+  // Restore archived branch
+  const handleRestoreBranch = async (branch: Branch) => {
+    // 1. Remove from allArchivedBranches
+    setAllArchivedBranches((prev) => prev.filter((b) => b.id !== branch.id));
+
+    // 2. Add back to branches
+    const restoredItem: Branch = {
+      ...branch,
+      isActive: true,
+      isArchived: false,
+    };
+    setBranches((prev) => [...prev.filter((b) => b.id !== branch.id), restoredItem]);
+
+    // 3. Update localStorage
+    try {
+      const storedArchived = localStorage.getItem('mld_archived_custom_branches');
+      if (storedArchived) {
+        const parsed: Branch[] = JSON.parse(storedArchived);
+        localStorage.setItem(
+          'mld_archived_custom_branches',
+          JSON.stringify(parsed.filter((b) => b.id !== branch.id))
+        );
+      }
+      const stored = localStorage.getItem('mld_custom_branches');
+      const parsed: Branch[] = stored ? JSON.parse(stored) : [];
+      localStorage.setItem(
+        'mld_custom_branches',
+        JSON.stringify([...parsed.filter((b) => b.id !== branch.id), restoredItem])
+      );
+    } catch {}
+
+    toast.success(
+      'Khôi phục chi nhánh thành công',
+      `Cơ sở "${branch.name}" đã được khôi phục trở lại hệ thống vận hành.`
+    );
+
+    window.dispatchEvent(new CustomEvent('mld_branches_updated'));
+
+    // 4. Update Supabase Cloud
+    await branchService.restoreBranch(branch.id);
   };
 
   const loadRoomsForBranch = (branchId: string) => {
@@ -925,6 +1138,12 @@ export const W02_Branches: React.FC = () => {
       if (selectedBranchId === managingBranch.id) {
         setRooms(updated);
       }
+      const joinedNewRoom: BranchRoom & { branchName?: string; branchCode?: string } = {
+        ...newRoom,
+        branchName: managingBranch.name,
+        branchCode: managingBranch.code,
+      };
+      setAllRooms((prev) => [joinedNewRoom, ...prev.filter((r) => r.id !== newRoom.id)]);
       setNewRoomData({
         name: '',
         roomType: '',
@@ -949,6 +1168,12 @@ export const W02_Branches: React.FC = () => {
       if (selectedBranchId === managingBranch.id) {
         setRooms(updated);
       }
+      const joinedFallback: BranchRoom & { branchName?: string; branchCode?: string } = {
+        ...fallbackRoom,
+        branchName: managingBranch.name,
+        branchCode: managingBranch.code,
+      };
+      setAllRooms((prev) => [joinedFallback, ...prev.filter((r) => r.id !== fallbackRoom.id)]);
       setShowAddRoom(false);
       toast.success('Đã thêm phòng', `Phòng "${fallbackRoom.name}" đã được lưu vào cơ sở.`);
     } finally {
@@ -969,6 +1194,9 @@ export const W02_Branches: React.FC = () => {
     if (selectedBranchId === managingBranch.id) {
       setRooms(updated);
     }
+    setAllRooms((prev) =>
+      prev.map((r) => (r.id === roomId ? { ...r, isAvailable: nextAvail } : r))
+    );
     await branchService.updateRoom(roomId, { isAvailable: nextAvail });
   };
 
@@ -984,6 +1212,7 @@ export const W02_Branches: React.FC = () => {
     if (selectedBranchId === managingBranch.id) {
       setRooms(updated);
     }
+    setAllRooms((prev) => prev.filter((r) => r.id !== roomId));
 
     // 2. Đưa vào danh sách phòng lưu trữ trong CSDL (Soft Delete)
     const archivedTarget: BranchRoom = {
@@ -993,6 +1222,12 @@ export const W02_Branches: React.FC = () => {
       archivedAt: new Date().toISOString(),
     };
     setArchivedRooms((prev) => [archivedTarget, ...prev.filter((r) => r.id !== roomId)]);
+    const archivedJoined: BranchRoom & { branchName?: string; branchCode?: string } = {
+      ...archivedTarget,
+      branchName: managingBranch.name,
+      branchCode: managingBranch.code,
+    };
+    setAllArchivedRooms((prev) => [archivedJoined, ...prev.filter((r) => r.id !== roomId)]);
 
     toast.success(
       'Đã xóa phòng khỏi hệ thống',
@@ -1010,6 +1245,7 @@ export const W02_Branches: React.FC = () => {
 
     // 1. Gỡ khỏi danh sách lưu trữ CSDL
     setArchivedRooms((prev) => prev.filter((r) => r.id !== roomId));
+    setAllArchivedRooms((prev) => prev.filter((r) => r.id !== roomId));
 
     // 2. Khôi phục lại danh sách phòng hoạt động trên hệ thống
     const restoredTarget: BranchRoom = {
@@ -1023,6 +1259,12 @@ export const W02_Branches: React.FC = () => {
     if (selectedBranchId === managingBranch.id) {
       setRooms(updated);
     }
+    const restoredJoined: BranchRoom & { branchName?: string; branchCode?: string } = {
+      ...restoredTarget,
+      branchName: managingBranch.name,
+      branchCode: managingBranch.code,
+    };
+    setAllRooms((prev) => [restoredJoined, ...prev.filter((r) => r.id !== roomId)]);
 
     toast.success(
       'Khôi phục thành công',
@@ -1088,6 +1330,7 @@ export const W02_Branches: React.FC = () => {
 
       toast.success('Cập nhật cơ sở thành công', `Đã lưu thông tin cơ sở ${editForm.name}.`);
       setIsManageModalOpen(false);
+      window.dispatchEvent(new CustomEvent('mld_branches_updated'));
     } catch (err) {
       console.error('Lỗi khi cập nhật chi nhánh:', err);
       toast.error('Có lỗi xảy ra', 'Không thể lưu thay đổi vào lúc này.');
@@ -1192,6 +1435,7 @@ export const W02_Branches: React.FC = () => {
         `Cơ sở ${createdBranch.name} (${createdBranch.code}) đã được kích hoạt thành công trên hệ thống.`
       );
       setIsCreateModalOpen(false);
+      window.dispatchEvent(new CustomEvent('mld_branches_updated'));
 
       // Reset form
       setFormData({
@@ -1587,6 +1831,17 @@ export const W02_Branches: React.FC = () => {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDeleteBranchModal(branch);
+                            }}
+                            className="p-1.5 text-[#B0A294] hover:text-[#B83E3E] hover:bg-[#FDF2F2] rounded-lg transition-colors cursor-pointer"
+                            title="Xóa chi nhánh khỏi hệ thống (lưu trữ CSDL)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1621,6 +1876,71 @@ export const W02_Branches: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Danh sách chi nhánh đã lưu trữ trong CSDL (Soft-Delete) */}
+      {allArchivedBranches.length > 0 && (
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowArchivedBranchesDrawer(!showArchivedBranchesDrawer)}
+              className="flex items-center gap-2 text-xs font-bold text-[#73675F] hover:text-[#985018] cursor-pointer transition-colors"
+            >
+              <Archive className="w-4 h-4 text-[#985018]" />
+              <span>
+                Chi nhánh đã lưu trữ trong cơ sở dữ liệu ({allArchivedBranches.length})
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${
+                  showArchivedBranchesDrawer ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            <span className="text-[11px] text-[#8C7A6B]">
+              Bảo toàn 100% dữ liệu CSDL
+            </span>
+          </div>
+
+          {showArchivedBranchesDrawer && (
+            <div className="pt-2 border-t border-[#EFE4D9] space-y-2.5 animate-in fade-in-50">
+              <div className="flex items-start gap-2 p-2.5 bg-[#FAF3EC] border border-[#E8DFD8] rounded-xl text-[11px] text-[#73675F]">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#985018] shrink-0 mt-0.5" />
+                <span>
+                  Các cơ sở này đã bị ẩn khỏi hệ thống điều phối và thu ngân. Bấm <strong>Khôi phục</strong> để kích hoạt cơ sở trở lại ngay lập tức.
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {allArchivedBranches.map((ab) => (
+                  <div
+                    key={ab.id}
+                    className="p-3 bg-[#FAF8F5] rounded-xl border border-dashed border-[#D8C9BA] flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <div className="font-bold text-[#2C241E] flex items-center gap-1.5">
+                        <span>{ab.name}</span>
+                        <span className="text-[9.5px] px-1.5 py-0.2 bg-[#EFE4D9] text-[#73675F] rounded font-mono font-bold">
+                          {ab.code}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#8C7A6B] mt-0.5">
+                        {ab.address}, {ab.district}, {ab.city}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreBranch(ab)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF0E4] rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs shrink-0"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Khôi phục</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 4. Bottom Section: Selected Branch Details & Matrix */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -2895,6 +3215,33 @@ export const W02_Branches: React.FC = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* 5. Vùng nguy hiểm: Xóa chi nhánh (Soft-delete & lưu trữ CSDL) */}
+                <div className="p-4 bg-rose-50/60 rounded-2xl border border-rose-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-rose-900">
+                      5. Xóa chi nhánh khỏi hệ thống vận hành
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                      Bảo toàn CSDL
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-800/80 leading-relaxed">
+                    Hành động này sẽ ẩn cơ sở khỏi hệ thống điều phối, danh mục đặt lịch và POS. Dữ liệu lịch sử giao dịch và phân ca vẫn được lưu trữ vĩnh viễn trong CSDL.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const br = managingBranch;
+                      setIsManageModalOpen(false);
+                      handleOpenDeleteBranchModal(br);
+                    }}
+                    className="mt-1 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xác nhận xóa cơ sở này</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -3749,6 +4096,101 @@ export const W02_Branches: React.FC = () => {
               >
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Chỉnh sửa phòng này</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 4: XÁC NHẬN XÓA CHI NHÁNH (SOFT DELETE - PRESERVE CSDL) */}
+      {/* ============================================================== */}
+      {isDeleteBranchModalOpen && branchToDelete && (
+        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FAF8F5] rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#2C241E]">
+                    Xác nhận xóa chi nhánh
+                  </h3>
+                  <p className="text-xs text-[#73675F]">
+                    Ẩn cơ sở khỏi hệ thống và bảo toàn dữ liệu trong CSDL
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteBranchModalOpen(false);
+                  setBranchToDelete(null);
+                }}
+                className="w-8 h-8 rounded-full hover:bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B] hover:text-[#2C241E] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 space-y-4">
+              <div className="p-4 bg-white rounded-2xl border border-[#EFE4D9] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-[#2C241E]">{branchToDelete.name}</span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-[#FAF0E4] text-[#8A4F23]">
+                    {branchToDelete.code}
+                  </span>
+                </div>
+                <div className="text-xs text-[#73675F]">
+                  {branchToDelete.address}, {branchToDelete.district}, {branchToDelete.city}
+                </div>
+                <div className="text-[11px] text-[#8C7A6B]">
+                  Hotline tiếp đón: <span className="font-semibold text-[#2C241E]">{branchToDelete.phone}</span>
+                </div>
+              </div>
+
+              {/* Policy alert */}
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-amber-900 leading-relaxed">
+                  <strong>Chính sách lưu trữ cơ sở dữ liệu:</strong> Khi xóa, cơ sở sẽ được ẩn khỏi danh sách vận hành, phân ca KTV và màn hình thu ngân POS. Bản ghi cơ sở cùng toàn bộ lịch sử hóa đơn, phiếu liệu trình và lịch hẹn <strong>vẫn được bảo toàn nguyên vẹn 100% trong CSDL</strong> và có thể khôi phục lại bất kỳ lúc nào.
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-white border-t border-[#EFE4D9] flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeletingBranch}
+                onClick={() => {
+                  setIsDeleteBranchModalOpen(false);
+                  setBranchToDelete(null);
+                }}
+                className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingBranch}
+                onClick={handleConfirmDeleteBranch}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                {isDeletingBranch ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xác nhận xóa chi nhánh</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

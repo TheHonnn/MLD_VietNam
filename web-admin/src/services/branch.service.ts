@@ -252,5 +252,69 @@ export const branchService = {
       data: { id, ...updates } as Branch,
     };
   },
+
+  async deleteBranch(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.deleteBranch(id);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok
+          ? 'Đã xóa chi nhánh khỏi hệ thống vận hành và bảo toàn dữ liệu trong cơ sở dữ liệu'
+          : 'Lỗi khi xóa chi nhánh',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[branchService] deleteBranch error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi kết nối khi xóa chi nhánh',
+        data: false,
+      };
+    }
+  },
+
+  async restoreBranch(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.restoreBranch(id);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok
+          ? 'Khôi phục chi nhánh vào hệ thống thành công'
+          : 'Lỗi khi khôi phục chi nhánh',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[branchService] restoreBranch error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi kết nối khi khôi phục chi nhánh',
+        data: false,
+      };
+    }
+  },
+
+  async getArchivedBranches(): Promise<ApiResponse<Branch[]>> {
+    try {
+      const live = await supabaseService.getArchivedBranches();
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu chi nhánh lưu trữ từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[branchService] getArchivedBranches error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi tải danh sách chi nhánh lưu trữ từ Supabase Cloud',
+        data: [],
+      };
+    }
+  },
 };
 
