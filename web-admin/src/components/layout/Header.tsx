@@ -20,6 +20,7 @@ import {
 import { useAdmin } from '../../admin/Auth';
 import { notificationService, branchService, AdminNotification } from '../../services';
 import { Branch } from '../../types/shared_types';
+import { RealtimeStatusBadge } from '../common/RealtimeStatusBadge';
 
 const breadcrumbs: Record<string, string> = {
   '/': 'Tổng quan vận hành',
@@ -245,8 +246,11 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Controls: Branch Select, Search, Bell, User Profile */}
-      <div className="flex items-center gap-3">
+      {/* Right Controls: Realtime Badge, Branch Select, Search, Bell, User Profile */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Realtime Live Status Badge */}
+        <RealtimeStatusBadge />
+
         {/* Branch dropdown */}
         <div className="relative" ref={branchMenuRef}>
           <button

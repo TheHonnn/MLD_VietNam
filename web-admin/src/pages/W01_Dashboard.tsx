@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Wallet,
   Receipt,
@@ -16,6 +16,7 @@ import {
   Check,
   User,
   Phone,
+  Radio,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -41,6 +42,8 @@ import {
   MultiColorLineChart,
   DailyRevenueItem,
 } from '../components/dashboard/MultiColorLineChart';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { RealtimeStatusBadge } from '../components/common/RealtimeStatusBadge';
 
 type DateRangePreset = '7D' | 'TODAY' | '30D' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
 
@@ -128,37 +131,115 @@ export const W01_Dashboard: React.FC = () => {
     };
   }, []);
 
-  // Fetch all operational data
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [invRes, bkRes, brRes, pkgRes, enrRes, tuiRes, liveTechs, custRes] = await Promise.all([
-          posService.getInvoices(),
-          bookingService.getBookings(),
-          branchService.getAllBranches(),
-          treatmentService.getUserPackagesByCustomer(),
-          academyService.getEnrollments(),
-          academyService.getTuitionTransactions(),
-          supabaseService.getTechnicians(),
-          customerService.getCustomers(),
-        ]);
-        if (invRes.success) setInvoices(invRes.data);
-        if (bkRes.success) setBookings(bkRes.data);
-        if (brRes.success) setBranches(brRes.data);
-        if (pkgRes.success) setUserPackages(pkgRes.data);
-        if (enrRes.success) setEnrollments(enrRes.data);
-        if (tuiRes.success) setTuitions(tuiRes.data);
-        if (liveTechs) setTechnicians(liveTechs);
-        if (custRes.success) setCustomers(custRes.data);
-      } catch (err) {
-        console.error('Failed to load dashboard data:', err);
-      } finally {
-        setIsLoading(false);
-      }
+  // Dynamic Real-time Calendar Helper
+  const realDates = useMemo(() => {
+    const now = new Date();
+    const toIso = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     };
-    fetchData();
+    const toDisplay = (d: Date) => {
+      const day = String(d.getDate()).padStart(2, '0');
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}/${m}/${d.getFullYear()}`;
+    };
+    const toShort = (d: Date) => {
+      const day = String(d.getDate()).padStart(2, '0');
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}/${m}`;
+    };
+
+    const d7 = new Date(now);
+    d7.setDate(d7.getDate() - 7);
+
+    const d30 = new Date(now);
+    d30.setDate(d30.getDate() - 30);
+
+    const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const mEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return {
+      todayIso: toIso(now),
+      todayDisplay: toDisplay(now),
+      d7Iso: toIso(d7),
+      d7Display: toDisplay(d7),
+      d7Short: toShort(d7),
+      d30Iso: toIso(d30),
+      d30Short: toShort(d30),
+      mStartIso: toIso(mStart),
+      mEndIso: toIso(mEnd),
+      monthDisplay: `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`,
+      toIso,
+      toDisplay,
+      toShort,
+    };
   }, []);
+
+  // Fetch all operational data
+  const fetchData = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    try {
+      const [invRes, bkRes, brRes, pkgRes, enrRes, tuiRes, liveTechs, custRes] = await Promise.all([
+        posService.getInvoices(),
+        bookingService.getBookings(),
+        branchService.getAllBranches(),
+        treatmentService.getUserPackagesByCustomer(),
+        academyService.getEnrollments(),
+        academyService.getTuitionTransactions(),
+        supabaseService.getTechnicians(),
+        customerService.getCustomers(),
+      ]);
+      if (invRes.success) setInvoices(invRes.data);
+      if (bkRes.success) setBookings(bkRes.data);
+      if (brRes.success) setBranches(brRes.data);
+      if (pkgRes.success) setUserPackages(pkgRes.data);
+      if (enrRes.success) setEnrollments(enrRes.data);
+      if (tuiRes.success) setTuitions(tuiRes.data);
+      if (liveTechs) setTechnicians(liveTechs);
+      if (custRes.success) setCustomers(custRes.data);
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData(true);
+  }, [fetchData]);
+
+  // Realtime WebSocket synchronization
+  const [realtimeToast, setRealtimeToast] = useState<{
+    message: string;
+    type: 'success' | 'info';
+  } | null>(null);
+
+  const { isLive, lastSyncTime, forceSync } = useRealtimeSync({
+    onDataChange: (event) => {
+      fetchData(false);
+      const actionLabel =
+        event.table === 'bookings'
+          ? 'Lịch hẹn mới'
+          : event.table === 'invoices'
+          ? 'Hóa đơn thanh toán'
+          : event.table === 'tuition_transactions'
+          ? 'Giao dịch học phí'
+          : event.table === 'course_enrollments'
+          ? 'Hồ sơ tuyển sinh'
+          : 'Dữ liệu vận hành';
+
+      setRealtimeToast({
+        message: `⚡ Realtime: ${actionLabel} vừa được đồng bộ tự động từ Supabase`,
+        type: 'success',
+      });
+
+      setTimeout(() => {
+        setRealtimeToast(null);
+      }, 4500);
+    },
+  });
 
   // Quick lookup maps
   const customerMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
@@ -174,36 +255,36 @@ export const W01_Dashboard: React.FC = () => {
         selectedBranch?.name ||
         'Chi nhánh đã chọn';
 
-  // Compute Active Date Bounds & Display Labels
+  // Compute Active Date Bounds & Display Labels with Dynamic Real-time Values
   const { startDateStr, endDateStr, labelLine1, labelLine2 } = useMemo(() => {
     switch (datePreset) {
       case '7D':
         return {
-          startDateStr: '2026-10-09',
-          endDateStr: '2026-10-16',
-          labelLine1: '09/10/2026 –',
-          labelLine2: '16/10/2026',
+          startDateStr: realDates.d7Iso,
+          endDateStr: realDates.todayIso,
+          labelLine1: `${realDates.d7Display} –`,
+          labelLine2: realDates.todayDisplay,
         };
       case 'TODAY':
         return {
-          startDateStr: '2026-10-16',
-          endDateStr: '2026-10-16',
+          startDateStr: realDates.todayIso,
+          endDateStr: realDates.todayIso,
           labelLine1: 'Hôm nay –',
-          labelLine2: '16/10/2026',
+          labelLine2: realDates.todayDisplay,
         };
       case '30D':
         return {
-          startDateStr: '2026-09-16',
-          endDateStr: '2026-10-16',
+          startDateStr: realDates.d30Iso,
+          endDateStr: realDates.todayIso,
           labelLine1: '30 ngày qua –',
-          labelLine2: '16/09 – 16/10',
+          labelLine2: `${realDates.d30Short} – ${realDates.toShort(new Date())}`,
         };
       case 'THIS_MONTH':
         return {
-          startDateStr: '2026-10-01',
-          endDateStr: '2026-10-31',
+          startDateStr: realDates.mStartIso,
+          endDateStr: realDates.mEndIso,
           labelLine1: 'Tháng này –',
-          labelLine2: '10/2026',
+          labelLine2: realDates.monthDisplay,
         };
       case 'ALL':
         return {
@@ -221,13 +302,13 @@ export const W01_Dashboard: React.FC = () => {
         };
       default:
         return {
-          startDateStr: '2026-10-09',
-          endDateStr: '2026-10-16',
-          labelLine1: '09/10/2026 –',
-          labelLine2: '16/10/2026',
+          startDateStr: realDates.d7Iso,
+          endDateStr: realDates.todayIso,
+          labelLine1: `${realDates.d7Display} –`,
+          labelLine2: realDates.todayDisplay,
         };
     }
-  }, [datePreset, customStartDate, customEndDate]);
+  }, [datePreset, customStartDate, customEndDate, realDates]);
 
   // Date In Range Checker
   const isDateInRange = (dateStr?: string | null) => {
@@ -528,6 +609,23 @@ export const W01_Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
+      {/* Floating Realtime Toast Notification */}
+      {realtimeToast && (
+        <div className="fixed top-20 right-8 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-[#2C241E]/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-[#985018]/40 flex items-center gap-3 text-xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-ping" />
+            <span className="font-semibold text-[#F5EBE1]">{realtimeToast.message}</span>
+            <button
+              type="button"
+              onClick={() => setRealtimeToast(null)}
+              className="ml-2 text-[#A8988A] hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Page Header Title & Main Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
@@ -535,15 +633,18 @@ export const W01_Dashboard: React.FC = () => {
             Tổng quan vận hành
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Bức tranh vận hành chuỗi spa và học viện
+            Bức tranh vận hành chuỗi spa và học viện • <span className="text-[#15803D] font-semibold">Đồng bộ trực tiếp</span>
           </p>
         </div>
-        <Link
-          to="/reports"
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center shrink-0"
-        >
-          Xem báo cáo doanh thu
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <RealtimeStatusBadge onRefresh={() => fetchData(false)} />
+          <Link
+            to="/reports"
+            className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center shrink-0"
+          >
+            Xem báo cáo doanh thu
+          </Link>
+        </div>
       </div>
 
       {/* 2. Interactive Filter Bar Box */}
@@ -774,11 +875,31 @@ export const W01_Dashboard: React.FC = () => {
               {/* Presets */}
               <div className="space-y-1">
                 {[
-                  { key: '7D', label: '7 ngày qua (09/10 – 16/10)', desc: 'Mặc định tuần vận hành' },
-                  { key: 'TODAY', label: 'Hôm nay (16/10/2026)', desc: 'Thời gian thực trong ngày' },
-                  { key: '30D', label: '30 ngày qua (16/09 – 16/10)', desc: 'Thống kê 1 tháng gần nhất' },
-                  { key: 'THIS_MONTH', label: 'Tháng này (Tháng 10/2026)', desc: 'Toàn bộ chu kỳ tháng 10' },
-                  { key: 'ALL', label: 'Toàn thời gian (Tất cả)', desc: 'Không giới hạn ngày' },
+                  {
+                    key: '7D',
+                    label: `7 ngày qua (${realDates.d7Short} – ${realDates.toShort(new Date())})`,
+                    desc: 'Mặc định tuần vận hành',
+                  },
+                  {
+                    key: 'TODAY',
+                    label: `Hôm nay (${realDates.todayDisplay})`,
+                    desc: 'Thời gian thực trong ngày',
+                  },
+                  {
+                    key: '30D',
+                    label: `30 ngày qua (${realDates.d30Short} – ${realDates.toShort(new Date())})`,
+                    desc: 'Thống kê 1 tháng gần nhất',
+                  },
+                  {
+                    key: 'THIS_MONTH',
+                    label: `Tháng này (${realDates.monthDisplay})`,
+                    desc: 'Toàn bộ chu kỳ tháng',
+                  },
+                  {
+                    key: 'ALL',
+                    label: 'Toàn thời gian (Tất cả)',
+                    desc: 'Không giới hạn ngày',
+                  },
                 ].map((item) => {
                   const isActive = datePreset === item.key;
                   return (
