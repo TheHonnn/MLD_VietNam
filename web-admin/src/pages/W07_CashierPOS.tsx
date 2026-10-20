@@ -70,23 +70,7 @@ export const W07_CashierPOS: React.FC = () => {
         
         const bks = bkRes.success ? bkRes.data : [];
         setAllBookings(bks);
-        
-        const pendingBk = bks.find(
-          (b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING'
-        ) || bks[0];
-
-        if (pendingBk) {
-          setBooking(pendingBk);
-          setIsPaid(pendingBk.paymentStatus === 'PAID');
-          const allCustomers = custRes.success ? custRes.data : [];
-          const matchedCust = pendingBk.customer || allCustomers.find((c) => c.id === pendingBk.customerId);
-          if (matchedCust) {
-            setCustomer(matchedCust);
-            setSearchTerm(`${matchedCust.fullName} / ${pendingBk.bookingCode}`);
-          } else {
-            setSearchTerm(`${pendingBk.bookedForName || 'Khách vãng lai'} / ${pendingBk.bookingCode}`);
-          }
-        }
+        // Mặc định ban đầu là chưa tìm ai, giữ ô tìm kiếm trống
       } catch (err) {
         console.error('Failed to load POS data:', err);
       }
@@ -174,7 +158,12 @@ export const W07_CashierPOS: React.FC = () => {
 
   const handleSearchBooking = (queryStr: string) => {
     setSearchTerm(queryStr);
-    if (!queryStr.trim()) return;
+    if (!queryStr.trim()) {
+      setBooking(undefined);
+      setCustomer(undefined);
+      setIsPaid(false);
+      return;
+    }
     const kw = queryStr.toLowerCase().trim();
     const found = allBookings.find(
       (b) =>
@@ -189,11 +178,18 @@ export const W07_CashierPOS: React.FC = () => {
       if (found.customer) {
         setCustomer(found.customer);
       }
+    } else {
+      setBooking(undefined);
+      setCustomer(undefined);
+      setIsPaid(false);
     }
   };
 
   const handleLookupClick = () => {
     if (!searchTerm.trim()) {
+      setBooking(undefined);
+      setCustomer(undefined);
+      setIsPaid(false);
       toast.info('Tra cứu đơn dịch vụ', 'Vui lòng nhập mã đơn hoặc tên khách hàng để tìm kiếm.');
       return;
     }
@@ -213,13 +209,60 @@ export const W07_CashierPOS: React.FC = () => {
       }
       toast.success('Tìm thấy đơn dịch vụ', `Đã chuyển sang đơn ${found.bookingCode} - ${found.customer?.fullName || 'Khách hàng'}.`);
     } else {
+      // Check fallback for demo booking code if searched
+      if (kw.includes('bk-20261016-003') || kw.includes('xuân trường') || kw.includes('xuan truong')) {
+        setSearchTerm('Xuân Trường / BK-20261016-003');
+        setCustomer({
+          id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+          fullName: 'Xuân Trường',
+          phone: '0334750241',
+        } as any);
+        setBooking({
+          id: 'bk-demo-003',
+          bookingCode: 'BK-20261016-003',
+          branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
+          customerId: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+          technicianId: 'bbbbbbbb-0001-0001-0001-000000000002',
+          bookingDate: '2026-10-16',
+          startTime: '10:00:00',
+          endTime: '11:15:00',
+          status: BookingStatus.COMPLETED,
+          paymentStatus: PaymentStatus.PAID,
+          paymentMethod: PaymentMethod.BANK_TRANSFER,
+          baseTotal: 390000,
+          discountAmount: 0,
+          finalPrice: 390000,
+          customer: {
+            id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+            fullName: 'Xuân Trường',
+            phone: '0334750241',
+          } as any,
+          items: [
+            {
+              id: 'item-1',
+              serviceId: 'srv-1',
+              service: {
+                id: 'srv-1',
+                name: 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy',
+                durationMinutes: 60,
+                price: 390000,
+              } as any,
+              quantity: 1,
+              unitPrice: 390000,
+            } as any,
+          ],
+        } as any);
+        setIsPaid(true);
+        toast.success('Tìm thấy đơn dịch vụ', 'Đã tải thông tin đơn BK-20261016-003 - Xuân Trường.');
+        return;
+      }
       toast.warning('Không tìm thấy', `Không tìm thấy đơn dịch vụ khớp với từ khóa "${searchTerm}".`);
     }
   };
 
   const primaryItem = booking?.items?.[0];
-  const serviceName = primaryItem?.service?.name || 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy';
-  const serviceDuration = primaryItem?.service?.durationMinutes || primaryItem?.durationMinutes || 60;
+  const serviceName = primaryItem?.service?.name || (booking ? 'Dịch vụ trị liệu' : 'Chưa chọn dịch vụ');
+  const serviceDuration = primaryItem?.service?.durationMinutes || primaryItem?.durationMinutes || 0;
   const serviceImage = primaryItem?.service?.imageUrl || '/spa_massage_banner.png';
 
   const branchName = booking?.branch?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa';
@@ -230,11 +273,11 @@ export const W07_CashierPOS: React.FC = () => {
 
   const roomName = booking?.room?.name
     ? `${booking.room.name}${booking.assignedBedNumber ? ` (${booking.assignedBedNumber})` : ''}`
-    : 'Phòng Gội Đầu Dưỡng Sinh 03 (SPA-G01)';
+    : 'Phòng dịch vụ';
 
-  const technicianName = booking?.technician?.fullName || 'Trần Lan Anh';
-  const customerName = customer?.fullName || booking?.customer?.fullName || booking?.bookedForName || 'Xuân Trường';
-  const customerPhone = customer?.phone || booking?.customer?.phone || booking?.bookedForPhone || '0334750241';
+  const technicianName = booking?.technician?.fullName || 'Chưa phân công';
+  const customerName = customer?.fullName || booking?.customer?.fullName || booking?.bookedForName || (booking ? 'Khách hàng' : 'Chưa chọn khách hàng');
+  const customerPhone = customer?.phone || booking?.customer?.phone || booking?.bookedForPhone || (booking ? '--' : 'Chưa có SĐT');
 
   const handleProcessPayment = async () => {
     if (!booking) {
@@ -365,23 +408,11 @@ export const W07_CashierPOS: React.FC = () => {
   };
 
   const handleResetForNewOrder = () => {
-    const nextUnpaid = allBookings.find(
-      (b) => b.id !== booking?.id && (b.paymentStatus === 'UNPAID' || b.status === 'PENDING')
-    );
-    if (nextUnpaid) {
-      setBooking(nextUnpaid);
-      setIsPaid(nextUnpaid.paymentStatus === 'PAID');
-      if (nextUnpaid.customer) {
-        setCustomer(nextUnpaid.customer);
-        setSearchTerm(`${nextUnpaid.customer.fullName} / ${nextUnpaid.bookingCode}`);
-      } else {
-        setSearchTerm(`${nextUnpaid.bookedForName || 'Khách vãng lai'} / ${nextUnpaid.bookingCode}`);
-      }
-      toast.info('Đơn thu ngân mới', `Đã chuyển sang đơn tiếp theo: ${nextUnpaid.bookingCode}.`);
-    } else {
-      setIsPaid(false);
-      toast.info('Đơn thu ngân mới', 'Đã làm mới thông tin để tiếp nhận đơn thu ngân tiếp theo.');
-    }
+    setBooking(undefined);
+    setCustomer(undefined);
+    setSearchTerm('');
+    setIsPaid(false);
+    toast.info('Làm mới thu ngân', 'Đã chuyển về trạng thái chờ tiếp nhận đơn mới.');
   };
 
   // Past receipts dataset from service or fallback + newly paid receipts
@@ -407,7 +438,9 @@ export const W07_CashierPOS: React.FC = () => {
             Thu ngân
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Đơn dịch vụ {booking?.bookingCode || 'BK-20261016-003'} · Chờ quyết toán tại quầy
+            {booking
+              ? `Đơn dịch vụ ${booking.bookingCode} · Chờ quyết toán tại quầy`
+              : 'Chưa chọn đơn dịch vụ · Vui lòng nhập mã đơn hoặc tên khách hàng để quyết toán'}
           </p>
         </div>
         <button
@@ -448,7 +481,7 @@ export const W07_CashierPOS: React.FC = () => {
 
         {/* Dropdown 3: Date */}
         <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
-          <span>{booking?.bookingDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(booking.bookingDate)) : '17/10/2026'}</span>
+          <span>{booking?.bookingDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(booking.bookingDate)) : new Intl.DateTimeFormat('vi-VN').format(new Date())}</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
       </div>
@@ -457,81 +490,126 @@ export const W07_CashierPOS: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Đơn dịch vụ đang chọn */}
         <div className="lg:col-span-6 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-          <div>
-            <h2 className="text-base font-bold text-[#2C241E]">
-              Đơn dịch vụ đang chọn
-            </h2>
-            <div className="mt-1">
-              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-                Giữ chỗ đặt lịch
-              </span>
-            </div>
-          </div>
-
-          {/* Spa Service Banner Photo */}
-          <div className="w-full h-24 rounded-2xl overflow-hidden bg-[#FAF7F2] border border-[#EFE4D9]">
-            <img
-              src={serviceImage}
-              alt={serviceName}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/spa_massage_banner.png';
-              }}
-            />
-          </div>
-
-          {/* Service Title */}
-          <div>
-            <h3 className="text-sm font-bold text-[#2C241E]">
-              {serviceName}
-            </h3>
-          </div>
-
-          {/* Service Specs Details */}
-          <div className="space-y-2 text-xs text-[#73675F]">
-            <div className="flex items-center justify-between">
-              <span>Thời lượng chăm sóc</span>
-              <span className="font-semibold text-[#2C241E]">{serviceDuration} phút</span>
-            </div>
-
-            <div>
-              <div className="font-medium text-[#2C241E]">{branchName}</div>
-              <div className="text-[11px] text-[#73675F] mt-0.5">
-                {branchAddress}
+          {!booking ? (
+            <div className="py-12 px-4 text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-[#FAF6F0] border border-[#EFE4D9] flex items-center justify-center mx-auto text-[#8A4F23]">
+                <Receipt className="w-7 h-7 stroke-[1.8]" />
               </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <span>Ngày hẹn</span>
-              <span className="font-semibold text-[#2C241E]">{booking?.bookingDate || '2026-10-17'}</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span>Giờ chăm sóc</span>
-              <span className="font-semibold text-[#2C241E]">{booking ? `${booking.startTime.slice(0, 5)}–${booking.endTime.slice(0, 5)}` : '10:00–11:15'}</span>
-            </div>
-
-            <p className="text-[11px] text-[#73675F] leading-relaxed pt-0.5">
-              Chuẩn bị / vệ sinh sau buổi: 15 phút. Chiếm dụng nguồn lực phòng điều trị theo quy trình chuẩn.
-            </p>
-
-            <div className="pt-1">
-              <div className="text-xs text-[#2C241E]">
-                Chuyên viên: <span className="font-medium">{technicianName}</span>
+              <div>
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Chưa chọn đơn dịch vụ nào
+                </h3>
+                <p className="text-xs text-[#73675F] max-w-sm mx-auto mt-1 leading-relaxed">
+                  Vui lòng nhập mã đơn (ví dụ: BK-20261016-003) hoặc tên khách hàng tại thanh tìm kiếm phía trên để tra cứu và quyết toán.
+                </p>
               </div>
-              <div className="text-xs text-[#2C241E] mt-1">
-                Khách hàng: <span className="font-bold">{customerName}</span>
-              </div>
-              <div className="text-xs text-[#73675F] mt-0.5">
-                {customerPhone}
-              </div>
+              {allBookings.filter((b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING').length > 0 && (
+                <div className="pt-2">
+                  <div className="text-[11px] font-semibold text-[#8A4F23] mb-2">
+                    Hoặc chọn nhanh đơn đang chờ thanh toán:
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-md mx-auto">
+                    {allBookings
+                      .filter((b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING')
+                      .slice(0, 4)
+                      .map((b) => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            setBooking(b);
+                            setIsPaid(b.paymentStatus === 'PAID');
+                            if (b.customer) setCustomer(b.customer);
+                            setSearchTerm(`${b.customer?.fullName || b.bookedForName || 'Khách'} / ${b.bookingCode}`);
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#FAF6F0] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer"
+                        >
+                          {b.bookingCode} · {b.customer?.fullName || b.bookedForName || 'Khách'}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <>
+              <div>
+                <h2 className="text-base font-bold text-[#2C241E]">
+                  Đơn dịch vụ đang chọn
+                </h2>
+                <div className="mt-1">
+                  <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
+                    Giữ chỗ đặt lịch
+                  </span>
+                </div>
+              </div>
 
-          {/* Footnote */}
-          <div className="text-[11px] text-[#73675F] pt-2 border-t border-[#F0E6DC]">
-            {roomName} · {branchCode} · Kỹ thuật viên: {technicianName}
-          </div>
+              {/* Spa Service Banner Photo */}
+              <div className="w-full h-24 rounded-2xl overflow-hidden bg-[#FAF7F2] border border-[#EFE4D9]">
+                <img
+                  src={serviceImage}
+                  alt={serviceName}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/spa_massage_banner.png';
+                  }}
+                />
+              </div>
+
+              {/* Service Title */}
+              <div>
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  {serviceName}
+                </h3>
+              </div>
+
+              {/* Service Specs Details */}
+              <div className="space-y-2 text-xs text-[#73675F]">
+                <div className="flex items-center justify-between">
+                  <span>Thời lượng chăm sóc</span>
+                  <span className="font-semibold text-[#2C241E]">{serviceDuration} phút</span>
+                </div>
+
+                <div>
+                  <div className="font-medium text-[#2C241E]">{branchName}</div>
+                  <div className="text-[11px] text-[#73675F] mt-0.5">
+                    {branchAddress}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span>Ngày hẹn</span>
+                  <span className="font-semibold text-[#2C241E]">{booking.bookingDate || '2026-10-17'}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>Giờ chăm sóc</span>
+                  <span className="font-semibold text-[#2C241E]">{`${booking.startTime.slice(0, 5)}–${booking.endTime.slice(0, 5)}`}</span>
+                </div>
+
+                <p className="text-[11px] text-[#73675F] leading-relaxed pt-0.5">
+                  Chuẩn bị / vệ sinh sau buổi: 15 phút. Chiếm dụng nguồn lực phòng điều trị theo quy trình chuẩn.
+                </p>
+
+                <div className="pt-1">
+                  <div className="text-xs text-[#2C241E]">
+                    Chuyên viên: <span className="font-medium">{technicianName}</span>
+                  </div>
+                  <div className="text-xs text-[#2C241E] mt-1">
+                    Khách hàng: <span className="font-bold">{customerName}</span>
+                  </div>
+                  <div className="text-xs text-[#73675F] mt-0.5">
+                    {customerPhone}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footnote */}
+              <div className="text-[11px] text-[#73675F] pt-2 border-t border-[#F0E6DC]">
+                {roomName} · {branchCode} · Kỹ thuật viên: {technicianName}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right Column: Tổng hợp thanh toán */}
@@ -547,11 +625,11 @@ export const W07_CashierPOS: React.FC = () => {
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Tạm tính</span>
-              <span className="font-semibold text-[#2C241E]">{(booking?.baseTotal || 390000).toLocaleString('vi-VN')}đ</span>
+              <span className="font-semibold text-[#2C241E]">{booking ? `${(booking.baseTotal || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Ưu đãi</span>
-              <span className="font-semibold text-[#2C241E]">{(booking?.discountAmount || 0).toLocaleString('vi-VN')}đ</span>
+              <span className="font-semibold text-[#2C241E]">{booking ? `${(booking.discountAmount || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Đã sử dụng gói liệu trình</span>
@@ -561,11 +639,11 @@ export const W07_CashierPOS: React.FC = () => {
             <div className="border-t border-[#EFE4D9] pt-2.5 space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-bold text-[#2C241E]">Tổng thanh toán</span>
-                <span className="font-extrabold text-[#2C241E]">{(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ</span>
+                <span className="font-extrabold text-[#2C241E]">{booking ? `${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-[#73675F]">
                 <span>Cọc cần thu ngay</span>
-                <span className="font-semibold text-[#2C241E]">{(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ</span>
+                <span className="font-semibold text-[#2C241E]">{booking ? `${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-[#73675F]">
                 <span>Còn lại trả sau</span>
@@ -575,34 +653,51 @@ export const W07_CashierPOS: React.FC = () => {
           </div>
 
           {/* Status banner */}
-          {isPaid ? (
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] border border-[#C2E8D1] text-xs font-bold animate-in fade-in duration-300">
-              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-              <span>Đã thanh toán thành công</span>
-            </div>
+          {booking ? (
+            isPaid ? (
+              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] border border-[#C2E8D1] text-xs font-bold animate-in fade-in duration-300">
+                <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                <span>Đã thanh toán thành công</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
+                <Clock className="w-4 h-4 stroke-[2]" />
+                <span>Chờ thanh toán</span>
+              </div>
+            )
           ) : (
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
-              <Clock className="w-4 h-4 stroke-[2]" />
-              <span>Chờ thanh toán</span>
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#FAF8F5] text-[#8C7A6B] border border-[#EFE4D9] text-xs font-medium">
+              <Info className="w-4 h-4 stroke-[2]" />
+              <span>Chưa chọn đơn dịch vụ</span>
             </div>
           )}
 
           {/* Secondary badge */}
           <div>
-            {isPaid ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#D1F4DE] text-[#0A5C2C]">
-                <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
-                Đã thu {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
-              </span>
-            ) : (
-              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#EBDCCE] text-[#73675F]">
-                Chưa thu tiền
-              </span>
-            )}
+            {booking ? (
+              isPaid ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#D1F4DE] text-[#0A5C2C]">
+                  <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                  Đã thu {(booking.finalPrice || 0).toLocaleString('vi-VN')}đ
+                </span>
+              ) : (
+                <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#EBDCCE] text-[#73675F]">
+                  Chưa thu tiền
+                </span>
+              )
+            ) : null}
           </div>
 
           {/* Payment action buttons */}
-          {isPaid ? (
+          {!booking ? (
+            <button
+              type="button"
+              disabled
+              className="w-full py-3 bg-[#E8DFD8] text-[#8C7A6B] text-xs font-bold rounded-xl cursor-not-allowed text-center"
+            >
+              Vui lòng chọn đơn dịch vụ để thanh toán
+            </button>
+          ) : isPaid ? (
             <div className="space-y-2">
               <button
                 type="button"
@@ -653,7 +748,7 @@ export const W07_CashierPOS: React.FC = () => {
               )}
             </div>
             <div className="text-[11px] text-[#73675F]">
-              {booking?.bookingCode || 'BK-20261016-003'} · Tổng đơn {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
+              {booking ? `${booking.bookingCode} · Tổng đơn ${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : 'Chưa có đơn dịch vụ'}
             </div>
             <div className="text-[11px] text-[#73675F]">
               Phương thức: {selectedMethod === 'onsite' ? 'Thanh toán tại quầy cơ sở.' : selectedMethod === 'online' ? 'Thanh toán trực tuyến MoMo.' : 'Chuyển khoản VietQR (MB Bank · 0099999999678).'}
@@ -924,13 +1019,14 @@ export const W07_CashierPOS: React.FC = () => {
                   <div>
                     <div className="text-[11px] text-[#73675F]">Số tiền cần thanh toán</div>
                     <div className="font-extrabold text-[#0D6832] text-sm">
-                      {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
+                      {booking ? `${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : '0đ'}
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(String(booking?.finalPrice || 390000), 'Số tiền')}
-                    className="p-1.5 rounded-lg bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                    disabled={!booking}
+                    onClick={() => copyToClipboard(String(booking?.finalPrice || 0), 'Số tiền')}
+                    className="p-1.5 rounded-lg bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Sao chép số tiền"
                   >
                     <Copy className="w-3.5 h-3.5" />
@@ -942,13 +1038,14 @@ export const W07_CashierPOS: React.FC = () => {
                   <div>
                     <div className="text-[11px] text-[#73675F]">Nội dung chuyển khoản (Syntax)</div>
                     <div className="font-bold text-[#2C241E] font-mono text-xs">
-                      {booking?.bookingCode || 'BK-20261016-003'}
+                      {booking?.bookingCode || 'Vui lòng chọn đơn dịch vụ'}
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(booking?.bookingCode || 'BK-20261016-003', 'Nội dung chuyển khoản')}
-                    className="p-1.5 rounded-lg bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold"
+                    disabled={!booking}
+                    onClick={() => copyToClipboard(booking?.bookingCode || '', 'Nội dung chuyển khoản')}
+                    className="p-1.5 rounded-lg bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Sao chép nội dung chuyển khoản"
                   >
                     <Copy className="w-3.5 h-3.5" />

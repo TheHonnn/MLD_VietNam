@@ -17,6 +17,8 @@ import {
   CourseBatch,
   CourseEnrollment,
   TuitionTransaction,
+  PackageStatus,
+  EnrollmentStatus,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -868,6 +870,160 @@ class SupabaseService {
       console.warn('[SupabaseService] createInstructor error:', err);
       return null;
     }
+  }
+
+  // 15. QUẢN LÝ GHI DANH & HỌC PHÍ HỌC VIỆN (ACADEMY ENROLLMENT FSM)
+  async updateEnrollment(
+    enrollmentId: string,
+    updates: {
+      status?: EnrollmentStatus;
+      batchId?: string | null;
+      amountPaid?: number;
+      progressPercent?: number;
+      completedLessonsCount?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const payload: Record<string, any> = {};
+      if (updates.status !== undefined) payload.status = updates.status;
+      if (updates.batchId !== undefined) payload.batch_id = updates.batchId;
+      if (updates.amountPaid !== undefined) payload.amount_paid = updates.amountPaid;
+      if (updates.progressPercent !== undefined) payload.progress_percent = updates.progressPercent;
+      if (updates.completedLessonsCount !== undefined) payload.completed_lessons_count = updates.completedLessonsCount;
+
+      const res = await this.query<any[]>(`course_enrollments?id=eq.${enrollmentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return Boolean(res && res.length > 0);
+    } catch (err) {
+      console.warn('[SupabaseService] updateEnrollment error:', err);
+      return false;
+    }
+  }
+
+  async recordTuitionPayment(payment: {
+    transactionCode: string;
+    enrollmentId: string;
+    studentId: string;
+    courseId: string;
+    branchId: string;
+    cashierId?: string | null;
+    amount: number;
+    paymentMethod?: PaymentMethod;
+    paymentStatus?: PaymentStatus;
+    notes?: string;
+  }): Promise<any | null> {
+    try {
+      const payload = {
+        transaction_code: payment.transactionCode,
+        enrollment_id: payment.enrollmentId,
+        student_id: payment.studentId,
+        course_id: payment.courseId,
+        branch_id: payment.branchId,
+        cashier_id: payment.cashierId || null,
+        transaction_type: 'TUITION_FEE',
+        amount: payment.amount,
+        payment_method: payment.paymentMethod || 'BANK_TRANSFER',
+        payment_status: payment.paymentStatus || 'PAID',
+        notes: payment.notes || 'Thanh toán học phí khóa học',
+        paid_at: new Date().toISOString(),
+      };
+
+      const res = await this.query<any[]>('tuition_transactions', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      return res?.[0] || null;
+    } catch (err) {
+      console.warn('[SupabaseService] recordTuitionPayment error:', err);
+      return null;
+    }
+  }
+
+  // 16. QUẢN LÝ GÓI LIỆU TRÌNH & NHẬT KÝ ĐIỀU TRỊ (TREATMENT & JOURNAL FSM)
+  async updateUserPackage(
+    userPackageId: string,
+    updates: {
+      completedSessions?: number;
+      status?: PackageStatus;
+    }
+  ): Promise<boolean> {
+    try {
+      const payload: Record<string, any> = {};
+      if (updates.completedSessions !== undefined) payload.completed_sessions = updates.completedSessions;
+      if (updates.status !== undefined) payload.status = updates.status;
+
+      const res = await this.query<any[]>(`user_packages?id=eq.${userPackageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return Boolean(res && res.length > 0);
+    } catch (err) {
+      console.warn('[SupabaseService] updateUserPackage error:', err);
+      return false;
+    }
+  }
+
+  async createTreatmentJournal(journal: {
+    userPackageId?: string | null;
+    bookingId?: string | null;
+    customerId: string;
+    technicianId?: string | null;
+    assignedRoomId?: string | null;
+    sessionNumber: number;
+    sessionDate: string;
+    conditionBefore?: string;
+    conditionAfter?: string;
+    treatmentNotes?: string;
+    specialistAdvice?: string;
+  }): Promise<any | null> {
+    try {
+      const payload = {
+        user_package_id: journal.userPackageId || null,
+        booking_id: journal.bookingId || null,
+        customer_id: journal.customerId,
+        technician_id: journal.technicianId || null,
+        assigned_room_id: journal.assignedRoomId || null,
+        session_number: journal.sessionNumber,
+        session_date: journal.sessionDate,
+        condition_before: journal.conditionBefore || '',
+        condition_after: journal.conditionAfter || '',
+        treatment_notes: journal.treatmentNotes || '',
+        specialist_advice: journal.specialistAdvice || '',
+        before_photos: [],
+        after_photos: [],
+      };
+
+      const res = await this.query<any[]>('treatment_journal', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      return res?.[0] || null;
+    } catch (err) {
+      console.warn('[SupabaseService] createTreatmentJournal error:', err);
+      return null;
+    }
+  }
+
+  // 17. NÂNG HẠNG THÀNH VIÊN THEO MỨC CHI TIÊU (LOYALTY FSM)
+  calculateTier(totalSpent: number): MemberTier {
+    if (totalSpent >= 30000000) return MemberTier.DIAMOND;
+    if (totalSpent >= 15000000) return MemberTier.PLATINUM;
+    if (totalSpent >= 5000000) return MemberTier.GOLD;
+    return MemberTier.SILVER;
+  }
+
+  async calculateAndUpgradeTier(userId: string, newTotalSpent: number): Promise<MemberTier> {
+    const tier = this.calculateTier(newTotalSpent);
+    await this.updateUser(userId, {
+      total_spent: newTotalSpent,
+      member_tier: tier,
+      updated_at: new Date().toISOString(),
+    });
+    return tier;
   }
 }
 
