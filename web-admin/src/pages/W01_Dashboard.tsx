@@ -37,6 +37,10 @@ import {
   Technician,
   User as CustomerUser,
 } from '../types/shared_types';
+import {
+  MultiColorLineChart,
+  DailyRevenueItem,
+} from '../components/dashboard/MultiColorLineChart';
 
 type DateRangePreset = '7D' | 'TODAY' | '30D' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
 
@@ -355,35 +359,87 @@ export const W01_Dashboard: React.FC = () => {
     },
   ];
 
-  // 3. DYNAMIC BAR CHART REVENUE DATA
-  const revenueChartData = useMemo(() => {
-    const anchor = new Date('2026-10-16');
-    const daysCount = 8;
-    return Array.from({ length: daysCount }, (_, i) => {
-      const d = new Date(anchor);
-      d.setDate(d.getDate() - (daysCount - 1 - i));
-      const isoDate = d.toISOString().split('T')[0];
-      const displayDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  // 3. DYNAMIC MULTI-STREAM REVENUE DATA FOR LINE CHART
+  const revenueChartData: DailyRevenueItem[] = useMemo(() => {
+    let dateStrings: string[] = [];
 
-      const invDay = filteredInvoices
-        .filter((inv) => inv.paymentStatus === 'PAID' && inv.paidAt && inv.paidAt.startsWith(isoDate))
+    if (startDateStr && endDateStr) {
+      const cur = new Date(startDateStr);
+      const end = new Date(endDateStr);
+      let count = 0;
+      while (cur <= end && count <= 45) {
+        dateStrings.push(cur.toISOString().split('T')[0]);
+        cur.setDate(cur.getDate() + 1);
+        count++;
+      }
+    }
+
+    // Default fallback to 8 days up to 2026-10-16 if empty or ALL
+    if (dateStrings.length === 0) {
+      const anchor = new Date('2026-10-16');
+      const daysCount = 8;
+      dateStrings = Array.from({ length: daysCount }, (_, i) => {
+        const d = new Date(anchor);
+        d.setDate(d.getDate() - (daysCount - 1 - i));
+        return d.toISOString().split('T')[0];
+      });
+    }
+
+    const dayOfWeekNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+    return dateStrings.map((isoDate) => {
+      const d = new Date(`${isoDate}T00:00:00`);
+      const dayNum = String(d.getDate()).padStart(2, '0');
+      const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+      const displayDate = `${dayNum}/${monthNum}/${d.getFullYear()}`;
+      const shortDate = `${dayNum}/${monthNum}`;
+      const dayOfWeek = dayOfWeekNames[d.getDay()];
+
+      // Invoices matching date
+      const dayInvoices = filteredInvoices.filter(
+        (inv) => inv.paymentStatus === 'PAID' && inv.paidAt && inv.paidAt.startsWith(isoDate)
+      );
+
+      // Tuition transactions matching date
+      const dayTuitions = filteredTuitions.filter(
+        (t) => t.paymentStatus === 'PAID' && t.paidAt && t.paidAt.startsWith(isoDate)
+      );
+
+      // 1. Dịch vụ Spa (bookingId)
+      const serviceAmount = dayInvoices
+        .filter((inv) => inv.bookingId)
         .reduce((sum, inv) => sum + inv.totalAmount, 0);
 
-      const tuiDay = filteredTuitions
-        .filter((t) => t.paymentStatus === 'PAID' && t.paidAt && t.paidAt.startsWith(isoDate))
-        .reduce((sum, t) => sum + t.amount, 0);
+      // 2. Gói liệu trình & SP lẻ (userPackageId or retail)
+      const packageAmount = dayInvoices
+        .filter((inv) => inv.userPackageId || (!inv.bookingId && !inv.enrollmentId))
+        .reduce((sum, inv) => sum + inv.totalAmount, 0);
 
-      const dayTotal = invDay + tuiDay;
+      // 3. Học phí đào tạo (enrollmentId invoice or tuition transaction)
+      const tuitionInvoiceAmount = dayInvoices
+        .filter((inv) => inv.enrollmentId)
+        .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+      const tuitionTxAmount = dayTuitions.reduce((sum, t) => sum + t.amount, 0);
+      const tuitionAmount = tuitionInvoiceAmount + tuitionTxAmount;
+
+      // Total
+      const totalAmount = serviceAmount + packageAmount + tuitionAmount;
+
       return {
         date: displayDate,
-        amount: dayTotal,
-        label: dayTotal > 0 ? `${dayTotal.toLocaleString('vi-VN')}đ` : '0đ',
-        color: dayTotal > 10000000 ? '#783D19' : dayTotal > 2000000 ? '#BA7E4C' : '#DFBF9F',
+        shortDate,
+        isoDate,
+        dayOfWeek,
+        total: totalAmount,
+        service: serviceAmount,
+        package: packageAmount,
+        tuition: tuitionAmount,
+        invoicesCount: dayInvoices.length,
+        tuitionsCount: dayTuitions.length,
       };
     });
-  }, [filteredInvoices, filteredTuitions]);
-
-  const maxVal = Math.max(...revenueChartData.map((d) => d.amount), 5000000);
+  }, [startDateStr, endDateStr, filteredInvoices, filteredTuitions]);
 
   // 4. MULTI-FIELD SEARCH LOGIC (BOOKINGS TABLE)
   const searchLower = searchTerm.trim().toLowerCase();
@@ -892,57 +948,13 @@ export const W01_Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left Column (8 of 12 cols = 66.6%) */}
         <div className="lg:col-span-8 space-y-4">
-          {/* Chart Card: Thực thu theo ngày */}
-          <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] shadow-xs">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-sm font-bold text-[#2C241E]">Thực thu theo ngày</h3>
-                <p className="text-[11px] text-[#8A796B] mt-0.5">
-                  Đơn vị: VNĐ • Đã thu thực tế theo ngày •{' '}
-                  <span className="font-semibold text-[#985018]">{selectedBranchLabel}</span>
-                </p>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FAF0E6] text-[#8A4F23]">
-                {labelLine1} {labelLine2}
-              </span>
-            </div>
-
-            {/* Custom Bar Chart Canvas */}
-            <div className="h-48 w-full pt-8 pb-2 flex items-end justify-between gap-2 px-2 border-b border-[#EFE4D9]">
-              {revenueChartData.map((item, idx) => {
-                const heightPercent = item.amount > 0 ? (item.amount / maxVal) * 100 : 0;
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group">
-                    <span
-                      className={`text-[9.5px] font-bold mb-1.5 transition-colors ${
-                        item.amount > 0 ? 'text-[#8E4002]' : 'text-[#A8988A]'
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-
-                    <div className="w-full max-w-[34px] bg-transparent rounded-t-md flex items-end justify-center h-full">
-                      {item.amount > 0 ? (
-                        <div
-                          className="w-full rounded-t-md transition-all duration-500 group-hover:opacity-90"
-                          style={{
-                            height: `${heightPercent}%`,
-                            backgroundColor: item.color,
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full max-w-[28px] h-1 bg-[#E8DDD1] rounded-full" />
-                      )}
-                    </div>
-
-                    <span className="text-[9.5px] text-[#8A796B] font-medium mt-2 whitespace-nowrap">
-                      {item.date}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {/* Multi-Color Line Chart: Thực thu theo ngày */}
+          <MultiColorLineChart
+            data={revenueChartData}
+            branchName={selectedBranchLabel}
+            dateRangeLabel={`${labelLine1} ${labelLine2}`}
+            isLoading={isLoading}
+          />
 
           {/* Table Card: Đối chiếu chi nhánh */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
