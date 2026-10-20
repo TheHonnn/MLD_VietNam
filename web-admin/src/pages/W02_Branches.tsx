@@ -105,6 +105,7 @@ export const W02_Branches: React.FC = () => {
     'Học viện đào tạo chuyên sâu',
   ];
 
+  // Dữ liệu phân cấp hành chính chuẩn hóa theo quy hoạch hành chính năm 2026
   const CITY_DISTRICTS: Record<string, string[]> = {
     'TP. Hồ Chí Minh': [
       'Quận 1',
@@ -123,11 +124,12 @@ export const W02_Branches: React.FC = () => {
       'Tân Bình',
       'Tân Phú',
       'Bình Tân',
-      'TP. Thủ Đức',
+      'Thành phố Thủ Đức',
       'Bình Chánh',
       'Hóc Môn',
       'Củ Chi',
       'Nhà Bè',
+      'Cần Giờ',
     ],
     'Hà Nội': [
       'Ba Đình',
@@ -142,10 +144,15 @@ export const W02_Branches: React.FC = () => {
       'Hà Đông',
       'Nam Từ Liêm',
       'Bắc Từ Liêm',
-      'Gia Lâm',
       'Đông Anh',
+      'Gia Lâm',
       'Thanh Trì',
+      'Hoài Đức',
+      'Đan Phượng',
       'Sóc Sơn',
+      'Mê Linh',
+      'Thường Tín',
+      'Thị xã Sơn Tây',
     ],
     'Đà Nẵng': [
       'Hải Châu',
@@ -155,6 +162,23 @@ export const W02_Branches: React.FC = () => {
       'Liên Chiểu',
       'Cẩm Lệ',
       'Hòa Vang',
+      'Hoàng Sa',
+    ],
+    'Hải Phòng': [
+      'Thành phố Thủy Nguyên',
+      'Quận An Dương',
+      'Hồng Bàng',
+      'Ngô Quyền',
+      'Lê Chân',
+      'Hải An',
+      'Kiến An',
+      'Đồ Sơn',
+      'Dương Kinh',
+      'Kiến Thụy',
+      'An Lão',
+      'Tiên Lãng',
+      'Vĩnh Bảo',
+      'Cát Hải',
     ],
     'Cần Thơ': [
       'Ninh Kiều',
@@ -163,28 +187,70 @@ export const W02_Branches: React.FC = () => {
       'Ô Môn',
       'Thốt Nốt',
       'Phong Điền',
-    ],
-    'Hải Phòng': [
-      'Hồng Bàng',
-      'Ngô Quyền',
-      'Lê Chân',
-      'Hải An',
-      'Kiến An',
-      'Đồ Sơn',
-      'Thủy Nguyên',
+      'Cờ Đỏ',
+      'Thới Lai',
+      'Vĩnh Thạnh',
     ],
     'Bình Dương': [
-      'Thủ Dầu Một',
-      'Thuận An',
-      'Dĩ An',
-      'Tân Uyên',
-      'Bến Cát',
+      'Thành phố Thủ Dầu Một',
+      'Thành phố Thuận An',
+      'Thành phố Dĩ An',
+      'Thành phố Tân Uyên',
+      'Thành phố Bến Cát',
+      'Bàu Bàng',
+      'Bắc Tân Uyên',
+      'Dầu Tiếng',
+      'Phú Giáo',
     ],
     'Đồng Nai': [
-      'Biên Hòa',
-      'Long Khánh',
+      'Thành phố Biên Hòa',
+      'Thành phố Long Khánh',
       'Long Thành',
       'Nhơn Trạch',
+      'Trảng Bom',
+      'Vĩnh Cửu',
+      'Thống Nhất',
+      'Cẩm Mỹ',
+      'Định Quán',
+      'Xuân Lộc',
+      'Tân Phú',
+    ],
+    'Bà Rịa - Vũng Tàu': [
+      'Thành phố Vũng Tàu',
+      'Thành phố Bà Rịa',
+      'Thành phố Phú Mỹ',
+      'Huyện Long Đất',
+      'Châu Đức',
+      'Xuyên Mộc',
+      'Côn Đảo',
+    ],
+    'Huế': [
+      'Quận Thuận Hóa',
+      'Quận Phú Xuân',
+      'Thị xã Hương Thủy',
+      'Thị xã Hương Trà',
+      'Thị xã Phong Điền',
+      'Phú Vang',
+      'Quảng Điền',
+      'A Lưới',
+      'Phú Lộc',
+    ],
+    'Quảng Ninh': [
+      'Thành phố Hạ Long',
+      'Thành phố Cẩm Phả',
+      'Thành phố Uông Bí',
+      'Thành phố Móng Cái',
+      'Thành phố Đông Triều',
+      'Thị xã Quảng Yên',
+      'Vân Đồn',
+    ],
+    'Khánh Hòa': [
+      'Thành phố Nha Trang',
+      'Thành phố Cam Ranh',
+      'Thị xã Ninh Hòa',
+      'Cam Lâm',
+      'Diên Khánh',
+      'Vạn Ninh',
     ],
   };
 
@@ -1261,38 +1327,44 @@ export const W02_Branches: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  <div className="w-full min-w-0">
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5 truncate">
                       Tỉnh / Thành phố
                     </label>
-                    <select
-                      value={editForm.city}
-                      onChange={(e) => handleEditCityChange(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    >
-                      {cityOptions.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative w-full min-w-0">
+                      <select
+                        value={editForm.city}
+                        onChange={(e) => handleEditCityChange(e.target.value)}
+                        className="w-full appearance-none pl-3.5 pr-8 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] truncate cursor-pointer box-border"
+                      >
+                        {cityOptions.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  <div className="w-full min-w-0">
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5 truncate">
                       Quận / Huyện
                     </label>
-                    <select
-                      value={editForm.district}
-                      onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    >
-                      {(CITY_DISTRICTS[editForm.city] || []).map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative w-full min-w-0">
+                      <select
+                        value={editForm.district}
+                        onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
+                        className="w-full appearance-none pl-3.5 pr-8 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] truncate cursor-pointer box-border"
+                      >
+                        {(CITY_DISTRICTS[editForm.city] || []).map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2">
@@ -1787,38 +1859,44 @@ export const W02_Branches: React.FC = () => {
                   <span>2. Vị trí địa lý & Địa chỉ cơ sở</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  <div className="w-full min-w-0">
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5 truncate">
                       Tỉnh / Thành phố <span className="text-[#985018]">*</span>
                     </label>
-                    <select
-                      value={formData.city}
-                      onChange={(e) => handleCityChange(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    >
-                      {cityOptions.map((city) => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative w-full min-w-0">
+                      <select
+                        value={formData.city}
+                        onChange={(e) => handleCityChange(e.target.value)}
+                        className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all truncate cursor-pointer box-border"
+                      >
+                        {cityOptions.map((city) => (
+                          <option key={city} value={city}>
+                            {city}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  <div className="w-full min-w-0">
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5 truncate">
                       Quận / Huyện <span className="text-[#985018]">*</span>
                     </label>
-                    <select
-                      value={formData.district}
-                      onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    >
-                      {(CITY_DISTRICTS[formData.city] || []).map((district) => (
-                        <option key={district} value={district}>
-                          {district}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative w-full min-w-0">
+                      <select
+                        value={formData.district}
+                        onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                        className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all truncate cursor-pointer box-border"
+                      >
+                        {(CITY_DISTRICTS[formData.city] || []).map((district) => (
+                          <option key={district} value={district}>
+                            {district}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2">
