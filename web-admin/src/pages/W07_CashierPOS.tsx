@@ -18,13 +18,35 @@ import {
   Maximize2,
   Search,
 } from 'lucide-react';
-import { posService, bookingService, customerService, notificationService, supabaseService } from '../services';
+import { posService, bookingService, customerService, notificationService, supabaseService, branchService } from '../services';
 import { toast } from '../components/common';
-import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus } from '../types/shared_types';
+import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus, Branch } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 export const W07_CashierPOS: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    return searchParams.get('branchId') || localStorage.getItem('mld_selected_branch_id') || 'ALL';
+  });
+
+  // Listen to searchParams and global branch changes
+  useEffect(() => {
+    const p = searchParams.get('branchId');
+    if (p) setSelectedBranchId(p);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleGlobalBranchChange = (e: any) => {
+      const bId = e?.detail?.branchId;
+      if (bId) setSelectedBranchId(bId);
+    };
+    window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    return () => {
+      window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    };
+  }, []);
+
   const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>('transfer');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
@@ -63,12 +85,14 @@ export const W07_CashierPOS: React.FC = () => {
   useEffect(() => {
     const fetchPosData = async () => {
       try {
-        const [invRes, bkRes, custRes] = await Promise.all([
+        const [invRes, bkRes, custRes, brRes] = await Promise.all([
           posService.getInvoices(),
           bookingService.getBookings(),
           customerService.getCustomers(),
+          branchService.getAllBranches(),
         ]);
         if (invRes.success) setInvoices(invRes.data);
+        if (brRes.success && brRes.data) setBranches(brRes.data);
         
         const bks = bkRes.success ? bkRes.data : [];
         setAllBookings(bks);
@@ -257,11 +281,15 @@ export const W07_CashierPOS: React.FC = () => {
   const serviceDuration = primaryItem?.service?.durationMinutes || primaryItem?.durationMinutes || 0;
   const serviceImage = primaryItem?.service?.imageUrl || '/spa_massage_banner.png';
 
-  const branchName = booking?.branch?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa';
+  const activeBranch = branches.find((b) => b.id === selectedBranchId) || (selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId) : undefined) || branches[0];
+
+  const branchName = booking?.branch?.name || activeBranch?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa';
   const branchAddress = booking?.branch?.address
     ? `${booking.branch.address}, ${booking.branch.district}, ${booking.branch.city}`
+    : activeBranch
+    ? `${activeBranch.address}, ${activeBranch.district}, ${activeBranch.city}`
     : 'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh';
-  const branchCode = booking?.branch?.code || 'MLD-Q3';
+  const branchCode = booking?.branch?.code || activeBranch?.code || 'MLD-Q3';
 
   const roomName = booking?.room?.name
     ? `${booking.room.name}${booking.assignedBedNumber ? ` (${booking.assignedBedNumber})` : ''}`
@@ -429,11 +457,18 @@ export const W07_CashierPOS: React.FC = () => {
       {/* 1. Page Header Title & Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
-            Thu ngân
-          </h1>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
+              Thu ngân
+            </h1>
+            {activeBranch && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                {activeBranch.name} ({activeBranch.code})
+              </span>
+            )}
+          </div>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            {booking
+            {activeBranch ? `${activeBranch.name} · ${activeBranch.district}` : 'Toàn hệ thống'} · {booking
               ? `Đơn dịch vụ ${booking.bookingCode} · Chờ quyết toán tại quầy`
               : 'Chưa chọn đơn dịch vụ · Vui lòng nhập mã đơn hoặc tên khách hàng để quyết toán'}
           </p>
@@ -449,7 +484,7 @@ export const W07_CashierPOS: React.FC = () => {
       {/* 2. Filter Toolbar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Customer / Booking code input */}
-        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
@@ -471,6 +506,41 @@ export const W07_CashierPOS: React.FC = () => {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* Branch Switcher Dropdown */}
+        <div className="relative shrink-0">
+          <select
+            value={selectedBranchId}
+            onChange={(e) => {
+              const bId = e.target.value;
+              setSelectedBranchId(bId);
+              localStorage.setItem('mld_selected_branch_id', bId);
+              window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId: bId } }));
+              if (bId !== 'ALL') {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('branchId', bId);
+                  return next;
+                });
+              } else {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete('branchId');
+                  return next;
+                });
+              }
+            }}
+            className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+          >
+            <option value="ALL">Tất cả chi nhánh ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.code})
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Dropdown 1: Service type */}

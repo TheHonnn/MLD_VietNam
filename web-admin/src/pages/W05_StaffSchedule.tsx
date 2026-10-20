@@ -157,10 +157,34 @@ export const TIME_SLOT_OPTIONS = [
 
 export const W05_StaffSchedule: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [liveTechnicians, setLiveTechnicians] = useState<Technician[]>([]);
   const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    return searchParams.get('branchId') || localStorage.getItem('mld_selected_branch_id') || 'ALL';
+  });
+
+  // Listen to searchParams and global branch changes
+  useEffect(() => {
+    const p = searchParams.get('branchId');
+    if (p) setSelectedBranchId(p);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleGlobalBranchChange = (e: any) => {
+      const bId = e?.detail?.branchId;
+      if (bId) setSelectedBranchId(bId);
+    };
+    window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    return () => {
+      window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    };
+  }, []);
+
+  const activeBranch = branches.find((b) => b.id === selectedBranchId);
 
   useEffect(() => {
     const fetchScheduleData = async () => {
@@ -201,7 +225,12 @@ export const W05_StaffSchedule: React.FC = () => {
     const custMap = new Map(customers.map((c) => [c.id, c]));
     const techMap = new Map((liveTechnicians || []).map((t) => [t.id, t]));
 
-    return liveBookings.map((b) => {
+    const filteredLive =
+      selectedBranchId !== 'ALL'
+        ? liveBookings.filter((b) => !b.branchId || b.branchId === selectedBranchId)
+        : liveBookings;
+
+    return filteredLive.map((b) => {
       const cust = custMap.get(b.customerId);
       const tech = techMap.get(b.technicianId || '');
 
@@ -263,9 +292,8 @@ export const W05_StaffSchedule: React.FC = () => {
         cleaningText: `${(b.endTime || '').slice(0, 5)} · Vệ sinh / giữ phòng`,
       };
     });
-  }, [liveBookings, customers, liveTechnicians]);
+  }, [liveBookings, customers, liveTechnicians, selectedBranchId]);
 
-  const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
 
   // Custom appointments stored in localStorage
@@ -521,11 +549,18 @@ export const W05_StaffSchedule: React.FC = () => {
       {/* 1. Page Header Title & Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
-            Lịch kỹ thuật viên
-          </h1>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
+              Lịch kỹ thuật viên
+            </h1>
+            {activeBranch && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                {activeBranch.name} ({activeBranch.code})
+              </span>
+            )}
+          </div>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Thứ hai, 12/10/2026 · Quận 3 · Mở cửa 09:00–20:00
+            Thứ hai, 12/10/2026 · {activeBranch ? `${activeBranch.name} · ${activeBranch.district}, ${activeBranch.city}` : 'Toàn hệ thống chi nhánh'} · Mở cửa {activeBranch?.openingTime ? activeBranch.openingTime.slice(0, 5) : '08:30'}–{activeBranch?.closingTime ? activeBranch.closingTime.slice(0, 5) : '20:30'}
           </p>
         </div>
         <button
@@ -537,10 +572,10 @@ export const W05_StaffSchedule: React.FC = () => {
         </button>
       </div>
 
-      {/* 2. Filter Toolbar (White Card with 4 Controls) */}
+      {/* 2. Filter Toolbar (White Card with 5 Controls) */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap lg:flex-nowrap items-center gap-3">
         {/* Search input */}
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
@@ -559,6 +594,41 @@ export const W05_StaffSchedule: React.FC = () => {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* Branch dropdown */}
+        <div className="relative shrink-0">
+          <select
+            value={selectedBranchId}
+            onChange={(e) => {
+              const bId = e.target.value;
+              setSelectedBranchId(bId);
+              localStorage.setItem('mld_selected_branch_id', bId);
+              window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId: bId } }));
+              if (bId !== 'ALL') {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('branchId', bId);
+                  return next;
+                });
+              } else {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete('branchId');
+                  return next;
+                });
+              }
+            }}
+            className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+          >
+            <option value="ALL">Tất cả chi nhánh ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.code})
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Date dropdown */}
