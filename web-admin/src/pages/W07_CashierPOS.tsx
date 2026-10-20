@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Clock,
   ChevronDown,
@@ -21,6 +22,7 @@ import { toast } from '../components/common';
 import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus } from '../types/shared_types';
 
 export const W07_CashierPOS: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>('transfer');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
@@ -31,6 +33,15 @@ export const W07_CashierPOS: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showQrZoomModal, setShowQrZoomModal] = useState(false);
+  const [selectedReceiptData, setSelectedReceiptData] = useState<{
+    id: string;
+    customerName: string;
+    serviceName: string;
+    method: string;
+    amount: string;
+    date: string;
+    status?: string;
+  } | null>(null);
   const [newReceipts, setNewReceipts] = useState<Array<{
     id: string;
     date: string;
@@ -82,6 +93,84 @@ export const W07_CashierPOS: React.FC = () => {
     };
     fetchPosData();
   }, []);
+
+  // Handle URL query parameters (e.g. ?booking=BK-20261016-003&receipt=true)
+  useEffect(() => {
+    const bookingParam = searchParams.get('booking');
+    const receiptParam = searchParams.get('receipt');
+
+    if (bookingParam) {
+      const kw = bookingParam.toLowerCase().trim();
+      const found = allBookings.find(
+        (b) =>
+          b.bookingCode.toLowerCase().includes(kw) ||
+          b.id.toLowerCase() === kw
+      );
+      if (found) {
+        setBooking(found);
+        setIsPaid(found.paymentStatus === 'PAID');
+        if (found.customer) {
+          setCustomer(found.customer);
+          setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
+        } else {
+          setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
+        }
+      } else {
+        if (bookingParam.includes('BK-20261016-003')) {
+          setSearchTerm(`Xuân Trường / BK-20261016-003`);
+          setIsPaid(true);
+        }
+      }
+    }
+
+    if (receiptParam === 'true') {
+      setShowReceiptModal(true);
+    }
+  }, [searchParams, allBookings]);
+
+  // Handle cross-page / in-page dispatch event from notification click
+  useEffect(() => {
+    const handleOpenReceipt = (e: any) => {
+      const bCode = e.detail?.bookingCode;
+      if (bCode) {
+        const kw = bCode.toLowerCase().trim();
+        const found = allBookings.find(
+          (b) =>
+            b.bookingCode.toLowerCase().includes(kw) ||
+            b.id.toLowerCase() === kw
+        );
+        if (found) {
+          setBooking(found);
+          setIsPaid(found.paymentStatus === 'PAID');
+          if (found.customer) {
+            setCustomer(found.customer);
+            setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
+          } else {
+            setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
+          }
+        } else if (bCode.includes('BK-20261016-003')) {
+          setSearchTerm(`Xuân Trường / BK-20261016-003`);
+          setIsPaid(true);
+        }
+      }
+      setShowReceiptModal(true);
+    };
+
+    window.addEventListener('mld_open_pos_receipt', handleOpenReceipt);
+    return () => {
+      window.removeEventListener('mld_open_pos_receipt', handleOpenReceipt);
+    };
+  }, [allBookings]);
+
+  const handleCloseReceiptModal = () => {
+    setShowReceiptModal(false);
+    setSelectedReceiptData(null);
+    if (searchParams.get('receipt')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('receipt');
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
 
   const handleSearchBooking = (queryStr: string) => {
     setSearchTerm(queryStr);
@@ -265,7 +354,7 @@ export const W07_CashierPOS: React.FC = () => {
         title: 'Ghi nhận thanh toán thành công',
         message: `Thu ngân đã quyết toán ${formattedAmount} đơn ${bookingCode} cho khách hàng ${customerName}.`,
         type: 'PAYMENT',
-        link: '/cashier-pos',
+        link: `/cashier-pos?booking=${bookingCode}&receipt=true`,
       });
     } catch (err: any) {
       console.error('Lỗi khi ghi nhận thanh toán:', err);
@@ -898,6 +987,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <th className="py-3 px-5">Phương thức</th>
                 <th className="py-3 px-5">Đã thu</th>
                 <th className="py-3 px-5">Trạng thái</th>
+                <th className="py-3 px-5 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0E6DC]">
@@ -925,6 +1015,28 @@ export const W07_CashierPOS: React.FC = () => {
                       <CheckCircle2 className="w-3.5 h-3.5 text-[#2D7A4D]" />
                       <span>{r.status}</span>
                     </span>
+                  </td>
+                  <td className="py-4 px-5 text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedReceiptData({
+                          id: r.id,
+                          customerName: customerName,
+                          serviceName: r.content,
+                          method: r.method,
+                          amount: r.amount,
+                          date: r.date,
+                          status: r.status,
+                        });
+                        setShowReceiptModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-[#8A4F23] bg-[#FAF3EC] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                      title="Xem chi tiết biên lai"
+                    >
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span>Xem chi tiết</span>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -976,7 +1088,7 @@ export const W07_CashierPOS: React.FC = () => {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif]"
-          onClick={() => setShowReceiptModal(false)}
+          onClick={handleCloseReceiptModal}
         >
           <div
             className="bg-white rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
@@ -986,7 +1098,7 @@ export const W07_CashierPOS: React.FC = () => {
             <div className="px-6 pt-6 pb-4 text-center bg-gradient-to-b from-[#FAF6F0] to-white relative border-b border-[#F4ECE3]">
               <button
                 type="button"
-                onClick={() => setShowReceiptModal(false)}
+                onClick={handleCloseReceiptModal}
                 className="absolute top-4 right-4 p-1.5 text-[#A69788] hover:text-[#2C241E] rounded-xl hover:bg-[#F3E2CE] transition-colors cursor-pointer"
                 title="Đóng"
               >
@@ -1009,37 +1121,43 @@ export const W07_CashierPOS: React.FC = () => {
               <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#EFE4D9] space-y-3 text-xs">
                 <div className="flex items-center justify-between pb-2 border-b border-dashed border-[#E0D4C7]">
                   <span className="text-[#73675F]">Mã hóa đơn / Phiếu thu:</span>
-                  <span className="font-bold text-[#2C241E] font-mono">{booking?.bookingCode || 'BK-20261016-003'}</span>
+                  <span className="font-bold text-[#2C241E] font-mono">
+                    {selectedReceiptData?.id || booking?.bookingCode || 'BK-20261016-003'}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Khách hàng:</span>
-                  <span className="font-bold text-[#2C241E]">{customerName}</span>
+                  <span className="font-bold text-[#2C241E]">
+                    {selectedReceiptData?.customerName || customerName}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Dịch vụ điều trị:</span>
-                  <span className="font-semibold text-[#2C241E]">{serviceName} ({serviceDuration} phút)</span>
+                  <span className="font-semibold text-[#2C241E]">
+                    {selectedReceiptData?.serviceName || `${serviceName} (${serviceDuration} phút)`}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Hình thức thanh toán:</span>
                   <span className="font-semibold text-[#8A4F23]">
-                    {selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'online' ? 'Cổng trực tuyến MoMo' : 'Chuyển khoản VietQR (MB Bank · LAM XUAN TRUONG)'}
+                    {selectedReceiptData?.method || (selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'online' ? 'Cổng trực tuyến MoMo' : 'Chuyển khoản VietQR (MB Bank · LAM XUAN TRUONG)')}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Thời gian ghi nhận:</span>
                   <span className="text-[#2C241E] font-medium">
-                    {new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())}
+                    {selectedReceiptData?.date || new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())}
                   </span>
                 </div>
 
                 <div className="pt-2.5 border-t border-dashed border-[#E0D4C7] flex items-center justify-between">
                   <span className="font-bold text-sm text-[#2C241E]">Tổng đã quyết toán:</span>
                   <span className="text-base font-extrabold text-[#0D6832]">
-                    {(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ
+                    {selectedReceiptData?.amount || `${(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ`}
                   </span>
                 </div>
               </div>
@@ -1065,7 +1183,7 @@ export const W07_CashierPOS: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setShowReceiptModal(false)}
+                onClick={handleCloseReceiptModal}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />

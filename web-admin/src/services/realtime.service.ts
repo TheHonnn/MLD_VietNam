@@ -235,7 +235,7 @@ class RealtimeSyncService {
         title: '⚡ Lịch hẹn mới từ khách hàng',
         message: `Khách hàng vừa đặt lịch hẹn #${record.booking_code || ''} ngày ${record.booking_date || ''} lúc ${record.start_time?.slice(0, 5) || ''}.`,
         type: 'BOOKING',
-        link: '/staff-schedule',
+        link: `/staff-schedule?booking=${record.booking_code || ''}`,
       });
     } else if (table === 'invoices' && (eventType === 'INSERT' || record.payment_status === 'PAID')) {
       const amount = Number(record.total_amount || 0).toLocaleString('vi-VN');
@@ -243,7 +243,7 @@ class RealtimeSyncService {
         title: '💰 Giao dịch thanh toán thành công',
         message: `Hóa đơn #${record.invoice_code || ''} trị giá ${amount}đ đã thanh toán qua ${record.payment_method || 'quầy'}.`,
         type: 'PAYMENT',
-        link: '/cashier-pos',
+        link: `/cashier-pos?booking=${record.booking_code || record.invoice_code || ''}&receipt=true`,
       });
     } else if (table === 'tuition_transactions' && eventType === 'INSERT') {
       const amount = Number(record.amount || 0).toLocaleString('vi-VN');

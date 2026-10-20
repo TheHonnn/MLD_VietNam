@@ -307,6 +307,26 @@ export const W05_StaffSchedule: React.FC = () => {
 
   const allAppointments = [...customAppointments, ...appointments];
 
+  // Handle ?booking=... query parameter from notification navigation
+  useEffect(() => {
+    const bookingParam = searchParams.get('booking') || searchParams.get('appId');
+    if (bookingParam && allAppointments.length > 0) {
+      const kw = bookingParam.toLowerCase().trim();
+      const found = allAppointments.find(
+        (a) =>
+          a.id.toLowerCase() === kw ||
+          a.customerCode.toLowerCase().includes(kw) ||
+          a.customer.toLowerCase().includes(kw)
+      );
+      if (found) {
+        setSelectedAppId(found.id);
+        if (found.technicianId) {
+          setSelectedTechId(found.technicianId);
+        }
+      }
+    }
+  }, [searchParams, allAppointments]);
+
   const displayedAppointments = allAppointments.filter((app) => {
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase();
@@ -745,7 +765,8 @@ export const W05_StaffSchedule: React.FC = () => {
             <button
               onClick={() => {
                 toast.info('Chuyển hướng thu ngân', 'Đang mở màn hình thu ngân chi tiết...');
-                navigate('/cashier-pos');
+                const bCode = selectedApp.customerCode?.split('·')[1]?.trim() || selectedApp.id;
+                navigate(`/cashier-pos?booking=${encodeURIComponent(bCode)}`);
               }}
               className="w-full py-3 bg-white border border-[#D8BDA7] text-[#904206] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer"
             >
