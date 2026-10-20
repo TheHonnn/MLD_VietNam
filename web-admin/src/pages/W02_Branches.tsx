@@ -1792,7 +1792,7 @@ export const W02_Branches: React.FC = () => {
 
       {/* 2. Search & Filter Bar */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1 min-w-[220px] max-w-xs w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[200px] max-w-xs w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
@@ -1814,11 +1814,11 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Status Filter */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 whitespace-nowrap">
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
             <option value="ALL">Đang hoạt động: Tất cả</option>
             <option value="ACTIVE">Có</option>
@@ -1828,13 +1828,13 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* City Filter */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 whitespace-nowrap">
           <select
             value={selectedCity}
             onChange={(e) => setSelectedCity(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Tất cả tỉnh / thành phố ({cityOptions.length})</option>
+            <option value="ALL">Tỉnh / Thành phố: Tất cả ({cityOptions.length})</option>
             {cityOptions.map((city) => (
               <option key={city} value={city}>
                 {city}
@@ -1853,7 +1853,7 @@ export const W02_Branches: React.FC = () => {
               setSelectedCity('ALL');
               setSelectedStatus('ALL');
             }}
-            className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 whitespace-nowrap cursor-pointer"
             title="Đặt lại toàn bộ bộ lọc"
           >
             <X className="w-3.5 h-3.5" />
@@ -1865,17 +1865,17 @@ export const W02_Branches: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/treatment-management')}
-          className="flex items-center justify-between gap-2 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none cursor-pointer"
+          className="flex items-center justify-between gap-1.5 px-3 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 whitespace-nowrap cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5 text-[#8C7A6B]" />
-          <span>{services.length || 3} dịch vụ spa</span>
+          <span>{services.length || 3} dịch vụ</span>
         </button>
 
         {/* Archived branches toggle button */}
         <button
           type="button"
           onClick={() => setShowArchivedBranchesDrawer(!showArchivedBranchesDrawer)}
-          className={`flex items-center gap-1.5 px-3.5 h-10 rounded-xl border text-xs font-bold transition-colors shrink-0 cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 h-10 rounded-xl border text-xs font-bold transition-colors shrink-0 whitespace-nowrap cursor-pointer sm:ml-auto ${
             showArchivedBranchesDrawer
               ? 'bg-[#FAF0E4] border-[#BA7E4C] text-[#8D4B1A]'
               : 'bg-white border-[#E0D7CC] text-[#73675F] hover:bg-[#FAF8F5]'
@@ -1883,7 +1883,7 @@ export const W02_Branches: React.FC = () => {
           title="Xem danh sách chi nhánh đã xóa và lưu trữ trong CSDL"
         >
           <Archive className="w-3.5 h-3.5" />
-          <span>Chi nhánh đã lưu trữ CSDL ({allArchivedBranches.length})</span>
+          <span>Lưu trữ CSDL ({allArchivedBranches.length})</span>
         </button>
       </div>
 
@@ -1897,14 +1897,14 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold select-none">
+          <table className="w-full text-left text-xs whitespace-nowrap">
+            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold select-none whitespace-nowrap">
               <tr>
                 <th
                   onClick={() => handleSortBranch('name')}
-                  className="py-2.5 px-5 cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-5 cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Tên</span>
                     {branchSortField === 'name' ? (
                       branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -1915,9 +1915,9 @@ export const W02_Branches: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSortBranch('code')}
-                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Mã</span>
                     {branchSortField === 'code' ? (
                       branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -1926,13 +1926,13 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-4">Số điện thoại</th>
-                <th className="py-2.5 px-4">Địa chỉ</th>
+                <th className="py-2.5 px-4 whitespace-nowrap">Số điện thoại</th>
+                <th className="py-2.5 px-4 whitespace-nowrap">Địa chỉ</th>
                 <th
                   onClick={() => handleSortBranch('city')}
-                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Tỉnh / Thành phố</span>
                     {branchSortField === 'city' ? (
                       branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -1943,9 +1943,9 @@ export const W02_Branches: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSortBranch('status')}
-                  className="py-2.5 px-4 text-center cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-4 text-center cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="inline-flex items-center justify-center gap-1.5">
+                  <div className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
                     <span>Đang hoạt động</span>
                     {branchSortField === 'status' ? (
                       branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -1954,10 +1954,10 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-6 text-center">Thao tác</th>
+                <th className="py-2.5 px-6 text-center whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFE4D9]">
+            <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
               {filteredBranches.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-[#73675F]">
@@ -1999,12 +1999,12 @@ export const W02_Branches: React.FC = () => {
                       } hover:bg-[#FAF6F0] transition-colors`}
                     >
                       {/* Tên */}
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <td className="py-3.5 px-5 whitespace-nowrap">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                           <Building2 className="w-4 h-4 text-[#985018] shrink-0" />
                           <span className="font-bold text-[#2C241E]">{branch.name}</span>
                           {branch.id === globalWorkingBranchId && (
-                            <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold border border-emerald-200">
+                            <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold border border-emerald-200 shrink-0 whitespace-nowrap">
                               Cơ sở chính
                             </span>
                           )}
@@ -2012,44 +2012,46 @@ export const W02_Branches: React.FC = () => {
                       </td>
 
                       {/* Mã */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-[#8A4F23]">
-                        <span className="px-2 py-0.5 rounded text-[11px] bg-[#FAF0E4]">
+                      <td className="py-3.5 px-4 font-mono font-bold text-[#8A4F23] whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded text-[11px] bg-[#FAF0E4] whitespace-nowrap">
                           {branch.code || 'MLD-NEW'}
                         </span>
                       </td>
 
                       {/* Số điện thoại */}
-                      <td className="py-3.5 px-4 font-semibold text-[#2C241E]">
+                      <td className="py-3.5 px-4 font-semibold text-[#2C241E] whitespace-nowrap">
                         <a
                           href={`tel:${branch.phone}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="hover:text-[#985018] hover:underline"
+                          className="hover:text-[#985018] hover:underline whitespace-nowrap"
                         >
                           {branch.phone}
                         </a>
                       </td>
 
                       {/* Địa chỉ */}
-                      <td className="py-3.5 px-4 text-[#4A3E34]">
-                        <div>{branch.address}</div>
-                        <div className="text-[11px] text-[#8C7A6B]">{branch.district}</div>
+                      <td className="py-3.5 px-4 text-[#4A3E34] whitespace-nowrap">
+                        <span>{branch.address}</span>
+                        {branch.district && !branch.address?.includes(branch.district) && (
+                          <span className="text-[#8C7A6B]">, {branch.district}</span>
+                        )}
                       </td>
 
                       {/* Tỉnh / Thành phố */}
-                      <td className="py-3.5 px-4 font-medium text-[#2C241E]">
+                      <td className="py-3.5 px-4 font-medium text-[#2C241E] whitespace-nowrap">
                         {branch.city}
                       </td>
 
                       {/* Đang hoạt động */}
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <button
                           type="button"
                           onClick={(e) => handleToggleBranchActive(branch, e)}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-[#2C241E] hover:text-[#985018] transition-colors"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-[#2C241E] hover:text-[#985018] transition-colors whitespace-nowrap"
                           title="Nhấp để thay đổi trạng thái hoạt động của cơ sở"
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                               branch.isActive ? 'bg-emerald-600' : 'bg-rose-500'
                             }`}
                           />
@@ -2058,8 +2060,8 @@ export const W02_Branches: React.FC = () => {
                       </td>
 
                       {/* Thao tác */}
-                      <td className="py-3.5 px-6 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="py-3.5 px-6 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2237,7 +2239,7 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 self-start flex-wrap">
+                <div className="flex items-center gap-2 self-start shrink-0 whitespace-nowrap">
                   {selectedBranch.id === globalWorkingBranchId ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                       <Check className="w-3.5 h-3.5" />
@@ -2404,7 +2406,7 @@ export const W02_Branches: React.FC = () => {
     <div className="space-y-4">
       {/* Rooms Search & Filter Bar */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1 min-w-[220px] max-w-xs w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[200px] max-w-xs w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
@@ -2426,11 +2428,11 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Room Type Filter */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 whitespace-nowrap">
           <select
             value={selectedRoomType}
             onChange={(e) => setSelectedRoomType(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
             <option value="ALL">Loại phòng: Tất cả</option>
             {Object.entries(roomTypeLabels).map(([key, label]) => (
@@ -2443,11 +2445,11 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Availability Filter */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 whitespace-nowrap">
           <select
             value={selectedRoomAvailability}
             onChange={(e) => setSelectedRoomAvailability(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
             <option value="ALL">Có thể sử dụng: Tất cả</option>
             <option value="YES">Có</option>
@@ -2457,11 +2459,11 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Branch Filter */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 whitespace-nowrap">
           <select
             value={selectedRoomBranch}
             onChange={(e) => setSelectedRoomBranch(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
             <option value="ALL">Chi nhánh: Tất cả</option>
             {branches.map((b) => (
@@ -2483,7 +2485,7 @@ export const W02_Branches: React.FC = () => {
               setSelectedRoomType('ALL');
               setSelectedRoomAvailability('ALL');
             }}
-            className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 whitespace-nowrap cursor-pointer"
             title="Đặt lại toàn bộ bộ lọc"
           >
             <X className="w-3.5 h-3.5" />
@@ -2495,7 +2497,7 @@ export const W02_Branches: React.FC = () => {
         <button
           type="button"
           onClick={() => setShowAllArchivedDrawer(!showAllArchivedDrawer)}
-          className={`flex items-center gap-1.5 px-3.5 h-10 rounded-xl border text-xs font-bold transition-colors shrink-0 cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 h-10 rounded-xl border text-xs font-bold transition-colors shrink-0 whitespace-nowrap cursor-pointer sm:ml-auto ${
             showAllArchivedDrawer
               ? 'bg-[#FAF0E4] border-[#BA7E4C] text-[#8D4B1A]'
               : 'bg-white border-[#E0D7CC] text-[#73675F] hover:bg-[#FAF8F5]'
@@ -2503,7 +2505,7 @@ export const W02_Branches: React.FC = () => {
           title="Xem danh sách phòng đã xóa và lưu trữ trong CSDL"
         >
           <Archive className="w-3.5 h-3.5" />
-          <span>Phòng đã lưu trữ CSDL ({allArchivedRooms.length})</span>
+          <span>Lưu trữ CSDL ({allArchivedRooms.length})</span>
         </button>
       </div>
 
@@ -2517,14 +2519,14 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold select-none">
+          <table className="w-full text-left text-xs whitespace-nowrap">
+            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold select-none whitespace-nowrap">
               <tr>
                 <th
                   onClick={() => handleSortRoom('name')}
-                  className="py-2.5 px-5 cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-5 cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Tên</span>
                     {roomSortField === 'name' ? (
                       roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -2535,9 +2537,9 @@ export const W02_Branches: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSortRoom('branch')}
-                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Chi nhánh</span>
                     {roomSortField === 'branch' ? (
                       roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -2548,9 +2550,9 @@ export const W02_Branches: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSortRoom('roomType')}
-                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Loại phòng</span>
                     {roomSortField === 'roomType' ? (
                       roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -2561,9 +2563,9 @@ export const W02_Branches: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSortRoom('bedCapacity')}
-                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Sức chứa (giường)</span>
                     {roomSortField === 'bedCapacity' ? (
                       roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -2574,9 +2576,9 @@ export const W02_Branches: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSortRoom('status')}
-                  className="py-2.5 px-4 text-center cursor-pointer hover:text-[#985018] transition-colors"
+                  className="py-2.5 px-4 text-center cursor-pointer hover:text-[#985018] transition-colors whitespace-nowrap"
                 >
-                  <div className="inline-flex items-center justify-center gap-1.5">
+                  <div className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
                     <span>Có thể sử dụng</span>
                     {roomSortField === 'status' ? (
                       roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
@@ -2585,10 +2587,10 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-6 text-center">Thao tác</th>
+                <th className="py-2.5 px-6 text-center whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFE4D9]">
+            <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
               {filteredRooms.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-[#73675F]">
@@ -2623,35 +2625,35 @@ export const W02_Branches: React.FC = () => {
                 paginatedRooms.map((room) => (
                   <tr key={room.id} className="hover:bg-[#FAF6F0] transition-colors bg-white">
                     {/* Tên */}
-                    <td className="py-3.5 px-5">
+                    <td className="py-3.5 px-5 whitespace-nowrap">
                       <span className="font-bold text-[#2C241E]">{room.name}</span>
                     </td>
 
                     {/* Chi nhánh */}
-                    <td className="py-3.5 px-4 font-medium text-[#2C241E]">
+                    <td className="py-3.5 px-4 font-medium text-[#2C241E] whitespace-nowrap">
                       {room.branchName || 'Cơ sở MLD'}
                     </td>
 
                     {/* Loại phòng */}
-                    <td className="py-3.5 px-4 text-[#4A3E34]">
+                    <td className="py-3.5 px-4 text-[#4A3E34] whitespace-nowrap">
                       {roomTypeLabels[room.roomType] || room.roomType}
                     </td>
 
                     {/* Sức chứa (giường) */}
-                    <td className="py-3.5 px-4 font-medium text-[#2C241E]">
+                    <td className="py-3.5 px-4 font-medium text-[#2C241E] whitespace-nowrap">
                       {room.bedCapacity}
                     </td>
 
                     {/* Có thể sử dụng */}
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() => handleToggleCrossBranchRoomAvailability(room)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-[#2C241E] hover:text-[#985018] transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-[#2C241E] hover:text-[#985018] transition-colors whitespace-nowrap"
                         title="Nhấp để thay đổi trạng thái khả dụng của phòng"
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                             room.isAvailable ? 'bg-emerald-600' : 'bg-rose-500'
                           }`}
                         />
@@ -2660,8 +2662,8 @@ export const W02_Branches: React.FC = () => {
                     </td>
 
                     {/* Thao tác */}
-                    <td className="py-3.5 px-6 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                    <td className="py-3.5 px-6 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => handleOpenCrossBranchViewRoom(room)}
