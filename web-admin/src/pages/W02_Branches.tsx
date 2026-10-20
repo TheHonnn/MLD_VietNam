@@ -27,6 +27,7 @@ import {
   RotateCcw,
   Info,
   ShieldCheck,
+  Copy,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
@@ -69,10 +70,15 @@ export const W02_Branches: React.FC = () => {
   const [showArchivedRooms, setShowArchivedRooms] = useState(false);
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
-  const [newRoomData, setNewRoomData] = useState({
+  const [newRoomData, setNewRoomData] = useState<{
+    name: string;
+    roomType: RoomType | '';
+    bedCapacity: number | '';
+    isAvailable: boolean;
+  }>({
     name: '',
-    roomType: 'VIP_ROOM' as RoomType,
-    bedCapacity: 2,
+    roomType: '',
+    bedCapacity: '',
     isAvailable: true,
   });
 
@@ -192,37 +198,21 @@ export const W02_Branches: React.FC = () => {
     const cached = localStorage.getItem(`mld_rooms_${branchId}`);
     if (cached) {
       try {
-        setRooms(JSON.parse(cached));
+        const parsed: BranchRoom[] = JSON.parse(cached);
+        const filtered = parsed.filter(
+          (r) =>
+            !(
+              r.id.match(/^r-.*-[123]$/) &&
+              (r.name === 'Phòng VIP Hoàng Gia' ||
+                r.name === 'Phòng Trị Liệu Vodder 01' ||
+                r.name === 'Phòng Skincare Hydrafacial')
+            )
+        );
+        setRooms(filtered);
         return;
       } catch {}
     }
-    const defaultRooms: BranchRoom[] = [
-      {
-        id: `r-${branchId}-1`,
-        branchId,
-        name: 'Phòng VIP Hoàng Gia',
-        roomType: 'VIP_ROOM' as any,
-        bedCapacity: 2,
-        isAvailable: true,
-      },
-      {
-        id: `r-${branchId}-2`,
-        branchId,
-        name: 'Phòng Trị Liệu Vodder 01',
-        roomType: 'MASSAGE_ROOM' as any,
-        bedCapacity: 4,
-        isAvailable: true,
-      },
-      {
-        id: `r-${branchId}-3`,
-        branchId,
-        name: 'Phòng Skincare Hydrafacial',
-        roomType: 'SKINCARE_ROOM' as any,
-        bedCapacity: 3,
-        isAvailable: true,
-      },
-    ];
-    setRooms(defaultRooms);
+    setRooms([]);
   };
 
   const handleSelectBranch = async (branchId: string) => {
@@ -238,7 +228,12 @@ export const W02_Branches: React.FC = () => {
             const liveIds = new Set(roomRes.data.map((r) => r.id));
             const merged = [...roomRes.data];
             for (const lr of localRooms) {
-              if (!liveIds.has(lr.id)) {
+              const isLegacyFake =
+                lr.id.match(/^r-.*-[123]$/) &&
+                (lr.name === 'Phòng VIP Hoàng Gia' ||
+                  lr.name === 'Phòng Trị Liệu Vodder 01' ||
+                  lr.name === 'Phòng Skincare Hydrafacial');
+              if (!liveIds.has(lr.id) && !isLegacyFake) {
                 merged.push(lr);
               }
             }
@@ -285,44 +280,22 @@ export const W02_Branches: React.FC = () => {
           const localRooms: BranchRoom[] = JSON.parse(cached);
           const liveIds = new Set(branchRooms.map((r) => r.id));
           for (const lr of localRooms) {
-            if (!liveIds.has(lr.id)) {
+            const isLegacyFake =
+              lr.id.match(/^r-.*-[123]$/) &&
+              (lr.name === 'Phòng VIP Hoàng Gia' ||
+                lr.name === 'Phòng Trị Liệu Vodder 01' ||
+                lr.name === 'Phòng Skincare Hydrafacial');
+            if (!liveIds.has(lr.id) && !isLegacyFake) {
               branchRooms.push(lr);
             }
           }
         } catch {}
       }
-      if (branchRooms.length === 0) {
-        branchRooms = rooms.length > 0 && selectedBranchId === branch.id ? rooms : [
-          {
-            id: `r-${branch.id}-1`,
-            branchId: branch.id,
-            name: 'Phòng VIP Hoàng Gia',
-            roomType: 'VIP_ROOM' as RoomType,
-            bedCapacity: 2,
-            isAvailable: true,
-          },
-          {
-            id: `r-${branch.id}-2`,
-            branchId: branch.id,
-            name: 'Phòng Trị Liệu Vodder 01',
-            roomType: 'MASSAGE_ROOM' as RoomType,
-            bedCapacity: 4,
-            isAvailable: true,
-          },
-          {
-            id: `r-${branch.id}-3`,
-            branchId: branch.id,
-            name: 'Phòng Skincare Hydrafacial',
-            roomType: 'SKINCARE_ROOM' as RoomType,
-            bedCapacity: 3,
-            isAvailable: true,
-          },
-        ];
-      }
+      // Giữ đúng trạng thái thực tế: nếu cơ sở chưa có phòng thì để trống, không tự ý chèn dữ liệu mẫu
       setManageRooms(branchRooms);
       setArchivedRooms(archRes.success ? archRes.data : []);
     } catch {
-      setManageRooms(rooms);
+      setManageRooms([]);
       setArchivedRooms([]);
     }
 
@@ -345,18 +318,29 @@ export const W02_Branches: React.FC = () => {
   // Add Room inside Manage Modal
   const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRoomData.name.trim() || !managingBranch) {
+    if (!managingBranch) return;
+    if (!newRoomData.name.trim()) {
       toast.error('Thiếu thông tin phòng', 'Vui lòng nhập tên phòng.');
+      return;
+    }
+    if (!newRoomData.roomType) {
+      toast.error('Thiếu thông tin phòng', 'Vui lòng chọn loại phòng.');
+      return;
+    }
+    const bedCap = Number(newRoomData.bedCapacity);
+    if (!bedCap || bedCap <= 0) {
+      toast.error('Thiếu thông tin phòng', 'Vui lòng nhập số giường (tối thiểu 1 giường).');
       return;
     }
 
     setIsAddingRoom(true);
+    const roomType = newRoomData.roomType as RoomType;
     try {
       const res = await branchService.createRoom({
         branchId: managingBranch.id,
         name: newRoomData.name.trim(),
-        roomType: newRoomData.roomType,
-        bedCapacity: Number(newRoomData.bedCapacity) || 1,
+        roomType,
+        bedCapacity: bedCap,
         isAvailable: newRoomData.isAvailable,
       });
 
@@ -366,8 +350,8 @@ export const W02_Branches: React.FC = () => {
             id: `r-${managingBranch.id}-${Date.now()}`,
             branchId: managingBranch.id,
             name: newRoomData.name.trim(),
-            roomType: newRoomData.roomType,
-            bedCapacity: Number(newRoomData.bedCapacity) || 1,
+            roomType,
+            bedCapacity: bedCap,
             isAvailable: newRoomData.isAvailable,
           };
 
@@ -379,8 +363,8 @@ export const W02_Branches: React.FC = () => {
       }
       setNewRoomData({
         name: '',
-        roomType: 'VIP_ROOM' as RoomType,
-        bedCapacity: 2,
+        roomType: '',
+        bedCapacity: '',
         isAvailable: true,
       });
       setShowAddRoom(false);
@@ -391,8 +375,8 @@ export const W02_Branches: React.FC = () => {
         id: `r-${managingBranch.id}-${Date.now()}`,
         branchId: managingBranch.id,
         name: newRoomData.name.trim(),
-        roomType: newRoomData.roomType,
-        bedCapacity: Number(newRoomData.bedCapacity) || 1,
+        roomType,
+        bedCapacity: bedCap,
         isAvailable: newRoomData.isAvailable,
       };
       const updated = [...manageRooms, fallbackRoom];
@@ -635,35 +619,9 @@ export const W02_Branches: React.FC = () => {
         localStorage.setItem('mld_custom_branches', JSON.stringify([createdBranch, ...customArr]));
       } catch {}
 
-      // Create default rooms for this branch
-      const newRooms: BranchRoom[] = [
-        {
-          id: `r-${createdBranch.id}-1`,
-          branchId: createdBranch.id,
-          name: 'Phòng VIP Hoàng Gia',
-          roomType: 'VIP_ROOM' as any,
-          bedCapacity: 2,
-          isAvailable: true,
-        },
-        {
-          id: `r-${createdBranch.id}-2`,
-          branchId: createdBranch.id,
-          name: 'Phòng Trị Liệu Vodder 01',
-          roomType: 'MASSAGE_ROOM' as any,
-          bedCapacity: 4,
-          isAvailable: true,
-        },
-        {
-          id: `r-${createdBranch.id}-3`,
-          branchId: createdBranch.id,
-          name: 'Phòng Skincare Hydrafacial',
-          roomType: 'SKINCARE_ROOM' as any,
-          bedCapacity: 3,
-          isAvailable: true,
-        },
-      ];
-      localStorage.setItem(`mld_rooms_${createdBranch.id}`, JSON.stringify(newRooms));
-      setRooms(newRooms);
+      // Cơ sở mới tạo để trống sơ đồ phòng (không tự ý chèn phòng mẫu)
+      localStorage.setItem(`mld_rooms_${createdBranch.id}`, JSON.stringify([]));
+      setRooms([]);
 
       toast.success(
         'Thêm chi nhánh thành công',
@@ -1480,7 +1438,7 @@ export const W02_Branches: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <div className="sm:col-span-1">
                         <label className="block text-[11px] font-bold text-[#2C241E] mb-1">
-                          Tên phòng
+                          Tên phòng <span className="text-[#B83E3E]">*</span>
                         </label>
                         <input
                           type="text"
@@ -1489,15 +1447,16 @@ export const W02_Branches: React.FC = () => {
                           onChange={(e) =>
                             setNewRoomData({ ...newRoomData, name: e.target.value })
                           }
-                          placeholder="VD: Phòng VIP 02"
-                          className="w-full px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
+                          placeholder="VD: Phòng VIP 01, Phòng Body..."
+                          className="w-full px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs placeholder:text-[#A69788] focus:outline-none focus:border-[#985018]"
                         />
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold text-[#2C241E] mb-1">
-                          Loại phòng
+                          Loại phòng <span className="text-[#B83E3E]">*</span>
                         </label>
                         <select
+                          required
                           value={newRoomData.roomType}
                           onChange={(e) =>
                             setNewRoomData({
@@ -1505,8 +1464,9 @@ export const W02_Branches: React.FC = () => {
                               roomType: e.target.value as RoomType,
                             })
                           }
-                          className="w-full px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
+                          className="w-full px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs focus:outline-none focus:border-[#985018]"
                         >
+                          <option value="" disabled>-- Chọn loại phòng --</option>
                           {Object.entries(roomTypeLabels).map(([val, label]) => (
                             <option key={val} value={val}>
                               {label}
@@ -1516,20 +1476,22 @@ export const W02_Branches: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold text-[#2C241E] mb-1">
-                          Số giường
+                          Số giường <span className="text-[#B83E3E]">*</span>
                         </label>
                         <input
                           type="number"
+                          required
                           min="1"
                           max="20"
                           value={newRoomData.bedCapacity}
                           onChange={(e) =>
                             setNewRoomData({
                               ...newRoomData,
-                              bedCapacity: Number(e.target.value),
+                              bedCapacity: e.target.value === '' ? '' : Number(e.target.value),
                             })
                           }
-                          className="w-full px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
+                          placeholder="VD: 2"
+                          className="w-full px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs placeholder:text-[#A69788] focus:outline-none focus:border-[#985018]"
                         />
                       </div>
                     </div>
@@ -1702,47 +1664,69 @@ export const W02_Branches: React.FC = () => {
             {/* Tab 3: Tác vụ vận hành */}
             {activeManageTab === 'actions' && (
               <div className="overflow-y-auto p-5 sm:p-6 space-y-3.5">
+                {/* 1. Chuyển cơ sở làm việc chính */}
                 <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] space-y-2">
-                  <h4 className="font-bold text-xs text-[#2C241E]">
-                    Chuyển cơ sở làm việc chính trên toàn hệ thống
-                  </h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-xs text-[#2C241E]">
+                      Chuyển cơ sở làm việc chính trên toàn hệ thống
+                    </h4>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                      Mã: {managingBranch.code}
+                    </span>
+                  </div>
                   <p className="text-[11px] text-[#73675F] leading-relaxed">
                     Đặt cơ sở <strong>"{managingBranch.name}"</strong> làm chi nhánh làm việc
                     mặc định cho tài khoản của bạn trên tất cả trang Tổng quan, Lịch hẹn và Thu ngân.
                   </p>
-                  <button
-                    type="button"
+                  {selectedBranchId === managingBranch.id ? (
+                    <div className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>✓ Đang là chi nhánh làm việc chính của tài khoản</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSelectBranch(managingBranch.id);
+                        localStorage.setItem('mld_selected_branch_id', managingBranch.id);
+                        window.dispatchEvent(
+                          new CustomEvent('mld_branch_changed', {
+                            detail: { branchId: managingBranch.id, branch: managingBranch },
+                          })
+                        );
+                        toast.success(
+                          'Đã đổi chi nhánh chính',
+                          `Hệ thống đã chuyển sang ${managingBranch.name}.`
+                        );
+                      }}
+                      className="mt-1 px-4 py-2 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Đặt làm chi nhánh làm việc hiện tại</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 2. Điều hướng tác vụ nghiệp vụ chuyên biệt */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div
                     onClick={() => {
                       handleSelectBranch(managingBranch.id);
                       localStorage.setItem('mld_selected_branch_id', managingBranch.id);
                       window.dispatchEvent(
                         new CustomEvent('mld_branch_changed', {
-                          detail: { branchId: managingBranch.id },
+                          detail: { branchId: managingBranch.id, branch: managingBranch },
                         })
                       );
-                      toast.success(
-                        'Đã đổi chi nhánh chính',
-                        `Hệ thống đã chuyển sang ${managingBranch.name}.`
-                      );
+                      setIsManageModalOpen(false);
+                      navigate(`/staff-schedule?branchId=${managingBranch.id}`);
                     }}
-                    className="mt-1 px-4 py-2 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Đặt làm chi nhánh làm việc hiện tại</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  <div
-                    onClick={() => {
-                      handleSelectBranch(managingBranch.id);
-                      localStorage.setItem('mld_selected_branch_id', managingBranch.id);
-                      navigate('/staff-schedule');
-                    }}
-                    className="p-4 bg-white rounded-2xl border border-[#EFE4D9] hover:border-[#985018] transition-all cursor-pointer shadow-xs space-y-1.5"
+                    className="p-4 bg-white rounded-2xl border border-[#EFE4D9] hover:border-[#985018] hover:shadow-md transition-all cursor-pointer shadow-xs space-y-1.5 group"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#2C241E]">Lịch kỹ thuật viên</span>
+                      <span className="font-bold text-xs text-[#2C241E] group-hover:text-[#985018] transition-colors">
+                        Lịch kỹ thuật viên
+                      </span>
                       <ExternalLink className="w-3.5 h-3.5 text-[#985018]" />
                     </div>
                     <p className="text-[11px] text-[#8C7A6B]">
@@ -1754,16 +1738,120 @@ export const W02_Branches: React.FC = () => {
                     onClick={() => {
                       handleSelectBranch(managingBranch.id);
                       localStorage.setItem('mld_selected_branch_id', managingBranch.id);
-                      navigate('/cashier-pos');
+                      window.dispatchEvent(
+                        new CustomEvent('mld_branch_changed', {
+                          detail: { branchId: managingBranch.id, branch: managingBranch },
+                        })
+                      );
+                      setIsManageModalOpen(false);
+                      navigate(`/cashier-pos?branchId=${managingBranch.id}`);
                     }}
-                    className="p-4 bg-white rounded-2xl border border-[#EFE4D9] hover:border-[#985018] transition-all cursor-pointer shadow-xs space-y-1.5"
+                    className="p-4 bg-white rounded-2xl border border-[#EFE4D9] hover:border-[#985018] hover:shadow-md transition-all cursor-pointer shadow-xs space-y-1.5 group"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#2C241E]">Thu ngân POS cơ sở</span>
+                      <span className="font-bold text-xs text-[#2C241E] group-hover:text-[#985018] transition-colors">
+                        Thu ngân POS cơ sở
+                      </span>
                       <ExternalLink className="w-3.5 h-3.5 text-[#985018]" />
                     </div>
                     <p className="text-[11px] text-[#8C7A6B]">
                       Mở bàn thanh toán và xuất hóa đơn dịch vụ cho chi nhánh.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3. Bật / Tắt hoạt động đón khách trực tiếp */}
+                <div className="p-4 bg-white rounded-2xl border border-[#EFE4D9] space-y-2 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#2C241E]">
+                      Trạng thái đón khách của cơ sở
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        managingBranch.isActive
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {managingBranch.isActive ? 'Đang hoạt động' : 'Tạm dừng đón khách'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#73675F] leading-relaxed">
+                    {managingBranch.isActive
+                      ? 'Cơ sở đang mở cửa tiếp nhận đặt lịch từ khách hàng và vận hành bình thường.'
+                      : 'Cơ sở đang tạm ngừng đón khách (bảo trì hoặc tạm đóng cửa).'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const nextStatus = !managingBranch.isActive;
+                      try {
+                        await branchService.updateBranch(managingBranch.id, { isActive: nextStatus });
+                        setManagingBranch({ ...managingBranch, isActive: nextStatus });
+                        setBranches((prev) =>
+                          prev.map((b) => (b.id === managingBranch.id ? { ...b, isActive: nextStatus } : b))
+                        );
+                        toast.success(
+                          nextStatus ? 'Đã kích hoạt cơ sở' : 'Đã tạm dừng cơ sở',
+                          `Cơ sở ${managingBranch.name} hiện ${
+                            nextStatus ? 'đang mở cửa đón khách' : 'tạm dừng đón khách'
+                          }.`
+                        );
+                      } catch {
+                        toast.error('Lỗi', 'Không thể cập nhật trạng thái chi nhánh');
+                      }
+                    }}
+                    className={`mt-1 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                      managingBranch.isActive
+                        ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                        : 'bg-emerald-600 text-white border-transparent hover:bg-emerald-700'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>
+                      {managingBranch.isActive
+                        ? 'Tạm dừng đón khách tại cơ sở này'
+                        : 'Mở cửa đón khách trở lại'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* 4. Thao tác tiện ích nhanh: Sơ đồ phòng & Sao chép link */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div
+                    onClick={() => setActiveManageTab('rooms')}
+                    className="p-3.5 bg-white rounded-2xl border border-[#EFE4D9] hover:border-[#985018] transition-all cursor-pointer shadow-xs space-y-1 group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-[#2C241E] group-hover:text-[#985018] transition-colors">
+                        Sơ đồ phòng ({manageRooms.length})
+                      </span>
+                      <DoorOpen className="w-3.5 h-3.5 text-[#985018]" />
+                    </div>
+                    <p className="text-[11px] text-[#8C7A6B]">
+                      Cấu hình phòng VIP, phòng liệu trình và giường tại cơ sở.
+                    </p>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      const branchInfo = `${managingBranch.name} (${managingBranch.code}) - ${managingBranch.address}, ${managingBranch.district}, ${managingBranch.city}. Hotline: ${managingBranch.phone}`;
+                      navigator.clipboard.writeText(branchInfo);
+                      toast.success(
+                        'Đã sao chép thông tin cơ sở',
+                        `Đã lưu địa chỉ và hotline ${managingBranch.name} vào bộ nhớ tạm.`
+                      );
+                    }}
+                    className="p-3.5 bg-white rounded-2xl border border-[#EFE4D9] hover:border-[#985018] transition-all cursor-pointer shadow-xs space-y-1 group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-[#2C241E] group-hover:text-[#985018] transition-colors">
+                        Sao chép địa chỉ cơ sở
+                      </span>
+                      <Copy className="w-3.5 h-3.5 text-[#985018]" />
+                    </div>
+                    <p className="text-[11px] text-[#8C7A6B]">
+                      Lấy thông tin địa chỉ, giờ hoạt động và hotline cơ sở.
                     </p>
                   </div>
                 </div>
@@ -2038,22 +2126,14 @@ export const W02_Branches: React.FC = () => {
                     />
                   </div>
 
-                  <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-1.5">
+                  <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-1">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-[#3E200C]">
                       <DoorOpen className="w-4 h-4 text-[#8A4F23]" />
-                      <span>Tự động thiết lập 3 phòng trị liệu tiêu chuẩn ban đầu:</span>
+                      <span>Sơ đồ phòng ốc:</span>
                     </div>
-                    <ul className="text-[11px] text-[#73675F] space-y-1 pl-5 list-disc">
-                      <li>
-                        <strong>Phòng VIP Hoàng Gia</strong>: 2 giường trị liệu cao cấp
-                      </li>
-                      <li>
-                        <strong>Phòng Trị Liệu Vodder 01</strong>: 4 giường massage bạch huyết
-                      </li>
-                      <li>
-                        <strong>Phòng Skincare Hydrafacial</strong>: 3 giường chăm sóc chuyên sâu
-                      </li>
-                    </ul>
+                    <p className="text-[11px] text-[#73675F] leading-relaxed">
+                      Cơ sở mới sẽ khởi tạo với sơ đồ phòng trống. Bạn có thể chủ động cấu hình thêm các phòng trị liệu và phòng học thực tế ngay sau khi tạo cơ sở.
+                    </p>
                   </div>
                 </div>
               </div>
