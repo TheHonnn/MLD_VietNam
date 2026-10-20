@@ -296,6 +296,20 @@ export interface Technician {
   isActive: boolean;
 }
 
+export interface Instructor {
+  id: string;
+  userId?: string | null;
+  fullName: string;
+  title: string;
+  avatarUrl?: string;
+  experienceYears?: number;
+  bio?: string | null;
+  achievements?: string[];
+  isActive?: boolean;
+  createdAt?: string;
+  user?: Partial<User>;
+}
+
 export interface ServiceCategory {
   id: string;
   name: string;

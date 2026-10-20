@@ -4,6 +4,7 @@ import {
   CourseEnrollment,
   TuitionTransaction,
   StudentCertificate,
+  Instructor,
   CourseLevel,
   EnrollmentStatus,
   CertificateStatus,
@@ -193,5 +194,43 @@ export const academyService = {
     data: Partial<StudentCertificate>
   ): Promise<ApiResponse<StudentCertificate>> {
     return legacyWrite<StudentCertificate>('student_certificates',data);
+  },
+
+  // --- Đội ngũ giảng viên (Instructors) ---
+  async getInstructors(): Promise<ApiResponse<Instructor[]>> {
+    try {
+      const live = await supabaseService.getInstructors();
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu giảng viên từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getInstructors error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn giảng viên từ Supabase',
+        data: [],
+      };
+    }
+  },
+
+  async createInstructor(data: any): Promise<ApiResponse<Instructor>> {
+    try {
+      const created = await supabaseService.createInstructor(data);
+      if (created) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Tạo hồ sơ giảng viên thành công trên Supabase Cloud',
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] createInstructor error:', err);
+    }
+    return legacyWrite<Instructor>('instructors', data);
   },
 };

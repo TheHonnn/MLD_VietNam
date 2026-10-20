@@ -39,6 +39,8 @@ const breadcrumbs: Record<string, string> = {
   '/cashier-pos': 'Thu ngân',
   '/academy-enrollment': 'Tuyển sinh',
   '/instructors': 'Giảng viên',
+  '/instructor': 'Giảng viên',
+  '/giang-vien': 'Giảng viên',
   '/attendance': 'Học viên',
   '/curriculum': 'Vận hành đào tạo',
   '/reports': 'Báo cáo doanh thu',

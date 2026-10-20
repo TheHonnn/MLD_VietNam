@@ -56,6 +56,8 @@ const AppContent: React.FC = () => {
           <Route path="cashier-pos" element={<W07_CashierPOS />} />
           <Route path="academy-enrollment" element={<W08_Enrollment />} />
           <Route path="instructors" element={<W09_Instructors />} />
+          <Route path="instructor" element={<W09_Instructors />} />
+          <Route path="giang-vien" element={<W09_Instructors />} />
           <Route path="attendance" element={<W10_Attendance />} />
           <Route path="curriculum" element={<><TrainingActions /><W11_Curriculum /></>} />
           <Route path="reports" element={<W12_FinancialReports />} />
