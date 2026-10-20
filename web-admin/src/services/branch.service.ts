@@ -1,4 +1,4 @@
-import { Branch, BranchRoom, ApiResponse } from '../types/shared_types';
+import { Branch, BranchRoom, ApiResponse, RoomType } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 
 export const branchService = {
@@ -59,6 +59,77 @@ export const branchService = {
         statusCode: 500,
         message: 'Lỗi khi tải danh sách phòng từ Supabase Cloud',
         data: [],
+      };
+    }
+  },
+
+  async createRoom(roomData: {
+    branchId: string;
+    name: string;
+    roomType: RoomType;
+    bedCapacity: number;
+    isAvailable?: boolean;
+  }): Promise<ApiResponse<BranchRoom | null>> {
+    try {
+      const created = await supabaseService.createRoom(roomData);
+      if (created) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Bổ sung phòng mới vào cơ sở thành công',
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error('[branchService] createRoom error:', err);
+    }
+    return {
+      success: false,
+      statusCode: 500,
+      message: 'Không thể thêm phòng vào CSDL Supabase',
+      data: null,
+    };
+  },
+
+  async updateRoom(
+    roomId: string,
+    updates: Partial<BranchRoom>
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.updateRoom(roomId, updates);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Cập nhật phòng thành công' : 'Lỗi cập nhật phòng',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[branchService] updateRoom error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi kết nối khi cập nhật phòng',
+        data: false,
+      };
+    }
+  },
+
+  async deleteRoom(roomId: string): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.deleteRoom(roomId);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Xóa phòng thành công' : 'Lỗi xóa phòng',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[branchService] deleteRoom error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi kết nối khi xóa phòng',
+        data: false,
       };
     }
   },

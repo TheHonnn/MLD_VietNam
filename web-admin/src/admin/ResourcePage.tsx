@@ -746,7 +746,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "is_active",
     ],
     branches: ["name", "code", "phone", "address", "city", "is_active"],
-    branch_rooms: ["name", "branch_id", "room_type", "bed_capacity", "is_active"],
+    branch_rooms: ["name", "branch_id", "room_type", "bed_capacity", "is_available"],
     services: ["name", "code", "category_id", "price", "duration_minutes", "is_active"],
     treatment_packages: ["name", "code", "total_sessions", "price", "is_active"],
     bookings: ["booking_code", "customer_id", "branch_id", "booking_date", "start_time", "status", "payment_status"],

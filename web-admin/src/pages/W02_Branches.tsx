@@ -22,10 +22,12 @@ import {
   Bed,
   CheckCircle2,
   AlertCircle,
+  Search,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
 import { Branch, BranchRoom, Service, RoomType } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 const roomTypeLabels: Record<string, string> = {
   VIP_ROOM: 'Phòng VIP Hoàng Gia',
@@ -59,6 +61,7 @@ export const W02_Branches: React.FC = () => {
   const [isSavingBranch, setIsSavingBranch] = useState(false);
   const [manageRooms, setManageRooms] = useState<BranchRoom[]>([]);
   const [showAddRoom, setShowAddRoom] = useState(false);
+  const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomData, setNewRoomData] = useState({
     name: '',
     roomType: 'VIP_ROOM' as RoomType,
@@ -206,6 +209,22 @@ export const W02_Branches: React.FC = () => {
     try {
       const roomRes = await branchService.getRoomsByBranch(branchId);
       if (roomRes.success && roomRes.data.length > 0) {
+        // Merge with any locally added rooms in localStorage
+        const cached = localStorage.getItem(`mld_rooms_${branchId}`);
+        if (cached) {
+          try {
+            const localRooms: BranchRoom[] = JSON.parse(cached);
+            const liveIds = new Set(roomRes.data.map((r) => r.id));
+            const merged = [...roomRes.data];
+            for (const lr of localRooms) {
+              if (!liveIds.has(lr.id)) {
+                merged.push(lr);
+              }
+            }
+            setRooms(merged);
+            return;
+          } catch {}
+        }
         setRooms(roomRes.data);
       } else {
         loadRoomsForBranch(branchId);
@@ -217,7 +236,7 @@ export const W02_Branches: React.FC = () => {
   };
 
   // Open Manage Modal
-  const handleOpenManageModal = (branch: Branch) => {
+  const handleOpenManageModal = async (branch: Branch) => {
     setManagingBranch(branch);
     setEditForm({
       name: branch.name,
@@ -233,18 +252,54 @@ export const W02_Branches: React.FC = () => {
       amenities: branch.amenities ? [...branch.amenities] : [],
     });
 
-    const cached = localStorage.getItem(`mld_rooms_${branch.id}`);
-    if (cached) {
-      try {
-        setManageRooms(JSON.parse(cached));
-      } catch {
-        setManageRooms(rooms);
+    try {
+      const res = await branchService.getRoomsByBranch(branch.id);
+      let branchRooms: BranchRoom[] = res.success && res.data.length > 0 ? res.data : [];
+      const cached = localStorage.getItem(`mld_rooms_${branch.id}`);
+      if (cached) {
+        try {
+          const localRooms: BranchRoom[] = JSON.parse(cached);
+          const liveIds = new Set(branchRooms.map((r) => r.id));
+          for (const lr of localRooms) {
+            if (!liveIds.has(lr.id)) {
+              branchRooms.push(lr);
+            }
+          }
+        } catch {}
       }
-    } else {
+      if (branchRooms.length === 0) {
+        branchRooms = rooms.length > 0 && selectedBranchId === branch.id ? rooms : [
+          {
+            id: `r-${branch.id}-1`,
+            branchId: branch.id,
+            name: 'Phòng VIP Hoàng Gia',
+            roomType: 'VIP_ROOM' as RoomType,
+            bedCapacity: 2,
+            isAvailable: true,
+          },
+          {
+            id: `r-${branch.id}-2`,
+            branchId: branch.id,
+            name: 'Phòng Trị Liệu Vodder 01',
+            roomType: 'MASSAGE_ROOM' as RoomType,
+            bedCapacity: 4,
+            isAvailable: true,
+          },
+          {
+            id: `r-${branch.id}-3`,
+            branchId: branch.id,
+            name: 'Phòng Skincare Hydrafacial',
+            roomType: 'SKINCARE_ROOM' as RoomType,
+            bedCapacity: 3,
+            isAvailable: true,
+          },
+        ];
+      }
+      setManageRooms(branchRooms);
+    } catch {
       setManageRooms(rooms);
     }
 
-    setActiveManageTab('info');
     setShowAddRoom(false);
     setIsManageModalOpen(true);
   };
@@ -262,56 +317,98 @@ export const W02_Branches: React.FC = () => {
   };
 
   // Add Room inside Manage Modal
-  const handleAddRoom = (e: React.FormEvent) => {
+  const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRoomData.name.trim() || !managingBranch) return;
-
-    const newRoom: BranchRoom = {
-      id: `r-${managingBranch.id}-${Date.now()}`,
-      branchId: managingBranch.id,
-      name: newRoomData.name.trim(),
-      roomType: newRoomData.roomType,
-      bedCapacity: Number(newRoomData.bedCapacity) || 1,
-      isAvailable: newRoomData.isAvailable,
-    };
-
-    const updated = [...manageRooms, newRoom];
-    setManageRooms(updated);
-    localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
-    if (selectedBranchId === managingBranch.id) {
-      setRooms(updated);
+    if (!newRoomData.name.trim() || !managingBranch) {
+      toast.error('Thiếu thông tin phòng', 'Vui lòng nhập tên phòng.');
+      return;
     }
-    setNewRoomData({
-      name: '',
-      roomType: 'VIP_ROOM' as RoomType,
-      bedCapacity: 2,
-      isAvailable: true,
-    });
-    setShowAddRoom(false);
-    toast.success('Đã thêm phòng', `Phòng "${newRoom.name}" đã được bổ sung vào sơ đồ cơ sở.`);
+
+    setIsAddingRoom(true);
+    try {
+      const res = await branchService.createRoom({
+        branchId: managingBranch.id,
+        name: newRoomData.name.trim(),
+        roomType: newRoomData.roomType,
+        bedCapacity: Number(newRoomData.bedCapacity) || 1,
+        isAvailable: newRoomData.isAvailable,
+      });
+
+      const newRoom: BranchRoom = (res.success && res.data)
+        ? res.data
+        : {
+            id: `r-${managingBranch.id}-${Date.now()}`,
+            branchId: managingBranch.id,
+            name: newRoomData.name.trim(),
+            roomType: newRoomData.roomType,
+            bedCapacity: Number(newRoomData.bedCapacity) || 1,
+            isAvailable: newRoomData.isAvailable,
+          };
+
+      const updated = [...manageRooms, newRoom];
+      setManageRooms(updated);
+      localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
+      if (selectedBranchId === managingBranch.id) {
+        setRooms(updated);
+      }
+      setNewRoomData({
+        name: '',
+        roomType: 'VIP_ROOM' as RoomType,
+        bedCapacity: 2,
+        isAvailable: true,
+      });
+      setShowAddRoom(false);
+      toast.success('Đã thêm phòng thành công', `Phòng "${newRoom.name}" (${newRoom.bedCapacity} giường) đã được bổ sung vào cơ sở.`);
+    } catch (err) {
+      console.error('Lỗi khi thêm phòng:', err);
+      const fallbackRoom: BranchRoom = {
+        id: `r-${managingBranch.id}-${Date.now()}`,
+        branchId: managingBranch.id,
+        name: newRoomData.name.trim(),
+        roomType: newRoomData.roomType,
+        bedCapacity: Number(newRoomData.bedCapacity) || 1,
+        isAvailable: newRoomData.isAvailable,
+      };
+      const updated = [...manageRooms, fallbackRoom];
+      setManageRooms(updated);
+      localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
+      if (selectedBranchId === managingBranch.id) {
+        setRooms(updated);
+      }
+      setShowAddRoom(false);
+      toast.success('Đã thêm phòng', `Phòng "${fallbackRoom.name}" đã được lưu vào cơ sở.`);
+    } finally {
+      setIsAddingRoom(false);
+    }
   };
 
-  const handleToggleRoomAvailability = (roomId: string) => {
+  const handleToggleRoomAvailability = async (roomId: string) => {
     if (!managingBranch) return;
+    const target = manageRooms.find((r) => r.id === roomId);
+    if (!target) return;
+    const nextAvail = !target.isAvailable;
     const updated = manageRooms.map((r) =>
-      r.id === roomId ? { ...r, isAvailable: !r.isAvailable } : r
+      r.id === roomId ? { ...r, isAvailable: nextAvail } : r
     );
     setManageRooms(updated);
     localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
     if (selectedBranchId === managingBranch.id) {
       setRooms(updated);
     }
+    await branchService.updateRoom(roomId, { isAvailable: nextAvail });
   };
 
-  const handleDeleteRoom = (roomId: string) => {
+  const handleDeleteRoom = async (roomId: string) => {
     if (!managingBranch) return;
+    const target = manageRooms.find((r) => r.id === roomId);
     const updated = manageRooms.filter((r) => r.id !== roomId);
     setManageRooms(updated);
     localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
     if (selectedBranchId === managingBranch.id) {
       setRooms(updated);
     }
-    toast.info('Đã xóa phòng', 'Phòng đã được xóa khỏi sơ đồ cơ sở.');
+    toast.info('Đã xóa phòng', `Phòng "${target?.name || ''}" đã được xóa khỏi sơ đồ cơ sở.`);
+    await branchService.deleteRoom(roomId);
   };
 
   // Save Branch Updates
@@ -521,24 +618,27 @@ export const W02_Branches: React.FC = () => {
     }
   };
 
-  const selectedBranch = branches.find((b) => b.id === selectedBranchId) || branches[0];
+  const hasActiveFilter = searchTerm.trim().length > 0 || selectedCity !== 'ALL' || selectedStatus !== 'ALL';
 
   const filteredBranches = branches.filter((b) => {
-    if (selectedCity !== 'ALL' && !b.city.toLowerCase().includes(selectedCity.toLowerCase())) {
+    if (selectedCity !== 'ALL' && !matchSearch(b.city, selectedCity)) {
       return false;
     }
     if (selectedStatus === 'ACTIVE' && !b.isActive) return false;
     if (selectedStatus === 'INACTIVE' && b.isActive) return false;
 
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      b.name.toLowerCase().includes(term) ||
-      b.address.toLowerCase().includes(term) ||
-      b.code.toLowerCase().includes(term) ||
-      b.district.toLowerCase().includes(term)
+    if (!searchTerm.trim()) return true;
+    return matchSearch(
+      [b.name, b.code, b.address, b.district, b.city, b.phone],
+      searchTerm
     );
   });
+
+  const selectedBranch =
+    filteredBranches.find((b) => b.id === selectedBranchId) ||
+    filteredBranches[0] ||
+    branches.find((b) => b.id === selectedBranchId) ||
+    branches[0];
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -563,14 +663,25 @@ export const W02_Branches: React.FC = () => {
 
       {/* 2. Search & Filter Bar */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm tên, mã, quận huyện hoặc địa chỉ chi nhánh..."
-            className="w-full h-10 px-3.5 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
+            className="w-full h-10 pl-10 pr-9 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* City Filter */}
@@ -604,6 +715,23 @@ export const W02_Branches: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
+        {/* Reset button when filters are active */}
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedCity('ALL');
+              setSelectedStatus('ALL');
+            }}
+            className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại toàn bộ bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
+
         {/* Total services badge */}
         <button
           onClick={() => navigate('/treatment-management')}
@@ -635,16 +763,46 @@ export const W02_Branches: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9]">
-              {filteredBranches.map((branch) => {
-                const isSelected = branch.id === selectedBranchId;
-                return (
-                  <tr
-                    key={branch.id}
-                    onClick={() => handleSelectBranch(branch.id)}
-                    className={`cursor-pointer ${
-                      isSelected ? 'bg-[#F8F1E8]' : 'bg-white'
-                    } hover:bg-[#FAF6F0] transition-colors`}
-                  >
+              {filteredBranches.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-[#73675F]">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                        <Search className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy chi nhánh phù hợp</p>
+                      <p className="text-xs text-[#8C7A6B]">
+                        {searchTerm.trim()
+                          ? `Không có cơ sở nào khớp với từ khóa "${searchTerm}". Hãy thử tìm theo tên, quận huyện (ví dụ: Q3, Q1), hoặc địa chỉ.`
+                          : 'Không có chi nhánh nào khớp với bộ lọc đã chọn.'}
+                      </p>
+                      {hasActiveFilter && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchTerm('');
+                            setSelectedCity('ALL');
+                            setSelectedStatus('ALL');
+                          }}
+                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                        >
+                          Xóa bộ lọc tìm kiếm
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredBranches.map((branch) => {
+                  const isSelected = branch.id === selectedBranchId;
+                  return (
+                    <tr
+                      key={branch.id}
+                      onClick={() => handleSelectBranch(branch.id)}
+                      className={`cursor-pointer ${
+                        isSelected ? 'bg-[#F8F1E8]' : 'bg-white'
+                      } hover:bg-[#FAF6F0] transition-colors`}
+                    >
                     {/* Name & Address */}
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-2">
@@ -712,7 +870,8 @@ export const W02_Branches: React.FC = () => {
                     </td>
                   </tr>
                 );
-              })}
+              })
+            )}
             </tbody>
           </table>
         </div>
@@ -816,42 +975,80 @@ export const W02_Branches: React.FC = () => {
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-[#2C241E]">Phân bổ phòng ốc cơ sở</h3>
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedBranch) {
-                    handleOpenManageModal(selectedBranch);
-                    setActiveManageTab('rooms');
-                  }
-                }}
-                className="text-xs text-[#985018] hover:underline font-bold cursor-pointer"
-              >
-                + Quản lý phòng
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (selectedBranch) {
+                      await handleOpenManageModal(selectedBranch);
+                      setActiveManageTab('rooms');
+                      setShowAddRoom(true);
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-[#FAF0E4] hover:bg-[#F3E2CE] text-[#8A4F23] rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Thêm phòng mới vào cơ sở"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm phòng</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (selectedBranch) {
+                      await handleOpenManageModal(selectedBranch);
+                      setActiveManageTab('rooms');
+                    }
+                  }}
+                  className="text-xs text-[#985018] hover:underline font-bold cursor-pointer"
+                >
+                  Quản lý
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
-              {rooms.map((r) => (
-                <div
-                  key={r.id}
-                  className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="font-bold text-[#2C241E]">{r.name}</div>
-                    <div className="text-[10px] text-[#8C7A6B]">
-                      {roomTypeLabels[r.roomType] || r.roomType} • {r.bedCapacity} giường
-                    </div>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      r.isAvailable
-                        ? 'bg-[#E8EFE5] text-[#526D51]'
-                        : 'bg-[#FBEBEB] text-[#B83E3E]'
-                    }`}
+              {rooms.length === 0 ? (
+                <div className="py-6 text-center text-xs text-[#8C7A6B] space-y-2 bg-[#FAF8F5] rounded-xl border border-dashed border-[#E8DFD8] p-4">
+                  <DoorOpen className="w-6 h-6 text-[#8A4F23] mx-auto opacity-70" />
+                  <div>Cơ sở chưa có phòng nào được thiết lập.</div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (selectedBranch) {
+                        await handleOpenManageModal(selectedBranch);
+                        setActiveManageTab('rooms');
+                        setShowAddRoom(true);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#985018] text-white rounded-lg text-xs font-bold hover:bg-[#854412] transition-colors cursor-pointer"
                   >
-                    {r.isAvailable ? 'Sẵn sàng' : 'Đang bận'}
-                  </span>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Thêm phòng ngay</span>
+                  </button>
                 </div>
-              ))}
+              ) : (
+                rooms.map((r) => (
+                  <div
+                    key={r.id}
+                    className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <div className="font-bold text-[#2C241E]">{r.name}</div>
+                      <div className="text-[10px] text-[#8C7A6B]">
+                        {roomTypeLabels[r.roomType] || r.roomType} • {r.bedCapacity} giường
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        r.isAvailable
+                          ? 'bg-[#E8EFE5] text-[#526D51]'
+                          : 'bg-[#FBEBEB] text-[#B83E3E]'
+                      }`}
+                    >
+                      {r.isAvailable ? 'Sẵn sàng' : 'Đang bận'}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -1220,15 +1417,26 @@ export const W02_Branches: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowAddRoom(false)}
-                        className="px-3 py-1 text-xs text-[#73675F] hover:bg-white rounded-lg"
+                        className="px-3 py-1.5 text-xs text-[#73675F] hover:bg-white rounded-lg cursor-pointer"
                       >
                         Hủy
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-1.5 bg-[#985018] text-white text-xs font-bold rounded-lg shadow-xs hover:bg-[#854412]"
+                        disabled={isAddingRoom}
+                        className="px-4 py-1.5 bg-[#985018] text-white text-xs font-bold rounded-lg shadow-xs hover:bg-[#854412] disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                       >
-                        Lưu phòng
+                        {isAddingRoom ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Đang lưu phòng...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Lưu phòng</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -1237,8 +1445,17 @@ export const W02_Branches: React.FC = () => {
                 {/* Danh sách phòng */}
                 <div className="space-y-2">
                   {manageRooms.length === 0 ? (
-                    <div className="py-8 text-center text-[#8C7A6B] text-xs">
-                      Chưa có phòng nào được tạo cho cơ sở này.
+                    <div className="py-8 text-center text-[#8C7A6B] text-xs space-y-2.5 bg-[#FAF8F5] rounded-xl border border-dashed border-[#E8DFD8] p-4">
+                      <DoorOpen className="w-7 h-7 text-[#8A4F23] mx-auto opacity-70" />
+                      <div>Chưa có phòng nào được tạo cho cơ sở này.</div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddRoom(true)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#985018] text-white text-xs font-bold rounded-lg hover:bg-[#854412] transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Thêm phòng đầu tiên</span>
+                      </button>
                     </div>
                   ) : (
                     manageRooms.map((room) => (

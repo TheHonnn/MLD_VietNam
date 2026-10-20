@@ -7,6 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Search,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { customerService, treatmentService } from '../services';
@@ -153,14 +155,25 @@ export const W03_Customers: React.FC = () => {
 
       {/* 3. Filter Bar Box */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm tên, mã giới thiệu hoặc số điện thoại..."
-            className="w-full h-10 px-3.5 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
+            className="w-full h-10 pl-10 pr-9 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Membership Tier Dropdown */}
@@ -181,6 +194,22 @@ export const W03_Customers: React.FC = () => {
           <span>Trạng thái: Hoạt động</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
+
+        {/* Reset filter button */}
+        {(searchTerm.trim() || selectedTierFilter) && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedTierFilter(undefined);
+            }}
+            className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 4. Main 2-Column Content: Customer Table (Left 8/12) vs Customer Profile Detail (Right 4/12) */}
@@ -206,16 +235,45 @@ export const W03_Customers: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFE4D9]">
-                {customers.map((c) => {
-                  const isSelected = c.id === selectedCustomerId;
-                  return (
-                    <tr
-                      key={c.id}
-                      onClick={() => setSelectedCustomerId(c.id)}
-                      className={`cursor-pointer ${
-                        isSelected ? 'bg-[#F8F1E8]' : 'bg-white'
-                      } hover:bg-[#FAF6F0] transition-colors`}
-                    >
+                {customers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-[#73675F]">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                        <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                          <Search className="w-5 h-5" />
+                        </div>
+                        <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy khách hàng phù hợp</p>
+                        <p className="text-xs text-[#8C7A6B]">
+                          {searchTerm.trim()
+                            ? `Không có hồ sơ nào khớp với từ khóa "${searchTerm}".`
+                            : 'Không có khách hàng nào với bộ lọc này.'}
+                        </p>
+                        {(searchTerm.trim() || selectedTierFilter) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchTerm('');
+                              setSelectedTierFilter(undefined);
+                            }}
+                            className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                          >
+                            Xóa bộ lọc
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  customers.map((c) => {
+                    const isSelected = c.id === selectedCustomerId;
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => setSelectedCustomerId(c.id)}
+                        className={`cursor-pointer ${
+                          isSelected ? 'bg-[#F8F1E8]' : 'bg-white'
+                        } hover:bg-[#FAF6F0] transition-colors`}
+                      >
                       {/* Name & Avatar */}
                       <td className="py-3 px-5">
                         <div className="flex items-center gap-3">
@@ -268,7 +326,8 @@ export const W03_Customers: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                })
+              )}
               </tbody>
             </table>
           </div>

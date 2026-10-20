@@ -7,9 +7,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Search,
+  X,
 } from 'lucide-react';
 import { treatmentService, customerService } from '../services';
 import { toast } from '../components/common';
+import { matchSearch } from '../utils/searchUtils';
 import {
   TreatmentPackage as SharedTreatmentPackage,
   UserPackage,
@@ -147,13 +150,27 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [selectedPkgId, setSelectedPkgId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    if (packages.length > 0 && (!selectedPkgId || !packages.some((p) => p.id === selectedPkgId))) {
-      setSelectedPkgId(packages[0].id);
-    }
-  }, [packages, selectedPkgId]);
+  const filteredPackages = useMemo(() => {
+    return packages.filter((pkg) => {
+      if (!searchTerm.trim()) return true;
+      const cust = custMap.get(pkg.customerId);
+      return matchSearch(
+        [pkg.name, pkg.price, cust?.fullName, cust?.phone, pkg.branch, pkg.status],
+        searchTerm
+      );
+    });
+  }, [packages, searchTerm, custMap]);
 
-  const selectedPkg = packages.find((p) => p.id === selectedPkgId) || packages[0] || {
+  useEffect(() => {
+    if (filteredPackages.length > 0 && (!selectedPkgId || !filteredPackages.some((p) => p.id === selectedPkgId))) {
+      setSelectedPkgId(filteredPackages[0].id);
+    }
+  }, [filteredPackages, selectedPkgId]);
+
+  const selectedPkg =
+    filteredPackages.find((p) => p.id === selectedPkgId) ||
+    filteredPackages[0] ||
+    packages[0] || {
     id: '',
     name: 'Chưa có gói liệu trình',
     customerId: '',
@@ -246,14 +263,25 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* 3. Filter Toolbar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search input */}
-        <div className="flex-1 min-w-[200px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm khách hàng, mã gói hoặc tên liệu trình..."
-            className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Dropdown 1 */}
@@ -273,6 +301,19 @@ export const W06_TreatmentManagement: React.FC = () => {
           <span>Hạn đến 31/12/2026</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
+
+        {/* Reset filter button */}
+        {searchTerm.trim() && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại tìm kiếm"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 4. Packages Table Card */}
@@ -283,7 +324,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             Gói liệu trình dịch vụ MLD
           </h2>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-            {packages.length} gói hoạt động
+            {filteredPackages.length} gói hoạt động
           </span>
         </div>
 
@@ -300,76 +341,103 @@ export const W06_TreatmentManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0E6DC]">
-              {packages.map((pkg) => {
-                const isSelected = selectedPkgId === pkg.id;
+              {filteredPackages.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-[#73675F]">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                        <Search className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy gói liệu trình</p>
+                      <p className="text-xs text-[#8C7A6B]">
+                        {searchTerm.trim()
+                          ? `Không có liệu trình nào khớp với từ khóa "${searchTerm}".`
+                          : 'Chưa có gói liệu trình nào được đăng ký.'}
+                      </p>
+                      {searchTerm.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm('')}
+                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                        >
+                          Xóa tìm kiếm
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredPackages.map((pkg) => {
+                  const isSelected = selectedPkgId === pkg.id;
 
-                return (
-                  <tr
-                    key={pkg.id}
-                    onClick={() => setSelectedPkgId(pkg.id)}
-                    className={`cursor-pointer transition-colors ${
-                      isSelected ? 'bg-[#F8F1E8]' : 'hover:bg-[#FAF8F5]'
-                    }`}
-                  >
-                    {/* Col 1 */}
-                    <td className="py-4 px-5">
-                      <div className="font-bold text-xs text-[#2C241E]">
-                        {pkg.name}
-                      </div>
-                      <div className="text-[11px] text-[#73675F] mt-0.5">
-                        {pkg.price}
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={pkg.id}
+                      onClick={() => setSelectedPkgId(pkg.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected ? 'bg-[#F8F1E8]' : 'hover:bg-[#FAF8F5]'
+                      }`}
+                    >
+                      {/* Col 1 */}
+                      <td className="py-4 px-5">
+                        <div className="font-bold text-xs text-[#2C241E]">
+                          {pkg.name}
+                        </div>
+                        <div className="text-[11px] text-[#73675F] mt-0.5">
+                          {pkg.price}
+                        </div>
+                      </td>
 
-                    {/* Col 2 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium">
-                        {pkg.purchaseDate}
-                      </div>
-                      <div className="text-[11px] text-[#73675F] mt-0.5">
-                        {pkg.expiryDate}
-                      </div>
-                    </td>
+                      {/* Col 2 */}
+                      <td className="py-4 px-5">
+                        <div className="text-xs text-[#2C241E] font-medium">
+                          {pkg.purchaseDate}
+                        </div>
+                        <div className="text-[11px] text-[#73675F] mt-0.5">
+                          {pkg.expiryDate}
+                        </div>
+                      </td>
 
-                    {/* Col 3 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium">
-                        {pkg.sessionsTotal} · {pkg.usedSessions} · {pkg.remainingSessions} buổi
-                      </div>
-                    </td>
+                      {/* Col 3 */}
+                      <td className="py-4 px-5">
+                        <div className="text-xs text-[#2C241E] font-medium">
+                          {pkg.sessionsTotal} · {pkg.usedSessions} · {pkg.remainingSessions} buổi
+                        </div>
+                      </td>
 
-                    {/* Col 4 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium mb-1.5">
-                        {pkg.progressLabel}
-                      </div>
-                      <div className="w-full bg-[#EFE4D9] h-1.5 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${pkg.progressPercent}%` }}
-                          className="bg-[#985018] h-full rounded-full"
-                        />
-                      </div>
-                    </td>
+                      {/* Col 4 */}
+                      <td className="py-4 px-5">
+                        <div className="text-xs text-[#2C241E] font-medium mb-1.5">
+                          {pkg.progressLabel}
+                        </div>
+                        <div className="w-full bg-[#EFE4D9] h-1.5 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${pkg.progressPercent}%` }}
+                            className="bg-[#985018] h-full rounded-full"
+                          />
+                        </div>
+                      </td>
 
-                    {/* Col 5 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium">
-                        {pkg.branch}
-                      </div>
-                      <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-                        {pkg.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                      {/* Col 5 */}
+                      <td className="py-4 px-5">
+                        <div className="text-xs text-[#2C241E] font-medium">
+                          {pkg.branch}
+                        </div>
+                        <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
+                          {pkg.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Table Pagination Footer */}
         <div className="px-5 py-3 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-          <span>Hiển thị {packages.length} / {packages.length} gói liệu trình</span>
+          <span>Hiển thị {filteredPackages.length} / {packages.length} gói liệu trình</span>
           <div className="flex items-center gap-1.5">
             <button
               disabled

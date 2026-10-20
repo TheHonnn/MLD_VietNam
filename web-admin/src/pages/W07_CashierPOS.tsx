@@ -16,10 +16,12 @@ import {
   CreditCard,
   Copy,
   Maximize2,
+  Search,
 } from 'lucide-react';
 import { posService, bookingService, customerService, notificationService, supabaseService } from '../services';
 import { toast } from '../components/common';
 import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 export const W07_CashierPOS: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -164,13 +166,8 @@ export const W07_CashierPOS: React.FC = () => {
       setIsPaid(false);
       return;
     }
-    const kw = queryStr.toLowerCase().trim();
-    const found = allBookings.find(
-      (b) =>
-        b.bookingCode.toLowerCase().includes(kw) ||
-        (b.customer?.fullName && b.customer.fullName.toLowerCase().includes(kw)) ||
-        (b.customer?.phone && b.customer.phone.includes(kw)) ||
-        (b.bookedForName && b.bookedForName.toLowerCase().includes(kw))
+    const found = allBookings.find((b) =>
+      matchSearch([b.bookingCode, b.customer?.fullName, b.customer?.phone, b.bookedForName], queryStr)
     );
     if (found) {
       setBooking(found);
@@ -193,13 +190,8 @@ export const W07_CashierPOS: React.FC = () => {
       toast.info('Tra cứu đơn dịch vụ', 'Vui lòng nhập mã đơn hoặc tên khách hàng để tìm kiếm.');
       return;
     }
-    const kw = searchTerm.toLowerCase().trim();
-    const found = allBookings.find(
-      (b) =>
-        b.bookingCode.toLowerCase().includes(kw) ||
-        (b.customer?.fullName && b.customer.fullName.toLowerCase().includes(kw)) ||
-        (b.customer?.phone && b.customer.phone.includes(kw)) ||
-        (b.bookedForName && b.bookedForName.toLowerCase().includes(kw))
+    const found = allBookings.find((b) =>
+      matchSearch([b.bookingCode, b.customer?.fullName, b.customer?.phone, b.bookedForName], searchTerm)
     );
     if (found) {
       setBooking(found);
@@ -457,7 +449,8 @@ export const W07_CashierPOS: React.FC = () => {
       {/* 2. Filter Toolbar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Customer / Booking code input */}
-        <div className="flex-1 min-w-[200px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
@@ -466,8 +459,18 @@ export const W07_CashierPOS: React.FC = () => {
               if (e.key === 'Enter') handleLookupClick();
             }}
             placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
-            className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => handleSearchBooking('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Dropdown 1: Service type */}

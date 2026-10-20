@@ -260,6 +260,7 @@ export interface BranchRoom {
   roomType: RoomType;
   bedCapacity: number;
   isAvailable: boolean;
+  createdAt?: string;
 }
 
 export interface StaffProfile {

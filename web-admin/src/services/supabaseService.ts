@@ -19,9 +19,11 @@ import {
   TuitionTransaction,
   PackageStatus,
   EnrollmentStatus,
+  RoomType,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
+import { matchSearch } from '../utils/searchUtils';
 
 const SUPABASE_URL =
   (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
@@ -235,6 +237,76 @@ class SupabaseService {
     }));
   }
 
+  async createRoom(room: {
+    branchId: string;
+    name: string;
+    roomType: RoomType;
+    bedCapacity: number;
+    isAvailable?: boolean;
+  }): Promise<BranchRoom | null> {
+    try {
+      const payload = {
+        branch_id: room.branchId,
+        name: room.name,
+        room_type: room.roomType || 'VIP_ROOM',
+        bed_capacity: Number(room.bedCapacity) || 1,
+        is_available: room.isAvailable !== undefined ? room.isAvailable : true,
+      };
+
+      const res = await this.query<any[]>('branch_rooms', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (res && res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          branchId: r.branch_id,
+          name: r.name,
+          roomType: r.room_type,
+          bedCapacity: Number(r.bed_capacity),
+          isAvailable: Boolean(r.is_available),
+          createdAt: r.created_at,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createRoom error:', err);
+    }
+    return null;
+  }
+
+  async updateRoom(roomId: string, updates: Partial<BranchRoom>): Promise<boolean> {
+    try {
+      const payload: Record<string, any> = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.roomType !== undefined) payload.room_type = updates.roomType;
+      if (updates.bedCapacity !== undefined) payload.bed_capacity = Number(updates.bedCapacity);
+      if (updates.isAvailable !== undefined) payload.is_available = updates.isAvailable;
+
+      const res = await this.query<any>(`branch_rooms?id=eq.${roomId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return res !== null;
+    } catch (err) {
+      console.warn('[SupabaseService] updateRoom error:', err);
+      return false;
+    }
+  }
+
+  async deleteRoom(roomId: string): Promise<boolean> {
+    try {
+      const res = await this.query<any>(`branch_rooms?id=eq.${roomId}`, {
+        method: 'DELETE',
+      });
+      return res !== null;
+    } catch (err) {
+      console.warn('[SupabaseService] deleteRoom error:', err);
+      return false;
+    }
+  }
+
   // 3. TÀI KHOẢN KHÁCH HÀNG / NGƯỜI DÙNG (USERS)
   async getUsers(search?: string, tier?: MemberTier): Promise<User[] | null> {
     let path = 'users?select=*&order=created_at.desc';
@@ -266,13 +338,9 @@ class SupabaseService {
       updatedAt: u.updated_at,
     }));
 
-    if (search) {
-      const s = search.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.fullName.toLowerCase().includes(s) ||
-          (u.phone || '').includes(s) ||
-          (u.email && u.email.toLowerCase().includes(s))
+    if (search && search.trim()) {
+      result = result.filter((u) =>
+        matchSearch([u.fullName, u.phone, u.email, u.address], search)
       );
     }
 
