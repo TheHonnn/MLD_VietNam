@@ -4,6 +4,7 @@ import {
   UserPackage,
   TreatmentJournal,
   ApiResponse,
+  PackageStatus,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
@@ -177,6 +178,88 @@ export const treatmentService = {
     id: string,
     data: Partial<TreatmentJournal>
   ): Promise<ApiResponse<TreatmentJournal>> {
-    return legacyWrite<TreatmentJournal>('treatment_journal',data,id);
+    return legacyWrite<TreatmentJournal>('treatment_journal', data, id);
+  },
+
+  async updateUserPackage(
+    userPackageId: string,
+    updates: { completedSessions?: number; status?: PackageStatus }
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.updateUserPackage(userPackageId, updates);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Cập nhật gói liệu trình thành công trên Supabase Cloud' : 'Không thể cập nhật gói',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[treatmentService] updateUserPackage error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi cập nhật gói liệu trình',
+        data: false,
+      };
+    }
+  },
+
+  async createTreatmentJournal(journal: {
+    userPackageId?: string | null;
+    bookingId?: string | null;
+    customerId: string;
+    technicianId?: string | null;
+    assignedRoomId?: string | null;
+    sessionNumber: number;
+    sessionDate: string;
+    conditionBefore?: string;
+    conditionAfter?: string;
+    treatmentNotes?: string;
+    specialistAdvice?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const res = await supabaseService.createTreatmentJournal(journal);
+      return {
+        success: Boolean(res),
+        statusCode: res ? 201 : 400,
+        message: res ? 'Ghi chép sổ điều trị thành công trên Supabase Cloud' : 'Lỗi khi ghi nhật ký',
+        data: res,
+      };
+    } catch (err) {
+      console.error('[treatmentService] createTreatmentJournal error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi ghi chép sổ điều trị',
+        data: null,
+      };
+    }
+  },
+
+  // Tiến trình FSM: Thực hiện 1 buổi và tự động hoàn thành gói khi đủ số buổi
+  async completePackageSession(
+    userPackageId: string,
+    currentCompleted: number,
+    totalSessions: number,
+    journalData?: any
+  ): Promise<ApiResponse<boolean>> {
+    const nextCompleted = currentCompleted + 1;
+    const nextStatus = nextCompleted >= totalSessions ? PackageStatus.COMPLETED : PackageStatus.ACTIVE;
+
+    const res = await this.updateUserPackage(userPackageId, {
+      completedSessions: nextCompleted,
+      status: nextStatus,
+    });
+
+    if (res.success && journalData) {
+      await this.createTreatmentJournal({
+        ...journalData,
+        userPackageId,
+        sessionNumber: nextCompleted,
+        sessionDate: new Date().toISOString().split('T')[0],
+      });
+    }
+
+    return res;
   },
 };
