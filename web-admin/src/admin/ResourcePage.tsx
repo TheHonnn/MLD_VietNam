@@ -33,6 +33,37 @@ import {
 import { DEFAULT_RESOURCES } from "./defaultResources";
 import { display, enums, label } from "./labels";
 
+function formatCell(row: Row, c: Column): React.ReactNode {
+  if (c.name === "branch_id") {
+    return row.branch_name || row.branches?.name || row.branches?.code || display(row[c.name]);
+  }
+  if (c.name === "user_id") {
+    return row.full_name || row.users?.full_name || display(row[c.name]);
+  }
+  if (c.name === "customer_id") {
+    return row.customer_name || row.customer?.full_name || row.users?.full_name || display(row[c.name]);
+  }
+  if (c.name === "technician_id") {
+    return row.technician_name || row.technicians?.full_name || display(row[c.name]);
+  }
+  if (c.name === "primary_instructor_id" || c.name === "instructor_id") {
+    return row.instructor_name || row.instructor?.full_name || display(row[c.name]);
+  }
+  if (c.name === "base_salary") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val) && val > 0) {
+      return val.toLocaleString("vi-VN") + " đ";
+    }
+  }
+  if (c.name === "commission_rate") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val) && val > 0) {
+      return val + " %";
+    }
+  }
+  return display(row[c.name]);
+}
+
 function ReferenceInput({
   column,
   value,
@@ -358,7 +389,7 @@ function RecordDialog({
                 </span>
                 {mode === "view" ? (
                   <div className="admin-detail-value">
-                    {display(row[c.name])}
+                    {formatCell(row, c)}
                   </div>
                 ) : resource.name === "quiz_questions" &&
                   c.name === "correct_option" ? (
@@ -726,6 +757,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "department",
       "position",
       "branch_id",
+      "phone",
       "is_active",
     ],
     course_lessons: [
@@ -929,7 +961,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                               className="admin-record-link"
                               onClick={() => setEdit({ row, mode: "view" })}
                             >
-                              {display(row[c.name])}
+                              {formatCell(row, c)}
                             </button>
                           ) : (
                             <span
@@ -940,7 +972,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                   : ""
                               }
                             >
-                              {display(row[c.name])}
+                              {formatCell(row, c)}
                             </span>
                           )}
                         </td>

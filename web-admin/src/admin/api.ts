@@ -114,14 +114,28 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
   return clean;
 }
 
+const TABLE_SELECTS: Record<string, string> = {
+  staff_profiles: "*,users(full_name,phone,email),branches(name,code)",
+  technicians: "*,branches(name)",
+  bookings: "*,customer:users!customer_id(full_name,phone),branches(name)",
+  branch_rooms: "*,branches(name)",
+  technician_shifts: "*,technicians(full_name),branches(name)",
+  course_batches: "*,courses(title)",
+  course_chapters: "*,courses(title)",
+  course_lessons: "*,course_chapters(title)",
+  course_quizzes: "*,courses(title)",
+  quiz_questions: "*,course_quizzes(title)",
+};
+
 function buildColumns(table: string, rows: Row[]): Column[] {
+  let cols: Column[] = [];
   const schemaCols = SCHEMA_COLUMNS[table];
   if (schemaCols && schemaCols.length > 0) {
     const sample = rows[0] || {};
     const sampleKeys = Object.keys(sample);
     const existingNames = new Set(schemaCols.map((c) => c.name));
     const extraCols: Column[] = sampleKeys
-      .filter((k) => !existingNames.has(k))
+      .filter((k) => !existingNames.has(k) && typeof sample[k] !== "object")
       .map((name) => {
         const val = sample[name];
         const isId = name === "id";
@@ -130,47 +144,95 @@ function buildColumns(table: string, rows: Row[]): Column[] {
         const isNum = typeof val === "number";
         return {
           name,
-          type: isNum ? "numeric" : isBool ? "bool" : typeof val === "object" && val !== null ? "jsonb" : "varchar",
+          type: isNum ? "numeric" : isBool ? "bool" : "varchar",
           required: false,
           hasDefault: isId || isTimestamp || isBool,
           maxLength: null,
           options: [],
           primary: isId,
-          writable: !isId && !isTimestamp,
+          writable: false,
           reference: name.endsWith("_id") ? { table: name.replace(/_id$/, "s"), column: "id" } : null,
         };
       });
 
-    return [...schemaCols, ...extraCols];
+    cols = [...schemaCols, ...extraCols];
+  } else {
+    const sample = rows[0] || {};
+    const sampleKeys = Object.keys(sample);
+    const colNames = sampleKeys.length > 0 ? sampleKeys : ["id", "name", "created_at"];
+
+    cols = colNames.map((name) => {
+      const val = sample[name];
+      const isId = name === "id";
+      const isTimestamp = name === "created_at" || name === "updated_at";
+      const isBool = typeof val === "boolean" || name.startsWith("is_");
+      const isNum =
+        typeof val === "number" ||
+        ["price", "amount", "fee", "tuition", "total", "score", "rate", "points", "order", "minutes", "sessions", "hours"].some((k) =>
+          name.includes(k)
+        );
+
+      return {
+        name,
+        type: isNum ? "numeric" : isBool ? "bool" : typeof val === "object" && val !== null ? "jsonb" : "varchar",
+        required: false,
+        hasDefault: isId || isTimestamp || isBool,
+        maxLength: null,
+        options: [],
+        primary: isId,
+        writable: !isId && !isTimestamp,
+        reference: name.endsWith("_id") ? { table: name.replace(/_id$/, "s"), column: "id" } : null,
+      };
+    });
   }
 
-  const sample = rows[0] || {};
-  const sampleKeys = Object.keys(sample);
-  const colNames = sampleKeys.length > 0 ? sampleKeys : ["id", "name", "created_at"];
+  // Ensure virtual columns for tables with joined entities
+  if (table === "staff_profiles") {
+    if (!cols.some((c) => c.name === "full_name")) {
+      cols.unshift({
+        name: "full_name",
+        type: "varchar",
+        required: false,
+        hasDefault: false,
+        maxLength: 150,
+        options: [],
+        primary: false,
+        writable: false,
+        reference: null,
+      });
+    }
+    if (!cols.some((c) => c.name === "phone")) {
+      cols.push({
+        name: "phone",
+        type: "varchar",
+        required: false,
+        hasDefault: false,
+        maxLength: 50,
+        options: [],
+        primary: false,
+        writable: false,
+        reference: null,
+      });
+    }
+  }
 
-  return colNames.map((name) => {
-    const val = sample[name];
-    const isId = name === "id";
-    const isTimestamp = name === "created_at" || name === "updated_at";
-    const isBool = typeof val === "boolean" || name.startsWith("is_");
-    const isNum =
-      typeof val === "number" ||
-      ["price", "amount", "fee", "tuition", "total", "score", "rate", "points", "order", "minutes", "sessions", "hours"].some((k) =>
-        name.includes(k)
-      );
+  if (table === "bookings") {
+    if (!cols.some((c) => c.name === "customer_name")) {
+      cols.push({
+        name: "customer_name",
+        type: "varchar",
+        required: false,
+        hasDefault: false,
+        maxLength: 150,
+        options: [],
+        primary: false,
+        writable: false,
+        reference: null,
+      });
+    }
+  }
 
-    return {
-      name,
-      type: isNum ? "numeric" : isBool ? "bool" : typeof val === "object" && val !== null ? "jsonb" : "varchar",
-      required: false,
-      hasDefault: isId || isTimestamp || isBool,
-      maxLength: null,
-      options: [],
-      primary: isId,
-      writable: !isId && !isTimestamp,
-      reference: name.endsWith("_id") ? { table: name.replace(/_id$/, "s"), column: "id" } : null,
-    };
-  });
+  return cols;
 }
 
 async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
@@ -200,7 +262,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     const search = q.get("search");
     const filterParam = q.get("filter");
 
-    let url = `${SUPABASE_URL}/rest/v1/${table}?select=*`;
+    const selectParam = TABLE_SELECTS[table] || "*";
+    let url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(selectParam)}`;
 
     // Filter handling
     if (filterParam) {
@@ -217,6 +280,23 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     // Search handling
     if (search && search.trim()) {
       const s = search.trim();
+      let matchedUserIds: string[] = [];
+
+      // Pre-search users if table has user relations
+      if (table === "staff_profiles" || table === "bookings") {
+        try {
+          const userSearchUrl = `${SUPABASE_URL}/rest/v1/users?select=id&or=(full_name.ilike.*${encodeURIComponent(s)}*,phone.ilike.*${encodeURIComponent(s)}*)&limit=20`;
+          const uRes = await fetch(userSearchUrl, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            signal,
+          });
+          if (uRes.ok) {
+            const uRows: Array<{ id: string }> = await uRes.json();
+            matchedUserIds = uRows.map((u) => u.id);
+          }
+        } catch {}
+      }
+
       const textCols = (SCHEMA_COLUMNS[table] || [])
         .filter(
           (c) =>
@@ -229,16 +309,26 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         .map((c) => c.name)
         .slice(0, 5);
 
-      if (textCols.length > 0) {
-        const orClause = textCols.map((c) => `${c}.ilike.*${encodeURIComponent(s)}*`).join(",");
-        url += `&or=(${orClause})`;
+      const orClauses: string[] = textCols.map((c) => `${c}.ilike.*${encodeURIComponent(s)}*`);
+      if (matchedUserIds.length > 0) {
+        if (table === "staff_profiles") {
+          orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
+        } else if (table === "bookings") {
+          orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
+        }
+      }
+
+      if (orClauses.length > 0) {
+        url += `&or=(${orClauses.join(",")})`;
       }
     }
 
     // Sort handling
     if (sort) {
       const validCols = SCHEMA_COLUMNS[table]?.map((c) => c.name);
-      if (!validCols || validCols.includes(sort)) {
+      if (validCols && validCols.includes(sort)) {
+        url += `&order=${sort}.${direction === "desc" ? "desc" : "asc"}`;
+      } else if (!validCols) {
         url += `&order=${sort}.${direction === "desc" ? "desc" : "asc"}`;
       }
     }
@@ -284,6 +374,43 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (contentRange.includes("/")) {
       const parsed = parseInt(contentRange.split("/")[1], 10);
       if (!isNaN(parsed)) total = parsed;
+    }
+
+    // Flatten joined relations
+    rows.forEach((r) => {
+      if (r.users) {
+        r.full_name = r.full_name || r.users.full_name;
+        r.phone = r.phone || r.users.phone;
+        r.email = r.email || r.users.email;
+      }
+      if (r.branches) {
+        r.branch_name = r.branch_name || r.branches.name || r.branches.code;
+      }
+      if (r.customer) {
+        r.customer_name = r.customer_name || r.customer.full_name;
+        r.customer_phone = r.customer_phone || r.customer.phone;
+      }
+      if (r.technicians) {
+        r.technician_name = r.technician_name || r.technicians.full_name;
+      }
+      if (r.courses) {
+        r.course_title = r.course_title || r.courses.title;
+      }
+      if (r.course_chapters) {
+        r.chapter_title = r.chapter_title || r.course_chapters.title;
+      }
+      if (r.course_quizzes) {
+        r.quiz_title = r.quiz_title || r.course_quizzes.title;
+      }
+    });
+
+    // In-memory sort for virtual columns
+    if (sort === "full_name") {
+      rows.sort((a, b) => {
+        const fa = (a.full_name || "").toString();
+        const fb = (b.full_name || "").toString();
+        return direction === "desc" ? fb.localeCompare(fa) : fa.localeCompare(fb);
+      });
     }
 
     const columns = buildColumns(table, rows);
