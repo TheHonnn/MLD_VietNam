@@ -96,11 +96,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
   const [showHeaderSearchPopup, setShowHeaderSearchPopup] = useState(false);
   const searchInputRef = useRef<HTMLDivElement>(null);
 
-  // Load branches and listen to global branch changes
+  // Load branches and listen to global branch changes & updates
   useEffect(() => {
-    branchService.getAllBranches().then((res) => {
-      if (res.success && res.data) setBranches(res.data);
-    });
+    const refreshBranches = () => {
+      branchService.getAllBranches().then((res) => {
+        if (res.success && res.data) {
+          setBranches(res.data);
+          const currentPref = localStorage.getItem('mld_selected_branch_id');
+          // If stored branch ID was deleted/invalid, sanitize back to ALL
+          if (currentPref && currentPref !== 'ALL' && !res.data.some((b) => b.id === currentPref)) {
+            setSelectedBranchId('ALL');
+            localStorage.setItem('mld_selected_branch_id', 'ALL');
+            window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId: 'ALL' } }));
+          }
+        }
+      });
+    };
+
+    refreshBranches();
 
     const handleGlobalBranchChange = (e: any) => {
       const newBranchId = e?.detail?.branchId;
@@ -108,9 +121,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
         setSelectedBranchId(newBranchId);
       }
     };
+
     window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    window.addEventListener('mld_branches_updated' as any, refreshBranches);
+
     return () => {
       window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+      window.removeEventListener('mld_branches_updated' as any, refreshBranches);
     };
   }, []);
 
@@ -289,7 +306,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
       ? 'Tất cả chi nhánh'
       : activeBranch?.name?.replace('MLD Luxury Spa & Academy - ', '') ||
         activeBranch?.name ||
-        'Chi nhánh đã chọn';
+        'Tất cả chi nhánh';
 
   return (
     <header className="h-[68px] bg-white border-b border-[#EFE4D9] px-3 sm:px-6 flex items-center justify-between relative z-30 font-['Plus_Jakarta_Sans',sans-serif]">

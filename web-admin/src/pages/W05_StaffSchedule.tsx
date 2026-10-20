@@ -178,9 +178,18 @@ export const W05_StaffSchedule: React.FC = () => {
       const bId = e?.detail?.branchId;
       if (bId) setSelectedBranchId(bId);
     };
+
+    const handleBranchesUpdated = () => {
+      branchService.getAllBranches().then((res) => {
+        if (res.success && res.data) setBranches(res.data);
+      });
+    };
+
     window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    window.addEventListener('mld_branches_updated' as any, handleBranchesUpdated);
     return () => {
       window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+      window.removeEventListener('mld_branches_updated' as any, handleBranchesUpdated);
     };
   }, []);
 
