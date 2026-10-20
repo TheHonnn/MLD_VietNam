@@ -463,7 +463,7 @@ class SupabaseService {
 
   // 10. LỊCH ĐẶT CHỖ (BOOKINGS)
   async getBookings(branchId?: string, customerId?: string): Promise<Booking[] | null> {
-    let path = `bookings?select=*&order=booking_date.desc,start_time.asc`;
+    let path = `bookings?select=*,customer:users!bookings_customer_id_fkey(*),branch:branches!bookings_branch_id_fkey(*),technician:technicians(*),room:branch_rooms(*),items:booking_items(*,service:services(*))&order=booking_date.desc,start_time.asc`;
     if (branchId) path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
@@ -499,6 +499,84 @@ class SupabaseService {
       checkedOutAt: b.checked_out_at,
       actualDurationMinutes: b.actual_duration_minutes ? Number(b.actual_duration_minutes) : undefined,
       hasMedicalAlert: Boolean(b.has_medical_alert),
+      customer: b.customer ? {
+        id: b.customer.id,
+        phone: b.customer.phone,
+        email: b.customer.email,
+        fullName: b.customer.full_name,
+        avatarUrl: b.customer.avatar_url,
+        gender: b.customer.gender,
+        dateOfBirth: b.customer.date_of_birth,
+        address: b.customer.address,
+        membershipTier: b.customer.membership_tier,
+        loyaltyPoints: Number(b.customer.reward_points || 0),
+        totalSpent: Number(b.customer.total_spent || 0),
+        role: b.customer.role,
+      } as any : undefined,
+      branch: b.branch ? {
+        id: b.branch.id,
+        name: b.branch.name,
+        code: b.branch.code,
+        phone: b.branch.phone,
+        address: b.branch.address,
+        district: b.branch.district,
+        city: b.branch.city,
+        latitude: Number(b.branch.latitude),
+        longitude: Number(b.branch.longitude),
+        openingTime: b.branch.opening_time,
+        closingTime: b.branch.closing_time,
+        imageUrl: b.branch.image_url,
+        galleryUrls: Array.isArray(b.branch.gallery_urls) ? b.branch.gallery_urls : [],
+        amenities: Array.isArray(b.branch.amenities) ? b.branch.amenities : [],
+        isActive: Boolean(b.branch.is_active),
+      } : undefined,
+      room: b.room ? {
+        id: b.room.id,
+        branchId: b.room.branch_id,
+        name: b.room.name,
+        roomType: b.room.room_type,
+        bedCapacity: Number(b.room.bed_capacity),
+        isAvailable: Boolean(b.room.is_available),
+      } : undefined,
+      technician: b.technician ? {
+        id: b.technician.id,
+        userId: b.technician.user_id,
+        branchId: b.technician.branch_id,
+        fullName: b.technician.full_name,
+        title: b.technician.title,
+        avatarUrl: b.technician.avatar_url,
+        experienceYears: Number(b.technician.experience_years),
+        ratingAvg: Number(b.technician.rating_avg),
+        reviewCount: Number(b.technician.review_count),
+        specialties: Array.isArray(b.technician.specialties) ? b.technician.specialties : [],
+        bio: b.technician.bio,
+        isActive: Boolean(b.technician.is_active),
+      } : undefined,
+      items: Array.isArray(b.items) ? b.items.map((it: any) => ({
+        id: it.id,
+        bookingId: it.booking_id,
+        serviceId: it.service_id,
+        technicianId: it.technician_id,
+        durationMinutes: Number(it.duration_minutes),
+        price: Number(it.price),
+        service: it.service ? {
+          id: it.service.id,
+          name: it.service.name,
+          slug: it.service.slug,
+          categoryId: it.service.category_id,
+          shortDescription: it.service.short_description,
+          fullDescription: it.service.full_description,
+          durationMinutes: Number(it.service.duration_minutes),
+          price: Number(it.service.price),
+          discountPrice: it.service.discount_price ? Number(it.service.discount_price) : undefined,
+          imageUrl: it.service.image_url,
+          galleryUrls: Array.isArray(it.service.gallery_urls) ? it.service.gallery_urls : [],
+          steps: Array.isArray(it.service.steps) ? it.service.steps : [],
+          benefits: Array.isArray(it.service.benefits) ? it.service.benefits : [],
+          isFeatured: Boolean(it.service.is_featured),
+          isActive: Boolean(it.service.is_active),
+        } : undefined,
+      })) : [],
     }));
   }
 

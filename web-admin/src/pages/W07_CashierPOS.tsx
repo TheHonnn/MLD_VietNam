@@ -25,6 +25,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [booking, setBooking] = useState<Booking | undefined>(undefined);
   const [customer, setCustomer] = useState<User | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isPaid, setIsPaid] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showQrZoomModal, setShowQrZoomModal] = useState(false);
@@ -62,9 +63,12 @@ export const W07_CashierPOS: React.FC = () => {
         if (pendingBk) {
           setBooking(pendingBk);
           const allCustomers = custRes.success ? custRes.data : [];
-          const matchedCust = allCustomers.find((c) => c.id === pendingBk.customerId);
+          const matchedCust = pendingBk.customer || allCustomers.find((c) => c.id === pendingBk.customerId);
           if (matchedCust) {
             setCustomer(matchedCust);
+            setSearchTerm(`${matchedCust.fullName} / ${pendingBk.bookingCode}`);
+          } else {
+            setSearchTerm(`${pendingBk.bookedForName || 'Khách vãng lai'} / ${pendingBk.bookingCode}`);
           }
         }
       } catch (err) {
@@ -74,12 +78,30 @@ export const W07_CashierPOS: React.FC = () => {
     fetchPosData();
   }, []);
 
+  const primaryItem = booking?.items?.[0];
+  const serviceName = primaryItem?.service?.name || 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy';
+  const serviceDuration = primaryItem?.service?.durationMinutes || primaryItem?.durationMinutes || 60;
+  const serviceImage = primaryItem?.service?.imageUrl || '/spa_massage_banner.png';
+
+  const branchName = booking?.branch?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa';
+  const branchAddress = booking?.branch?.address
+    ? `${booking.branch.address}, ${booking.branch.district}, ${booking.branch.city}`
+    : 'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh';
+  const branchCode = booking?.branch?.code || 'MLD-Q3';
+
+  const roomName = booking?.room?.name
+    ? `${booking.room.name}${booking.assignedBedNumber ? ` (${booking.assignedBedNumber})` : ''}`
+    : 'Phòng Gội Đầu Dưỡng Sinh 03 (SPA-G01)';
+
+  const technicianName = booking?.technician?.fullName || 'Trần Lan Anh';
+  const customerName = customer?.fullName || booking?.customer?.fullName || booking?.bookedForName || 'Xuân Trường';
+  const customerPhone = customer?.phone || booking?.customer?.phone || booking?.bookedForPhone || '0334750241';
+
   const handleProcessPayment = () => {
     setIsPaid(true);
     setShowReceiptModal(true);
 
     const bookingCode = booking?.bookingCode || 'BK-20261016-003';
-    const customerName = customer?.fullName || 'Nguyễn Mỹ Duyên';
     const amount = booking?.finalPrice || 390000;
     const formattedAmount = `${amount.toLocaleString('vi-VN')}đ`;
 
@@ -98,7 +120,7 @@ export const W07_CashierPOS: React.FC = () => {
     const newReceipt = {
       id: `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`,
       date: new Intl.DateTimeFormat('vi-VN').format(new Date()),
-      content: 'Massage trị liệu dưỡng sinh (90 phút)',
+      content: `${serviceName} (${serviceDuration} phút)`,
       method:
         selectedMethod === 'onsite'
           ? 'Thanh toán tại cơ sở'
@@ -121,7 +143,7 @@ export const W07_CashierPOS: React.FC = () => {
     ? invoices.map((inv) => ({
         id: inv.invoiceCode,
         date: inv.paidAt ? inv.paidAt.split('T')[0] : '16/10/2026',
-        content: inv.userPackageId ? 'Gói chăm sóc da chuyên sâu' : inv.bookingId ? 'Massage trị liệu dưỡng sinh' : 'Học phí đào tạo Academy',
+        content: inv.userPackageId ? 'Gói chăm sóc da chuyên sâu' : inv.bookingId ? 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy' : 'Học phí đào tạo Academy',
         method: inv.paymentMethod === 'CASH_AT_SPA' ? 'Thanh toán tại cơ sở' : inv.paymentMethod === 'MOMO' ? 'Thanh toán trực tuyến (MoMo)' : 'Chuyển khoản',
         amount: `${inv.totalAmount.toLocaleString('vi-VN')}đ`,
         status: inv.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán',
@@ -156,7 +178,9 @@ export const W07_CashierPOS: React.FC = () => {
         <div className="flex-1 min-w-[200px] w-full sm:w-auto">
           <input
             type="text"
-            defaultValue={`${customer?.fullName || 'Nguyễn Mỹ Duyên'} / ${booking?.bookingCode || 'BK-20261016-003'}`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
             className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018]"
           />
         </div>
@@ -175,7 +199,7 @@ export const W07_CashierPOS: React.FC = () => {
 
         {/* Dropdown 3: Date */}
         <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
-          <span>16/10/2026</span>
+          <span>{booking?.bookingDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(booking.bookingDate)) : '17/10/2026'}</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
       </div>
@@ -198,16 +222,19 @@ export const W07_CashierPOS: React.FC = () => {
           {/* Spa Service Banner Photo */}
           <div className="w-full h-24 rounded-2xl overflow-hidden bg-[#FAF7F2] border border-[#EFE4D9]">
             <img
-              src="/spa_massage_banner.png"
-              alt="Massage thư giãn toàn thân"
+              src={serviceImage}
+              alt={serviceName}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/spa_massage_banner.png';
+              }}
             />
           </div>
 
           {/* Service Title */}
           <div>
             <h3 className="text-sm font-bold text-[#2C241E]">
-              Massage thư giãn toàn thân
+              {serviceName}
             </h3>
           </div>
 
@@ -215,19 +242,19 @@ export const W07_CashierPOS: React.FC = () => {
           <div className="space-y-2 text-xs text-[#73675F]">
             <div className="flex items-center justify-between">
               <span>Thời lượng chăm sóc</span>
-              <span className="font-semibold text-[#2C241E]">60 phút</span>
+              <span className="font-semibold text-[#2C241E]">{serviceDuration} phút</span>
             </div>
 
             <div>
-              <div className="font-medium text-[#2C241E]">MLD Beauty & Spa — Cơ sở Nguyễn Thị Minh Khai</div>
+              <div className="font-medium text-[#2C241E]">{branchName}</div>
               <div className="text-[11px] text-[#73675F] mt-0.5">
-                68 Nguyễn Thị Minh Khai, Phường Đa Kao, Quận 3, TP. Hồ Chí Minh
+                {branchAddress}
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-1">
               <span>Ngày hẹn</span>
-              <span className="font-semibold text-[#2C241E]">{booking?.bookingDate || '16/10/2026'}</span>
+              <span className="font-semibold text-[#2C241E]">{booking?.bookingDate || '2026-10-17'}</span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -241,20 +268,20 @@ export const W07_CashierPOS: React.FC = () => {
 
             <div className="pt-1">
               <div className="text-xs text-[#2C241E]">
-                Chuyên viên: <span className="font-medium">Trần Lan Anh</span>
+                Chuyên viên: <span className="font-medium">{technicianName}</span>
               </div>
               <div className="text-xs text-[#2C241E] mt-1">
-                Khách hàng: <span className="font-bold">{customer?.fullName || 'Nguyễn Mỹ Duyên'}</span>
+                Khách hàng: <span className="font-bold">{customerName}</span>
               </div>
               <div className="text-xs text-[#73675F] mt-0.5">
-                {customer?.phone || '0908123456'}
+                {customerPhone}
               </div>
             </div>
           </div>
 
           {/* Footnote */}
           <div className="text-[11px] text-[#73675F] pt-2 border-t border-[#F0E6DC]">
-            Phòng 01 · Cơ sở Quận 3 · Kỹ thuật viên chính: Trần Lan Anh
+            {roomName} · {branchCode} · Kỹ thuật viên: {technicianName}
           </div>
         </div>
 
@@ -682,7 +709,7 @@ export const W07_CashierPOS: React.FC = () => {
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between border-b border-[#EFE4D9]">
           <h2 className="text-base font-bold text-[#2C241E]">
-            Đối chiếu biên nhận trước đó · 01/10/2026 – 08/10/2026
+            Đối chiếu hóa đơn biên nhận đã thanh toán
           </h2>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F5E9DB] text-[#8A4F23]">
             {pastReceipts.length} biên nhận đã lưu
@@ -736,7 +763,7 @@ export const W07_CashierPOS: React.FC = () => {
         {/* Table Footer */}
         <div className="px-5 py-3 border-t border-[#EFE4D9] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-[#73675F]">
           <span>
-            3 / 3 biên nhận · Tổng đã thu: 8.550.000đ · Cọc 150.000đ của đơn đang chọn chưa tính
+            {pastReceipts.length} biên nhận · Tổng đã thu: {invoices.filter((i) => i.paymentStatus === 'PAID').reduce((sum, inv) => sum + inv.totalAmount, 0).toLocaleString('vi-VN')}đ
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -815,12 +842,12 @@ export const W07_CashierPOS: React.FC = () => {
 
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Khách hàng:</span>
-                  <span className="font-bold text-[#2C241E]">{customer?.fullName || 'Nguyễn Mỹ Duyên'}</span>
+                  <span className="font-bold text-[#2C241E]">{customerName}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Dịch vụ điều trị:</span>
-                  <span className="font-semibold text-[#2C241E]">Massage trị liệu dưỡng sinh (90 phút)</span>
+                  <span className="font-semibold text-[#2C241E]">{serviceName} ({serviceDuration} phút)</span>
                 </div>
 
                 <div className="flex items-center justify-between">

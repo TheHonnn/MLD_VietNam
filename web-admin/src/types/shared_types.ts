@@ -374,6 +374,7 @@ export interface Booking {
   cancellationReason?: string | null;
   customer?: User;
   branch?: Branch;
+  room?: BranchRoom;
   technician?: Technician;
   items?: BookingItem[];
 }
