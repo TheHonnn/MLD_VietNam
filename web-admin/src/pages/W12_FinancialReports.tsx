@@ -88,6 +88,21 @@ export const W12_FinancialReports: React.FC = () => {
       }
     };
     fetchReportsData();
+
+    const handleBranchesUpdated = async () => {
+      try {
+        const res = await branchService.getAllBranches();
+        if (res.success && res.data) {
+          setLiveBranches(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to sync branches in financial reports:', err);
+      }
+    };
+    window.addEventListener('mld_branches_updated' as any, handleBranchesUpdated);
+    return () => {
+      window.removeEventListener('mld_branches_updated' as any, handleBranchesUpdated);
+    };
   }, []);
 
   // Modals state

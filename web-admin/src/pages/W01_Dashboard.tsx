@@ -78,7 +78,7 @@ export const W01_Dashboard: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Listen to Global Branch Changes from Header or other modules
+  // Listen to Global Branch Changes and Branch List Updates from other modules
   useEffect(() => {
     const handleGlobalBranchChange = (e: any) => {
       const newBranchId = e?.detail?.branchId;
@@ -86,9 +86,28 @@ export const W01_Dashboard: React.FC = () => {
         setSelectedBranchId(newBranchId);
       }
     };
+
+    const handleBranchesUpdated = async () => {
+      try {
+        const res = await branchService.getAllBranches();
+        if (res.success && res.data) {
+          setBranches(res.data);
+          const currentId = localStorage.getItem('mld_selected_branch_id') || 'ALL';
+          if (currentId !== 'ALL' && !res.data.some((b) => b.id === currentId)) {
+            setSelectedBranchId('ALL');
+            localStorage.setItem('mld_selected_branch_id', 'ALL');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync branches in dashboard:', err);
+      }
+    };
+
     window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    window.addEventListener('mld_branches_updated' as any, handleBranchesUpdated);
     return () => {
       window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+      window.removeEventListener('mld_branches_updated' as any, handleBranchesUpdated);
     };
   }, []);
 

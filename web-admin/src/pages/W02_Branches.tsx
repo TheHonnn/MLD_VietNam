@@ -40,12 +40,12 @@ import { matchSearch } from '../utils/searchUtils';
 import { VIETNAM_LOCATIONS_2026, VIETNAM_PROVINCE_NAMES } from '../data/vietnamLocations';
 
 const roomTypeLabels: Record<string, string> = {
-  VIP_ROOM: 'Phòng VIP Hoàng Gia',
-  MASSAGE_ROOM: 'Phòng Massage Trị Liệu',
-  HEAD_SPA_ROOM: 'Phòng Dưỡng Sinh Head Spa',
-  SKINCARE_ROOM: 'Phòng Skincare Chuyên Sâu',
-  ACADEMY_CLASSROOM: 'Phòng Học Lý Thuyết Academy',
-  PRACTICE_LAB: 'Phòng Thực Hành Lâm Sàng Lab',
+  VIP_ROOM: 'Phòng VIP',
+  MASSAGE_ROOM: 'Phòng Massage',
+  HEAD_SPA_ROOM: 'Phòng Gội đầu dưỡng sinh',
+  SKINCARE_ROOM: 'Phòng Skincare',
+  ACADEMY_CLASSROOM: 'Lớp học lý thuyết',
+  PRACTICE_LAB: 'Phòng thực hành',
 };
 
 const getRoomTypeBadgeStyle = (type: string) => {
@@ -1461,24 +1461,23 @@ export const W02_Branches: React.FC = () => {
       {/* 1. Page Header Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
+          <span className="text-[12px] font-medium text-[#73675F]">Cơ sở</span>
           <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
-            Quản lý chi nhánh & Phòng dịch vụ
+            {activeMainTab === 'branches' ? 'Chi nhánh' : 'Phòng dịch vụ'}
           </h1>
-          <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Hệ thống danh mục cơ sở, dịch vụ và sơ đồ phòng trị liệu toàn hệ thống từ Service Layer.
-          </p>
         </div>
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => loadAllData(true)}
             disabled={isRefreshing}
-            className="p-2.5 bg-white hover:bg-[#FAF8F5] border border-[#E0D7CC] text-[#73675F] hover:text-[#985018] rounded-2xl transition-all shadow-xs cursor-pointer flex items-center justify-center shrink-0"
+            className="p-2.5 bg-white hover:bg-[#FAF8F5] border border-[#E0D7CC] text-[#73675F] hover:text-[#985018] rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center shrink-0"
             title="Làm mới dữ liệu từ Supabase Cloud"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#985018]' : ''}`} />
           </button>
           <button
+            type="button"
             onClick={() => {
               if (activeMainTab === 'branches') {
                 setIsCreateModalOpen(true);
@@ -1486,10 +1485,10 @@ export const W02_Branches: React.FC = () => {
                 handleOpenCrossBranchCreateRoom();
               }
             }}
-            className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-4 py-2 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>{activeMainTab === 'branches' ? 'Thêm chi nhánh' : 'Thêm phòng dịch vụ'}</span>
+            <span>Thêm mới</span>
           </button>
         </div>
       </div>
@@ -1553,13 +1552,13 @@ export const W02_Branches: React.FC = () => {
 
       {/* 2. Search & Filter Bar */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] max-w-xs w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm tên, mã, quận huyện hoặc địa chỉ chi nhánh..."
+            placeholder="Tìm kiếm..."
             className="w-full h-10 pl-10 pr-9 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
           {searchTerm && (
@@ -1574,12 +1573,26 @@ export const W02_Branches: React.FC = () => {
           )}
         </div>
 
+        {/* Status Filter */}
+        <div className="relative shrink-0">
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+          >
+            <option value="ALL">Đang hoạt động: Tất cả</option>
+            <option value="ACTIVE">Có</option>
+            <option value="INACTIVE">Không</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
         {/* City Filter */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
+        <div className="relative shrink-0">
           <select
             value={selectedCity}
             onChange={(e) => setSelectedCity(e.target.value)}
-            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
           >
             <option value="ALL">Tất cả tỉnh / thành phố ({cityOptions.length})</option>
             {cityOptions.map((city) => (
@@ -1587,20 +1600,6 @@ export const W02_Branches: React.FC = () => {
                 {city}
               </option>
             ))}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
-
-        {/* Status Filter */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang hoạt động</option>
-            <option value="INACTIVE">Tạm dừng đón khách</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -1742,11 +1741,7 @@ export const W02_Branches: React.FC = () => {
                         <button
                           type="button"
                           onClick={(e) => handleToggleBranchActive(branch, e)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-colors ${
-                            branch.isActive
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-                              : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
-                          }`}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-[#2C241E] hover:text-[#985018] transition-colors"
                           title="Nhấp để thay đổi trạng thái hoạt động của cơ sở"
                         >
                           <span
@@ -2088,13 +2083,13 @@ export const W02_Branches: React.FC = () => {
     <div className="space-y-4">
       {/* Rooms Search & Filter Bar */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px] max-w-xs w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={roomSearchTerm}
             onChange={(e) => setRoomSearchTerm(e.target.value)}
-            placeholder="Tìm theo tên phòng, chi nhánh, loại phòng..."
+            placeholder="Tìm kiếm..."
             className="w-full h-10 pl-10 pr-9 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
           {roomSearchTerm && (
@@ -2109,31 +2104,14 @@ export const W02_Branches: React.FC = () => {
           )}
         </div>
 
-        {/* Branch Filter */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
-          <select
-            value={selectedRoomBranch}
-            onChange={(e) => setSelectedRoomBranch(e.target.value)}
-            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
-          >
-            <option value="ALL">Tất cả chi nhánh ({branches.length})</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} ({b.code})
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
-
         {/* Room Type Filter */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
+        <div className="relative shrink-0">
           <select
             value={selectedRoomType}
             onChange={(e) => setSelectedRoomType(e.target.value)}
-            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
           >
-            <option value="ALL">Tất cả loại phòng</option>
+            <option value="ALL">Loại phòng: Tất cả</option>
             {Object.entries(roomTypeLabels).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
@@ -2144,15 +2122,32 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Availability Filter */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
+        <div className="relative shrink-0">
           <select
             value={selectedRoomAvailability}
             onChange={(e) => setSelectedRoomAvailability(e.target.value)}
-            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
           >
             <option value="ALL">Có thể sử dụng: Tất cả</option>
-            <option value="YES">Có (Đang sẵn sàng đón khách)</option>
-            <option value="NO">Không (Đang bận / bảo trì)</option>
+            <option value="YES">Có</option>
+            <option value="NO">Không</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Branch Filter */}
+        <div className="relative shrink-0">
+          <select
+            value={selectedRoomBranch}
+            onChange={(e) => setSelectedRoomBranch(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+          >
+            <option value="ALL">Chi nhánh: Tất cả</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.code})
+              </option>
+            ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -2248,41 +2243,22 @@ export const W02_Branches: React.FC = () => {
                   <tr key={room.id} className="hover:bg-[#FAF6F0] transition-colors bg-white">
                     {/* Tên */}
                     <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-2">
-                        <DoorOpen className="w-4 h-4 text-[#985018] shrink-0" />
-                        <span className="font-bold text-[#2C241E]">{room.name}</span>
-                      </div>
+                      <span className="font-bold text-[#2C241E]">{room.name}</span>
                     </td>
 
                     {/* Chi nhánh */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-[#2C241E]">{room.branchName || 'Cơ sở MLD'}</span>
-                        {room.branchCode && (
-                          <span className="text-[9.5px] px-1.5 py-0.2 bg-[#FAF0E4] text-[#8A4F23] rounded font-mono font-bold">
-                            {room.branchCode}
-                          </span>
-                        )}
-                      </div>
+                    <td className="py-3.5 px-4 font-medium text-[#2C241E]">
+                      {room.branchName || 'Cơ sở MLD'}
                     </td>
 
                     {/* Loại phòng */}
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold ${getRoomTypeBadgeStyle(
-                          room.roomType
-                        )}`}
-                      >
-                        {roomTypeLabels[room.roomType] || room.roomType}
-                      </span>
+                    <td className="py-3.5 px-4 text-[#4A3E34]">
+                      {roomTypeLabels[room.roomType] || room.roomType}
                     </td>
 
                     {/* Sức chứa (giường) */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5 font-bold text-[#2C241E]">
-                        <Bed className="w-3.5 h-3.5 text-[#8C7A6B]" />
-                        <span>{room.bedCapacity} giường</span>
-                      </div>
+                    <td className="py-3.5 px-4 font-medium text-[#2C241E]">
+                      {room.bedCapacity}
                     </td>
 
                     {/* Có thể sử dụng */}
@@ -2290,11 +2266,7 @@ export const W02_Branches: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleToggleCrossBranchRoomAvailability(room)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-colors ${
-                          room.isAvailable
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-                            : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
-                        }`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-[#2C241E] hover:text-[#985018] transition-colors"
                         title="Nhấp để thay đổi trạng thái khả dụng của phòng"
                       >
                         <span
