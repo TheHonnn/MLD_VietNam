@@ -32,6 +32,7 @@ import {
   Eye,
   Pencil,
   Filter,
+  ArrowUpDown,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
@@ -81,11 +82,23 @@ export const W02_Branches: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Dynamic Pagination State for Branches & Rooms tables
+  // Dynamic Pagination State for Branches & Rooms tables (with persistent page size preference)
   const [branchPage, setBranchPage] = useState<number>(1);
-  const [branchPageSize, setBranchPageSize] = useState<number>(25);
+  const [branchPageSize, setBranchPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem('mld_branch_pagesize');
+    return saved ? Number(saved) : 25;
+  });
   const [roomPage, setRoomPage] = useState<number>(1);
-  const [roomPageSize, setRoomPageSize] = useState<number>(25);
+  const [roomPageSize, setRoomPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem('mld_room_pagesize');
+    return saved ? Number(saved) : 25;
+  });
+
+  // Table Column Sorting States
+  const [branchSortField, setBranchSortField] = useState<'name' | 'code' | 'city' | 'status' | null>(null);
+  const [branchSortOrder, setBranchSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [roomSortField, setRoomSortField] = useState<'name' | 'branch' | 'roomType' | 'bedCapacity' | 'status' | null>(null);
+  const [roomSortOrder, setRoomSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Main Top-level Tabs: 'branches' (Chi nhánh) vs 'rooms' (Phòng dịch vụ)
   const [activeMainTab, setActiveMainTab] = useState<'branches' | 'rooms'>('branches');
@@ -293,45 +306,7 @@ export const W02_Branches: React.FC = () => {
       setBranches(allBranches);
       setAllArchivedBranches(archivedBranchesList);
 
-      // Join rooms with branch info
-      let combinedRooms: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
-      if (allRoomsRes.success && allRoomsRes.data) {
-        combinedRooms = allRoomsRes.data.map((r) => {
-          const b = allBranches.find((item) => item.id === r.branchId);
-          return {
-            ...r,
-            branchName: b?.name || 'Cơ sở MLD',
-            branchCode: b?.code || '',
-          };
-        });
-      }
-
-      // Merge cached local rooms
-      for (const b of allBranches) {
-        const cached = localStorage.getItem(`mld_rooms_${b.id}`);
-        if (cached) {
-          try {
-            const parsed: BranchRoom[] = JSON.parse(cached);
-            for (const lr of parsed) {
-              const isLegacyFake =
-                lr.id.match(/^r-.*-[123]$/) &&
-                (lr.name === 'Phòng VIP Hoàng Gia' ||
-                  lr.name === 'Phòng Trị Liệu Vodder 01' ||
-                  lr.name === 'Phòng Skincare Hydrafacial');
-              if (!combinedRooms.some((cr) => cr.id === lr.id) && !isLegacyFake) {
-                combinedRooms.push({
-                  ...lr,
-                  branchName: b.name,
-                  branchCode: b.code,
-                });
-              }
-            }
-          } catch {}
-        }
-      }
-      setAllRooms(combinedRooms);
-
-      // Join archived rooms with branch info
+      // 1. Join archived rooms with branch info first to establish exclusion set
       let combinedArchived: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
       if (archivedRoomsRes.success && archivedRoomsRes.data) {
         combinedArchived = archivedRoomsRes.data.map((r) => {
@@ -344,6 +319,52 @@ export const W02_Branches: React.FC = () => {
         });
       }
       setAllArchivedRooms(combinedArchived);
+      const archivedRoomIds = new Set(combinedArchived.map((ar) => ar.id));
+
+      // 2. Join active rooms with branch info, excluding archived entries
+      let combinedRooms: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
+      if (allRoomsRes.success && allRoomsRes.data) {
+        combinedRooms = allRoomsRes.data
+          .filter((r) => !archivedRoomIds.has(r.id) && !r.isArchived)
+          .map((r) => {
+            const b = allBranches.find((item) => item.id === r.branchId);
+            return {
+              ...r,
+              branchName: b?.name || 'Cơ sở MLD',
+              branchCode: b?.code || '',
+            };
+          });
+      }
+
+      // 3. Merge cached local rooms safely
+      for (const b of allBranches) {
+        const cached = localStorage.getItem(`mld_rooms_${b.id}`);
+        if (cached) {
+          try {
+            const parsed: BranchRoom[] = JSON.parse(cached);
+            for (const lr of parsed) {
+              const isLegacyFake =
+                lr.id.match(/^r-.*-[123]$/) &&
+                (lr.name === 'Phòng VIP Hoàng Gia' ||
+                  lr.name === 'Phòng Trị Liệu Vodder 01' ||
+                  lr.name === 'Phòng Skincare Hydrafacial');
+              if (
+                !combinedRooms.some((cr) => cr.id === lr.id) &&
+                !isLegacyFake &&
+                !archivedRoomIds.has(lr.id) &&
+                !lr.isArchived
+              ) {
+                combinedRooms.push({
+                  ...lr,
+                  branchName: b.name,
+                  branchCode: b.code,
+                });
+              }
+            }
+          } catch {}
+        }
+      }
+      setAllRooms(combinedRooms);
 
       if (allBranches.length > 0) {
         const savedPref = localStorage.getItem('mld_selected_branch_id');
@@ -918,6 +939,22 @@ export const W02_Branches: React.FC = () => {
       };
       setAllArchivedBranches((prev) => [archivedItem, ...prev.filter((b) => b.id !== target.id)]);
 
+      // Move all rooms of this branch to allArchivedRooms
+      const branchRooms = allRooms.filter((r) => r.branchId === target.id);
+      if (branchRooms.length > 0) {
+        setAllRooms((prev) => prev.filter((r) => r.branchId !== target.id));
+        const archivedBranchRooms = branchRooms.map((r) => ({
+          ...r,
+          isAvailable: false,
+          isArchived: true,
+          archivedAt: new Date().toISOString(),
+        }));
+        setAllArchivedRooms((prev) => [
+          ...archivedBranchRooms,
+          ...prev.filter((r) => r.branchId !== target.id),
+        ]);
+      }
+
       // 3. Switch selected branch if it was deleted
       if (selectedBranchId === target.id) {
         const nextBranch = remainingBranches[0];
@@ -990,6 +1027,29 @@ export const W02_Branches: React.FC = () => {
       isArchived: false,
     };
     setBranches((prev) => [...prev.filter((b) => b.id !== branch.id), restoredItem]);
+
+    // 2b. Restore cascade rooms of this branch from allArchivedRooms to allRooms
+    const branchArchivedRooms = allArchivedRooms.filter((r) => r.branchId === branch.id);
+    if (branchArchivedRooms.length > 0) {
+      setAllArchivedRooms((prev) => prev.filter((r) => r.branchId !== branch.id));
+      const restoredRooms = branchArchivedRooms.map((r) => ({
+        ...r,
+        isAvailable: true,
+        isArchived: false,
+      }));
+      setAllRooms((prev) => [...restoredRooms, ...prev.filter((r) => r.branchId !== branch.id)]);
+      try {
+        localStorage.setItem(`mld_rooms_${branch.id}`, JSON.stringify(restoredRooms));
+        const storedArchivedRooms = localStorage.getItem('mld_archived_rooms');
+        if (storedArchivedRooms) {
+          const parsed = JSON.parse(storedArchivedRooms);
+          localStorage.setItem(
+            'mld_archived_rooms',
+            JSON.stringify(parsed.filter((r: any) => r.branchId !== branch.id))
+          );
+        }
+      } catch {}
+    }
 
     // 3. Update localStorage
     try {
@@ -1449,10 +1509,38 @@ export const W02_Branches: React.FC = () => {
     }
   };
 
+  const handleSortBranch = (field: 'name' | 'code' | 'city' | 'status') => {
+    if (branchSortField === field) {
+      if (branchSortOrder === 'asc') {
+        setBranchSortOrder('desc');
+      } else {
+        setBranchSortField(null);
+        setBranchSortOrder('asc');
+      }
+    } else {
+      setBranchSortField(field);
+      setBranchSortOrder('asc');
+    }
+  };
+
+  const handleSortRoom = (field: 'name' | 'branch' | 'roomType' | 'bedCapacity' | 'status') => {
+    if (roomSortField === field) {
+      if (roomSortOrder === 'asc') {
+        setRoomSortOrder('desc');
+      } else {
+        setRoomSortField(null);
+        setRoomSortOrder('asc');
+      }
+    } else {
+      setRoomSortField(field);
+      setRoomSortOrder('asc');
+    }
+  };
+
   const hasActiveFilter = searchTerm.trim().length > 0 || selectedCity !== 'ALL' || selectedStatus !== 'ALL';
 
   const filteredBranches = useMemo(() => {
-    return branches.filter((b) => {
+    const list = branches.filter((b) => {
       if (selectedCity !== 'ALL' && !matchSearch(b.city, selectedCity)) {
         return false;
       }
@@ -1465,7 +1553,31 @@ export const W02_Branches: React.FC = () => {
         searchTerm
       );
     });
-  }, [branches, selectedCity, selectedStatus, searchTerm]);
+
+    if (!branchSortField) return list;
+
+    return [...list].sort((a, b) => {
+      if (branchSortField === 'status') {
+        const valA = a.isActive ? 1 : 0;
+        const valB = b.isActive ? 1 : 0;
+        return branchSortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      let valA = '';
+      let valB = '';
+      if (branchSortField === 'name') {
+        valA = a.name.toLowerCase();
+        valB = b.name.toLowerCase();
+      } else if (branchSortField === 'code') {
+        valA = (a.code || '').toLowerCase();
+        valB = (b.code || '').toLowerCase();
+      } else if (branchSortField === 'city') {
+        valA = (a.city || '').toLowerCase();
+        valB = (b.city || '').toLowerCase();
+      }
+      const cmp = valA.localeCompare(valB, 'vi');
+      return branchSortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [branches, selectedCity, selectedStatus, searchTerm, branchSortField, branchSortOrder]);
 
   const totalBranchPages = Math.max(1, Math.ceil(filteredBranches.length / branchPageSize));
 
@@ -1497,7 +1609,7 @@ export const W02_Branches: React.FC = () => {
     selectedRoomAvailability !== 'ALL';
 
   const filteredRooms = useMemo(() => {
-    return allRooms.filter((r) => {
+    const list = allRooms.filter((r) => {
       // Ẩn phòng thuộc các chi nhánh đã xóa/lưu trữ khỏi danh sách phòng vận hành
       if (!activeBranchIds.has(r.branchId)) return false;
       if (selectedRoomBranch !== 'ALL' && r.branchId !== selectedRoomBranch) return false;
@@ -1516,7 +1628,45 @@ export const W02_Branches: React.FC = () => {
         roomSearchTerm
       );
     });
-  }, [allRooms, activeBranchIds, selectedRoomBranch, selectedRoomType, selectedRoomAvailability, roomSearchTerm]);
+
+    if (!roomSortField) return list;
+
+    return [...list].sort((a, b) => {
+      if (roomSortField === 'bedCapacity') {
+        return roomSortOrder === 'asc'
+          ? a.bedCapacity - b.bedCapacity
+          : b.bedCapacity - a.bedCapacity;
+      }
+      if (roomSortField === 'status') {
+        const valA = a.isAvailable ? 1 : 0;
+        const valB = b.isAvailable ? 1 : 0;
+        return roomSortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      let valA = '';
+      let valB = '';
+      if (roomSortField === 'name') {
+        valA = a.name.toLowerCase();
+        valB = b.name.toLowerCase();
+      } else if (roomSortField === 'branch') {
+        valA = (a.branchName || '').toLowerCase();
+        valB = (b.branchName || '').toLowerCase();
+      } else if (roomSortField === 'roomType') {
+        valA = (roomTypeLabels[a.roomType] || a.roomType).toLowerCase();
+        valB = (roomTypeLabels[b.roomType] || b.roomType).toLowerCase();
+      }
+      const cmp = valA.localeCompare(valB, 'vi');
+      return roomSortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [
+    allRooms,
+    activeBranchIds,
+    selectedRoomBranch,
+    selectedRoomType,
+    selectedRoomAvailability,
+    roomSearchTerm,
+    roomSortField,
+    roomSortOrder,
+  ]);
 
   const totalRoomPages = Math.max(1, Math.ceil(filteredRooms.length / roomPageSize));
 
@@ -1713,11 +1863,27 @@ export const W02_Branches: React.FC = () => {
 
         {/* Total services badge */}
         <button
+          type="button"
           onClick={() => navigate('/treatment-management')}
           className="flex items-center justify-between gap-2 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5 text-[#8C7A6B]" />
           <span>{services.length || 3} dịch vụ spa</span>
+        </button>
+
+        {/* Archived branches toggle button */}
+        <button
+          type="button"
+          onClick={() => setShowArchivedBranchesDrawer(!showArchivedBranchesDrawer)}
+          className={`flex items-center gap-1.5 px-3.5 h-10 rounded-xl border text-xs font-bold transition-colors shrink-0 cursor-pointer ${
+            showArchivedBranchesDrawer
+              ? 'bg-[#FAF0E4] border-[#BA7E4C] text-[#8D4B1A]'
+              : 'bg-white border-[#E0D7CC] text-[#73675F] hover:bg-[#FAF8F5]'
+          }`}
+          title="Xem danh sách chi nhánh đã xóa và lưu trữ trong CSDL"
+        >
+          <Archive className="w-3.5 h-3.5" />
+          <span>Chi nhánh đã lưu trữ CSDL ({allArchivedBranches.length})</span>
         </button>
       </div>
 
@@ -1732,14 +1898,62 @@ export const W02_Branches: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold">
+            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold select-none">
               <tr>
-                <th className="py-2.5 px-5">Tên</th>
-                <th className="py-2.5 px-4">Mã</th>
+                <th
+                  onClick={() => handleSortBranch('name')}
+                  className="py-2.5 px-5 cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Tên</span>
+                    {branchSortField === 'name' ? (
+                      branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSortBranch('code')}
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Mã</span>
+                    {branchSortField === 'code' ? (
+                      branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
                 <th className="py-2.5 px-4">Số điện thoại</th>
                 <th className="py-2.5 px-4">Địa chỉ</th>
-                <th className="py-2.5 px-4">Tỉnh / Thành phố</th>
-                <th className="py-2.5 px-4 text-center">Đang hoạt động</th>
+                <th
+                  onClick={() => handleSortBranch('city')}
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Tỉnh / Thành phố</span>
+                    {branchSortField === 'city' ? (
+                      branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSortBranch('status')}
+                  className="py-2.5 px-4 text-center cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="inline-flex items-center justify-center gap-1.5">
+                    <span>Đang hoạt động</span>
+                    {branchSortField === 'status' ? (
+                      branchSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
                 <th className="py-2.5 px-6 text-center">Thao tác</th>
               </tr>
             </thead>
@@ -1898,7 +2112,11 @@ export const W02_Branches: React.FC = () => {
             <select
               aria-label="Số bản ghi mỗi trang"
               value={branchPageSize}
-              onChange={(e) => setBranchPageSize(Number(e.target.value))}
+              onChange={(e) => {
+                const newSize = Number(e.target.value);
+                setBranchPageSize(newSize);
+                localStorage.setItem('mld_branch_pagesize', String(newSize));
+              }}
               className="px-2.5 py-1 text-xs bg-white border border-[#E0D7CC] rounded-lg text-[#2C241E] focus:outline-none focus:ring-1 focus:ring-[#985018] cursor-pointer"
             >
               {[10, 25, 50, 100].map((n) => (
@@ -2300,13 +2518,73 @@ export const W02_Branches: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold">
+            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold select-none">
               <tr>
-                <th className="py-2.5 px-5">Tên</th>
-                <th className="py-2.5 px-4">Chi nhánh</th>
-                <th className="py-2.5 px-4">Loại phòng</th>
-                <th className="py-2.5 px-4">Sức chứa (giường)</th>
-                <th className="py-2.5 px-4 text-center">Có thể sử dụng</th>
+                <th
+                  onClick={() => handleSortRoom('name')}
+                  className="py-2.5 px-5 cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Tên</span>
+                    {roomSortField === 'name' ? (
+                      roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSortRoom('branch')}
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Chi nhánh</span>
+                    {roomSortField === 'branch' ? (
+                      roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSortRoom('roomType')}
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Loại phòng</span>
+                    {roomSortField === 'roomType' ? (
+                      roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSortRoom('bedCapacity')}
+                  className="py-2.5 px-4 cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Sức chứa (giường)</span>
+                    {roomSortField === 'bedCapacity' ? (
+                      roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSortRoom('status')}
+                  className="py-2.5 px-4 text-center cursor-pointer hover:text-[#985018] transition-colors"
+                >
+                  <div className="inline-flex items-center justify-center gap-1.5">
+                    <span>Có thể sử dụng</span>
+                    {roomSortField === 'status' ? (
+                      roomSortOrder === 'asc' ? <ChevronDown className="w-3 h-3 rotate-180 text-[#985018]" /> : <ChevronDown className="w-3 h-3 text-[#985018]" />
+                    ) : (
+                      <ArrowUpDown className="w-2.5 h-2.5 opacity-40" />
+                    )}
+                  </div>
+                </th>
                 <th className="py-2.5 px-6 text-center">Thao tác</th>
               </tr>
             </thead>
@@ -2426,7 +2704,11 @@ export const W02_Branches: React.FC = () => {
             <select
               aria-label="Số phòng mỗi trang"
               value={roomPageSize}
-              onChange={(e) => setRoomPageSize(Number(e.target.value))}
+              onChange={(e) => {
+                const newSize = Number(e.target.value);
+                setRoomPageSize(newSize);
+                localStorage.setItem('mld_room_pagesize', String(newSize));
+              }}
               className="px-2.5 py-1 text-xs bg-white border border-[#E0D7CC] rounded-lg text-[#2C241E] focus:outline-none focus:ring-1 focus:ring-[#985018] cursor-pointer"
             >
               {[10, 25, 50, 100].map((n) => (
