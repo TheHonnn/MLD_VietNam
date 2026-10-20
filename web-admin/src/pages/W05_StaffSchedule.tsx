@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { staffService, bookingService, branchService, notificationService, customerService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
-import { Booking, Branch, User, Technician } from '../types/shared_types';
+import { Booking, Branch, User, Technician, BookingStatus } from '../types/shared_types';
 
 interface ScheduleAppointment {
   id: string;
@@ -218,6 +218,8 @@ export const W05_StaffSchedule: React.FC = () => {
           ? 'Đang thực hiện'
           : b.status === 'COMPLETED'
           ? 'Hoàn thành'
+          : b.status === 'CANCELLED'
+          ? 'Đã hủy'
           : 'Chờ thanh toán';
 
       const statusType: 'waiting_payment' | 'independent' =
@@ -464,6 +466,36 @@ export const W05_StaffSchedule: React.FC = () => {
     }
     setSelectedAppId('app-minh-anh');
     toast.success('Đã hủy lịch hẹn', 'Lịch hẹn đã được gỡ bỏ khỏi bảng phân công ca trực.');
+  };
+
+  // Update real Supabase booking status according to FSM workflow
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const handleUpdateBookingStatus = async (bookingId: string, nextStatus: BookingStatus) => {
+    setIsUpdatingStatus(true);
+    try {
+      const res = await bookingService.updateBookingStatus(bookingId, nextStatus);
+      if (res.success) {
+        setLiveBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? { ...b, status: nextStatus } : b))
+        );
+        const statusMap: Record<string, string> = {
+          [BookingStatus.CONFIRMED]: 'Đã xác nhận',
+          [BookingStatus.IN_SERVICE]: 'Đang thực hiện',
+          [BookingStatus.COMPLETED]: 'Hoàn thành',
+          [BookingStatus.CANCELLED]: 'Đã hủy',
+        };
+        toast.success(
+          'Cập nhật thành công',
+          `Trạng thái lịch hẹn đã chuyển thành: ${statusMap[nextStatus] || nextStatus}`
+        );
+      } else {
+        toast.error('Lỗi cập nhật', res.message || 'Không thể cập nhật trạng thái');
+      }
+    } catch (err) {
+      toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   // Time hours from 09:00 to 20:00 (12 intervals)
@@ -747,10 +779,20 @@ export const W05_StaffSchedule: React.FC = () => {
               </div>
             </div>
 
-            {/* Status Banner */}
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
+            {/* Status Banner with Dynamic Colors */}
+            <div
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
+                selectedApp.status === 'Hoàn thành' || selectedApp.status === 'Đang thực hiện'
+                  ? 'bg-[#E8F6ED] text-[#0D6832]'
+                  : selectedApp.status === 'Đã hủy'
+                  ? 'bg-[#FDF2F2] text-[#B02A37]'
+                  : selectedApp.status === 'Đã xác nhận'
+                  ? 'bg-[#EBF5FB] text-[#1B4F72]'
+                  : 'bg-[#F3E2CE] text-[#8A4F23]'
+              }`}
+            >
               <Clock className="w-4 h-4 stroke-[2]" />
-              <span>{selectedApp.status}</span>
+              <span>Trạng thái: {selectedApp.status}</span>
             </div>
 
             {/* Resource Hold Alert Box */}
@@ -761,6 +803,47 @@ export const W05_StaffSchedule: React.FC = () => {
               </p>
             </div>
 
+            {/* Interactive FSM Booking Actions for Real Bookings */}
+            {!selectedApp.id.startsWith('app-custom-') && selectedApp.id && (
+              <div className="space-y-2 pt-1">
+                {selectedApp.status === 'Chờ thanh toán' && (
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CONFIRMED)}
+                    className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xác nhận lịch hẹn'}</span>
+                  </button>
+                )}
+
+                {selectedApp.status === 'Đã xác nhận' && (
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.IN_SERVICE)}
+                    className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Khách đã đến & Bắt đầu'}</span>
+                  </button>
+                )}
+
+                {selectedApp.status !== 'Hoàn thành' && selectedApp.status !== 'Đã hủy' && (
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CANCELLED)}
+                    className="w-full py-2 bg-[#FDF2F2] hover:bg-[#FDE8E8] text-[#B02A37] border border-[#F5C2C7] rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Hủy lịch hẹn này</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Cashier Invoice Action Button */}
             <button
               onClick={() => {
@@ -770,7 +853,7 @@ export const W05_StaffSchedule: React.FC = () => {
               }}
               className="w-full py-3 bg-white border border-[#D8BDA7] text-[#904206] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer"
             >
-              Xem đơn thu ngân
+              Xem đơn thu ngân POS
             </button>
 
             {selectedApp.id.startsWith('app-custom-') && (
