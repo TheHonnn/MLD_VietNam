@@ -152,8 +152,8 @@ export const W03_Customers: React.FC = () => {
       </div>
 
       {/* 3. Filter Bar Box */}
-      <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-col md:flex-row items-stretch md:items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1">
+      <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
+        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
           <input
             type="text"
             value={searchTerm}
@@ -170,23 +170,23 @@ export const W03_Customers: React.FC = () => {
             const nextIdx = (tiers.indexOf(selectedTierFilter) + 1) % tiers.length;
             setSelectedTierFilter(tiers[nextIdx]);
           }}
-          className="flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0"
+          className="flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none cursor-pointer"
         >
           <span>Hạng: {selectedTierFilter || 'Tất cả'}</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
 
         {/* Profile Status Dropdown */}
-        <button className="flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0">
+        <button className="flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none cursor-pointer">
           <span>Trạng thái: Hoạt động</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
       </div>
 
       {/* 4. Main 2-Column Content: Customer Table (Left 8/12) vs Customer Profile Detail (Right 4/12) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column (8 of 12 cols = 66.6%) */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        {/* Left Column (8 of 12 cols on desktop) */}
+        <div className="xl:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
           <div className="px-5 py-3.5 flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#2C241E]">Danh sách khách hàng</h3>
             <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-[#F3E2CE] text-[#8A4F23]">
@@ -298,9 +298,9 @@ export const W03_Customers: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column (4 of 12 cols = 33.3%) */}
+        {/* Right Column (4 of 12 cols on desktop) */}
         {selectedCustomer && (
-          <div className="lg:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
+          <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
             <div className="text-center pb-4 border-b border-[#EFE4D9]">
               <img
                 src={selectedCustomer.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}

@@ -199,14 +199,14 @@ export const W06_TreatmentManagement: React.FC = () => {
       </div>
 
       {/* 2. Top 3 Metric Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         {/* Metric 1 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span>Gói đang sử dụng</span>
             <Leaf className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
+          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
             {totalActivePackages}
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
@@ -215,12 +215,12 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
 
         {/* Metric 2 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span>Buổi còn lại</span>
             <Calendar className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
+          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
             {totalRemainingSessions}
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
@@ -229,12 +229,12 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
 
         {/* Metric 3 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span>Buổi đã sử dụng</span>
             <SlidersHorizontal className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
+          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
             {totalUsedSessions}
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
@@ -244,9 +244,9 @@ export const W06_TreatmentManagement: React.FC = () => {
       </div>
 
       {/* 3. Filter Toolbar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap lg:flex-nowrap items-center gap-3">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search input */}
-        <div className="flex-1 min-w-[260px]">
+        <div className="flex-1 min-w-[200px] w-full sm:w-auto">
           <input
             type="text"
             value={searchTerm}
@@ -257,19 +257,19 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
 
         {/* Dropdown 1 */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
           <span>Tất cả loại gói</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
 
         {/* Dropdown 2 */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
           <span>Đang sử dụng</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
 
         {/* Dropdown 3 */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
           <span>Hạn đến 31/12/2026</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>

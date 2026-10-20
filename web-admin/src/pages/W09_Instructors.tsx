@@ -203,9 +203,9 @@ export const W09_Instructors: React.FC = () => {
       </div>
 
       {/* 2. Search & Filter Bar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap md:flex-nowrap items-center gap-3">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
           <input
             type="text"
             value={searchTerm}
@@ -216,11 +216,11 @@ export const W09_Instructors: React.FC = () => {
         </div>
 
         {/* Filter: Tất cả cơ sở */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả cơ sở</option>
             <option value="quận 3">Quận 3</option>
@@ -230,11 +230,11 @@ export const W09_Instructors: React.FC = () => {
         </div>
 
         {/* Filter: Chuyên môn */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={specialtyFilter}
             onChange={(e) => setSpecialtyFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Chuyên môn</option>
             <option value="massage">Massage chuyên nghiệp</option>
@@ -245,11 +245,11 @@ export const W09_Instructors: React.FC = () => {
         </div>
 
         {/* Filter: Trạng thái phân công */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={assignmentFilter}
             onChange={(e) => setAssignmentFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Trạng thái phân công</option>
             <option value="có lớp phân công">Đang giảng dạy</option>

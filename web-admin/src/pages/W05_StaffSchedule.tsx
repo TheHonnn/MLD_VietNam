@@ -522,11 +522,12 @@ export const W05_StaffSchedule: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column (Matrix + Legend) */}
         <div className="lg:col-span-8 space-y-3">
-          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
-            {/* Timetable Header Row */}
-            <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE]">
-              {/* Corner spacer */}
-              <div className="w-16 sm:w-20 shrink-0 border-r border-[#EFE4D9]" />
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
+            <div className="min-w-[620px] sm:min-w-[680px]">
+              {/* Timetable Header Row */}
+              <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE]">
+                {/* Corner spacer */}
+                <div className="w-16 sm:w-20 shrink-0 border-r border-[#EFE4D9]" />
 
               {/* Technician Headers */}
               {technicians.map((t, idx) => (
@@ -643,6 +644,7 @@ export const W05_StaffSchedule: React.FC = () => {
               })}
             </div>
           </div>
+        </div>
 
           {/* Legend Row */}
           <div className="flex flex-wrap items-center gap-3 pt-1">

@@ -400,9 +400,9 @@ export const W12_FinancialReports: React.FC = () => {
       </div>
 
       {/* 2. Search & Filter Bar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap md:flex-nowrap items-center gap-3">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Date Range Input */}
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[180px] w-full sm:w-auto">
           <input
             type="text"
             value={dateRange}
@@ -412,11 +412,11 @@ export const W12_FinancialReports: React.FC = () => {
         </div>
 
         {/* Filter: Dịch vụ / gói / học phí */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Dịch vụ / gói / học phí</option>
             <option value="service">Dịch vụ lẻ</option>
@@ -427,11 +427,11 @@ export const W12_FinancialReports: React.FC = () => {
         </div>
 
         {/* Filter: Tất cả phương thức */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả phương thức</option>
             <option value="pos">Tại cơ sở / Tiền mặt</option>
@@ -442,11 +442,11 @@ export const W12_FinancialReports: React.FC = () => {
         </div>
 
         {/* Filter: Tất cả chi nhánh */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả chi nhánh</option>
             <option value="quận 3">Quận 3</option>

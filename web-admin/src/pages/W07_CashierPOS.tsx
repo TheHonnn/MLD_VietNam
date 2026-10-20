@@ -151,9 +151,9 @@ export const W07_CashierPOS: React.FC = () => {
       </div>
 
       {/* 2. Filter Toolbar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap lg:flex-nowrap items-center gap-3">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Customer / Booking code input */}
-        <div className="flex-1 min-w-[260px]">
+        <div className="flex-1 min-w-[200px] w-full sm:w-auto">
           <input
             type="text"
             defaultValue={`${customer?.fullName || 'Nguyễn Mỹ Duyên'} / ${booking?.bookingCode || 'BK-20261016-003'}`}
@@ -162,19 +162,19 @@ export const W07_CashierPOS: React.FC = () => {
         </div>
 
         {/* Dropdown 1: Service type */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
           <span>Dịch vụ lẻ</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
 
         {/* Dropdown 2: Status */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
           <span>Chờ thanh toán</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
 
         {/* Dropdown 3: Date */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none">
           <span>16/10/2026</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
@@ -734,7 +734,7 @@ export const W07_CashierPOS: React.FC = () => {
         </div>
 
         {/* Table Footer */}
-        <div className="px-5 py-3 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
+        <div className="px-5 py-3 border-t border-[#EFE4D9] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-[#73675F]">
           <span>
             3 / 3 biên nhận · Tổng đã thu: 8.550.000đ · Cọc 150.000đ của đơn đang chọn chưa tính
           </span>

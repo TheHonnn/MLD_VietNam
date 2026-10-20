@@ -1035,8 +1035,8 @@ export const W01_Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Five KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* 3. Five KPI Cards Row - Responsive: 1 col on mobile, 2 on small, 3 on tablet, 5 on wide desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           return (
@@ -1049,7 +1049,7 @@ export const W01_Dashboard: React.FC = () => {
                 <Icon className="w-4 h-4 text-[#985018] stroke-[1.6]" />
               </div>
               <div className="my-1">
-                <div className="text-[24px] sm:text-[26px] font-extrabold text-[#8E4002] tracking-tight leading-none">
+                <div className="text-[22px] sm:text-[24px] xl:text-[26px] font-extrabold text-[#8E4002] tracking-tight leading-none">
                   {isLoading ? '...' : kpi.value}
                 </div>
               </div>
@@ -1061,10 +1061,10 @@ export const W01_Dashboard: React.FC = () => {
         })}
       </div>
 
-      {/* 4. Middle Section: Chart + Table vs Breakdown + Action Needed */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column (8 of 12 cols = 66.6%) */}
-        <div className="lg:col-span-8 space-y-4">
+      {/* 4. Middle Section: Chart + Table vs Breakdown + Action Needed - Stacks cleanly on tablet and mobile */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        {/* Left Column (8 of 12 cols on desktop) */}
+        <div className="xl:col-span-8 space-y-4">
           {/* Multi-Color Line Chart: Thực thu theo ngày */}
           <MultiColorLineChart
             data={revenueChartData}
@@ -1170,8 +1170,8 @@ export const W01_Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column (4 of 12 cols = 33.3%) */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* Right Column (4 of 12 cols on desktop) */}
+        <div className="xl:col-span-4 space-y-4">
           {/* Card: Cơ cấu khoản đã thu */}
           <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] space-y-3.5 shadow-xs">
             <h3 className="text-sm font-bold text-[#2C241E]">Cơ cấu khoản đã thu</h3>

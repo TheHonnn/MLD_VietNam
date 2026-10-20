@@ -562,8 +562,8 @@ export const W02_Branches: React.FC = () => {
       </div>
 
       {/* 2. Search & Filter Bar */}
-      <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-col md:flex-row items-stretch md:items-center gap-2.5 shadow-xs">
-        <div className="relative flex-1">
+      <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
+        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
           <input
             type="text"
             value={searchTerm}
@@ -574,11 +574,11 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* City Filter */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={selectedCity}
             onChange={(e) => setSelectedCity(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
           >
             <option value="ALL">Tất cả tỉnh / thành phố ({cityOptions.length})</option>
             {cityOptions.map((city) => (
@@ -591,11 +591,11 @@ export const W02_Branches: React.FC = () => {
         </div>
 
         {/* Status Filter */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018]"
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="ACTIVE">Đang hoạt động</option>
@@ -607,7 +607,7 @@ export const W02_Branches: React.FC = () => {
         {/* Total services badge */}
         <button
           onClick={() => navigate('/treatment-management')}
-          className="flex items-center justify-between gap-2 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 cursor-pointer"
+          className="flex items-center justify-between gap-2 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5 text-[#8C7A6B]" />
           <span>{services.length || 3} dịch vụ spa</span>

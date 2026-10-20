@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -7,19 +7,33 @@ import { ToastContainer } from '../common';
 export const Layout: React.FC = () => {
   const content = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
-  useEffect(() => { content.current?.scrollTo({top:0,left:0}); }, [pathname]);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    content.current?.scrollTo({ top: 0, left: 0 });
+    setIsMobileNavOpen(false);
+  }, [pathname]);
+
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F8F1E8] antialiased text-[#2C241E] font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Sidebar - Fixed 240px wide, Pure White, border-r */}
-      <Sidebar />
+      {/* Sidebar - Off-canvas Drawer on < lg, Static 240px on >= lg */}
+      <Sidebar
+        isMobileOpen={isMobileNavOpen}
+        onCloseMobile={() => setIsMobileNavOpen(false)}
+      />
 
       {/* Main Column */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 [&>header]:shrink-0">
-        {/* Header - Pure White, border-b */}
-        <Header />
+        {/* Header - Pure White, border-b with Hamburger */}
+        <Header
+          onToggleMobileNav={() => setIsMobileNavOpen((prev) => !prev)}
+        />
 
-        {/* Content Area - Warm Sand Canvas #F8F1E8 */}
-        <main ref={content} className="flex-1 min-h-0 overflow-auto overscroll-contain bg-[#F8F1E8] p-6">
+        {/* Content Area - Warm Sand Canvas #F8F1E8 with Responsive Padding */}
+        <main
+          ref={content}
+          className="flex-1 min-h-0 overflow-auto overscroll-contain bg-[#F8F1E8] p-3 sm:p-5 md:p-6"
+        >
           <div className="max-w-[1440px] mx-auto">
             <Outlet />
           </div>
@@ -31,3 +45,4 @@ export const Layout: React.FC = () => {
     </div>
   );
 };
+

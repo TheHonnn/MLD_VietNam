@@ -16,10 +16,15 @@ import {
   Building2,
   Check,
   Search,
+  Menu,
 } from 'lucide-react';
 import { useAdmin } from '../../admin/Auth';
 import { notificationService, branchService, AdminNotification } from '../../services';
 import { Branch } from '../../types/shared_types';
+
+export interface HeaderProps {
+  onToggleMobileNav?: () => void;
+}
 
 const breadcrumbs: Record<string, string> = {
   '/': 'Tổng quan vận hành',
@@ -62,7 +67,7 @@ const formatTimeAgo = (isoString: string): string => {
   return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(isoString));
 };
 
-export const Header: React.FC = () => {
+export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAdmin();
@@ -230,37 +235,50 @@ export const Header: React.FC = () => {
         'Chi nhánh đã chọn';
 
   return (
-    <header className="h-[68px] bg-white border-b border-[#EFE4D9] px-6 flex items-center justify-between relative z-30 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Left: Vertically Stacked Breadcrumb + Badge */}
-      <div className="flex flex-col justify-center">
-        <div className="text-[12.5px] text-[#7A6D61] font-normal leading-tight">
-          Quản trị <span className="mx-1 text-[#C4B7AA]">/</span>{' '}
-          <span className="text-[#2C241E] font-medium">{currentTitle}</span>
-        </div>
-        <div className="mt-1 flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E6F4EA] text-[#137333] leading-tight">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#137333]"></span>
-            Hệ thống trực tuyến
-          </span>
+    <header className="h-[68px] bg-white border-b border-[#EFE4D9] px-3 sm:px-6 flex items-center justify-between relative z-30 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* Left: Hamburger Button (on mobile/tablet) + Vertically Stacked Breadcrumb + Badge */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <button
+          type="button"
+          onClick={onToggleMobileNav}
+          className="lg:hidden p-2 -ml-1 rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer shrink-0"
+          title="Mở danh mục điều hướng"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div className="flex flex-col justify-center min-w-0">
+          <div className="text-[12px] sm:text-[12.5px] text-[#7A6D61] font-normal leading-tight truncate">
+            <span className="hidden sm:inline">
+              Quản trị <span className="mx-1 text-[#C4B7AA]">/</span>{' '}
+            </span>
+            <span className="text-[#2C241E] font-bold sm:font-medium">{currentTitle}</span>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E6F4EA] text-[#137333] leading-tight shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#137333]"></span>
+              <span className="hidden xs:inline">Hệ thống</span> trực tuyến
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Right Controls: Branch Select, Search, Bell, User Profile */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Branch dropdown */}
         <div className="relative" ref={branchMenuRef}>
           <button
             type="button"
             onClick={() => setShowBranchMenu(!showBranchMenu)}
-            className={`flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl border bg-white text-xs font-medium transition-all cursor-pointer ${
+            className={`flex items-center justify-between gap-1.5 sm:gap-3 px-2.5 sm:px-3.5 py-2 rounded-xl border bg-white text-xs font-medium transition-all cursor-pointer ${
               showBranchMenu
                 ? 'border-[#985018] ring-2 ring-[#985018]/10 text-[#2C241E]'
                 : 'border-[#E0D7CC] text-[#4A3E34] hover:bg-[#FAF8F5]'
             }`}
           >
-            <span className="truncate max-w-[140px]">{branchLabel}</span>
+            <span className="truncate max-w-[90px] xs:max-w-[120px] sm:max-w-[150px]">{branchLabel}</span>
             <ChevronDown
-              className={`w-3.5 h-3.5 text-[#8C7A6B] transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 text-[#8C7A6B] transition-transform duration-200 shrink-0 ${
                 showBranchMenu ? 'rotate-180' : ''
               }`}
             />
@@ -308,7 +326,7 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Search input */}
-        <div className="relative w-36 sm:w-48" ref={searchInputRef}>
+        <div className="relative w-24 xs:w-36 sm:w-48 focus-within:w-36 xs:focus-within:w-44 sm:focus-within:w-48 transition-all" ref={searchInputRef}>
           <div className="relative flex items-center">
             <input
               type="text"
@@ -317,7 +335,7 @@ export const Header: React.FC = () => {
               onFocus={() => setShowHeaderSearchPopup(true)}
               onKeyDown={handleHeaderSearchKeyDown}
               placeholder="Tìm kiếm..."
-              className="w-full pl-3 pr-7 py-2 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] transition-colors"
+              className="w-full pl-2.5 sm:pl-3 pr-7 py-2 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] transition-colors"
             />
             {headerSearch ? (
               <button
@@ -333,7 +351,7 @@ export const Header: React.FC = () => {
           </div>
 
           {showHeaderSearchPopup && headerSearch.trim().length > 0 && (
-            <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 p-2 space-y-1.5 text-xs animate-in fade-in-50 zoom-in-95">
+            <div className="absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 p-2 space-y-1.5 text-xs animate-in fade-in-50 zoom-in-95">
               <div className="text-[10.5px] font-bold text-[#8C7E72] px-2 py-1">
                 Tìm kiếm nhanh: "{headerSearch}"
               </div>
@@ -396,7 +414,7 @@ export const Header: React.FC = () => {
 
           {/* Notification Center Popover */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2.5 w-[360px] sm:w-[420px] bg-white rounded-2xl shadow-xl border border-[#EFE4D9] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="absolute right-[-45px] sm:right-0 mt-2.5 w-[calc(100vw-1.5rem)] sm:w-[420px] max-w-[420px] bg-white rounded-2xl shadow-xl border border-[#EFE4D9] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-150">
               {/* Header */}
               <div className="px-4 py-3.5 border-b border-[#EFE4D9] bg-gradient-to-r from-[#FAF6F0] to-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
