@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
+import '../../../home/data/repositories/service_repository.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
@@ -27,6 +29,7 @@ class C01ServiceSelectionScreen extends StatefulWidget {
 class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
   late BookingFlowState _flowState;
   final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = false;
   String _selectedCategory = 'Massage thư giãn';
 
   final List<String> _categories = [
@@ -57,6 +60,32 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
     }
 
     _applyFilter(callSetState: false);
+    _loadServices();
+  }
+
+  Future<void> _loadServices() async {
+    setState(() => _isLoading = true);
+    final liveServices = await ServiceRepository.instance.getServices();
+    final liveCategories = await ServiceRepository.instance.getCategories();
+
+    if (mounted) {
+      setState(() {
+        _allServices = liveServices;
+        if (liveCategories.isNotEmpty) {
+          _categories.clear();
+          _categories.addAll(liveCategories);
+          if (!_categories.contains(_selectedCategory)) {
+            _selectedCategory = _categories.first;
+          }
+        }
+        _isLoading = false;
+        if (_flowState.allSelectedServices.isEmpty && _allServices.isNotEmpty) {
+          _flowState.selectedService = _allServices.first;
+          _flowState.selectedServices = [_allServices.first];
+        }
+        _applyFilter(callSetState: false);
+      });
+    }
   }
 
   void _applyFilter({bool callSetState = true}) {
@@ -117,6 +146,7 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final count = _flowState.allSelectedServices.length;
     final totalMinutes = _flowState.totalDurationMinutes;
     final totalPrice = _formatPrice(_flowState.rawServicePrice);
@@ -152,14 +182,14 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                   color: BookingColors.cardWarm,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.calendar_month_outlined, size: 14, color: BookingColors.primary),
-                    SizedBox(width: 4),
+                    const Icon(Icons.calendar_month_outlined, size: 14, color: BookingColors.primary),
+                    const SizedBox(width: 4),
                     Text(
-                      'Lịch hẹn của tôi',
-                      style: TextStyle(
+                      l10n?.myAppointments ?? 'Lịch hẹn của tôi',
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: BookingColors.primary,
@@ -180,8 +210,8 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: [
                   const SizedBox(height: 8),
-                  const BookingHeaderSection(
-                    title: 'Chọn dịch vụ',
+                  BookingHeaderSection(
+                    title: l10n?.selectService ?? 'Chọn dịch vụ',
                     subtitle: 'Lựa chọn dịch vụ chăm sóc phù hợp với bạn.',
                     currentStep: 1,
                   ),
@@ -211,15 +241,15 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                           child: TextField(
                             controller: _searchController,
                             onChanged: (_) => _applyFilter(),
-                            decoration: const InputDecoration(
-                              hintText: 'Tìm kiếm dịch vụ...',
-                              hintStyle: TextStyle(fontSize: 14, color: BookingColors.textSecondary),
+                            decoration: InputDecoration(
+                              hintText: l10n?.homeSearchHint ?? 'Tìm kiếm dịch vụ...',
+                              hintStyle: const TextStyle(fontSize: 14, color: BookingColors.textSecondary),
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
                               errorBorder: InputBorder.none,
                               disabledBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                             ),
                           ),
                         ),
@@ -273,21 +303,39 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                   const SizedBox(height: 24),
 
                   // Danh sách dịch vụ: MultiServiceSelector
-                  ..._filteredServices.map((service) {
-                    final isSelected = _flowState.selectedServices.any((s) => s.id == service.id);
-                    final isFav = _favoriteServiceIds.contains(service.id);
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: BookingColors.cardBorder,
-                          width: 1.0,
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: CircularProgressIndicator(color: BookingColors.primary),
+                      ),
+                    )
+                  else if (_filteredServices.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          'Không có dịch vụ nào phù hợp.',
+                          style: TextStyle(color: BookingColors.textSecondary, fontSize: 14),
                         ),
                       ),
-                      child: Column(
+                    )
+                  else
+                    ..._filteredServices.map((service) {
+                      final isSelected = _flowState.selectedServices.any((s) => s.id == service.id);
+                      final isFav = _favoriteServiceIds.contains(service.id);
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: BookingColors.cardBorder,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Header chọn dịch vụ (cao 60px)
@@ -346,19 +394,33 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                   children: [
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(16),
-                                      child: Image.asset(
-                                        service.imageUrl,
-                                        height: 172,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
-                                          height: 172,
-                                          color: BookingColors.cardWarm,
-                                          child: const Center(
-                                            child: Icon(Icons.spa, color: BookingColors.primary, size: 48),
-                                          ),
-                                        ),
-                                      ),
+                                      child: service.imageUrl.startsWith('http')
+                                          ? Image.network(
+                                              service.imageUrl,
+                                              height: 172,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                height: 172,
+                                                color: BookingColors.cardWarm,
+                                                child: const Center(
+                                                  child: Icon(Icons.spa, color: BookingColors.primary, size: 48),
+                                                ),
+                                              ),
+                                            )
+                                          : Image.asset(
+                                              service.imageUrl,
+                                              height: 172,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                height: 172,
+                                                color: BookingColors.cardWarm,
+                                                child: const Center(
+                                                  child: Icon(Icons.spa, color: BookingColors.primary, size: 48),
+                                                ),
+                                              ),
+                                            ),
                                     ),
                                     Positioned(
                                       top: 10,
@@ -522,7 +584,7 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
               summaryText: '$count dịch vụ · $totalMinutes phút · $totalPriceđ · Chi phí dịch vụ',
-              buttonText: 'Tiếp tục',
+              buttonText: l10n?.continueButton ?? 'Tiếp tục',
               onPressed: () {
                 Navigator.push(
                   context,

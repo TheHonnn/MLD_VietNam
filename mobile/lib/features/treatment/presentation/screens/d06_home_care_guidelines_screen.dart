@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/mock_treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
 
 class D06HomeCareGuidelinesScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -16,7 +16,7 @@ class D06HomeCareGuidelinesScreen extends StatefulWidget {
 }
 
 class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScreen> {
-  final MockTreatmentRepository _repo = MockTreatmentRepository();
+  final TreatmentRepository _repo = TreatmentRepository.instance;
 
   final List<String> _categories = [
     'Chăm sóc cơ thể.',

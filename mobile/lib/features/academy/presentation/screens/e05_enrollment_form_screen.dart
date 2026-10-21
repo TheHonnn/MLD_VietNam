@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/widgets/vietnamese_dob_picker.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
 import '../widgets/academy_widgets.dart';
 import 'e06_tuition_payment_screen.dart';
@@ -20,16 +23,59 @@ class E05EnrollmentFormScreen extends StatefulWidget {
 
 class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'Nguyễn Minh Anh');
-  final _phoneController = TextEditingController(text: '0912345678');
-  final _emailController = TextEditingController(text: 'minhanh.nguyen@email.com');
-  final _dobController = TextEditingController();
-  final _addressController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _dobController;
+  late final TextEditingController _addressController;
 
   int _selectedExperience = 1; // 0: Chưa có, 1: Cơ bản / tự học (chuẩn Figma đang chọn), 2: Đang làm nghề
   String _selectedBranch = 'Chi nhánh Quận 3';
   String _selectedBatch = '23/10/2026 · MCN-1026';
   String _selectedFormat = 'Học trực tiếp';
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = MembershipRepository.instance.profile;
+    final currentPhone = AuthService.instance.currentPhone;
+    final initialPhone = (currentPhone != null && currentPhone.isNotEmpty)
+        ? currentPhone
+        : profile.phone;
+    _nameController = TextEditingController(text: profile.fullName);
+    _phoneController = TextEditingController(text: initialPhone);
+    _emailController = TextEditingController(text: profile.email);
+    _dobController = TextEditingController(text: profile.dateOfBirth);
+    _addressController = TextEditingController(text: profile.address);
+  }
+
+  Future<void> _pickDob() async {
+    DateTime initial = DateTime(2000, 1, 1);
+    if (_dobController.text.isNotEmpty) {
+      try {
+        final parts = _dobController.text.split('/');
+        if (parts.length == 3) {
+          initial = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+        }
+      } catch (_) {}
+    }
+
+    final picked = await VietnameseDobPicker.show(
+      context,
+      initialDate: initial,
+      minYear: 1940,
+      maxYear: DateTime.now().year,
+    );
+
+    if (picked != null) {
+      final day = picked.day.toString().padLeft(2, '0');
+      final month = picked.month.toString().padLeft(2, '0');
+      final year = picked.year.toString();
+      setState(() {
+        _dobController.text = '$day/$month/$year';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -53,20 +99,28 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: 'Đặt cọc · 2.000.000đ',
         buttonText: 'Tiếp tục thanh toán',
-        onPressed: () {
+        onPressed: () async {
           if (_formKey.currentState?.validate() ?? false) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => E06TuitionPaymentScreen(
-                  course: course,
-                  studentName: _nameController.text.trim(),
-                  studentPhone: _phoneController.text.trim(),
-                  studentEmail: _emailController.text.trim(),
-                  selectedBranch: _selectedBranch,
-                  selectedShift: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
+            final phone = _phoneController.text.trim().replaceAll(' ', '');
+            if (phone.isNotEmpty) {
+              await AuthService.instance.updatePhone(phone);
+              final repo = MembershipRepository.instance;
+              repo.updateProfile(repo.profile.copyWith(phone: phone, isPhoneVerified: true));
+            }
+            if (context.mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => E06TuitionPaymentScreen(
+                    course: course,
+                    studentName: _nameController.text.trim(),
+                    studentPhone: phone,
+                    studentEmail: _emailController.text.trim(),
+                    selectedBranch: _selectedBranch,
+                    selectedShift: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
+                  ),
                 ),
-              ),
-            );
+              );
+            }
           }
         },
       ),
@@ -221,7 +275,14 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               validator: AppValidators.email,
             ),
             const SizedBox(height: 12),
-            _buildInputField('Ngày sinh (tùy chọn)', _dobController, 'DD/MM/YYYY'),
+            _buildInputField(
+              'Ngày sinh (tùy chọn)',
+              _dobController,
+              'Chọn ngày sinh (Năm / Tháng / Ngày)',
+              readOnly: true,
+              onTap: _pickDob,
+              suffixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AcademyColors.primary),
+            ),
             const SizedBox(height: 12),
             _buildInputField('Địa chỉ liên hệ (tùy chọn)', _addressController, 'Số nhà, tên đường, phường/xã...'),
             const SizedBox(height: 24),
@@ -433,6 +494,9 @@ Widget _buildInputField(
   String hint, {
   TextInputType keyboardType = TextInputType.text,
   String? Function(String?)? validator,
+  bool readOnly = false,
+  VoidCallback? onTap,
+  Widget? suffixIcon,
 }) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,6 +521,8 @@ Widget _buildInputField(
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
+          readOnly: readOnly,
+          onTap: onTap,
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -465,6 +531,7 @@ Widget _buildInputField(
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+            suffixIcon: suffixIcon,
             border: InputBorder.none,
             errorStyle: const TextStyle(fontSize: 11),
             isDense: true,

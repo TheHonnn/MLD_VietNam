@@ -6,10 +6,9 @@ plugins {
 }
 
 android {
-    ndkVersion = "28.2.13676358"
+    ndkVersion = flutter.ndkVersion
     namespace = "com.medcare.app.medical_healthcare_app"
     compileSdk = flutter.compileSdkVersion
-    // ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

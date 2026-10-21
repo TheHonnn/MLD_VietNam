@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
@@ -36,6 +37,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     final List<Widget> screens = [
       // Tab 0: Trang chủ (B01_Home)
       B01HomeScreen(
@@ -95,11 +98,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, 'Trang chủ', Icons.home_rounded),
-                _buildNavItem(1, 'Dịch vụ', Icons.spa_outlined),
-                _buildNavItem(2, 'Đặt lịch', Icons.calendar_month_outlined),
-                _buildNavItem(3, 'Học viện', Icons.school_outlined),
-                _buildNavItem(4, 'Cá nhân', Icons.person_outline_rounded),
+                _buildNavItem(0, l10n?.navHome ?? 'Trang chủ', Icons.home_rounded),
+                _buildNavItem(1, l10n?.navServices ?? 'Dịch vụ', Icons.spa_outlined),
+                _buildNavItem(2, l10n?.navBooking ?? 'Đặt lịch', Icons.calendar_month_outlined),
+                _buildNavItem(3, l10n?.navAcademy ?? 'Học viện', Icons.school_outlined),
+                _buildNavItem(4, l10n?.navProfile ?? 'Cá nhân', Icons.person_outline_rounded),
               ],
             ),
           ),

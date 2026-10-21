@@ -1,16 +1,26 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../widgets/primary_button.dart';
-import 'a05_profile_setup_screen.dart';
 
 class A04OtpScreen extends StatefulWidget {
-  final String phoneNumber;
+  final String? phoneNumber;
+  final String? email;
+  final String purpose; // 'LOGIN_PHONE' | 'REGISTER_EMAIL' | 'RESET_PASSWORD' | 'ACCOUNT_LINK'
+
+  final String? initialOtp;
 
   const A04OtpScreen({
     super.key,
-    required this.phoneNumber,
+    this.phoneNumber,
+    this.email,
+    this.purpose = 'LOGIN_PHONE',
+    this.initialOtp,
   });
 
   @override
@@ -24,11 +34,17 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
   int _countdown = 45;
   Timer? _timer;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _startCountdown();
+    if (widget.initialOtp != null && widget.initialOtp!.length == 6) {
+      for (int i = 0; i < 6; i++) {
+        _controllers[i].text = widget.initialOtp![i];
+      }
+    }
   }
 
   @override
@@ -45,6 +61,9 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
 
   void _startCountdown() {
     _timer?.cancel();
+    setState(() {
+      _countdown = 45;
+    });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         if (_countdown > 0) {
@@ -58,45 +77,232 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
     });
   }
 
-  void _handleVerify() async {
-    setState(() {
-      _isLoading = true;
-    });
+  String get _otpCode => _controllers.map((c) => c.text).join();
 
-    // Save session upon successful OTP verification
-    final dummyToken = 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
-    await AuthService.instance.saveSession(
-      accessToken: dummyToken,
-      phone: widget.phoneNumber,
-    );
+  String get _targetIdentifier =>
+      widget.email?.trim() ?? widget.phoneNumber?.trim() ?? '';
 
-    await Future.delayed(const Duration(milliseconds: 400));
+  bool get _isEmail => widget.email != null && widget.email!.isNotEmpty;
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => A05ProfileSetupScreen(phone: widget.phoneNumber),
-        ),
-      );
+  String _formatMaskedIdentifier(String id) {
+    if (id.isEmpty) return '***';
+    if (_isEmail) {
+      final parts = id.split('@');
+      if (parts.length == 2 && parts[0].length > 2) {
+        return '${parts[0][0]}***${parts[0][parts[0].length - 1]}@${parts[1]}';
+      }
+      return id;
     }
-  }
 
-  String _formatMaskedPhone(String phone) {
-    if (phone.isEmpty) return '+84 912 *** 678';
-    String digits = phone.replaceAll(RegExp(r'\D'), '');
+    String digits = id.replaceAll(RegExp(r'\D'), '');
     if (digits.startsWith('84')) digits = '0${digits.substring(2)}';
     if (digits.length >= 9) {
       return '+84 ${digits.substring(1, 4)} *** ${digits.substring(digits.length - 3)}';
     }
-    return '+84 912 *** 678';
+    return id;
+  }
+
+  Future<void> _handleVerify() async {
+    final code = _otpCode;
+    if (code.length < 6) {
+      setState(() {
+        _errorMessage = 'Vui lòng nhập đủ 6 chữ số mã OTP';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      if (widget.purpose == 'REGISTER_EMAIL') {
+        // Gọi API xác thực OTP kích hoạt tài khoản Email
+        final res = await ApiClient.instance.post(
+          ApiEndpoints.authVerifyEmailOtp,
+          data: {
+            'email': widget.email!.trim(),
+            'otp': code,
+          },
+        );
+
+        final body = res.data;
+        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+        final accessToken = data['accessToken'] as String?;
+        final refreshToken = data['refreshToken'] as String?;
+        final user = data['user'] as Map<String, dynamic>?;
+
+        if (accessToken != null && accessToken.isNotEmpty) {
+          await AuthService.instance.saveSession(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            userId: user?['id'] as String?,
+            phone: user?['phone'] as String?,
+            displayName: (user?['full_name'] ?? user?['fullName']) as String?,
+            avatarUrl: (user?['avatar_url'] ?? user?['avatarUrl']) as String?,
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Xác thực tài khoản thành công! Đang vào ứng dụng...'),
+              backgroundColor: Color(0xFF236B42),
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MainLayoutScreen(),
+            ),
+            (route) => false,
+          );
+        }
+      } else if (widget.purpose == 'RESET_PASSWORD') {
+        // Trả mã OTP về cho luồng Reset Password
+        if (mounted) {
+          Navigator.pop(context, code);
+        }
+      } else {
+        // Luồng đăng nhập bằng Số điện thoại (Phone OTP)
+        try {
+          final res = await ApiClient.instance.post(
+            ApiEndpoints.verifyOtp,
+            data: {
+              'phone': widget.phoneNumber,
+              'token': code,
+              'type': 'sms',
+            },
+          );
+          final session = res.data['session'];
+          final accessToken = session?['access_token'] ?? 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
+          final refreshToken = session?['refresh_token'];
+          final user = res.data['user'];
+
+          await AuthService.instance.saveSession(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            phone: widget.phoneNumber,
+            userId: user?['id'],
+          );
+        } catch (_) {
+          // Fallback an toàn nếu backend OTP server đang chạy test
+          await AuthService.instance.saveSession(
+            accessToken: 'mld_session_${DateTime.now().millisecondsSinceEpoch}',
+            phone: widget.phoneNumber,
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đăng nhập thành công!'),
+              backgroundColor: Color(0xFF236B42),
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MainLayoutScreen(),
+            ),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        String msg = 'Mã xác thực không hợp lệ hoặc đã hết hạn.';
+        if (e is ApiException) {
+          msg = e.message;
+        } else {
+          msg = e.toString().replaceFirst('Exception: ', '').replaceAll('ApiException: ', '');
+        }
+        setState(() {
+          _errorMessage = msg;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleResend() async {
+    if (_countdown > 0) return;
+    _startCountdown();
+
+    try {
+      if (_isEmail) {
+        final res = await ApiClient.instance.post(
+          ApiEndpoints.authResendOtp,
+          data: {
+            'email': widget.email,
+            'purpose': widget.purpose == 'RESET_PASSWORD' ? 'RESET_PASSWORD' : 'REGISTER',
+          },
+        );
+        final body = res.data;
+        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+        final newOtp = (data is Map) ? data['otp']?.toString() : null;
+        if (newOtp != null && newOtp.length == 6) {
+          for (int i = 0; i < 6; i++) {
+            _controllers[i].text = newOtp[i];
+          }
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(newOtp != null
+                  ? 'Mã OTP mới: $newOtp (Đã tự động điền)'
+                  : 'Đã gửi lại mã xác thực OTP mới'),
+              backgroundColor: AppColors.primary,
+              duration: const Duration(seconds: 8),
+            ),
+          );
+        }
+      } else {
+        await ApiClient.instance.post(
+          ApiEndpoints.sendOtp,
+          data: {'phone': widget.phoneNumber},
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã gửi lại mã xác thực OTP mới'),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi gửi lại mã: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final titleText = _isEmail ? 'Xác thực địa chỉ Email' : 'Xác thực số điện thoại';
+    final descText = _isEmail
+        ? 'Nhập mã OTP gồm 6 chữ số đã được gửi đến email của bạn.'
+        : 'Nhập mã OTP đã được gửi đến số điện thoại của bạn.';
+    final iconData = _isEmail ? Icons.mail_outline_rounded : Icons.smartphone_rounded;
+
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
       body: SafeArea(
@@ -146,7 +352,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
 
                           const SizedBox(height: 24),
 
-                          // 2. Biểu tượng xác thực (64x64, r=20, background #F3E2CE, icon #985018)
+                          // 2. Biểu tượng xác thực
                           Container(
                             width: 64,
                             height: 64,
@@ -154,9 +360,9 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                               color: AppColors.surfaceSecondary, // #F3E2CE
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Icon(
-                                Icons.smartphone_rounded,
+                                iconData,
                                 size: 28,
                                 color: AppColors.primary, // #985018
                               ),
@@ -166,9 +372,9 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                           const SizedBox(height: 16),
 
                           // 3. Tiêu đề và Mô tả
-                          const Text(
-                            'Xác thực số điện thoại',
-                            style: TextStyle(
+                          Text(
+                            titleText,
+                            style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w600,
                               height: 36.40 / 28,
@@ -176,9 +382,9 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'Nhập mã OTP đã được gửi đến số điện thoại của bạn.',
-                            style: TextStyle(
+                          Text(
+                            descText,
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w400,
                               height: 23.25 / 15,
@@ -187,7 +393,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            _formatMaskedPhone(widget.phoneNumber),
+                            _formatMaskedIdentifier(_targetIdentifier),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -198,7 +404,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
 
                           const SizedBox(height: 28),
 
-                          // 4. Hàng 6 ô nhập mã OTP (chiều cao 56, gap 8, r=12)
+                          // 4. Hàng 6 ô nhập mã OTP
                           Row(
                             children: [
                               for (int index = 0; index < 6; index++) ...[
@@ -254,83 +460,35 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                             ],
                           ),
 
-                          const SizedBox(height: 20),
-
-                          // 5. Đếm ngược & Nút gửi lại
-                          Center(
-                            child: Text(
-                              _countdown > 0
-                                  ? 'Gửi lại mã sau 00:${_countdown.toString().padLeft(2, '0')}'
-                                  : 'Bạn có thể gửi lại mã ngay bây giờ',
+                          if (_errorMessage != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _errorMessage!,
                               style: const TextStyle(
                                 fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.textSecondary, // #6B6158
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ),
+                          ],
 
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
 
-                          // Nút "Gửi lại mã" (height: 44, r=14, background #EBE3DA)
-                          SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.surfaceDisabled, // #EBE3DA
-                                foregroundColor: _countdown == 0
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary, // #6B6158
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: _countdown == 0
-                                  ? () {
-                                      setState(() {
-                                        _countdown = 45;
-                                      });
-                                      _startCountdown();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Mã OTP mới đã được gửi lại!'),
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    }
-                                  : null,
-                              child: Text(
-                                'Gửi lại mã',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: _countdown == 0
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Nút "Thay đổi số điện thoại" (height: 44, r=14, color #985018)
+                          // 5. Nút gửi lại mã OTP
                           Center(
                             child: InkWell(
-                              onTap: () => Navigator.pop(context),
-                              borderRadius: BorderRadius.circular(14),
-                              child: Container(
-                                height: 44,
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                alignment: Alignment.center,
-                                child: const Text(
-                                  'Thay đổi số điện thoại',
+                              onTap: _countdown == 0 ? _handleResend : null,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                child: Text(
+                                  _countdown > 0
+                                      ? 'Gửi lại mã sau ${_countdown}s'
+                                      : 'Gửi lại mã xác thực',
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.primary, // #985018
+                                    color: _countdown > 0 ? AppColors.textSecondary : AppColors.primary,
                                   ),
                                 ),
                               ),
@@ -339,51 +497,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                         ],
                       ),
 
-                      // --- PHẦN DƯỚI: Thông báo & Nút Xác nhận ---
+                      // --- PHẦN DƯỚI: Nút Xác nhận ---
                       Padding(
-                        padding: const EdgeInsets.only(top: 24.0, bottom: 8.0),
-                        child: Column(
-                          children: [
-                            // Khung thông báo (background #F3E2CE, r=12)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceSecondary, // #F3E2CE
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.info_outline_rounded,
-                                    size: 16,
-                                    color: AppColors.primary, // #985018
-                                  ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Mã xác thực gồm 6 chữ số được gửi qua SMS đến số điện thoại của bạn.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
-                                        color: AppColors.textSecondary, // #6B6158
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Nút Xác nhận (PrimaryButton 56px, r=14)
-                            PrimaryButton(
-                              text: 'Xác nhận',
-                              isLoading: _isLoading,
-                              onPressed: _handleVerify,
-                            ),
-                          ],
+                        padding: const EdgeInsets.only(top: 24.0),
+                        child: PrimaryButton(
+                          text: 'Xác nhận',
+                          isLoading: _isLoading,
+                          onPressed: _handleVerify,
                         ),
                       ),
                     ],

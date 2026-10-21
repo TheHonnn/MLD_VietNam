@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/mock_treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
 
 class D05ServiceReviewScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -24,7 +24,7 @@ class D05ServiceReviewScreen extends StatefulWidget {
 }
 
 class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
-  final MockTreatmentRepository _repo = MockTreatmentRepository();
+  final TreatmentRepository _repo = TreatmentRepository.instance;
 
   int _overallRating = 5;
   int _serviceQualityRating = 5;
@@ -69,9 +69,10 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.all(24),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             Container(
               width: 64,
               height: 64,
@@ -130,6 +131,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

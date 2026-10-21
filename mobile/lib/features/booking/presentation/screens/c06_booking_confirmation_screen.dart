@@ -144,76 +144,56 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
                       );
                     },
                   ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                  // Thẻ PrepaidPackageSelector / Chưa chọn (350x200)
-                  PrepaidPackageSelectorWidget(
-                    isSelected: widget.flowState.usePrepaidPackage,
-                    onChanged: (val) {
-                      setState(() {
-                        widget.flowState.usePrepaidPackage = val;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Thẻ Chính sách đặt hẹn (350x290, fill=white, r=20)
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: BookingColors.cardBorder, width: 1.0),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Chính sách đặt hẹn',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: BookingColors.heading,
+                    // Thẻ Chính sách đặt hẹn (350x290, fill=white, r=20)
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: BookingColors.cardBorder, width: 1.0),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Chính sách đặt hẹn',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: BookingColors.heading,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Đổi lịch trước ít nhất 24 giờ: không thu phí trong ví dụ.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: BookingColors.textPrimary,
-                            height: 1.4,
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Đổi lịch trước ít nhất 24 giờ: không thu phí.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: BookingColors.textPrimary,
+                              height: 1.4,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Hủy lịch: tiền cọc được xem xét theo chính sách, không tự động hoàn tiền.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: BookingColors.textPrimary,
-                            height: 1.4,
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Hủy lịch: tiền cọc được bảo lưu hoặc hoàn trả theo quy chế dịch vụ của MLD.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: BookingColors.textPrimary,
+                              height: 1.4,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Cọc 150.000đ · Thanh toán sau 300.000đ.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: BookingColors.textPrimary,
-                            height: 1.4,
+                          const SizedBox(height: 8),
+                          Text(
+                            'Cọc ${_formatPrice(deposit)}đ · Thanh toán phần còn lại ${_formatPrice(remaining)}đ tại cơ sở.',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: BookingColors.textPrimary,
+                              height: 1.4,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Mọi mức giá và chính sách ở đây là ví dụ, không phải cam kết kinh doanh thực.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: BookingColors.textPrimary,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
 
                         // Checkbox: Tôi đã đọc và đồng ý...
                         InkWell(

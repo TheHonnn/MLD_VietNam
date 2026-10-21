@@ -75,30 +75,32 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Nhập mã thủ công', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.expectedTypeHint ?? 'Nhập chuỗi mã QR hoặc mã định danh của bạn:',
-              style: const TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: textController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Ví dụ: MLD-ATT-2026-X99',
-                filled: true,
-                fillColor: const Color(0xFFF9F9FB),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.expectedTypeHint ?? 'Nhập chuỗi mã QR hoặc mã định danh của bạn:',
+                style: const TextStyle(fontSize: 13, color: Colors.black54),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: textController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Ví dụ: MLD-ATT-2026-X99',
+                  filled: true,
+                  fillColor: const Color(0xFFF9F9FB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

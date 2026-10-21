@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/locale_cubit.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
 import '../../data/models/membership_models.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
 
 class F08SettingsScreen extends StatefulWidget {
@@ -14,7 +16,7 @@ class F08SettingsScreen extends StatefulWidget {
 }
 
 class _F08SettingsScreenState extends State<F08SettingsScreen> {
-  final MockMembershipRepository _repo = MockMembershipRepository();
+  final MembershipRepository _repo = MembershipRepository.instance;
   late UserSettings _settings;
 
   @override
@@ -28,6 +30,83 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
       _settings = updated;
     });
     _repo.updateSettings(updated);
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        final currentLang = _settings.language;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Chọn ngôn ngữ / Select Language',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.pop(bottomSheetContext),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                tileColor: currentLang.contains('Việt') ? AppColors.secondary.withValues(alpha: 0.1) : Colors.transparent,
+                title: const Text(
+                  'Tiếng Việt',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                ),
+                subtitle: const Text('Vietnamese (mặc định)'),
+                trailing: currentLang.contains('Việt')
+                    ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                    : null,
+                onTap: () {
+                  context.read<LocaleCubit>().setLocale(const Locale('vi'));
+                  _updateSettings(_settings.copyWith(language: 'Tiếng Việt'));
+                  Navigator.pop(bottomSheetContext);
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                tileColor: currentLang.toLowerCase().contains('eng') ? AppColors.secondary.withValues(alpha: 0.1) : Colors.transparent,
+                title: const Text(
+                  'English',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                ),
+                subtitle: const Text('Tiếng Anh'),
+                trailing: currentLang.toLowerCase().contains('eng')
+                    ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                    : null,
+                onTap: () {
+                  context.read<LocaleCubit>().setLocale(const Locale('en'));
+                  _updateSettings(_settings.copyWith(language: 'English'));
+                  Navigator.pop(bottomSheetContext);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -181,7 +260,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                   icon: Icons.language_rounded,
                   title: 'Ngôn ngữ',
                   subtitle: _settings.language,
-                  onTap: () {},
+                  onTap: () => _showLanguageDialog(context),
                 ),
                 _buildMenuItem(
                   icon: Icons.location_on_outlined,

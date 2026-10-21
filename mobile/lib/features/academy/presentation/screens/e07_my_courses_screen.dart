@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../widgets/academy_widgets.dart';
+import 'e02_course_catalog_screen.dart';
+import '../../data/models/academy_models.dart';
+import '../../data/repositories/academy_repository.dart';
 import 'e08_class_detail_screen.dart';
-import 'e12_learning_results_screen.dart';
 
 /// Screen E07: Khóa học của tôi [8116:25866]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -24,6 +26,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
   void initState() {
     super.initState();
     _selectedTab = widget.initialTabIndex;
+    AcademyRepository.instance.getMyCourses().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -85,15 +90,15 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                 children: [
                   Row(
                     children: [
-                      _buildMetricColumn('3', 'đã ghi danh'),
-                      _buildMetricColumn('1', 'đang học'),
-                      _buildMetricColumn('1', 'hoàn thành'),
+                      _buildMetricColumn('${AcademyRepository.instance.enrolledCourses.length}', 'đã ghi danh'),
+                      _buildMetricColumn('${AcademyRepository.instance.enrolledCourses.length}', 'đang học'),
+                      _buildMetricColumn('0', 'hoàn thành'),
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    '120 giờ học · 1 khóa sắp học',
-                    style: TextStyle(
+                  Text(
+                    '${AcademyRepository.instance.enrolledCourses.fold<int>(0, (acc, c) => acc + c.totalHours)} giờ học · ${AcademyRepository.instance.enrolledCourses.length} khóa đang tham gia',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.textPrimary,
@@ -133,327 +138,18 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
 
             // 4. Nội dung Tab
             if (_selectedTab == 0) ...[
-              // LearningProgressCard / 02 [8116:25894]
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: AcademyColors.cardWarm,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Đang học · MCN-0926',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AcademyColors.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Kỹ thuật Massage Chuyên Nghiệp',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Nguyễn Thanh Hương · Khai giảng 18/09/2026',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AcademyColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '4 / 20 bài học đã hoàn thành',
-                          style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
-                        ),
-                        Text(
-                          '20%',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AcademyColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: const LinearProgressIndicator(
-                        value: 0.20,
-                        minHeight: 6,
-                        backgroundColor: AcademyColors.cardBorder,
-                        valueColor: AlwaysStoppedAnimation<Color>(AcademyColors.primary),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Bài tiếp theo: Bài 05 — Kỹ thuật Massage cơ bản',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AcademyColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const E08ClassDetailScreen(),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(0, 56),
-                          backgroundColor: AcademyColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text(
-                          'Tiếp tục học',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Các khóa học khác [8116:25905]
-              const Text(
-                'Các khóa học khác',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AcademyColors.heading,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Thẻ Sắp học
-              _buildOtherCourseCard(
-                tag: 'Sắp học',
-                title: 'Chăm Sóc Da Chuyên Nghiệp',
-                subtitle: 'CSD-1026 · Khai giảng 30/10/2026',
-                format: 'Kết hợp trực tuyến và thực hành',
-                buttonText: 'Xem lớp sắp học',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const E08ClassDetailScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-
-              // Thẻ Đã hoàn thành
-              _buildOtherCourseCard(
-                tag: 'Đã hoàn thành',
-                title: 'Kỹ thuật Massage Cơ Bản',
-                subtitle: 'MCB-0726 · Hoàn thành 28/08/2026',
-                format: '20 / 20 bài học · Tiến độ 100%',
-                buttonText: 'Xem kết quả học tập',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const E12LearningResultsScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // Lịch học gần nhất [8116:25922]
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AcademyColors.cardWarm,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Lịch học gần nhất',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.heading,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-                          ),
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '16',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                  color: AcademyColors.primary,
-                                  height: 1.1,
-                                ),
-                              ),
-                              Text(
-                                'Tháng 10',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                  color: AcademyColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '13:00–17:00',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AcademyColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Thứ 6 · Buổi 05',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AcademyColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Kỹ thuật Massage Chuyên Nghiệp',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Thực hành kỹ thuật massage cơ bản',
-                      style: TextStyle(fontSize: 14, color: AcademyColors.textPrimary),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Phòng thực hành 02 · Chi nhánh Quận 3',
-                      style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Giảng viên Nguyễn Thanh Hương',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AcademyColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              if (AcademyRepository.instance.enrolledCourses.isNotEmpty)
+                ...AcademyRepository.instance.enrolledCourses.map((c) => _buildEnrolledCard(c))
+              else
+                _buildEmptyCourseState('đang học'),
             ] else if (_selectedTab == 1) ...[
-              _buildOtherCourseCard(
-                tag: 'Sắp học',
-                title: 'Chăm Sóc Da Chuyên Nghiệp',
-                subtitle: 'CSD-1026 · Khai giảng 30/10/2026',
-                format: 'Kết hợp trực tuyến và thực hành',
-                buttonText: 'Xem lớp sắp học',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const E08ClassDetailScreen(),
-                    ),
-                  );
-                },
-              ),
+              if (AcademyRepository.instance.enrolledCourses.isNotEmpty)
+                ...AcademyRepository.instance.enrolledCourses.map((c) => _buildEnrolledCard(c))
+              else
+                _buildEmptyCourseState('sắp học'),
             ] else ...[
-              _buildOtherCourseCard(
-                tag: 'Đã hoàn thành',
-                title: 'Kỹ thuật Massage Cơ Bản',
-                subtitle: 'MCB-0726 · Hoàn thành 28/08/2026',
-                format: '20 / 20 bài học · Tiến độ 100%',
-                buttonText: 'Xem kết quả học tập',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const E12LearningResultsScreen(),
-                    ),
-                  );
-                },
-              ),
+              _buildEmptyCourseState('đã hoàn thành'),
             ],
-
-            const SizedBox(height: 24),
-
-            // Chú thích chân trang [8116:25931]
-            const Center(
-              child: Text(
-                'Đăng ký MCN-1026 đang chờ thanh toán chưa được tính vào 3 khóa đã ghi danh.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AcademyColors.textSecondary,
-                  height: 1.4,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -516,16 +212,70 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     );
   }
 
-  Widget _buildOtherCourseCard({
-    required String tag,
-    required String title,
-    required String subtitle,
-    required String format,
-    required String buttonText,
-    required VoidCallback onPressed,
-  }) {
+
+  Widget _buildEmptyCourseState(String tabTitle) {
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.school_outlined, size: 48, color: AcademyColors.textSecondary),
+          const SizedBox(height: 14),
+          Text(
+            'Chưa có khóa học $tabTitle',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AcademyColors.heading,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Khám phá danh mục các khóa đào tạo nghề Spa & Trị liệu dưỡng sinh của Học viện MLD để nâng cao tay nghề.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AcademyColors.textSecondary,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 46,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AcademyColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Khám phá khóa học ngay',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnrolledCard(CourseModel course) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -535,59 +285,100 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AcademyColors.cardWarm,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              tag,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AcademyColors.primary,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  course.image,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 80,
+                    height: 80,
+                    color: AcademyColors.cardWarm,
+                    child: const Icon(Icons.school, color: AcademyColors.primary),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AcademyColors.cardWarm,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'ĐANG HỌC · ĐÃ GHI DANH',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AcademyColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      course.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AcademyColors.heading,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${course.totalHours} giờ · ${course.branch}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AcademyColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: AcademyColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            format,
-            style: const TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 14, color: AcademyColors.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  course.schedule,
+                  style: const TextStyle(fontSize: 12, color: AcademyColors.textPrimary, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            height: 44,
-            child: OutlinedButton(
-              onPressed: onPressed,
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AcademyColors.primary, width: 1.2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+            height: 42,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const E08ClassDetailScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AcademyColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
               ),
-              child: Text(
-                buttonText,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AcademyColors.primary,
-                ),
+              child: const Text(
+                'Xem chi tiết lớp học & Bài giảng',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
           ),

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/mock_treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
 import 'd04_pre_service_consultation_screen.dart';
 import 'd05_service_review_screen.dart';
 import 'd06_home_care_guidelines_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 
 class D03CareJournalScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -20,8 +21,16 @@ class D03CareJournalScreen extends StatefulWidget {
 }
 
 class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
-  final MockTreatmentRepository _repo = MockTreatmentRepository();
+  final TreatmentRepository _repo = TreatmentRepository.instance;
   final TextEditingController _noteController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    TreatmentRepository.instance.fetchCareJournal().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
@@ -116,77 +125,86 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
               const SizedBox(height: 20),
 
               // --- 3. THẺ THÔNG TIN HỒ SƠ (350x132, r=20, #F3E2CE) ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary, // #F3E2CE
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border, width: 1.0),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Builder(
+                builder: (context) {
+                  final profile = MembershipRepository.instance.profile;
+                  final displayName = profile.fullName.trim().isNotEmpty ? profile.fullName : 'Khách hàng';
+                  final packageName = _repo.packages.isNotEmpty ? _repo.packages.first.packageName : 'Chưa có gói liệu trình';
+                  final completedCount = _repo.journalEntries.length;
+
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary, // #F3E2CE
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border, width: 1.0),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 24),
+                        Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 24),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    displayName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    packageName,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.primary, // #985018
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '$completedCount buổi hoàn thành',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Nguyễn Minh Anh',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Gói Massage Thư Giãn 10 Buổi',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppColors.primary, // #985018
-                                ),
-                              ),
-                            ],
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Hồ sơ chăm sóc & liệu trình',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      '4 buổi hoàn thành · Gần nhất 08/10/2026',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Hồ sơ chăm sóc & liệu trình',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
 
               const SizedBox(height: 16),
@@ -233,121 +251,130 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
               const SizedBox(height: 20),
 
               // --- 5. DÒNG THỜI GIAN CHĂM SÓC (TIMELINE CARDS) ---
-              ..._repo.journalEntries.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final item = entry.value;
-                final isLast = idx == _repo.journalEntries.length - 1;
-                return _buildTimelineItem(item, isLast);
-              }),
+              if (_repo.journalEntries.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.menu_book_outlined, size: 48, color: AppColors.textSecondary),
+                      SizedBox(height: 12),
+                      Text(
+                        'Chưa có nhật ký trị liệu',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Sau mỗi buổi chăm sóc tại spa, chuyên viên sẽ ghi nhận chi tiết lộ trình và lời khuyên chăm sóc tại đây.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ..._repo.journalEntries.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final item = entry.value;
+                  final isLast = idx == _repo.journalEntries.length - 1;
+                  return _buildTimelineItem(item, isLast);
+                }),
 
               const SizedBox(height: 20),
 
-              // --- 6. BUỔI CHĂM SÓC SẮP TỚI (#F3E2CE, r=16) ---
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const D04PreServiceConsultationScreen(),
+              // --- 6. BUỔI CHĂM SÓC SẮP TỚI (Chỉ hiển thị khi có gói liệu trình hoạt động) ---
+              if (_repo.packages.where((p) => p.status == PackageStatus.active).isNotEmpty) ...[
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const D04PreServiceConsultationScreen(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 1.0),
                     ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border, width: 1.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Buổi chăm sóc tiếp theo',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textHeading,
+                          ),
+                        ),
+                        Builder(
+                          builder: (context) {
+                            final activePkg = _repo.packages.firstWhere((p) => p.status == PackageStatus.active);
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  activePkg.nextAppointmentService.isNotEmpty
+                                      ? activePkg.nextAppointmentService
+                                      : activePkg.packageName,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  activePkg.nextAppointmentDate.isNotEmpty
+                                      ? activePkg.nextAppointmentDate
+                                      : 'Chưa đặt lịch hẹn',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  activePkg.branchName,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.primary, width: 1.0),
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: const Text(
+                              'Đặt lịch buổi tiếp theo',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primary),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Buổi 05 · Lịch hẹn sắp tới',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textHeading,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Massage thư giãn toàn thân',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '15/10/2026 · 09:00–10:00',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Chi nhánh Quận 3',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF7F0),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Lịch hẹn sắp tới',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF236B42)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primary, width: 1.0),
-                          backgroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        child: const Text(
-                          'Đặt lịch buổi tiếp theo',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primary),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const D04PreServiceConsultationScreen()),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Phiếu thông tin trước dịch vụ',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
-              ),
-            ),
+                const SizedBox(height: 20),
+              ],
 
               const SizedBox(height: 20),
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/membership_models.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
 
 class F06PaymentHistoryScreen extends StatefulWidget {
   const F06PaymentHistoryScreen({super.key});
@@ -11,7 +11,7 @@ class F06PaymentHistoryScreen extends StatefulWidget {
 }
 
 class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
-  final MockMembershipRepository _repo = MockMembershipRepository();
+  final MembershipRepository _repo = MembershipRepository.instance;
   String _selectedCategory = 'Tất cả';
   String _selectedMonth = 'Tháng 10/2026';
 
@@ -82,64 +82,75 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
               const SizedBox(height: 24),
 
               // --- 2. TỔNG QUAN THANH TOÁN (350x216, r=20, #F3E2CE) ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary, // #F3E2CE
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border, width: 1.0),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Đã thanh toán · Tháng 10/2026',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
+              // --- 2. TỔNG QUAN THANH TOÁN (350x216, r=20, #F3E2CE) ---
+              Builder(
+                builder: (context) {
+                  final totalPaid = payments.fold<int>(0, (acc, p) => acc + p.amount.toInt());
+                  final formattedTotal = '${totalPaid.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+                  final count = payments.length;
+
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary, // #F3E2CE
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border, width: 1.0),
                     ),
-                    SizedBox(height: 6),
-                    Text(
-                      '8.550.000đ',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary, // #985018
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Đã thanh toán · $_selectedMonth',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          formattedTotal,
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary, // #985018
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$count giao dịch hoàn tất',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          payments.isNotEmpty
+                              ? 'Gần nhất: ${payments.first.date} · ${payments.first.amountFormatted}'
+                              : 'Chưa có giao dịch phát sinh',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Hóa đơn và chứng từ giao dịch được lưu trữ theo quy chuẩn.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      '3 giao dịch hoàn tất',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Gần nhất: 08/10/2026 · 450.000đ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      'Hoàn tiền: 0đ · Còn phải trả: 0đ\nChỉ tính 3 giao dịch mẫu, không phải tổng dư nợ tài khoản.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
 
               const SizedBox(height: 18),
@@ -196,8 +207,36 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
 
               const SizedBox(height: 20),
 
-              // --- 5. DANH SÁCH THẺ GIAO DỊCH (PaymentTransactionCard / 01..03) ---
-              ...filtered.map((item) => _buildPaymentCard(item)),
+              // --- 5. DANH SÁCH THẺ GIAO DỊCH (PaymentTransactionCard) ---
+              if (filtered.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.textSecondary),
+                      SizedBox(height: 12),
+                      Text(
+                        'Chưa có lịch sử thanh toán',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Các giao dịch thanh toán dịch vụ, gói liệu trình hoặc học phí sẽ hiển thị tại đây.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ...filtered.map((item) => _buildPaymentCard(item)),
 
               const SizedBox(height: 12),
 
@@ -223,29 +262,12 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '450.000đ + 3.600.000đ + 4.500.000đ = 8.550.000đ.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Chi tiết các hóa đơn và giao dịch đã thực hiện.',
+                      'Biên nhận thanh toán dịch vụ và học phí được cập nhật tự động khi giao dịch thành công.',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: AppColors.textSecondary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Đơn dịch vụ 450.000đ, gói liệu trình 3.600.000đ và học phí chuyên nghiệp 4.500.000đ.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
+                        height: 1.4,
                       ),
                     ),
                   ],
@@ -427,7 +449,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${item.statusLabel} · Không phải giao dịch thực',
+                    item.statusLabel,
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,

@@ -163,6 +163,76 @@ VALUES
         142,
         '["Trị liệu Cổ Vai Gáy", "Massage body đá nóng", "Thải độc da Oxy tươi"]'::jsonb,
         'Nhiệt tình, chu đáo, thao tác tay nghề nhẹ nhàng và chuẩn chỉ, được khách hàng đánh giá cao về thái độ phục vụ.'
+    ),
+    (
+        'cccccccc-0001-0001-0001-000000000003',
+        NULL,
+        'aaaaaaaa-0001-0001-0001-000000000001',
+        NULL,
+        'Nguyễn Thu Hà',
+        'Chuyên viên Chăm sóc Da & Phục hồi',
+        'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2',
+        6,
+        4.96,
+        142,
+        '["Chăm sóc da chuyên sâu", "Peel y khoa", "Điện di cấp ẩm"]'::jsonb,
+        'Chuyên sâu về phục hồi hàng rào bảo vệ da, trị liệu mụn và trẻ hóa da chuẩn y khoa với hơn 6 năm kinh nghiệm.'
+    ),
+    (
+        'cccccccc-0001-0001-0001-000000000004',
+        NULL,
+        'aaaaaaaa-0001-0001-0001-000000000001',
+        NULL,
+        'Trần Minh Phương',
+        'Kỹ thuật viên Trị liệu & Bấm huyệt',
+        'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848',
+        7,
+        4.98,
+        215,
+        '["Massage trị liệu cổ vai gáy", "Bấm huyệt dưỡng sinh", "Massage đá nóng"]'::jsonb,
+        'Kỹ thuật viên tay nghề cao với kỹ thuật miết huyệt êm ái, giải tỏa đau mỏi vai gáy và căng thẳng thần kinh.'
+    ),
+    (
+        'cccccccc-0001-0001-0001-000000000005',
+        NULL,
+        'aaaaaaaa-0001-0001-0001-000000000002',
+        NULL,
+        'Lê Hoài An',
+        'Chuyên viên Dưỡng sinh Body & Thư giãn',
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+        4,
+        4.90,
+        98,
+        '["Gội đầu dưỡng sinh thảo dược", "Massage thư giãn toàn thân", "Chăm sóc cơ thể"]'::jsonb,
+        'Tận tâm chăm sóc từng chi tiết, chuyên phương pháp gội đầu thảo mộc đả thông kinh lạc vùng đầu và thư giãn body.'
+    ),
+    (
+        'cccccccc-0001-0001-0001-000000000006',
+        NULL,
+        'aaaaaaaa-0001-0001-0001-000000000002',
+        NULL,
+        'Phạm Thảo Vy',
+        'Kỹ thuật viên Trưởng — Chăm sóc Toàn thân',
+        'https://images.unsplash.com/photo-1580489944761-15a19d654956',
+        8,
+        4.99,
+        260,
+        '["Trị liệu đau mỏi cột sống", "Massage mô sâu", "Xông hơi thải độc"]'::jsonb,
+        'Trưởng nhóm kỹ thuật viên với kinh nghiệm đào tạo thực hành và trị liệu chuyên sâu cho khách hàng VIP.'
+    ),
+    (
+        'cccccccc-0001-0001-0001-000000000007',
+        NULL,
+        'aaaaaaaa-0001-0001-0001-000000000001',
+        NULL,
+        'Võ Hoàng Yến',
+        'Chuyên viên Thải độc & Trị liệu Thảo dược',
+        'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604',
+        5,
+        4.92,
+        116,
+        '["Đắp bùn khoáng thải độc", "Massage dưỡng sinh Đông Y", "Chăm sóc chân bấm huyệt"]'::jsonb,
+        'Chuyên gia về các liệu pháp thải độc tự nhiên từ thảo dược quý, giúp khí huyết lưu thông và ngủ ngon sâu giấc.'
     )
 ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
 

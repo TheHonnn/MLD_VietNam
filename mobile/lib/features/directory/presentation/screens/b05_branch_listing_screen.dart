@@ -856,9 +856,10 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
       ),
       builder: (context) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-            child: Column(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1017,8 +1018,9 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
               ],
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
 
 class F07ReferralProgramScreen extends StatefulWidget {
   const F07ReferralProgramScreen({super.key});
@@ -12,7 +12,7 @@ class F07ReferralProgramScreen extends StatefulWidget {
 }
 
 class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
-  final MockMembershipRepository _repo = MockMembershipRepository();
+  final MembershipRepository _repo = MembershipRepository.instance;
 
   void _copyReferralCode(String code) {
     Clipboard.setData(ClipboardData(text: code));
@@ -38,7 +38,7 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
   @override
   Widget build(BuildContext context) {
     final history = _repo.referralHistory;
-    const String referralCode = 'MINHANH128';
+    final String referralCode = _repo.profile.memberCode.isNotEmpty ? _repo.profile.memberCode : 'MLD-000001';
 
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
@@ -184,9 +184,9 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
+                          Text(
                             referralCode,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 2.0,
@@ -312,7 +312,7 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                           ),
                           SizedBox(height: 14),
                           Text(
-                            'Ví dụ: đăng ký lần đầu và hoàn tất dịch vụ đủ điều kiện mới được ghi nhận. Điểm và ưu đãi tùy chương trình; không phải cam kết quyền lợi thực.',
+                            'Người được giới thiệu cần hoàn tất dịch vụ hợp lệ đầu tiên để lượt giới thiệu được ghi nhận thành công.',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
@@ -327,50 +327,58 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                     const SizedBox(height: 20),
 
                     // --- 5. KẾT QUẢ GIỚI THIỆU (350x148, r=16, #F3E2CE) ---
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceSecondary, // #F3E2CE
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border, width: 1.0),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Kết quả giới thiệu',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
+                    Builder(
+                      builder: (context) {
+                        final totalReferred = history.length;
+                        final eligibleReferred = history.where((r) => r.status == 'ELIGIBLE').length;
+                        final pointsEarned = eligibleReferred * 100;
+
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceSecondary, // #F3E2CE
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.border, width: 1.0),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: _buildStatItem('3', 'Đã giới thiệu'),
+                              const Text(
+                                'Kết quả giới thiệu',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
-                              Expanded(
-                                child: _buildStatItem('2', 'Đủ điều kiện'),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildStatItem('$totalReferred', 'Đã giới thiệu'),
+                                  ),
+                                  Expanded(
+                                    child: _buildStatItem('$eligibleReferred', 'Đủ điều kiện'),
+                                  ),
+                                  Expanded(
+                                    child: _buildStatItem('$pointsEarned', 'Điểm đã nhận'),
+                                  ),
+                                ],
                               ),
-                              Expanded(
-                                child: _buildStatItem('200', 'Điểm đã nhận'),
+                              const SizedBox(height: 10),
+                              Text(
+                                '$pointsEarned điểm thưởng đã ghi nhận',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            '200 điểm thưởng đã ghi nhận',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -395,96 +403,112 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    ...history.map((rec) {
-                      final bool isEligible = rec.status == 'ELIGIBLE';
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
+                    if (history.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: AppColors.border, width: 1.0),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: const Column(
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceSecondary,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.person_outline_rounded,
-                                    size: 22,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        rec.maskedName,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '${rec.date} · ${rec.statusText}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w400,
-                                          color: isEligible ? const Color(0xFF236B42) : AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  rec.points,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: isEligible ? const Color(0xFF236B42) : AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
+                            Icon(Icons.people_outline_rounded, size: 48, color: AppColors.textSecondary),
+                            SizedBox(height: 12),
                             Text(
-                              rec.recordedDate,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.textSecondary,
-                              ),
+                              'Chưa có lượt giới thiệu',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              'Chia sẻ mã giới thiệu của bạn tới bạn bè để cùng nhận ưu đãi đặc quyền khi sử dụng dịch vụ.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
                             ),
                           ],
                         ),
-                      );
-                    }),
+                      )
+                    else ...[
+                      ...history.map((rec) {
+                        final bool isEligible = rec.status == 'ELIGIBLE';
 
-                    const SizedBox(height: 12),
-
-                    const Center(
-                      child: Text(
-                        '2 lượt giới thiệu thành công × 100 điểm = 200 điểm',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.border, width: 1.0),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceSecondary,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.person_outline_rounded,
+                                      size: 22,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          rec.maskedName,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${rec.date} · ${rec.statusText}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w400,
+                                            color: isEligible ? const Color(0xFF236B42) : AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    rec.points,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: isEligible ? const Color(0xFF236B42) : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                rec.recordedDate,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
 
                     const SizedBox(height: 20),
                   ],

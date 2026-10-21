@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../home/data/repositories/service_repository.dart';
 import 'b03_service_detail_screen.dart';
 import '../../../home/presentation/screens/b04_search_screen.dart';
 
@@ -17,41 +18,56 @@ class B02ServiceListingScreen extends StatefulWidget {
 
 class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = false;
   int _selectedCategoryIndex = 0;
   String _selectedSort = 'Phổ biến ';
   final Set<int> _favoriteServices = {0}; // Service 0 is favorite by default per Figma
 
-  final List<String> _categories = [
+  List<String> _categories = [
     'Tất cả',
-    'Massage',
+    'Massage thư giãn',
     'Chăm sóc da',
     'Chăm sóc cơ thể',
-    'Thư giãn',
+    'Chăm sóc sức khỏe',
     'Gói liệu trình',
   ];
 
-  final List<Map<String, dynamic>> _allServices = [
-    {
-      'id': 0,
-      'title': 'Massage thư giãn toàn thân',
-      'duration': '60 phút',
-      'price': '450.000đ',
-      'priceRaw': 450000,
-      'description': 'Thả lỏng cơ thể trong không gian yên tĩnh.',
-      'image': 'assets/images/gioithieu_1.png',
-      'category': 'Massage',
-    },
-    {
-      'id': 1,
-      'title': 'Chăm sóc da chuyên sâu',
-      'duration': '90 phút',
-      'price': '650.000đ',
-      'priceRaw': 650000,
-      'description': 'Chăm sóc làn da với quy trình nhẹ nhàng, chu đáo.',
-      'image': 'assets/images/gioithieu_2.png',
-      'category': 'Chăm sóc da',
-    },
-  ];
+  List<Map<String, dynamic>> _allServices = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+  }
+
+  Future<void> _loadServices() async {
+    setState(() => _isLoading = true);
+    final services = await ServiceRepository.instance.getServices();
+    final categories = await ServiceRepository.instance.getCategories();
+    if (mounted) {
+      setState(() {
+        if (categories.isNotEmpty) {
+          _categories = ['Tất cả', ...categories];
+        }
+        _allServices = services.map((s) {
+          final priceFormatted =
+              '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+          return {
+            'id': s.id.hashCode,
+            'serviceId': s.id,
+            'title': s.name,
+            'duration': '${s.durationMinutes} phút',
+            'price': priceFormatted,
+            'priceRaw': s.price,
+            'description': s.description,
+            'image': s.imageUrl,
+            'category': s.category,
+          };
+        }).toList();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -61,18 +77,26 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
   List<Map<String, dynamic>> get _filteredServices {
     final query = _searchController.text.toLowerCase().trim();
-    return _allServices.where((service) {
+    final selectedCategory = _selectedCategoryIndex < _categories.length ? _categories[_selectedCategoryIndex] : 'Tất cả';
+
+    var list = _allServices.where((service) {
       final matchesQuery = query.isEmpty ||
           (service['title'] as String).toLowerCase().contains(query) ||
           (service['description'] as String).toLowerCase().contains(query);
 
       final matchesCategory = _selectedCategoryIndex == 0 ||
-          service['category'] == _categories[_selectedCategoryIndex] ||
-          (_selectedCategoryIndex == 1 && service['category'] == 'Massage') ||
-          (_selectedCategoryIndex == 2 && service['category'] == 'Chăm sóc da');
+          service['category'] == selectedCategory ||
+          service['category'].toString().toLowerCase().contains(selectedCategory.toLowerCase());
 
       return matchesQuery && matchesCategory;
     }).toList();
+
+    if (_selectedSort == 'Giá: Thấp đến cao') {
+      list.sort((a, b) => ((a['priceRaw'] as num?) ?? 0).compareTo((b['priceRaw'] as num?) ?? 0));
+    } else if (_selectedSort == 'Giá: Cao đến thấp') {
+      list.sort((a, b) => ((b['priceRaw'] as num?) ?? 0).compareTo((a['priceRaw'] as num?) ?? 0));
+    }
+    return list;
   }
 
   void _showSortPicker() {
@@ -90,9 +114,10 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           'Thời lượng ngắn nhất',
         ];
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
-            child: Column(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -130,7 +155,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }
@@ -145,9 +171,10 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       ),
       builder: (context) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
-            child: Column(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -237,7 +264,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }
@@ -501,47 +529,75 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               const SizedBox(height: 16),
 
               // --- 6. SERVICE CARDS LIST ---
-              ...services.map((service) {
-                final int id = service['id'] as int;
-                final bool isFav = _favoriteServices.contains(id);
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                )
+              else if (services.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text(
+                      'Không tìm thấy dịch vụ nào phù hợp.',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Image with Favorite Button
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: 180,
-                              child: Image.asset(
-                                service['image'] as String,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: AppColors.surfaceSecondary,
-                                  child: const Center(
-                                    child: Icon(Icons.spa, size: 48, color: AppColors.primary),
-                                  ),
-                                ),
+                )
+              else
+                ...services.map((service) {
+                  final int id = service['id'] as int;
+                  final bool isFav = _favoriteServices.contains(id);
+                  final String imagePath = (service['image'] as String?) ?? '';
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image with Favorite Button
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                              child: SizedBox(
+                                width: double.infinity,
+                                height: 180,
+                                child: imagePath.startsWith('http')
+                                    ? Image.network(
+                                        imagePath,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: AppColors.surfaceSecondary,
+                                          child: const Center(
+                                            child: Icon(Icons.spa, size: 48, color: AppColors.primary),
+                                          ),
+                                        ),
+                                      )
+                                    : Image.asset(
+                                        imagePath,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: AppColors.surfaceSecondary,
+                                          child: const Center(
+                                            child: Icon(Icons.spa, size: 48, color: AppColors.primary),
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ),
-                          ),
                           // Favorite Button
                           Positioned(
                             top: 12,
