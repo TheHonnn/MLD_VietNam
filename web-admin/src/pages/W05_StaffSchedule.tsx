@@ -760,12 +760,12 @@ export const W05_StaffSchedule: React.FC = () => {
               {technicians.map((t, idx) => (
                 <div
                   key={t.id}
-                  className={`flex-1 px-4 py-3 ${
+                  className={`flex-1 px-4 py-3 whitespace-nowrap ${
                     idx < technicians.length - 1 ? 'border-r border-[#EFE4D9]' : ''
                   }`}
                 >
-                  <div className="text-[13px] font-bold text-[#2C241E]">{t.name}</div>
-                  <div className="text-[11px] text-[#73675F] mt-0.5">{t.room}</div>
+                  <div className="text-[13px] font-bold text-[#2C241E] whitespace-nowrap">{t.name}</div>
+                  <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{t.room}</div>
                 </div>
               ))}
             </div>

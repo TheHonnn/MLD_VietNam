@@ -1161,44 +1161,44 @@ export const W07_CashierPOS: React.FC = () => {
 
         {/* Table Content */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold">
-                <th className="py-3 px-5">Biên nhận / ngày</th>
-                <th className="py-3 px-5">Nội dung</th>
-                <th className="py-3 px-5">Phương thức</th>
-                <th className="py-3 px-5">Đã thu</th>
-                <th className="py-3 px-5">Trạng thái</th>
-                <th className="py-3 px-5 text-right">Thao tác</th>
+              <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold whitespace-nowrap">
+                <th className="py-3 px-5 whitespace-nowrap">Biên nhận / ngày</th>
+                <th className="py-3 px-5 whitespace-nowrap">Nội dung</th>
+                <th className="py-3 px-5 whitespace-nowrap">Phương thức</th>
+                <th className="py-3 px-5 whitespace-nowrap">Đã thu</th>
+                <th className="py-3 px-5 whitespace-nowrap">Trạng thái</th>
+                <th className="py-3 px-5 text-right whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F0E6DC]">
+            <tbody className="divide-y divide-[#F0E6DC] whitespace-nowrap">
               {pastReceipts.map((r) => (
                 <tr key={r.id} className="hover:bg-[#FAF8F5] transition-colors">
-                  <td className="py-4 px-5">
-                    <div className="font-bold text-xs text-[#2C241E]">
+                  <td className="py-4 px-5 whitespace-nowrap">
+                    <div className="font-bold text-xs text-[#2C241E] whitespace-nowrap">
                       {r.id}
                     </div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                       {r.date}
                     </div>
                   </td>
-                  <td className="py-4 px-5 text-xs text-[#2C241E] font-medium">
+                  <td className="py-4 px-5 text-xs text-[#2C241E] font-medium whitespace-nowrap">
                     {r.content}
                   </td>
-                  <td className="py-4 px-5 text-xs text-[#2C241E]">
+                  <td className="py-4 px-5 text-xs text-[#2C241E] whitespace-nowrap">
                     {r.method}
                   </td>
-                  <td className="py-4 px-5 text-xs font-semibold text-[#2C241E]">
+                  <td className="py-4 px-5 text-xs font-semibold text-[#2C241E] whitespace-nowrap">
                     {r.amount}
                   </td>
-                  <td className="py-4 px-5">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#EAF5EC] text-[#2D7A4D]">
+                  <td className="py-4 px-5 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#EAF5EC] text-[#2D7A4D] whitespace-nowrap">
                       <CheckCircle2 className="w-3.5 h-3.5 text-[#2D7A4D]" />
                       <span>{r.status}</span>
                     </span>
                   </td>
-                  <td className="py-4 px-5 text-right">
+                  <td className="py-4 px-5 text-right whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => {
@@ -1213,7 +1213,7 @@ export const W07_CashierPOS: React.FC = () => {
                         });
                         setShowReceiptModal(true);
                       }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-[#8A4F23] bg-[#FAF3EC] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-[#8A4F23] bg-[#FAF3EC] hover:bg-[#F3E2CE] transition-colors cursor-pointer whitespace-nowrap"
                       title="Xem chi tiết biên lai"
                     >
                       <Receipt className="w-3.5 h-3.5" />
@@ -1227,8 +1227,8 @@ export const W07_CashierPOS: React.FC = () => {
         </div>
 
         {/* Table Footer */}
-        <div className="px-5 py-3 border-t border-[#EFE4D9] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-[#73675F]">
-          <span>
+        <div className="px-5 py-3 border-t border-[#EFE4D9] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-[#73675F] whitespace-nowrap">
+          <span className="whitespace-nowrap">
             {pastReceipts.length} biên nhận · Tổng đã thu: {invoices.filter((i) => i.paymentStatus === 'PAID').reduce((sum, inv) => sum + inv.totalAmount, 0).toLocaleString('vi-VN')}đ
           </span>
           <div className="flex items-center gap-1.5">

@@ -386,18 +386,18 @@ export const W10_Attendance: React.FC = () => {
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead>
-                  <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
-                    <th className="py-2.5 px-4 font-semibold">Học viên</th>
-                    <th className="py-2.5 px-4 font-semibold">Khóa / lớp</th>
-                    <th className="py-2.5 px-4 font-semibold">Tiến độ</th>
-                    <th className="py-2.5 px-4 font-semibold">Chuyên cần</th>
-                    <th className="py-2.5 px-4 font-semibold">Hồ sơ học phí</th>
-                    <th className="py-2.5 px-4 font-semibold">Trạng thái / thao tác</th>
+                  <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Học viên</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Khóa / lớp</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Tiến độ</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Chuyên cần</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Hồ sơ học phí</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Trạng thái / thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EFE4D9] text-xs">
+                <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
                   {filteredStudents.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-[#73675F]">
@@ -440,8 +440,8 @@ export const W10_Attendance: React.FC = () => {
                           }`}
                         >
                         {/* 1. Học viên */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-3">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3 whitespace-nowrap">
                             {student.avatar ? (
                               <img
                                 src={student.avatar}
@@ -453,11 +453,11 @@ export const W10_Attendance: React.FC = () => {
                                 {student.initials}
                               </div>
                             )}
-                            <div>
-                              <div className="font-semibold text-xs text-[#2C241E]">
+                            <div className="whitespace-nowrap">
+                              <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">
                                 {student.name}
                               </div>
-                              <div className="text-[11px] text-[#73675F] mt-0.5">
+                              <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                                 {student.code}
                               </div>
                             </div>
@@ -465,42 +465,42 @@ export const W10_Attendance: React.FC = () => {
                         </td>
 
                         {/* 2. Khóa / lớp */}
-                        <td className="py-3.5 px-4">
-                          <div className="text-xs text-[#2C241E]">{student.courseName}</div>
-                          <div className="text-[11px] text-[#73675F] mt-0.5">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="text-xs text-[#2C241E] whitespace-nowrap">{student.courseName}</div>
+                          <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                             {student.batchAndBranch}
                           </div>
                         </td>
 
                         {/* 3. Tiến độ */}
-                        <td className="py-3.5 px-4">
-                          <div className="text-xs text-[#2C241E]">{student.progressText}</div>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="text-xs text-[#2C241E] whitespace-nowrap">{student.progressText}</div>
                         </td>
 
                         {/* 4. Chuyên cần */}
-                        <td className="py-3.5 px-4">
-                          <div className="text-xs text-[#2C241E]">{student.attendanceSessions}</div>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="text-xs text-[#2C241E] whitespace-nowrap">{student.attendanceSessions}</div>
                           {student.attendancePercent && (
-                            <div className="text-[11px] text-[#73675F] mt-0.5">
+                            <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                               {student.attendancePercent}
                             </div>
                           )}
                         </td>
 
                         {/* 5. Hồ sơ học phí */}
-                        <td className="py-3.5 px-4">
-                          <div className="text-xs text-[#2C241E]">{student.tuitionProfile.line1}</div>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="text-xs text-[#2C241E] whitespace-nowrap">{student.tuitionProfile.line1}</div>
                           {student.tuitionProfile.line2 && (
-                            <div className="text-[11px] text-[#73675F] mt-0.5">
+                            <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                               {student.tuitionProfile.line2}
                             </div>
                           )}
                         </td>
 
                         {/* 6. Trạng thái / thao tác */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <span
-                            className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold ${
+                            className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${
                               student.status === 'studying'
                                 ? 'bg-[#F3E2CE] text-[#8A4F23]'
                                 : student.status === 'upcoming'
@@ -516,7 +516,7 @@ export const W10_Attendance: React.FC = () => {
                                 e.stopPropagation();
                                 setIsRecordModalOpen(true);
                               }}
-                              className="text-xs font-bold text-[#8D4B1A] hover:underline cursor-pointer mt-1.5"
+                              className="text-xs font-bold text-[#8D4B1A] hover:underline cursor-pointer mt-1.5 whitespace-nowrap"
                             >
                               Xem hồ sơ
                             </div>
@@ -565,37 +565,37 @@ export const W10_Attendance: React.FC = () => {
 
             {/* Table of completed courses */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead>
-                  <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
-                    <th className="py-2.5 px-4 font-semibold">Khóa học / thời điểm</th>
-                    <th className="py-2.5 px-4 font-semibold">Hoàn thành</th>
-                    <th className="py-2.5 px-4 font-semibold">Lý thuyết</th>
-                    <th className="py-2.5 px-4 font-semibold">Thực hành</th>
-                    <th className="py-2.5 px-4 font-semibold">Chuyên cần</th>
+                  <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Khóa học / thời điểm</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Hoàn thành</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Lý thuyết</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Thực hành</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Chuyên cần</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EFE4D9] text-xs">
+                <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
                   {selectedStudent.completedCourses.length > 0 ? (
                     selectedStudent.completedCourses.map((c, idx) => (
                       <tr key={idx} className="bg-white hover:bg-[#FAF6F0]">
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-xs text-[#2C241E]">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">
                             {c.courseName} · {c.courseCode}
                           </div>
-                          <div className="text-[11px] text-[#73675F] mt-0.5">
+                          <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                             {c.completionDate}
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 text-[#2C241E]">{c.completionRate}</td>
-                        <td className="py-3.5 px-4 text-[#2C241E]">{c.theoryScore}</td>
-                        <td className="py-3.5 px-4 text-[#2C241E]">{c.practiceScore}</td>
-                        <td className="py-3.5 px-4 text-[#2C241E]">{c.attendanceRate}</td>
+                        <td className="py-3.5 px-4 text-[#2C241E] whitespace-nowrap">{c.completionRate}</td>
+                        <td className="py-3.5 px-4 text-[#2C241E] whitespace-nowrap">{c.theoryScore}</td>
+                        <td className="py-3.5 px-4 text-[#2C241E] whitespace-nowrap">{c.practiceScore}</td>
+                        <td className="py-3.5 px-4 text-[#2C241E] whitespace-nowrap">{c.attendanceRate}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="py-5 text-center text-[#73675F] text-xs">
+                      <td colSpan={5} className="py-5 text-center text-[#73675F] text-xs whitespace-normal">
                         Chưa có dữ liệu khóa hoàn thành trước đó của học viên này.
                       </td>
                     </tr>

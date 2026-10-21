@@ -338,23 +338,23 @@ export const W11_Curriculum: React.FC = () => {
 
           {/* Matrix Table */}
           <div className="overflow-x-auto border border-[#EFE4D9] rounded-xl">
-            <table className="w-full text-center border-collapse">
+            <table className="w-full text-center border-collapse whitespace-nowrap">
               <thead>
-                <tr className="bg-[#FAF5EF] text-[#73675F] text-[11px] font-semibold divide-x divide-[#EFE4D9] border-b border-[#EFE4D9]">
-                  <th className="py-2.5 px-3 w-28 text-left font-semibold"></th>
+                <tr className="bg-[#FAF5EF] text-[#73675F] text-[11px] font-semibold divide-x divide-[#EFE4D9] border-b border-[#EFE4D9] whitespace-nowrap">
+                  <th className="py-2.5 px-3 w-28 text-left font-semibold whitespace-nowrap"></th>
                   {weekDays.map((day) => (
-                    <th key={day.key} className="py-2.5 px-2 min-w-[85px] font-semibold">
-                      <div>{day.label}</div>
-                      <div className="text-[10px] text-[#A69788] font-normal">{day.date}</div>
+                    <th key={day.key} className="py-2.5 px-2 min-w-[85px] font-semibold whitespace-nowrap">
+                      <div className="whitespace-nowrap">{day.label}</div>
+                      <div className="text-[10px] text-[#A69788] font-normal whitespace-nowrap">{day.date}</div>
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#EFE4D9] text-xs">
+              <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
                 {roomsList.map((roomName) => (
                   <tr key={roomName} className="divide-x divide-[#EFE4D9]">
                     {/* Room title */}
-                    <td className="py-3 px-3 text-left font-semibold text-[11px] text-[#2C241E] bg-[#FAF5EF]/50">
+                    <td className="py-3 px-3 text-left font-semibold text-[11px] text-[#2C241E] bg-[#FAF5EF]/50 whitespace-nowrap">
                       {roomName}
                     </td>
 
@@ -487,21 +487,21 @@ export const W11_Curriculum: React.FC = () => {
 
         {/* Table of classes */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead>
-              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
-                <th className="py-2.5 px-4 font-semibold">Khóa / lớp</th>
-                <th className="py-2.5 px-4 font-semibold">Giảng viên</th>
-                <th className="py-2.5 px-4 font-semibold">Cơ sở / phòng</th>
-                <th className="py-2.5 px-4 font-semibold">Lịch học / bắt đầu</th>
-                <th className="py-2.5 px-4 font-semibold">Sĩ số lớp</th>
-                <th className="py-2.5 px-4 font-semibold">Trạng thái</th>
+              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Khóa / lớp</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Giảng viên</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Cơ sở / phòng</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Lịch học / bắt đầu</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Sĩ số lớp</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Trạng thái</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFE4D9] text-xs">
+            <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
               {filteredClasses.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#73675F]">
+                  <td colSpan={6} className="py-12 text-center text-[#73675F] whitespace-normal">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                       <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
                         <Search className="w-5 h-5" />
@@ -520,7 +520,7 @@ export const W11_Curriculum: React.FC = () => {
                             setBranchFilter('all');
                             setStatusFilter('all');
                           }}
-                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                         >
                           Xóa bộ lọc
                         </button>
@@ -532,40 +532,40 @@ export const W11_Curriculum: React.FC = () => {
                 filteredClasses.map((cls) => (
                   <tr key={cls.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
                   {/* Khóa / lớp */}
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-xs text-[#2C241E]">{cls.courseTitle}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{cls.classBatch}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">{cls.courseTitle}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.classBatch}</div>
                   </td>
 
                   {/* Giảng viên */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{cls.instructor}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{cls.instructor}</div>
                     {cls.instructorRole && (
-                      <div className="text-[11px] text-[#73675F] mt-0.5">{cls.instructorRole}</div>
+                      <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.instructorRole}</div>
                     )}
                   </td>
 
                   {/* Cơ sở / phòng */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{cls.branch}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{cls.room}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{cls.branch}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.room}</div>
                   </td>
 
                   {/* Lịch học / bắt đầu */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{cls.scheduleDays}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{cls.startDateStatus}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{cls.scheduleDays}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.startDateStatus}</div>
                   </td>
 
                   {/* Sĩ số */}
-                  <td className="py-3.5 px-4 font-medium text-xs text-[#2C241E]">
+                  <td className="py-3.5 px-4 font-medium text-xs text-[#2C241E] whitespace-nowrap">
                     {cls.studentCount}
                   </td>
 
                   {/* Trạng thái */}
-                  <td className="py-3.5 px-4">
+                  <td className="py-3.5 px-4 whitespace-nowrap">
                     <span
-                      className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold ${
+                      className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${
                         cls.status === 'active'
                           ? 'bg-[#F3E2CE] text-[#8A4F23]'
                           : cls.status === 'waiting'

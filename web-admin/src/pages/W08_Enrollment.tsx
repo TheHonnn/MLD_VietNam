@@ -425,16 +425,16 @@ export const W08_Enrollment: React.FC = () => {
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[580px]">
+              <table className="w-full text-left border-collapse min-w-[580px] whitespace-nowrap">
                 <thead>
-                  <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
+                  <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[28%]">Ứng viên / mã hồ sơ</th>
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[32%]">Chương trình / lớp</th>
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[22%]">Học phí / khoản thu</th>
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[18%]">Giai đoạn</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EFE4D9] text-xs">
+                <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
                   {filteredCandidates.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-12 text-center text-[#73675F]">

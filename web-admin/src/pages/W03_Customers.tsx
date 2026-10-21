@@ -667,13 +667,13 @@ export const W03_Customers: React.FC = () => {
             Tra cứu đa chi nhánh · Kết nối trực tuyến qua customerService.
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 shrink-0 whitespace-nowrap">
           {/* Export Dropdown Group */}
-          <div className="relative">
-            <div className="inline-flex rounded-xl shadow-2xs border border-[#D7BBA6] bg-white overflow-hidden">
+          <div className="relative shrink-0 whitespace-nowrap">
+            <div className="inline-flex rounded-xl shadow-2xs border border-[#D7BBA6] bg-white overflow-hidden shrink-0 whitespace-nowrap">
               <button
                 onClick={handleExportExcel}
-                className="px-3.5 py-2.5 hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2.5 hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                 title="Xuất bảng tính Excel (.xls) đẹp mắt với màu thương hiệu và tự căn cột cho WPS & Excel"
               >
                 <FileSpreadsheet className="w-4 h-4 text-[#1E7145] stroke-[2]" />
@@ -684,7 +684,7 @@ export const W03_Customers: React.FC = () => {
               </button>
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
-                className="px-2 py-2.5 border-l border-[#E8DFD8] hover:bg-[#FAF8F5] text-[#8A4F23] transition-colors cursor-pointer"
+                className="px-2 py-2.5 border-l border-[#E8DFD8] hover:bg-[#FAF8F5] text-[#8A4F23] transition-colors cursor-pointer shrink-0"
                 title="Tùy chọn định dạng xuất file"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
@@ -727,7 +727,7 @@ export const W03_Customers: React.FC = () => {
           </div>
           <button
             onClick={handleOpenCreateCustomerModal}
-            className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
           >
             <UserPlus className="w-4 h-4 stroke-[2]" />
             <span>Thêm khách hàng</span>
@@ -938,20 +938,20 @@ export const W03_Customers: React.FC = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F3E2CE] text-[#73675F] text-[11.5px] font-medium">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead className="bg-[#F3E2CE] text-[#73675F] text-[11.5px] font-medium whitespace-nowrap">
                 <tr>
-                  <th className="py-3 px-5 font-medium">Khách hàng</th>
-                  <th className="py-3 px-4 font-medium">Số điện thoại</th>
-                  <th className="py-3 px-4 font-medium">Hạng & Điểm</th>
-                  <th className="py-3 px-4 font-medium">Tổng chi tiêu</th>
-                  <th className="py-3 px-6 font-medium text-right sm:text-center">Hành động</th>
+                  <th className="py-3 px-5 font-medium whitespace-nowrap">Khách hàng</th>
+                  <th className="py-3 px-4 font-medium whitespace-nowrap">Số điện thoại</th>
+                  <th className="py-3 px-4 font-medium whitespace-nowrap">Hạng & Điểm</th>
+                  <th className="py-3 px-4 font-medium whitespace-nowrap">Tổng chi tiêu</th>
+                  <th className="py-3 px-6 font-medium text-right sm:text-center whitespace-nowrap">Hành động</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#EFE4D9]">
+              <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
                 {filteredCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#73675F]">
+                    <td colSpan={5} className="py-12 text-center text-[#73675F] whitespace-normal">
                       <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                         <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
                           <Search className="w-5 h-5" />
@@ -966,7 +966,7 @@ export const W03_Customers: React.FC = () => {
                           <button
                             type="button"
                             onClick={handleResetFilters}
-                            className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                            className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                           >
                             Xóa bộ lọc
                           </button>
@@ -986,19 +986,19 @@ export const W03_Customers: React.FC = () => {
                         } hover:bg-[#FAF6F0] transition-colors`}
                       >
                       {/* Name & Avatar */}
-                      <td className="py-3 px-5">
+                      <td className="py-3 px-5 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <img
                             src={c.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
                             alt={c.fullName}
-                            className="w-9 h-9 rounded-full object-cover border border-[#E0D7CC]"
+                            className="w-9 h-9 rounded-full object-cover border border-[#E0D7CC] shrink-0"
                           />
                           <div>
-                            <div className="font-bold text-[#2C241E] flex items-center gap-1.5 flex-wrap">
-                              <span>{c.fullName}</span>
+                            <div className="font-bold text-[#2C241E] flex items-center gap-1.5 whitespace-nowrap">
+                              <span className="whitespace-nowrap">{c.fullName}</span>
                               {getRoleBadge(c.role)}
                             </div>
-                            <div className="text-[11px] text-[#8C7A6B]">
+                            <div className="text-[11px] text-[#8C7A6B] whitespace-nowrap">
                               Mã: {c.referralCode}
                             </div>
                           </div>
@@ -1013,7 +1013,7 @@ export const W03_Customers: React.FC = () => {
                       {/* Tier & Points */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${getTierBadgeStyle(
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold whitespace-nowrap ${getTierBadgeStyle(
                             c.membershipTier
                           )}`}
                         >
@@ -1027,13 +1027,13 @@ export const W03_Customers: React.FC = () => {
                       </td>
 
                       {/* Action */}
-                      <td className="py-3 px-6 text-right sm:text-center">
+                      <td className="py-3 px-6 text-right sm:text-center whitespace-nowrap">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/customer-detail?id=${c.id}`);
                           }}
-                          className="px-3 py-1 rounded-lg text-xs font-bold text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors"
+                          className="px-3 py-1 rounded-lg text-xs font-bold text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                         >
                           Xem hồ sơ
                         </button>
@@ -1047,13 +1047,13 @@ export const W03_Customers: React.FC = () => {
           </div>
 
           {/* Table Pagination */}
-          <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
-            <span className="text-[11px]">
+          <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B] whitespace-nowrap">
+            <span className="text-[11px] whitespace-nowrap">
               Hiển thị {filteredCustomers.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1} -{' '}
               {Math.min(currentPage * ITEMS_PER_PAGE, filteredCustomers.length)} trong{' '}
               {filteredCustomers.length} khách hàng
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 whitespace-nowrap shrink-0">
               <button
                 disabled={currentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -1122,16 +1122,16 @@ export const W03_Customers: React.FC = () => {
               <img
                 src={selectedCustomer.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
                 alt={selectedCustomer.fullName}
-                className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-[#985018] shadow-sm"
+                className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-[#985018] shadow-sm shrink-0"
               />
-              <h3 className="text-base font-extrabold text-[#2C241E] mt-3">
+              <h3 className="text-base font-extrabold text-[#2C241E] mt-3 whitespace-nowrap truncate" title={selectedCustomer.fullName}>
                 {selectedCustomer.fullName}
               </h3>
-              <p className="text-xs text-[#73675F] mt-0.5">{selectedCustomer.phone}</p>
+              <p className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">{selectedCustomer.phone}</p>
               <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
                 {getRoleBadge(selectedCustomer.role)}
                 <span
-                  className={`px-3 py-0.5 rounded-full text-xs font-bold ${getTierBadgeStyle(
+                  className={`px-3 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${getTierBadgeStyle(
                     selectedCustomer.membershipTier
                   )}`}
                 >
@@ -1141,33 +1141,33 @@ export const W03_Customers: React.FC = () => {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
-                <span className="text-[#73675F]">Vai trò tài khoản:</span>
-                <span className="font-semibold text-[#2C241E]">
+              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
+                <span className="text-[#73675F] whitespace-nowrap">Vai trò tài khoản:</span>
+                <span className="font-semibold text-[#2C241E] whitespace-nowrap">
                   {getRoleBadge(selectedCustomer.role) || selectedCustomer.role}
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
-                <span className="text-[#73675F]">Địa chỉ:</span>
-                <span className="font-semibold text-[#2C241E] text-right max-w-[200px]">
+              <div className="flex justify-between items-start py-1 border-b border-[#FAF6F0] gap-2">
+                <span className="text-[#73675F] whitespace-nowrap">Địa chỉ:</span>
+                <span className="font-semibold text-[#2C241E] text-right max-w-[200px] truncate" title={selectedCustomer.address || 'Chưa cập nhật'}>
                   {selectedCustomer.address || 'Chưa cập nhật'}
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
-                <span className="text-[#73675F]">Liên hệ khẩn cấp:</span>
-                <span className="font-semibold text-[#2C241E]">
+              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
+                <span className="text-[#73675F] whitespace-nowrap">Liên hệ khẩn cấp:</span>
+                <span className="font-semibold text-[#2C241E] whitespace-nowrap truncate max-w-[180px]" title={selectedCustomer.emergencyContactName || 'Chưa có'}>
                   {selectedCustomer.emergencyContactName || 'Chưa có'}
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
-                <span className="text-[#73675F]">Tổng chi tiêu:</span>
-                <span className="font-bold text-[#8E4002]">
+              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
+                <span className="text-[#73675F] whitespace-nowrap">Tổng chi tiêu:</span>
+                <span className="font-bold text-[#8E4002] whitespace-nowrap">
                   {(selectedCustomer.totalSpent || 0).toLocaleString('vi-VN')}đ
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
-                <span className="text-[#73675F]">Mục đích quan tâm:</span>
-                <span className="font-semibold text-[#2C241E]">
+              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
+                <span className="text-[#73675F] whitespace-nowrap">Mục đích quan tâm:</span>
+                <span className="font-semibold text-[#2C241E] whitespace-nowrap">
                   {selectedCustomer.purpose}
                 </span>
               </div>
@@ -1175,7 +1175,7 @@ export const W03_Customers: React.FC = () => {
 
             <button
               onClick={() => navigate(`/customer-detail?id=${selectedCustomer.id}`)}
-              className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
             >
               Xem bệnh án & hồ sơ chi tiết
             </button>
