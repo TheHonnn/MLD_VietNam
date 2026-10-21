@@ -49,6 +49,19 @@ const DEFAULT_AMENITIES = [
   'Học viện đào tạo chuyên sâu',
 ];
 
+const INITIAL_BRANCH_FORM_DATA = {
+  name: '',
+  code: '',
+  phone: '',
+  address: '',
+  district: 'Quận 1',
+  city: 'TP. Hồ Chí Minh',
+  openingTime: '08:30',
+  closingTime: '20:30',
+  imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
+  amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
+};
+
 const roomTypeLabels: Record<string, string> = {
   VIP_ROOM: 'Phòng VIP',
   MASSAGE_ROOM: 'Phòng Massage',
@@ -240,18 +253,7 @@ export const W02_Branches: React.FC = () => {
     amenities: [] as string[],
   });
 
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    phone: '',
-    address: '',
-    district: 'Quận 1',
-    city: 'TP. Hồ Chí Minh',
-    openingTime: '08:30',
-    closingTime: '20:30',
-    imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-    amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
-  });
+  const [formData, setFormData] = useState(INITIAL_BRANCH_FORM_DATA);
 
   const [availableAmenities, setAvailableAmenities] = useState<string[]>(() => {
     try {
@@ -896,12 +898,30 @@ export const W02_Branches: React.FC = () => {
       return;
     }
 
+    const targetBranchId = crossBranchEditRoomForm.branchId;
+    const cleanRoomName = crossBranchEditRoomForm.name.trim();
+
+    // BUG-07: Kiểm tra trùng tên phòng với các phòng đang hoạt động khác trong cùng cơ sở
+    const isDuplicateRoomName = allRooms.some(
+      (r) =>
+        r.id !== editingCrossBranchRoom.id &&
+        r.branchId === targetBranchId &&
+        r.name.trim().toLowerCase() === cleanRoomName.toLowerCase()
+    );
+    if (isDuplicateRoomName) {
+      toast.warning(
+        'Trùng tên phòng',
+        `Phòng "${cleanRoomName}" đã tồn tại tại cơ sở được chọn. Vui lòng chọn tên khác.`
+      );
+      return;
+    }
+
     setIsCrossBranchEditingRoom(true);
     try {
-      const targetBranch = branches.find((b) => b.id === crossBranchEditRoomForm.branchId);
+      const targetBranch = branches.find((b) => b.id === targetBranchId);
       const updates: Partial<BranchRoom> = {
-        branchId: crossBranchEditRoomForm.branchId,
-        name: crossBranchEditRoomForm.name.trim(),
+        branchId: targetBranchId,
+        name: cleanRoomName,
         roomType: crossBranchEditRoomForm.roomType as RoomType,
         bedCapacity: bedCap,
         isAvailable: crossBranchEditRoomForm.isAvailable,
@@ -1645,8 +1665,29 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng nhập hotline chi nhánh.');
       return;
     }
+
+    // BUG-08: Chuẩn hóa định dạng số điện thoại hotline chi nhánh
+    const cleanPhoneDigits = cleanPhone.replace(/[\s.\-()]/g, '');
+    const phonePattern = /^(0|\+84)[0-9]{8,10}$|^1[89]00[0-9]{4}$/;
+    if (!phonePattern.test(cleanPhoneDigits)) {
+      toast.error(
+        'Số điện thoại không hợp lệ',
+        'Vui lòng nhập số điện thoại hotline đúng định dạng (VD: 0901234567, 02839301234, 1900xxxx).'
+      );
+      return;
+    }
+
     if (!cleanAddress) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập địa chỉ cơ sở.');
+      return;
+    }
+
+    // BUG-06: Giờ mở cửa phải trước giờ đóng cửa cơ sở
+    if (editForm.openingTime >= editForm.closingTime) {
+      toast.error(
+        'Thời gian hoạt động không hợp lệ',
+        'Giờ mở cửa phải diễn ra trước giờ đóng cửa cơ sở trong cùng ngày.'
+      );
       return;
     }
 
@@ -1762,6 +1803,12 @@ export const W02_Branches: React.FC = () => {
     });
   };
 
+  // BUG-10: Khởi tạo lại toàn bộ form sạch sẽ khi mở modal tạo chi nhánh
+  const handleOpenCreateBranchModal = () => {
+    setFormData(INITIAL_BRANCH_FORM_DATA);
+    setIsCreateModalOpen(true);
+  };
+
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = formData.name.trim();
@@ -1781,8 +1828,29 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng nhập số điện thoại hotline cơ sở.');
       return;
     }
+
+    // BUG-08: Chuẩn hóa định dạng số điện thoại hotline chi nhánh
+    const cleanPhoneDigits = cleanPhone.replace(/[\s.\-()]/g, '');
+    const phonePattern = /^(0|\+84)[0-9]{8,10}$|^1[89]00[0-9]{4}$/;
+    if (!phonePattern.test(cleanPhoneDigits)) {
+      toast.error(
+        'Số điện thoại không hợp lệ',
+        'Vui lòng nhập số điện thoại hotline đúng định dạng (VD: 0901234567, 02839301234, 1900xxxx).'
+      );
+      return;
+    }
+
     if (!cleanAddress) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập địa chỉ cơ sở.');
+      return;
+    }
+
+    // BUG-06: Giờ mở cửa phải trước giờ đóng cửa cơ sở
+    if (formData.openingTime >= formData.closingTime) {
+      toast.error(
+        'Thời gian hoạt động không hợp lệ',
+        'Giờ mở cửa phải diễn ra trước giờ đóng cửa cơ sở trong cùng ngày.'
+      );
       return;
     }
 
@@ -1857,18 +1925,7 @@ export const W02_Branches: React.FC = () => {
       window.dispatchEvent(new CustomEvent('mld_branches_updated'));
 
       // Reset form
-      setFormData({
-        name: '',
-        code: '',
-        phone: '',
-        address: '',
-        district: 'Quận 1',
-        city: 'TP. Hồ Chí Minh',
-        openingTime: '08:30',
-        closingTime: '20:30',
-        imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-        amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
-      });
+      setFormData(INITIAL_BRANCH_FORM_DATA);
     } catch (err) {
       console.error('Lỗi khi thêm chi nhánh:', err);
       toast.error('Có lỗi xảy ra', 'Không thể khởi tạo chi nhánh mới vào lúc này.');
@@ -2064,6 +2121,19 @@ export const W02_Branches: React.FC = () => {
     setRoomPage(1);
   }, [roomSearchTerm, selectedRoomBranch, selectedRoomType, selectedRoomAvailability, roomPageSize]);
 
+  // BUG-09: Tự động điều chỉnh trang phân trang khi dữ liệu co lại
+  useEffect(() => {
+    if (branchPage > totalBranchPages && totalBranchPages > 0) {
+      setBranchPage(totalBranchPages);
+    }
+  }, [branchPage, totalBranchPages]);
+
+  useEffect(() => {
+    if (roomPage > totalRoomPages && totalRoomPages > 0) {
+      setRoomPage(totalRoomPages);
+    }
+  }, [roomPage, totalRoomPages]);
+
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
       {/* 1. Page Header Title & Action Buttons */}
@@ -2088,7 +2158,7 @@ export const W02_Branches: React.FC = () => {
             type="button"
             onClick={() => {
               if (activeMainTab === 'branches') {
-                setIsCreateModalOpen(true);
+                handleOpenCreateBranchModal();
               } else {
                 handleOpenCrossBranchCreateRoom();
               }
