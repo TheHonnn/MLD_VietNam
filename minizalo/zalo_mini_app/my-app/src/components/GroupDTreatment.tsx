@@ -99,6 +99,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   const [survey, setSurvey] = useState(emptySurvey);
   const [notice, setNotice] = useState('');
   const busy = useRef(false);
+  const saving=Boolean(loading.form||loading.send);
   useBackAction(Boolean(form || articleId || selectedId || loading.form || loading.send), () => {
     if (busy.current) return;
     if (form) setForm(null);
@@ -163,7 +164,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   }, [activeTab, suppliedRecords, suppliedBookings, user.id]);
 
   const mutate = async (key: string, request: () => Promise<any>, accept: (result: any) => boolean, success: (result: any) => void) => {
-    if (busy.current) return;
+    if (busy.current) { error(key,'Đang gửi dữ liệu. Vui lòng chờ thao tác hiện tại hoàn tất.'); return; }
     busy.current = true; setLoading(prev => ({ ...prev, [key]: true })); error(key, ''); setNotice('');
     try {
       const result = await request();
@@ -225,6 +226,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     </div>;
   };
   const startReview = (session: ReviewContext) => {
+    if(busy.current)return;
     setReviewSession(session); setRating(0); setComment(''); setTags(''); setPhotos(''); error('form', ''); setNotice(''); setForm('review');
   };
   const feedback = (key: string) => <>
@@ -264,7 +266,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   return <div className="space-y-4 px-3 pt-3 pb-20 text-[#40352F] break-words">
     <button disabled={loading.form||loading.send} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
     {!form && !selected && !article && <nav aria-label="Chăm sóc" className="flex gap-2 overflow-x-auto pb-1">
-      {tabs.map(tab => <button key={tab.id} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
+      {tabs.map(tab => <button key={tab.id} disabled={saving} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(busy.current)return; if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
     </nav>}
     {notice && <p role="status" className="text-sm">{notice}</p>}
 
@@ -281,7 +283,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
         setForm(null); setSurvey(emptySurvey); setNotice('Đã gửi phiếu thông tin.');
       });
     }}>
-      <fieldset disabled={Boolean(loading.form)} className="min-w-0 space-y-4 border-0 p-0">
+      <fieldset disabled={saving} className="min-w-0 space-y-4 border-0 p-0">
       <h1 className="text-lg font-bold">Thông tin trước dịch vụ</h1>
       {feedback('bookings')}
       <label className="block space-y-1 text-xs">Lịch hẹn<select disabled={loading.bookings} className={input} value={survey.bookingId} onChange={e => setSurvey(prev => ({ ...prev, bookingId: e.target.value }))}>
@@ -290,7 +292,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       {(['focusAreas', 'medicalConditions', 'allergyDetails', 'specialRequests'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{['Vùng cần chăm sóc', 'Tình trạng sức khỏe', 'Thông tin dị ứng', 'Yêu cầu riêng'][index]}<textarea className={input} rows={3} value={survey[field]} onChange={e => setSurvey(prev => ({ ...prev, [field]: e.target.value }))} /></label>)}
       <label className="block space-y-1 text-xs">Lực tác động<select required className={input} value={survey.pressurePref} onChange={e => setSurvey(prev => ({ ...prev, pressurePref: e.target.value }))}><option value="">Chọn mức lực</option><option value="LIGHT">Nhẹ</option><option value="MEDIUM">Vừa</option><option value="STRONG">Mạnh</option></select></label>
       {(['hasSensitiveSkin', 'hasOilAllergy'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{index === 0 ? 'Da nhạy cảm' : 'Dị ứng dầu'}<select required className={input} value={survey[field]} onChange={e => setSurvey(prev => ({ ...prev, [field]: e.target.value }))}><option value="">Chọn câu trả lời</option><option value="yes">Có</option><option value="no">Không</option></select></label>)}
-      {feedback('form')}<button disabled={loading.form || loading.surveys} className={button} type="submit">Gửi phiếu thông tin</button>
+      {feedback('form')}<button disabled={saving || loading.surveys} className={button} type="submit">Gửi phiếu thông tin</button>
       </fieldset>
     </form>}
 
@@ -306,7 +308,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
           setForm(null); setNotice('Đã gửi đánh giá.');
         });
     }}>
-      <fieldset disabled={Boolean(loading.form)} className="min-w-0 space-y-4 border-0 p-0">
+      <fieldset disabled={saving} className="min-w-0 space-y-4 border-0 p-0">
       <h1 className="text-lg font-bold">Đánh giá trải nghiệm</h1>
       {reviewSession.serviceImage && <img src={reviewSession.serviceImage} alt={reviewSession.serviceName || ''} className="w-full rounded-[8px]" />}
       <p className="text-sm">{reviewSession.serviceName || 'Tên dịch vụ chưa khả dụng'}</p>
@@ -362,7 +364,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
         <h2 className="text-sm font-bold">{title(plan)}</h2>{plan.serviceName && <p className="text-xs">{plan.serviceName}</p>}{stats(plan)}
         <button className={button} onClick={() => setSelectedId(plan.id)}>Xem chi tiết gói</button>
       </article>)}
-      <button className={button} onClick={() => { setForm('survey'); error('form', ''); setNotice(''); }}>Thông tin trước dịch vụ</button>
+      <button className={button} disabled={saving} onClick={() => { if(busy.current)return; setForm('survey'); error('form', ''); setNotice(''); }}>Thông tin trước dịch vụ</button>
       {surveyHistory}
     </section>}
 
@@ -413,7 +415,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
           setTickets(prev => [result.ticket, ...prev.filter(ticket => ticket.id !== result.ticket.id)]); setSubject(''); setMessage(''); setNotice('Đã gửi yêu cầu hỗ trợ.');
         });
       }}>
-        <fieldset disabled={Boolean(loading.send)} className="min-w-0 space-y-3 border-0 p-0">
+        <fieldset disabled={saving} className="min-w-0 space-y-3 border-0 p-0">
         <label className="block space-y-1 text-xs">Tiêu đề<input required maxLength={200} className={input} value={subject} onChange={e => setSubject(e.target.value)} /></label>
         <label className="block space-y-1 text-xs">Nội dung<textarea required maxLength={10000} rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} /></label>
         {feedback('send')}<button type="submit" className={button} disabled={loading.send || loading.tickets || !subject.trim() || !message.trim()}>Gửi yêu cầu hỗ trợ</button>

@@ -4,6 +4,7 @@ import {statements as customerStatements,version as customerVersion} from '../..
 import {readFile} from 'node:fs/promises';
 import {statements as profileStatements} from '../../migrations/006_customer_profile.mjs';
 import {statements as auditStatements} from '../../migrations/007_audit_integrity.mjs';
+import {statements as scheduleStatements} from '../../migrations/008_schedule_deletion_notifications.mjs';
 export async function migrateFixture(db) {
   const search=JSON.parse(await readFile(new URL('../../../docs/sql/003_search_history.json',import.meta.url),'utf8'));
   await db.exec(search.statements.join(';\n'));
@@ -12,5 +13,6 @@ export async function migrateFixture(db) {
   await db.exec(customerStatements.join(';\n'));
   await db.exec(profileStatements.join(';\n'));
   await db.exec(auditStatements.join(';\n'));
+  await db.exec(scheduleStatements.join(';\n'));
   await db.query('INSERT INTO miniapp_schema_versions(version) VALUES($1) ON CONFLICT(version) DO NOTHING',[customerVersion]);
 }

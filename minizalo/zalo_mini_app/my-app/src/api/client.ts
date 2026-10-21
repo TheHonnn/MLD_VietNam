@@ -80,6 +80,9 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const epoch = sessionEpoch;
   const url = new URL(String(input));
   const method = (init.method || 'GET').toUpperCase();
+  const guardSession = !(['GET','HEAD'].includes(method) && publicReads.has(relativePath(url)));
+  const sessionChanged = () => session.get() !== token || sessionEpoch !== epoch;
+  const staleSession = (): ReadResponse => ({status:401,payload:{error:'Phiên đăng nhập đã thay đổi.',status:401}});
   const key = method === 'GET' && !init.signal ? cacheKey(url, token) : null;
   const load = async (): Promise<ReadResponse> => {
   const headers = new Headers(init.headers);
@@ -113,6 +116,7 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
       }
     }
   } finally { clearTimeout(timeout); init.signal?.removeEventListener('abort', abort); }
+  if (guardSession && sessionChanged()) return staleSession();
   const successful = response.ok && envelope.success === true;
   const payload = successful ? adaptPayload(envelope.data || {})
     : { error: apiErrorMessage(envelope.message,response.status), status: envelope.statusCode || response.status,code:envelope.code,pricing:envelope.pricing };
@@ -122,10 +126,10 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
     invalidateMutation(path);
     if (!path.startsWith('/notifications') && !path.startsWith('/search') && (!path.startsWith('/auth/')||path==='/auth/settings') && !/\/(heartbeat|playback|draft)$/.test(path)) window.dispatchEvent(new CustomEvent('mld:activity',{detail:{path}}));
   }
-  if ((key?.startsWith('private:') || (token && method!=='GET' && !payload.token)) && (session.get() !== token || sessionEpoch !== epoch)) return {status:401,payload:{error:'Phiên đăng nhập đã thay đổi.',status:401}};
   return {status: successful ? 200 : (response.ok ? 400 : response.status),payload,cacheable:successful && validReadPayload(relativePath(url),payload)};
   };
-  const result = key ? await readCache.read(key,load) : await load();
+  const loaded = key ? await readCache.read(key,load) : await load();
+  const result = guardSession && sessionChanged() ? staleSession() : loaded;
   return new Response(JSON.stringify(result.payload), {
     status: result.status,
     headers: { 'Content-Type': 'application/json' },

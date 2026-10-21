@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '../.relay-local/browser-check/node_modules/playwright/index.mjs';
 
 const origin = process.env.PREVIEW_URL || 'http://127.0.0.1:5177';
+const apiBase = (process.env.TEST_API_URL || 'http://127.0.0.1:5107/api').replace(/\/$/,'');
 const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
 try {
   for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 640 }, { width: 1366, height: 900 }]) {
@@ -16,7 +17,7 @@ try {
     await page.goto(origin, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'B\u1ecf qua', exact: true }).click();
     await page.locator('.home-branch select:not([disabled])').waitFor({ timeout: 45000 });
-    const response = await page.request.get('http://127.0.0.1:5107/api/services');
+    const response = await page.request.get(apiBase+'/services');
     const services = (await response.json()).data.services;
     const title = await page.locator('.home-feature h2').innerText();
     const service = services.find(item => item.name === title);
@@ -35,7 +36,8 @@ try {
       await image.evaluate(element => element.complete ? undefined : new Promise(resolve => { element.addEventListener('load', resolve, { once: true }); element.addEventListener('error', resolve, { once: true }); }));
     }
     const photoRendered = await image.count() ? await image.evaluate(element => element.naturalWidth > 0) : false;
-    assert.equal(photoRendered, true, 'Actual service image must render');
+    if(service.imageUrl)assert.equal(photoRendered,true,'A configured service image must render');
+    else assert.equal(await image.count(),0,'Missing media must stay blank without a fabricated photo');
     await page.screenshot({ path: fileURLToPath(new URL(`../.relay-local/service-detail-${viewport.width}.png`, import.meta.url)) });
     await detail.getByRole('button', { name: 'Chia s\u1ebb d\u1ecbch v\u1ee5', exact: true }).click();
     await detail.locator('[role=status]').waitFor();

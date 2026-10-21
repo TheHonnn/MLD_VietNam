@@ -10,8 +10,8 @@ export const enrollmentLabel = (status: string) => ({consulting:'Chờ tư vấn
 export const canStudy = (status: string) => ['enrolled','studying','graduated'].includes(status.toLowerCase());
 export type AcademyEnrollment = CourseEnrollment & {batchCode?:string;branchName?:string;instructorName?:string;startDate?:string;endDate?:string;scheduleText?:string;totalLessons?:number;completedLessonsCount?:number;remainingMinutes?:number;nextLessonTitle?:string;tuitionTransactions?:{id:string;transactionCode:string;amount:number;paymentStatus:string;paidAt:string;receiptPdfUrl?:string}[]};
 
-export function AcademyHeader({title,subtitle,onBack,eyebrow=false}:{title:string;subtitle?:string;onBack?:()=>void;eyebrow?:boolean}) {
-  return <header className="academy-header">{onBack ? <button className="academy-back" type="button" title="Quay lại" onClick={onBack}><ArrowLeftIcon size={19}/></button> : eyebrow && <span className="academy-eyebrow">HỌC VIỆN ĐÀO TẠO</span>}<h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</header>;
+export function AcademyHeader({title,subtitle,onBack,eyebrow=false,backDisabled=false}:{title:string;subtitle?:string;onBack?:()=>void;eyebrow?:boolean;backDisabled?:boolean}) {
+  return <header className="academy-header">{onBack ? <button className="academy-back" type="button" title="Quay lại" disabled={backDisabled} onClick={onBack}><ArrowLeftIcon size={19}/></button> : eyebrow && <span className="academy-eyebrow">HỌC VIỆN ĐÀO TẠO</span>}<h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</header>;
 }
 export function AcademyFooter({children,summary}:{children:React.ReactNode;summary?:React.ReactNode}) {
   return <footer className="academy-footer">{summary && <p>{summary}</p>}{children}</footer>;

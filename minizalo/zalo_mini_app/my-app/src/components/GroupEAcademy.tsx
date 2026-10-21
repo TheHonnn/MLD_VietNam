@@ -48,6 +48,9 @@ type AcademyCourse = Omit<Course, 'lessons' | 'quizSubmissions'> & {
 type Tab = 'catalog' | 'my_courses' | 'content' | 'schedule' | 'documents' | 'exam' | 'results';
 type ProgressSave='saved'|'retry'|'blocked';
 type QuizResult = { courseId: string; score: number; correctCount: number; totalQuestions: number; isPassed: boolean };
+type PendingQuizSubmission = {courseId:string;enrollmentId:string;quizId:string;attemptId:string;answers:Record<string,string>};
+// Pending receipts must survive component unmounts even when WebView storage is full.
+const pendingQuizReceipts = new Map<string, PendingQuizSubmission>();
 const accessible = (status: string) => ['enrolled', 'studying', 'graduated'].includes(status.toLowerCase());
 const isReadingLesson = (lesson: Lesson) => ['TEXT', 'PDF', 'READING_DOC', 'PRACTICE_GUIDE'].includes(lesson.lessonType?.toUpperCase() || '');
 const statusLabel = (status: string) => ({ consulting: 'Chờ tư vấn', deposited: 'Đã đặt cọc', enrolled: 'Đã ghi danh', studying: 'Đang học', graduated: 'Đã tốt nghiệp', dropped: 'Đã ngừng học' }[status.toLowerCase()] || status);
@@ -104,6 +107,35 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const [quizId, setQuizId] = useState('');
   const [quizSubmitting, setQuizSubmitting] = useState(false);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
+  const [pendingSubmission,setPendingSubmission]=useState<PendingQuizSubmission|null>(null);
+  const pendingSubmissionRef=useRef<PendingQuizSubmission|null>(null);
+  const pendingKey=(entry:Pick<PendingQuizSubmission,'courseId'|'enrollmentId'|'quizId'>)=>`mld_quiz_pending:${userId}:${entry.courseId}:${entry.enrollmentId}:${entry.quizId}`;
+  const readPending=(scope:Pick<PendingQuizSubmission,'courseId'|'enrollmentId'|'quizId'>):PendingQuizSubmission|null=>{
+    const key=pendingKey(scope),memory=pendingQuizReceipts.get(key);
+    if(memory)return memory;
+    for(const storage of ['localStorage','sessionStorage'] as const)try{
+      const entry=JSON.parse(window[storage].getItem(key)||'null');
+      if(entry?.courseId===scope.courseId&&entry.enrollmentId===scope.enrollmentId&&entry.quizId===scope.quizId
+        &&typeof entry.attemptId==='string'&&/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(entry.attemptId)
+        &&entry.answers&&typeof entry.answers==='object'&&!Array.isArray(entry.answers)&&Object.values(entry.answers).every(value=>typeof value==='string')){
+          pendingQuizReceipts.set(key,entry);return entry;
+        }
+    }catch{/* Restricted or corrupt storage cannot supply a pending submission. */}
+    return null;
+  };
+  const rememberPending=(entry:PendingQuizSubmission)=>{
+    pendingSubmissionRef.current=entry;setPendingSubmission(entry);
+    const key=pendingKey(entry);pendingQuizReceipts.set(key,entry);
+    for(const storage of ['localStorage','sessionStorage'] as const)try{window[storage].setItem(key,JSON.stringify(entry));}catch{/* Account-scoped memory survives tab switches if both stores are unavailable. */}
+  };
+  const clearPending=(entry:PendingQuizSubmission)=>{
+    if(pendingSubmissionRef.current?.attemptId===entry.attemptId){pendingSubmissionRef.current=null;setPendingSubmission(null);}
+    const key=pendingKey(entry);
+    if(pendingQuizReceipts.get(key)?.attemptId===entry.attemptId)pendingQuizReceipts.delete(key);
+    for(const storage of ['localStorage','sessionStorage'] as const)try{
+      if(JSON.parse(window[storage].getItem(key)||'null')?.attemptId===entry.attemptId)window[storage].removeItem(key);
+    }catch{}
+  };
   const [quizAttempt,setQuizAttempt]=useState<{id:string;quizId:string;enrollmentId:string;expiresAt:string}|null>(null);
   const [attemptBusy,setAttemptBusy]=useState(false);
   const [quizExpired,setQuizExpired]=useState(false);
@@ -113,21 +145,23 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const selectedQuizScope = useRef('');
   const quizDeadline=useRef(0);
   const draftQueue=useRef(Promise.resolve());
+  const draftRevision=useRef(0);
+  const [draftFeedback,setDraftFeedback]=useState<{scope:string;attemptId:string;message:string}|null>(null);
   const submittedAttempts=useRef(new Set<string>());
   const draftKey=(attemptId:string)=>`mld_quiz_draft:${userId}:${attemptId}`;
   const chooseAnswer=(questionId:string,value:string)=>{
-    if(!quizAttempt||!activeCourseId||quizSubmitting||performance.now()>=quizDeadline.current)return;
-    const next={...answers,[questionId]:value},attemptId=quizAttempt.id,courseId=activeCourseId,enrollmentId=activeEnrollmentId,scope=selectedQuizScope.current,request=quizRequest.current;
+    if(!quizAttempt||!activeCourseId||quizSubmitting||pendingSubmissionRef.current?.attemptId===quizAttempt.id||performance.now()>=quizDeadline.current)return;
+    const next={...answers,[questionId]:value},attemptId=quizAttempt.id,courseId=activeCourseId,enrollmentId=activeEnrollmentId,scope=selectedQuizScope.current,request=quizRequest.current,revision=++draftRevision.current;
     let draftStored=false;
     try{localStorage.setItem(draftKey(attemptId),JSON.stringify(next));draftStored=true;}catch{/* The server save still runs with restricted storage. */}
-    const canReport=()=>quizRequest.current===request&&selectedQuizScope.current===scope&&!quizLock.current&&!submittedAttempts.current.has(attemptId);
-    setAnswers(next);
+    const canReport=()=>draftRevision.current===revision&&quizRequest.current===request&&selectedQuizScope.current===scope&&!quizLock.current&&!submittedAttempts.current.has(attemptId);
+    setAnswers(next);setDraftFeedback(null);
     draftQueue.current=draftQueue.current.then(async()=>{
       if(submittedAttempts.current.has(attemptId))return;
       const result=await apiClient.saveQuizDraft(courseId,attemptId,enrollmentId,next);
-      if(result?.error&&canReport())setActionError(result.error);
+      if(canReport())setDraftFeedback(result?.error?{scope,attemptId,message:result.error}:null);
       if(!result?.error)try{if(localStorage.getItem(draftKey(attemptId))===JSON.stringify(next))localStorage.removeItem(draftKey(attemptId));}catch{}
-    }).catch(()=>{if(canReport())setActionError(draftStored?'Chưa đồng bộ đáp án. Bản nháp được giữ trên thiết bị.':'Chưa lưu được đáp án. Vui lòng kiểm tra kết nối và thử lại.');});
+    }).catch(()=>{if(canReport())setDraftFeedback({scope,attemptId,message:draftStored?'Chưa đồng bộ đáp án. Bản nháp được giữ trên thiết bị.':'Chưa lưu được đáp án. Vui lòng kiểm tra kết nối và thử lại.'});});
   };
   const playback=useRef<{id:string;lessonId:string;enrollmentId:string;courseId:string}|null>(null);
   const heartbeatPending=useRef<Promise<boolean>|null>(null);
@@ -207,9 +241,18 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   selectedQuizScope.current = `${activeScope.current}/${study?.quiz?.id || ''}`;
   const attemptExpired=quizExpired||Boolean(quizAttempt&&performance.now()>=quizDeadline.current);
   const attemptActive=Boolean(quizAttempt&&quizAttempt.quizId===study?.quiz?.id&&quizAttempt.enrollmentId===activeEnrollmentId&&!attemptExpired&&!quizResult);
+  const pendingForQuiz=pendingSubmission?.courseId===activeCourseId&&pendingSubmission?.enrollmentId===activeEnrollmentId&&pendingSubmission?.quizId===study?.quiz?.id?pendingSubmission:null;
+  useEffect(()=>{
+    const entry=activeCourseId&&activeEnrollmentId&&study?.quiz?.id?readPending({courseId:activeCourseId,enrollmentId:activeEnrollmentId,quizId:study.quiz.id}):null;
+    pendingSubmissionRef.current=entry;setPendingSubmission(entry);
+  },[userId,activeCourseId,activeEnrollmentId,study?.quiz?.id]);
+  const quizDraftError=tab==='exam'&&attemptActive&&!quizSubmitting&&draftFeedback?.scope===selectedQuizScope.current&&draftFeedback.attemptId===quizAttempt?.id?draftFeedback.message:'';
+  const learningActionBusy=attemptBusy||quizSubmitting||progressSaving;
   useEffect(() => () => { quizRequest.current++; }, []);
   const beginQuiz=async()=>{
-    if(!study?.quiz||attemptLock.current) return;
+    if(!study?.quiz||attemptLock.current||quizLock.current) return;
+    const previous=pendingForQuiz||readPending({courseId:study.id,enrollmentId:activeEnrollmentId||'',quizId:study.quiz.id});
+    if(previous){rememberPending(previous);await sendQuizSubmission(previous);return;}
     const scope=selectedQuizScope.current,request=++quizRequest.current;
     attemptLock.current=true;
     setAttemptBusy(true);setActionError('');
@@ -274,6 +317,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   useEffect(()=>{setQuizAttempt(null);setQuizResult(null);setAnswers({});},[activeCourseId,activeEnrollmentId,quizId]);
 
   const openLesson = (item: Lesson) => {
+    if(attemptLock.current||quizLock.current||progressLock.current||closingLesson.current)return;
     setLessonExitBlocked(false);setDraftStorageFailed(false);
     const ownedLesson=Boolean(tab!=='catalog'&&study?.lessons.some(lesson=>lesson.id===item.id)&&activeEnrollmentId);
     if (item.lessonType === 'QUIZ' && ownedLesson) {
@@ -396,28 +440,51 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     } catch (error) { setActionError(error instanceof Error ? error.message : 'Không thể đăng ký khóa học.'); }
     finally { registrationLock.current = false; setRegistering(false); }
   };
-  const submitQuiz = async () => {
-    if (!study?.quiz?.questions.length || quizLock.current || !attemptActive || !quizAttempt) return;
-    if (study.quiz.questions.some(question => !answers[question.id])) { setActionError('Vui lòng trả lời tất cả câu hỏi.'); return; }
-    const courseId = study.id;
-    const scope = activeScope.current;
-    quizLock.current = true; setQuizSubmitting(true); setActionError(''); setNotice('');
-    try {
-      const response = await apiClient.submitQuiz(courseId, answers, study.quiz.id, activeEnrollmentId,quizAttempt.id);
-      if (response?.error || !response?.submission?.id || response.score == null) throw new Error(response?.error || 'Không thể nộp bài kiểm tra.');
-      if (activeScope.current !== scope) return;
-      submittedAttempts.current.add(quizAttempt.id);
-      try{localStorage.removeItem(draftKey(quizAttempt.id));}catch{}
+  const acceptQuizSubmission=(response:any,entry:PendingQuizSubmission)=>{
+      const score=Number(response?.score);
+      if(response?.error||!response?.submission?.id||response.submission.quizId!==entry.quizId||response.score==null
+        ||!Number.isFinite(score)||score<0||score>100||typeof response.isPassed!=='boolean'
+        ||!Number.isInteger(response.totalQuestions)||response.totalQuestions<1
+        ||!Number.isInteger(response.correctCount)||response.correctCount<0||response.correctCount>response.totalQuestions)return false;
+      submittedAttempts.current.add(entry.attemptId);clearPending(entry);setDraftFeedback(null);setActionError('');
+      try{localStorage.removeItem(draftKey(entry.attemptId));}catch{}
       setLearningVersion(value=>value+1);setEnrollmentVersion(value=>value+1);
-      setQuizResult({ courseId, score: Number(response.score), correctCount: response.correctCount, totalQuestions: response.totalQuestions, isPassed: response.isPassed });
+      setQuizResult({ courseId:entry.courseId, score: Number(response.score), correctCount: response.correctCount, totalQuestions: response.totalQuestions, isPassed: response.isPassed });
       const submission = response.submission as QuizSubmission;
       if (submission.quizId && submission.submittedAt && submission.score != null && submission.correctCount != null && typeof submission.passed === 'boolean') {
-        setLearning(current => current?.id === courseId ? { ...current,
+        setLearning(current => current?.id === entry.courseId ? { ...current,
           quizSubmissions: [submission, ...(current.quizSubmissions || []).filter(item => item.id !== submission.id)],
         } : current);
       }
-    } catch (error) { setActionError(error instanceof Error ? error.message : 'Không thể nộp bài kiểm tra.'); }
-    finally { quizLock.current = false; setQuizSubmitting(false); }
+      return true;
+  };
+  const sendQuizSubmission=async(entry:PendingQuizSubmission)=>{
+    if(quizLock.current)return;
+    const scope=selectedQuizScope.current,request=quizRequest.current;
+    const current=()=>selectedQuizScope.current===scope&&quizRequest.current===request;
+    quizLock.current=true;setQuizSubmitting(true);setActionError('');setNotice('');
+    rememberPending(entry);
+    try{
+      const response=await apiClient.submitQuiz(entry.courseId,entry.answers,entry.quizId,entry.enrollmentId,entry.attemptId);
+      if(!current())return;
+      if(acceptQuizSubmission(response,entry))return;
+      // A failed response does not prove the server rejected the submission.
+      apiClient.invalidateReadPaths([`/courses/${encodeURIComponent(entry.courseId)}/learning`]);
+      const canonical=await apiClient.getCourseLearning(entry.courseId,entry.enrollmentId);
+      if(!current())return;
+      const attempt=canonical?.course?.quizAttempts?.find((item:any)=>item.id===entry.attemptId&&item.quizId===entry.quizId);
+      const saved=attempt?.submissionId&&canonical.course.quizSubmissions?.find((item:QuizSubmission)=>item.id===attempt.submissionId&&item.quizId===entry.quizId);
+      if(saved&&saved.score!=null&&Array.isArray(saved.questions)&&acceptQuizSubmission({submission:saved,score:Number(saved.score)*10,correctCount:saved.correctCount,totalQuestions:saved.questions.length,isPassed:saved.passed},entry))return;
+      if(response?.status===400||response?.code==='ATTEMPT_EXPIRED'){
+        clearPending(entry);setActionError(response.error||'Lượt thi chưa được ghi nhận. Vui lòng kiểm tra lại.');
+      }else setActionError('Chưa xác nhận được kết quả. Kiểm tra hoặc gửi lại bài nộp trước khi mở lượt thi mới.');
+    }catch{if(current())setActionError('Chưa xác nhận được kết quả. Vui lòng kiểm tra lại bài nộp.');}
+    finally{quizLock.current=false;if(current())setQuizSubmitting(false);}
+  };
+  const submitQuiz = async () => {
+    if (!study?.quiz?.questions.length || quizLock.current || !attemptActive || !quizAttempt) return;
+    if (study.quiz.questions.some(question => !answers[question.id])) { setActionError('Vui lòng trả lời tất cả câu hỏi.'); return; }
+    await sendQuizSubmission({courseId:study.id,enrollmentId:activeEnrollmentId||'',quizId:study.quiz.id,attemptId:quizAttempt.id,answers:{...answers}});
   };
   const documents = (items: Lesson[]) => {
     const links = items.reduce<React.ReactNode[]>((all, item) => all.concat((item.attachments || []).map((attachment, index) => {
@@ -427,7 +494,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     })), []).filter(Boolean);
     return links.length ? links : <Empty></Empty>;
   };
-  const renderLesson = (item: Lesson) => <button key={item.id} data-lesson-id={item.id} className="academy-lesson-row" onClick={() => openLesson(item)}>
+  const renderLesson = (item: Lesson) => <button key={item.id} data-lesson-id={item.id} className="academy-lesson-row" disabled={learningActionBusy} onClick={() => openLesson(item)}>
     {isReadingLesson(item) ? <FileTextIcon size={18} /> : <PlayCircleIcon size={18} />}<span className="min-w-0 break-words">{item.title}<small className="block font-normal">{item.duration}{item.isCompleted ? ' · Đã hoàn thành' : ''}</small></span>
   </button>;
   const renderQuizHistory = () => <section className="space-y-2 text-xs" aria-label="Lịch sử bài kiểm tra">
@@ -452,7 +519,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   </section>;
 
   const openCatalog = () => { setTab('catalog'); setCatalogView('catalog'); setInstructorId(''); setActionError(''); setNotice(''); };
-  const openMine = () => { if (!userId || enrollmentAuthRequired) { onRequireLogin(); return; } setTab('my_courses'); setLessonId(null); setNotice(''); setActionError(''); };
+  const openMine = () => { if(attemptLock.current||quizLock.current||progressLock.current||registrationLock.current)return; if (!userId || enrollmentAuthRequired) { onRequireLogin(); return; } setTab('my_courses'); setLessonId(null); setNotice(''); setActionError(''); };
   const showCourse = (course: Course) => { setSelectedId(course.id); setCatalogView('course'); setBatchId(''); setPaymentEnrollmentId(''); setActionError(''); };
   const beginRegistration = () => {
     if (!userId || enrollmentAuthRequired) { onRequireLogin(); return; }
@@ -466,9 +533,10 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   return <div className="academy-screen">
     {(loading || error) && <div className="academy-feedback">{loading && <p role="status">Đang tải dữ liệu...</p>}{error && <p role="alert" className="academy-error">{error} {onRefresh && <button onClick={onRefresh}>Thử lại</button>}</p>}</div>}
     {tab !== 'catalog' && (!userId || enrollmentAuthRequired) && <div className="academy-feedback"><button className="academy-primary" onClick={onRequireLogin}>Đăng nhập với Zalo</button></div>}
-    {(notice || actionError || enrollmentLoading || enrollmentError) && <div className="academy-feedback">
+    {(notice || actionError || quizDraftError || enrollmentLoading || enrollmentError) && <div className="academy-feedback">
       {notice && <p role="status">{notice}</p>}
       {actionError && <p role="alert" className="academy-error">{actionError}</p>}
+      {quizDraftError && <p role="alert" className="academy-error">{quizDraftError}</p>}
       {enrollmentLoading && <p role="status">Đang tải đăng ký học...</p>}
       {enrollmentError && <p role="alert" className="academy-error">{enrollmentError} <button onClick={() => setEnrollmentVersion(value => value+1)}>Thử lại</button></p>}
     </div>}
@@ -482,7 +550,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     {tab === 'my_courses' && (!enrollmentLoading&&!enrollmentError&&!enrollmentAuthRequired&&userId ? <AcademyMyCourses enrollments={enrollments} onBack={() => { setTab('catalog'); setCatalogView('home'); }} onPayment={openPayment} onLearn={entry => { setStudyId(entry.id); setTab('content'); }}/> : <AcademyHeader title="Khóa học của tôi" onBack={() => {setTab('catalog');setCatalogView('home');}}/>)}
 
     {!['catalog', 'my_courses'].includes(tab) && <>
-      <AcademyHeader title="Chi tiết lớp học" onBack={openMine}/>
+      <AcademyHeader title="Chi tiết lớp học" onBack={openMine} backDisabled={learningActionBusy}/>
       <main className="academy-body academy-learning">
       <AcademyClassSummary course={study} enrollment={studyEnrollment}/>
       <nav className="academy-tabs" aria-label="Nội dung lớp học">{([['content','Nội dung học'],['schedule','Lịch học'],['documents','Tài liệu'],['exam','Kiểm tra'],['results','Kết quả']] as [Tab,string][]).map(([id,label])=><button key={id} disabled={attemptBusy || quizSubmitting} aria-current={tab===id?'page':undefined} onClick={()=>{setTab(id);setLessonId(null);setNotice('');setActionError('');}}>{label}</button>)}</nav>
@@ -503,15 +571,16 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
         {tab === 'exam' && quizzes.length > 0 && <select aria-label="Bài kiểm tra" value={study.quiz?.id || ''} disabled={quizSubmitting || attemptBusy} className={`${buttonClass} w-full min-w-0`} onChange={event => { setQuizId(event.target.value); setAnswers({}); setQuizResult(null); setActionError(''); }}>
           {quizzes.map(quiz => <option key={quiz.id} value={quiz.id}>{quiz.title}</option>)}
         </select>}
-        {tab==='exam' && study.quiz && !attemptActive && <section className="space-y-2 text-xs"><h2 className="font-semibold">{study.quiz.title}</h2>{quizAttempt&&attemptExpired&&!quizResult&&<p role="status">Đã hết thời gian làm bài.</p>}<p>Giới hạn {study.quiz.maxAttempts??3} lượt mỗi bài kiểm tra.</p><button className={buttonClass} disabled={attemptBusy} onClick={()=>void beginQuiz()}>{attemptBusy?'Đang mở bài...':'Bắt đầu / tiếp tục làm bài'}</button></section>}
+        {tab==='exam' && study.quiz && !attemptActive && !pendingForQuiz && <section className="space-y-2 text-xs"><h2 className="font-semibold">{study.quiz.title}</h2>{quizAttempt&&attemptExpired&&!quizResult&&<p role="status">Đã hết thời gian làm bài.</p>}<p>Giới hạn {study.quiz.maxAttempts??3} lượt mỗi bài kiểm tra.</p><button className={buttonClass} disabled={attemptBusy||quizSubmitting} onClick={()=>void beginQuiz()}>{attemptBusy?'Đang mở bài...':'Bắt đầu / tiếp tục làm bài'}</button></section>}
+        {tab==='exam'&&pendingForQuiz&&<button className={buttonClass} disabled={quizSubmitting||attemptBusy} onClick={()=>void sendQuizSubmission(pendingForQuiz)}>{quizSubmitting?'Đang xác nhận bài nộp...':'Kiểm tra / gửi lại bài nộp'}</button>}
         {tab === 'exam' && attemptActive && (study.quiz?.questions.length ? <div className="space-y-4">
           <QuizTimer deadline={quizDeadline.current} onExpire={expireQuiz} />
           <h2 className="text-base font-bold">{study.quiz.title}</h2><p className="text-xs">Điểm đạt: {study.quiz.passingScore}%</p>
-          {study.quiz.questions.map((question, index) => <fieldset key={question.id} disabled={quizSubmitting} className="space-y-2"><legend className="mb-2 text-sm font-semibold">{index + 1}. {question.question}</legend>{question.options.map((option, optionIndex) => {
+          {study.quiz.questions.map((question, index) => <fieldset key={question.id} disabled={quizSubmitting||Boolean(pendingForQuiz)} className="space-y-2"><legend className="mb-2 text-sm font-semibold">{index + 1}. {question.question}</legend>{question.options.map((option, optionIndex) => {
             const key = question.optionKeys?.[optionIndex] || String.fromCharCode(65 + optionIndex);
             return <label key={key} className="flex items-start gap-2 text-xs"><input type="radio" name={question.id} checked={answers[question.id] === key} onChange={() => chooseAnswer(question.id,key)} /><span>{option}</span></label>;
           })}</fieldset>)}
-          <button className={buttonClass} disabled={quizSubmitting||!attemptActive} onClick={submitQuiz}>{quizSubmitting ? 'Đang nộp bài...' : 'Nộp bài'}</button>
+          {!pendingForQuiz&&<button className={buttonClass} disabled={quizSubmitting||!attemptActive} onClick={submitQuiz}>{quizSubmitting ? 'Đang nộp bài...' : 'Nộp bài'}</button>}
           {quizResult?.courseId === study.id && <p role="status" className="text-xs">Điểm: {quizResult.score}% · {quizResult.correctCount}/{quizResult.totalQuestions} câu đúng · {quizResult.isPassed ? 'Đạt' : 'Chưa đạt'}</p>}
         </div> : <Empty></Empty>)}
         {tab==='exam'&&!attemptActive&&quizResult?.courseId===study.id&&<p role="status" className="text-xs">Điểm: {quizResult.score}% · {quizResult.correctCount}/{quizResult.totalQuestions} câu đúng · {quizResult.isPassed?'Đạt':'Chưa đạt'}</p>}
@@ -529,7 +598,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
         </div>}
       </>}
       </main>
-      {nextLesson && <AcademyFooter summary={nextLesson.title}><button className="academy-primary" disabled={learningLoading || Boolean(learningError)} onClick={()=>openLesson(nextLesson)}>Tiếp tục bài học</button></AcademyFooter>}
+      {nextLesson && <AcademyFooter summary={nextLesson.title}><button className="academy-primary" disabled={learningLoading || Boolean(learningError) || learningActionBusy} onClick={()=>openLesson(nextLesson)}>Tiếp tục bài học</button></AcademyFooter>}
     </>}
 
     {lesson && <div role="dialog" aria-modal="true" aria-label={lesson.title} className="academy-lesson-dialog">

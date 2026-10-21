@@ -56,7 +56,8 @@ interface GroupFProfileProps {
   onOpenOnboarding: () => void;
   vouchers: Voucher[];
   onVouchersUpdated: (vouchers: Voucher[]) => void;
-  summary: { upcomingBookings: number; remainingTreatmentSessions: number; activeCourses: number };
+  summary: { upcomingBookings: number; remainingTreatmentSessions: number; activeCourses: number } | null;
+  summaryError?:string;
 }
 
 export const GroupFProfile: React.FC<GroupFProfileProps> = ({
@@ -74,6 +75,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   vouchers,
   onVouchersUpdated,
   summary,
+  summaryError,
 }) => {
   type Settings = { biometricEnabled: boolean; appointmentReminder: boolean; promotionNotify: boolean; systemNotify: boolean; language: string };
   const [settings, setSettings] = useState<Settings | null>(() => apiClient.peek('/auth/settings')?.settings || null);
@@ -421,11 +423,12 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
         </div>
       </button>
 
-      <div className="grid grid-cols-3 gap-2">
+      {summaryError&&<p role="alert" className="text-xs text-red-700">{summaryError} {onRefreshData&&<button type="button" className="underline" onClick={onRefreshData}>Thử lại</button>}</p>}
+      <div className="grid grid-cols-3 gap-2" aria-busy={Boolean(user.id&&!summary&&!summaryError)}>
         {[
-          { value: String(summary.upcomingBookings), label: 'Lịch hẹn', sub: 'sắp tới', action: onOpenAppointments },
-          { value: String(summary.remainingTreatmentSessions), label: 'Liệu trình', sub: 'buổi còn lại', action: onOpenPackages },
-          { value: String(summary.activeCourses), label: 'Khóa học', sub: 'đang học', action: onOpenAcademy },
+          { value: summary?String(summary.upcomingBookings):'', label: 'Lịch hẹn', sub: 'sắp tới', action: onOpenAppointments },
+          { value: summary?String(summary.remainingTreatmentSessions):'', label: 'Liệu trình', sub: 'buổi còn lại', action: onOpenPackages },
+          { value: summary?String(summary.activeCourses):'', label: 'Khóa học', sub: 'đang học', action: onOpenAcademy },
         ].map((item) => (
           <button key={item.label} onClick={item.action} className="min-h-[78px] rounded-[10px] bg-white p-3 text-left shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
             <span className="text-[17px] font-bold text-[#A65317]">{item.value}</span>
@@ -488,7 +491,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           >
             <div className="flex items-center space-x-2.5">
               <span className="flex h-7 w-7 items-center justify-center text-[#98501B]"><TagIcon size={17} /></span>
-              <span className="font-semibold text-[#40352F]">Ưu đãi của tôi ({vouchersList.filter(v => v.status === 'available').length} voucher)</span>
+              <span className="font-semibold text-[#40352F]">Ưu đãi của tôi{summary?` (${vouchersList.filter(v => v.status === 'available').length} voucher)`:''}</span>
             </div>
             <span className="text-[#A09085]">&gt;</span>
           </button>

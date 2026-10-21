@@ -110,7 +110,8 @@ function MasterHomePage() {
     });
     if(more||!notificationPaged.current)setNotificationCursor(response.nextCursor||null);
   };
-  const [memberSummary, setMemberSummary] = useState({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
+  const [memberSummary, setMemberSummary] = useState<{upcomingBookings:number;remainingTreatmentSessions:number;activeCourses:number}|null>(null);
+  const [membershipError,setMembershipError]=useState('');
   const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
   const [zaloAuthState, setZaloAuthState] = useState<'checking' | 'required' | 'connected' | 'web'>('checking');
   const [zaloAuthError, setZaloAuthError] = useState('');
@@ -215,7 +216,7 @@ function MasterHomePage() {
     const expire = () => {
       resetInbox();setBookingPackage(null);
       setUser({...guestUser}); setBookings([]); setRecords([]); setVouchers([]); setNotifications([]); setTreatmentPlans([]);
-      setMemberSummary({upcomingBookings:0,remainingTreatmentSessions:0,activeCourses:0});
+      setMemberSummary(null);setMembershipError('');
       setIsNotificationsOpen(false); setIsTreatmentOpen(false); setIsEMRModalOpen(false); setETicketBooking(null); setBookingService(null);
       setAcademyTarget(undefined); setProfileTarget(undefined); setBookingTarget(undefined); setActiveTab('home');
       setZaloAuthError('Phiên đăng nhập đã hết hạn. Vui lòng kết nối lại với Zalo.'); setZaloAuthState('required');
@@ -243,7 +244,7 @@ function MasterHomePage() {
       setVouchers([]);
       setNotifications([]);
       setTreatmentPlans([]);
-      setMemberSummary({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
+      setMemberSummary(null);setMembershipError('');
       setETicketBooking(null);
       setBookingService(null);
       void apiClient.preloadPublicData(images.signal).catch(() => {});
@@ -265,10 +266,11 @@ function MasterHomePage() {
         setDataLoading(false);
       });
       let authenticated = false;
+      const authRequestEpoch = apiClient.sessionVersion();
       const isInsideZalo = /Zalo/i.test(navigator.userAgent) || Boolean((window as any).ZJSBridge);
       if (isInsideZalo) {
         const zaloSession = await apiClient.loginWithZalo(false);
-        if (cancelled) return;
+        if (cancelled || apiClient.sessionVersion() !== authRequestEpoch) return;
         if (zaloSession?.user && zaloSession.token) {
           authenticated = true;
           setUser((prev) => ({ ...prev, ...zaloSession.user }));
@@ -280,7 +282,7 @@ function MasterHomePage() {
       } else {
         setZaloAuthState('web');
         const session = await apiClient.getCurrentUser();
-        if (cancelled) return;
+        if (cancelled || apiClient.sessionVersion() !== authRequestEpoch) return;
         if (session?.user) { setUser(session.user); authenticated = true; }
         else { apiClient.logout(); setUser({ ...guestUser }); }
       }
@@ -299,6 +301,7 @@ function MasterHomePage() {
       if (membData?.vouchers) setVouchers(membData.vouchers);
       if (membData?.user) setUser((prev) => ({ ...prev, ...membData.user }));
       if (membData?.summary) setMemberSummary(membData.summary);
+      else if(authenticated)setMembershipError(membData?.error||'Không thể tải số liệu hội viên. Vui lòng thử lại.');
       if (bkData?.bookings) setBookings(bkData.bookings);
       if (notifData?.notifications&&inboxEpoch===notificationPageEpoch.current) applyNotificationPage(notifData,false,inboxReadRevision);
       if (treatmentData?.treatmentPlans) setTreatmentPlans(treatmentData.treatmentPlans);
@@ -327,9 +330,12 @@ function MasterHomePage() {
       setUser((prev) => ({ ...prev, ...result.user }));
       setZaloAuthState('connected');
       setLoadVersion(value => value + 1);
+      const membershipEpoch=apiClient.sessionVersion();
       const membership = await apiClient.getMembership();
+      if(apiClient.sessionVersion()!==membershipEpoch)return;
       if (membership?.user) setUser((prev) => ({ ...prev, ...membership.user }));
       if (membership?.summary) setMemberSummary(membership.summary);
+      setMembershipError(membership?.summary?'':membership?.error||'Không thể tải số liệu hội viên. Vui lòng thử lại.');
       return;
     }
     setZaloAuthError(result?.error || 'Bạn chưa cấp quyền thông tin tài khoản Zalo.');
@@ -343,7 +349,8 @@ function MasterHomePage() {
     });
     apiClient.getMembership().then(response => {
       if(owner!==currentUserId.current)return;
-      if (response?.summary) setMemberSummary(response.summary);
+      if (response?.summary) {setMemberSummary(response.summary);setMembershipError('');}
+      else setMembershipError(response?.error||'Không thể cập nhật số liệu hội viên. Vui lòng thử lại.');
       if (response?.vouchers) setVouchers(response.vouchers);
     });
   };
@@ -746,6 +753,7 @@ function MasterHomePage() {
               vouchers={vouchers}
               onVouchersUpdated={setVouchers}
               summary={memberSummary}
+              summaryError={membershipError}
             />
           </Box>
         )}

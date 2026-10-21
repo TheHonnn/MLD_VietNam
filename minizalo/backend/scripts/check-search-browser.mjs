@@ -50,7 +50,7 @@ try {
       const response=await fetch(base+url.pathname+url.search,{method:request.method(),headers:headers(1),body:request.postData()||undefined});
       await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:await response.text()});
     });
-    await page.goto('http://127.0.0.1:5177/',{waitUntil:'domcontentloaded'});
+    await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5177/',{waitUntil:'domcontentloaded'});
     await page.getByRole('button',{name:'Bỏ qua',exact:true}).click();
     await page.locator('.home-branch select:not([disabled])').waitFor();
     const open=async()=>{
