@@ -1839,7 +1839,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Đang hoạt động: Tất cả</option>
+            <option value="ALL">Đang hoạt động</option>
             <option value="ACTIVE">Có</option>
             <option value="INACTIVE">Không</option>
           </select>
@@ -1853,7 +1853,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedCity(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Tỉnh / Thành phố: Tất cả ({cityOptions.length})</option>
+            <option value="ALL">Tỉnh / Thành phố</option>
             {cityOptions.map((city) => (
               <option key={city} value={city}>
                 {city}
@@ -2453,7 +2453,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedRoomType(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Loại phòng: Tất cả</option>
+            <option value="ALL">Loại phòng</option>
             {Object.entries(roomTypeLabels).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
@@ -2470,7 +2470,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedRoomAvailability(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Có thể sử dụng: Tất cả</option>
+            <option value="ALL">Có thể sử dụng</option>
             <option value="YES">Có</option>
             <option value="NO">Không</option>
           </select>
@@ -2484,7 +2484,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedRoomBranch(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Chi nhánh: Tất cả</option>
+            <option value="ALL">Chi nhánh</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name} ({b.code})
