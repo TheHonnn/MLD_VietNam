@@ -243,6 +243,15 @@ export const treatmentService = {
     totalSessions: number,
     journalData?: any
   ): Promise<ApiResponse<boolean>> {
+    if (currentCompleted >= totalSessions) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: 'Gói liệu trình này đã hoàn tất đầy đủ các buổi theo phác đồ.',
+        data: false,
+      };
+    }
+
     const nextCompleted = currentCompleted + 1;
     const nextStatus = nextCompleted >= totalSessions ? PackageStatus.COMPLETED : PackageStatus.ACTIVE;
 

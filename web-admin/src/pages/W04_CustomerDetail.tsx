@@ -140,6 +140,16 @@ export const W04_CustomerDetail: React.FC = () => {
   const [isProcessingSession, setIsProcessingSession] = useState(false);
   const handleCompleteSession = async (pkg: UserPackage) => {
     if (!customer?.id) return;
+
+    // CUST-05: Chốt chặn FSM ngăn vượt quá tổng số buổi của gói
+    if (pkg.completedSessions >= pkg.totalSessions) {
+      toast.warning(
+        'Gói đã hoàn tất',
+        'Tất cả các buổi trong gói liệu trình này đã được ghi nhận hoàn thành 100%.'
+      );
+      return;
+    }
+
     setIsProcessingSession(true);
     try {
       const res = await treatmentService.completePackageSession(
@@ -204,21 +214,80 @@ export const W04_CustomerDetail: React.FC = () => {
     e.preventDefault();
     if (!customer) return;
 
-    if (!formData.fullName.trim()) {
+    const cleanName = formData.fullName.trim();
+    const cleanPhone = formData.phone.trim();
+    const cleanPhoneDigits = cleanPhone.replace(/[\s.\-()]/g, '');
+    const cleanEmail = formData.email.trim();
+    const cleanEmergencyPhone = formData.emergencyContactPhone.trim().replace(/[\s.\-()]/g, '');
+
+    if (!cleanName) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập họ và tên khách hàng.');
       return;
     }
-    if (!formData.phone.trim()) {
+    if (!cleanPhone) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập số điện thoại khách hàng.');
       return;
     }
 
+    // CUST-03: Kiểm tra định dạng số điện thoại Việt Nam
+    const phonePattern = /^(0|\+84)[0-9]{8,10}$|^1[89]00[0-9]{4}$/;
+    if (!phonePattern.test(cleanPhoneDigits)) {
+      toast.error(
+        'Số điện thoại không hợp lệ',
+        'Vui lòng nhập đúng định dạng số điện thoại (VD: 0988123456, 02839301234).'
+      );
+      return;
+    }
+
+    // CUST-03: Kiểm tra định dạng email nếu có nhập
+    if (cleanEmail) {
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(cleanEmail)) {
+        toast.error('Email không hợp lệ', 'Vui lòng nhập đúng định dạng email (VD: khachhang@gmail.com).');
+        return;
+      }
+    }
+
+    // CUST-04: Kiểm tra ngày sinh không vượt quá ngày hiện tại
+    if (formData.dateOfBirth) {
+      const dobDate = new Date(formData.dateOfBirth).getTime();
+      if (dobDate > Date.now()) {
+        toast.error('Ngày sinh không hợp lệ', 'Ngày sinh không thể diễn ra trong tương lai.');
+        return;
+      }
+    }
+
+    // CUST-09: Cảnh báo số điện thoại liên hệ khẩn cấp
+    if (cleanEmergencyPhone && cleanEmergencyPhone === cleanPhoneDigits) {
+      toast.warning(
+        'Lưu ý liên hệ khẩn cấp',
+        'Số ĐT khẩn cấp không nên trùng với số điện thoại chính của khách hàng.'
+      );
+    }
+
+    // CUST-02: Kiểm tra trùng số điện thoại với khách hàng khác
+    try {
+      const allRes = await customerService.getCustomers();
+      if (allRes.success && allRes.data) {
+        const isDuplicate = allRes.data.some(
+          (c) => c.id !== customer.id && c.phone.replace(/[\s.\-()]/g, '') === cleanPhoneDigits
+        );
+        if (isDuplicate) {
+          toast.warning(
+            'Trùng số điện thoại',
+            `Số điện thoại "${cleanPhone}" đã được sử dụng bởi một khách hàng khác trên hệ thống.`
+          );
+          return;
+        }
+      }
+    } catch {}
+
     setIsSubmitting(true);
     try {
       const updatedFields: Partial<User> = {
-        fullName: formData.fullName.trim(),
-        phone: formData.phone.trim(),
-        email: formData.email.trim() || null,
+        fullName: cleanName,
+        phone: cleanPhone,
+        email: cleanEmail || null,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth || null,
         membershipTier: formData.membershipTier,
@@ -354,7 +423,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="mt-3.5 relative z-10">
                 <div className="text-[26px] font-extrabold text-white tracking-tight leading-none">
-                  {customer ? `${customer.rewardPoints.toLocaleString('vi-VN')} điểm` : '2.450 điểm'}
+                  {customer ? `${(customer.rewardPoints || 0).toLocaleString('vi-VN')} điểm` : '2.450 điểm'}
                 </div>
                 <div className="text-[11px] text-[#F3E2CE]/80 mt-1.5 font-medium">
                   Mã hội viên · {customer?.referralCode || 'MLD-VIP-01'}
@@ -373,7 +442,7 @@ export const W04_CustomerDetail: React.FC = () => {
                   <ArrowRight className="w-4 h-4 text-white" />
                 </button>
                 <div className="text-[10px] text-[#F3E2CE]/70 mt-2.5">
-                  Tổng chi tiêu: {customer?.totalSpent.toLocaleString('vi-VN')}đ
+                  Tổng chi tiêu: {(customer?.totalSpent || 0).toLocaleString('vi-VN')}đ
                 </div>
               </div>
             </div>
@@ -796,6 +865,7 @@ export const W04_CustomerDetail: React.FC = () => {
                       <Calendar className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="date"
+                        max={new Date().toISOString().split('T')[0]}
                         value={formData.dateOfBirth}
                         onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                         className="w-full pl-9 pr-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"

@@ -10,12 +10,28 @@ import {
   Search,
   X,
   RotateCcw,
+  UserPlus,
+  Phone,
+  Mail,
+  MapPin,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { customerService, treatmentService } from '../services';
 import { toast } from '../components/common';
 import { User, MemberTier, UserPackage, PurposeInterest, UserRole } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
+
+const INITIAL_NEW_CUSTOMER_FORM = {
+  fullName: '',
+  phone: '',
+  email: '',
+  gender: 'FEMALE' as 'MALE' | 'FEMALE' | 'OTHER',
+  membershipTier: MemberTier.STANDARD,
+  purpose: PurposeInterest.BEAUTY_SPA,
+  address: '',
+};
 
 export const W03_Customers: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +47,11 @@ export const W03_Customers: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const [isLoading, setIsLoading] = useState(true);
+
+  // CUST-01: Create Customer Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState(INITIAL_NEW_CUSTOMER_FORM);
 
   // Fetch all customers on load
   const loadCustomers = async () => {
@@ -140,6 +161,13 @@ export const W03_Customers: React.FC = () => {
     setCurrentPage(1);
   }, [searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
 
+  // CUST-06: Tự động điều chỉnh lùi trang khi dữ liệu co lại
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   // Sync selected customer when list updates
   useEffect(() => {
     if (filteredCustomers.length > 0) {
@@ -191,10 +219,96 @@ export const W03_Customers: React.FC = () => {
     fetchPackages();
   }, [selectedCustomerId]);
 
+  // CUST-07: Khi bộ lọc không có bản ghi nào, selectedCustomer là null
   const selectedCustomer =
-    allCustomers.find((c) => c.id === selectedCustomerId) ||
-    filteredCustomers[0] ||
-    allCustomers[0];
+    filteredCustomers.length > 0
+      ? allCustomers.find((c) => c.id === selectedCustomerId) || filteredCustomers[0]
+      : null;
+
+  // CUST-01: Modal Handlers Tiếp nhận khách hàng mới
+  const handleOpenCreateCustomerModal = () => {
+    setNewCustomerForm(INITIAL_NEW_CUSTOMER_FORM);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = newCustomerForm.fullName.trim();
+    const cleanPhone = newCustomerForm.phone.trim();
+    const cleanPhoneDigits = cleanPhone.replace(/[\s.\-()]/g, '');
+    const cleanEmail = newCustomerForm.email.trim();
+
+    if (!cleanName) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập họ và tên khách hàng.');
+      return;
+    }
+    if (!cleanPhone) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập số điện thoại khách hàng.');
+      return;
+    }
+
+    // CUST-03: Kiểm tra định dạng số điện thoại Việt Nam
+    const phonePattern = /^(0|\+84)[0-9]{8,10}$|^1[89]00[0-9]{4}$/;
+    if (!phonePattern.test(cleanPhoneDigits)) {
+      toast.error(
+        'Số điện thoại không hợp lệ',
+        'Vui lòng nhập đúng định dạng số điện thoại Việt Nam (VD: 0988123456, 02839301234).'
+      );
+      return;
+    }
+
+    // CUST-03: Kiểm tra định dạng email nếu có nhập
+    if (cleanEmail) {
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(cleanEmail)) {
+        toast.error('Email không hợp lệ', 'Vui lòng nhập đúng định dạng email (VD: khachhang@gmail.com).');
+        return;
+      }
+    }
+
+    // CUST-02: Kiểm tra trùng số điện thoại với danh sách khách hàng hiện có
+    const isDuplicate = allCustomers.some(
+      (c) => c.phone.replace(/[\s.\-()]/g, '') === cleanPhoneDigits
+    );
+    if (isDuplicate) {
+      toast.warning(
+        'Trùng số điện thoại',
+        `Số điện thoại "${cleanPhone}" đã tồn tại trong hệ thống khách hàng.`
+      );
+      return;
+    }
+
+    setIsSubmittingCustomer(true);
+    try {
+      const res = await customerService.createCustomer({
+        fullName: cleanName,
+        phone: cleanPhone,
+        email: cleanEmail || undefined,
+        gender: newCustomerForm.gender,
+        membershipTier: newCustomerForm.membershipTier,
+        purpose: newCustomerForm.purpose,
+        address: newCustomerForm.address.trim() || undefined,
+      });
+
+      if (res.success && res.data) {
+        setAllCustomers((prev) => [res.data, ...prev]);
+        setSelectedCustomerId(res.data.id);
+        toast.success(
+          'Tiếp nhận thành công',
+          `Hồ sơ của khách hàng ${cleanName} đã được kích hoạt trên hệ thống.`
+        );
+        setIsCreateModalOpen(false);
+        setNewCustomerForm(INITIAL_NEW_CUSTOMER_FORM);
+      } else {
+        toast.error('Lỗi khởi tạo', res.message || 'Không thể tạo hồ sơ khách hàng vào lúc này.');
+      }
+    } catch (err) {
+      console.error('Lỗi khi tạo khách hàng:', err);
+      toast.error('Có lỗi xảy ra', 'Không thể hoàn tất tiếp nhận khách hàng mới.');
+    } finally {
+      setIsSubmittingCustomer(false);
+    }
+  };
 
   const getTierBadgeStyle = (tier?: MemberTier) => {
     switch (tier) {
@@ -269,10 +383,11 @@ export const W03_Customers: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => toast.info('Thêm khách hàng', 'Mở biểu mẫu tiếp nhận hồ sơ khách hàng mới.')}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+          onClick={handleOpenCreateCustomerModal}
+          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
         >
-          Thêm khách hàng
+          <UserPlus className="w-4 h-4 stroke-[2]" />
+          <span>Thêm khách hàng</span>
         </button>
       </div>
 
@@ -305,10 +420,12 @@ export const W03_Customers: React.FC = () => {
             <Crown className="w-4 h-4 text-[#8A4F23] stroke-[1.8]" />
           </div>
           <div className="text-[24px] font-bold text-[#8E4002] tracking-tight mt-1">
-            {selectedCustomer ? `${selectedCustomer.rewardPoints.toLocaleString('vi-VN')} điểm` : '0 điểm'}
+            {selectedCustomer ? `${(selectedCustomer.rewardPoints || 0).toLocaleString('vi-VN')} điểm` : '—'}
           </div>
           <div className="text-[11px] text-[#73675F] font-medium mt-1">
-            {selectedCustomer?.fullName} · Hạng {selectedCustomer?.membershipTier}
+            {selectedCustomer
+              ? `${selectedCustomer.fullName} · Hạng ${selectedCustomer.membershipTier}`
+              : 'Chưa chọn khách hàng'}
           </div>
         </div>
 
@@ -316,17 +433,19 @@ export const W03_Customers: React.FC = () => {
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11.5px] font-medium text-[#73675F]">
-              Liệu trình của {selectedCustomer?.fullName?.split(' ').slice(-2).join(' ') || 'khách hàng'}
+              Liệu trình {selectedCustomer?.fullName ? `của ${selectedCustomer.fullName.split(' ').slice(-2).join(' ')}` : ''}
             </span>
             <Leaf className="w-4 h-4 text-[#8A4F23] stroke-[1.8]" />
           </div>
           <div className="text-[24px] font-bold text-[#8E4002] tracking-tight mt-1">
-            {selectedPackages.length > 0
+            {selectedCustomer && selectedPackages.length > 0
               ? `${selectedPackages.reduce((s, p) => s + (p.totalSessions - p.completedSessions), 0)} buổi còn`
-              : 'Chưa có gói'}
+              : selectedCustomer ? 'Chưa có gói' : '—'}
           </div>
           <div className="text-[11px] text-[#73675F] font-medium mt-1">
-            {selectedPackages.length} gói đang sở hữu · Tổng chi tiêu: {selectedCustomer?.totalSpent?.toLocaleString('vi-VN')}đ
+            {selectedCustomer
+              ? `${selectedPackages.length} gói đang sở hữu · Tổng chi tiêu: ${(selectedCustomer.totalSpent || 0).toLocaleString('vi-VN')}đ`
+              : 'Chưa có thông tin'}
           </div>
         </div>
       </div>
@@ -537,13 +656,13 @@ export const W03_Customers: React.FC = () => {
                             c.membershipTier
                           )}`}
                         >
-                          {c.membershipTier} • {c.rewardPoints} đ
+                          {c.membershipTier} • {(c.rewardPoints || 0).toLocaleString('vi-VN')} điểm
                         </span>
                       </td>
 
                       {/* Total Spent */}
                       <td className="py-3 px-4 font-bold text-[#8E4002] whitespace-nowrap">
-                        {c.totalSpent.toLocaleString('vi-VN')}đ
+                        {(c.totalSpent || 0).toLocaleString('vi-VN')}đ
                       </td>
 
                       {/* Action */}
@@ -636,7 +755,7 @@ export const W03_Customers: React.FC = () => {
         </div>
 
         {/* Right Column (4 of 12 cols on desktop) */}
-        {selectedCustomer && (
+        {selectedCustomer ? (
           <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
             <div className="text-center pb-4 border-b border-[#EFE4D9]">
               <img
@@ -655,7 +774,7 @@ export const W03_Customers: React.FC = () => {
                     selectedCustomer.membershipTier
                   )}`}
                 >
-                  Hạng {selectedCustomer.membershipTier} · {selectedCustomer.rewardPoints} điểm
+                  Hạng {selectedCustomer.membershipTier} · {(selectedCustomer.rewardPoints || 0).toLocaleString('vi-VN')} điểm
                 </span>
               </div>
             </div>
@@ -682,7 +801,7 @@ export const W03_Customers: React.FC = () => {
               <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
                 <span className="text-[#73675F]">Tổng chi tiêu:</span>
                 <span className="font-bold text-[#8E4002]">
-                  {selectedCustomer.totalSpent.toLocaleString('vi-VN')}đ
+                  {(selectedCustomer.totalSpent || 0).toLocaleString('vi-VN')}đ
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
@@ -695,13 +814,209 @@ export const W03_Customers: React.FC = () => {
 
             <button
               onClick={() => navigate(`/customer-detail?id=${selectedCustomer.id}`)}
-              className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               Xem bệnh án & hồ sơ chi tiết
             </button>
           </div>
+        ) : (
+          <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+              <Users className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-[#3E200C]">Chưa chọn khách hàng</h4>
+            <p className="text-xs text-[#8C7A6B] max-w-xs leading-relaxed">
+              Vui lòng chọn một khách hàng từ danh sách bên trái hoặc điều chỉnh bộ lọc để xem thông tin chi tiết.
+            </p>
+          </div>
         )}
       </div>
+
+      {/* 5. Modal Tiếp Nhận Khách Hàng Mới */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#EFE4D9] bg-[#FAF8F5]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#F3E2CE] flex items-center justify-center text-[#8A4F23] shrink-0">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-[#3E200C]">Tiếp nhận khách hàng mới</h2>
+                  <p className="text-xs text-[#73675F] mt-0.5">
+                    Tạo hồ sơ CRM, cấp mã hội viên và phân hạng thành viên ban đầu
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white border border-[#E8DFD8] flex items-center justify-center text-[#73675F] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleCreateCustomer} className="overflow-y-auto p-5 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Họ và tên khách hàng <span className="text-[#985018]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newCustomerForm.fullName}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, fullName: e.target.value })}
+                    placeholder="Ví dụ: Hoàng Thị Ánh Tuyết"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Số điện thoại <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      required
+                      value={newCustomerForm.phone}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                      placeholder="0901234567"
+                      className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Email liên hệ
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      value={newCustomerForm.email}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                      placeholder="khachhang@gmail.com"
+                      className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Hạng hội viên ban đầu
+                  </label>
+                  <select
+                    value={newCustomerForm.membershipTier}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, membershipTier: e.target.value as MemberTier })}
+                    className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#8A4F23] focus:outline-none focus:border-[#985018] cursor-pointer"
+                  >
+                    <option value={MemberTier.STANDARD}>STANDARD · Tiêu Chuẩn</option>
+                    <option value={MemberTier.SILVER}>SILVER · Hội viên Bạc</option>
+                    <option value={MemberTier.GOLD}>GOLD · Hội viên Vàng (VIP)</option>
+                    <option value={MemberTier.PLATINUM}>PLATINUM · Bạch Kim</option>
+                    <option value={MemberTier.DIAMOND}>DIAMOND · Kim Cương (VVIP)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Nhu cầu quan tâm
+                  </label>
+                  <select
+                    value={newCustomerForm.purpose}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, purpose: e.target.value as PurposeInterest })}
+                    className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
+                  >
+                    <option value={PurposeInterest.BEAUTY_SPA}>Trị liệu Spa & Thẩm mỹ</option>
+                    <option value={PurposeInterest.ACADEMY}>Học viện Academy</option>
+                    <option value={PurposeInterest.BOTH}>Cả Spa & Học viện</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Giới tính
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: 'FEMALE', label: 'Nữ' },
+                      { key: 'MALE', label: 'Nam' },
+                      { key: 'OTHER', label: 'Khác' },
+                    ].map((g) => {
+                      const isSel = newCustomerForm.gender === g.key;
+                      return (
+                        <button
+                          type="button"
+                          key={g.key}
+                          onClick={() => setNewCustomerForm({ ...newCustomerForm, gender: g.key as any })}
+                          className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                            isSel
+                              ? 'bg-[#FAF0E4] border-[#985018] text-[#985018] ring-1 ring-[#985018]'
+                              : 'bg-white border-[#E8DFD8] text-[#73675F] hover:border-[#D7BBA6]'
+                          }`}
+                        >
+                          {g.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Địa chỉ liên hệ
+                  </label>
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={newCustomerForm.address}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address: e.target.value })}
+                      placeholder="Số nhà, đường, phường, quận/huyện, tỉnh/thành"
+                      className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-[#EFE4D9] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2.5 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingCustomer}
+                  className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingCustomer ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang tiếp nhận...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Tạo hồ sơ khách hàng</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
