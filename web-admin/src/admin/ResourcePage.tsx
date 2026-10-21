@@ -46,8 +46,32 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   if (c.name === "technician_id") {
     return row.technician_name || row.technicians?.full_name || display(row[c.name]);
   }
+  if (c.name === "service_id") {
+    return row.service_name || row.services?.name || display(row[c.name]);
+  }
+  if (c.name === "booking_id") {
+    return row.booking_code || row.bookings?.booking_code || display(row[c.name]);
+  }
   if (c.name === "primary_instructor_id" || c.name === "instructor_id") {
     return row.instructor_name || row.instructor?.full_name || display(row[c.name]);
+  }
+  if (c.name === "rating") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val) && val > 0) {
+      return `⭐ ${val} / 5`;
+    }
+  }
+  if (c.name === "reward_points") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val)) {
+      return val.toLocaleString("vi-VN") + " điểm";
+    }
+  }
+  if (c.name === "total_spent") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val)) {
+      return val.toLocaleString("vi-VN") + " đ";
+    }
   }
   if (c.name === "base_salary") {
     const val = Number(row[c.name]);
@@ -60,6 +84,9 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     if (!isNaN(val) && val > 0) {
       return val + " %";
     }
+  }
+  if (Array.isArray(row[c.name])) {
+    return row[c.name].length > 0 ? row[c.name].join(", ") : "—";
   }
   return display(row[c.name]);
 }
@@ -750,7 +777,49 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     services: ["name", "code", "category_id", "price", "duration_minutes", "is_active"],
     treatment_packages: ["name", "code", "total_sessions", "price", "is_active"],
     bookings: ["booking_code", "customer_id", "branch_id", "booking_date", "start_time", "status", "payment_status"],
-    users: ["phone", "full_name", "email", "role", "membership_tier", "is_active"],
+    users: [
+      "full_name",
+      "phone",
+      "email",
+      "role",
+      "membership_tier",
+      "reward_points",
+      "total_spent",
+      "is_active",
+    ],
+    consultation_surveys: [
+      "customer_id",
+      "booking_id",
+      "focus_areas",
+      "pressure_pref",
+      "has_sensitive_skin",
+      "special_requests",
+      "created_at",
+    ],
+    reviews: [
+      "customer_id",
+      "service_id",
+      "technician_id",
+      "rating",
+      "comment",
+      "branch_reply",
+      "created_at",
+    ],
+    support_tickets: [
+      "customer_id",
+      "subject",
+      "message",
+      "status",
+      "admin_reply",
+      "created_at",
+    ],
+    support_faqs: [
+      "category",
+      "question",
+      "answer",
+      "display_order",
+      "is_active",
+    ],
     staff_profiles: [
       "full_name",
       "employee_code",

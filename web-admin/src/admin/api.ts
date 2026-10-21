@@ -125,6 +125,9 @@ const TABLE_SELECTS: Record<string, string> = {
   course_lessons: "*,course_chapters(title)",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
+  consultation_surveys: "*,customer:users!customer_id(full_name,phone),bookings(booking_code)",
+  reviews: "*,customer:users!customer_id(full_name,phone),services(name),technicians(full_name),bookings(booking_code)",
+  support_tickets: "*,customer:users!customer_id(full_name,phone)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -392,6 +395,12 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.technicians) {
         r.technician_name = r.technician_name || r.technicians.full_name;
+      }
+      if (r.services) {
+        r.service_name = r.service_name || r.services.name;
+      }
+      if (r.bookings) {
+        r.booking_code = r.booking_code || r.bookings.booking_code;
       }
       if (r.courses) {
         r.course_title = r.course_title || r.courses.title;
