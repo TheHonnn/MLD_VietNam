@@ -1440,6 +1440,47 @@ class SupabaseService {
   }
 
   // 16. QUẢN LÝ GÓI LIỆU TRÌNH & NHẬT KÝ ĐIỀU TRỊ (TREATMENT & JOURNAL FSM)
+  async createUserPackage(data: {
+    customerId: string;
+    packageId: string;
+    totalSessions: number;
+    completedSessions?: number;
+    status?: PackageStatus;
+    expiresAt?: string;
+  }): Promise<UserPackage | null> {
+    try {
+      const payload = {
+        customer_id: data.customerId,
+        package_id: data.packageId,
+        total_sessions: data.totalSessions,
+        completed_sessions: data.completedSessions || 0,
+        status: data.status || PackageStatus.ACTIVE,
+        purchased_at: new Date().toISOString(),
+        expires_at: data.expiresAt || new Date(Date.now() + 180 * 86400000).toISOString(),
+      };
+      const res = await this.query<any[]>('user_packages', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      if (res && res[0]) {
+        return {
+          id: res[0].id,
+          customerId: res[0].customer_id,
+          packageId: res[0].package_id,
+          totalSessions: Number(res[0].total_sessions),
+          completedSessions: Number(res[0].completed_sessions || 0),
+          status: res[0].status as PackageStatus,
+          purchasedAt: res[0].purchased_at,
+          expiresAt: res[0].expires_at,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[SupabaseService] createUserPackage error:', err);
+      return null;
+    }
+  }
+
   async updateUserPackage(
     userPackageId: string,
     updates: {

@@ -16,11 +16,13 @@ import {
   MapPin,
   Check,
   Loader2,
+  Download,
+  Building2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { customerService, treatmentService } from '../services';
+import { customerService, treatmentService, branchService } from '../services';
 import { toast } from '../components/common';
-import { User, MemberTier, UserPackage, PurposeInterest, UserRole } from '../types/shared_types';
+import { User, MemberTier, UserPackage, PurposeInterest, UserRole, Branch } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 const INITIAL_NEW_CUSTOMER_FORM = {
@@ -37,6 +39,8 @@ export const W03_Customers: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [allCustomers, setAllCustomers] = useState<User[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>('ALL');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedPackages, setSelectedPackages] = useState<UserPackage[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>('ALL');
@@ -53,19 +57,25 @@ export const W03_Customers: React.FC = () => {
   const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState(INITIAL_NEW_CUSTOMER_FORM);
 
-  // Fetch all customers on load
+  // Fetch all customers & branches on load
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
-      const res = await customerService.getCustomers();
+      const [res, branchRes] = await Promise.all([
+        customerService.getCustomers(),
+        branchService.getAllBranches(),
+      ]);
       if (res.success && res.data) {
         setAllCustomers(res.data);
         if (res.data.length > 0 && !selectedCustomerId) {
           setSelectedCustomerId(res.data[0].id);
         }
       }
+      if (branchRes.success && branchRes.data) {
+        setBranches(branchRes.data);
+      }
     } catch (err) {
-      console.error('Failed to load customers:', err);
+      console.error('Failed to load customers or branches:', err);
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +140,23 @@ export const W03_Customers: React.FC = () => {
       result = result.filter((c) => c.purpose === selectedPurpose);
     }
 
-    // 6. Sorting
+    // 6. Branch filter
+    if (selectedBranch !== 'ALL') {
+      const targetB = branches.find((b) => b.id === selectedBranch);
+      result = result.filter((c) => {
+        const uBId = (c as any).branchId || (c as any).branch_id;
+        if (uBId) return uBId === selectedBranch;
+        if (targetB) {
+          const addr = (c.address || '').toLowerCase();
+          const dName = targetB.district.toLowerCase();
+          const bName = targetB.name.toLowerCase();
+          return addr.includes(dName) || addr.includes(bName);
+        }
+        return true;
+      });
+    }
+
+    // 7. Sorting
     switch (selectedSort) {
       case 'SPENT_DESC':
         result.sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0));
@@ -152,14 +178,14 @@ export const W03_Customers: React.FC = () => {
     }
 
     return result;
-  }, [allCustomers, searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
+  }, [allCustomers, searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedBranch, selectedSort, branches]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
 
   // Reset page when filter criteria change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
+  }, [searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedBranch, selectedSort]);
 
   // CUST-06: Tự động điều chỉnh lùi trang khi dữ liệu co lại
   useEffect(() => {
@@ -189,6 +215,7 @@ export const W03_Customers: React.FC = () => {
     selectedTier !== 'ALL' ||
     selectedStatus !== 'ALL' ||
     selectedPurpose !== 'ALL' ||
+    selectedBranch !== 'ALL' ||
     selectedSort !== 'NEWEST';
 
   const handleResetFilters = () => {
@@ -197,7 +224,57 @@ export const W03_Customers: React.FC = () => {
     setSelectedTier('ALL');
     setSelectedStatus('ALL');
     setSelectedPurpose('ALL');
+    setSelectedBranch('ALL');
     setSelectedSort('NEWEST');
+  };
+
+  // Tính năng xuất danh sách khách hàng ra CSV chuẩn UTF-8
+  const handleExportCSV = () => {
+    if (filteredCustomers.length === 0) {
+      toast.warning('Không có dữ liệu', 'Không có hồ sơ khách hàng nào trong danh sách hiện tại để xuất.');
+      return;
+    }
+
+    const headers = [
+      'Mã khách hàng',
+      'Họ và tên',
+      'Số điện thoại',
+      'Email',
+      'Vai trò',
+      'Hạng hội viên',
+      'Điểm thưởng',
+      'Tổng chi tiêu (VNĐ)',
+      'Nhu cầu quan tâm',
+      'Địa chỉ',
+      'Ngày tạo',
+    ];
+
+    const rows = filteredCustomers.map((c) => [
+      `"${c.id}"`,
+      `"${c.fullName.replace(/"/g, '""')}"`,
+      `"${c.phone}"`,
+      `"${c.email || ''}"`,
+      `"${c.role}"`,
+      `"${c.membershipTier}"`,
+      c.rewardPoints || 0,
+      c.totalSpent || 0,
+      `"${c.purpose}"`,
+      `"${(c.address || '').replace(/"/g, '""')}"`,
+      `"${c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : ''}"`,
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `MLD_KhachHang_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('Xuất file thành công', `Đã xuất ${filteredCustomers.length} hồ sơ khách hàng ra file CSV.`);
   };
 
   // Load packages for selected customer
@@ -382,13 +459,23 @@ export const W03_Customers: React.FC = () => {
             Tra cứu đa chi nhánh · Kết nối trực tuyến qua customerService.
           </p>
         </div>
-        <button
-          onClick={handleOpenCreateCustomerModal}
-          className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
-        >
-          <UserPlus className="w-4 h-4 stroke-[2]" />
-          <span>Thêm khách hàng</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleExportCSV}
+            className="px-4 py-2.5 bg-white border border-[#D7BBA6] hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold rounded-xl transition-all shadow-2xs shrink-0 cursor-pointer flex items-center gap-1.5"
+            title="Xuất dữ liệu khách hàng ra file Excel / CSV (chuẩn UTF-8)"
+          >
+            <Download className="w-4 h-4 stroke-[2]" />
+            <span>Xuất CSV</span>
+          </button>
+          <button
+            onClick={handleOpenCreateCustomerModal}
+            className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+          >
+            <UserPlus className="w-4 h-4 stroke-[2]" />
+            <span>Thêm khách hàng</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Top 3 KPI Cards */}
@@ -472,6 +559,23 @@ export const W03_Customers: React.FC = () => {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* Branch Dropdown */}
+        <div className="relative shrink-0 whitespace-nowrap">
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
+          >
+            <option value="ALL">Tất cả chi nhánh</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Role Dropdown */}

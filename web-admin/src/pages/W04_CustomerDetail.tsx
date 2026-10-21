@@ -30,6 +30,7 @@ import {
   User,
   Booking,
   UserPackage,
+  TreatmentPackage,
   TreatmentJournal,
   CourseEnrollment,
   MemberTier,
@@ -38,6 +39,22 @@ import {
 } from '../types/shared_types';
 
 import { useSearchParams, useNavigate } from 'react-router-dom';
+
+const getNextTierInfo = (tier?: MemberTier, spent: number = 0) => {
+  const TIER_THRESHOLDS = [
+    { tier: MemberTier.STANDARD, target: 10_000_000, nextName: 'Bạc' },
+    { tier: MemberTier.SILVER, target: 25_000_000, nextName: 'Vàng' },
+    { tier: MemberTier.GOLD, target: 50_000_000, nextName: 'Bạch Kim' },
+    { tier: MemberTier.PLATINUM, target: 100_000_000, nextName: 'Kim Cương' },
+  ];
+  const current = TIER_THRESHOLDS.find((t) => t.tier === tier);
+  if (!current) {
+    return { isMax: true, percent: 100, remaining: 0, nextName: 'Kim Cương' };
+  }
+  const percent = Math.min(100, Math.round((spent / current.target) * 100));
+  const remaining = Math.max(0, current.target - spent);
+  return { isMax: false, percent, remaining, nextName: current.nextName, target: current.target };
+};
 
 export const W04_CustomerDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -50,6 +67,12 @@ export const W04_CustomerDetail: React.FC = () => {
   const [journals, setJournals] = useState<TreatmentJournal[]>([]);
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Assign Package Modal States
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [availablePackages, setAvailablePackages] = useState<TreatmentPackage[]>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+  const [isAssigningPackage, setIsAssigningPackage] = useState(false);
 
   // Edit Profile Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -188,6 +211,61 @@ export const W04_CustomerDetail: React.FC = () => {
       toast.error('Lỗi', 'Không thể hoàn tất thao tác.');
     } finally {
       setIsProcessingSession(false);
+    }
+  };
+
+  const handleOpenAssignPackageModal = async () => {
+    setIsAssignModalOpen(true);
+    try {
+      const res = await treatmentService.getTreatmentPackages();
+      if (res.success && res.data) {
+        setAvailablePackages(res.data);
+        if (res.data.length > 0) {
+          setSelectedPackageId(res.data[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load treatment packages:', err);
+    }
+  };
+
+  const handleAssignPackageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customer?.id) return;
+    const targetPkg = availablePackages.find((p) => p.id === selectedPackageId) || availablePackages[0];
+    if (!targetPkg) {
+      toast.warning('Chưa chọn gói', 'Vui lòng chọn một gói liệu trình để gán cho khách hàng.');
+      return;
+    }
+
+    setIsAssigningPackage(true);
+    try {
+      const res = await treatmentService.assignPackageToCustomer({
+        customerId: customer.id,
+        packageId: targetPkg.id,
+        packageName: targetPkg.name,
+        totalSessions: targetPkg.totalSessions,
+        price: targetPkg.discountPrice || targetPkg.price,
+        validityMonths: targetPkg.validityMonths || 6,
+      });
+
+      if (res.success && res.data) {
+        setPackages((prev) => [res.data, ...prev]);
+        const addedPrice = targetPkg.discountPrice || targetPkg.price;
+        setCustomer((prev) => prev ? { ...prev, totalSpent: (prev.totalSpent || 0) + addedPrice } : prev);
+        toast.success(
+          'Đăng ký gói thành công',
+          `Đã kích hoạt gói "${targetPkg.name}" (${targetPkg.totalSessions} buổi) cho khách hàng ${customer.fullName}.`
+        );
+        setIsAssignModalOpen(false);
+      } else {
+        toast.error('Lỗi gán gói', res.message || 'Không thể đăng ký gói liệu trình');
+      }
+    } catch (err) {
+      console.error('Lỗi khi gán gói liệu trình:', err);
+      toast.error('Lỗi hệ thống', 'Không thể hoàn tất gán gói liệu trình.');
+    } finally {
+      setIsAssigningPackage(false);
     }
   };
 
@@ -330,6 +408,7 @@ export const W04_CustomerDetail: React.FC = () => {
     }
   };
 
+  const tierInfo = getNextTierInfo(customer?.membershipTier, customer?.totalSpent || 0);
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -447,8 +526,20 @@ export const W04_CustomerDetail: React.FC = () => {
                   </div>
                   <ArrowRight className="w-4 h-4 text-white" />
                 </button>
-                <div className="text-[10px] text-[#F3E2CE]/70 mt-2.5">
-                  Tổng chi tiêu: {(customer?.totalSpent || 0).toLocaleString('vi-VN')}đ
+                {/* Thanh tiến trình nâng hạng hội viên VIP */}
+                <div className="mt-3 pt-2.5 border-t border-white/15 text-[10.5px]">
+                  <div className="flex justify-between items-center text-[#F3E2CE]/90 mb-1 font-medium">
+                    <span>Tổng chi tiêu: {(customer?.totalSpent || 0).toLocaleString('vi-VN')}đ</span>
+                    <span className="font-bold">
+                      {tierInfo.isMax ? 'Hạng VVIP tối đa' : `Cần +${tierInfo.remaining.toLocaleString('vi-VN')}đ lên ${tierInfo.nextName}`}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-black/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#F3E2CE] to-white rounded-full transition-all duration-500"
+                      style={{ width: `${tierInfo.percent}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -502,6 +593,24 @@ export const W04_CustomerDetail: React.FC = () => {
 
         {/* Right Column (approx 8 / 12 cols = 66.6%) */}
         <div className="lg:col-span-8 space-y-4">
+          {/* Medical Safety Alert Banner */}
+          <div className="p-4 rounded-2xl border border-[#F3C7A8] bg-[#FDF6F0] flex items-start gap-3 text-xs shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-[#FAF0E4] flex items-center justify-center text-[#985018] shrink-0 mt-0.5">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#3E200C]">Lưu ý an toàn trị liệu & Phác đồ MLD Vodder</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                  Tiêu chuẩn lâm sàng
+                </span>
+              </div>
+              <p className="text-[11.5px] text-[#5C5046] mt-1 leading-relaxed">
+                {clinicalNotes || 'Khách hàng đáp ứng tốt với kỹ thuật Vodder chuẩn y khoa. Cần theo dõi phản ứng sau 24h.'}
+              </p>
+            </div>
+          </div>
+
           {/* TAB 1: Lịch hẹn (hiển thị khi chọn 'Tổng quan' hoặc 'Lịch hẹn') */}
           {(activeTab === 'Tổng quan' || activeTab === 'Lịch hẹn') && (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
@@ -576,6 +685,25 @@ export const W04_CustomerDetail: React.FC = () => {
           {/* TAB 2: Liệu trình & Gói chăm sóc (hiển thị khi chọn 'Tổng quan' hoặc 'Liệu trình') */}
           {(activeTab === 'Tổng quan' || activeTab === 'Liệu trình') && (
             <>
+              <div className="flex items-center justify-between pb-1">
+                <div>
+                  <h3 className="text-sm font-bold text-[#2C241E]">
+                    Gói liệu trình sở hữu ({packages.length})
+                  </h3>
+                  <p className="text-[11px] text-[#73675F]">
+                    Quản lý phác đồ điều trị và số buổi chăm sóc của khách hàng
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenAssignPackageModal}
+                  className="px-3.5 py-1.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>+ Đăng ký gói liệu trình</span>
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {packages.length === 0 ? (
                   <div className="col-span-2 bg-white rounded-2xl border border-[#EFE4D9] p-6 text-center text-xs text-[#8C7A6B]">
@@ -1061,6 +1189,106 @@ export const W04_CustomerDetail: React.FC = () => {
                     <>
                       <Check className="w-4 h-4 stroke-[2.5]" />
                       <span>Lưu thay đổi hồ sơ</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Modal Đăng ký / Gán Gói Liệu Trình Mới */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#EFE4D9] bg-[#FAF8F5]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#F3E2CE] flex items-center justify-center text-[#8A4F23] shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-[#3E200C]">Đăng ký gói liệu trình</h2>
+                  <p className="text-xs text-[#73675F] mt-0.5">
+                    Gán gói phác đồ điều trị cho khách hàng {customer?.fullName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAssignModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white border border-[#E8DFD8] flex items-center justify-center text-[#73675F] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleAssignPackageSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Chọn gói liệu trình
+                </label>
+                <div className="space-y-2">
+                  {availablePackages.map((pkg) => {
+                    const isSelected = selectedPackageId === pkg.id;
+                    const displayPrice = pkg.discountPrice || pkg.price;
+                    return (
+                      <div
+                        key={pkg.id}
+                        onClick={() => setSelectedPackageId(pkg.id)}
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-[#FAF0E4] border-[#985018] ring-1 ring-[#985018]'
+                            : 'bg-white border-[#E8DFD8] hover:border-[#D7BBA6]'
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="font-bold text-xs text-[#2C241E] flex items-center gap-2">
+                            <span>{pkg.name}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F3E2CE] text-[#8A4F23]">
+                              {pkg.totalSessions} buổi
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-[#73675F]">
+                            Hạn dùng: {pkg.validityMonths || 6} tháng · Phác đồ MLD Vodder
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-extrabold text-sm text-[#8E4002]">
+                            {displayPrice.toLocaleString('vi-VN')}đ
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAssignModalOpen(false)}
+                  className="px-4 py-2.5 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAssigningPackage || availablePackages.length === 0}
+                  className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isAssigningPackage ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang kích hoạt...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Kích hoạt gói ngay</span>
                     </>
                   )}
                 </button>
