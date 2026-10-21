@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/mock_treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
 import 'd01_my_packages_screen.dart';
 
 class D08NotificationsScreen extends StatefulWidget {
@@ -17,7 +17,7 @@ class D08NotificationsScreen extends StatefulWidget {
 }
 
 class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
-  final MockTreatmentRepository _repo = MockTreatmentRepository();
+  final TreatmentRepository _repo = TreatmentRepository.instance;
 
   int _selectedTabIndex = 0; // 0: Tất cả, 1: Lịch hẹn, 2: Liệu trình, 3: Đào tạo
   final List<String> _tabs = ['Tất cả', 'Lịch hẹn', 'Liệu trình', 'Đào tạo'];

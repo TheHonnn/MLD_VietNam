@@ -3,7 +3,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
-import '../../../membership/data/repositories/mock_membership_repository.dart';
+import '../../../../core/widgets/vietnamese_dob_picker.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import '../../widgets/primary_button.dart';
 import 'a06_purpose_selection_screen.dart';
 
@@ -23,6 +24,7 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
   final _fullNameController = TextEditingController();
   final _dobController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   String? _selectedGender;
   bool _isLoading = false;
   String? _avatarPath;
@@ -44,30 +46,28 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
     _fullNameController.dispose();
     _dobController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
   Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(2000, 1, 1),
-      firstDate: DateTime(1930),
-      lastDate: now,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: AppColors.surface,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
+    DateTime initial = DateTime(2000, 1, 1);
+    if (_dobController.text.isNotEmpty) {
+      try {
+        final parts = _dobController.text.split('/');
+        if (parts.length == 3) {
+          initial = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+        }
+      } catch (_) {}
+    }
+
+    final picked = await VietnameseDobPicker.show(
+      context,
+      initialDate: initial,
+      minYear: 1940,
+      maxYear: DateTime.now().year,
     );
+
     if (picked != null) {
       final day = picked.day.toString().padLeft(2, '0');
       final month = picked.month.toString().padLeft(2, '0');
@@ -95,19 +95,38 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
         return;
       }
     }
+
+    final enteredPhone = widget.phone.isNotEmpty
+        ? widget.phone
+        : _phoneController.text.trim().replaceAll(' ', '');
+
+    if (widget.phone.isEmpty && enteredPhone.isNotEmpty) {
+      final phoneError = AppValidators.phone(enteredPhone);
+      if (phoneError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(phoneError), backgroundColor: Colors.redAccent),
+        );
+        return;
+      }
+    }
+
     setState(() {
       _isLoading = true;
     });
 
+    if (enteredPhone.isNotEmpty) {
+      await AuthService.instance.updatePhone(enteredPhone);
+    }
+
     final fullName = _fullNameController.text.trim();
-    final repo = MockMembershipRepository();
+    final repo = MembershipRepository.instance;
     repo.updateProfile(repo.profile.copyWith(
       fullName: fullName,
-      phone: widget.phone.isNotEmpty ? widget.phone : repo.profile.phone,
-      email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : repo.profile.email,
-      dateOfBirth: _dobController.text.trim().isNotEmpty ? _dobController.text.trim() : repo.profile.dateOfBirth,
+      phone: enteredPhone.isNotEmpty ? enteredPhone : repo.profile.phone,
+      email: _emailController.text.trim(),
+      dateOfBirth: _dobController.text.trim(),
       gender: _selectedGender ?? repo.profile.gender,
-      avatarUrl: _avatarPath ?? repo.profile.avatarUrl,
+      avatarUrl: _avatarPath ?? '',
     ));
 
     // Persist to AuthService session
@@ -315,37 +334,42 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
 
                         const SizedBox(height: 16),
 
-                        // 2. Số điện thoại (read-only kèm checkmark xanh)
-                        _buildFieldLabel('Số điện thoại'),
+                        // 2. Số điện thoại
+                        _buildFieldLabel('Số điện thoại${widget.phone.isEmpty ? ' (Khuyên dùng)' : ''}'),
                         const SizedBox(height: 8),
-                        Container(
-                          height: 52,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceSecondary, // #F3E2CE
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border, width: 1.0),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  widget.phone.isNotEmpty ? widget.phone : 'Chưa có số điện thoại',
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.textPrimary,
-                                  ),
+                        widget.phone.isNotEmpty
+                            ? Container(
+                                height: 52,
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceSecondary, // #F3E2CE
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.border, width: 1.0),
                                 ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        widget.phone,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      size: 20,
+                                      color: AppColors.success, // #2E8B57
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : _buildInputField(
+                                controller: _phoneController,
+                                hintText: 'Nhập số điện thoại liên hệ (Ví dụ: 0912 345 678)',
                               ),
-                              const Icon(
-                                Icons.verified_rounded,
-                                size: 20,
-                                color: AppColors.success, // #2E8B57
-                              ),
-                            ],
-                          ),
-                        ),
 
                         const SizedBox(height: 16),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
+import '../../../home/data/repositories/technician_repository.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c04_datetime_selection_screen.dart';
@@ -20,6 +21,7 @@ class C03SpecialistSelectionScreen extends StatefulWidget {
 
 class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScreen> {
   late List<TechnicianModel> _allSpecialists;
+  bool _isLoading = false;
   String _selectedExpertise = 'Massage · Chi nhánh Quận 3';
 
   final List<String> _expertiseOptions = [
@@ -34,11 +36,30 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
     super.initState();
     _allSpecialists = MockHomeRepository.getTopTechnicians();
 
-    // Mặc định chọn chuyên viên đầu tiên phù hợp (Trần Minh Phương) nếu chưa có
+    // Mặc định chọn chuyên viên đầu tiên phù hợp nếu chưa có
     if (!widget.flowState.autoAssignSpecialist &&
         widget.flowState.selectedSpecialist == null &&
         _allSpecialists.isNotEmpty) {
       widget.flowState.selectedSpecialist = _allSpecialists.first;
+    }
+
+    _loadSpecialists();
+  }
+
+  Future<void> _loadSpecialists() async {
+    setState(() => _isLoading = true);
+    final branchId = widget.flowState.selectedBranch?.id;
+    final liveSpecialists = await TechnicianRepository.instance.getTechnicians(branchId: branchId);
+    if (mounted) {
+      setState(() {
+        _allSpecialists = liveSpecialists;
+        _isLoading = false;
+        if (!widget.flowState.autoAssignSpecialist &&
+            widget.flowState.selectedSpecialist == null &&
+            _allSpecialists.isNotEmpty) {
+          widget.flowState.selectedSpecialist = _allSpecialists.first;
+        }
+      });
     }
   }
 
@@ -177,74 +198,50 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: CircularProgressIndicator(color: BookingColors.primary),
+                      ),
+                    )
+                  else if (_allSpecialists.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          'Chưa có dữ liệu chuyên viên.',
+                          style: TextStyle(color: BookingColors.textSecondary, fontSize: 14),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._allSpecialists.map((spec) {
+                      final isSelected = !isAuto && selectedSpecialist?.id == spec.id;
+                      final tagline = spec.specialties.isNotEmpty
+                          ? spec.specialties.join(' · ')
+                          : spec.speciality;
+                      final conditionNote = '${spec.clinicName} · ${spec.experienceYears} năm KN · ⭐ ${spec.rating.toStringAsFixed(1)} (${spec.reviewCount})';
 
-                  // Thẻ 1: SpecialistRadioCard / Đang chọn (Trần Minh Phương - Đủ chuyên môn)
-                  _buildSpecialistCard(
-                    specialist: _allSpecialists.isNotEmpty
-                        ? _allSpecialists.first
-                        : MockHomeRepository.getTopTechnicians().first,
-                    isQualified: true,
-                    isSelected: !isAuto &&
-                        selectedSpecialist?.id ==
-                            (_allSpecialists.isNotEmpty ? _allSpecialists.first.id : 'spec-001'),
-                    radioLabel: 'Chuyên viên ưu tiên',
-                    tagline: 'Massage thư giãn · Chăm sóc tận tâm',
-                    conditionNote:
-                        'Chi nhánh Quận 3 · Chuyên môn massage trị liệu và phục hồi',
-                    onSelect: () {
-                      setState(() {
-                        widget.flowState.autoAssignSpecialist = false;
-                        widget.flowState.selectedSpecialist =
-                            _allSpecialists.isNotEmpty ? _allSpecialists.first : null;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Thẻ 2: SpecialistRadioCard / Không đủ chuyên môn (Nguyễn Thu Hà - Chăm sóc da)
-                  _buildSpecialistCard(
-                    specialist: _allSpecialists.length > 1
-                        ? _allSpecialists[1]
-                        : MockHomeRepository.getTopTechnicians()[1],
-                    isQualified: false,
-                    isSelected: false,
-                    radioLabel: 'Chưa đủ điều kiện phân công',
-                    tagline: 'Chăm sóc da · Quy trình làm sạch dịu nhẹ',
-                    conditionNote:
-                        'Nguyễn Thu Hà chuyên sâu về chăm sóc và phục hồi da',
-                    onSelect: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Chuyên viên này phụ trách chuyên sâu dịch vụ chăm sóc da mặt.'),
-                          duration: Duration(seconds: 2),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _buildSpecialistCard(
+                          specialist: spec,
+                          isQualified: true,
+                          isSelected: isSelected,
+                          radioLabel: isSelected ? 'Chuyên viên đã chọn' : 'Chọn chuyên viên này',
+                          tagline: tagline,
+                          conditionNote: conditionNote,
+                          onSelect: () {
+                            setState(() {
+                              widget.flowState.autoAssignSpecialist = false;
+                              widget.flowState.selectedSpecialist = spec;
+                            });
+                          },
                         ),
                       );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Thẻ 3: SpecialistRadioCard / Không đủ chuyên môn (Lê Hoài An - Chăm sóc cơ thể)
-                  _buildSpecialistCard(
-                    specialist: _allSpecialists.length > 2
-                        ? _allSpecialists[2]
-                        : MockHomeRepository.getTopTechnicians().last,
-                    isQualified: false,
-                    isSelected: false,
-                    radioLabel: 'Chưa đủ điều kiện phân công',
-                    tagline: 'Chăm sóc cơ thể · Thư giãn toàn thân',
-                    conditionNote:
-                        'Lê Hoài An chuyên sâu về chăm sóc và thư giãn cơ thể',
-                    onSelect: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Chuyên viên này phụ trách chuyên sâu dịch vụ chăm sóc da mặt.'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
+                    }),
+                  const SizedBox(height: 12),
 
                   // Thẻ Ghi chú
                   const IllustrationNoteCard(
@@ -350,18 +347,31 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: Image.asset(
-                          specialist.avatarUrl,
-                          width: 88,
-                          height: 104,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 88,
-                            height: 104,
-                            color: BookingColors.cardWarm,
-                            child: const Icon(Icons.person, color: BookingColors.primary, size: 36),
-                          ),
-                        ),
+                        child: specialist.avatarUrl.startsWith('http')
+                            ? Image.network(
+                                specialist.avatarUrl,
+                                width: 88,
+                                height: 104,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 88,
+                                  height: 104,
+                                  color: BookingColors.cardWarm,
+                                  child: const Icon(Icons.person, color: BookingColors.primary, size: 36),
+                                ),
+                              )
+                            : Image.asset(
+                                specialist.avatarUrl,
+                                width: 88,
+                                height: 104,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 88,
+                                  height: 104,
+                                  color: BookingColors.cardWarm,
+                                  child: const Icon(Icons.person, color: BookingColors.primary, size: 36),
+                                ),
+                              ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(

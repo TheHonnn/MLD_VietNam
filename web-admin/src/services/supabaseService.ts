@@ -601,6 +601,43 @@ class SupabaseService {
     }
   }
 
+  async createUser(payload: Record<string, any>): Promise<User | null> {
+    try {
+      const res = await this.query<any[]>('users', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const u = res[0];
+        return {
+          id: u.id,
+          phone: u.phone,
+          email: u.email,
+          fullName: u.full_name,
+          avatarUrl: u.avatar_url,
+          gender: u.gender || 'OTHER',
+          dateOfBirth: u.date_of_birth,
+          address: u.address,
+          emergencyContactName: u.emergency_contact_name,
+          emergencyContactPhone: u.emergency_contact_phone,
+          purpose: u.purpose,
+          role: u.role || 'CUSTOMER',
+          membershipTier: u.membership_tier || 'STANDARD',
+          rewardPoints: Number(u.reward_points || 0),
+          totalSpent: Number(u.total_spent || 0),
+          referralCode: u.referral_code,
+          isActive: Boolean(u.is_active ?? true),
+          createdAt: u.created_at || new Date().toISOString(),
+          updatedAt: u.updated_at || new Date().toISOString(),
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[SupabaseService] createUser error:', err);
+      return null;
+    }
+  }
 
   // 4. DỊCH VỤ SPA (SERVICES)
   async getServices(): Promise<Service[] | null> {
@@ -913,6 +950,169 @@ class SupabaseService {
     } catch (err) {
       console.warn('[SupabaseService] updateBooking error:', err);
       return false;
+    }
+  }
+
+  // Tạo mới lịch hẹn (Booking) trực tiếp lên Supabase Cloud
+  async createBooking(bookingData: {
+    bookingCode?: string;
+    customerId?: string;
+    branchId?: string;
+    assignedRoomId?: string | null;
+    assignedBedNumber?: string | null;
+    technicianId?: string | null;
+    bookingDate: string; // YYYY-MM-DD
+    startTime: string;   // HH:MM:SS
+    endTime: string;     // HH:MM:SS
+    status?: BookingStatus;
+    paymentStatus?: PaymentStatus;
+    paymentMethod?: PaymentMethod;
+    baseTotal: number;
+    discountAmount?: number;
+    finalPrice: number;
+    bookedForName: string;
+    bookedForPhone?: string;
+    specialNotes?: string;
+    serviceId?: string;
+    durationMinutes?: number;
+  }): Promise<Booking | null> {
+    try {
+      // 1. Đảm bảo có customer_id hợp lệ cho foreign key
+      let validCustomerId = bookingData.customerId;
+      if (!validCustomerId) {
+        const users = await this.query<any[]>('users?select=id&limit=1');
+        if (users && users.length > 0) {
+          validCustomerId = users[0].id;
+        }
+      }
+
+      // 2. Đảm bảo có branch_id hợp lệ
+      let validBranchId = bookingData.branchId;
+      if (!validBranchId) {
+        const branches = await this.query<any[]>('branches?select=id&limit=1');
+        if (branches && branches.length > 0) {
+          validBranchId = branches[0].id;
+        }
+      }
+
+      const bookingCode = bookingData.bookingCode || `BK-${Date.now().toString().slice(-6)}`;
+      const payload: Record<string, any> = {
+        booking_code: bookingCode,
+        customer_id: validCustomerId,
+        branch_id: validBranchId,
+        booking_date: bookingData.bookingDate,
+        start_time: bookingData.startTime,
+        end_time: bookingData.endTime,
+        status: bookingData.status || 'CONFIRMED',
+        payment_status: bookingData.paymentStatus || 'UNPAID',
+        payment_method: bookingData.paymentMethod || 'CASH',
+        base_total: bookingData.baseTotal || 0,
+        discount_amount: bookingData.discountAmount || 0,
+        final_price: bookingData.finalPrice || bookingData.baseTotal || 0,
+        booked_for_name: bookingData.bookedForName,
+        booked_for_phone: bookingData.bookedForPhone || null,
+        special_notes: bookingData.specialNotes || null,
+        qr_code_hash: `mld_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      };
+
+      if (bookingData.assignedRoomId) payload.assigned_room_id = bookingData.assignedRoomId;
+      if (bookingData.assignedBedNumber) payload.assigned_bed_number = bookingData.assignedBedNumber;
+      if (bookingData.technicianId && !bookingData.technicianId.startsWith('tech-')) {
+        payload.technician_id = bookingData.technicianId;
+      }
+
+      const res = await this.query<any[]>('bookings', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (res && res.length > 0) {
+        const createdRow = res[0];
+
+        // Nếu có serviceId, tạo thêm booking_item
+        if (bookingData.serviceId && createdRow.id) {
+          try {
+            await this.query('booking_items', {
+              method: 'POST',
+              body: JSON.stringify({
+                booking_id: createdRow.id,
+                service_id: bookingData.serviceId,
+                technician_id: payload.technician_id || null,
+                duration_minutes: bookingData.durationMinutes || 60,
+                price: bookingData.finalPrice,
+              }),
+            });
+          } catch (itemErr) {
+            console.warn('[SupabaseService] create booking_item error:', itemErr);
+          }
+        }
+
+        // Lấy lại booking hoàn chỉnh kèm quan hệ
+        const full = await this.query<any[]>(
+          `bookings?select=*,customer:users!bookings_customer_id_fkey(*),branch:branches!bookings_branch_id_fkey(*),technician:technicians(*),room:branch_rooms(*),items:booking_items(*,service:services(*))&id=eq.${createdRow.id}`
+        );
+
+        if (full && full.length > 0) {
+          const b = full[0];
+          return {
+            id: b.id,
+            bookingCode: b.booking_code,
+            customerId: b.customer_id,
+            branchId: b.branch_id,
+            assignedRoomId: b.assigned_room_id,
+            assignedBedNumber: b.assigned_bed_number,
+            technicianId: b.technician_id,
+            bookingDate: b.booking_date,
+            startTime: b.start_time,
+            endTime: b.end_time,
+            status: b.status,
+            paymentStatus: b.payment_status,
+            paymentMethod: b.payment_method,
+            baseTotal: Number(b.base_total),
+            couponId: b.coupon_id,
+            discountAmount: Number(b.discount_amount || 0),
+            pointsUsed: Number(b.points_used || 0),
+            pointsDiscount: Number(b.points_discount || 0),
+            finalPrice: Number(b.final_price),
+            bookedForName: b.booked_for_name,
+            bookedForPhone: b.booked_for_phone,
+            specialNotes: b.special_notes,
+            qrCodeHash: b.qr_code_hash,
+            hasMedicalAlert: Boolean(b.has_medical_alert),
+            customer: b.customer,
+            branch: b.branch,
+            technician: b.technician,
+          } as Booking;
+        }
+
+        return {
+          id: createdRow.id,
+          bookingCode: createdRow.booking_code,
+          customerId: createdRow.customer_id,
+          branchId: createdRow.branch_id,
+          technicianId: createdRow.technician_id,
+          bookingDate: createdRow.booking_date,
+          startTime: createdRow.start_time,
+          endTime: createdRow.end_time,
+          status: createdRow.status,
+          paymentStatus: createdRow.payment_status,
+          paymentMethod: createdRow.payment_method,
+          baseTotal: Number(createdRow.base_total),
+          discountAmount: Number(createdRow.discount_amount || 0),
+          pointsUsed: 0,
+          pointsDiscount: 0,
+          finalPrice: Number(createdRow.final_price),
+          bookedForName: createdRow.booked_for_name,
+          bookedForPhone: createdRow.booked_for_phone,
+          specialNotes: createdRow.special_notes,
+          qrCodeHash: createdRow.qr_code_hash,
+          hasMedicalAlert: false,
+        } as Booking;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[SupabaseService] createBooking error:', err);
+      return null;
     }
   }
 
@@ -1240,6 +1440,47 @@ class SupabaseService {
   }
 
   // 16. QUẢN LÝ GÓI LIỆU TRÌNH & NHẬT KÝ ĐIỀU TRỊ (TREATMENT & JOURNAL FSM)
+  async createUserPackage(data: {
+    customerId: string;
+    packageId: string;
+    totalSessions: number;
+    completedSessions?: number;
+    status?: PackageStatus;
+    expiresAt?: string;
+  }): Promise<UserPackage | null> {
+    try {
+      const payload = {
+        customer_id: data.customerId,
+        package_id: data.packageId,
+        total_sessions: data.totalSessions,
+        completed_sessions: data.completedSessions || 0,
+        status: data.status || PackageStatus.ACTIVE,
+        purchased_at: new Date().toISOString(),
+        expires_at: data.expiresAt || new Date(Date.now() + 180 * 86400000).toISOString(),
+      };
+      const res = await this.query<any[]>('user_packages', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      if (res && res[0]) {
+        return {
+          id: res[0].id,
+          customerId: res[0].customer_id,
+          packageId: res[0].package_id,
+          totalSessions: Number(res[0].total_sessions),
+          completedSessions: Number(res[0].completed_sessions || 0),
+          status: res[0].status as PackageStatus,
+          purchasedAt: res[0].purchased_at,
+          expiresAt: res[0].expires_at,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[SupabaseService] createUserPackage error:', err);
+      return null;
+    }
+  }
+
   async updateUserPackage(
     userPackageId: string,
     updates: {

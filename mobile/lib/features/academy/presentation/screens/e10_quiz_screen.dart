@@ -358,9 +358,10 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.all(24),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             Container(
               width: 60,
               height: 60,
@@ -413,6 +414,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
               ],
             ),
           ],
+        ),
         ),
       ),
     );

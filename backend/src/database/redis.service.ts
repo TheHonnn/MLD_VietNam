@@ -95,6 +95,98 @@ export class RedisService implements OnModuleDestroy {
     return false;
   }
 
+  /**
+   * Lấy giá trị chuỗi theo key
+   */
+  async get(key: string): Promise<string | null> {
+    if (this.isConnected && this.redisClient) {
+      try {
+        return await this.redisClient.get(key);
+      } catch (err) {
+        this.logger.error(`Lỗi Redis get: ${err.message}`);
+      }
+    }
+
+    const now = Date.now();
+    const item = this.fallbackMemoryLock.get(key);
+    if (item && item.expiresAt > now) {
+      return item.value;
+    }
+    if (item && item.expiresAt <= now) {
+      this.fallbackMemoryLock.delete(key);
+    }
+    return null;
+  }
+
+  /**
+   * Lưu key/value kèm thời gian hết hạn (TTL giây)
+   */
+  async set(key: string, value: string, ttlSeconds: number): Promise<void> {
+    if (this.isConnected && this.redisClient) {
+      try {
+        await this.redisClient.set(key, value, 'EX', ttlSeconds);
+        return;
+      } catch (err) {
+        this.logger.error(`Lỗi Redis set: ${err.message}`);
+      }
+    }
+
+    this.fallbackMemoryLock.set(key, {
+      value,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    });
+  }
+
+  /**
+   * Xóa key khỏi Redis hoặc In-memory cache
+   */
+  async del(key: string): Promise<void> {
+    if (this.isConnected && this.redisClient) {
+      try {
+        await this.redisClient.del(key);
+        return;
+      } catch (err) {
+        this.logger.error(`Lỗi Redis del: ${err.message}`);
+      }
+    }
+
+    this.fallbackMemoryLock.delete(key);
+  }
+
+  /**
+   * Tăng biến đếm và thiết lập TTL (phục vụ Rate Limiting)
+   */
+  async incr(key: string, ttlSeconds: number): Promise<number> {
+    if (this.isConnected && this.redisClient) {
+      try {
+        const count = await this.redisClient.incr(key);
+        if (count === 1) {
+          await this.redisClient.expire(key, ttlSeconds);
+        }
+        return count;
+      } catch (err) {
+        this.logger.error(`Lỗi Redis incr: ${err.message}`);
+      }
+    }
+
+    const now = Date.now();
+    const item = this.fallbackMemoryLock.get(key);
+    let count = 1;
+    if (item && item.expiresAt > now) {
+      count = parseInt(item.value, 10) + 1;
+      this.fallbackMemoryLock.set(key, {
+        value: count.toString(),
+        expiresAt: item.expiresAt,
+      });
+    } else {
+      this.fallbackMemoryLock.set(key, {
+        value: '1',
+        expiresAt: now + ttlSeconds * 1000,
+      });
+    }
+    return count;
+  }
+
   onModuleDestroy() {
     if (this.redisClient) {
       this.redisClient.disconnect();

@@ -706,43 +706,43 @@ export const W12_FinancialReports: React.FC = () => {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead>
-              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
-                <th className="py-2.5 px-4 font-semibold">Biên nhận / ngày</th>
-                <th className="py-2.5 px-4 font-semibold">Nội dung khoản thu</th>
-                <th className="py-2.5 px-4 font-semibold">Phương thức</th>
-                <th className="py-2.5 px-4 font-semibold">Số tiền</th>
-                <th className="py-2.5 px-4 font-semibold">Trạng thái</th>
+              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Biên nhận / ngày</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Nội dung khoản thu</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Phương thức</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Số tiền</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Trạng thái</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFE4D9] text-xs">
+            <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
               {filteredInvoices.map((inv) => (
                 <tr key={inv.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
                   {/* 1. Biên nhận / ngày */}
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-xs text-[#2C241E]">{inv.code}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{inv.date}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">{inv.code}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{inv.date}</div>
                   </td>
 
                   {/* 2. Nội dung khoản thu */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{inv.description}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{inv.description}</div>
                   </td>
 
                   {/* 3. Phương thức */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{inv.method}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{inv.method}</div>
                   </td>
 
                   {/* 4. Số tiền */}
-                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E]">
+                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E] whitespace-nowrap">
                     {inv.amount}
                   </td>
 
                   {/* 5. Trạng thái */}
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#E8F5E9] text-[#2E7D32] whitespace-nowrap">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>{inv.statusText}</span>
                     </span>
@@ -791,43 +791,43 @@ export const W12_FinancialReports: React.FC = () => {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead>
-              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
-                <th className="py-2.5 px-4 font-semibold">Hồ sơ / nội dung</th>
-                <th className="py-2.5 px-4 font-semibold">Tổng hợp đồng</th>
-                <th className="py-2.5 px-4 font-semibold">Cần thu ngay</th>
-                <th className="py-2.5 px-4 font-semibold">Còn lại trả sau</th>
-                <th className="py-2.5 px-4 font-semibold">Trạng thái</th>
+              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Hồ sơ / nội dung</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Tổng hợp đồng</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Cần thu ngay</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Còn lại trả sau</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Trạng thái</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFE4D9] text-xs">
+            <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
               {receivableItemsData.map((rec) => (
                 <tr key={rec.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
                   {/* Hồ sơ / nội dung */}
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-xs text-[#2C241E]">{rec.code}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{rec.description}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">{rec.code}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{rec.description}</div>
                   </td>
 
                   {/* Tổng hợp đồng */}
-                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E]">
+                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E] whitespace-nowrap">
                     {rec.totalContract}
                   </td>
 
                   {/* Cần thu ngay */}
-                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E]">
+                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E] whitespace-nowrap">
                     {rec.dueNow}
                   </td>
 
                   {/* Còn lại trả sau */}
-                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E]">
+                  <td className="py-3.5 px-4 font-semibold text-xs text-[#2C241E] whitespace-nowrap">
                     {rec.remainingAfter}
                   </td>
 
                   {/* Trạng thái */}
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#F5EADF] text-[#8A4F23]">
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#F5EADF] text-[#8A4F23] whitespace-nowrap">
                       <Clock className="w-3.5 h-3.5 stroke-[2]" />
                       <span>{rec.statusText}</span>
                     </span>

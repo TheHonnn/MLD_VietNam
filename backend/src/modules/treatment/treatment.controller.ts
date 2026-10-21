@@ -20,7 +20,7 @@ import { CreateJournalDto } from './dto/create-journal.dto';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Gói Liệu Trình, Nhật Ký & Chăm Sóc Khách Hàng (Group D)')
@@ -29,7 +29,7 @@ export class TreatmentController {
   constructor(private readonly treatmentService: TreatmentService) {}
 
   @Get('packages/my')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D01: Lấy danh sách gói liệu trình của khách hàng' })
   async getMyPackages(@CurrentUser('id') userId: string) {
@@ -37,7 +37,7 @@ export class TreatmentController {
   }
 
   @Get('packages/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D02: Xem chi tiết gói liệu trình & phác đồ từng buổi' })
   async getPackageDetail(
@@ -48,7 +48,7 @@ export class TreatmentController {
   }
 
   @Get('journal')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D03: Lấy dòng thời gian nhật ký chăm sóc sức khỏe' })
   async getCareJournal(@CurrentUser('id') userId: string) {
@@ -56,7 +56,7 @@ export class TreatmentController {
   }
 
   @Post('journal')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D03: Tạo ghi chú nhật ký buổi chăm sóc mới' })
   async createCareJournal(
@@ -67,7 +67,7 @@ export class TreatmentController {
   }
 
   @Post('consultation')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D04: Gửi bảng khảo sát sức khỏe tiền dịch vụ' })
   async saveConsultation(
@@ -78,7 +78,7 @@ export class TreatmentController {
   }
 
   @Post('reviews')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D05: Gửi đánh giá dịch vụ & chuyên gia (nhận điểm thưởng)' })
   async submitReview(
@@ -102,7 +102,7 @@ export class TreatmentController {
   }
 
   @Post('support/tickets')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D07: Gửi yêu cầu hỗ trợ khách hàng' })
   async createSupportTicket(
@@ -113,7 +113,7 @@ export class TreatmentController {
   }
 
   @Get('notifications')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D08: Lấy danh sách thông báo của người dùng' })
   @ApiQuery({ name: 'type', required: false, enum: ['ALL', 'APPOINTMENT', 'PROMO', 'SYSTEM'] })
@@ -125,7 +125,7 @@ export class TreatmentController {
   }
 
   @Patch('notifications/:id/read')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'D08: Đánh dấu đã đọc thông báo' })
   async markNotificationRead(

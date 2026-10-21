@@ -212,8 +212,10 @@ export interface ApiResponse<T> {
 
 export interface User {
   id: string;
-  phone: string;
+  phone?: string | null;
   email?: string | null;
+  isPhoneVerified: boolean;
+  isEmailVerified: boolean;
   fullName: string;
   avatarUrl?: string | null;
   gender: 'MALE' | 'FEMALE' | 'OTHER';
@@ -233,6 +235,41 @@ export interface User {
   lockedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AuthIdentity {
+  id: string;
+  userId: string;
+  provider: 'PHONE_OTP' | 'EMAIL_PASSWORD' | 'GOOGLE' | 'APPLE';
+  identifier: string;
+  passwordHash?: string | null;
+  isVerified: boolean;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RefreshToken {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  jti: string;
+  deviceInfo?: string | null;
+  expiresAt: string;
+  isRevoked: boolean;
+  createdAt: string;
+}
+
+export interface OtpVerification {
+  id: string;
+  identifier: string;
+  purpose: 'REGISTER' | 'RESET_PASSWORD' | 'ACCOUNT_LINKING' | 'LOGIN';
+  otpHash: string;
+  attempts: number;
+  maxAttempts: number;
+  expiresAt: string;
+  isUsed: boolean;
+  createdAt: string;
 }
 
 export interface Branch {

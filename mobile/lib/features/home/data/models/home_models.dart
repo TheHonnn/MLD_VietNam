@@ -91,6 +91,36 @@ class TechnicianModel {
   });
 
   String get branchName => clinicName;
+
+  factory TechnicianModel.fromJson(Map<String, dynamic> json) {
+    String clinic = 'MLD Beauty & Spa';
+    if (json['branches'] != null && json['branches'] is Map) {
+      clinic = json['branches']['name'] as String? ?? clinic;
+    } else if (json['clinicName'] != null) {
+      clinic = json['clinicName'] as String;
+    }
+
+    List<String> specs = const ['Chăm sóc da', 'Massage dưỡng sinh'];
+    if (json['specialties'] != null && json['specialties'] is List) {
+      specs = (json['specialties'] as List).map((e) => e.toString()).toList();
+    }
+
+    return TechnicianModel(
+      id: json['id']?.toString() ?? '',
+      name: json['full_name'] as String? ?? json['name'] as String? ?? 'Chuyên viên MLD',
+      title: json['title'] as String? ?? 'Kỹ thuật viên trị liệu',
+      speciality: specs.isNotEmpty ? specs.first : 'Chăm sóc da & Dưỡng sinh',
+      clinicName: clinic,
+      experienceYears: (json['experience_years'] as num?)?.toInt() ?? 3,
+      rating: (json['rating_avg'] as num?)?.toDouble() ?? (json['rating'] as num?)?.toDouble() ?? 5.0,
+      reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,
+      consultationFee: (json['consultation_fee'] as num?)?.toDouble() ?? 300000.0,
+      avatarUrl: json['avatar_url'] as String? ?? json['avatar'] as String? ?? 'assets/images/specialist_avatar_1.png',
+      isAvailableToday: json['is_active'] as bool? ?? json['isAvailableToday'] as bool? ?? true,
+      bio: json['bio'] as String? ?? '',
+      specialties: specs,
+    );
+  }
 }
 
 /// 4. Chi nhánh Cơ sở Spa MLD (Branch)
@@ -159,6 +189,44 @@ class SpaServiceModel {
   });
 
   double get displayPrice => discountPrice ?? price;
+  String get description => shortDescription.isNotEmpty ? shortDescription : fullDescription;
+  String get category => categoryName;
+
+  factory SpaServiceModel.fromJson(Map<String, dynamic> json) {
+    String category = 'Massage thư giãn';
+    if (json['service_categories'] != null && json['service_categories'] is Map) {
+      category = json['service_categories']['name'] as String? ?? category;
+    } else if (json['categoryName'] != null) {
+      category = json['categoryName'] as String;
+    } else if (json['category'] != null) {
+      category = json['category'] as String;
+    }
+
+    List<String> stepsList = const [];
+    if (json['steps'] != null && json['steps'] is List) {
+      stepsList = (json['steps'] as List).map((e) => e.toString()).toList();
+    }
+
+    List<String> benefitsList = const [];
+    if (json['benefits'] != null && json['benefits'] is List) {
+      benefitsList = (json['benefits'] as List).map((e) => e.toString()).toList();
+    }
+
+    return SpaServiceModel(
+      id: json['id']?.toString() ?? '',
+      name: json['name'] as String? ?? json['title'] as String? ?? 'Dịch vụ Spa',
+      categoryName: category,
+      shortDescription: json['short_description'] as String? ?? json['description'] as String? ?? '',
+      fullDescription: json['full_description'] as String? ?? json['description'] as String? ?? '',
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 60,
+      price: (json['price'] as num?)?.toDouble() ?? (json['priceRaw'] as num?)?.toDouble() ?? 450000.0,
+      discountPrice: (json['discount_price'] as num?)?.toDouble(),
+      imageUrl: json['image_url'] as String? ?? json['image'] as String? ?? 'assets/images/gioithieu_1.png',
+      steps: stepsList,
+      benefits: benefitsList,
+      isFeatured: json['is_featured'] as bool? ?? false,
+    );
+  }
 }
 
 /// 6. Khóa đào tạo nghề MLD Academy (Mới)

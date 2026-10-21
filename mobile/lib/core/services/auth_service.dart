@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../network/api_client.dart';
+import '../network/api_endpoints.dart';
 
 /// Service managing user session, secure token storage, and authentication state
 class AuthService {
@@ -36,9 +38,13 @@ class AuthService {
   /// Reactive notifier for authentication status changes
   final ValueNotifier<bool> isLoggedInNotifier = ValueNotifier<bool>(false);
 
+  /// Reactive notifier for phone number updates
+  final ValueNotifier<String?> phoneNotifier = ValueNotifier<String?>(null);
+
   bool get isLoggedIn => isLoggedInNotifier.value;
   bool get hasCompletedOnboarding => _hasCompletedOnboarding;
   String? get currentPhone => _cachedPhone;
+  bool get hasPhoneNumber => _cachedPhone != null && _cachedPhone!.trim().isNotEmpty;
   String? get currentDisplayName => _cachedDisplayName;
   String? get currentAvatarUrl => _cachedAvatarUrl;
   String? get currentUserId => _cachedUserId;
@@ -62,6 +68,7 @@ class AuthService {
       _cachedRefreshToken = await _secureStorage.read(key: _keyRefreshToken);
       _cachedUserId = await _secureStorage.read(key: _keyUserId);
       _cachedPhone = await _secureStorage.read(key: _keyUserPhone);
+      phoneNotifier.value = _cachedPhone;
     } catch (e) {
       debugPrint('Error reading secure storage: $e');
       _cachedAccessToken = null;
@@ -111,7 +118,10 @@ class AuthService {
     _cachedAccessToken = accessToken;
     if (refreshToken != null) _cachedRefreshToken = refreshToken;
     if (userId != null) _cachedUserId = userId;
-    if (phone != null) _cachedPhone = phone;
+    if (phone != null) {
+      _cachedPhone = phone;
+      phoneNotifier.value = phone;
+    }
     if (displayName != null) _cachedDisplayName = displayName;
     if (avatarUrl != null) _cachedAvatarUrl = avatarUrl;
 
@@ -143,6 +153,35 @@ class AuthService {
     isLoggedInNotifier.value = true;
   }
 
+  /// Update user's phone number locally and persist to backend
+  Future<bool> updatePhone(String phone) async {
+    final cleanPhone = phone.trim().replaceAll(' ', '');
+    _cachedPhone = cleanPhone;
+    phoneNotifier.value = cleanPhone;
+
+    try {
+      await _secureStorage.write(key: _keyUserPhone, value: cleanPhone);
+    } catch (e) {
+      debugPrint('Error writing phone to secure storage: $e');
+    }
+
+    // Gửi yêu cầu cập nhật lên Backend Gateway NestJS nếu đang đăng nhập
+    try {
+      final token = await getAccessToken();
+      if (token != null && token.isNotEmpty) {
+        await ApiClient.instance.patch(
+          ApiEndpoints.authPhone,
+          data: {'phone': cleanPhone},
+        );
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Error updating phone to backend: $e');
+      // Vẫn coi là thành công cục bộ để người dùng tiếp tục thao tác không bị gián đoạn
+      return true;
+    }
+  }
+
   /// Update cached and persistent user profile information
   Future<void> updateProfile({
     String? displayName,
@@ -155,6 +194,20 @@ class AuthService {
     if (avatarUrl != null) {
       _cachedAvatarUrl = avatarUrl;
       await _prefs?.setString(_keyAvatarUrl, avatarUrl);
+    }
+  }
+
+  /// Update active session with newly rotated tokens
+  Future<void> refreshSession({
+    required String newAccessToken,
+    String? newRefreshToken,
+  }) async {
+    _cachedAccessToken = newAccessToken;
+    await _secureStorage.write(key: _keyAccessToken, value: newAccessToken);
+
+    if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+      _cachedRefreshToken = newRefreshToken;
+      await _secureStorage.write(key: _keyRefreshToken, value: newRefreshToken);
     }
   }
 
@@ -178,12 +231,14 @@ class AuthService {
     _cachedAccessToken = null;
     _cachedRefreshToken = null;
     _cachedUserId = null;
+    _cachedPhone = null;
+    phoneNotifier.value = null;
 
     try {
       await _secureStorage.delete(key: _keyAccessToken);
       await _secureStorage.delete(key: _keyRefreshToken);
       await _secureStorage.delete(key: _keyUserId);
-      // Keep phone cached for faster re-login convenience
+      await _secureStorage.delete(key: _keyUserPhone);
     } catch (e) {
       debugPrint('Error deleting secure storage keys: $e');
     }
@@ -196,4 +251,3 @@ class AuthService {
     isLoggedInNotifier.value = false;
   }
 }
-

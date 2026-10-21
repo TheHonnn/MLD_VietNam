@@ -162,7 +162,9 @@ Deno.serve(async (req: Request) => {
               }
             : null,
           deeplink: qrImageUrl,
-          note: 'Quét mã VietQR bằng bất kỳ App ngân hàng hoặc Ví điện tử (MoMo, ZaloPay, ViettelMoney) nào tại Việt Nam.',
+          note: req.headers.get('accept-language')?.includes('en')
+            ? 'Scan the VietQR code using any Mobile Banking App or E-Wallet (MoMo, ZaloPay, ViettelMoney) in Vietnam.'
+            : 'Quét mã VietQR bằng bất kỳ App ngân hàng hoặc Ví điện tử (MoMo, ZaloPay, ViettelMoney) nào tại Việt Nam.',
         },
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -17,7 +17,7 @@ import { MembershipService } from './membership.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { RedeemVoucherDto } from './dto/redeem-voucher.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Hội Viên & Hồ Sơ Cá Nhân (Group F)')
@@ -26,7 +26,7 @@ export class MembershipController {
   constructor(private readonly membershipService: MembershipService) {}
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F01/F02: Lấy thông tin hồ sơ cá nhân' })
   async getProfile(@CurrentUser('id') userId: string) {
@@ -34,7 +34,7 @@ export class MembershipController {
   }
 
   @Put('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F02: Cập nhật thông tin cá nhân' })
   async updateProfile(
@@ -45,7 +45,7 @@ export class MembershipController {
   }
 
   @Get('card')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F03: Xem thẻ hội viên điện tử & đặc quyền' })
   async getMembershipCard(@CurrentUser('id') userId: string) {
@@ -53,7 +53,7 @@ export class MembershipController {
   }
 
   @Get('points')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F04: Lấy số dư điểm, lịch sử và danh mục đổi quà' })
   async getLoyaltyPoints(@CurrentUser('id') userId: string) {
@@ -61,7 +61,7 @@ export class MembershipController {
   }
 
   @Post('points/redeem')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F04: Đổi điểm thưởng nhận voucher/ưu đãi' })
   async redeemReward(
@@ -72,7 +72,7 @@ export class MembershipController {
   }
 
   @Get('vouchers')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F05: Lấy danh sách voucher/ưu đãi của tôi' })
   @ApiQuery({ name: 'filter', required: false, enum: ['AVAILABLE', 'USED', 'EXPIRED'] })
@@ -84,7 +84,7 @@ export class MembershipController {
   }
 
   @Get('payments')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F06: Xem lịch sử thanh toán theo tháng & bộ lọc' })
   @ApiQuery({ name: 'month', required: false })
@@ -98,7 +98,7 @@ export class MembershipController {
   }
 
   @Get('referral')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F07: Lấy mã giới thiệu, thống kê và lịch sử' })
   async getReferralProgram(@CurrentUser('id') userId: string) {
@@ -106,7 +106,7 @@ export class MembershipController {
   }
 
   @Get('settings')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F08: Lấy cấu hình cài đặt thông báo và tùy chọn' })
   async getSettings(@CurrentUser('id') userId: string) {
@@ -114,7 +114,7 @@ export class MembershipController {
   }
 
   @Put('settings')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F08: Cập nhật cài đặt tài khoản' })
   async updateSettings(

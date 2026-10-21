@@ -51,6 +51,8 @@ class TimeSlotModel {
   final String periodName; // "Sáng", "Chiều", "Tối"
   final SlotPeriod period;
   final bool isAvailable;
+  final String? subtext; // "Đã đặt", "Không khả dụng", "Kín lịch"...
+  final String? unavailableReason; // Lý do chi tiết: "Chuyên viên đang có lịch hẹn với khách hàng khác"
 
   const TimeSlotModel({
     required this.id,
@@ -58,6 +60,8 @@ class TimeSlotModel {
     required this.periodName,
     required this.period,
     this.isAvailable = true,
+    this.subtext,
+    this.unavailableReason,
   });
 }
 
@@ -223,9 +227,9 @@ class BookingFlowState {
     DateTime? selectedDate,
     this.selectedSlot,
     this.isForSelf = true,
-    this.customerName = 'Nguyễn Minh Anh',
-    this.customerPhone = '0912 345 678',
-    this.customerEmail = 'minh.anh@example.com',
+    this.customerName = '',
+    this.customerPhone = '',
+    this.customerEmail = '',
     this.specialNotes = '',
     this.payFullAmount = false,
     this.paymentMethod = 'BANK_TRANSFER_QR',

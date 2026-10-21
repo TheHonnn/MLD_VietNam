@@ -88,8 +88,18 @@ Deno.serve(async (req: Request) => {
       const user = (booking as any).users;
       const branch = (booking as any).branches;
 
-      const title = '🌸 Nhắc lịch hẹn làm đẹp tại MLD';
-      const message = `Chào ${user?.full_name || 'Quý khách'}, bạn có lịch hẹn lúc ${booking.start_time?.slice(0, 5)} ngày ${booking.booking_date} tại ${branch?.name || 'MLD Beauty'}. Hẹn gặp bạn nhé!`;
+      // Đọc ngôn ngữ người dùng từ user_settings
+      const { data: userSettings } = await supabase
+        .from('user_settings')
+        .select('language')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      const isEn = userSettings?.language === 'en';
+      const title = isEn ? '🌸 Beauty Appointment Reminder - MLD' : '🌸 Nhắc lịch hẹn làm đẹp tại MLD';
+      const message = isEn
+        ? `Dear ${user?.full_name || 'Valued Guest'}, you have an appointment at ${booking.start_time?.slice(0, 5)} on ${booking.booking_date} at ${branch?.name || 'MLD Beauty'}. See you soon!`
+        : `Chào ${user?.full_name || 'Quý khách'}, bạn có lịch hẹn lúc ${booking.start_time?.slice(0, 5)} ngày ${booking.booking_date} tại ${branch?.name || 'MLD Beauty'}. Hẹn gặp bạn nhé!`;
 
       // Ghi nhận thông báo vào bảng notifications trong Database
       const { data: notifData, error: nErr } = await supabase
@@ -185,8 +195,17 @@ Deno.serve(async (req: Request) => {
           continue; // Đã gửi rồi, bỏ qua
         }
 
-        const title = '🌸 Nhắc lịch hẹn sắp tới tại MLD';
-        const message = `Chào ${user.full_name}, lịch hẹn của bạn tại ${branch?.name || 'MLD'} sẽ bắt đầu sau ${diffMinutes} phút nữa (${bk.start_time?.slice(0, 5)}).`;
+        const { data: userSettings } = await supabase
+          .from('user_settings')
+          .select('language')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const isEn = userSettings?.language === 'en';
+        const title = isEn ? '🌸 Upcoming Appointment Reminder - MLD' : '🌸 Nhắc lịch hẹn sắp tới tại MLD';
+        const message = isEn
+          ? `Dear ${user.full_name}, your appointment at ${branch?.name || 'MLD'} will start in ${diffMinutes} minutes (${bk.start_time?.slice(0, 5)}).`
+          : `Chào ${user.full_name}, lịch hẹn của bạn tại ${branch?.name || 'MLD'} sẽ bắt đầu sau ${diffMinutes} phút nữa (${bk.start_time?.slice(0, 5)}).`;
 
         await supabase.from('notifications').insert({
           user_id: user.id,

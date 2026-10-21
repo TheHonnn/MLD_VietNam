@@ -1109,15 +1109,15 @@ export const W01_Dashboard: React.FC = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold whitespace-nowrap">
                   <tr>
-                    <th className="py-2.5 px-4">Chi nhánh</th>
-                    <th className="py-2.5 px-4">Biên nhận đã thu</th>
-                    <th className="py-2.5 px-4 text-right">Thực thu</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Chi nhánh</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Biên nhận đã thu</th>
+                    <th className="py-2.5 px-4 text-right whitespace-nowrap">Thực thu</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EFE4D9]">
+                <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
                   {branches.map((b) => {
                     const branchInvs = invoices.filter(
                       (inv) => inv.branchId === b.id && inv.paymentStatus === 'PAID'
@@ -1141,21 +1141,21 @@ export const W01_Dashboard: React.FC = () => {
                             : 'hover:bg-[#FAF8F5]'
                         }`}
                       >
-                        <td className="py-3 px-4 text-[#2C241E]">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{b.name}</span>
+                        <td className="py-3 px-4 text-[#2C241E] whitespace-nowrap">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+                            <span className="font-semibold whitespace-nowrap">{b.name}</span>
                             {isRowSelected && (
-                              <span className="text-[9.5px] px-1.5 py-0.5 bg-[#985018] text-white rounded font-bold">
+                              <span className="text-[9.5px] px-1.5 py-0.5 bg-[#985018] text-white rounded font-bold whitespace-nowrap">
                                 Đang chọn
                               </span>
                             )}
                           </div>
-                          <div className="text-[10.5px] text-[#8C7E72] font-normal truncate max-w-sm">
+                          <div className="text-[10.5px] text-[#8C7E72] font-normal truncate max-w-sm whitespace-nowrap">
                             {b.address}
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-[#5C5046]">{branchReceiptCount}</td>
-                        <td className="py-3 px-4 text-right font-bold text-[#2C241E]">
+                        <td className="py-3 px-4 text-[#5C5046] whitespace-nowrap">{branchReceiptCount}</td>
+                        <td className="py-3 px-4 text-right font-bold text-[#2C241E] whitespace-nowrap">
                           {branchTotal.toLocaleString('vi-VN')}đ
                         </td>
                       </tr>
@@ -1166,11 +1166,11 @@ export const W01_Dashboard: React.FC = () => {
             </div>
 
             {/* Pagination Footer */}
-            <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
-              <span className="text-[11px]">
+            <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B] whitespace-nowrap">
+              <span className="text-[11px] whitespace-nowrap">
                 Hiển thị {branches.length} / {branches.length} cơ sở
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
                 <button
                   disabled
                   className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
@@ -1334,20 +1334,20 @@ export const W01_Dashboard: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold">
+          <table className="w-full text-left text-xs whitespace-nowrap">
+            <thead className="bg-[#F4ECE3] text-[#695A4E] text-[11px] font-bold whitespace-nowrap">
               <tr>
-                <th className="py-2.5 px-4">Ngày & giờ</th>
-                <th className="py-2.5 px-4">Lịch hẹn / Khách hàng / Dịch vụ</th>
-                <th className="py-2.5 px-4">Kỹ thuật viên / cơ sở</th>
-                <th className="py-2.5 px-4">Trạng thái</th>
-                <th className="py-2.5 px-4">Thanh toán</th>
+                <th className="py-2.5 px-4 whitespace-nowrap">Ngày & giờ</th>
+                <th className="py-2.5 px-4 whitespace-nowrap">Lịch hẹn / Khách hàng / Dịch vụ</th>
+                <th className="py-2.5 px-4 whitespace-nowrap">Kỹ thuật viên / cơ sở</th>
+                <th className="py-2.5 px-4 whitespace-nowrap">Trạng thái</th>
+                <th className="py-2.5 px-4 whitespace-nowrap">Thanh toán</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFE4D9]">
+            <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
               {displayBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[#8C7E72]">
+                  <td colSpan={5} className="py-12 text-center text-[#8C7E72] whitespace-normal">
                     <Calendar className="w-10 h-10 mx-auto text-[#D5C2B1] stroke-1 mb-2" />
                     <p className="text-sm font-semibold text-[#4A3E34]">
                       Không tìm thấy lịch hẹn phù hợp
@@ -1362,7 +1362,7 @@ export const W01_Dashboard: React.FC = () => {
                         handleSelectBranch('ALL');
                         setDatePreset('ALL');
                       }}
-                      className="mt-3 px-3.5 py-1.5 text-xs font-bold text-[#985018] bg-[#F5EBE1] hover:bg-[#ECD9C6] rounded-xl transition-colors cursor-pointer"
+                      className="mt-3 px-3.5 py-1.5 text-xs font-bold text-[#985018] bg-[#F5EBE1] hover:bg-[#ECD9C6] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                     >
                       Đặt lại toàn bộ bộ lọc
                     </button>
@@ -1388,46 +1388,46 @@ export const W01_Dashboard: React.FC = () => {
                   return (
                     <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
                       <td className="py-3 px-4 font-semibold text-[#2C241E] whitespace-nowrap">
-                        <div>{b.bookingDate}</div>
-                        <div className="text-[11px] text-[#8A796B] font-normal">
+                        <div className="whitespace-nowrap">{b.bookingDate}</div>
+                        <div className="text-[11px] text-[#8A796B] font-normal whitespace-nowrap">
                           {b.startTime.slice(0, 5)}–{b.endTime.slice(0, 5)}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-[#2C241E]">{b.bookingCode}</span>
-                          <span className="text-[10px] font-semibold text-[#8E4002] bg-[#FAF0E6] px-1.5 py-0.5 rounded">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
+                          <span className="font-bold text-[#2C241E] whitespace-nowrap">{b.bookingCode}</span>
+                          <span className="text-[10px] font-semibold text-[#8E4002] bg-[#FAF0E6] px-1.5 py-0.5 rounded whitespace-nowrap">
                             {customerName}
                           </span>
                         </div>
-                        <div className="text-[11px] text-[#5C5046] mt-0.5">
+                        <div className="text-[11px] text-[#5C5046] mt-0.5 whitespace-nowrap">
                           {b.checkinNotes || b.specialNotes || 'Massage trị liệu & chăm sóc da'}
                           {customerPhone ? ` • ${customerPhone}` : ''}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-[#2C241E]">{techName}</div>
-                        <div className="text-[11px] text-[#8A796B]">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="font-semibold text-[#2C241E] whitespace-nowrap">{techName}</div>
+                        <div className="text-[11px] text-[#8A796B] whitespace-nowrap">
                           {branchShort} • Phòng {b.assignedBedNumber || '01'}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold ${
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
                             b.status === 'CHECKED_IN'
                               ? 'bg-[#E8EFE5] text-[#526D51]'
                               : 'bg-[#F5E2D0] text-[#8A4F23]'
                           }`}
                         >
                           <Clock className="w-3.5 h-3.5" />
-                          {b.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}
+                          <span className="whitespace-nowrap">{b.status === 'CHECKED_IN' ? 'Đã check-in' : 'Chờ xác nhận'}</span>
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-[#2C241E]">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="font-semibold text-[#2C241E] whitespace-nowrap">
                           {b.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'}
                         </div>
-                        <div className="text-[11px] text-[#8A796B]">
+                        <div className="text-[11px] text-[#8A796B] whitespace-nowrap">
                           {b.finalPrice.toLocaleString('vi-VN')}đ
                         </div>
                       </td>
@@ -1440,8 +1440,8 @@ export const W01_Dashboard: React.FC = () => {
         </div>
 
         {/* Table Pagination */}
-        <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
-          <span className="text-[11px]">
+        <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B] whitespace-nowrap">
+          <span className="text-[11px] whitespace-nowrap">
             Hiển thị {displayBookings.length} / {displayBookings.length} bản ghi
           </span>
           <div className="flex items-center gap-1.5">

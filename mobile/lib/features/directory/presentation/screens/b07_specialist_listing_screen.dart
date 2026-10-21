@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'b08_specialist_profile_screen.dart';
 
+import '../../../home/data/repositories/technician_repository.dart';
+
 class B07SpecialistListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
 
@@ -16,42 +18,41 @@ class B07SpecialistListingScreen extends StatefulWidget {
 
 class _B07SpecialistListingScreenState extends State<B07SpecialistListingScreen> {
   final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = false;
   String _selectedBranch = 'Tất cả';
   String _selectedExpertise = 'Tất cả';
   String _selectedService = 'Tất cả';
   String _selectedHour = 'Tất cả';
   String _selectedSort = 'Theo tên chuyên viên';
 
-  final List<Map<String, dynamic>> _allSpecialists = [
-    {
-      'name': 'Nguyễn Thu Hà',
-      'role': 'Chuyên viên chăm sóc da',
-      'tag': 'Thông tin chuyên viên',
-      'desc': 'Chăm sóc da · Quy trình làm sạch dịu nhẹ',
-      'avatar': 'assets/images/specialist_avatar_1.png',
-      'branch': 'Chi nhánh Quận 3',
-      'expertise': 'Chăm sóc da',
-    },
-    {
-      'name': 'Trần Minh Phương',
-      'role': 'Kỹ thuật viên massage',
-      'tag': 'Thông tin chuyên viên',
-      'desc': 'Massage thư giãn · Chăm sóc tận tâm',
-      'avatar': 'assets/images/specialist_avatar_2.png',
-      'heroAvatar': 'assets/images/specialist_hero_1.png',
-      'branch': 'Chi nhánh Quận 3',
-      'expertise': 'Massage thư giãn',
-    },
-    {
-      'name': 'Lê Hoài An',
-      'role': 'Chuyên viên chăm sóc cơ thể',
-      'tag': 'Thông tin chuyên viên',
-      'desc': 'Chăm sóc cơ thể · Thư giãn toàn thân',
-      'avatar': 'assets/images/specialist_avatar_3.png',
-      'branch': 'Chi nhánh Cầu Giấy',
-      'expertise': 'Chăm sóc cơ thể',
-    },
-  ];
+  List<Map<String, dynamic>> _allSpecialists = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSpecialists();
+  }
+
+  Future<void> _loadSpecialists() async {
+    setState(() => _isLoading = true);
+    final list = await TechnicianRepository.instance.getTechnicians();
+    if (mounted) {
+      setState(() {
+        _allSpecialists = list.map((t) => {
+          'id': t.id,
+          'name': t.name,
+          'role': t.title,
+          'tag': '${t.experienceYears} năm kinh nghiệm · ⭐ ${t.rating.toStringAsFixed(1)}',
+          'desc': t.specialties.isNotEmpty ? t.specialties.join(' · ') : t.speciality,
+          'avatar': t.avatarUrl,
+          'heroAvatar': t.avatarUrl,
+          'branch': t.clinicName,
+          'expertise': t.speciality,
+        }).toList();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -260,39 +261,66 @@ class _B07SpecialistListingScreenState extends State<B07SpecialistListingScreen>
               const SizedBox(height: 20),
 
               // --- 5. SPECIALISTS LIST ---
-              ...specialists.map((sp) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                )
+              else if (specialists.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text('Không tìm thấy chuyên viên nào phù hợp.', style: TextStyle(color: AppColors.textSecondary)),
                   ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          sp['avatar'] as String,
-                          width: 80,
-                          height: 94,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 80,
-                            height: 94,
-                            color: AppColors.surfaceSecondary,
-                            child: const Icon(Icons.person, size: 40, color: AppColors.primary),
-                          ),
+                )
+              else
+                ...specialists.map((sp) {
+                  final avatar = sp['avatar'] as String? ?? '';
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: avatar.startsWith('http')
+                              ? Image.network(
+                                  avatar,
+                                  width: 80,
+                                  height: 94,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 80,
+                                    height: 94,
+                                    color: AppColors.surfaceSecondary,
+                                    child: const Icon(Icons.person, size: 40, color: AppColors.primary),
+                                  ),
+                                )
+                              : Image.asset(
+                                  avatar,
+                                  width: 80,
+                                  height: 94,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 80,
+                                    height: 94,
+                                    color: AppColors.surfaceSecondary,
+                                    child: const Icon(Icons.person, size: 40, color: AppColors.primary),
+                                  ),
+                                ),
+                        ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(

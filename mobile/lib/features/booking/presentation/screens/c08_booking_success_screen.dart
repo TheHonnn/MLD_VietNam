@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/booking_models.dart';
-import '../../data/repositories/mock_booking_repository.dart';
+import '../../data/repositories/booking_repository.dart';
 import '../widgets/booking_status_badge.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c09_my_appointments_screen.dart';
@@ -24,7 +24,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
   @override
   void initState() {
     super.initState();
-    _bookingCode = 'SPA-DEMO-000128';
+    _bookingCode = 'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
 
     // Lưu vào mock repository để đồng bộ với C09 và C10
     final newAppointment = AppointmentItemModel(
@@ -41,18 +41,18 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
       branchPhone: widget.flowState.selectedBranch?.phone ?? '0901 234 567',
       specialistName: widget.flowState.autoAssignSpecialist
           ? 'Hệ thống tự động sắp xếp'
-          : (widget.flowState.selectedSpecialist?.name ?? 'Trần Minh Phương'),
-      specialistTitle: widget.flowState.selectedSpecialist?.title ?? 'Kỹ thuật viên massage',
+          : (widget.flowState.selectedSpecialist?.name ?? 'Kỹ thuật viên chỉ định'),
+      specialistTitle: widget.flowState.selectedSpecialist?.title ?? 'Kỹ thuật viên',
       specialistAvatar: widget.flowState.selectedSpecialist?.avatarUrl ??
           'assets/images/specialist_avatar_1.png',
       appointmentDate: widget.flowState.selectedDate,
       timeSlot: widget.flowState.selectedSlot?.time ?? '14:00–15:00',
       customerName: widget.flowState.customerName.isNotEmpty
           ? widget.flowState.customerName
-          : 'Nguyễn Minh Anh',
+          : 'Quý khách',
       customerPhone: widget.flowState.customerPhone.isNotEmpty
           ? widget.flowState.customerPhone
-          : '0912 345 678',
+          : 'Chưa cập nhật',
       customerEmail: widget.flowState.customerEmail,
       specialNotes: widget.flowState.specialNotes,
       totalAmount: widget.flowState.servicePrice,
@@ -87,7 +87,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
       ],
     );
 
-    MockBookingRepository().createAppointment(newAppointment);
+    BookingRepository.instance.createAppointment(newAppointment);
   }
 
   String _formatCurrency(double amount) {
@@ -119,12 +119,18 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
         '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     final timeStr = widget.flowState.selectedSlot?.time ?? '14:00–15:00';
 
-    return Scaffold(
-      backgroundColor: BookingColors.background,
-      appBar: BookingAppBar(
-        onBack: () => Navigator.of(context).popUntil((route) => route.isFirst),
-      ),
-      body: SafeArea(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      },
+      child: Scaffold(
+        backgroundColor: BookingColors.background,
+        appBar: BookingAppBar(
+          onBack: () => Navigator.of(context).popUntil((route) => route.isFirst),
+        ),
+        body: SafeArea(
         child: Column(
           children: [
             Expanded(
@@ -320,6 +326,30 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  // Button Về trang chủ
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: BookingColors.primary, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Về trang chủ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: BookingColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -337,6 +367,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'core/localization/locale_cubit.dart';
 import 'core/services/auth_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/a01_splash_screen.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,11 +37,21 @@ class MedicalHealthcareApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MLD Việt Nam',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const A01SplashScreen(),
+    return BlocProvider<LocaleCubit>(
+      create: (_) => LocaleCubit(),
+      child: BlocBuilder<LocaleCubit, Locale>(
+        builder: (context, locale) {
+          return MaterialApp(
+            title: 'MLD Việt Nam',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            locale: locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const A01SplashScreen(),
+          );
+        },
+      ),
     );
   }
 }

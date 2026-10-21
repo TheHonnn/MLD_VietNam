@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../../../core/widgets/vietnamese_dob_picker.dart';
+import '../../data/repositories/membership_repository.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../auth/widgets/update_phone_modal.dart';
 
 class F02EditProfileScreen extends StatefulWidget {
   const F02EditProfileScreen({super.key});
@@ -13,7 +16,7 @@ class F02EditProfileScreen extends StatefulWidget {
 
 class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final MockMembershipRepository _repo = MockMembershipRepository();
+  final MembershipRepository _repo = MembershipRepository.instance;
 
   late TextEditingController _fullNameController;
   late TextEditingController _emailController;
@@ -107,6 +110,34 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
           duration: Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  Future<void> _pickDob() async {
+    DateTime initial = DateTime(2000, 1, 1);
+    if (_dobController.text.isNotEmpty) {
+      try {
+        final parts = _dobController.text.split('/');
+        if (parts.length == 3) {
+          initial = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+        }
+      } catch (_) {}
+    }
+
+    final picked = await VietnameseDobPicker.show(
+      context,
+      initialDate: initial,
+      minYear: 1940,
+      maxYear: DateTime.now().year,
+    );
+
+    if (picked != null) {
+      final day = picked.day.toString().padLeft(2, '0');
+      final month = picked.month.toString().padLeft(2, '0');
+      final year = picked.year.toString();
+      setState(() {
+        _dobController.text = '$day/$month/$year';
+      });
     }
   }
 
@@ -243,27 +274,55 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Container(
-                          height: 52,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          alignment: Alignment.centerLeft,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceSecondary, // #F3E2CE
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border, width: 1.0),
-                          ),
-                          child: Text(
-                            p.phone,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textPrimary,
+                        InkWell(
+                          onTap: () async {
+                            final updated = await UpdatePhoneModal.show(context);
+                            if (updated == true && mounted) {
+                              setState(() {});
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            height: 52,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            alignment: Alignment.centerLeft,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceSecondary, // #F3E2CE
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border, width: 1.0),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    (AuthService.instance.currentPhone != null && AuthService.instance.currentPhone!.isNotEmpty)
+                                        ? AuthService.instance.currentPhone!
+                                        : (p.phone.isNotEmpty ? p.phone : 'Chưa cập nhật — Nhấn để thêm'),
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
+                                          ? AppColors.textPrimary
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
+                                      ? Icons.verified_rounded
+                                      : Icons.edit_outlined,
+                                  size: 18,
+                                  color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
+                                      ? const Color(0xFF236B42)
+                                      : AppColors.primary,
+                                ),
+                              ],
                             ),
                           ),
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'Số điện thoại chỉ đọc. Quản lý số liên kết trong phần Cài đặt.',
+                          'Số điện thoại tài khoản. Quản lý số liên kết trong phần Cài đặt.',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -278,7 +337,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                     _buildTextField(
                       label: 'Email',
                       controller: _emailController,
-                      hint: 'example@email.com',
+                      hint: 'Chưa cập nhật email (tùy chọn)',
                       keyboardType: TextInputType.emailAddress,
                       validator: (val) => AppValidators.email(val, isOptional: true),
                     ),
@@ -287,7 +346,10 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                     _buildTextField(
                       label: 'Ngày sinh',
                       controller: _dobController,
-                      hint: 'DD/MM/YYYY',
+                      hint: 'Chọn ngày sinh (Năm / Tháng / Ngày)',
+                      readOnly: true,
+                      onTap: _pickDob,
+                      suffixIcon: const Icon(Icons.calendar_month_rounded, size: 20, color: AppColors.primary),
                     ),
                     const SizedBox(height: 14),
 
@@ -334,9 +396,9 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                     const SizedBox(height: 14),
 
                     _buildTextField(
-                      label: 'Địa chỉ liên hệ ',
+                      label: 'Địa chỉ liên hệ',
                       controller: _addressController,
-                      hint: 'Địa chỉ nhà...',
+                      hint: 'Chưa cập nhật địa chỉ liên hệ',
                       maxLines: 2,
                     ),
                     const SizedBox(height: 14),
@@ -344,7 +406,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                     _buildTextField(
                       label: 'Nghề nghiệp (không bắt buộc)',
                       controller: _occupationController,
-                      hint: 'Nhập nghề nghiệp...',
+                      hint: 'Chưa cập nhật nghề nghiệp',
                     ),
 
                     const SizedBox(height: 24),
@@ -513,6 +575,9 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     String? Function(String?)? validator,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    Widget? suffixIcon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,6 +603,8 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
             keyboardType: keyboardType,
             maxLines: maxLines,
             validator: validator,
+            readOnly: readOnly,
+            onTap: onTap,
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w400,
@@ -549,6 +616,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                 fontSize: 15,
                 color: AppColors.textSecondary,
               ),
+              suffixIcon: suffixIcon,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,

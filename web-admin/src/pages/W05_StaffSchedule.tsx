@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { staffService, bookingService, branchService, notificationService, customerService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
-import { Booking, Branch, User, Technician, BookingStatus } from '../types/shared_types';
+import { Booking, Branch, User, Technician, BookingStatus, PaymentStatus } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 interface ScheduleAppointment {
@@ -155,6 +155,13 @@ export const TIME_SLOT_OPTIONS = [
   { label: '18:00–19:00', startHour: 18.0, durationHours: 1.0, bufferTimeRange: '19:00–19:15', bufferEndTime: '19:15' },
 ];
 
+export const DEFAULT_FALLBACK_TECHNICIANS = [
+  { id: 'tech-1', name: 'KTV. Minh Anh', room: 'Phòng VIP 01 · Tầng 2', role: 'Kỹ thuật viên trưởng' },
+  { id: 'tech-2', name: 'KTV. Hoàng Nam', room: 'Phòng Trị Liệu 02 · Tầng 2', role: 'Chuyên viên da liễu' },
+  { id: 'tech-3', name: 'KTV. Kim Ngân', room: 'Phòng Body 03 · Tầng 3', role: 'Chuyên viên massage' },
+  { id: 'tech-4', name: 'KTV. Thu Thảo', room: 'Phòng Gội Dưỡng Sinh 04', role: 'Kỹ thuật viên cao cấp' },
+];
+
 export const W05_StaffSchedule: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -204,10 +211,10 @@ export const W05_StaffSchedule: React.FC = () => {
           customerService.getCustomers(),
           branchService.getAllBranches(),
         ]);
-        if (bkRes.success) setLiveBookings(bkRes.data);
-        if (techRes) setLiveTechnicians(techRes);
-        if (custRes.success) setCustomers(custRes.data);
-        if (brRes.success) setBranches(brRes.data);
+        if (bkRes.success && bkRes.data) setLiveBookings(bkRes.data);
+        if (techRes && techRes.length > 0) setLiveTechnicians(techRes);
+        if (custRes.success && custRes.data) setCustomers(custRes.data);
+        if (brRes.success && brRes.data) setBranches(brRes.data);
       } catch (err) {
         console.error('Failed to load schedule data:', err);
       }
@@ -224,7 +231,7 @@ export const W05_StaffSchedule: React.FC = () => {
         role: t.title,
       }));
     }
-    return [];
+    return DEFAULT_FALLBACK_TECHNICIANS;
   }, [liveTechnicians]);
 
   // Appointments mapped directly from live Supabase bookings
@@ -317,32 +324,50 @@ export const W05_StaffSchedule: React.FC = () => {
   });
 
   // Modal Form State
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState(SERVICE_OPTIONS[0].id);
   const [selectedTechId, setSelectedTechId] = useState<string>('');
-  const [appDate] = useState('12/10/2026');
+  const [appDate, setAppDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState(5); // default 15:00–16:00
+  const [modalBranchId, setModalBranchId] = useState<string>('');
   const [statusType, setStatusType] = useState<'waiting_payment' | 'independent'>('waiting_payment');
   const [notes, setNotes] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   const [selectedAppId, setSelectedAppId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Auto select default technician if needed
   useEffect(() => {
     if (technicians.length > 0 && (!selectedTechId || !technicians.some((t) => t.id === selectedTechId))) {
       setSelectedTechId(technicians[0].id);
     }
   }, [technicians, selectedTechId]);
 
+  // Sync modal branch id with active selected branch
+  useEffect(() => {
+    if (!modalBranchId) {
+      if (selectedBranchId && selectedBranchId !== 'ALL') {
+        setModalBranchId(selectedBranchId);
+      } else if (branches.length > 0) {
+        setModalBranchId(branches[0].id);
+      }
+    }
+  }, [selectedBranchId, branches, modalBranchId]);
+
   // Auto trigger modal if navigated with query params ?create=true&customer=...
   useEffect(() => {
     if (searchParams.get('create') === 'true') {
       setShowCreateModal(true);
       const c = searchParams.get('customer');
-      if (c) {
-        setCustName(c);
-      }
+      if (c) setCustName(c);
+      const cId = searchParams.get('customerId');
+      if (cId) setSelectedCustomerId(cId);
+      const p = searchParams.get('phone');
+      if (p) setCustPhone(p);
     }
   }, [searchParams]);
 
@@ -413,81 +438,142 @@ export const W05_StaffSchedule: React.FC = () => {
   const handleServiceSelect = (id: string) => {
     setSelectedServiceId(id);
     const found = SERVICE_OPTIONS.find((s) => s.id === id);
-    if (found) {
-      setSelectedTechId(found.defaultTech);
+    if (found && technicians.length > 0) {
+      const matchedTech = technicians.find((t) => t.id === found.defaultTech);
+      if (matchedTech) {
+        setSelectedTechId(matchedTech.id);
+      }
     }
   };
 
-  // Create new appointment
-  const handleCreateAppointment = (e: React.FormEvent) => {
+  // Create new appointment with Supabase Cloud sync & local storage resilience
+  const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!custName.trim()) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập họ và tên khách hàng.');
       return;
     }
 
-    const srv = SERVICE_OPTIONS.find((s) => s.id === selectedServiceId) || SERVICE_OPTIONS[0];
-    const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0];
-    const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
-    const remainingNum = srv.price - srv.deposit;
-
-    const newApp: ScheduleAppointment = {
-      id: `app-custom-${Date.now()}`,
-      technicianId: tech.id,
-      title: `${srv.category} · ${custName.trim()}`,
-      subtitle: `${slot.label} · ${statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn'}`,
-      customer: custName.trim(),
-      customerCode: `WM-${Math.floor(100000 + Math.random() * 900000)} · BK-${Date.now().toString().slice(-6)}`,
-      avatar: '/avatar_minh_anh.png',
-      service: srv.name,
-      timeRange: slot.label,
-      date: appDate,
-      technicianName: tech.name,
-      resource: `${tech.room.split('·')[1]?.trim() || tech.room} · Quận 3`,
-      durationText: `Dịch vụ ${srv.durationMinutes} phút`,
-      price: `${srv.price.toLocaleString('vi-VN')}đ`,
-      deposit: `${srv.deposit.toLocaleString('vi-VN')}đ`,
-      remaining: `${remainingNum.toLocaleString('vi-VN')}đ`,
-      status: statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn',
-      statusType: statusType,
-      bufferTitle: `Giữ nguồn lực đến ${slot.bufferEndTime}`,
-      bufferDesc: `Vùng đệm vệ sinh: ${slot.bufferTimeRange}. ${
-        statusType === 'waiting_payment'
-          ? 'Khoản cọc chưa thu, đang theo dõi thực hiện.'
-          : 'Đã thanh toán cọc giữ chỗ.'
-      } ${notes ? `Ghi chú: ${notes}` : ''}`,
-      startHour: slot.startHour,
-      durationHours: slot.durationHours,
-      hasCleaningBuffer: true,
-      cleaningText: `${slot.bufferTimeRange} · Vệ sinh / giữ phòng`,
-    };
-
-    const updated = [newApp, ...customAppointments];
-    setCustomAppointments(updated);
+    setIsCreating(true);
     try {
-      localStorage.setItem('mld_staff_appointments', JSON.stringify(updated));
+      const srv = SERVICE_OPTIONS.find((s) => s.id === selectedServiceId) || SERVICE_OPTIONS[0];
+      const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0] || DEFAULT_FALLBACK_TECHNICIANS[0];
+      const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
+      const remainingNum = Math.max(0, srv.price - srv.deposit);
+
+      // Tính giờ bắt đầu và kết thúc chuẩn HH:MM:SS
+      const startH = Math.floor(slot.startHour);
+      const startM = Math.round((slot.startHour - startH) * 60);
+      const startTimeStr = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00`;
+
+      const endHourNum = slot.startHour + slot.durationHours;
+      const endH = Math.floor(endHourNum);
+      const endM = Math.round((endHourNum - endH) * 60);
+      const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+
+      // Xác định chi nhánh
+      const branchId = modalBranchId || (selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id || 'branch-q3');
+      const branchObj = branches.find((b) => b.id === branchId) || branches[0];
+
+      // Ghi nhận trực tiếp qua bookingService
+      const res = await bookingService.createBooking({
+        customerId: selectedCustomerId || undefined,
+        customerName: custName.trim(),
+        customerPhone: custPhone.trim(),
+        branchId,
+        serviceId: srv.id,
+        serviceName: srv.name,
+        technicianId: tech.id,
+        technicianName: tech.name,
+        roomName: tech.room,
+        bookingDate: appDate,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        status: statusType === 'waiting_payment' ? BookingStatus.PENDING : BookingStatus.CONFIRMED,
+        paymentStatus: statusType === 'waiting_payment' ? PaymentStatus.UNPAID : PaymentStatus.PARTIAL,
+        baseTotal: srv.price,
+        depositAmount: srv.deposit,
+        finalPrice: srv.price,
+        notes: notes.trim(),
+        durationMinutes: srv.durationMinutes,
+      });
+
+      const dateParts = appDate.split('-');
+      const dateDisplay = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : appDate;
+      const bookingCode = res.data?.bookingCode || `BK-${Date.now().toString().slice(-6)}`;
+
+      const newApp: ScheduleAppointment = {
+        id: res.data?.id || `app-custom-${Date.now()}`,
+        technicianId: tech.id,
+        title: `${srv.category} · ${custName.trim()}`,
+        subtitle: `${slot.label} · ${statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn'}`,
+        customer: custName.trim(),
+        customerCode: `WM-${Math.floor(100000 + Math.random() * 900000)} · ${bookingCode}`,
+        avatar: '/avatar_minh_anh.png',
+        service: srv.name,
+        timeRange: slot.label,
+        date: dateDisplay,
+        technicianName: tech.name,
+        resource: `${tech.room.split('·')[1]?.trim() || tech.room} · ${branchObj?.name || 'Chi nhánh'}`,
+        durationText: `Dịch vụ ${srv.durationMinutes} phút`,
+        price: `${srv.price.toLocaleString('vi-VN')}đ`,
+        deposit: `${srv.deposit.toLocaleString('vi-VN')}đ`,
+        remaining: `${remainingNum.toLocaleString('vi-VN')}đ`,
+        status: statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn',
+        statusType: statusType,
+        bufferTitle: `Giữ nguồn lực đến ${slot.bufferEndTime}`,
+        bufferDesc: `Vùng đệm vệ sinh: ${slot.bufferTimeRange}. ${
+          statusType === 'waiting_payment'
+            ? 'Khoản cọc chưa thu, đang theo dõi thực hiện.'
+            : 'Đã thanh toán cọc giữ chỗ.'
+        } ${notes ? `Ghi chú: ${notes}` : ''}`,
+        startHour: slot.startHour,
+        durationHours: slot.durationHours,
+        hasCleaningBuffer: true,
+        cleaningText: `${slot.bufferTimeRange} · Vệ sinh / giữ phòng`,
+      };
+
+      const updated = [newApp, ...customAppointments.filter((a) => a.id !== newApp.id)];
+      setCustomAppointments(updated);
+      try {
+        localStorage.setItem('mld_staff_appointments', JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to save appointment to localStorage:', err);
+      }
+
+      if (res.data) {
+        setLiveBookings((prev) => [res.data, ...prev.filter((b) => b.id !== res.data.id)]);
+      }
+
+      setSelectedAppId(newApp.id);
+      setShowCreateModal(false);
+
+      // Gửi thông báo hệ thống
+      notificationService.addNotification({
+        title: 'Lịch hẹn mới được tạo',
+        message: `Khách hàng ${newApp.customer} đã đặt lịch "${newApp.service}" lúc ${newApp.timeRange} ngày ${dateDisplay} (${newApp.technicianName}).`,
+        type: 'BOOKING',
+        link: `/staff-schedule?booking=${encodeURIComponent(bookingCode)}`,
+      });
+
+      toast.success(
+        'Tạo lịch hẹn thành công',
+        `Đã lên lịch hẹn cho khách hàng ${newApp.customer} lúc ${newApp.timeRange} (${newApp.technicianName}).`
+      );
+
+      // Reset form
+      setCustName('');
+      setCustPhone('');
+      setSelectedCustomerId('');
+      setNotes('');
+      if (searchParams.get('create')) {
+        setSearchParams({});
+      }
     } catch (err) {
-      console.error('Failed to save appointment to localStorage:', err);
-    }
-
-    setSelectedAppId(newApp.id);
-    setShowCreateModal(false);
-
-    // Send system notification
-    notificationService.addNotification({
-      title: 'Lịch hẹn mới được tạo',
-      message: `Khách hàng ${newApp.customer} đã đặt lịch "${newApp.service}" lúc ${newApp.timeRange} với KTV ${newApp.technicianName}.`,
-      type: 'BOOKING',
-      link: '/staff-schedule',
-    });
-
-    toast.success(
-      'Tạo lịch hẹn thành công',
-      `Đã lên lịch hẹn cho khách hàng ${newApp.customer} lúc ${newApp.timeRange} (${newApp.technicianName}).`
-    );
-
-    if (searchParams.get('create')) {
-      setSearchParams({});
+      console.error('Failed to create appointment:', err);
+      toast.error('Lỗi tạo lịch hẹn', 'Không thể hoàn tất tạo lịch hẹn. Vui lòng kiểm tra lại.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -674,12 +760,12 @@ export const W05_StaffSchedule: React.FC = () => {
               {technicians.map((t, idx) => (
                 <div
                   key={t.id}
-                  className={`flex-1 px-4 py-3 ${
+                  className={`flex-1 px-4 py-3 whitespace-nowrap ${
                     idx < technicians.length - 1 ? 'border-r border-[#EFE4D9]' : ''
                   }`}
                 >
-                  <div className="text-[13px] font-bold text-[#2C241E]">{t.name}</div>
-                  <div className="text-[11px] text-[#73675F] mt-0.5">{t.room}</div>
+                  <div className="text-[13px] font-bold text-[#2C241E] whitespace-nowrap">{t.name}</div>
+                  <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{t.room}</div>
                 </div>
               ))}
             </div>
@@ -1024,24 +1110,79 @@ export const W05_StaffSchedule: React.FC = () => {
 
             {/* Modal Form Body */}
             <form onSubmit={handleCreateAppointment} className="overflow-y-auto p-5 sm:p-6 space-y-4">
-              {/* Row 1: Khách hàng & Số điện thoại */}
+              {/* Row 1: Khách hàng & Số điện thoại (kèm gợi ý từ CRM) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Họ và tên khách hàng <span className="text-[#985018]">*</span>
-                  </label>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-[#2C241E]">
+                      Họ và tên khách hàng <span className="text-[#985018]">*</span>
+                    </label>
+                    {selectedCustomerId && (
+                      <span className="text-[10px] text-[#1B6E44] bg-[#E7F4EE] px-2 py-0.5 rounded-full font-bold">
+                        Đã liên kết hồ sơ CRM
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
                     <UserIcon className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
                       value={custName}
-                      onChange={(e) => setCustName(e.target.value)}
-                      placeholder="Ví dụ: Nguyễn Mỹ Duyên"
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      onChange={(e) => {
+                        setCustName(e.target.value);
+                        setSelectedCustomerId('');
+                        setShowCustomerDropdown(true);
+                      }}
+                      placeholder="Nhập tên hoặc tìm khách hàng..."
                       className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
                     />
                   </div>
+
+                  {/* Customer Autocomplete Dropdown */}
+                  {showCustomerDropdown && custName.trim().length > 0 && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#E8DFD8] rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {customers
+                        .filter((c) =>
+                          matchSearch([c.fullName, c.phone, c.referralCode || ''], custName)
+                        )
+                        .slice(0, 5)
+                        .map((c) => (
+                          <div
+                            key={c.id}
+                            onClick={() => {
+                              setCustName(c.fullName);
+                              setCustPhone(c.phone || '');
+                              setSelectedCustomerId(c.id);
+                              setShowCustomerDropdown(false);
+                            }}
+                            className="p-2.5 hover:bg-[#FAF0E4] cursor-pointer flex items-center justify-between border-b border-[#F4ECE3] last:border-b-0 text-xs transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-[#F3E2CE] text-[#985018] font-bold text-xs flex items-center justify-center shrink-0">
+                                {c.fullName.slice(0, 1)}
+                              </div>
+                              <div>
+                                <div className="font-bold text-[#2C241E]">{c.fullName}</div>
+                                <div className="text-[10px] text-[#73675F]">{c.phone}</div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-semibold text-[#985018] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8DFD8]">
+                              {c.membershipTier || 'STANDARD'}
+                            </span>
+                          </div>
+                        ))}
+                      <div
+                        onClick={() => setShowCustomerDropdown(false)}
+                        className="p-2 text-center text-[11px] text-[#73675F] hover:bg-[#F8F5F2] cursor-pointer font-medium bg-[#FAF8F5]"
+                      >
+                        Đóng gợi ý (Sử dụng tên vừa nhập)
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                     Số điện thoại liên hệ
@@ -1059,25 +1200,48 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 2: Dịch vụ & Gói chăm sóc */}
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Chọn dịch vụ trị liệu <span className="text-[#985018]">*</span>
-                </label>
-                <div className="relative">
-                  <Sparkles className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <select
-                    value={selectedServiceId}
-                    onChange={(e) => handleServiceSelect(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
-                  >
-                    {SERVICE_OPTIONS.map((srv) => (
-                      <option key={srv.id} value={srv.id}>
-                        {srv.name} — {srv.durationMinutes} phút ({srv.price.toLocaleString('vi-VN')}đ)
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* Row 2: Chi nhánh cơ sở & Dịch vụ trị liệu */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Chi nhánh cơ sở <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={modalBranchId}
+                      onChange={(e) => setModalBranchId(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
+                    >
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.code})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Chọn dịch vụ trị liệu <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Sparkles className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={selectedServiceId}
+                      onChange={(e) => handleServiceSelect(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
+                    >
+                      {SERVICE_OPTIONS.map((srv) => (
+                        <option key={srv.id} value={srv.id}>
+                          {srv.name} — {srv.durationMinutes} phút ({srv.price.toLocaleString('vi-VN')}đ)
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
@@ -1086,7 +1250,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                   Kỹ thuật viên & Phòng phân bổ <span className="text-[#985018]">*</span>
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                   {technicians.map((tech) => {
                     const isSelected = selectedTechId === tech.id;
                     return (
@@ -1111,14 +1275,40 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 4: Ngày & Khung giờ phục vụ */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
+              {/* Row 4: Ngày hẹn & Khung giờ phục vụ */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-bold text-[#2C241E]">
-                    Khung giờ hẹn <span className="text-[#985018]">*</span>
+                    Ngày hẹn & Khung giờ phục vụ <span className="text-[#985018]">*</span>
                   </label>
-                  <span className="text-[11px] text-[#73675F]">Ngày: {appDate}</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={appDate}
+                      onChange={(e) => setAppDate(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAppDate(new Date().toISOString().split('T')[0])}
+                      className="px-2.5 py-1.5 bg-[#FAF0E4] text-[#985018] rounded-lg text-[11px] font-bold hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                    >
+                      Hôm nay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setAppDate(tomorrow.toISOString().split('T')[0]);
+                      }}
+                      className="px-2.5 py-1.5 bg-[#FAF0E4] text-[#985018] rounded-lg text-[11px] font-bold hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                    >
+                      Ngày mai
+                    </button>
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-32 overflow-y-auto p-1.5 border border-[#E8DFD8] rounded-xl bg-[#FAF8F5]">
                   {TIME_SLOT_OPTIONS.map((slot, idx) => {
                     const isSelected = selectedSlotIndex === idx;
@@ -1192,12 +1382,13 @@ export const W05_StaffSchedule: React.FC = () => {
                 />
               </div>
 
-              {/* Summary Card Box */}
+              {/* Summary Card Box (100% crash-proof với fallback) */}
               {(() => {
                 const srv = SERVICE_OPTIONS.find((s) => s.id === selectedServiceId) || SERVICE_OPTIONS[0];
-                const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0];
+                const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0] || DEFAULT_FALLBACK_TECHNICIANS[0];
                 const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
-                const rem = srv.price - srv.deposit;
+                const rem = Math.max(0, srv.price - srv.deposit);
+                const br = branches.find((b) => b.id === modalBranchId) || branches[0];
 
                 return (
                   <div className="bg-[#FAF0E4] border border-[#E8DFD8] rounded-2xl p-4 space-y-2">
@@ -1207,22 +1398,22 @@ export const W05_StaffSchedule: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-[#73675F] pt-1">
                       <div>
-                        Chuyên viên: <span className="font-semibold text-[#2C241E]">{tech.name}</span>
+                        Chuyên viên: <span className="font-semibold text-[#2C241E]">{tech?.name || 'KTV'}</span>
                       </div>
                       <div>
-                        Phòng: <span className="font-semibold text-[#2C241E]">{tech.room.split('·')[1]?.trim() || tech.room}</span>
+                        Phòng: <span className="font-semibold text-[#2C241E]">{tech?.room?.split('·')[1]?.trim() || tech?.room || 'Phòng VIP'}</span>
                       </div>
                       <div>
-                        Thời gian: <span className="font-semibold text-[#2C241E]">{slot.label}</span>
+                        Cơ sở: <span className="font-semibold text-[#2C241E]">{br?.name || 'MLD Spa'}</span>
+                      </div>
+                      <div>
+                        Thời gian: <span className="font-semibold text-[#2C241E]">{slot.label} ({appDate})</span>
                       </div>
                       <div>
                         Tiền cọc giữ chỗ: <span className="font-bold text-[#8A4F23]">{srv.deposit.toLocaleString('vi-VN')}đ</span>
                       </div>
                       <div>
                         Còn lại thanh toán: <span className="font-semibold text-[#2C241E]">{rem.toLocaleString('vi-VN')}đ</span>
-                      </div>
-                      <div>
-                        Vùng đệm vô trùng: <span className="font-semibold text-[#2C241E]">15 phút ({slot.bufferTimeRange})</span>
                       </div>
                     </div>
                   </div>
@@ -1233,20 +1424,31 @@ export const W05_StaffSchedule: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EFE4D9]">
                 <button
                   type="button"
+                  disabled={isCreating}
                   onClick={() => {
                     setShowCreateModal(false);
                     if (searchParams.get('create')) setSearchParams({});
                   }}
-                  className="px-5 py-2.5 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-2"
+                  disabled={isCreating}
+                  className="px-6 py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] disabled:opacity-60 text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-2"
                 >
-                  <Check className="w-4 h-4" />
-                  Xác nhận tạo lịch hẹn
+                  {isCreating ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Đang lưu lịch hẹn...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Xác nhận tạo lịch hẹn</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

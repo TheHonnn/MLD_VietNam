@@ -92,45 +92,96 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- 2. SPECIALIST HERO AVATAR ---
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 292,
-                        child: Image.asset(
-                          widget.avatar,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.surfaceSecondary,
-                            child: const Center(
-                              child: Icon(Icons.person, size: 80, color: AppColors.primary),
+                    // --- 2. SPECIALIST HERO AVATAR WITH BACK BUTTON ---
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(24),
+                          ),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 292,
+                            child: widget.avatar.startsWith('http')
+                                ? Image.network(
+                                    widget.avatar,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: AppColors.surfaceSecondary,
+                                      child: const Center(
+                                        child: Icon(Icons.person, size: 80, color: AppColors.primary),
+                                      ),
+                                    ),
+                                  )
+                                : Image.asset(
+                                    widget.avatar,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: AppColors.surfaceSecondary,
+                                      child: const Center(
+                                        child: Icon(Icons.person, size: 80, color: AppColors.primary),
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        // Floating Back Button
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          child: InkWell(
+                            onTap: () => Navigator.pop(context),
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.arrow_back,
+                                color: AppColors.textPrimary,
+                                size: 22,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
 
-                    const SizedBox(height: 20),
-
-                    // --- 3. SPECIALIST HEADER & ROLE ---
-                    Text(
-                      widget.name,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textHeading, // #693B20
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.role,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
-                      ),
-                    ),
+                    // --- CONTENT WRAPPED IN PADDING (20px) ---
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // --- 3. SPECIALIST HEADER & ROLE ---
+                          Text(
+                            widget.name,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textHeading, // #693B20
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.role,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.primary,
+                            ),
+                          ),
 
                     const SizedBox(height: 10),
 
@@ -419,14 +470,17 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Đánh giá từ khách hàng',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textHeading,
+                        Expanded(
+                          child: Text(
+                            'Đánh giá từ khách hàng',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textHeading,
+                            ),
                           ),
                         ),
+                        SizedBox(width: 8),
                         Text(
                           '★ 4,7/5',
                           style: TextStyle(
@@ -439,7 +493,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Đánh giá từ khách hàng',
+                      'Nhận xét từ các khách hàng đã trải nghiệm',
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -458,17 +512,29 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  '${rev['author']} · ${rev['rating']}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
+                                Expanded(
+                                  child: Text(
+                                    rev['author']!,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
                                   ),
                                 ),
-                                const Text(
-                                  'Đánh giá khách hàng',
-                                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.star_rounded, size: 16, color: AppColors.primary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      rev['rating']!,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -518,6 +584,9 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     ),
 
                     const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -525,7 +594,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
 
             // --- 10. FIXED BOTTOM CTA ---
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: const BoxDecoration(
                 color: AppColors.surface,
                 border: Border(

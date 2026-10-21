@@ -110,3 +110,6 @@ docs/figma_assets/individual_screens/
 docs/figma_assets/*_raw.json
 docs/figma_assets/*.png
 docs/figma_assets/__pycache__/
+
+# Supabase CLI temp
+supabase/.temp/

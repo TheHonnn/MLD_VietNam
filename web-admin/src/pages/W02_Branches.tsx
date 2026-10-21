@@ -1,6 +1,6 @@
 // MLD Healthcare & Spa - W02 Branch Management & Facility Configuration
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronLeft,
@@ -40,6 +40,28 @@ import { Branch, BranchRoom, Service, RoomType } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 import { VIETNAM_LOCATIONS_2026, VIETNAM_PROVINCE_NAMES } from '../data/vietnamLocations';
 
+const DEFAULT_AMENITIES = [
+  'Phòng VIP riêng biệt',
+  'Đỗ xe ô tô miễn phí',
+  'Trà thảo mộc & bánh ngọt',
+  'Phòng xông hơi đá muối',
+  'Thanh toán VietQR & Thẻ VIP',
+  'Học viện đào tạo chuyên sâu',
+];
+
+const INITIAL_BRANCH_FORM_DATA = {
+  name: '',
+  code: '',
+  phone: '',
+  address: '',
+  district: 'Quận 1',
+  city: 'TP. Hồ Chí Minh',
+  openingTime: '08:30',
+  closingTime: '20:30',
+  imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
+  amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
+};
+
 const roomTypeLabels: Record<string, string> = {
   VIP_ROOM: 'Phòng VIP',
   MASSAGE_ROOM: 'Phòng Massage',
@@ -70,6 +92,7 @@ const getRoomTypeBadgeStyle = (type: string) => {
 
 export const W02_Branches: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCity, setSelectedCity] = useState('ALL');
@@ -101,7 +124,25 @@ export const W02_Branches: React.FC = () => {
   const [roomSortOrder, setRoomSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Main Top-level Tabs: 'branches' (Chi nhánh) vs 'rooms' (Phòng dịch vụ)
-  const [activeMainTab, setActiveMainTab] = useState<'branches' | 'rooms'>('branches');
+  const tabParam = searchParams.get('tab');
+  const [activeMainTab, setActiveMainTab] = useState<'branches' | 'rooms'>(
+    tabParam === 'rooms' ? 'rooms' : 'branches'
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'rooms' && activeMainTab !== 'rooms') {
+      setActiveMainTab('rooms');
+    } else if ((!tab || tab === 'branches') && activeMainTab !== 'branches') {
+      setActiveMainTab('branches');
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (newTab: 'branches' | 'rooms') => {
+    setActiveMainTab(newTab);
+    setSearchParams(newTab === 'rooms' ? { tab: 'rooms' } : {}, { replace: true });
+  };
+
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // All Rooms Across System (Tab 'Phòng dịch vụ')
@@ -212,27 +253,23 @@ export const W02_Branches: React.FC = () => {
     amenities: [] as string[],
   });
 
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    phone: '',
-    address: '',
-    district: 'Quận 1',
-    city: 'TP. Hồ Chí Minh',
-    openingTime: '08:30',
-    closingTime: '20:30',
-    imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-    amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
-  });
+  const [formData, setFormData] = useState(INITIAL_BRANCH_FORM_DATA);
 
-  const availableAmenities = [
-    'Phòng VIP riêng biệt',
-    'Đỗ xe ô tô miễn phí',
-    'Trà thảo mộc & bánh ngọt',
-    'Phòng xông hơi đá muối',
-    'Thanh toán VietQR & Thẻ VIP',
-    'Học viện đào tạo chuyên sâu',
-  ];
+  const [availableAmenities, setAvailableAmenities] = useState<string[]>(() => {
+    try {
+      const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+      const deletedSet = new Set(savedDeleted ? JSON.parse(savedDeleted) : []);
+      const savedCustom = localStorage.getItem('mld_custom_amenities');
+      const customList = savedCustom ? JSON.parse(savedCustom) : [];
+      const combined = Array.from(
+        new Set([...DEFAULT_AMENITIES, ...(Array.isArray(customList) ? customList : [])])
+      );
+      return combined.filter((a) => !deletedSet.has(a));
+    } catch {}
+    return [...DEFAULT_AMENITIES];
+  });
+  const [newEditAmenity, setNewEditAmenity] = useState('');
+  const [newCreateAmenity, setNewCreateAmenity] = useState('');
 
   const [isCustomDistrict, setIsCustomDistrict] = useState(false);
   const [isCustomEditDistrict, setIsCustomEditDistrict] = useState(false);
@@ -305,6 +342,19 @@ export const W02_Branches: React.FC = () => {
 
       setBranches(allBranches);
       setAllArchivedBranches(archivedBranchesList);
+
+      // Merge amenities from existing branches to ensure custom ones are visible (excluding deleted)
+      const allBranchAmenities = allBranches.flatMap((b) => b.amenities || []);
+      if (allBranchAmenities.length > 0) {
+        let deletedSet = new Set<string>();
+        try {
+          const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+          if (savedDeleted) deletedSet = new Set(JSON.parse(savedDeleted));
+        } catch {}
+        setAvailableAmenities((prev) =>
+          Array.from(new Set([...prev, ...allBranchAmenities])).filter((a) => !deletedSet.has(a))
+        );
+      }
 
       // 1. Join archived rooms with branch info first to establish exclusion set
       let combinedArchived: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
@@ -570,6 +620,22 @@ export const W02_Branches: React.FC = () => {
   const handleRestoreCrossBranchRoom = async (
     room: BranchRoom & { branchName?: string }
   ) => {
+    // BUG-13: Chặn khôi phục nếu cơ sở này đã có phòng hoạt động cùng tên
+    const isConflict = allRooms.some(
+      (r) =>
+        !r.isArchived &&
+        r.branchId === room.branchId &&
+        r.id !== room.id &&
+        r.name.trim().toLowerCase() === room.name.trim().toLowerCase()
+    );
+    if (isConflict) {
+      toast.warning(
+        'Trùng tên phòng hoạt động',
+        `Phòng "${room.name}" hiện đã có một phòng khác cùng tên đang hoạt động tại cơ sở này. Vui lòng kiểm tra lại.`
+      );
+      return;
+    }
+
     // 1. Remove from allArchivedRooms
     setAllArchivedRooms((prev) => prev.filter((r) => r.id !== room.id));
 
@@ -611,7 +677,7 @@ export const W02_Branches: React.FC = () => {
 
     toast.success(
       'Khôi phục thành công',
-      `Phòng "${room.name}" đã được khôi phục trở lại hệ thống vận hành.`
+      `Phòng "${room.name}" đã được khôi phục trở lại hệ thống vận hành. Toàn bộ lịch sử liên kết và đối soát trước đó được giữ nguyên vẹn 100%.`
     );
 
     await branchService.restoreRoom(room.id);
@@ -642,7 +708,8 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng chọn cơ sở chi nhánh cho phòng.');
       return;
     }
-    if (!crossBranchCreateRoomForm.name.trim()) {
+    const cleanName = crossBranchCreateRoomForm.name.trim();
+    if (!cleanName) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập tên phòng dịch vụ.');
       return;
     }
@@ -650,22 +717,109 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng chọn loại phòng dịch vụ.');
       return;
     }
-    if (
-      crossBranchCreateRoomForm.bedCapacity === '' ||
-      Number(crossBranchCreateRoomForm.bedCapacity) <= 0
-    ) {
-      toast.error('Thiếu thông tin', 'Vui lòng nhập số giường sức chứa (tối thiểu 1 giường).');
+    const rawBedCap = Number(crossBranchCreateRoomForm.bedCapacity);
+    const bedCap = Math.floor(rawBedCap);
+    if (!bedCap || bedCap < 1 || bedCap > 20) {
+      toast.error('Số giường không hợp lệ', 'Vui lòng nhập số giường nguyên dương từ 1 đến 20 giường.');
+      return;
+    }
+
+    const targetBranchId = crossBranchCreateRoomForm.branchId;
+    const targetBranch = branches.find((b) => b.id === targetBranchId);
+
+    // Kiểm tra trùng tên với phòng đang hoạt động tại cùng cơ sở
+    const alreadyActive = allRooms.some(
+      (r) => r.branchId === targetBranchId && r.name.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (alreadyActive) {
+      toast.warning(
+        'Trùng tên phòng',
+        `Phòng "${cleanName}" đang hoạt động tại ${targetBranch?.name || 'cơ sở này'}. Vui lòng chọn tên khác hoặc chỉnh sửa phòng hiện có.`
+      );
       return;
     }
 
     setIsCrossBranchCreatingRoom(true);
     try {
-      const targetBranch = branches.find((b) => b.id === crossBranchCreateRoomForm.branchId);
+      // KIỂM TRA PHÒNG ĐÃ TỪNG LƯU TRỮ (SOFT-DELETED): NẾU CÓ, KHÔI PHỤC BẢN GHI GỐC ĐỂ BẢO LƯU 100% LỊCH SỬ
+      const matchingArchived = allArchivedRooms.find(
+        (r) => r.branchId === targetBranchId && r.name.trim().toLowerCase() === cleanName.toLowerCase()
+      );
+
+      if (matchingArchived) {
+        const roomType = crossBranchCreateRoomForm.roomType as RoomType;
+        const bedCapacity = bedCap;
+        const isAvailable = crossBranchCreateRoomForm.isAvailable;
+
+        // 1. Khôi phục phòng trên Supabase Cloud
+        await branchService.restoreRoom(matchingArchived.id);
+        // 2. Cập nhật cấu hình phòng nếu có thay đổi loại phòng / số giường
+        await branchService.updateRoom(matchingArchived.id, {
+          name: cleanName,
+          roomType,
+          bedCapacity,
+          isAvailable,
+        });
+
+        // 3. Cập nhật allArchivedRooms
+        setAllArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+
+        // 4. Đưa phòng được khôi phục vào allRooms (giữ nguyên ID gốc)
+        const restoredRoom: BranchRoom = {
+          ...matchingArchived,
+          name: cleanName,
+          roomType,
+          bedCapacity,
+          isAvailable,
+          isArchived: false,
+        };
+
+        const newJoinedRoom: BranchRoom & { branchName?: string; branchCode?: string } = {
+          ...restoredRoom,
+          branchName: targetBranch?.name || 'Cơ sở MLD',
+          branchCode: targetBranch?.code || '',
+        };
+
+        setAllRooms((prev) => [newJoinedRoom, ...prev.filter((r) => r.id !== matchingArchived.id)]);
+
+        // 5. Cập nhật localStorage
+        try {
+          const cached = localStorage.getItem(`mld_rooms_${targetBranchId}`);
+          const parsed: BranchRoom[] = cached ? JSON.parse(cached) : [];
+          localStorage.setItem(
+            `mld_rooms_${targetBranchId}`,
+            JSON.stringify([...parsed.filter((r) => r.id !== matchingArchived.id), restoredRoom])
+          );
+        } catch {}
+
+        // 6. Nếu đang mở modal quản lý cơ sở này, đồng bộ manageRooms và archivedRooms
+        if (managingBranch && managingBranch.id === targetBranchId) {
+          setArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+          setManageRooms((prev) => [...prev.filter((r) => r.id !== matchingArchived.id), restoredRoom]);
+        }
+
+        toast.success(
+          'Đã khôi phục và bảo toàn lịch sử phòng',
+          `Phòng "${cleanName}" tại cơ sở ${targetBranch?.name || ''} đã được kích hoạt lại với ID gốc. Toàn bộ lịch sử đặt hẹn, phân ca và đối soát trước đó được bảo lưu trọn vẹn 100%!`
+        );
+
+        setIsCrossBranchCreateRoomOpen(false);
+        setCrossBranchCreateRoomForm({
+          branchId: branches[0]?.id || '',
+          name: '',
+          roomType: '',
+          bedCapacity: '',
+          isAvailable: true,
+        });
+        return;
+      }
+
+      // NẾU LÀ PHÒNG HOÀN TOÀN MỚI: TẠO BẢN GHI MỚI
       const roomPayload = {
-        branchId: crossBranchCreateRoomForm.branchId,
-        name: crossBranchCreateRoomForm.name.trim(),
+        branchId: targetBranchId,
+        name: cleanName,
         roomType: crossBranchCreateRoomForm.roomType as RoomType,
-        bedCapacity: Number(crossBranchCreateRoomForm.bedCapacity),
+        bedCapacity: bedCap,
         isAvailable: crossBranchCreateRoomForm.isAvailable,
       };
 
@@ -753,22 +907,39 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng chọn loại phòng dịch vụ.');
       return;
     }
-    if (
-      crossBranchEditRoomForm.bedCapacity === '' ||
-      Number(crossBranchEditRoomForm.bedCapacity) <= 0
-    ) {
-      toast.error('Thiếu thông tin', 'Vui lòng nhập số giường sức chứa (tối thiểu 1 giường).');
+    const rawBedCap = Number(crossBranchEditRoomForm.bedCapacity);
+    const bedCap = Math.floor(rawBedCap);
+    if (!bedCap || bedCap < 1 || bedCap > 20) {
+      toast.error('Số giường không hợp lệ', 'Vui lòng nhập số giường nguyên dương từ 1 đến 20 giường.');
+      return;
+    }
+
+    const targetBranchId = crossBranchEditRoomForm.branchId;
+    const cleanRoomName = crossBranchEditRoomForm.name.trim();
+
+    // BUG-07: Kiểm tra trùng tên phòng với các phòng đang hoạt động khác trong cùng cơ sở
+    const isDuplicateRoomName = allRooms.some(
+      (r) =>
+        r.id !== editingCrossBranchRoom.id &&
+        r.branchId === targetBranchId &&
+        r.name.trim().toLowerCase() === cleanRoomName.toLowerCase()
+    );
+    if (isDuplicateRoomName) {
+      toast.warning(
+        'Trùng tên phòng',
+        `Phòng "${cleanRoomName}" đã tồn tại tại cơ sở được chọn. Vui lòng chọn tên khác.`
+      );
       return;
     }
 
     setIsCrossBranchEditingRoom(true);
     try {
-      const targetBranch = branches.find((b) => b.id === crossBranchEditRoomForm.branchId);
+      const targetBranch = branches.find((b) => b.id === targetBranchId);
       const updates: Partial<BranchRoom> = {
-        branchId: crossBranchEditRoomForm.branchId,
-        name: crossBranchEditRoomForm.name.trim(),
+        branchId: targetBranchId,
+        name: cleanRoomName,
         roomType: crossBranchEditRoomForm.roomType as RoomType,
-        bedCapacity: Number(crossBranchEditRoomForm.bedCapacity),
+        bedCapacity: bedCap,
         isAvailable: crossBranchEditRoomForm.isAvailable,
       };
 
@@ -955,26 +1126,23 @@ export const W02_Branches: React.FC = () => {
         ]);
       }
 
-      // 3. Switch selected branch if it was deleted
+      // 3. Switch selected branch if it was deleted (BUG-11: Fallback gracefully when remaining branches is empty)
       if (selectedBranchId === target.id) {
         const nextBranch = remainingBranches[0];
-        if (nextBranch) {
-          setSelectedBranchId(nextBranch.id);
-        }
+        setSelectedBranchId(nextBranch ? nextBranch.id : '');
       }
 
-      // 4. Switch global working branch if it was deleted
+      // 4. Switch global working branch if it was deleted (BUG-11: Fallback to 'ALL' if no branches left)
       if (globalWorkingBranchId === target.id) {
         const nextBranch = remainingBranches[0];
-        if (nextBranch) {
-          setGlobalWorkingBranchId(nextBranch.id);
-          localStorage.setItem('mld_selected_branch_id', nextBranch.id);
-          window.dispatchEvent(
-            new CustomEvent('mld_branch_changed', {
-              detail: { branchId: nextBranch.id, branch: nextBranch },
-            })
-          );
-        }
+        const nextId = nextBranch ? nextBranch.id : 'ALL';
+        setGlobalWorkingBranchId(nextId);
+        localStorage.setItem('mld_selected_branch_id', nextId);
+        window.dispatchEvent(
+          new CustomEvent('mld_branch_changed', {
+            detail: { branchId: nextId, branch: nextBranch || null },
+          })
+        );
       }
 
       // 5. Update localStorage
@@ -1017,6 +1185,18 @@ export const W02_Branches: React.FC = () => {
 
   // Restore archived branch
   const handleRestoreBranch = async (branch: Branch) => {
+    // BUG-12: Chặn khôi phục nếu mã định danh chi nhánh đã được cơ sở khác đang hoạt động sử dụng
+    const isCodeConflict = branches.some(
+      (b) => b.id !== branch.id && b.code.trim().toUpperCase() === branch.code.trim().toUpperCase()
+    );
+    if (isCodeConflict) {
+      toast.warning(
+        'Trùng mã chi nhánh',
+        `Mã định danh "${branch.code}" hiện đang được sử dụng bởi một cơ sở khác đang hoạt động. Vui lòng kiểm tra lại trước khi khôi phục.`
+      );
+      return;
+    }
+
     // 1. Remove from allArchivedBranches
     setAllArchivedBranches((prev) => prev.filter((b) => b.id !== branch.id));
 
@@ -1162,11 +1342,123 @@ export const W02_Branches: React.FC = () => {
     });
   };
 
+  const handleAddCustomAmenity = (name: string, targetModal: 'edit' | 'create') => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập tên tiện ích hoặc dịch vụ đi kèm.');
+      return;
+    }
+
+    // Nếu tiện ích này từng bị xóa, loại khỏi danh sách đã xóa
+    try {
+      const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+      if (savedDeleted) {
+        const deletedList: string[] = JSON.parse(savedDeleted);
+        const filtered = deletedList.filter((a) => a.toLowerCase() !== trimmed.toLowerCase());
+        localStorage.setItem('mld_deleted_amenities', JSON.stringify(filtered));
+      }
+    } catch {}
+
+    const alreadyExists = availableAmenities.some(
+      (a) => a.toLowerCase() === trimmed.toLowerCase()
+    );
+
+    let updatedAmenities = availableAmenities;
+    if (!alreadyExists) {
+      updatedAmenities = [...availableAmenities, trimmed];
+      setAvailableAmenities(updatedAmenities);
+      try {
+        const savedCustom = localStorage.getItem('mld_custom_amenities');
+        const customArr: string[] = savedCustom ? JSON.parse(savedCustom) : [];
+        if (!customArr.some((a) => a.toLowerCase() === trimmed.toLowerCase())) {
+          customArr.push(trimmed);
+          localStorage.setItem('mld_custom_amenities', JSON.stringify(customArr));
+        }
+      } catch {}
+    }
+
+    // BUG-14: Kiểm tra trùng lặp tiện ích không phân biệt chữ hoa/thường
+    if (targetModal === 'edit') {
+      const alreadyInEdit = editForm.amenities.some((a) => a.toLowerCase() === trimmed.toLowerCase());
+      if (!alreadyInEdit) {
+        setEditForm((prev) => ({ ...prev, amenities: [...prev.amenities, trimmed] }));
+      }
+      setNewEditAmenity('');
+    } else {
+      const alreadyInCreate = formData.amenities.some((a) => a.toLowerCase() === trimmed.toLowerCase());
+      if (!alreadyInCreate) {
+        setFormData((prev) => ({ ...prev, amenities: [...prev.amenities, trimmed] }));
+      }
+      setNewCreateAmenity('');
+    }
+
+    toast.success(
+      alreadyExists ? 'Đã kích hoạt tiện ích' : 'Đã thêm tiện ích mới',
+      `Tiện ích "${trimmed}" đã được kích hoạt cho chi nhánh.`
+    );
+  };
+
+  const handleDeleteAmenity = (amenityToDelete: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    // 1. Lưu vào danh sách đã xóa để không nạp lại
+    try {
+      const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+      const deletedList: string[] = savedDeleted ? JSON.parse(savedDeleted) : [];
+      if (!deletedList.includes(amenityToDelete)) {
+        deletedList.push(amenityToDelete);
+        localStorage.setItem('mld_deleted_amenities', JSON.stringify(deletedList));
+      }
+    } catch {}
+
+    // 2. Cập nhật state availableAmenities
+    const updated = availableAmenities.filter((a) => a !== amenityToDelete);
+    setAvailableAmenities(updated);
+
+    // 3. Nếu tiện ích nằm trong custom_amenities, cập nhật lại
+    try {
+      const savedCustom = localStorage.getItem('mld_custom_amenities');
+      if (savedCustom) {
+        const customArr: string[] = JSON.parse(savedCustom);
+        localStorage.setItem(
+          'mld_custom_amenities',
+          JSON.stringify(customArr.filter((a) => a !== amenityToDelete))
+        );
+      }
+    } catch {}
+
+    // 4. Bỏ chọn ở cả 2 modal nếu tiện ích này đang được chọn
+    setEditForm((prev) => ({
+      ...prev,
+      amenities: prev.amenities.filter((a) => a !== amenityToDelete),
+    }));
+    setFormData((prev) => ({
+      ...prev,
+      amenities: prev.amenities.filter((a) => a !== amenityToDelete),
+    }));
+
+    toast.info('Đã xóa tiện ích', `Đã xóa tiện ích "${amenityToDelete}" khỏi danh sách hiển thị.`);
+  };
+
+  const handleResetDefaultAmenities = () => {
+    try {
+      localStorage.removeItem('mld_deleted_amenities');
+      const savedCustom = localStorage.getItem('mld_custom_amenities');
+      const customList = savedCustom ? JSON.parse(savedCustom) : [];
+      const restored = Array.from(
+        new Set([...DEFAULT_AMENITIES, ...(Array.isArray(customList) ? customList : [])])
+      );
+      setAvailableAmenities(restored);
+      toast.success('Đã khôi phục', 'Đã khôi phục danh sách tiện ích tiêu chuẩn của hệ thống.');
+    } catch {}
+  };
+
   // Add Room inside Manage Modal
   const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!managingBranch) return;
-    if (!newRoomData.name.trim()) {
+    const cleanName = newRoomData.name.trim();
+    if (!cleanName) {
       toast.error('Thiếu thông tin phòng', 'Vui lòng nhập tên phòng.');
       return;
     }
@@ -1174,18 +1466,91 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin phòng', 'Vui lòng chọn loại phòng.');
       return;
     }
-    const bedCap = Number(newRoomData.bedCapacity);
-    if (!bedCap || bedCap <= 0) {
-      toast.error('Thiếu thông tin phòng', 'Vui lòng nhập số giường (tối thiểu 1 giường).');
+    const rawBedCap = Number(newRoomData.bedCapacity);
+    const bedCap = Math.floor(rawBedCap);
+    if (!bedCap || bedCap < 1 || bedCap > 20) {
+      toast.error('Số giường không hợp lệ', 'Vui lòng nhập số giường nguyên dương từ 1 đến 20 giường.');
+      return;
+    }
+
+    // Kiểm tra trùng tên với phòng đang hoạt động tại cơ sở này
+    const alreadyActive = manageRooms.some(
+      (r) => r.name.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (alreadyActive) {
+      toast.warning(
+        'Trùng tên phòng',
+        `Phòng "${cleanName}" đang hoạt động tại cơ sở này. Vui lòng chọn tên khác hoặc chỉnh sửa phòng hiện có.`
+      );
       return;
     }
 
     setIsAddingRoom(true);
     const roomType = newRoomData.roomType as RoomType;
+
     try {
+      // KIỂM TRA PHÒNG ĐÃ TỪNG LƯU TRỮ (SOFT-DELETED): NẾU CÓ, KHÔI PHỤC BẢN GHI GỐC ĐỂ BẢO LƯU 100% LỊCH SỬ
+      const matchingArchived =
+        archivedRooms.find((r) => r.name.trim().toLowerCase() === cleanName.toLowerCase()) ||
+        allArchivedRooms.find(
+          (r) => r.branchId === managingBranch.id && r.name.trim().toLowerCase() === cleanName.toLowerCase()
+        );
+
+      if (matchingArchived) {
+        // 1. Khôi phục phòng trên Supabase Cloud
+        await branchService.restoreRoom(matchingArchived.id);
+        // 2. Cập nhật cấu hình mới nếu người dùng thay đổi loại phòng / số giường
+        await branchService.updateRoom(matchingArchived.id, {
+          name: cleanName,
+          roomType,
+          bedCapacity: bedCap,
+          isAvailable: newRoomData.isAvailable,
+        });
+
+        // 3. Gỡ khỏi danh sách lưu trữ
+        setArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+        setAllArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+
+        // 4. Đưa phòng vào danh sách hoạt động với ID gốc
+        const restoredRoom: BranchRoom = {
+          ...matchingArchived,
+          name: cleanName,
+          roomType,
+          bedCapacity: bedCap,
+          isAvailable: newRoomData.isAvailable,
+          isArchived: false,
+        };
+
+        const updated = [...manageRooms.filter((r) => r.id !== matchingArchived.id), restoredRoom];
+        setManageRooms(updated);
+        localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
+
+        const joinedRestored: BranchRoom & { branchName?: string; branchCode?: string } = {
+          ...restoredRoom,
+          branchName: managingBranch.name,
+          branchCode: managingBranch.code,
+        };
+        setAllRooms((prev) => [joinedRestored, ...prev.filter((r) => r.id !== matchingArchived.id)]);
+
+        setNewRoomData({
+          name: '',
+          roomType: '',
+          bedCapacity: '',
+          isAvailable: true,
+        });
+        setShowAddRoom(false);
+
+        toast.success(
+          'Đã khôi phục và bảo toàn lịch sử phòng',
+          `Phòng "${cleanName}" đã từng tồn tại trong hệ thống. Hệ thống đã kích hoạt lại với ID gốc, bảo toàn 100% lịch sử đặt hẹn, phân ca và đối soát trước đó!`
+        );
+        return;
+      }
+
+      // NẾU LÀ PHÒNG HOÀN TOÀN MỚI: TẠO MỚI BẢN GHI
       const res = await branchService.createRoom({
         branchId: managingBranch.id,
-        name: newRoomData.name.trim(),
+        name: cleanName,
         roomType,
         bedCapacity: bedCap,
         isAvailable: newRoomData.isAvailable,
@@ -1196,7 +1561,7 @@ export const W02_Branches: React.FC = () => {
         : {
             id: `r-${managingBranch.id}-${Date.now()}`,
             branchId: managingBranch.id,
-            name: newRoomData.name.trim(),
+            name: cleanName,
             roomType,
             bedCapacity: bedCap,
             isAvailable: newRoomData.isAvailable,
@@ -1224,7 +1589,7 @@ export const W02_Branches: React.FC = () => {
       const fallbackRoom: BranchRoom = {
         id: `r-${managingBranch.id}-${Date.now()}`,
         branchId: managingBranch.id,
-        name: newRoomData.name.trim(),
+        name: cleanName,
         roomType,
         bedCapacity: bedCap,
         isAvailable: newRoomData.isAvailable,
@@ -1277,6 +1642,21 @@ export const W02_Branches: React.FC = () => {
     const target = archivedRooms.find((r) => r.id === roomId);
     if (!target) return;
 
+    // BUG-13: Chặn khôi phục nếu cơ sở này đã có phòng hoạt động cùng tên
+    const isConflict = manageRooms.some(
+      (r) =>
+        !r.isArchived &&
+        r.id !== target.id &&
+        r.name.trim().toLowerCase() === target.name.trim().toLowerCase()
+    );
+    if (isConflict) {
+      toast.warning(
+        'Trùng tên phòng hoạt động',
+        `Phòng "${target.name}" hiện đã có một phòng khác cùng tên đang hoạt động tại cơ sở này. Vui lòng kiểm tra lại.`
+      );
+      return;
+    }
+
     // 1. Gỡ khỏi danh sách lưu trữ CSDL
     setArchivedRooms((prev) => prev.filter((r) => r.id !== roomId));
     setAllArchivedRooms((prev) => prev.filter((r) => r.id !== roomId));
@@ -1299,7 +1679,7 @@ export const W02_Branches: React.FC = () => {
 
     toast.success(
       'Khôi phục thành công',
-      `Phòng "${target.name}" đã được khôi phục trở lại hệ thống vận hành.`
+      `Phòng "${target.name}" đã được khôi phục trở lại hệ thống vận hành. Toàn bộ lịch sử đặt hẹn và đối soát trước đó được giữ nguyên vẹn 100%.`
     );
 
     // 3. Cập nhật restore trên Supabase Cloud
@@ -1310,22 +1690,69 @@ export const W02_Branches: React.FC = () => {
   const handleSaveBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!managingBranch) return;
-    if (!editForm.name.trim()) {
+
+    const cleanName = editForm.name.trim();
+    const cleanCode = editForm.code.trim().toUpperCase();
+    const cleanPhone = editForm.phone.trim();
+    const cleanAddress = editForm.address.trim();
+
+    if (!cleanName) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập tên chi nhánh.');
       return;
     }
-    if (!editForm.phone.trim()) {
+    if (!cleanCode) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập mã định danh chi nhánh.');
+      return;
+    }
+    if (!cleanPhone) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập hotline chi nhánh.');
+      return;
+    }
+
+    // BUG-08: Chuẩn hóa định dạng số điện thoại hotline chi nhánh
+    const cleanPhoneDigits = cleanPhone.replace(/[\s.\-()]/g, '');
+    const phonePattern = /^(0|\+84)[0-9]{8,10}$|^1[89]00[0-9]{4}$/;
+    if (!phonePattern.test(cleanPhoneDigits)) {
+      toast.error(
+        'Số điện thoại không hợp lệ',
+        'Vui lòng nhập số điện thoại hotline đúng định dạng (VD: 0901234567, 02839301234, 1900xxxx).'
+      );
+      return;
+    }
+
+    if (!cleanAddress) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập địa chỉ cơ sở.');
+      return;
+    }
+
+    // BUG-06: Giờ mở cửa phải trước giờ đóng cửa cơ sở
+    if (editForm.openingTime >= editForm.closingTime) {
+      toast.error(
+        'Thời gian hoạt động không hợp lệ',
+        'Giờ mở cửa phải diễn ra trước giờ đóng cửa cơ sở trong cùng ngày.'
+      );
+      return;
+    }
+
+    // BUG-02: Kiểm tra trùng mã định danh với cơ sở khác
+    const isCodeDuplicate =
+      branches.some((b) => b.id !== managingBranch.id && b.code.trim().toUpperCase() === cleanCode) ||
+      allArchivedBranches.some((b) => b.id !== managingBranch.id && b.code.trim().toUpperCase() === cleanCode);
+    if (isCodeDuplicate) {
+      toast.warning(
+        'Trùng mã chi nhánh',
+        `Mã định danh "${cleanCode}" đã được sử dụng cho một cơ sở khác trên hệ thống. Vui lòng chọn mã khác.`
+      );
       return;
     }
 
     setIsSavingBranch(true);
     try {
       const updates: Partial<Branch> = {
-        name: editForm.name.trim(),
-        code: editForm.code.trim().toUpperCase(),
-        phone: editForm.phone.trim(),
-        address: editForm.address.trim(),
+        name: cleanName,
+        code: cleanCode,
+        phone: cleanPhone,
+        address: cleanAddress,
         district: editForm.district.trim(),
         city: editForm.city.trim(),
         openingTime: `${editForm.openingTime}:00`,
@@ -1419,32 +1846,76 @@ export const W02_Branches: React.FC = () => {
     });
   };
 
+  // BUG-10: Khởi tạo lại toàn bộ form sạch sẽ khi mở modal tạo chi nhánh
+  const handleOpenCreateBranchModal = () => {
+    setFormData(INITIAL_BRANCH_FORM_DATA);
+    setIsCreateModalOpen(true);
+  };
+
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
+    const cleanName = formData.name.trim();
+    const cleanCode = formData.code.trim().toUpperCase();
+    const cleanPhone = formData.phone.trim();
+    const cleanAddress = formData.address.trim();
+
+    if (!cleanName) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập tên chi nhánh.');
       return;
     }
-    if (!formData.code.trim()) {
+    if (!cleanCode) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập mã định danh chi nhánh.');
       return;
     }
-    if (!formData.phone.trim()) {
+    if (!cleanPhone) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập số điện thoại hotline cơ sở.');
       return;
     }
-    if (!formData.address.trim()) {
+
+    // BUG-08: Chuẩn hóa định dạng số điện thoại hotline chi nhánh
+    const cleanPhoneDigits = cleanPhone.replace(/[\s.\-()]/g, '');
+    const phonePattern = /^(0|\+84)[0-9]{8,10}$|^1[89]00[0-9]{4}$/;
+    if (!phonePattern.test(cleanPhoneDigits)) {
+      toast.error(
+        'Số điện thoại không hợp lệ',
+        'Vui lòng nhập số điện thoại hotline đúng định dạng (VD: 0901234567, 02839301234, 1900xxxx).'
+      );
+      return;
+    }
+
+    if (!cleanAddress) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập địa chỉ cơ sở.');
+      return;
+    }
+
+    // BUG-06: Giờ mở cửa phải trước giờ đóng cửa cơ sở
+    if (formData.openingTime >= formData.closingTime) {
+      toast.error(
+        'Thời gian hoạt động không hợp lệ',
+        'Giờ mở cửa phải diễn ra trước giờ đóng cửa cơ sở trong cùng ngày.'
+      );
+      return;
+    }
+
+    // BUG-02: Kiểm tra trùng mã định danh chi nhánh
+    const isCodeDuplicate =
+      branches.some((b) => b.code.trim().toUpperCase() === cleanCode) ||
+      allArchivedBranches.some((b) => b.code.trim().toUpperCase() === cleanCode);
+    if (isCodeDuplicate) {
+      toast.warning(
+        'Trùng mã chi nhánh',
+        `Mã định danh "${cleanCode}" đã được sử dụng cho một cơ sở khác trên hệ thống. Vui lòng chọn mã khác.`
+      );
       return;
     }
 
     setIsSubmitting(true);
     try {
       const branchPayload: Omit<Branch, 'id'> = {
-        name: formData.name.trim(),
-        code: formData.code.trim().toUpperCase(),
-        phone: formData.phone.trim(),
-        address: formData.address.trim(),
+        name: cleanName,
+        code: cleanCode,
+        phone: cleanPhone,
+        address: cleanAddress,
         district: formData.district.trim() || 'Quận 1',
         city: formData.city.trim() || 'TP. Hồ Chí Minh',
         latitude: 10.7769,
@@ -1464,6 +1935,14 @@ export const W02_Branches: React.FC = () => {
       };
 
       const res = await branchService.createBranch(branchPayload);
+      // BUG-01: Kiểm tra nghiêm ngặt kết quả phản hồi từ API Supabase Cloud
+      if (!res.success || !res.data || !res.data.id) {
+        toast.error(
+          'Lỗi khởi tạo chi nhánh',
+          res.message || 'Không thể lưu chi nhánh vào cơ sở dữ liệu Supabase. Vui lòng kiểm tra lại kết nối.'
+        );
+        return;
+      }
       const createdBranch = res.data;
 
       // Update state
@@ -1489,18 +1968,7 @@ export const W02_Branches: React.FC = () => {
       window.dispatchEvent(new CustomEvent('mld_branches_updated'));
 
       // Reset form
-      setFormData({
-        name: '',
-        code: '',
-        phone: '',
-        address: '',
-        district: 'Quận 1',
-        city: 'TP. Hồ Chí Minh',
-        openingTime: '08:30',
-        closingTime: '20:30',
-        imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-        amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
-      });
+      setFormData(INITIAL_BRANCH_FORM_DATA);
     } catch (err) {
       console.error('Lỗi khi thêm chi nhánh:', err);
       toast.error('Có lỗi xảy ra', 'Không thể khởi tạo chi nhánh mới vào lúc này.');
@@ -1696,6 +2164,19 @@ export const W02_Branches: React.FC = () => {
     setRoomPage(1);
   }, [roomSearchTerm, selectedRoomBranch, selectedRoomType, selectedRoomAvailability, roomPageSize]);
 
+  // BUG-09: Tự động điều chỉnh trang phân trang khi dữ liệu co lại
+  useEffect(() => {
+    if (branchPage > totalBranchPages && totalBranchPages > 0) {
+      setBranchPage(totalBranchPages);
+    }
+  }, [branchPage, totalBranchPages]);
+
+  useEffect(() => {
+    if (roomPage > totalRoomPages && totalRoomPages > 0) {
+      setRoomPage(totalRoomPages);
+    }
+  }, [roomPage, totalRoomPages]);
+
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
       {/* 1. Page Header Title & Action Buttons */}
@@ -1720,7 +2201,7 @@ export const W02_Branches: React.FC = () => {
             type="button"
             onClick={() => {
               if (activeMainTab === 'branches') {
-                setIsCreateModalOpen(true);
+                handleOpenCreateBranchModal();
               } else {
                 handleOpenCrossBranchCreateRoom();
               }
@@ -1737,7 +2218,7 @@ export const W02_Branches: React.FC = () => {
       <div className="flex items-center gap-1 border-b border-[#EFE4D9] pb-0 bg-transparent">
         <button
           type="button"
-          onClick={() => setActiveMainTab('branches')}
+          onClick={() => handleTabChange('branches')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
             activeMainTab === 'branches'
               ? 'text-[#985018]'
@@ -1762,7 +2243,7 @@ export const W02_Branches: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveMainTab('rooms')}
+          onClick={() => handleTabChange('rooms')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
             activeMainTab === 'rooms'
               ? 'text-[#985018]'
@@ -1820,7 +2301,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Đang hoạt động: Tất cả</option>
+            <option value="ALL">Đang hoạt động</option>
             <option value="ACTIVE">Có</option>
             <option value="INACTIVE">Không</option>
           </select>
@@ -1834,7 +2315,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedCity(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Tỉnh / Thành phố: Tất cả ({cityOptions.length})</option>
+            <option value="ALL">Tỉnh / Thành phố</option>
             {cityOptions.map((city) => (
               <option key={city} value={city}>
                 {city}
@@ -1954,7 +2435,7 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-6 text-center whitespace-nowrap">Thao tác</th>
+                <th className="py-2.5 px-4 text-center whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
@@ -1999,10 +2480,12 @@ export const W02_Branches: React.FC = () => {
                       } hover:bg-[#FAF6F0] transition-colors`}
                     >
                       {/* Tên */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2 whitespace-nowrap">
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-2 max-w-[300px]">
                           <Building2 className="w-4 h-4 text-[#985018] shrink-0" />
-                          <span className="font-bold text-[#2C241E]">{branch.name}</span>
+                          <span className="font-bold text-[#2C241E] truncate" title={branch.name}>
+                            {branch.name}
+                          </span>
                           {branch.id === globalWorkingBranchId && (
                             <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold border border-emerald-200 shrink-0 whitespace-nowrap">
                               Cơ sở chính
@@ -2030,11 +2513,20 @@ export const W02_Branches: React.FC = () => {
                       </td>
 
                       {/* Địa chỉ */}
-                      <td className="py-3.5 px-4 text-[#4A3E34] whitespace-nowrap">
-                        <span>{branch.address}</span>
-                        {branch.district && !branch.address?.includes(branch.district) && (
-                          <span className="text-[#8C7A6B]">, {branch.district}</span>
-                        )}
+                      <td
+                        className="py-3.5 px-4 text-[#4A3E34] max-w-[260px]"
+                        title={`${branch.address}${
+                          branch.district && !branch.address?.includes(branch.district)
+                            ? `, ${branch.district}`
+                            : ''
+                        }`}
+                      >
+                        <div className="truncate">
+                          <span>{branch.address}</span>
+                          {branch.district && !branch.address?.includes(branch.district) && (
+                            <span className="text-[#8C7A6B]">, {branch.district}</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Tỉnh / Thành phố */}
@@ -2060,19 +2552,8 @@ export const W02_Branches: React.FC = () => {
                       </td>
 
                       {/* Thao tác */}
-                      <td className="py-3.5 px-6 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectBranch(branch.id);
-                            }}
-                            className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
-                            title="Xem chi tiết cơ sở"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1 whitespace-nowrap">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2434,7 +2915,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedRoomType(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Loại phòng: Tất cả</option>
+            <option value="ALL">Loại phòng</option>
             {Object.entries(roomTypeLabels).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
@@ -2451,7 +2932,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedRoomAvailability(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Có thể sử dụng: Tất cả</option>
+            <option value="ALL">Có thể sử dụng</option>
             <option value="YES">Có</option>
             <option value="NO">Không</option>
           </select>
@@ -2465,7 +2946,7 @@ export const W02_Branches: React.FC = () => {
             onChange={(e) => setSelectedRoomBranch(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Chi nhánh: Tất cả</option>
+            <option value="ALL">Chi nhánh</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name} ({b.code})
@@ -2587,7 +3068,7 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-6 text-center whitespace-nowrap">Thao tác</th>
+                <th className="py-2.5 px-4 text-center whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
@@ -2623,7 +3104,11 @@ export const W02_Branches: React.FC = () => {
                 </tr>
               ) : (
                 paginatedRooms.map((room) => (
-                  <tr key={room.id} className="hover:bg-[#FAF6F0] transition-colors bg-white">
+                  <tr
+                    key={room.id}
+                    onClick={() => handleOpenCrossBranchViewRoom(room)}
+                    className="hover:bg-[#FAF6F0] transition-colors bg-white cursor-pointer"
+                  >
                     {/* Tên */}
                     <td className="py-3.5 px-5 whitespace-nowrap">
                       <span className="font-bold text-[#2C241E]">{room.name}</span>
@@ -2662,19 +3147,14 @@ export const W02_Branches: React.FC = () => {
                     </td>
 
                     {/* Thao tác */}
-                    <td className="py-3.5 px-6 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1 whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => handleOpenCrossBranchViewRoom(room)}
-                          className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
-                          title="Xem chi tiết phòng"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCrossBranchEditRoom(room)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCrossBranchEditRoom(room);
+                          }}
                           className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
                           title="Chỉnh sửa thông tin phòng"
                         >
@@ -2682,7 +3162,10 @@ export const W02_Branches: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteCrossBranchRoom(room)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCrossBranchRoom(room);
+                          }}
                           className="p-1.5 text-[#B0A294] hover:text-[#B83E3E] hover:bg-[#FDF2F2] rounded-lg transition-colors cursor-pointer"
                           title="Xóa phòng khỏi hệ thống (lưu trữ CSDL)"
                         >
@@ -3069,9 +3552,51 @@ export const W02_Branches: React.FC = () => {
                   </div>
 
                   <div className="sm:col-span-2 pt-2 border-t border-[#EFE4D9]">
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                      Tiện ích & Dịch vụ đi kèm
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-[#2C241E]">
+                        Tiện ích & Dịch vụ đi kèm
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleResetDefaultAmenities}
+                          title="Khôi phục danh sách tiện ích tiêu chuẩn"
+                          className="text-[11px] text-[#985018] hover:text-[#7A3F12] hover:underline transition-all cursor-pointer flex items-center gap-1 font-medium"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Khôi phục mặc định</span>
+                        </button>
+                        <span className="text-[11px] text-[#8C7A6B]">
+                          Đã chọn: <strong className="text-[#985018]">{editForm.amenities.length}</strong> tiện ích
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Quick Add Custom Amenity Input */}
+                    <div className="flex gap-2 mb-2.5">
+                      <input
+                        type="text"
+                        value={newEditAmenity}
+                        onChange={(e) => setNewEditAmenity(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomAmenity(newEditAmenity, 'edit');
+                          }
+                        }}
+                        placeholder="Thêm tiện ích / dịch vụ mới (VD: Bể sục Jacuzzi, Thang máy riêng...)"
+                        className="flex-1 px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddCustomAmenity(newEditAmenity, 'edit')}
+                        className="px-3.5 py-2 bg-[#FAF0E4] hover:bg-[#F3E3D1] text-[#985018] border border-[#D7BBA6] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Thêm tiện ích</span>
+                      </button>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {availableAmenities.map((amenity) => {
                         const isSelected = editForm.amenities.includes(amenity);
@@ -3079,14 +3604,24 @@ export const W02_Branches: React.FC = () => {
                           <div
                             key={amenity}
                             onClick={() => toggleEditAmenity(amenity)}
-                            className={`p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
+                            className={`group relative p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
                               isSelected
                                 ? 'bg-[#FAF0E4] border-[#985018] text-[#985018] ring-1 ring-[#985018]'
                                 : 'bg-white border-[#E8DFD8] text-[#73675F] hover:border-[#D7BBA6]'
                             }`}
                           >
-                            <span>{amenity}</span>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                            <span className="truncate pr-2">{amenity}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteAmenity(amenity, e)}
+                                title={`Xóa tiện ích "${amenity}" khỏi danh sách`}
+                                className="p-1 rounded-lg text-[#A8988B] hover:text-[#B83E3E] hover:bg-[#FCEAE8] transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -3229,6 +3764,23 @@ export const W02_Branches: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Cảnh báo thông minh: Tự động phát hiện phòng từng lưu trữ trong CSDL */}
+                    {(() => {
+                      const match = (managingBranch && newRoomData.name.trim().length > 1)
+                        ? archivedRooms.find(r => r.name.trim().toLowerCase() === newRoomData.name.trim().toLowerCase())
+                          || allArchivedRooms.find(r => r.branchId === managingBranch.id && r.name.trim().toLowerCase() === newRoomData.name.trim().toLowerCase())
+                        : null;
+                      if (!match) return null;
+                      return (
+                        <div className="p-2.5 bg-[#F5FBF6] border border-[#CDE5D2] rounded-xl text-[11px] text-[#2F6B38] flex items-start gap-2 animate-in fade-in-50">
+                          <RotateCcw className="w-3.5 h-3.5 text-[#2F6B38] shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold">Phát hiện phòng từng tồn tại trong CSDL:</span> Phòng "<strong>{match.name}</strong>" đang ở trạng thái lưu trữ. Khi bạn bấm <strong>Lưu phòng</strong>, hệ thống sẽ <strong>tự động kích hoạt lại bản ghi gốc</strong>, bảo toàn 100% lịch sử đặt hẹn, phân ca và đối soát trước đây!
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="flex items-center justify-end gap-2 pt-1">
                       <button
                         type="button"
@@ -3294,7 +3846,7 @@ export const W02_Branches: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleToggleRoomAvailability(room.id)}
@@ -3306,6 +3858,20 @@ export const W02_Branches: React.FC = () => {
                             title="Bấm để chuyển đổi trạng thái sẵn sàng"
                           >
                             {room.isAvailable ? 'Sẵn sàng' : 'Bận / Bảo trì'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenCrossBranchEditRoom({
+                                ...room,
+                                branchName: managingBranch?.name,
+                                branchCode: managingBranch?.code,
+                              })
+                            }
+                            className="p-1.5 text-[#8C7A6B] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
+                            title="Chỉnh sửa tên phòng, loại phòng, số giường"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
@@ -3358,7 +3924,7 @@ export const W02_Branches: React.FC = () => {
                                   </span>
                                 </div>
                                 <div className="text-[11px] text-[#8C7A6B] mt-0.5">
-                                  {roomTypeLabels[room.roomType] || room.roomType} • {room.bedCapacity} giường
+                                  {roomTypeLabels[room.roomType] || room.roomType} • {room.bedCapacity} giường • Bảo lưu 100% lịch sử đối soát
                                 </div>
                               </div>
                             </div>
@@ -3367,7 +3933,7 @@ export const W02_Branches: React.FC = () => {
                               type="button"
                               onClick={() => handleRestoreRoom(room.id)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF3EC] text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-2xs"
-                              title="Khôi phục phòng này vào lại hệ thống vận hành"
+                              title="Khôi phục phòng này vào lại hệ thống vận hành và giữ nguyên vẹn lịch sử liên kết"
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>Khôi phục</span>
@@ -3849,9 +4415,51 @@ export const W02_Branches: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Tiện ích cơ sở (Bấm để chọn/bỏ chọn)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-[#2C241E]">
+                      Tiện ích cơ sở (Bấm để chọn/bỏ chọn)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleResetDefaultAmenities}
+                        title="Khôi phục danh sách tiện ích tiêu chuẩn"
+                        className="text-[11px] text-[#985018] hover:text-[#7A3F12] hover:underline transition-all cursor-pointer flex items-center gap-1 font-medium"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Khôi phục mặc định</span>
+                      </button>
+                      <span className="text-[11px] text-[#8C7A6B]">
+                        Đã chọn: <strong className="text-[#985018]">{formData.amenities.length}</strong> tiện ích
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Add Custom Amenity Input */}
+                  <div className="flex gap-2 mb-2.5">
+                    <input
+                      type="text"
+                      value={newCreateAmenity}
+                      onChange={(e) => setNewCreateAmenity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomAmenity(newCreateAmenity, 'create');
+                        }
+                      }}
+                      placeholder="Thêm tiện ích / dịch vụ mới (VD: Bể sục Jacuzzi, Thang máy riêng...)"
+                      className="flex-1 px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddCustomAmenity(newCreateAmenity, 'create')}
+                      className="px-3.5 py-2 bg-[#FAF0E4] hover:bg-[#F3E3D1] text-[#985018] border border-[#D7BBA6] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm tiện ích</span>
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {availableAmenities.map((amenity) => {
                       const isSelected = formData.amenities.includes(amenity);
@@ -3859,14 +4467,24 @@ export const W02_Branches: React.FC = () => {
                         <div
                           key={amenity}
                           onClick={() => toggleAmenity(amenity)}
-                          className={`p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
+                          className={`group relative p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
                             isSelected
                               ? 'bg-[#FAF0E4] border-[#985018] text-[#985018] ring-1 ring-[#985018]'
                               : 'bg-white border-[#E8DFD8] text-[#73675F] hover:border-[#D7BBA6]'
                           }`}
                         >
-                          <span>{amenity}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                          <span className="truncate pr-2">{amenity}</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteAmenity(amenity, e)}
+                              title={`Xóa tiện ích "${amenity}" khỏi danh sách`}
+                              className="p-1 rounded-lg text-[#A8988B] hover:text-[#B83E3E] hover:bg-[#FCEAE8] transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -4027,6 +4645,25 @@ export const W02_Branches: React.FC = () => {
                   placeholder="VD: Phòng VIP 01 - Hoa Sen"
                   className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20"
                 />
+                {/* Cảnh báo thông minh: Tự động phát hiện phòng từng lưu trữ trong CSDL */}
+                {(() => {
+                  const match = (crossBranchCreateRoomForm.branchId && crossBranchCreateRoomForm.name.trim().length > 1)
+                    ? allArchivedRooms.find(
+                        (r) =>
+                          r.branchId === crossBranchCreateRoomForm.branchId &&
+                          r.name.trim().toLowerCase() === crossBranchCreateRoomForm.name.trim().toLowerCase()
+                      )
+                    : null;
+                  if (!match) return null;
+                  return (
+                    <div className="mt-2 p-2.5 bg-[#F5FBF6] border border-[#CDE5D2] rounded-xl text-[11px] text-[#2F6B38] flex items-start gap-2 animate-in fade-in-50">
+                      <RotateCcw className="w-3.5 h-3.5 text-[#2F6B38] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Phát hiện phòng từng tồn tại trong CSDL:</span> Phòng "<strong>{match.name}</strong>" đang ở trạng thái lưu trữ. Khi bạn bấm <strong>Thêm phòng dịch vụ</strong>, hệ thống sẽ <strong>tự động kích hoạt lại bản ghi gốc</strong>, bảo toàn 100% lịch sử đặt hẹn, phân ca và đối soát tài chính trước đây!
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Grid: Loại phòng & Sức chứa */}
@@ -4156,7 +4793,7 @@ export const W02_Branches: React.FC = () => {
               setEditingCrossBranchRoom(null);
             }
           }}
-          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-[60] p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}

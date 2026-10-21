@@ -43,9 +43,10 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -93,6 +94,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -120,16 +122,27 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           child: SizedBox(
                             width: double.infinity,
                             height: 280,
-                            child: Image.asset(
-                              widget.image,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: AppColors.surfaceSecondary,
-                                child: const Center(
-                                  child: Icon(Icons.spa, size: 64, color: AppColors.primary),
-                                ),
-                              ),
-                            ),
+                            child: widget.image.startsWith('http')
+                                ? Image.network(
+                                    widget.image,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: AppColors.surfaceSecondary,
+                                      child: const Center(
+                                        child: Icon(Icons.spa, size: 64, color: AppColors.primary),
+                                      ),
+                                    ),
+                                  )
+                                : Image.asset(
+                                    widget.image,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: AppColors.surfaceSecondary,
+                                      child: const Center(
+                                        child: Icon(Icons.spa, size: 64, color: AppColors.primary),
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                         // Top back button & Action buttons

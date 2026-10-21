@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/membership_models.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 
 class F05MyVouchersScreen extends StatefulWidget {
@@ -12,7 +12,7 @@ class F05MyVouchersScreen extends StatefulWidget {
 }
 
 class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
-  final MockMembershipRepository _repo = MockMembershipRepository();
+  final MembershipRepository _repo = MembershipRepository.instance;
   String _selectedFilter = 'Có thể sử dụng';
 
   @override

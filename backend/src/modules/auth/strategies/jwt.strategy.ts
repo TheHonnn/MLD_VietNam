@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; phone: string; role: string }) {
+  async validate(payload: { sub: string; identifier?: string; phone?: string; role: string }) {
     const { data: user, error } = await this.supabaseService.adminClient
       .from('users')
       .select('id, phone, email, full_name, role, is_active, avatar_url')

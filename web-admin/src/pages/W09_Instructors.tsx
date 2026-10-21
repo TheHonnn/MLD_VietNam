@@ -404,16 +404,16 @@ export const W09_Instructors: React.FC = () => {
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead>
-                  <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
-                    <th className="py-2.5 px-4 font-semibold">Giảng viên</th>
-                    <th className="py-2.5 px-4 font-semibold">Chuyên môn</th>
-                    <th className="py-2.5 px-4 font-semibold">Lớp được phân công</th>
-                    <th className="py-2.5 px-4 font-semibold">Cơ sở / trạng thái</th>
+                  <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Giảng viên</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Chuyên môn</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Lớp được phân công</th>
+                    <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Cơ sở / trạng thái</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EFE4D9] text-xs">
+                <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
                   {filteredInstructors.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-12 text-center text-[#73675F]">
@@ -456,16 +456,16 @@ export const W09_Instructors: React.FC = () => {
                           }`}
                         >
                         {/* 1. Giảng viên */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-3">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3 whitespace-nowrap">
                             <div className="w-8 h-8 rounded-full bg-[#EAD8C7] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0">
                               {ins.initials}
                             </div>
-                            <div>
-                              <div className="font-semibold text-xs text-[#2C241E]">
+                            <div className="whitespace-nowrap">
+                              <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">
                                 {ins.name}
                               </div>
-                              <div className="text-[11px] text-[#73675F] mt-0.5">
+                              <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                                 {ins.code} · {ins.role}
                               </div>
                             </div>
@@ -473,26 +473,26 @@ export const W09_Instructors: React.FC = () => {
                         </td>
 
                         {/* 2. Chuyên môn */}
-                        <td className="py-3.5 px-4">
-                          <div className="text-xs text-[#2C241E]">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="text-xs text-[#2C241E] whitespace-nowrap">
                             {ins.specialty}
                           </div>
                         </td>
 
                         {/* 3. Lớp được phân công */}
-                        <td className="py-3.5 px-4">
-                          <div className="text-xs text-[#2C241E]">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="text-xs text-[#2C241E] whitespace-nowrap">
                             {ins.assignedClasses.line1}
                           </div>
-                          <div className="text-[11px] text-[#73675F] mt-0.5">
+                          <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
                             {ins.assignedClasses.line2}
                           </div>
                         </td>
 
                         {/* 4. Cơ sở / trạng thái */}
-                        <td className="py-3.5 px-4">
-                          <div className="text-xs text-[#2C241E]">{ins.branch}</div>
-                          <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="text-xs text-[#2C241E] whitespace-nowrap">{ins.branch}</div>
+                          <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23] whitespace-nowrap">
                             {ins.badgeLabel}
                           </span>
                         </td>

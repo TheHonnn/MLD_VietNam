@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/membership_models.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
 import 'f05_my_vouchers_screen.dart';
 
 class F04LoyaltyPointsScreen extends StatefulWidget {
@@ -12,7 +12,7 @@ class F04LoyaltyPointsScreen extends StatefulWidget {
 }
 
 class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
-  final MockMembershipRepository _repo = MockMembershipRepository();
+  final MembershipRepository _repo = MembershipRepository.instance;
   String _selectedFilter = 'Tất cả';
 
   @override
@@ -138,81 +138,92 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
 
                           const SizedBox(height: 18),
 
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.border, width: 0.5),
-                                  ),
-                                  child: const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '+350 điểm',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF236B42),
-                                        ),
+                          Builder(
+                            builder: (context) {
+                              final earnedMonth = history
+                                  .where((h) => h.type == 'EARN')
+                                  .fold<int>(0, (acc, h) => acc + (int.tryParse(h.points.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0));
+                              final usedPoints = history
+                                  .where((h) => h.type == 'REDEEM')
+                                  .fold<int>(0, (acc, h) => acc + (int.tryParse(h.points.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0));
+
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppColors.border, width: 0.5),
                                       ),
-                                      SizedBox(height: 2),
-                                      Text(
-                                        'Tích trong tháng',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w400,
-                                          color: AppColors.textSecondary,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '+$earnedMonth điểm',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF236B42),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            'Tích trong tháng',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w400,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.border, width: 0.5),
-                                  ),
-                                  child: const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '500 điểm',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.textPrimary,
-                                        ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppColors.border, width: 0.5),
                                       ),
-                                      SizedBox(height: 2),
-                                      Text(
-                                        'Đã sử dụng',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w400,
-                                          color: AppColors.textSecondary,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '$usedPoints điểm',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            'Đã sử dụng',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w400,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
+                                ],
+                              );
+                            },
                           ),
 
                           const SizedBox(height: 14),
 
-                          const Text(
-                            '200 điểm sắp hết hạn vào 31/10/2026',
-                            style: TextStyle(
+                          Text(
+                            profile.points > 0 ? '${profile.points} điểm đang có hiệu lực' : 'Không có điểm sắp hết hạn',
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               color: AppColors.textPrimary,
@@ -234,64 +245,72 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                     const SizedBox(height: 20),
 
                     // --- 3. TIẾN TỚI HẠNG MỚI (350x178, r=20, white) ---
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border, width: 1.0),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
+                    Builder(
+                      builder: (context) {
+                        final currentPoints = profile.points;
+                        const targetPoints = 1000;
+                        final needPoints = (targetPoints - currentPoints).clamp(0, targetPoints);
+                        final progress = (currentPoints / targetPoints).clamp(0.0, 1.0);
+
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.border, width: 1.0),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.diamond_outlined, size: 22, color: Color(0xFFC58D59)),
-                              SizedBox(width: 8),
+                              const Row(
+                                children: [
+                                  Icon(Icons.diamond_outlined, size: 22, color: Color(0xFFC58D59)),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Hướng tới hạng Bạc',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
                               Text(
-                                'Hướng tới hạng Kim cương',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                'Bạn cần thêm $needPoints điểm để đạt hạng Bạc.',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
                                   color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 6,
+                                  backgroundColor: AppColors.surfaceSecondary,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+                              Text(
+                                '$currentPoints / $targetPoints điểm · Tích cực trải nghiệm để nâng cấp hạng thành viên.',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Bạn cần thêm 550 điểm để đạt hạng Kim cương.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Progress Bar (h=6, r=3, bg #F3E2CE, fill #985018)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: const LinearProgressIndicator(
-                              value: 0.817,
-                              minHeight: 6,
-                              backgroundColor: AppColors.surfaceSecondary,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
-                          const Text(
-                            '2.450 / 3.000 điểm · 81,7% Tích cực trải nghiệm để nâng cấp hạng thành viên.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -322,97 +341,109 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                     const SizedBox(height: 14),
 
                     // Danh sách giao dịch điểm
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border, width: 1.0),
-                      ),
-                      child: Column(
-                        children: filteredHistory.asMap().entries.map((entry) {
-                          final int idx = entry.key;
-                          final PointsTransaction item = entry.value;
-                          final bool isEarn = item.type == 'EARN';
-                          final bool isLast = idx == filteredHistory.length - 1;
+                    if (filteredHistory.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.border, width: 1.0),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Bạn chưa có giao dịch tích điểm nào.\nĐiểm thưởng sẽ được tích lũy khi bạn sử dụng dịch vụ tại MLD.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.border, width: 1.0),
+                        ),
+                        child: Column(
+                          children: filteredHistory.asMap().entries.map((entry) {
+                            final int idx = entry.key;
+                            final PointsTransaction item = entry.value;
+                            final bool isEarn = item.type == 'EARN';
+                            final bool isLast = idx == filteredHistory.length - 1;
 
-                          return Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceSecondary,
-                                        borderRadius: BorderRadius.circular(12),
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceSecondary,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(
+                                          isEarn ? Icons.add_circle_outline_rounded : Icons.remove_circle_outline_rounded,
+                                          size: 20,
+                                          color: isEarn ? const Color(0xFF236B42) : AppColors.primary,
+                                        ),
                                       ),
-                                      child: Icon(
-                                        isEarn ? Icons.add_circle_outline_rounded : Icons.remove_circle_outline_rounded,
-                                        size: 20,
-                                        color: isEarn ? const Color(0xFF236B42) : AppColors.primary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.title,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.textPrimary,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.title,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.textPrimary,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '${item.date} · ${item.branch}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w400,
-                                              color: AppColors.textSecondary,
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${item.date} · ${item.branch}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w400,
+                                                color: AppColors.textSecondary,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      item.points,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: isEarn ? const Color(0xFF236B42) : AppColors.textPrimary,
+                                      Text(
+                                        item.points,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: isEarn ? const Color(0xFF236B42) : AppColors.textPrimary,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              if (!isLast)
-                                const Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  indent: 16,
-                                  endIndent: 16,
-                                  color: Color(0xFFF3E2CE),
-                                ),
-                            ],
-                          );
-                        }).toList(),
+                                if (!isLast)
+                                  const Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    indent: 16,
+                                    endIndent: 16,
+                                    color: Color(0xFFF3E2CE),
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Đầu kỳ 01/10/2026: 2.600 điểm (2.600 + 350 − 500 = 2.450 điểm)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
 
                     const SizedBox(height: 24),
 
