@@ -1,6 +1,6 @@
 // MLD Healthcare & Spa - W02 Branch Management & Facility Configuration
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronLeft,
@@ -70,6 +70,7 @@ const getRoomTypeBadgeStyle = (type: string) => {
 
 export const W02_Branches: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCity, setSelectedCity] = useState('ALL');
@@ -101,7 +102,25 @@ export const W02_Branches: React.FC = () => {
   const [roomSortOrder, setRoomSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Main Top-level Tabs: 'branches' (Chi nhánh) vs 'rooms' (Phòng dịch vụ)
-  const [activeMainTab, setActiveMainTab] = useState<'branches' | 'rooms'>('branches');
+  const tabParam = searchParams.get('tab');
+  const [activeMainTab, setActiveMainTab] = useState<'branches' | 'rooms'>(
+    tabParam === 'rooms' ? 'rooms' : 'branches'
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'rooms' && activeMainTab !== 'rooms') {
+      setActiveMainTab('rooms');
+    } else if ((!tab || tab === 'branches') && activeMainTab !== 'branches') {
+      setActiveMainTab('branches');
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (newTab: 'branches' | 'rooms') => {
+    setActiveMainTab(newTab);
+    setSearchParams(newTab === 'rooms' ? { tab: 'rooms' } : {}, { replace: true });
+  };
+
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // All Rooms Across System (Tab 'Phòng dịch vụ')
@@ -1737,7 +1756,7 @@ export const W02_Branches: React.FC = () => {
       <div className="flex items-center gap-1 border-b border-[#EFE4D9] pb-0 bg-transparent">
         <button
           type="button"
-          onClick={() => setActiveMainTab('branches')}
+          onClick={() => handleTabChange('branches')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
             activeMainTab === 'branches'
               ? 'text-[#985018]'
@@ -1762,7 +1781,7 @@ export const W02_Branches: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveMainTab('rooms')}
+          onClick={() => handleTabChange('rooms')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
             activeMainTab === 'rooms'
               ? 'text-[#985018]'

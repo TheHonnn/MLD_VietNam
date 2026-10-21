@@ -1,8 +1,6 @@
 import { Resource } from './api';
 
 export const DEFAULT_RESOURCES: Resource[] = [
-  { name: 'branches', title: 'Chi nhánh', group: 'Cơ sở', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'branch_rooms', title: 'Phòng dịch vụ', group: 'Cơ sở', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'service_categories', title: 'Danh mục dịch vụ', group: 'Dịch vụ', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'services', title: 'Dịch vụ', group: 'Dịch vụ', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'treatment_packages', title: 'Gói liệu trình', group: 'Dịch vụ', actions: ['create', 'update', 'delete', 'action'] },
