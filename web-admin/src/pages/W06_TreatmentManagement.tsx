@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Leaf,
   Calendar,
@@ -7,19 +7,24 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Search,
+  X,
 } from 'lucide-react';
-import { treatmentService } from '../services';
+import { treatmentService, customerService } from '../services';
 import { toast } from '../components/common';
+import { matchSearch } from '../utils/searchUtils';
 import {
   TreatmentPackage as SharedTreatmentPackage,
   UserPackage,
   Service,
   TreatmentJournal,
+  User,
 } from '../types/shared_types';
 
 interface TreatmentPackageUI {
   id: string;
   name: string;
+  customerId: string;
   sessionsTotal: number;
   price: string;
   purchaseDate: string;
@@ -50,94 +55,145 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [liveUserPackages, setLiveUserPackages] = useState<UserPackage[]>([]);
   const [liveServices, setLiveServices] = useState<Service[]>([]);
   const [liveJournals, setLiveJournals] = useState<TreatmentJournal[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
 
   useEffect(() => {
     const fetchTreatmentData = async () => {
       try {
-        const [pkgRes, upkgRes, srvRes, jrnRes] = await Promise.all([
+        const [pkgRes, upkgRes, srvRes, jrnRes, custRes] = await Promise.all([
           treatmentService.getTreatmentPackages(),
           treatmentService.getUserPackagesByCustomer(),
           treatmentService.getServices(),
           treatmentService.getTreatmentJournalsByCustomer(),
+          customerService.getCustomers(),
         ]);
         if (pkgRes.success) setLivePackages(pkgRes.data);
         if (upkgRes.success) setLiveUserPackages(upkgRes.data);
         if (srvRes.success) setLiveServices(srvRes.data);
         if (jrnRes.success) setLiveJournals(jrnRes.data);
+        if (custRes.success) setCustomers(custRes.data);
       } catch (err) {
         console.error('Failed to load treatment data:', err);
       }
     };
     fetchTreatmentData();
   }, []);
-  // Packages dataset matching Figma design
-  const packages: TreatmentPackageUI[] = [
-    {
-      id: 'pkg-massage',
-      name: 'Massage thư giãn · 10 buổi',
-      sessionsTotal: 10,
-      price: '4.000.000đ',
-      purchaseDate: '01/09/2026',
-      expiryDate: '31/12/2026',
-      usedSessions: 4,
-      remainingSessions: 6,
-      progressPercent: 40,
-      progressLabel: '40% đã dùng',
-      branch: 'Quận 3',
-      status: 'Đang sử dụng',
-      historySubtitle:
-        'Số buổi mẫu, tách riêng dịch vụ massage thanh toán 450.000đ ngày 08/10/2026.',
-      historyNote:
-        'Buổi 05 chưa hoàn thành nên vẫn còn 6 buổi, chưa khấu trừ trước.',
-      sessionsHistory: [
-        { number: '01', date: '10/09/2026', serviceName: 'Massage thư giãn' },
-        { number: '02', date: '20/09/2026', serviceName: 'Massage thư giãn' },
-        { number: '03', date: '01/10/2026', serviceName: 'Massage thư giãn' },
-        { number: '04', date: '08/10/2026', serviceName: 'Massage thư giãn' },
-        {
-          number: '05',
-          date: '15/10/2026',
-          serviceName: 'Lịch sắp tới',
-          isUpcoming: true,
-          bookingCode: 'BK-20261016-003',
-          time: '09:00–10:00',
-          staff: 'Trần Lan Anh',
-          room: 'Phòng 01, Quận 3.',
-          statusBadge: 'Đã xác nhận',
-        },
-      ],
-    },
-    {
-      id: 'pkg-skincare',
-      name: 'Chăm sóc da · 8 buổi',
-      sessionsTotal: 8,
-      price: '3.600.000đ',
-      purchaseDate: '05/10/2026',
-      expiryDate: '31/12/2026',
-      usedSessions: 3,
-      remainingSessions: 5,
-      progressPercent: 37.5,
-      progressLabel: '37,5% đã dùng',
-      branch: 'Quận 3',
-      status: 'Đang sử dụng',
-      historySubtitle:
-        'Số buổi mẫu, cập nhật theo các lượt liệu trình chăm sóc da định kỳ.',
-      historyNote:
-        'Buổi tiếp theo dự kiến đặt sau khi hoàn thành đợt hồi phục da.',
-      sessionsHistory: [
-        { number: '01', date: '06/10/2026', serviceName: 'Chăm sóc da Hydrafacial' },
-        { number: '02', date: '13/10/2026', serviceName: 'Chăm sóc da Hydrafacial' },
-        { number: '03', date: '20/10/2026', serviceName: 'Điện di Vitamin C' },
-      ],
-    },
-  ];
 
-  // Default selected package is Massage 10 sessions (matches Figma mockup 100%)
-  const [selectedPkgId, setSelectedPkgId] = useState<string>('pkg-massage');
+  const custMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+
+  const packages: TreatmentPackageUI[] = useMemo(() => {
+    if (!liveUserPackages || liveUserPackages.length === 0) return [];
+
+    return liveUserPackages.map((up) => {
+      const cust = custMap.get(up.customerId);
+      const pkgDef = up.package || livePackages.find((p) => p.id === up.packageId);
+      const journals = liveJournals
+        .filter((j) => j.userPackageId === up.id || (!j.userPackageId && j.customerId === up.customerId))
+        .sort((a, b) => a.sessionNumber - b.sessionNumber);
+
+      const used = up.completedSessions || journals.length;
+      const total = up.totalSessions || 5;
+      const remaining = Math.max(0, total - used);
+      const progressPercent = Math.min(100, Math.round((used / total) * 100));
+
+      const purchaseFormatted = up.purchasedAt
+        ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.purchasedAt))
+        : '01/09/2026';
+      const expiryFormatted = up.expiresAt
+        ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.expiresAt))
+        : '31/12/2026';
+
+      const srvName = pkgDef?.name || 'Liệu trình phục hồi da chuyên sâu';
+      const priceText = `${(pkgDef?.discountPrice || pkgDef?.price || 3250000).toLocaleString('vi-VN')}đ`;
+
+      const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => ({
+        number: String(j.sessionNumber).padStart(2, '0'),
+        date: new Intl.DateTimeFormat('vi-VN').format(new Date(j.sessionDate)),
+        serviceName: j.treatmentNotes || srvName,
+      }));
+
+      if (remaining > 0) {
+        sessionsHistory.push({
+          number: String(used + 1).padStart(2, '0'),
+          date: 'Lịch sắp tới',
+          serviceName: 'Buổi chăm sóc tiếp theo',
+          isUpcoming: true,
+          bookingCode: 'BK-NEXT-01',
+          time: '09:00–10:30',
+          staff: 'Kỹ thuật viên chuyên trách',
+          room: 'Phòng VIP · Quận 3',
+          statusBadge: 'Chờ xếp lịch',
+        });
+      }
+
+      return {
+        id: up.id,
+        name: `${srvName} · ${total} buổi`,
+        customerId: up.customerId,
+        sessionsTotal: total,
+        price: priceText,
+        purchaseDate: purchaseFormatted,
+        expiryDate: expiryFormatted,
+        usedSessions: used,
+        remainingSessions: remaining,
+        progressPercent,
+        progressLabel: `${progressPercent}% đã dùng`,
+        branch: 'Quận 3',
+        status: up.status === 'ACTIVE' ? 'Đang sử dụng' : 'Hoàn tất',
+        historySubtitle: `Hồ sơ liệu trình thực tế của ${cust?.fullName || 'khách hàng'}, đồng bộ trực tiếp từ Supabase Cloud.`,
+        historyNote: `Đã hoàn thành ${used}/${total} buổi. Còn lại ${remaining} buổi hợp lệ đến ${expiryFormatted}.`,
+        sessionsHistory,
+      };
+    });
+  }, [liveUserPackages, livePackages, liveJournals, liveServices, custMap]);
+
+  const [selectedPkgId, setSelectedPkgId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const filteredPackages = useMemo(() => {
+    return packages.filter((pkg) => {
+      if (!searchTerm.trim()) return true;
+      const cust = custMap.get(pkg.customerId);
+      return matchSearch(
+        [pkg.name, pkg.price, cust?.fullName, cust?.phone, pkg.branch, pkg.status],
+        searchTerm
+      );
+    });
+  }, [packages, searchTerm, custMap]);
+
+  useEffect(() => {
+    if (filteredPackages.length > 0 && (!selectedPkgId || !filteredPackages.some((p) => p.id === selectedPkgId))) {
+      setSelectedPkgId(filteredPackages[0].id);
+    }
+  }, [filteredPackages, selectedPkgId]);
+
   const selectedPkg =
-    packages.find((p) => p.id === selectedPkgId) || packages[0];
+    filteredPackages.find((p) => p.id === selectedPkgId) ||
+    filteredPackages[0] ||
+    packages[0] || {
+    id: '',
+    name: 'Chưa có gói liệu trình',
+    customerId: '',
+    sessionsTotal: 0,
+    price: '0đ',
+    purchaseDate: '',
+    expiryDate: '',
+    usedSessions: 0,
+    remainingSessions: 0,
+    progressPercent: 0,
+    progressLabel: '0%',
+    branch: 'Quận 3',
+    status: 'Đang tải',
+    historySubtitle: 'Đang đồng bộ dữ liệu từ Supabase Cloud...',
+    historyNote: '',
+    sessionsHistory: [],
+  };
+
+  const selectedCustomer = custMap.get(selectedPkg.customerId);
+
+  const totalActivePackages = packages.filter((p) => p.status === 'Đang sử dụng').length;
+  const totalRemainingSessions = packages.reduce((acc, p) => acc + p.remainingSessions, 0);
+  const totalUsedSessions = packages.reduce((acc, p) => acc + p.usedSessions, 0);
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -153,184 +209,235 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
         <button
           onClick={() => toast.success('Đặt lịch tiếp theo', 'Đã lưu kế hoạch và mở biểu mẫu xếp lịch buổi chăm sóc tiếp theo.')}
-          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer whitespace-nowrap"
         >
           Đặt buổi tiếp theo
         </button>
       </div>
 
       {/* 2. Top 3 Metric Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         {/* Metric 1 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#73675F]">
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
             <span>Gói đang sử dụng</span>
             <Leaf className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
-            2
+          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2 whitespace-nowrap">
+            {totalActivePackages}
           </div>
-          <div className="text-[11px] text-[#73675F] mt-2">
-            Đang hoạt động
+          <div className="text-[11px] text-[#73675F] mt-2 whitespace-nowrap">
+            Gói đang lưu hành
           </div>
         </div>
 
         {/* Metric 2 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#73675F]">
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
             <span>Buổi còn lại</span>
             <Calendar className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
-            11
+          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2 whitespace-nowrap">
+            {totalRemainingSessions}
           </div>
-          <div className="text-[11px] text-[#73675F] mt-2">
-            6 massage + 5 chăm sóc da
+          <div className="text-[11px] text-[#73675F] mt-2 whitespace-nowrap">
+            Buổi khả dụng trên hệ thống
           </div>
         </div>
 
         {/* Metric 3 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#73675F]">
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
             <span>Buổi đã sử dụng</span>
             <SlidersHorizontal className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[32px] font-extrabold text-[#2C241E] leading-none mt-2">
-            7
+          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2 whitespace-nowrap">
+            {totalUsedSessions}
           </div>
-          <div className="text-[11px] text-[#73675F] mt-2">
-            4 massage + 3 chăm sóc da
+          <div className="text-[11px] text-[#73675F] mt-2 whitespace-nowrap">
+            Buổi đã trị liệu thực tế
           </div>
         </div>
       </div>
 
       {/* 3. Filter Toolbar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap lg:flex-nowrap items-center gap-3">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search input */}
-        <div className="flex-1 min-w-[260px]">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm khách hàng, mã gói hoặc tên liệu trình..."
-            className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Dropdown 1 */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
-          <span>Tất cả loại gói</span>
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none whitespace-nowrap cursor-pointer">
+          <span className="whitespace-nowrap">Tất cả loại gói</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
 
         {/* Dropdown 2 */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
-          <span>Đang sử dụng</span>
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none whitespace-nowrap cursor-pointer">
+          <span className="whitespace-nowrap">Đang sử dụng</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
 
         {/* Dropdown 3 */}
-        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0">
-          <span>Hạn đến 31/12/2026</span>
+        <button className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-medium text-[#2C241E] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none whitespace-nowrap cursor-pointer">
+          <span className="whitespace-nowrap">Hạn đến 31/12/2026</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
         </button>
+
+        {/* Reset filter button */}
+        {searchTerm.trim() && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer whitespace-nowrap"
+            title="Đặt lại tìm kiếm"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span className="whitespace-nowrap">Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 4. Packages Table Card */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
         {/* Table Header Row */}
-        <div className="px-5 py-4 flex items-center justify-between border-b border-[#EFE4D9]">
-          <h2 className="text-base font-bold text-[#2C241E]">
+        <div className="px-5 py-4 flex items-center justify-between border-b border-[#EFE4D9] whitespace-nowrap">
+          <h2 className="text-base font-bold text-[#2C241E] whitespace-nowrap">
             Gói liệu trình dịch vụ MLD
           </h2>
-          <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-            {packages.length} gói hoạt động
+          <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F5E9DB] text-[#8A4F23] whitespace-nowrap shrink-0">
+            {filteredPackages.length} gói hoạt động
           </span>
         </div>
 
         {/* Table Body */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold">
-                <th className="py-3 px-5">Gói / giá mua</th>
-                <th className="py-3 px-5">Ngày mua / hết hạn</th>
-                <th className="py-3 px-5">Tổng · đã dùng · còn</th>
-                <th className="py-3 px-5 w-44">Tiến độ</th>
-                <th className="py-3 px-5">Cơ sở / trạng thái</th>
+              <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold whitespace-nowrap">
+                <th className="py-3 px-5 whitespace-nowrap">Gói / giá mua</th>
+                <th className="py-3 px-5 whitespace-nowrap">Ngày mua / hết hạn</th>
+                <th className="py-3 px-5 whitespace-nowrap">Tổng · đã dùng · còn</th>
+                <th className="py-3 px-5 w-44 whitespace-nowrap">Tiến độ</th>
+                <th className="py-3 px-5 whitespace-nowrap">Cơ sở / trạng thái</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F0E6DC]">
-              {packages.map((pkg) => {
-                const isSelected = selectedPkgId === pkg.id;
+            <tbody className="divide-y divide-[#F0E6DC] whitespace-nowrap">
+              {filteredPackages.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-[#73675F] whitespace-normal">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                        <Search className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy gói liệu trình</p>
+                      <p className="text-xs text-[#8C7A6B]">
+                        {searchTerm.trim()
+                          ? `Không có liệu trình nào khớp với từ khóa "${searchTerm}".`
+                          : 'Chưa có gói liệu trình nào được đăng ký.'}
+                      </p>
+                      {searchTerm.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm('')}
+                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          Xóa tìm kiếm
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredPackages.map((pkg) => {
+                  const isSelected = selectedPkgId === pkg.id;
 
-                return (
-                  <tr
-                    key={pkg.id}
-                    onClick={() => setSelectedPkgId(pkg.id)}
-                    className={`cursor-pointer transition-colors ${
-                      isSelected ? 'bg-[#F8F1E8]' : 'hover:bg-[#FAF8F5]'
-                    }`}
-                  >
-                    {/* Col 1 */}
-                    <td className="py-4 px-5">
-                      <div className="font-bold text-xs text-[#2C241E]">
-                        {pkg.name}
-                      </div>
-                      <div className="text-[11px] text-[#73675F] mt-0.5">
-                        {pkg.price}
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={pkg.id}
+                      onClick={() => setSelectedPkgId(pkg.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected ? 'bg-[#F8F1E8]' : 'hover:bg-[#FAF8F5]'
+                      }`}
+                    >
+                      {/* Col 1 */}
+                      <td className="py-4 px-5 whitespace-nowrap">
+                        <div className="font-bold text-xs text-[#2C241E] whitespace-nowrap">
+                          {pkg.name}
+                        </div>
+                        <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
+                          {pkg.price}
+                        </div>
+                      </td>
 
-                    {/* Col 2 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium">
-                        {pkg.purchaseDate}
-                      </div>
-                      <div className="text-[11px] text-[#73675F] mt-0.5">
-                        {pkg.expiryDate}
-                      </div>
-                    </td>
+                      {/* Col 2 */}
+                      <td className="py-4 px-5 whitespace-nowrap">
+                        <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
+                          {pkg.purchaseDate}
+                        </div>
+                        <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
+                          {pkg.expiryDate}
+                        </div>
+                      </td>
 
-                    {/* Col 3 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium">
-                        {pkg.sessionsTotal} · {pkg.usedSessions} · {pkg.remainingSessions} buổi
-                      </div>
-                    </td>
+                      {/* Col 3 */}
+                      <td className="py-4 px-5 whitespace-nowrap">
+                        <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
+                          {pkg.sessionsTotal} · {pkg.usedSessions} · {pkg.remainingSessions} buổi
+                        </div>
+                      </td>
 
-                    {/* Col 4 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium mb-1.5">
-                        {pkg.progressLabel}
-                      </div>
-                      <div className="w-full bg-[#EFE4D9] h-1.5 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${pkg.progressPercent}%` }}
-                          className="bg-[#985018] h-full rounded-full"
-                        />
-                      </div>
-                    </td>
+                      {/* Col 4 */}
+                      <td className="py-4 px-5 whitespace-nowrap">
+                        <div className="text-xs text-[#2C241E] font-medium mb-1.5 whitespace-nowrap">
+                          {pkg.progressLabel}
+                        </div>
+                        <div className="w-full bg-[#EFE4D9] h-1.5 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${pkg.progressPercent}%` }}
+                            className="bg-[#985018] h-full rounded-full"
+                          />
+                        </div>
+                      </td>
 
-                    {/* Col 5 */}
-                    <td className="py-4 px-5">
-                      <div className="text-xs text-[#2C241E] font-medium">
-                        {pkg.branch}
-                      </div>
-                      <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
-                        {pkg.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                      {/* Col 5 */}
+                      <td className="py-4 px-5 whitespace-nowrap">
+                        <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
+                          {pkg.branch}
+                        </div>
+                        <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#F5E9DB] text-[#8A4F23] whitespace-nowrap">
+                          {pkg.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Table Pagination Footer */}
-        <div className="px-5 py-3 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-          <span>Hiển thị {packages.length} / {packages.length} gói liệu trình</span>
+        <div className="px-5 py-3 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
+          <span className="whitespace-nowrap">Hiển thị {filteredPackages.length} / {packages.length} gói liệu trình</span>
           <div className="flex items-center gap-1.5">
             <button
               disabled
@@ -357,9 +464,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         <div className="lg:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
           <div>
             <h2 className="text-base font-bold text-[#2C241E]">
-              {selectedPkg.id === 'pkg-massage'
-                ? 'Lịch sử buổi chăm sóc · Gói massage'
-                : 'Lịch sử buổi chăm sóc · Gói chăm sóc da'}
+              Lịch sử buổi chăm sóc · {selectedPkg.name}
             </h2>
             <p className="text-xs text-[#73675F] mt-1">
               {selectedPkg.historySubtitle}
@@ -398,7 +503,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   className="bg-[#F3E2CE] rounded-xl px-4 py-3 flex items-center gap-3"
                 >
                   <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#EFE1D2] text-[#73675F]">
-                    Hoàn thành mẫu
+                    Đã hoàn thành
                   </span>
                   <span className="text-xs font-semibold text-[#2C241E]">
                     Buổi {s.number} · {s.date} · {s.serviceName}
@@ -419,24 +524,22 @@ export const W06_TreatmentManagement: React.FC = () => {
           {/* Card 1: Selected Package Details */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
             <h2 className="text-base font-bold text-[#2C241E]">
-              {selectedPkg.id === 'pkg-massage'
-                ? 'Gói massage đang chọn'
-                : 'Gói chăm sóc da đang chọn'}
+              Chi tiết gói liệu trình đang chọn
             </h2>
 
             {/* Customer Profile Snippet */}
             <div className="flex items-center gap-3 pt-0.5">
               <img
-                src="/avatar_minh_anh.png"
-                alt="Nguyễn Mỹ Duyên"
+                src={selectedCustomer?.avatarUrl || "/avatar_minh_anh.png"}
+                alt={selectedCustomer?.fullName || "Khách hàng"}
                 className="w-10 h-10 rounded-full object-cover shrink-0 border border-[#EFE4D9]"
               />
               <div className="min-w-0">
                 <div className="text-xs font-bold text-[#2C241E] truncate">
-                  Nguyễn Mỹ Duyên
+                  {selectedCustomer?.fullName || 'Khách hàng'}
                 </div>
                 <div className="text-[11px] text-[#73675F] truncate mt-0.5">
-                  MLD-VIP-01 · Hội viên Kim Cương
+                  {selectedCustomer?.phone || ''} · Hội viên {selectedCustomer?.membershipTier || 'Thành viên'}
                 </div>
               </div>
             </div>

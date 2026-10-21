@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Clock,
@@ -6,7 +6,7 @@ import {
   Info,
   Calendar,
   X,
-  User,
+  User as UserIcon,
   Phone,
   Sparkles,
   CheckCircle2,
@@ -14,14 +14,16 @@ import {
   MapPin,
   Check,
   Plus,
+  Search,
 } from 'lucide-react';
-import { staffService, bookingService, branchService, notificationService, StaffWithProfile } from '../services';
+import { staffService, bookingService, branchService, notificationService, customerService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
-import { Booking, Branch } from '../types/shared_types';
+import { Booking, Branch, User, Technician, BookingStatus, PaymentStatus } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 interface ScheduleAppointment {
   id: string;
-  technicianId: 'tech-1' | 'tech-2' | 'tech-3';
+  technicianId: string;
   title: string;
   subtitle: string;
   customer: string;
@@ -51,7 +53,7 @@ export interface ServiceOption {
   name: string;
   shortName: string;
   category: string;
-  defaultTech: 'tech-1' | 'tech-2' | 'tech-3';
+  defaultTech: string;
   durationMinutes: number;
   durationHours: number;
   price: number;
@@ -153,152 +155,161 @@ export const TIME_SLOT_OPTIONS = [
   { label: '18:00–19:00', startHour: 18.0, durationHours: 1.0, bufferTimeRange: '19:00–19:15', bufferEndTime: '19:15' },
 ];
 
+export const DEFAULT_FALLBACK_TECHNICIANS = [
+  { id: 'tech-1', name: 'KTV. Minh Anh', room: 'Phòng VIP 01 · Tầng 2', role: 'Kỹ thuật viên trưởng' },
+  { id: 'tech-2', name: 'KTV. Hoàng Nam', room: 'Phòng Trị Liệu 02 · Tầng 2', role: 'Chuyên viên da liễu' },
+  { id: 'tech-3', name: 'KTV. Kim Ngân', room: 'Phòng Body 03 · Tầng 3', role: 'Chuyên viên massage' },
+  { id: 'tech-4', name: 'KTV. Thu Thảo', room: 'Phòng Gội Dưỡng Sinh 04', role: 'Kỹ thuật viên cao cấp' },
+];
+
 export const W05_StaffSchedule: React.FC = () => {
   const navigate = useNavigate();
-  const [staffMembers, setStaffMembers] = useState<StaffWithProfile[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [liveTechnicians, setLiveTechnicians] = useState<Technician[]>([]);
   const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    return searchParams.get('branchId') || localStorage.getItem('mld_selected_branch_id') || 'ALL';
+  });
+
+  // Listen to searchParams and global branch changes
+  useEffect(() => {
+    const p = searchParams.get('branchId');
+    if (p) setSelectedBranchId(p);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleGlobalBranchChange = (e: any) => {
+      const bId = e?.detail?.branchId;
+      if (bId) setSelectedBranchId(bId);
+    };
+
+    const handleBranchesUpdated = () => {
+      branchService.getAllBranches().then((res) => {
+        if (res.success && res.data) setBranches(res.data);
+      });
+    };
+
+    window.addEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+    window.addEventListener('mld_branches_updated' as any, handleBranchesUpdated);
+    return () => {
+      window.removeEventListener('mld_branch_changed' as any, handleGlobalBranchChange);
+      window.removeEventListener('mld_branches_updated' as any, handleBranchesUpdated);
+    };
+  }, []);
+
+  const activeBranch = branches.find((b) => b.id === selectedBranchId);
 
   useEffect(() => {
     const fetchScheduleData = async () => {
       try {
-        const [stfRes, bkRes, brRes] = await Promise.all([
-          staffService.getStaffList(),
+        const [bkRes, techRes, custRes, brRes] = await Promise.all([
           bookingService.getBookings(),
+          supabaseService.getTechnicians(),
+          customerService.getCustomers(),
           branchService.getAllBranches(),
         ]);
-        if (stfRes.success) setStaffMembers(stfRes.data);
-        if (bkRes.success) setLiveBookings(bkRes.data);
-        if (brRes.success) setBranches(brRes.data);
+        if (bkRes.success && bkRes.data) setLiveBookings(bkRes.data);
+        if (techRes && techRes.length > 0) setLiveTechnicians(techRes);
+        if (custRes.success && custRes.data) setCustomers(custRes.data);
+        if (brRes.success && brRes.data) setBranches(brRes.data);
       } catch (err) {
         console.error('Failed to load schedule data:', err);
       }
     };
     fetchScheduleData();
   }, []);
-  // Appointments list matching the Figma mockup 100%
-  const appointments: ScheduleAppointment[] = [
-    {
-      id: 'app-huy',
-      technicianId: 'tech-1',
-      title: 'Massage · Đặng Quốc Huy',
-      subtitle: '09:30–10:30 · Lịch chuẩn',
-      customer: 'Đặng Quốc Huy',
-      customerCode: 'WM-000104 · BK-20261016-001',
-      service: 'Massage trị liệu cổ vai gáy',
-      timeRange: '09:30–10:30',
-      date: '12/10/2026',
-      technicianName: 'Trần Lan Anh',
-      resource: 'Phòng 01 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '450.000đ',
-      deposit: '150.000đ',
-      remaining: '300.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 10:45',
-      bufferDesc: 'Vùng đệm vệ sinh: 10:30–10:45. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 9.5,
-      durationHours: 1.0,
-    },
-    {
-      id: 'app-minh-anh',
-      technicianId: 'tech-1',
-      title: 'Massage · Nguyễn Mỹ Duyên',
-      subtitle: '14:00–15:00 · Chờ thanh toán',
-      customer: 'Nguyễn Mỹ Duyên',
-      customerCode: 'MLD-VIP-01 · BK-20261016-003',
-      avatar: '/avatar_minh_anh.png',
-      service: 'Massage thư giãn toàn thân',
-      timeRange: '14:00–15:00',
-      date: '12/10/2026',
-      technicianName: 'Trần Lan Anh',
-      resource: 'Phòng 01 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '450.000đ',
-      deposit: '150.000đ',
-      remaining: '300.000đ',
-      status: 'Chờ thanh toán',
-      statusType: 'waiting_payment',
-      bufferTitle: 'Giữ nguồn lực đến 15:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 15:00–15:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 14.0,
-      durationHours: 1.0,
-      hasCleaningBuffer: true,
-      cleaningText: '15:00–15:15 · Vệ sinh / giữ phòng',
-    },
-    {
-      id: 'app-linh',
-      technicianId: 'tech-2',
-      title: 'Chăm sóc da · Trần Ngọc Linh',
-      subtitle: '10:00–11:00 · Lịch chuẩn',
-      customer: 'Trần Ngọc Linh',
-      customerCode: 'WM-000115 · BK-20261016-002',
-      service: 'Chăm sóc da chuyên sâu Hydrafacial',
-      timeRange: '10:00–11:00',
-      date: '12/10/2026',
-      technicianName: 'Nguyễn Thu Hà',
-      resource: 'Phòng 02 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '500.000đ',
-      deposit: '150.000đ',
-      remaining: '350.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 11:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 11:00–11:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 10.0,
-      durationHours: 1.0,
-    },
-    {
-      id: 'app-ngoc',
-      technicianId: 'tech-2',
-      title: 'Chăm sóc da · Lê Bảo Ngọc',
-      subtitle: '13:30–14:30 · Lịch chuẩn',
-      customer: 'Lê Bảo Ngọc',
-      customerCode: 'WM-000130 · BK-20261016-005',
-      service: 'Trẻ hóa da điện di Vitamin C',
-      timeRange: '13:30–14:30',
-      date: '12/10/2026',
-      technicianName: 'Nguyễn Thu Hà',
-      resource: 'Phòng 02 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '480.000đ',
-      deposit: '150.000đ',
-      remaining: '330.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 14:45',
-      bufferDesc: 'Vùng đệm vệ sinh: 14:30–14:45 (gồm 15 phút vệ sinh sau liệu trình).',
-      startHour: 13.5,
-      durationHours: 1.0,
-    },
-    {
-      id: 'app-yen',
-      technicianId: 'tech-3',
-      title: 'Chăm sóc cơ thể · Võ Hải Yến',
-      subtitle: '11:00–12:00 · Lịch chuẩn',
-      customer: 'Võ Hải Yến',
-      customerCode: 'WM-000122 · BK-20261016-006',
-      service: 'Chăm sóc cơ thể thảo dược ấm',
-      timeRange: '11:00–12:00',
-      date: '12/10/2026',
-      technicianName: 'Lê Hoài An',
-      resource: 'Phòng 03 · Quận 3',
-      durationText: 'Dịch vụ 60 phút',
-      price: '520.000đ',
-      deposit: '150.000đ',
-      remaining: '370.000đ',
-      status: 'Lịch chuẩn',
-      statusType: 'independent',
-      bufferTitle: 'Giữ nguồn lực đến 12:15',
-      bufferDesc: 'Vùng đệm vệ sinh: 12:00–12:15. Khoản cọc chưa thu, đang theo dõi thực hiện.',
-      startHour: 11.0,
-      durationHours: 1.0,
-    },
-  ];
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const technicians = useMemo(() => {
+    if (liveTechnicians && liveTechnicians.length > 0) {
+      return liveTechnicians.slice(0, 4).map((t, idx) => ({
+        id: t.id,
+        name: t.fullName,
+        room: `${t.title?.split('&')[0]?.trim() || 'Trị liệu'} · Phòng 0${idx + 1}`,
+        role: t.title,
+      }));
+    }
+    return DEFAULT_FALLBACK_TECHNICIANS;
+  }, [liveTechnicians]);
+
+  // Appointments mapped directly from live Supabase bookings
+  const appointments: ScheduleAppointment[] = useMemo(() => {
+    if (!liveBookings || liveBookings.length === 0) return [];
+
+    const custMap = new Map(customers.map((c) => [c.id, c]));
+    const techMap = new Map((liveTechnicians || []).map((t) => [t.id, t]));
+
+    const filteredLive =
+      selectedBranchId !== 'ALL'
+        ? liveBookings.filter((b) => !b.branchId || b.branchId === selectedBranchId)
+        : liveBookings;
+
+    return filteredLive.map((b) => {
+      const cust = custMap.get(b.customerId);
+      const tech = techMap.get(b.technicianId || '');
+
+      const [sH, sM] = (b.startTime || '09:00').split(':').map(Number);
+      const [eH, eM] = (b.endTime || '10:00').split(':').map(Number);
+      const startHour = (isNaN(sH) ? 9 : sH) + (isNaN(sM) ? 0 : sM) / 60;
+      const endHour = (isNaN(eH) ? 10 : eH) + (isNaN(eM) ? 0 : eM) / 60;
+      const durationHours = Math.max(0.75, endHour - startHour);
+
+      const customerName = cust?.fullName || b.bookedForName || 'Khách hàng';
+      const techName = tech?.fullName || 'Kỹ thuật viên';
+      const statusLabel =
+        b.status === 'CONFIRMED'
+          ? 'Đã xác nhận'
+          : b.status === 'IN_SERVICE'
+          ? 'Đang thực hiện'
+          : b.status === 'COMPLETED'
+          ? 'Hoàn thành'
+          : b.status === 'CANCELLED'
+          ? 'Đã hủy'
+          : 'Chờ thanh toán';
+
+      const statusType: 'waiting_payment' | 'independent' =
+        b.paymentStatus === 'UNPAID' ? 'waiting_payment' : 'independent';
+
+      const srvName = b.specialNotes || 'Chăm sóc da & Trị liệu';
+      const dateParts = b.bookingDate ? b.bookingDate.split('-') : [];
+      const dateDisplay = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : '12/10/2026';
+      const timeRange = `${(b.startTime || '').slice(0, 5)}–${(b.endTime || '').slice(0, 5)}`;
+
+      return {
+        id: b.id,
+        technicianId: b.technicianId || '',
+        title: `${srvName.split(' ')[0]} · ${customerName}`,
+        subtitle: `${timeRange} · ${statusLabel}`,
+        customer: customerName,
+        customerCode: `${cust?.referralCode || 'KH'} · ${b.bookingCode}`,
+        avatar: cust?.avatarUrl || undefined,
+        service: srvName,
+        timeRange,
+        date: dateDisplay,
+        technicianName: techName,
+        resource: b.assignedBedNumber || 'Phòng VIP · Quận 3',
+        durationText: `Dịch vụ ${Math.round(durationHours * 60)} phút`,
+        price: `${(b.finalPrice || b.baseTotal || 500000).toLocaleString('vi-VN')}đ`,
+        deposit: `${(b.discountAmount || 150000).toLocaleString('vi-VN')}đ`,
+        remaining: `${Math.max(0, (b.finalPrice || 0) - (b.discountAmount || 0)).toLocaleString('vi-VN')}đ`,
+        status: statusLabel,
+        statusType,
+        bufferTitle: `Giữ nguồn lực đến ${(b.endTime || '').slice(0, 5)}`,
+        bufferDesc: `Vùng đệm vệ sinh 15 phút sau liệu trình. ${
+          statusType === 'waiting_payment'
+            ? 'Khoản phí chưa thu, đang theo dõi thực hiện.'
+            : 'Đã thanh toán đầy đủ.'
+        }`,
+        startHour,
+        durationHours,
+        hasCleaningBuffer: true,
+        cleaningText: `${(b.endTime || '').slice(0, 5)} · Vệ sinh / giữ phòng`,
+      };
+    });
+  }, [liveBookings, customers, liveTechnicians, selectedBranchId]);
+
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
 
   // Custom appointments stored in localStorage
@@ -313,148 +324,256 @@ export const W05_StaffSchedule: React.FC = () => {
   });
 
   // Modal Form State
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState(SERVICE_OPTIONS[0].id);
-  const [selectedTechId, setSelectedTechId] = useState<'tech-1' | 'tech-2' | 'tech-3'>('tech-1');
-  const [appDate] = useState('12/10/2026');
+  const [selectedTechId, setSelectedTechId] = useState<string>('');
+  const [appDate, setAppDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState(5); // default 15:00–16:00
+  const [modalBranchId, setModalBranchId] = useState<string>('');
   const [statusType, setStatusType] = useState<'waiting_payment' | 'independent'>('waiting_payment');
   const [notes, setNotes] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
-  // Default active appointment is "Nguyễn Mỹ Duyên"
-  const [selectedAppId, setSelectedAppId] = useState<string>('app-minh-anh');
+  const [selectedAppId, setSelectedAppId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Technicians config
-  const technicians = [
-    {
-      id: 'tech-1' as const,
-      name: 'Trần Lan Anh',
-      room: 'Massage · Phòng 01',
-      role: 'KTV Trưởng Massage',
-    },
-    {
-      id: 'tech-2' as const,
-      name: 'Nguyễn Thu Hà',
-      room: 'Chăm sóc da · Phòng 02',
-      role: 'Chuyên viên Da liễu',
-    },
-    {
-      id: 'tech-3' as const,
-      name: 'Lê Hoài An',
-      room: 'Cơ thể · Phòng 03',
-      role: 'Chuyên viên Body Care',
-    },
-  ];
+  // Auto select default technician if needed
+  useEffect(() => {
+    if (technicians.length > 0 && (!selectedTechId || !technicians.some((t) => t.id === selectedTechId))) {
+      setSelectedTechId(technicians[0].id);
+    }
+  }, [technicians, selectedTechId]);
+
+  // Sync modal branch id with active selected branch
+  useEffect(() => {
+    if (!modalBranchId) {
+      if (selectedBranchId && selectedBranchId !== 'ALL') {
+        setModalBranchId(selectedBranchId);
+      } else if (branches.length > 0) {
+        setModalBranchId(branches[0].id);
+      }
+    }
+  }, [selectedBranchId, branches, modalBranchId]);
 
   // Auto trigger modal if navigated with query params ?create=true&customer=...
   useEffect(() => {
     if (searchParams.get('create') === 'true') {
       setShowCreateModal(true);
       const c = searchParams.get('customer');
-      if (c) {
-        setCustName(c);
-      }
+      if (c) setCustName(c);
+      const cId = searchParams.get('customerId');
+      if (cId) setSelectedCustomerId(cId);
+      const p = searchParams.get('phone');
+      if (p) setCustPhone(p);
     }
   }, [searchParams]);
 
-  // Combined appointments list
   const allAppointments = [...customAppointments, ...appointments];
+
+  // Handle ?booking=... query parameter from notification navigation
+  useEffect(() => {
+    const bookingParam = searchParams.get('booking') || searchParams.get('appId');
+    if (bookingParam && allAppointments.length > 0) {
+      const kw = bookingParam.toLowerCase().trim();
+      const found = allAppointments.find(
+        (a) =>
+          a.id.toLowerCase() === kw ||
+          a.customerCode.toLowerCase().includes(kw) ||
+          a.customer.toLowerCase().includes(kw)
+      );
+      if (found) {
+        setSelectedAppId(found.id);
+        if (found.technicianId) {
+          setSelectedTechId(found.technicianId);
+        }
+      }
+    }
+  }, [searchParams, allAppointments]);
 
   const displayedAppointments = allAppointments.filter((app) => {
     if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      app.customer.toLowerCase().includes(term) ||
-      app.customerCode.toLowerCase().includes(term) ||
-      app.service.toLowerCase().includes(term) ||
-      app.technicianName.toLowerCase().includes(term)
+    return matchSearch(
+      [app.customer, app.customerCode, app.service, app.technicianName, app.resource, app.status],
+      searchTerm
     );
   });
 
-  const selectedApp =
-    allAppointments.find((a) => a.id === selectedAppId) || allAppointments[0] || appointments[1];
+  useEffect(() => {
+    if (allAppointments.length > 0 && (!selectedAppId || !allAppointments.some((a) => a.id === selectedAppId))) {
+      setSelectedAppId(allAppointments[0].id);
+    }
+  }, [allAppointments, selectedAppId]);
+
+  const selectedApp: ScheduleAppointment =
+    allAppointments.find((a) => a.id === selectedAppId) ||
+    allAppointments[0] || {
+      id: '',
+      technicianId: '',
+      title: 'Chưa chọn lịch hẹn',
+      subtitle: 'Chọn lịch hẹn từ bảng để xem chi tiết',
+      customer: 'Khách hàng',
+      customerCode: 'Mã lịch hẹn',
+      avatar: '/avatar_minh_anh.png',
+      service: 'Dịch vụ trị liệu',
+      timeRange: '--:--',
+      date: 'Hôm nay',
+      technicianName: 'Kỹ thuật viên',
+      resource: 'Phòng VIP',
+      durationText: 'Thời lượng --',
+      price: '0đ',
+      deposit: '0đ',
+      remaining: '0đ',
+      status: 'Chờ phân công',
+      statusType: 'waiting_payment',
+      bufferTitle: 'Vùng đệm bảo lưu',
+      bufferDesc: 'Thông tin vùng đệm vệ sinh phòng.',
+      startHour: 9,
+      durationHours: 1,
+    };
 
   // Auto select default technician when service changed
   const handleServiceSelect = (id: string) => {
     setSelectedServiceId(id);
     const found = SERVICE_OPTIONS.find((s) => s.id === id);
-    if (found) {
-      setSelectedTechId(found.defaultTech);
+    if (found && technicians.length > 0) {
+      const matchedTech = technicians.find((t) => t.id === found.defaultTech);
+      if (matchedTech) {
+        setSelectedTechId(matchedTech.id);
+      }
     }
   };
 
-  // Create new appointment
-  const handleCreateAppointment = (e: React.FormEvent) => {
+  // Create new appointment with Supabase Cloud sync & local storage resilience
+  const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!custName.trim()) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập họ và tên khách hàng.');
       return;
     }
 
-    const srv = SERVICE_OPTIONS.find((s) => s.id === selectedServiceId) || SERVICE_OPTIONS[0];
-    const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0];
-    const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
-    const remainingNum = srv.price - srv.deposit;
-
-    const newApp: ScheduleAppointment = {
-      id: `app-custom-${Date.now()}`,
-      technicianId: tech.id,
-      title: `${srv.category} · ${custName.trim()}`,
-      subtitle: `${slot.label} · ${statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn'}`,
-      customer: custName.trim(),
-      customerCode: `WM-${Math.floor(100000 + Math.random() * 900000)} · BK-${Date.now().toString().slice(-6)}`,
-      avatar: '/avatar_minh_anh.png',
-      service: srv.name,
-      timeRange: slot.label,
-      date: appDate,
-      technicianName: tech.name,
-      resource: `${tech.room.split('·')[1]?.trim() || tech.room} · Quận 3`,
-      durationText: `Dịch vụ ${srv.durationMinutes} phút`,
-      price: `${srv.price.toLocaleString('vi-VN')}đ`,
-      deposit: `${srv.deposit.toLocaleString('vi-VN')}đ`,
-      remaining: `${remainingNum.toLocaleString('vi-VN')}đ`,
-      status: statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn',
-      statusType: statusType,
-      bufferTitle: `Giữ nguồn lực đến ${slot.bufferEndTime}`,
-      bufferDesc: `Vùng đệm vệ sinh: ${slot.bufferTimeRange}. ${
-        statusType === 'waiting_payment'
-          ? 'Khoản cọc chưa thu, đang theo dõi thực hiện.'
-          : 'Đã thanh toán cọc giữ chỗ.'
-      } ${notes ? `Ghi chú: ${notes}` : ''}`,
-      startHour: slot.startHour,
-      durationHours: slot.durationHours,
-      hasCleaningBuffer: true,
-      cleaningText: `${slot.bufferTimeRange} · Vệ sinh / giữ phòng`,
-    };
-
-    const updated = [newApp, ...customAppointments];
-    setCustomAppointments(updated);
+    setIsCreating(true);
     try {
-      localStorage.setItem('mld_staff_appointments', JSON.stringify(updated));
+      const srv = SERVICE_OPTIONS.find((s) => s.id === selectedServiceId) || SERVICE_OPTIONS[0];
+      const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0] || DEFAULT_FALLBACK_TECHNICIANS[0];
+      const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
+      const remainingNum = Math.max(0, srv.price - srv.deposit);
+
+      // Tính giờ bắt đầu và kết thúc chuẩn HH:MM:SS
+      const startH = Math.floor(slot.startHour);
+      const startM = Math.round((slot.startHour - startH) * 60);
+      const startTimeStr = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00`;
+
+      const endHourNum = slot.startHour + slot.durationHours;
+      const endH = Math.floor(endHourNum);
+      const endM = Math.round((endHourNum - endH) * 60);
+      const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+
+      // Xác định chi nhánh
+      const branchId = modalBranchId || (selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id || 'branch-q3');
+      const branchObj = branches.find((b) => b.id === branchId) || branches[0];
+
+      // Ghi nhận trực tiếp qua bookingService
+      const res = await bookingService.createBooking({
+        customerId: selectedCustomerId || undefined,
+        customerName: custName.trim(),
+        customerPhone: custPhone.trim(),
+        branchId,
+        serviceId: srv.id,
+        serviceName: srv.name,
+        technicianId: tech.id,
+        technicianName: tech.name,
+        roomName: tech.room,
+        bookingDate: appDate,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        status: statusType === 'waiting_payment' ? BookingStatus.PENDING : BookingStatus.CONFIRMED,
+        paymentStatus: statusType === 'waiting_payment' ? PaymentStatus.UNPAID : PaymentStatus.PARTIAL,
+        baseTotal: srv.price,
+        depositAmount: srv.deposit,
+        finalPrice: srv.price,
+        notes: notes.trim(),
+        durationMinutes: srv.durationMinutes,
+      });
+
+      const dateParts = appDate.split('-');
+      const dateDisplay = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : appDate;
+      const bookingCode = res.data?.bookingCode || `BK-${Date.now().toString().slice(-6)}`;
+
+      const newApp: ScheduleAppointment = {
+        id: res.data?.id || `app-custom-${Date.now()}`,
+        technicianId: tech.id,
+        title: `${srv.category} · ${custName.trim()}`,
+        subtitle: `${slot.label} · ${statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn'}`,
+        customer: custName.trim(),
+        customerCode: `WM-${Math.floor(100000 + Math.random() * 900000)} · ${bookingCode}`,
+        avatar: '/avatar_minh_anh.png',
+        service: srv.name,
+        timeRange: slot.label,
+        date: dateDisplay,
+        technicianName: tech.name,
+        resource: `${tech.room.split('·')[1]?.trim() || tech.room} · ${branchObj?.name || 'Chi nhánh'}`,
+        durationText: `Dịch vụ ${srv.durationMinutes} phút`,
+        price: `${srv.price.toLocaleString('vi-VN')}đ`,
+        deposit: `${srv.deposit.toLocaleString('vi-VN')}đ`,
+        remaining: `${remainingNum.toLocaleString('vi-VN')}đ`,
+        status: statusType === 'waiting_payment' ? 'Chờ thanh toán' : 'Lịch chuẩn',
+        statusType: statusType,
+        bufferTitle: `Giữ nguồn lực đến ${slot.bufferEndTime}`,
+        bufferDesc: `Vùng đệm vệ sinh: ${slot.bufferTimeRange}. ${
+          statusType === 'waiting_payment'
+            ? 'Khoản cọc chưa thu, đang theo dõi thực hiện.'
+            : 'Đã thanh toán cọc giữ chỗ.'
+        } ${notes ? `Ghi chú: ${notes}` : ''}`,
+        startHour: slot.startHour,
+        durationHours: slot.durationHours,
+        hasCleaningBuffer: true,
+        cleaningText: `${slot.bufferTimeRange} · Vệ sinh / giữ phòng`,
+      };
+
+      const updated = [newApp, ...customAppointments.filter((a) => a.id !== newApp.id)];
+      setCustomAppointments(updated);
+      try {
+        localStorage.setItem('mld_staff_appointments', JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to save appointment to localStorage:', err);
+      }
+
+      if (res.data) {
+        setLiveBookings((prev) => [res.data, ...prev.filter((b) => b.id !== res.data.id)]);
+      }
+
+      setSelectedAppId(newApp.id);
+      setShowCreateModal(false);
+
+      // Gửi thông báo hệ thống
+      notificationService.addNotification({
+        title: 'Lịch hẹn mới được tạo',
+        message: `Khách hàng ${newApp.customer} đã đặt lịch "${newApp.service}" lúc ${newApp.timeRange} ngày ${dateDisplay} (${newApp.technicianName}).`,
+        type: 'BOOKING',
+        link: `/staff-schedule?booking=${encodeURIComponent(bookingCode)}`,
+      });
+
+      toast.success(
+        'Tạo lịch hẹn thành công',
+        `Đã lên lịch hẹn cho khách hàng ${newApp.customer} lúc ${newApp.timeRange} (${newApp.technicianName}).`
+      );
+
+      // Reset form
+      setCustName('');
+      setCustPhone('');
+      setSelectedCustomerId('');
+      setNotes('');
+      if (searchParams.get('create')) {
+        setSearchParams({});
+      }
     } catch (err) {
-      console.error('Failed to save appointment to localStorage:', err);
-    }
-
-    setSelectedAppId(newApp.id);
-    setShowCreateModal(false);
-
-    // Send system notification
-    notificationService.addNotification({
-      title: 'Lịch hẹn mới được tạo',
-      message: `Khách hàng ${newApp.customer} đã đặt lịch "${newApp.service}" lúc ${newApp.timeRange} với KTV ${newApp.technicianName}.`,
-      type: 'BOOKING',
-      link: '/staff-schedule',
-    });
-
-    toast.success(
-      'Tạo lịch hẹn thành công',
-      `Đã lên lịch hẹn cho khách hàng ${newApp.customer} lúc ${newApp.timeRange} (${newApp.technicianName}).`
-    );
-
-    if (searchParams.get('create')) {
-      setSearchParams({});
+      console.error('Failed to create appointment:', err);
+      toast.error('Lỗi tạo lịch hẹn', 'Không thể hoàn tất tạo lịch hẹn. Vui lòng kiểm tra lại.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -469,6 +588,36 @@ export const W05_StaffSchedule: React.FC = () => {
     }
     setSelectedAppId('app-minh-anh');
     toast.success('Đã hủy lịch hẹn', 'Lịch hẹn đã được gỡ bỏ khỏi bảng phân công ca trực.');
+  };
+
+  // Update real Supabase booking status according to FSM workflow
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const handleUpdateBookingStatus = async (bookingId: string, nextStatus: BookingStatus) => {
+    setIsUpdatingStatus(true);
+    try {
+      const res = await bookingService.updateBookingStatus(bookingId, nextStatus);
+      if (res.success) {
+        setLiveBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? { ...b, status: nextStatus } : b))
+        );
+        const statusMap: Record<string, string> = {
+          [BookingStatus.CONFIRMED]: 'Đã xác nhận',
+          [BookingStatus.IN_SERVICE]: 'Đang thực hiện',
+          [BookingStatus.COMPLETED]: 'Hoàn thành',
+          [BookingStatus.CANCELLED]: 'Đã hủy',
+        };
+        toast.success(
+          'Cập nhật thành công',
+          `Trạng thái lịch hẹn đã chuyển thành: ${statusMap[nextStatus] || nextStatus}`
+        );
+      } else {
+        toast.error('Lỗi cập nhật', res.message || 'Không thể cập nhật trạng thái');
+      }
+    } catch (err) {
+      toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   // Time hours from 09:00 to 20:00 (12 intervals)
@@ -495,11 +644,18 @@ export const W05_StaffSchedule: React.FC = () => {
       {/* 1. Page Header Title & Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
-            Lịch kỹ thuật viên
-          </h1>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
+              Lịch kỹ thuật viên
+            </h1>
+            {activeBranch && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                {activeBranch.name} ({activeBranch.code})
+              </span>
+            )}
+          </div>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Thứ hai, 12/10/2026 · Quận 3 · Mở cửa 09:00–20:00
+            Thứ hai, 12/10/2026 · {activeBranch ? `${activeBranch.name} · ${activeBranch.district}, ${activeBranch.city}` : 'Toàn hệ thống chi nhánh'} · Mở cửa {activeBranch?.openingTime ? activeBranch.openingTime.slice(0, 5) : '08:30'}–{activeBranch?.closingTime ? activeBranch.closingTime.slice(0, 5) : '20:30'}
           </p>
         </div>
         <button
@@ -511,17 +667,63 @@ export const W05_StaffSchedule: React.FC = () => {
         </button>
       </div>
 
-      {/* 2. Filter Toolbar (White Card with 4 Controls) */}
+      {/* 2. Filter Toolbar (White Card with 5 Controls) */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap lg:flex-nowrap items-center gap-3">
         {/* Search input */}
-        <div className="flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm khách hàng hoặc mã lịch hẹn..."
-            className="w-full px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Branch dropdown */}
+        <div className="relative shrink-0">
+          <select
+            value={selectedBranchId}
+            onChange={(e) => {
+              const bId = e.target.value;
+              setSelectedBranchId(bId);
+              localStorage.setItem('mld_selected_branch_id', bId);
+              window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId: bId } }));
+              if (bId !== 'ALL') {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('branchId', bId);
+                  return next;
+                });
+              } else {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete('branchId');
+                  return next;
+                });
+              }
+            }}
+            className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+          >
+            <option value="ALL">Tất cả chi nhánh ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.code})
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Date dropdown */}
@@ -547,22 +749,23 @@ export const W05_StaffSchedule: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column (Matrix + Legend) */}
         <div className="lg:col-span-8 space-y-3">
-          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
-            {/* Timetable Header Row */}
-            <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE]">
-              {/* Corner spacer */}
-              <div className="w-16 sm:w-20 shrink-0 border-r border-[#EFE4D9]" />
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
+            <div className="min-w-[620px] sm:min-w-[680px]">
+              {/* Timetable Header Row */}
+              <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE]">
+                {/* Corner spacer */}
+                <div className="w-16 sm:w-20 shrink-0 border-r border-[#EFE4D9]" />
 
               {/* Technician Headers */}
               {technicians.map((t, idx) => (
                 <div
                   key={t.id}
-                  className={`flex-1 px-4 py-3 ${
+                  className={`flex-1 px-4 py-3 whitespace-nowrap ${
                     idx < technicians.length - 1 ? 'border-r border-[#EFE4D9]' : ''
                   }`}
                 >
-                  <div className="text-[13px] font-bold text-[#2C241E]">{t.name}</div>
-                  <div className="text-[11px] text-[#73675F] mt-0.5">{t.room}</div>
+                  <div className="text-[13px] font-bold text-[#2C241E] whitespace-nowrap">{t.name}</div>
+                  <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{t.room}</div>
                 </div>
               ))}
             </div>
@@ -668,6 +871,7 @@ export const W05_StaffSchedule: React.FC = () => {
               })}
             </div>
           </div>
+        </div>
 
           {/* Legend Row */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -750,10 +954,20 @@ export const W05_StaffSchedule: React.FC = () => {
               </div>
             </div>
 
-            {/* Status Banner */}
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
+            {/* Status Banner with Dynamic Colors */}
+            <div
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
+                selectedApp.status === 'Hoàn thành' || selectedApp.status === 'Đang thực hiện'
+                  ? 'bg-[#E8F6ED] text-[#0D6832]'
+                  : selectedApp.status === 'Đã hủy'
+                  ? 'bg-[#FDF2F2] text-[#B02A37]'
+                  : selectedApp.status === 'Đã xác nhận'
+                  ? 'bg-[#EBF5FB] text-[#1B4F72]'
+                  : 'bg-[#F3E2CE] text-[#8A4F23]'
+              }`}
+            >
               <Clock className="w-4 h-4 stroke-[2]" />
-              <span>{selectedApp.status}</span>
+              <span>Trạng thái: {selectedApp.status}</span>
             </div>
 
             {/* Resource Hold Alert Box */}
@@ -764,15 +978,57 @@ export const W05_StaffSchedule: React.FC = () => {
               </p>
             </div>
 
+            {/* Interactive FSM Booking Actions for Real Bookings */}
+            {!selectedApp.id.startsWith('app-custom-') && selectedApp.id && (
+              <div className="space-y-2 pt-1">
+                {selectedApp.status === 'Chờ thanh toán' && (
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CONFIRMED)}
+                    className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xác nhận lịch hẹn'}</span>
+                  </button>
+                )}
+
+                {selectedApp.status === 'Đã xác nhận' && (
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.IN_SERVICE)}
+                    className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Khách đã đến & Bắt đầu'}</span>
+                  </button>
+                )}
+
+                {selectedApp.status !== 'Hoàn thành' && selectedApp.status !== 'Đã hủy' && (
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CANCELLED)}
+                    className="w-full py-2 bg-[#FDF2F2] hover:bg-[#FDE8E8] text-[#B02A37] border border-[#F5C2C7] rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Hủy lịch hẹn này</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Cashier Invoice Action Button */}
             <button
               onClick={() => {
                 toast.info('Chuyển hướng thu ngân', 'Đang mở màn hình thu ngân chi tiết...');
-                navigate('/cashier-pos');
+                const bCode = selectedApp.customerCode?.split('·')[1]?.trim() || selectedApp.id;
+                navigate(`/cashier-pos?booking=${encodeURIComponent(bCode)}`);
               }}
               className="w-full py-3 bg-white border border-[#D8BDA7] text-[#904206] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer"
             >
-              Xem đơn thu ngân
+              Xem đơn thu ngân POS
             </button>
 
             {selectedApp.id.startsWith('app-custom-') && (
@@ -854,24 +1110,79 @@ export const W05_StaffSchedule: React.FC = () => {
 
             {/* Modal Form Body */}
             <form onSubmit={handleCreateAppointment} className="overflow-y-auto p-5 sm:p-6 space-y-4">
-              {/* Row 1: Khách hàng & Số điện thoại */}
+              {/* Row 1: Khách hàng & Số điện thoại (kèm gợi ý từ CRM) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Họ và tên khách hàng <span className="text-[#985018]">*</span>
-                  </label>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-[#2C241E]">
+                      Họ và tên khách hàng <span className="text-[#985018]">*</span>
+                    </label>
+                    {selectedCustomerId && (
+                      <span className="text-[10px] text-[#1B6E44] bg-[#E7F4EE] px-2 py-0.5 rounded-full font-bold">
+                        Đã liên kết hồ sơ CRM
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
-                    <User className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <UserIcon className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
                       value={custName}
-                      onChange={(e) => setCustName(e.target.value)}
-                      placeholder="Ví dụ: Nguyễn Mỹ Duyên"
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      onChange={(e) => {
+                        setCustName(e.target.value);
+                        setSelectedCustomerId('');
+                        setShowCustomerDropdown(true);
+                      }}
+                      placeholder="Nhập tên hoặc tìm khách hàng..."
                       className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
                     />
                   </div>
+
+                  {/* Customer Autocomplete Dropdown */}
+                  {showCustomerDropdown && custName.trim().length > 0 && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#E8DFD8] rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {customers
+                        .filter((c) =>
+                          matchSearch([c.fullName, c.phone, c.referralCode || ''], custName)
+                        )
+                        .slice(0, 5)
+                        .map((c) => (
+                          <div
+                            key={c.id}
+                            onClick={() => {
+                              setCustName(c.fullName);
+                              setCustPhone(c.phone || '');
+                              setSelectedCustomerId(c.id);
+                              setShowCustomerDropdown(false);
+                            }}
+                            className="p-2.5 hover:bg-[#FAF0E4] cursor-pointer flex items-center justify-between border-b border-[#F4ECE3] last:border-b-0 text-xs transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-[#F3E2CE] text-[#985018] font-bold text-xs flex items-center justify-center shrink-0">
+                                {c.fullName.slice(0, 1)}
+                              </div>
+                              <div>
+                                <div className="font-bold text-[#2C241E]">{c.fullName}</div>
+                                <div className="text-[10px] text-[#73675F]">{c.phone}</div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-semibold text-[#985018] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8DFD8]">
+                              {c.membershipTier || 'STANDARD'}
+                            </span>
+                          </div>
+                        ))}
+                      <div
+                        onClick={() => setShowCustomerDropdown(false)}
+                        className="p-2 text-center text-[11px] text-[#73675F] hover:bg-[#F8F5F2] cursor-pointer font-medium bg-[#FAF8F5]"
+                      >
+                        Đóng gợi ý (Sử dụng tên vừa nhập)
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                     Số điện thoại liên hệ
@@ -889,25 +1200,48 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 2: Dịch vụ & Gói chăm sóc */}
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Chọn dịch vụ trị liệu <span className="text-[#985018]">*</span>
-                </label>
-                <div className="relative">
-                  <Sparkles className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <select
-                    value={selectedServiceId}
-                    onChange={(e) => handleServiceSelect(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
-                  >
-                    {SERVICE_OPTIONS.map((srv) => (
-                      <option key={srv.id} value={srv.id}>
-                        {srv.name} — {srv.durationMinutes} phút ({srv.price.toLocaleString('vi-VN')}đ)
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* Row 2: Chi nhánh cơ sở & Dịch vụ trị liệu */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Chi nhánh cơ sở <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={modalBranchId}
+                      onChange={(e) => setModalBranchId(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
+                    >
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.code})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Chọn dịch vụ trị liệu <span className="text-[#985018]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Sparkles className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={selectedServiceId}
+                      onChange={(e) => handleServiceSelect(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
+                    >
+                      {SERVICE_OPTIONS.map((srv) => (
+                        <option key={srv.id} value={srv.id}>
+                          {srv.name} — {srv.durationMinutes} phút ({srv.price.toLocaleString('vi-VN')}đ)
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
@@ -916,7 +1250,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                   Kỹ thuật viên & Phòng phân bổ <span className="text-[#985018]">*</span>
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                   {technicians.map((tech) => {
                     const isSelected = selectedTechId === tech.id;
                     return (
@@ -941,14 +1275,40 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 4: Ngày & Khung giờ phục vụ */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
+              {/* Row 4: Ngày hẹn & Khung giờ phục vụ */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-bold text-[#2C241E]">
-                    Khung giờ hẹn <span className="text-[#985018]">*</span>
+                    Ngày hẹn & Khung giờ phục vụ <span className="text-[#985018]">*</span>
                   </label>
-                  <span className="text-[11px] text-[#73675F]">Ngày: {appDate}</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={appDate}
+                      onChange={(e) => setAppDate(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAppDate(new Date().toISOString().split('T')[0])}
+                      className="px-2.5 py-1.5 bg-[#FAF0E4] text-[#985018] rounded-lg text-[11px] font-bold hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                    >
+                      Hôm nay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setAppDate(tomorrow.toISOString().split('T')[0]);
+                      }}
+                      className="px-2.5 py-1.5 bg-[#FAF0E4] text-[#985018] rounded-lg text-[11px] font-bold hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                    >
+                      Ngày mai
+                    </button>
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-32 overflow-y-auto p-1.5 border border-[#E8DFD8] rounded-xl bg-[#FAF8F5]">
                   {TIME_SLOT_OPTIONS.map((slot, idx) => {
                     const isSelected = selectedSlotIndex === idx;
@@ -1022,12 +1382,13 @@ export const W05_StaffSchedule: React.FC = () => {
                 />
               </div>
 
-              {/* Summary Card Box */}
+              {/* Summary Card Box (100% crash-proof với fallback) */}
               {(() => {
                 const srv = SERVICE_OPTIONS.find((s) => s.id === selectedServiceId) || SERVICE_OPTIONS[0];
-                const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0];
+                const tech = technicians.find((t) => t.id === selectedTechId) || technicians[0] || DEFAULT_FALLBACK_TECHNICIANS[0];
                 const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
-                const rem = srv.price - srv.deposit;
+                const rem = Math.max(0, srv.price - srv.deposit);
+                const br = branches.find((b) => b.id === modalBranchId) || branches[0];
 
                 return (
                   <div className="bg-[#FAF0E4] border border-[#E8DFD8] rounded-2xl p-4 space-y-2">
@@ -1037,22 +1398,22 @@ export const W05_StaffSchedule: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-[#73675F] pt-1">
                       <div>
-                        Chuyên viên: <span className="font-semibold text-[#2C241E]">{tech.name}</span>
+                        Chuyên viên: <span className="font-semibold text-[#2C241E]">{tech?.name || 'KTV'}</span>
                       </div>
                       <div>
-                        Phòng: <span className="font-semibold text-[#2C241E]">{tech.room.split('·')[1]?.trim() || tech.room}</span>
+                        Phòng: <span className="font-semibold text-[#2C241E]">{tech?.room?.split('·')[1]?.trim() || tech?.room || 'Phòng VIP'}</span>
                       </div>
                       <div>
-                        Thời gian: <span className="font-semibold text-[#2C241E]">{slot.label}</span>
+                        Cơ sở: <span className="font-semibold text-[#2C241E]">{br?.name || 'MLD Spa'}</span>
+                      </div>
+                      <div>
+                        Thời gian: <span className="font-semibold text-[#2C241E]">{slot.label} ({appDate})</span>
                       </div>
                       <div>
                         Tiền cọc giữ chỗ: <span className="font-bold text-[#8A4F23]">{srv.deposit.toLocaleString('vi-VN')}đ</span>
                       </div>
                       <div>
                         Còn lại thanh toán: <span className="font-semibold text-[#2C241E]">{rem.toLocaleString('vi-VN')}đ</span>
-                      </div>
-                      <div>
-                        Vùng đệm vô trùng: <span className="font-semibold text-[#2C241E]">15 phút ({slot.bufferTimeRange})</span>
                       </div>
                     </div>
                   </div>
@@ -1063,20 +1424,31 @@ export const W05_StaffSchedule: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EFE4D9]">
                 <button
                   type="button"
+                  disabled={isCreating}
                   onClick={() => {
                     setShowCreateModal(false);
                     if (searchParams.get('create')) setSearchParams({});
                   }}
-                  className="px-5 py-2.5 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-2"
+                  disabled={isCreating}
+                  className="px-6 py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] disabled:opacity-60 text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-2"
                 >
-                  <Check className="w-4 h-4" />
-                  Xác nhận tạo lịch hẹn
+                  {isCreating ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Đang lưu lịch hẹn...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Xác nhận tạo lịch hẹn</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

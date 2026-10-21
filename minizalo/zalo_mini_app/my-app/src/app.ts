@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client";
 
 // Mount the app
 import Layout from "@/components/layout";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 // Expose app configuration
 import appConfig from "../app-config.json";
@@ -20,4 +21,4 @@ if (!window.APP_CONFIG) {
 }
 
 const root = createRoot(document.getElementById("app")!);
-root.render(React.createElement(Layout));
+root.render(React.createElement(AppErrorBoundary, null, React.createElement(Layout)));

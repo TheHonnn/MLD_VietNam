@@ -8,14 +8,30 @@ export interface Store {
 
 export const createStore = (client: PrismaClient | Prisma.TransactionClient): Store => ({
   query: <T extends Row>(query: Prisma.Sql) => client.$queryRaw<T[]>(query),
-  transaction: <T>(run: (store: Store) => Promise<T>) =>
-    '$transaction' in client
-      ? client.$transaction((tx) => run(createStore(tx)), { isolationLevel: 'Serializable', maxWait: 10000, timeout: 20000 })
-      : run(createStore(client)),
+  transaction: async <T>(run: (store: Store) => Promise<T>) => {
+    if(!('$transaction' in client)) return run(createStore(client));
+    for(let attempt=0;;attempt++) {
+      try{return await client.$transaction(tx=>run(createStore(tx)),{isolationLevel:'Serializable',maxWait:10000,timeout:20000});}
+      catch(error){const failure=error as {code?:string;meta?:{code?:string}};if(attempt>=2||!(failure.code==='P2034'||['40001','40P01'].includes(failure.meta?.code||'')))throw error;}
+    }
+  },
 });
 
 // This is a read/write contract, not a second schema or a migration source.
 export const requiredColumns: Record<string, string[]> = {
+  miniapp_customer_requests:['user_id','scope','request_key','payload_hash','resource_id','created_at'],
+  miniapp_course_delivery:['course_id','delivery_format','updated_at'],
+  miniapp_membership_cards:['user_id','card_code','expires_at','is_active','updated_at'],
+  miniapp_customer_profiles:['user_id','preferred_branch_id','skin_type','health_notes','updated_at'],
+  miniapp_booking_requests:['user_id','request_key','request_hash','booking_id'],
+  miniapp_favorite_services:['user_id','service_id','is_favorite'],
+  miniapp_technician_services:['technician_id','service_id','is_active'],
+  miniapp_quiz_limits:['enrollment_id','quiz_id','max_attempts','reason'],
+  miniapp_lesson_quizzes:['lesson_id','quiz_id'],
+  miniapp_quiz_attempts:['id','enrollment_id','quiz_id','expires_at','questions','draft_answers','submission_id'],
+  miniapp_lesson_playbacks:['id','enrollment_id','lesson_id','covered_ranges','duration_seconds'],
+  miniapp_booking_packages:['booking_id','user_package_id','state'],
+  miniapp_package_baselines:['user_package_id','legacy_sessions'],
   users: ['id', 'phone', 'full_name', 'membership_tier', 'reward_points', 'is_active'],
   branches: ['id', 'name', 'opening_time', 'closing_time', 'is_active'],
   services: ['id', 'category_id', 'name', 'price', 'discount_price', 'duration_minutes'],

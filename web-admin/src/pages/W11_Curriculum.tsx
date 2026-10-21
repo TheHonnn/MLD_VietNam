@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -8,9 +8,11 @@ import {
   X,
   CheckCircle2,
   Calendar,
+  Search,
 } from 'lucide-react';
-import { academyService } from '../services';
-import { Course, CourseBatch } from '../types/shared_types';
+import { academyService, staffService, StaffWithProfile } from '../services';
+import { Course, CourseBatch, BatchStatus } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 interface PracticalSession {
   id: string;
@@ -45,103 +47,6 @@ interface TrainingClassRecord {
   statusLabel: string;
 }
 
-const practicalSessionsData: PracticalSession[] = [
-  {
-    id: 'ps-mc',
-    room: 'Phòng thực hành 01',
-    dateKey: '2026-10-14',
-    dateLabel: '14/10/2026',
-    subject: 'Chăm sóc da',
-    timeRange: '09:00–12:00',
-    instructorName: 'Trần Minh Châu',
-    className: 'CSD-0926 · Phòng 01',
-    status: 'Chưa diễn ra',
-    videoTopic: 'Thực hành kỹ thuật làm sạch & dưỡng da chuyên sâu',
-    videoDuration: '15 phút',
-    practiceDuration: '150 phút',
-    prepTime: '08:45–09:00',
-    note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học; không có điểm danh QR thực tế.',
-  },
-  {
-    id: 'ps-qb',
-    room: 'Phòng thực hành 03',
-    dateKey: '2026-10-15',
-    dateLabel: '15/10/2026',
-    subject: 'Chăm sóc cơ thể',
-    timeRange: '09:00–12:00',
-    instructorName: 'Lê Quốc Bảo',
-    className: 'CTC-0926 · Phòng 03',
-    status: 'Chưa diễn ra',
-    videoTopic: 'Thực hành kỹ thuật bấm huyệt & đắp thảo dược ấm',
-    videoDuration: '20 phút',
-    practiceDuration: '145 phút',
-    prepTime: '08:45–09:00',
-    note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học; không có điểm danh QR thực tế.',
-  },
-  {
-    id: 'ps-th',
-    room: 'Phòng thực hành 02',
-    dateKey: '2026-10-16',
-    dateLabel: '16/10/2026',
-    subject: 'MCN-0926',
-    timeRange: '13:00–17:00',
-    instructorName: 'Nguyễn Thanh Hương',
-    className: 'MCN-0926 · Phòng 02',
-    status: 'Chưa diễn ra',
-    videoTopic: 'Thực hành kỹ thuật massage cơ bản',
-    videoDuration: '18 phút',
-    practiceDuration: '120 phút',
-    prepTime: '12:45–13:00',
-    note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học; không có điểm danh QR thực tế.',
-  },
-];
-
-const trainingClasses: TrainingClassRecord[] = [
-  {
-    id: 'cls-1',
-    courseTitle: 'Kỹ thuật Massage Chuyên Nghiệp',
-    classBatch: 'MCN-0926 · Khóa hiện tại',
-    instructor: 'Nguyễn Thanh Hương',
-    branch: 'Quận 3',
-    room: 'Thực hành 02',
-    scheduleDays: 'Thứ 6 – 7 – CN · 13:00–17:00',
-    timeSlot: 'Đang triển khai',
-    startDateStatus: 'Đang triển khai',
-    studentCount: '16/20',
-    status: 'active',
-    statusLabel: 'Đang học',
-  },
-  {
-    id: 'cls-2',
-    courseTitle: 'Kỹ thuật Massage Chuyên Nghiệp',
-    classBatch: 'MCN-1026 · Đợt tuyển sinh mới',
-    instructor: 'Nguyễn Thanh Hương',
-    branch: 'Quận 3',
-    room: 'Thực hành 02 · Dự kiến',
-    scheduleDays: 'Thứ 6 – 7 – CN · 13:00–17:00',
-    timeSlot: 'Bắt đầu 23/10/2026',
-    startDateStatus: 'Bắt đầu 23/10/2026',
-    studentCount: '0/20',
-    status: 'waiting',
-    statusLabel: 'Chờ hồ sơ / cọc',
-  },
-  {
-    id: 'cls-3',
-    courseTitle: 'Chăm sóc da',
-    classBatch: 'CSD-1026 · Khóa sắp học',
-    instructor: 'Trần Minh Châu',
-    instructorRole: 'Phân công mẫu',
-    branch: 'Quận 3',
-    room: 'Thực hành 01 · Dự kiến',
-    scheduleDays: 'Bắt đầu 30/10/2026',
-    timeSlot: 'Khung giờ chưa chốt',
-    startDateStatus: 'Khung giờ chưa chốt',
-    studentCount: '1/16',
-    status: 'upcoming',
-    statusLabel: 'Sắp mở',
-  },
-];
-
 const weekDays = [
   { label: 'Thứ hai', date: '12/10/2026', key: '2026-10-12' },
   { label: 'Thứ ba', date: '13/10/2026', key: '2026-10-13' },
@@ -158,25 +63,45 @@ const roomsList = [
   'Phòng thực hành 03',
 ];
 
+const defaultSession: PracticalSession = {
+  id: 'ps-default',
+  room: 'Phòng thực hành 01',
+  dateKey: '2026-10-16',
+  dateLabel: '16/10/2026',
+  subject: 'Kỹ thuật Massage Trị Liệu',
+  timeRange: '13:00–17:00',
+  instructorName: 'Nguyễn Thảo Ngọc',
+  className: 'K26-SPA-Q1 · Phòng 01',
+  status: 'Sắp diễn ra',
+  videoTopic: 'Thực hành kỹ thuật bấm huyệt và massage cơ bản',
+  videoDuration: '20 phút',
+  practiceDuration: '150 phút',
+  prepTime: '12:45–13:00',
+  note: 'Nhân sự đào tạo và giảng viên đối chiếu chuyên cần sau buổi học theo quy chế học viện MLD.',
+};
+
 export const W11_Curriculum: React.FC = () => {
-  const [selectedSessionId, setSelectedSessionId] = useState<string>('ps-th');
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('week-12-18');
-  const [branchFilter, setBranchFilter] = useState<string>('quận 3');
+  const [branchFilter, setBranchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
+  const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
     const fetchCurriculum = async () => {
       try {
-        const [crsRes, batRes] = await Promise.all([
+        const [crsRes, batRes, instRes] = await Promise.all([
           academyService.getCourses(),
           academyService.getCourseBatches(),
+          staffService.getInstructors(),
         ]);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
+        if (instRes.success) setInstructors(instRes.data);
       } catch (err) {
         console.error('Failed to load curriculum data:', err);
       }
@@ -184,13 +109,84 @@ export const W11_Curriculum: React.FC = () => {
     fetchCurriculum();
   }, []);
 
+  const trainingClasses: TrainingClassRecord[] = useMemo(() => {
+    if (!liveBatches || liveBatches.length === 0) return [];
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const instMap = new Map(instructors.map((i) => [i.id, i]));
+
+    return liveBatches.map((bat, idx) => {
+      const crs = crsMap.get(bat.courseId);
+      const inst = instMap.get(bat.instructorId || '');
+      const branchName = bat.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3';
+      const status: 'active' | 'waiting' | 'upcoming' =
+        (bat.status as any) === 'OPEN' || (bat.status as any) === 'OPEN_FOR_ENROLLMENT' || bat.status === BatchStatus.IN_PROGRESS
+          ? 'active'
+          : bat.status === BatchStatus.UPCOMING
+          ? 'upcoming'
+          : 'waiting';
+      const statusLabel =
+        status === 'active' ? 'Đang học' : status === 'upcoming' ? 'Sắp mở' : 'Chờ hồ sơ / cọc';
+
+      return {
+        id: bat.id,
+        courseTitle: crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên',
+        classBatch: `${bat.batchCode} · ${crs?.code || 'Academy'}`,
+        instructor: inst?.fullName || 'Nguyễn Thảo Ngọc',
+        instructorRole: (inst as any)?.title || 'Giảng viên chính',
+        branch: branchName,
+        room: idx % 2 === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02',
+        scheduleDays: bat.scheduleText || 'Thứ 2 – 4 – 6 · 08:30–11:30',
+        timeSlot: 'Đang triển khai',
+        startDateStatus: bat.startDate ? `Khai giảng: ${new Date(bat.startDate).toLocaleDateString('vi-VN')}` : 'Đang triển khai',
+        studentCount: `${bat.enrolledCount}/${bat.maxStudents}`,
+        status,
+        statusLabel,
+      };
+    });
+  }, [liveBatches, liveCourses, instructors]);
+
+  const practicalSessionsData: PracticalSession[] = useMemo(() => {
+    if (!liveBatches || liveBatches.length === 0) return [defaultSession];
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const instMap = new Map(instructors.map((i) => [i.id, i]));
+
+    const sessions: PracticalSession[] = [];
+    liveBatches.forEach((bat, idx) => {
+      const crs = crsMap.get(bat.courseId);
+      const inst = instMap.get(bat.instructorId || '');
+      const room = idx === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02';
+      const dateKey = idx === 0 ? '2026-10-14' : '2026-10-16';
+      const dateLabel = idx === 0 ? '14/10/2026' : '16/10/2026';
+      const timeRange = idx === 0 ? '09:00–12:00' : '13:00–17:00';
+
+      sessions.push({
+        id: `ps-${bat.id}`,
+        room,
+        dateKey,
+        dateLabel,
+        subject: crs?.title || 'Chăm sóc trị liệu',
+        timeRange,
+        instructorName: inst?.fullName || 'Nguyễn Thảo Ngọc',
+        className: `${bat.batchCode} · ${room}`,
+        status: 'Chưa diễn ra',
+        videoTopic: `Thực hành kỹ thuật chuyên sâu - ${bat.batchCode}`,
+        videoDuration: '18 phút',
+        practiceDuration: '140 phút',
+        prepTime: '08:45–09:00',
+        note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học theo chuẩn học viện MLD.',
+      });
+    });
+
+    return sessions.length > 0 ? sessions : [defaultSession];
+  }, [liveBatches, liveCourses, instructors]);
+
   // Modals state
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   const selectedSession =
-    practicalSessionsData.find((ps) => ps.id === selectedSessionId) || practicalSessionsData[2];
+    practicalSessionsData.find((ps) => ps.id === selectedSessionId) || practicalSessionsData[0] || defaultSession;
 
   const showToast = (message: string) => {
     setSuccessToast(message);
@@ -200,16 +196,20 @@ export const W11_Curriculum: React.FC = () => {
   };
 
   // Filter classes
+  const hasActiveFilter =
+    searchTerm.trim().length > 0 ||
+    branchFilter !== 'all' ||
+    statusFilter !== 'all';
+
   const filteredClasses = trainingClasses.filter((c) => {
-    const matchSearch =
-      c.courseTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.classBatch.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.instructor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.room.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchBranch = branchFilter === 'all' || c.branch.toLowerCase().includes(branchFilter.toLowerCase());
+    const isMatched = matchSearch(
+      [c.courseTitle, c.classBatch, c.instructor, c.room, c.branch],
+      searchTerm
+    );
+    const matchBranch = branchFilter === 'all' || matchSearch(c.branch, branchFilter);
     const matchStatus = statusFilter === 'all' || c.status === statusFilter;
 
-    return matchSearch && matchBranch && matchStatus;
+    return isMatched && matchBranch && matchStatus;
   });
 
   return (
@@ -240,24 +240,35 @@ export const W11_Curriculum: React.FC = () => {
       </div>
 
       {/* 2. Search & Filter Bar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap md:flex-nowrap items-center gap-3">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm lớp, giảng viên hoặc phòng..."
-            className="w-full pl-3.5 pr-8 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Filter: Tuần học */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="week-12-18">12/10/2026 – 18/10/2026</option>
             <option value="week-19-25">19/10/2026 – 25/10/2026</option>
@@ -266,11 +277,11 @@ export const W11_Curriculum: React.FC = () => {
         </div>
 
         {/* Filter: Chi nhánh */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả chi nhánh</option>
             <option value="quận 3">Quận 3</option>
@@ -280,11 +291,11 @@ export const W11_Curriculum: React.FC = () => {
         </div>
 
         {/* Filter: Trạng thái */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Đang học</option>
@@ -293,6 +304,23 @@ export const W11_Curriculum: React.FC = () => {
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
+
+        {/* Reset filter button */}
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setBranchFilter('all');
+              setStatusFilter('all');
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 3. TẦNG 1: Lịch phòng thực hành tuần (8 cols) + Buổi đang chọn (4 cols) */}
@@ -304,29 +332,29 @@ export const W11_Curriculum: React.FC = () => {
               Lịch phòng thực hành tuần
             </h2>
             <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-              3 buổi mẫu đã lập
+              {practicalSessionsData.length} buổi thực hành đã lập
             </span>
           </div>
 
           {/* Matrix Table */}
           <div className="overflow-x-auto border border-[#EFE4D9] rounded-xl">
-            <table className="w-full text-center border-collapse">
+            <table className="w-full text-center border-collapse whitespace-nowrap">
               <thead>
-                <tr className="bg-[#FAF5EF] text-[#73675F] text-[11px] font-semibold divide-x divide-[#EFE4D9] border-b border-[#EFE4D9]">
-                  <th className="py-2.5 px-3 w-28 text-left font-semibold"></th>
+                <tr className="bg-[#FAF5EF] text-[#73675F] text-[11px] font-semibold divide-x divide-[#EFE4D9] border-b border-[#EFE4D9] whitespace-nowrap">
+                  <th className="py-2.5 px-3 w-28 text-left font-semibold whitespace-nowrap"></th>
                   {weekDays.map((day) => (
-                    <th key={day.key} className="py-2.5 px-2 min-w-[85px] font-semibold">
-                      <div>{day.label}</div>
-                      <div className="text-[10px] text-[#A69788] font-normal">{day.date}</div>
+                    <th key={day.key} className="py-2.5 px-2 min-w-[85px] font-semibold whitespace-nowrap">
+                      <div className="whitespace-nowrap">{day.label}</div>
+                      <div className="text-[10px] text-[#A69788] font-normal whitespace-nowrap">{day.date}</div>
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#EFE4D9] text-xs">
+              <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
                 {roomsList.map((roomName) => (
                   <tr key={roomName} className="divide-x divide-[#EFE4D9]">
                     {/* Room title */}
-                    <td className="py-3 px-3 text-left font-semibold text-[11px] text-[#2C241E] bg-[#FAF5EF]/50">
+                    <td className="py-3 px-3 text-left font-semibold text-[11px] text-[#2C241E] bg-[#FAF5EF]/50 whitespace-nowrap">
                       {roomName}
                     </td>
 
@@ -374,7 +402,7 @@ export const W11_Curriculum: React.FC = () => {
 
           {/* Footnote below schedule grid */}
           <div className="text-xs text-[#73675F] pt-1">
-            MCN-0926 có lịch định kỳ thứ 6–7–Chủ nhật, 13:00–17:00. Tuần chọn chỉ hiển thị buổi 16/10/2026 đã có nội dung mẫu; các buổi khác chưa lập chi tiết.
+            Lịch thực hành được phân bổ dựa trên thời khóa biểu và phòng lab thực tế của các lớp học viện MLD.
           </div>
         </div>
 
@@ -459,55 +487,85 @@ export const W11_Curriculum: React.FC = () => {
 
         {/* Table of classes */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead>
-              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
-                <th className="py-2.5 px-4 font-semibold">Khóa / lớp</th>
-                <th className="py-2.5 px-4 font-semibold">Giảng viên</th>
-                <th className="py-2.5 px-4 font-semibold">Cơ sở / phòng</th>
-                <th className="py-2.5 px-4 font-semibold">Lịch học / bắt đầu</th>
-                <th className="py-2.5 px-4 font-semibold">Sĩ số lớp</th>
-                <th className="py-2.5 px-4 font-semibold">Trạng thái</th>
+              <tr className="bg-[#F5EADF] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Khóa / lớp</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Giảng viên</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Cơ sở / phòng</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Lịch học / bắt đầu</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Sĩ số lớp</th>
+                <th className="py-2.5 px-4 font-semibold whitespace-nowrap">Trạng thái</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFE4D9] text-xs">
-              {filteredClasses.map((cls) => (
-                <tr key={cls.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
+            <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
+              {filteredClasses.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-[#73675F] whitespace-normal">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                        <Search className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy lớp học</p>
+                      <p className="text-xs text-[#8C7A6B]">
+                        {searchTerm.trim()
+                          ? `Không có lớp học nào khớp với từ khóa "${searchTerm}".`
+                          : 'Không có lớp học nào với bộ lọc đã chọn.'}
+                      </p>
+                      {hasActiveFilter && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchTerm('');
+                            setBranchFilter('all');
+                            setStatusFilter('all');
+                          }}
+                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          Xóa bộ lọc
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredClasses.map((cls) => (
+                  <tr key={cls.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
                   {/* Khóa / lớp */}
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-xs text-[#2C241E]">{cls.courseTitle}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{cls.classBatch}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">{cls.courseTitle}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.classBatch}</div>
                   </td>
 
                   {/* Giảng viên */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{cls.instructor}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{cls.instructor}</div>
                     {cls.instructorRole && (
-                      <div className="text-[11px] text-[#73675F] mt-0.5">{cls.instructorRole}</div>
+                      <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.instructorRole}</div>
                     )}
                   </td>
 
                   {/* Cơ sở / phòng */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{cls.branch}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{cls.room}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{cls.branch}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.room}</div>
                   </td>
 
                   {/* Lịch học / bắt đầu */}
-                  <td className="py-3.5 px-4">
-                    <div className="text-xs text-[#2C241E]">{cls.scheduleDays}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5">{cls.startDateStatus}</div>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div className="text-xs text-[#2C241E] whitespace-nowrap">{cls.scheduleDays}</div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{cls.startDateStatus}</div>
                   </td>
 
-                  {/* Sĩ số mẫu */}
-                  <td className="py-3.5 px-4 font-medium text-xs text-[#2C241E]">
+                  {/* Sĩ số */}
+                  <td className="py-3.5 px-4 font-medium text-xs text-[#2C241E] whitespace-nowrap">
                     {cls.studentCount}
                   </td>
 
                   {/* Trạng thái */}
-                  <td className="py-3.5 px-4">
+                  <td className="py-3.5 px-4 whitespace-nowrap">
                     <span
-                      className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold ${
+                      className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${
                         cls.status === 'active'
                           ? 'bg-[#F3E2CE] text-[#8A4F23]'
                           : cls.status === 'waiting'
@@ -519,7 +577,7 @@ export const W11_Curriculum: React.FC = () => {
                     </span>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
@@ -547,7 +605,7 @@ export const W11_Curriculum: React.FC = () => {
         </div>
       </div>
 
-      {/* 5. TẦNG 3: Chương trình đào tạo & Theo dõi học tập mẫu */}
+      {/* 5. TẦNG 3: Chương trình đào tạo & Theo dõi học tập */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left: Chương trình · 20 bài / 5 chương */}
         <div className="lg:col-span-7 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
@@ -655,9 +713,12 @@ export const W11_Curriculum: React.FC = () => {
               <div>
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Tên chương trình đào tạo</label>
                 <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                  <option value="mcn">Kỹ thuật Massage Chuyên Nghiệp</option>
-                  <option value="csd">Chăm sóc da chuyên sâu</option>
-                  <option value="ctc">Chăm sóc cơ thể dưỡng sinh</option>
+                  {liveCourses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                  {liveCourses.length === 0 && (
+                    <option value="default">Khóa Đào Tạo Kỹ Thuật Viên Spa</option>
+                  )}
                 </select>
               </div>
 
@@ -666,7 +727,7 @@ export const W11_Curriculum: React.FC = () => {
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Mã lớp đào tạo</label>
                   <input
                     type="text"
-                    defaultValue="MCN-1126"
+                    defaultValue="K27-SPA"
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -674,7 +735,7 @@ export const W11_Curriculum: React.FC = () => {
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Sĩ số tối đa</label>
                   <input
                     type="number"
-                    defaultValue={20}
+                    defaultValue={15}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -684,9 +745,12 @@ export const W11_Curriculum: React.FC = () => {
                 <div>
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Giảng viên chủ nhiệm</label>
                   <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                    <option value="th">Nguyễn Thanh Hương</option>
-                    <option value="mc">Trần Minh Châu</option>
-                    <option value="qb">Lê Quốc Bảo</option>
+                    {instructors.map((i) => (
+                      <option key={i.id} value={i.id}>{i.fullName} (Giảng viên)</option>
+                    ))}
+                    {instructors.length === 0 && (
+                      <option value="default">Nguyễn Thảo Ngọc</option>
+                    )}
                   </select>
                 </div>
                 <div>

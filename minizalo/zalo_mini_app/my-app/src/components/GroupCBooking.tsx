@@ -5,8 +5,10 @@ import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ClockIcon, Sear
 import { BranchMap, EntityImage } from './GroupBExtensions';
 import '@/css/booking-flow.scss';
 import { searchText } from '@/utils/catalog';
+import { useBackAction } from '@/hooks/useNavigationHistory';
 
 interface GroupCBookingProps {
+  userPackage?:{id:string;name:string};
   currentUser?: User;
   initialService: MedicalService | null;
   initialBranch?: Branch | null;
@@ -41,7 +43,7 @@ const stepTitles: Record<BookingStep, { title: string; subtitle: string; action:
 };
 
 export const GroupCBooking: React.FC<GroupCBookingProps> = ({
-  initialService, initialBranch, initialDoctor, allServices, doctors, branches, onClose, onBookingSuccess, currentUser,
+  initialService, initialBranch, initialDoctor, allServices, doctors, branches, onClose, onBookingSuccess, currentUser,userPackage,
 }) => {
   const [step, setStep] = useState<BookingStep>(1);
   const body = useRef<HTMLElement>(null);
@@ -57,7 +59,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [branchMode, setBranchMode] = useState<'list' | 'map'>('list');
   const [doctorSpecialty, setDoctorSpecialty] = useState('');
   const categories = Array.from(new Set(allServices.map(service => service.category))).filter(Boolean);
-  const visibleServices = allServices.filter(service => (!serviceCategory || service.category === serviceCategory) && searchText(`${service.title} ${service.description}`).includes(searchText(serviceSearch)));
+  const visibleServices = allServices.filter(service => (!userPackage||service.id===initialService?.id) && (!serviceCategory || service.category === serviceCategory) && searchText(`${service.title} ${service.description}`).includes(searchText(serviceSearch)));
   const visibleBranches = branches.filter(branch => (!branchCity || branch.city === branchCity) && searchText(`${branch.name} ${branch.address}`).includes(searchText(branchSearch)));
   const today = vietnamToday();
   const [selectedDate, setSelectedDate] = useState(() => shiftDate(vietnamToday(), 1));
@@ -95,10 +97,10 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [slotsError, setSlotsError] = useState('');
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [slotsFor, setSlotsFor] = useState('');
-  const slotRequestKey = JSON.stringify([selectedBranch?.id, selectedService?.id, selectedDate, autoAssign ? null : selectedDoctor?.id, slotsVersion]);
+  const slotRequestKey = JSON.stringify([selectedBranch?.id, selectedService?.id, selectedService?.durationMinutes, selectedDate, autoAssign ? null : selectedDoctor?.id, slotsVersion]);
   const slotsReady = slotsFor === slotRequestKey && !slotsLoading && !slotsError;
   const availableSlots = slotsReady ? slots : [];
-  const branchDoctors = doctors.filter(d => d.branchId === selectedBranch?.id);
+  const branchDoctors = doctors.filter(d => d.branchId === selectedBranch?.id && d.serviceIds?.includes(selectedService?.id));
   const specialtiesFor = (doctor: Doctor) => doctor.specialty.split(',').map(value => value.trim()).filter(Boolean);
   const specialties = Array.from(new Set(branchDoctors.flatMap(specialtiesFor)));
   const visibleDoctors = branchDoctors.filter(doctor => !doctorSpecialty || specialtiesFor(doctor).includes(doctorSpecialty));
@@ -122,8 +124,8 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   }, [currentUser?.id]);
 
   useEffect(() => {
-    if (selectedDoctor?.branchId !== selectedBranch?.id) { setAutoAssign(true); }
-  }, [selectedBranch?.id, selectedDoctor?.branchId]);
+    if (selectedDoctor?.branchId !== selectedBranch?.id || !selectedDoctor?.serviceIds?.includes(selectedService?.id)) { setAutoAssign(true); }
+  }, [selectedBranch?.id, selectedDoctor?.branchId,selectedService?.id]);
   useEffect(() => { setDoctorSpecialty(''); }, [selectedBranch?.id]);
 
   useEffect(() => {
@@ -142,8 +144,8 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
       setSlotsFor(slotRequestKey);
     });
     return () => { cancelled = true; };
-  }, [selectedBranch?.id, selectedService?.id, selectedDate, autoAssign, selectedDoctor?.id, slotsVersion]);
-  const total = selectedService?.price || 0;
+  }, [selectedBranch?.id, selectedService?.id, selectedService?.durationMinutes, selectedDate, autoAssign, selectedDoctor?.id, slotsVersion]);
+  const total = userPackage?0:selectedService?.price || 0;
   const discountedTotal = Math.max(0, total - voucherDiscount);
   const progressStage = step === 1 ? 1 : step <= 4 ? 2 : 3;
   const chooseDate = (date: string) => {
@@ -157,6 +159,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   useEffect(() => {
     let cancelled = false;
     setVoucherCode(''); setVoucherDiscount(0); setVoucherMessage('');
+    if(userPackage) return;
     try {
       const raw = localStorage.getItem('mld_pending_voucher');
       if (!raw || !selectedService) return;
@@ -181,6 +184,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   }, [selectedService]);
 
   const goBack = () => step === 1 ? onClose() : setStep((value) => (value - 1) as BookingStep);
+  useBackAction(step > 1 || submitting, () => { if (!submissionLock.current) goBack(); }, 1);
   const goNext = () => {
     if (!selectedService || !selectedBranch || (step === 3 && !autoAssign && !selectedDoctor)) {
       setSubmitError('Vui lòng chọn dịch vụ, chi nhánh và chuyên viên phù hợp.');
@@ -212,14 +216,26 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
       userName: customerName,
       userPhone: customerPhone,
       paymentMethod: 'CASH_AT_SPA',
+      expectedFinalPrice: discountedTotal,
+      userPackageId:userPackage?.id,
       notes: [customerEmail.trim() ? `Email liên hệ: ${customerEmail.trim()}` : '', note.trim()].filter(Boolean).join('\n'),
       voucherCode: voucherCode || undefined,
     };
     try {
-      const response = await apiClient.createBooking(payload);
+      const response = await apiClient.createBooking(payload,currentUser?.id);
       if (response?.booking?.id) {
         if (voucherCode) { try { localStorage.removeItem('mld_pending_voucher'); } catch { /* Booking is already saved. */ } }
         return onBookingSuccess(response.booking);
+      }
+      if (response?.code === 'PRICE_CHANGED') {
+        if(response.pricing){
+          setVoucherDiscount(Number(response.pricing.discount)||0);
+        }
+        apiClient.invalidateReadPaths(['/services']);
+        const fresh = await apiClient.getServices();
+        const updated = fresh?.services?.find((item: MedicalService) => item.id === selectedService.id);
+        if (updated) setSelectedService(updated);
+        setStep(6);
       }
       setSubmitError(response?.error || 'Không thể đặt lịch. Vui lòng thử lại.');
     } catch { setSubmitError('Không thể đặt lịch. Vui lòng thử lại.'); }
@@ -291,13 +307,13 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
 
         {step === 7 && <div className="booking-section">
           <div className="booking-review-notice booking-payment-notice"><ClockIcon size={20} /><div><strong>Thanh toán tại chi nhánh</strong><p>Chưa phát sinh giao dịch thanh toán. Vui lòng thanh toán khi đến sử dụng dịch vụ.</p></div></div>
-          <section className="booking-payment-total"><h2>Tổng dự kiến {discountedTotal.toLocaleString('vi-VN')}đ</h2><ReviewRow label="Giá dịch vụ" value={`${total.toLocaleString('vi-VN')}đ`} />{voucherDiscount > 0 && <ReviewRow label="Ưu đãi" value={`−${voucherDiscount.toLocaleString('vi-VN')}đ`} />}<ReviewRow label="Thanh toán tại chi nhánh" value={`${discountedTotal.toLocaleString('vi-VN')}đ`} />{voucherMessage && <p>{voucherMessage}</p>}</section>
+          <section className="booking-payment-total"><h2>Tổng dự kiến {discountedTotal.toLocaleString('vi-VN')}đ</h2><ReviewRow label="Giá dịch vụ" value={`${total.toLocaleString('vi-VN')}đ`} />{voucherDiscount > 0 && <ReviewRow label="Ưu đãi" value={`−${voucherDiscount.toLocaleString('vi-VN')}đ`} />}<ReviewRow label="Thanh toán tại chi nhánh" value={`${discountedTotal.toLocaleString('vi-VN')}đ`} />{voucherMessage && <p>{voucherMessage}</p>}{voucherCode&&<button type="button" disabled={submitting} onClick={()=>{setVoucherCode('');setVoucherDiscount(0);setVoucherMessage('');setSubmitError('');try{localStorage.removeItem('mld_pending_voucher');}catch{}}}>Bỏ mã ưu đãi</button>}</section>
           <fieldset className="booking-payment-method"><legend className="sr-only">Phương thức thanh toán</legend><label><input type="radio" name="payment-method" value="CASH_AT_SPA" checked readOnly /><Radio active />Thanh toán tại chi nhánh</label></fieldset>
         </div>}
 
       </main>
 
-      <footer className="booking-footer">{submitError && <div role="alert" className="booking-error">{submitError}</div>}<div className="booking-footer-summary">{step >= 6 ? `Tổng dự kiến ${discountedTotal.toLocaleString('vi-VN')}đ · Thanh toán tại chi nhánh` : step === 5 ? '' : step === 1 ? `1 dịch vụ · ${selectedService.durationMinutes} phút · ${total.toLocaleString('vi-VN')}đ` : step === 2 ? `Đang chọn: ${selectedBranch.name}` : step === 3 ? summary.doctor : `${selectedDate.split('-').reverse().join('/')} · ${selectedTime || 'Chưa chọn giờ'} · ${selectedService.durationMinutes} phút`}</div><button type="button" onClick={step === 7 ? finishBooking : goNext} disabled={submitting || (step === 4 && (!selectedTime || !slotsReady))}>{submitting ? 'Đang kiểm tra lịch...' : stepTitles[step].action}</button></footer>
+      <footer className="booking-footer">{submitError && <div role="alert" className="booking-error">{submitError}</div>}<div className="booking-footer-summary">{userPackage ? `${userPackage.name} · Giữ 1 buổi, không thu phí buổi này` : step >= 6 ? `Tổng dự kiến ${discountedTotal.toLocaleString('vi-VN')}đ · Thanh toán tại chi nhánh` : step === 5 ? '' : step === 1 ? `1 dịch vụ · ${selectedService.durationMinutes} phút · ${total.toLocaleString('vi-VN')}đ` : step === 2 ? `Đang chọn: ${selectedBranch.name}` : step === 3 ? summary.doctor : `${selectedDate.split('-').reverse().join('/')} · ${selectedTime || 'Chưa chọn giờ'} · ${selectedService.durationMinutes} phút`}</div><button type="button" onClick={step === 7 || (userPackage && step===6) ? finishBooking : goNext} disabled={submitting || (step === 4 && (!selectedTime || !slotsReady))}>{submitting ? 'Đang kiểm tra lịch...' : userPackage&&step===6 ? 'Xác nhận giữ buổi' : stepTitles[step].action}</button></footer>
     </section>
   );
 };

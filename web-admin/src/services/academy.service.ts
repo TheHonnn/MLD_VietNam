@@ -4,6 +4,7 @@ import {
   CourseEnrollment,
   TuitionTransaction,
   StudentCertificate,
+  Instructor,
   CourseLevel,
   EnrollmentStatus,
   CertificateStatus,
@@ -146,7 +147,24 @@ export const academyService = {
     id: string,
     status: EnrollmentStatus
   ): Promise<ApiResponse<CourseEnrollment>> {
-    return legacyWrite<CourseEnrollment>('course_enrollments',{status},id);
+    try {
+      const ok = await supabaseService.updateEnrollment(id, { status });
+      if (ok) {
+        const live = await supabaseService.getEnrollments();
+        const updated = live?.find((e) => e.id === id);
+        if (updated) {
+          return {
+            success: true,
+            statusCode: 200,
+            message: 'Cập nhật trạng thái học viên thành công trên Supabase Cloud',
+            data: updated,
+          };
+        }
+      }
+    } catch (err) {
+      console.error('[academyService] updateEnrollmentStatus error:', err);
+    }
+    return legacyWrite<CourseEnrollment>('course_enrollments', { status }, id);
   },
 
   // --- Giao dịch học phí ---
@@ -171,9 +189,22 @@ export const academyService = {
   },
 
   async recordTuitionPayment(
-    data: Partial<TuitionTransaction>
+    data: any
   ): Promise<ApiResponse<TuitionTransaction>> {
-    return legacyWrite<TuitionTransaction>('tuition_transactions',data);
+    try {
+      const res = await supabaseService.recordTuitionPayment(data);
+      if (res) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Ghi nhận đóng học phí thành công trên Supabase Cloud',
+          data: res,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] recordTuitionPayment error:', err);
+    }
+    return legacyWrite<TuitionTransaction>('tuition_transactions', data);
   },
 
   // --- Chứng chỉ tốt nghiệp điện tử ---
@@ -193,5 +224,43 @@ export const academyService = {
     data: Partial<StudentCertificate>
   ): Promise<ApiResponse<StudentCertificate>> {
     return legacyWrite<StudentCertificate>('student_certificates',data);
+  },
+
+  // --- Đội ngũ giảng viên (Instructors) ---
+  async getInstructors(): Promise<ApiResponse<Instructor[]>> {
+    try {
+      const live = await supabaseService.getInstructors();
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu giảng viên từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getInstructors error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn giảng viên từ Supabase',
+        data: [],
+      };
+    }
+  },
+
+  async createInstructor(data: any): Promise<ApiResponse<Instructor>> {
+    try {
+      const created = await supabaseService.createInstructor(data);
+      if (created) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Tạo hồ sơ giảng viên thành công trên Supabase Cloud',
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] createInstructor error:', err);
+    }
+    return legacyWrite<Instructor>('instructors', data);
   },
 };

@@ -1,4 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { apiClient } from '@/api/client';
+import { readAvatar } from '@/utils/read-avatar';
 import { ArrowLeftIcon, CameraIcon, CheckIcon, NavProfileIcon } from '@/components/Icons';
 import '@/css/profile-onboarding.scss';
 
@@ -17,28 +19,6 @@ export interface ProfileDraft {
   gender: string;
 }
 
-async function readAvatar(file: File): Promise<string> {
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
-    throw new Error('Vui lòng chọn ảnh JPG, PNG hoặc WebP không quá 10 MB.');
-  }
-  const url = URL.createObjectURL(file);
-  try {
-    const image = new Image();
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error('Không thể đọc ảnh. Vui lòng chọn ảnh khác.'));
-      image.src = url;
-    });
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 360;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Thiết bị chưa hỗ trợ xử lý ảnh.');
-    const edge = Math.min(image.naturalWidth, image.naturalHeight);
-    context.drawImage(image, (image.naturalWidth - edge) / 2, (image.naturalHeight - edge) / 2, edge, edge, 0, 0, 360, 360);
-    return canvas.toDataURL('image/jpeg', 0.82);
-  } finally { URL.revokeObjectURL(url); }
-}
-
 export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
   challenge: RegistrationChallenge;
   draft: ProfileDraft;
@@ -49,16 +29,35 @@ export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
   const [readingImage, setReadingImage] = useState(false);
   const [imageError, setImageError] = useState('');
   const input = useRef<HTMLInputElement>(null);
+  const readController = useRef<AbortController | null>(null);
+  const profileGeneration = useRef(0);
+  useEffect(() => () => { profileGeneration.current++; readController.current?.abort(); }, []);
   const change = (key: keyof ProfileDraft, value: string) => setProfile(current => ({ ...current, [key]: value }));
   const chooseAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    readController.current?.abort();
+    const controller = new AbortController(), generation = ++profileGeneration.current;
+    readController.current = controller;
     setReadingImage(true);
     setImageError('');
-    try { change('avatarUrl', await readAvatar(file)); }
-    catch (error) { setImageError(error instanceof Error ? error.message : 'Không thể đọc ảnh.'); }
-    finally { setReadingImage(false); }
+    try {
+      const avatar = await readAvatar(file,controller.signal);
+      if (generation === profileGeneration.current) change('avatarUrl',avatar);
+    }
+    catch (error) { if(generation === profileGeneration.current) setImageError(error instanceof Error ? error.message : 'Không thể đọc ảnh.'); }
+    finally { if(generation === profileGeneration.current) setReadingImage(false); }
+  };
+  const importProfile = async () => {
+    if (readingImage) return;
+    const generation = ++profileGeneration.current;
+    setReadingImage(true); setImageError('');
+    try {
+      const result = await apiClient.getZaloProfile();
+      if (generation === profileGeneration.current) setProfile(current => ({...current,fullName:result.name || current.fullName,avatarUrl:result.avatar || current.avatarUrl}));
+    } catch { if(generation === profileGeneration.current) setImageError('Chưa lấy được tên và ảnh Zalo. Bạn vẫn có thể tự điền thông tin.'); }
+    finally { if(generation === profileGeneration.current) setReadingImage(false); }
   };
   return (
     <section className="new-customer-page profile-page" aria-labelledby="profile-heading">
@@ -79,6 +78,7 @@ export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
           <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseAvatar} hidden />
         </div>
         <div className="profile-form-fields">
+        <button type="button" className="profile-photo-label" disabled={readingImage} onClick={() => void importProfile()}>Lấy tên và ảnh từ Zalo</button>
         <label className="profile-field">Họ và tên <span className="profile-required">*</span>
           <input value={profile.fullName} onChange={event => change('fullName', event.target.value)} maxLength={150} autoComplete="name" required placeholder="Nhập họ và tên" aria-required="true" />
         </label>
@@ -87,7 +87,7 @@ export function ZaloProfileForm({ challenge, draft, onContinue, onBack }: {
         </label>
         <div className="profile-two-columns">
           <label className="profile-field">Ngày sinh
-            <input value={profile.dateOfBirth} onChange={event => change('dateOfBirth', event.target.value)} type="date" max={new Date().toISOString().slice(0, 10)} />
+            <input value={profile.dateOfBirth} onChange={event => change('dateOfBirth', event.target.value)} type="date" max={new Date(Date.now()+7*60*60*1000).toISOString().slice(0, 10)} />
           </label>
           <label className="profile-field">Giới tính
             <select value={profile.gender} onChange={event => change('gender', event.target.value)}>

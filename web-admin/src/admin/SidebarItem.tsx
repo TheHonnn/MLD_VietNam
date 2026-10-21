@@ -4,7 +4,6 @@ import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { Resource } from './api';
 
 export const menuResources: Record<string, string[]> = {
-  '/branches': ['branches', 'branch_rooms'],
   '/customers': ['users', 'consultation_surveys', 'reviews', 'support_tickets', 'support_faqs'],
   '/staff-schedule': ['technician_shifts', 'technician_slots'],
   '/medical-records': ['treatment_packages', 'user_packages', 'treatment_journal', 'home_care_guidelines'],

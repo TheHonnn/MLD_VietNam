@@ -4,7 +4,7 @@ import type { Booking, Branch } from '../../../../backend/src/data/database';
 const statuses: Record<string, string> = { pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', checked_in: 'Đã đến', in_service: 'Đang thực hiện', completed: 'Đã hoàn thành', cancelled: 'Đã hủy', no_show: 'Không đến' };
 const payments: Record<string, string> = { unpaid: 'Chưa thanh toán', pending: 'Chờ thanh toán', partial: 'Đã thanh toán một phần', paid: 'Đã thanh toán', refunded: 'Đã hoàn tiền', failed: 'Thanh toán thất bại' };
 export const bookingDate = (date: string) => /^\d{4}-\d{2}-\d{2}/.test(date) ? date.slice(0, 10).split('-').reverse().join('/') : date;
-export const bookingPayment = (booking: Booking) => payments[booking.paymentStatus || ''] || '';
+export const bookingPayment = (booking: Booking) => booking.userPackageId ? `${booking.packageName || 'Gói liệu trình'} · ${booking.packageReservationState==='CONSUMED'?'Đã ghi nhận buổi':booking.packageReservationState==='RELEASED'?'Đã trả lại buổi':'Đang giữ buổi'}` : payments[booking.paymentStatus || ''] || '';
 export const bookingDuration = (booking: Booking) => booking.items?.length && booking.items.every(item => Number(item.durationMinutes) > 0)
   ? booking.items.reduce((sum, item) => sum + Number(item.durationMinutes), 0) : null;
 export function BookingStatus({ booking }: { booking: Booking }) {

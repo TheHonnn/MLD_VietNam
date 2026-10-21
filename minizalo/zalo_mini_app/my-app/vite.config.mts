@@ -15,6 +15,9 @@ export default () => {
       port: 3000,
     },
     build: {
+      outDir: path.resolve(__dirname, 'www'),
+      emptyOutDir: true,
+      target: ['es2020','chrome108','safari15.4','edge108','firefox109'],
       assetsInlineLimit: 0,
     },
     resolve: {

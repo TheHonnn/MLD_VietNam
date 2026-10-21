@@ -29,12 +29,13 @@ export function AcademyHome({courses,user,branches,branchId,onBranch,onCatalog,o
 }
 
 export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCourse,instructorId,initialQuery=''}:{courses:Course[];branches:Branch[];branchId:string;onBranch:(id:string)=>void;onBack:()=>void;onCourse:(course:Course)=>void;instructorId?:string;initialQuery?:string}) {
-  const [search,setSearch]=useState(initialQuery),[category,setCategory]=useState(''),[level,setLevel]=useState(''),[hours,setHours]=useState(''),[price,setPrice]=useState('');
+  const [search,setSearch]=useState(initialQuery),[category,setCategory]=useState(''),[level,setLevel]=useState(''),[hours,setHours]=useState(''),[price,setPrice]=useState(''),[format,setFormat]=useState('');
+  const formats=Array.from(new Set(courses.map(course=>course.deliveryFormat).filter(Boolean)));
   const categories=Array.from(new Set(courses.map(course=>course.category).filter(Boolean)));
   const levels=Array.from(new Set(courses.map(course=>course.level).filter(Boolean)));
   const durations=Array.from(new Set(courses.map(course=>course.totalHours).filter(value=>value!=null))).sort((a,b)=>a-b);
   const prices=Array.from(new Set(courses.map(course=>course.price).filter(Number.isFinite))).sort((a,b)=>a-b);
-  const filtered=courses.filter(course=>(!instructorId||course.instructorProfile?.id===instructorId)&&(!branchId||course.batches?.some(batch=>batch.branchId===branchId))&&(!category||course.category===category)&&(!level||course.level===level)&&(!hours||course.totalHours===Number(hours))&&(!price||course.price===Number(price))&&searchText(`${course.title} ${course.category} ${course.instructor} ${course.description}`).includes(searchText(search)));
+  const filtered=courses.filter(course=>(!instructorId||course.instructorProfile?.id===instructorId)&&(!branchId||course.batches?.some(batch=>batch.branchId===branchId))&&(!category||course.category===category)&&(!level||course.level===level)&&(!hours||course.totalHours===Number(hours))&&(!price||course.price===Number(price))&&(!format||course.deliveryFormat===format)&&searchText(`${course.title} ${course.category} ${course.instructor} ${course.description}`).includes(searchText(search)));
   return <><AcademyHeader title="Khám phá khóa học" subtitle="Chọn chương trình đào tạo phù hợp với mục tiêu nghề nghiệp của bạn." onBack={onBack}/><main className="academy-body">
     <label className="academy-search"><SearchIcon size={19}/><input aria-label="Tìm khóa học" placeholder="Tìm khóa học, kỹ năng hoặc chuyên ngành..." value={search} onChange={event=>setSearch(event.target.value)}/></label>
     <div className="academy-chips" role="group" aria-label="Danh mục khóa học">{['',...categories].map(value=><button key={value} type="button" aria-pressed={category===value} onClick={()=>setCategory(value)}>{value||'Tất cả'}</button>)}</div>
@@ -42,7 +43,7 @@ export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCour
       <label>Trình độ<select value={level} onChange={event=>setLevel(event.target.value)}><option value="">Tất cả</option>{levels.map(value=><option key={value}>{value}</option>)}</select></label>
       <label>Thời lượng<select value={hours} onChange={event=>setHours(event.target.value)}><option value="">Tất cả</option>{durations.map(value=><option key={value} value={value}>{value} giờ</option>)}</select></label>
       <label>Học phí<select value={price} onChange={event=>setPrice(event.target.value)}><option value="">Tất cả</option>{prices.map(value=><option key={value} value={value}>{academyMoney(value)}</option>)}</select></label>
-      <label>Hình thức<select disabled aria-label="Hình thức"><option value=""/></select></label>
+      <label>Hình thức<select aria-label="Hình thức" value={format} onChange={event=>setFormat(event.target.value)}><option value="">Tất cả</option>{formats.map(value=><option key={value} value={value!}>{({ONLINE:'Trực tuyến',ONSITE:'Trực tiếp',HYBRID:'Kết hợp'})[value!]}</option>)}</select></label>
     </div><label className="academy-field">Chi nhánh<select value={branchId} onChange={event=>onBranch(event.target.value)}><option value="">Tất cả chi nhánh</option>{branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
     <h2 className="academy-count">{filtered.length} chương trình đào tạo</h2>
     {filtered.map(course=><button type="button" key={course.id} className="academy-course-card" onClick={()=>onCourse(course)}><EntityImage src={course.image} alt={course.title} className="academy-course-photo"/><span><strong>{course.title}</strong><small>{[course.category,course.duration].filter(Boolean).join(' · ')}</small><b>{academyMoney(course.price)}</b></span></button>)}

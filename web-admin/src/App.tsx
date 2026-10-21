@@ -56,9 +56,13 @@ const AppContent: React.FC = () => {
           <Route path="cashier-pos" element={<W07_CashierPOS />} />
           <Route path="academy-enrollment" element={<W08_Enrollment />} />
           <Route path="instructors" element={<W09_Instructors />} />
+          <Route path="instructor" element={<W09_Instructors />} />
+          <Route path="giang-vien" element={<W09_Instructors />} />
           <Route path="attendance" element={<W10_Attendance />} />
           <Route path="curriculum" element={<><TrainingActions /><W11_Curriculum /></>} />
           <Route path="reports" element={<W12_FinancialReports />} />
+          <Route path="manage/branches" element={<Navigate to="/branches" replace />} />
+          <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />
           <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

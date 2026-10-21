@@ -39,7 +39,7 @@ try {
     await page.screenshot({ path: fileURLToPath(new URL(`../.relay-local/service-detail-${viewport.width}.png`, import.meta.url)) });
     await detail.getByRole('button', { name: 'Chia s\u1ebb d\u1ecbch v\u1ee5', exact: true }).click();
     await detail.locator('[role=status]').waitFor();
-    assert.ok((await page.evaluate(() => window.sharedServiceText)).includes(service.name));
+    assert.equal(new URL(await page.evaluate(() => window.sharedServiceText)).searchParams.get('serviceId'),service.id);
     const geometry = await detail.evaluate(element => {
       const box = selector => element.querySelector(selector).getBoundingClientRect();
       const media = box('.service-detail-media'), back = box('.service-detail-back');

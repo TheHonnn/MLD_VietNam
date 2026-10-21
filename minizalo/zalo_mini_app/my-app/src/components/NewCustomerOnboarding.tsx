@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/api/client';
-import { ArrowLeftIcon, ArrowRightIcon } from '@/components/Icons';
 import { ZaloProfileForm, RegistrationChallenge, ProfileDraft } from './ZaloProfileForm';
 import type { User } from '../../../../backend/src/data/database';
 import type { PurposeInterest } from '../../../../../database/shared_types';
-import academyImage from '@/static/onboarding-academy.jpg';
 import '@/css/onboarding.scss';
 import { CareIntroScreen } from './CareIntroScreen';
 import { InterestSelectionScreen } from './InterestSelectionScreen';
+import { useBackAction } from '@/hooks/useNavigationHistory';
 
 export function NewCustomerOnboarding({ challenge, onComplete, onBack, initialStep = 'care' }: {
   challenge: RegistrationChallenge;
@@ -25,6 +24,18 @@ export function NewCustomerOnboarding({ challenge, onComplete, onBack, initialSt
   const [error, setError] = useState('');
   const [expired, setExpired] = useState(false);
   const submitting = useRef(false);
+  const registrationRequest = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current=true;
+    return () => { mounted.current=false;registrationRequest.current?.abort(); };
+  },[challenge.registrationToken]);
+  useBackAction(true,()=>{
+    if(submitting.current)return;
+    if(step==='interests')setStep('profile');
+    else if(step==='profile')setStep('growth');
+    else onBack();
+  },3);
   const container = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (container.current) container.current.scrollTop = 0;
@@ -35,13 +46,16 @@ export function NewCustomerOnboarding({ challenge, onComplete, onBack, initialSt
     submitting.current = true;
     setBusy(true);
     setError('');
+    const controller=new AbortController();
+    registrationRequest.current=controller;
     try {
-      const result = await apiClient.registerZaloProfile(challenge.registrationToken, { ...draft, purpose });
+      const result = await apiClient.registerZaloProfile(challenge.registrationToken, { ...draft, purpose },controller.signal);
+      if(!mounted.current||controller.signal.aborted)return;
       if (result?.user && result.token) { onComplete(result.user); return; }
       if (result?.status === 401) setExpired(true);
       setError(result?.status === 401 ? 'Phiên xác minh đã hết hạn. Vui lòng xác minh số điện thoại lại.' : result?.error || 'Không thể lưu hồ sơ. Vui lòng thử lại.');
-    } catch { setError('Không thể lưu hồ sơ. Vui lòng thử lại.'); }
-    finally { submitting.current = false; setBusy(false); }
+    } catch { if(mounted.current&&!controller.signal.aborted)setError('Không thể lưu hồ sơ. Vui lòng thử lại.'); }
+    finally { submitting.current = false; if(mounted.current)setBusy(false); }
   };
   return (
     <div ref={container} className="new-customer-flow" role="dialog" aria-modal="true" aria-label="Chào mừng khách hàng mới">
@@ -50,17 +64,7 @@ export function NewCustomerOnboarding({ challenge, onComplete, onBack, initialSt
       : step === 'interests' ? <InterestSelectionScreen value={purpose} onChange={setPurpose}
         onBack={() => setStep('profile')} onExplore={finish} onVerifyAgain={onBack}
         busy={busy} expired={expired} error={error} />
-      : step === 'care' ? <CareIntroScreen onContinue={() => setStep('growth')} onSkip={() => setStep('profile')} /> : (
-        <section className="new-customer-page intro-page" aria-labelledby="intro-heading">
-          <header className="onboarding-topbar"><button type="button" className="onboarding-back" onClick={() => setStep('care')} aria-label="Quay lại" title="Quay lại"><ArrowLeftIcon size={20} /></button><span>CHĂM SÓC & PHÁT TRIỂN</span><button type="button" className="onboarding-skip" onClick={() => setStep('profile')}>Bỏ qua</button></header>
-          <div className="intro-visual"><img src={academyImage} alt="Không gian học tập và phát triển chuyên môn" /></div>
-          <div className="intro-progress" aria-label="Giới thiệu 2 trên 3"><span /><span className="is-active" /><span /></div>
-          <span className="onboarding-brand">MLD <strong>Việt Nam</strong></span>
-          <h1 id="intro-heading" tabIndex={-1}>Phát triển nghề nghiệp cùng bạn</h1>
-          <p className="onboarding-description">Bồi dưỡng kiến thức, nâng cao tay nghề và mở ra cơ hội mới với các khóa học chuyên môn.</p>
-          <div className="onboarding-footer"><button type="button" className="onboarding-primary" onClick={() => setStep('profile')}>Tiếp tục<ArrowRightIcon size={18} /></button></div>
-        </section>
-      )}
+      : <CareIntroScreen initialIndex={step === 'growth' ? 1 : 0} onContinue={() => setStep('profile')} onSkip={() => setStep('profile')} />}
     </div>
   );
 }

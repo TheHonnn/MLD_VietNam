@@ -6,11 +6,13 @@ import { PGlite } from '@electric-sql/pglite';
 import jwt from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
 import { createApp } from '../dist/server.js';
+import {migrateFixture} from './fixtures/migrations.mjs';
 
 test('admin-managed catalog, settings, learning and private documents use the canonical database', async t => {
   const db = new PGlite();
   const source = await readFile(new URL('../../../database/schema.sql', import.meta.url), 'utf8');
   await db.exec(source.split(/\r?\n/).filter(line => !line.startsWith('CREATE EXTENSION') && !line.includes('gin_trgm_ops')).join('\n'));
+  await migrateFixture(db);
   const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
   await db.exec(`
     INSERT INTO users(id,phone,full_name,referral_code) VALUES('${id(1)}','0900000001','Test customer','R1'),('${id(2)}','0900000002','Other customer','R2');
@@ -38,10 +40,16 @@ test('admin-managed catalog, settings, learning and private documents use the ca
   const store = client => ({ query: async q => (await client.query(q.text, q.values.map(value => Prisma.Decimal.isDecimal(value) ? value.toString() : value))).rows,
     transaction: run => client.transaction(tx => run(store(tx))) });
   const secret = 'isolated-admin-content-test-secret';
+  await db.exec('INSERT INTO miniapp_technician_services(technician_id,service_id) SELECT t.id,s.id FROM technicians t CROSS JOIN services s');
   const server = createApp(store(db), { jwtSecret: secret }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}/api`;
   const call = async (path, { method = 'GET', body, owner = 1, anonymous = false } = {}) => {
+    if(method==='POST' && /\/quiz\/submit$/.test(path) && !Object.hasOwn(body || {},'attemptId')) {
+      const started=await call(path.replace('/submit','/start'),{method:'POST',body:{quizId:body?.quizId,enrollmentId:body?.enrollmentId},owner,anonymous});
+      if(started.status!==200) return started;
+      body={...body,attemptId:started.data.attempt.id};
+    }
     const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json',
       ...(!anonymous ? { Authorization: `Bearer ${jwt.sign({sub:id(owner)},secret)}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, ...await response.json() };
@@ -108,7 +116,15 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       const path=`/courses/${id(9)}/lessons/${id(11)}/progress`;
       assert.equal((await call(path,{method:'POST',owner:2,body:{watchedSeconds:10}})).status,403);
       assert.equal((await call(path,{method:'POST',body:{watchedSeconds:-1}})).status,400);
-      const saved=await call(path,{method:'POST',body:{watchedSeconds:300,isCompleted:true,studentNotes:'My actual note'}});
+      assert.equal((await call(path,{method:'POST',body:{watchedSeconds:300,isCompleted:true}})).status,400);
+      const session=await call(`/courses/${id(9)}/lessons/${id(11)}/playback`,{method:'POST',body:{enrollmentId:id(15)}});
+      assert.equal(session.status,200,JSON.stringify(session));
+      for(let position=10;position<=300;position+=10) {
+        await db.query("UPDATE miniapp_lesson_playbacks SET last_seen_at=clock_timestamp()-interval '6 seconds' WHERE id=$1",[session.data.playback.id]);
+        const beat=await call(`/courses/${id(9)}/lessons/${id(11)}/heartbeat`,{method:'POST',body:{enrollmentId:id(15),playbackId:session.data.playback.id,position}});
+        assert.equal(beat.status,200,JSON.stringify(beat));
+      }
+      const saved=await call(path,{method:'POST',body:{studentNotes:'My actual note'}});
       assert.equal(saved.status,200,JSON.stringify(saved));
       assert.equal(saved.data.progress.studentNotes,'My actual note');
       await call(path,{method:'POST',body:{watchedSeconds:2,isCompleted:false}});
@@ -133,7 +149,9 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       assert.equal(JSON.stringify(catalog).includes('correctOption'),false);
       const learning = (await call(`/courses/${id(9)}/learning`)).data.course;
       assert.equal(learning.quizzes.length,2);
-      assert.equal(learning.quizzes[1].questions[0].questionText,'Second actual question');
+      assert.equal(learning.quizzes[1].questions.length,0);
+      const attempt=await call(`/courses/${id(9)}/quiz/start`,{method:'POST',body:{quizId:id(31)}});
+      assert.equal(attempt.data.quiz.questions[0].questionText,'Second actual question');
       assert.equal(JSON.stringify(learning).includes('correctOption'),false);
       const result = await call(`/courses/${id(9)}/quiz/submit`, {method:'POST',body:{quizId:id(31),answers:{[id(33)]:'B'}}});
       assert.equal(result.status,200,JSON.stringify(result));
@@ -208,7 +226,7 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       const services=await call('/services',{anonymous:true});
       assert.equal(Number(services.data.services[0].ratingAvg),4);
       assert.equal(services.data.services[0].reviews[0].comment,body.comment);
-      const survey=await call('/consultation-surveys',{method:'POST',body:{bookingId:id(20),focusAreas:['Shoulder'],pressurePref:'LIGHT'}});
+      const survey=await call('/consultation-surveys',{method:'POST',body:{bookingId:id(20),focusAreas:['Shoulder'],pressurePref:'LIGHT',hasSensitiveSkin:false,hasOilAllergy:false}});
       assert.equal(survey.status,201,JSON.stringify(survey));
       assert.equal((await call('/consultation-surveys')).data.surveys[0].focusAreas[0],'Shoulder');
       assert.equal((await call('/consultation-surveys',{owner:2})).data.surveys.length,0);

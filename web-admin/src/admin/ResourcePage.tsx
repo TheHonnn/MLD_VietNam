@@ -33,6 +33,64 @@ import {
 import { DEFAULT_RESOURCES } from "./defaultResources";
 import { display, enums, label } from "./labels";
 
+function formatCell(row: Row, c: Column): React.ReactNode {
+  if (c.name === "branch_id") {
+    return row.branch_name || row.branches?.name || row.branches?.code || display(row[c.name]);
+  }
+  if (c.name === "user_id") {
+    return row.full_name || row.users?.full_name || display(row[c.name]);
+  }
+  if (c.name === "customer_id") {
+    return row.customer_name || row.customer?.full_name || row.users?.full_name || display(row[c.name]);
+  }
+  if (c.name === "technician_id") {
+    return row.technician_name || row.technicians?.full_name || display(row[c.name]);
+  }
+  if (c.name === "service_id") {
+    return row.service_name || row.services?.name || display(row[c.name]);
+  }
+  if (c.name === "booking_id") {
+    return row.booking_code || row.bookings?.booking_code || display(row[c.name]);
+  }
+  if (c.name === "primary_instructor_id" || c.name === "instructor_id") {
+    return row.instructor_name || row.instructor?.full_name || display(row[c.name]);
+  }
+  if (c.name === "rating") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val) && val > 0) {
+      return `⭐ ${val} / 5`;
+    }
+  }
+  if (c.name === "reward_points") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val)) {
+      return val.toLocaleString("vi-VN") + " điểm";
+    }
+  }
+  if (c.name === "total_spent") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val)) {
+      return val.toLocaleString("vi-VN") + " đ";
+    }
+  }
+  if (c.name === "base_salary") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val) && val > 0) {
+      return val.toLocaleString("vi-VN") + " đ";
+    }
+  }
+  if (c.name === "commission_rate") {
+    const val = Number(row[c.name]);
+    if (!isNaN(val) && val > 0) {
+      return val + " %";
+    }
+  }
+  if (Array.isArray(row[c.name])) {
+    return row[c.name].length > 0 ? row[c.name].join(", ") : "—";
+  }
+  return display(row[c.name]);
+}
+
 function ReferenceInput({
   column,
   value,
@@ -182,21 +240,71 @@ function RecordDialog({
   );
   const set = (name: string, value: any) =>
     setValues((old) => ({ ...old, [name]: value }));
-  const current = (c: Column) =>
-    values[c.name] !== undefined
-      ? values[c.name]
-      : mode === "create"
-        ? c.type === "bool"
-          ? c.defaultValue === "true"
-          : ""
-        : (row[c.name] ?? "");
+
+  const formatDatetimeForInput = (val: any) => {
+    if (!val) return "";
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return String(val).slice(0, 16);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch {
+      return "";
+    }
+  };
+
+  const formatDateForInput = (val: any) => {
+    if (!val) return "";
+    return String(val).slice(0, 10);
+  };
+
+  const current = (c: Column) => {
+    if (values[c.name] !== undefined) return values[c.name];
+    if (mode === "create") {
+      if (c.type === "bool") return c.defaultValue === "true" || c.name.startsWith("is_");
+      if (c.name === "valid_from") {
+        return formatDatetimeForInput(new Date());
+      }
+      if (c.name === "valid_to") {
+        return formatDatetimeForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+      }
+      if (c.name === "booking_date" || c.name === "session_date" || c.name === "start_date") {
+        return formatDateForInput(new Date());
+      }
+      return "";
+    }
+    const val = row[c.name];
+    if (val === null || val === undefined) return "";
+    if (c.type === "timestamptz" || c.type === "timestamp") {
+      return formatDatetimeForInput(val);
+    }
+    if (c.type === "date") {
+      return formatDateForInput(val);
+    }
+    return val;
+  };
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setBusy(true);
     try {
       const payload: Row = {};
-      for (const [name, value] of Object.entries(values)) {
+      const mergedValues: Row = { ...values };
+
+      // Ensure fields with create defaults are populated
+      if (mode === "create") {
+        for (const c of fields) {
+          if (mergedValues[c.name] === undefined) {
+            const defVal = current(c);
+            if (defVal !== "" && defVal !== undefined) {
+              mergedValues[c.name] = defVal;
+            }
+          }
+        }
+      }
+
+      for (const [name, value] of Object.entries(mergedValues)) {
         const c = columns.find((x) => x.name === name);
         if (name === "password") {
           if (value) payload.password = value;
@@ -207,12 +315,19 @@ function RecordDialog({
           if (mode === "update" || !c.hasDefault) payload[name] = null;
           continue;
         }
-        payload[name] =
-          ["json", "jsonb"].includes(c.type) || c.type.startsWith("_")
-            ? typeof value === "string"
-              ? JSON.parse(value)
-              : value
-            : value;
+        if (["numeric", "int2", "int4", "int8", "float4", "float8"].includes(c.type)) {
+          payload[name] = isNaN(Number(value)) ? value : Number(value);
+        } else if (["timestamptz", "timestamp"].includes(c.type) && typeof value === "string") {
+          try {
+            payload[name] = new Date(value).toISOString();
+          } catch {
+            payload[name] = value;
+          }
+        } else if (["json", "jsonb"].includes(c.type) || c.type.startsWith("_")) {
+          payload[name] = typeof value === "string" ? JSON.parse(value) : value;
+        } else {
+          payload[name] = value;
+        }
       }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
@@ -301,7 +416,7 @@ function RecordDialog({
                 </span>
                 {mode === "view" ? (
                   <div className="admin-detail-value">
-                    {display(row[c.name])}
+                    {formatCell(row, c)}
                   </div>
                 ) : resource.name === "quiz_questions" &&
                   c.name === "correct_option" ? (
@@ -646,12 +761,72 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     "is_published",
   ];
   const columnOrder: Record<string, string[]> = {
+    coupons: [
+      "code",
+      "title",
+      "discount_percent",
+      "discount_amount",
+      "valid_from",
+      "valid_to",
+      "usage_limit",
+      "used_count",
+      "is_active",
+    ],
+    branches: ["name", "code", "phone", "address", "city", "is_active"],
+    branch_rooms: ["name", "branch_id", "room_type", "bed_capacity", "is_available"],
+    services: ["name", "code", "category_id", "price", "duration_minutes", "is_active"],
+    treatment_packages: ["name", "code", "total_sessions", "price", "is_active"],
+    bookings: ["booking_code", "customer_id", "branch_id", "booking_date", "start_time", "status", "payment_status"],
+    users: [
+      "full_name",
+      "phone",
+      "email",
+      "role",
+      "membership_tier",
+      "reward_points",
+      "total_spent",
+      "is_active",
+    ],
+    consultation_surveys: [
+      "customer_id",
+      "booking_id",
+      "focus_areas",
+      "pressure_pref",
+      "has_sensitive_skin",
+      "special_requests",
+      "created_at",
+    ],
+    reviews: [
+      "customer_id",
+      "service_id",
+      "technician_id",
+      "rating",
+      "comment",
+      "branch_reply",
+      "created_at",
+    ],
+    support_tickets: [
+      "customer_id",
+      "subject",
+      "message",
+      "status",
+      "admin_reply",
+      "created_at",
+    ],
+    support_faqs: [
+      "category",
+      "question",
+      "answer",
+      "display_order",
+      "is_active",
+    ],
     staff_profiles: [
       "full_name",
       "employee_code",
       "department",
       "position",
       "branch_id",
+      "phone",
       "is_active",
     ],
     course_lessons: [
@@ -855,7 +1030,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                               className="admin-record-link"
                               onClick={() => setEdit({ row, mode: "view" })}
                             >
-                              {display(row[c.name])}
+                              {formatCell(row, c)}
                             </button>
                           ) : (
                             <span
@@ -866,7 +1041,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                   : ""
                               }
                             >
-                              {display(row[c.name])}
+                              {formatCell(row, c)}
                             </span>
                           )}
                         </td>

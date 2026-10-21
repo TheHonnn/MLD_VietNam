@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
 import { createApp, bookingTime } from '../dist/server.js';
 import { validateSharedSchema } from '../dist/store.js';
+import {migrateFixture} from './fixtures/migrations.mjs';
 
 const ids = {
   user: '00000000-0000-0000-0000-000000000001',
@@ -35,6 +36,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
   const canonical = await readFile(new URL('../../../database/schema.sql', import.meta.url), 'utf8');
   const schema = canonical.split(/\r?\n/).filter(line => !line.startsWith('CREATE EXTENSION') && !line.includes('gin_trgm_ops')).join('\n');
   await db.exec(schema);
+  await migrateFixture(db);
   const store = sqlStore(db);
   await validateSharedSchema(store);
   await db.exec(`
@@ -59,11 +61,17 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       VALUES ('${ids.course}','${ids.courseCategory}','Shared Course','TEST-COURSE','Short','Full','/course.png');
   `);
   const app = createApp(store, { jwtSecret: secret });
+  await db.exec('INSERT INTO miniapp_technician_services(technician_id,service_id) SELECT t.id,s.id FROM technicians t CROSS JOIN services s');
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}/api`;
   const token = jwt.sign({ sub: ids.user }, secret, { expiresIn: '1h' });
   const request = async (path, { body, anonymous, tokenOverride, ...options } = {}) => {
+    if(options.method==='POST' && /\/quiz\/submit$/.test(path) && !Object.hasOwn(body || {},'attemptId')) {
+      const started=await request(path.replace('/submit','/start'),{...options,body:{quizId:body?.quizId,enrollmentId:body?.enrollmentId},anonymous,tokenOverride});
+      if(started.status!==200) return started;
+      body={...body,attemptId:started.data.attempt.id};
+    }
     const response = await fetch(`${base}${path}`, {
       ...options,
       headers: { 'Content-Type': 'application/json', ...(!anonymous ? { Authorization: `Bearer ${tokenOverride ?? token}` } : {}) },
@@ -186,7 +194,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
     await t.test('booking is persisted in shared bookings/items/slots, ignores client price', async () => {
       const result = await request('/bookings', { method: 'POST', body: {
         serviceId: ids.service, branchId: ids.branch, doctorId: ids.technician,
-        date: '02/01/2099', timeSlot: '10:00 - 11:00', voucherCode: 'TEST10', finalPrice: 1,
+        date: '02/01/2099', timeSlot: '10:00 - 11:00', voucherCode: 'TEST10', finalPrice: 1,expectedFinalPrice:90000,
       } });
       assert.equal(result.status, 201, JSON.stringify(result));
       assert.equal(result.data.booking.customerId, ids.user);
@@ -241,7 +249,9 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       const learning = await request(`/courses/${ids.course}/learning`);
       assert.equal(learning.status,200,JSON.stringify(learning));
       assert.equal(learning.data.course.lessons[0].videoUrl,'https://example.test/lesson.mp4');
-      assert.equal(learning.data.course.quiz.questions[0].correctOption,undefined);
+      assert.equal(learning.data.course.quiz.questions.length,0);
+      const started=await request(`/courses/${ids.course}/quiz/start`,{method:'POST',body:{quizId:quiz.id}});
+      assert.equal(started.data.quiz.questions[0].correctOption,undefined);
       const submission = await request(`/courses/${ids.course}/quiz/submit`,{method:'POST',body:{answers:{[question.id]:0}}});
       assert.equal(submission.status,200,JSON.stringify(submission));
       assert.equal(Number(submission.data.submission.score),10);
@@ -263,7 +273,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       assert.equal(ticket.status,201,JSON.stringify(ticket));
       assert.equal(ticket.data.ticket.customerId,ids.user);
       assert.equal((await request('/support-tickets')).data.tickets.length,1);
-      const survey = await request('/consultation-surveys',{method:'POST',body:{focusAreas:['Neck'],pressurePref:'LIGHT',customerId:ids.other}});
+      const survey = await request('/consultation-surveys',{method:'POST',body:{focusAreas:['Neck'],pressurePref:'LIGHT',hasSensitiveSkin:false,hasOilAllergy:false,customerId:ids.other}});
       assert.equal(survey.status,201,JSON.stringify(survey));
       assert.equal(survey.data.survey.customerId,ids.user);
       assert.deepEqual(survey.data.survey.focusAreas,['Neck']);

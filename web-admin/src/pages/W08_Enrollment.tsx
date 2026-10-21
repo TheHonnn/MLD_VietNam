@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   ChevronDown,
@@ -9,9 +9,10 @@ import {
   X,
   CheckCircle2,
 } from 'lucide-react';
-import { academyService } from '../services';
+import { academyService, customerService } from '../services';
 import { toast } from '../components/common';
-import { CourseEnrollment, Course, CourseBatch } from '../types/shared_types';
+import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 interface CandidateRecord {
   id: string;
@@ -24,6 +25,7 @@ interface CandidateRecord {
   classBatch: string;
   tuitionTotal: string;
   tuitionDeposit: string;
+  rawStatus: EnrollmentStatus;
   stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending';
   stageLabel: string;
   // Detail info for right panel
@@ -41,111 +43,8 @@ interface CandidateRecord {
   buttonLabel: string;
 }
 
-const candidatesData: CandidateRecord[] = [
-  {
-    id: 'c1',
-    name: 'Bùi Khương Duy',
-    code: 'HV-2026-002',
-    phone: '0912 888 999',
-    avatar: '/avatar_khuong_duy.png',
-    program: 'Kỹ thuật Massage Trị Liệu & Dưỡng Sinh',
-    classBatch: 'K08-DUONGSINH-Q3 · 23/10/2026',
-    tuitionTotal: '12.000.000đ',
-    tuitionDeposit: 'Cọc 5.000.000đ đã thu',
-    stage: 'payment_pending',
-    stageLabel: 'Chờ thanh toán',
-    experience: 'Đã học cơ bản',
-    branch: 'Quận 3',
-    expectedClass: 'K08-DUONGSINH-Q3',
-    startDate: '23/10/2026',
-    schedule: 'Thứ 6–7–CN',
-    timeSlot: '13:00–17:00',
-    instructor: 'Lê Quỳnh Nga',
-    contractTuition: '12.000.000đ',
-    requiredDeposit: '5.000.000đ',
-    remainingAmount: '7.000.000đ',
-    statusBadge: 'Đã đóng cọc tuyển sinh',
-    buttonLabel: 'Gửi thông tin lớp',
-  },
-  {
-    id: 'c2',
-    name: 'Xuân Trường',
-    code: 'HV-2026-001',
-    phone: '0978 999 000',
-    avatar: '/avatar_truong.png',
-    program: 'Kỹ thuật Spa Cơ bản',
-    classBatch: 'K26-SPA-Q1 · Đang diễn ra',
-    tuitionTotal: 'Đã thu 18.500.000đ',
-    tuitionDeposit: 'TT-2026-001 · 16/10/2026',
-    stage: 'class_pending',
-    stageLabel: 'Đang học',
-    experience: 'Chưa có kinh nghiệm',
-    branch: 'Quận 3',
-    expectedClass: 'K26-SPA-Q1',
-    startDate: '01/10/2026',
-    schedule: 'Tối 2–4–6',
-    timeSlot: '18:00–21:00',
-    instructor: 'Lê Quỳnh Nga',
-    contractTuition: '18.500.000đ',
-    requiredDeposit: 'Đã thu 18.500.000đ',
-    remainingAmount: '0đ',
-    statusBadge: 'Đã hoàn tất học phí',
-    buttonLabel: 'Xem hồ sơ học viên',
-  },
-  {
-    id: 'c3',
-    name: 'Phạm Thanh Mai',
-    code: 'HV-MH-003 · 09*** 503',
-    phone: '0903 123 503',
-    initials: 'TM',
-    program: 'Chăm sóc da cơ bản',
-    classBatch: 'Quan tâm lịch cuối tuần',
-    tuitionTotal: 'Báo giá tham khảo',
-    tuitionDeposit: 'Chưa có hợp đồng',
-    stage: 'new',
-    stageLabel: 'Hồ sơ mới',
-    experience: 'Người mới bắt đầu',
-    branch: 'Tất cả chi nhánh',
-    expectedClass: 'Cuối tuần',
-    startDate: 'Dự kiến tháng 11',
-    schedule: 'Thứ 7 – CN',
-    timeSlot: '09:00–12:00',
-    instructor: 'Đang phân công',
-    contractTuition: 'Báo giá tham khảo',
-    requiredDeposit: 'Chưa có hợp đồng',
-    remainingAmount: 'Chưa phát sinh',
-    statusBadge: 'Hồ sơ mới nhận',
-    buttonLabel: 'Tạo báo giá tư vấn',
-  },
-  {
-    id: 'c4',
-    name: 'Trần Ngọc Linh',
-    code: 'HV-MH-004 · 09*** 214',
-    phone: '0988 777 214',
-    initials: 'NL',
-    program: 'Kỹ thuật Spa Cơ bản',
-    classBatch: 'Chờ tư vấn khung giờ',
-    tuitionTotal: 'Chưa chốt học phí',
-    tuitionDeposit: 'Chưa phát sinh khoản thu',
-    stage: 'consulting',
-    stageLabel: 'Chờ tư vấn',
-    experience: 'Tự học tại nhà',
-    branch: 'Quận 3',
-    expectedClass: 'Khóa K25',
-    startDate: 'Chờ sắp lịch',
-    schedule: 'Linh hoạt',
-    timeSlot: 'Chờ tư vấn khung giờ',
-    instructor: 'Chưa chỉ định',
-    contractTuition: 'Chưa chốt học phí',
-    requiredDeposit: '0đ',
-    remainingAmount: 'Chưa phát sinh',
-    statusBadge: 'Chờ tư vấn lịch',
-    buttonLabel: 'Liên hệ tư vấn',
-  },
-];
-
 export const W08_Enrollment: React.FC = () => {
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string>('c1');
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
@@ -163,18 +62,21 @@ export const W08_Enrollment: React.FC = () => {
   const [liveEnrollments, setLiveEnrollments] = useState<CourseEnrollment[]>([]);
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
 
   useEffect(() => {
     const fetchAcademyData = async () => {
       try {
-        const [enrRes, crsRes, batRes] = await Promise.all([
+        const [enrRes, crsRes, batRes, custRes] = await Promise.all([
           academyService.getEnrollments(),
           academyService.getCourses(),
           academyService.getCourseBatches(),
+          customerService.getCustomers(),
         ]);
         if (enrRes.success) setLiveEnrollments(enrRes.data);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
+        if (custRes.success) setCustomers(custRes.data);
       } catch (err) {
         console.error('Failed to load academy data:', err);
       }
@@ -182,21 +84,162 @@ export const W08_Enrollment: React.FC = () => {
     fetchAcademyData();
   }, []);
 
+  const candidatesData: CandidateRecord[] = useMemo(() => {
+    if (!liveEnrollments || liveEnrollments.length === 0) return [];
+
+    const custMap = new Map(customers.map((c) => [c.id, c]));
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const batMap = new Map(liveBatches.map((b) => [b.id, b]));
+
+    return liveEnrollments.map((enr, idx) => {
+      const cust = custMap.get(enr.studentId);
+      const crs = crsMap.get(enr.courseId);
+      const bat = batMap.get(enr.batchId || '');
+
+      const custName = cust?.fullName || `Học viên ${idx + 1}`;
+      const custPhone = cust?.phone || '0900000000';
+      const custCode = cust?.referralCode || `HV-2026-${String(idx + 1).padStart(3, '0')}`;
+      const programTitle = crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên';
+      const batchCode = bat?.batchCode || 'K26-SPA-Q1';
+
+      const total = enr.tuitionTotal || 15000000;
+      const paid = enr.amountPaid || 0;
+      const remaining = Math.max(0, total - paid);
+
+      const isFullyPaid = paid >= total && total > 0;
+      const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
+      const stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending' =
+        enr.status === 'STUDYING' || isGraduated
+          ? 'class_pending'
+          : paid > 0 && !isFullyPaid
+          ? 'payment_pending'
+          : paid === 0
+          ? 'consulting'
+          : 'class_pending';
+
+      const stageLabel =
+        stage === 'class_pending'
+          ? (isGraduated ? 'Tốt nghiệp' : 'Đang học')
+          : stage === 'payment_pending'
+          ? 'Chờ thanh toán'
+          : 'Chờ tư vấn';
+
+      const startDateFormatted = bat?.startDate
+        ? new Intl.DateTimeFormat('vi-VN').format(new Date(bat.startDate))
+        : '01/10/2026';
+
+      return {
+        id: enr.id,
+        name: custName,
+        code: custCode,
+        phone: custPhone,
+        avatar: cust?.avatarUrl || undefined,
+        program: programTitle,
+        classBatch: `${batchCode} · ${bat?.scheduleText || 'Lịch chuẩn'}`,
+        tuitionTotal: `${total.toLocaleString('vi-VN')}đ`,
+        tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc',
+        rawStatus: enr.status,
+        stage,
+        stageLabel,
+        experience: 'Đào tạo chuẩn nghề MLD',
+        branch: 'Quận 3',
+        expectedClass: batchCode,
+        startDate: startDateFormatted,
+        schedule: bat?.scheduleText || 'Thứ 2 - 4 - 6',
+        timeSlot: '08:30–11:30',
+        instructor: 'Master Trainer Nguyễn Thảo Ngọc',
+        contractTuition: `${total.toLocaleString('vi-VN')}đ`,
+        requiredDeposit: `${paid.toLocaleString('vi-VN')}đ`,
+        remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
+        statusBadge: isFullyPaid ? 'Đã hoàn tất học phí' : paid > 0 ? 'Đã đóng cọc tuyển sinh' : 'Chờ tư vấn học phí',
+        buttonLabel: isFullyPaid ? 'Xem hồ sơ học viên' : 'Gửi thông tin lớp',
+      };
+    });
+  }, [liveEnrollments, liveCourses, liveBatches, customers]);
+
+  useEffect(() => {
+    if (candidatesData.length > 0 && (!selectedCandidateId || !candidatesData.some((c) => c.id === selectedCandidateId))) {
+      setSelectedCandidateId(candidatesData[0].id);
+    }
+  }, [candidatesData, selectedCandidateId]);
+
   // Currently selected candidate
-  const selectedCandidate =
-    candidatesData.find((c) => c.id === selectedCandidateId) || candidatesData[0];
+  const selectedCandidate: CandidateRecord =
+    candidatesData.find((c) => c.id === selectedCandidateId) ||
+    candidatesData[0] || {
+      id: '',
+      name: 'Chưa có hồ sơ',
+      code: 'HV-000',
+      phone: '',
+      program: 'Chưa chọn khóa học',
+      classBatch: 'Chưa xếp lớp',
+      tuitionTotal: '0đ',
+      tuitionDeposit: '0đ',
+      rawStatus: EnrollmentStatus.CONSULTING,
+      stage: 'new',
+      stageLabel: 'Hồ sơ mới',
+      experience: '',
+      branch: 'Quận 3',
+      expectedClass: '',
+      startDate: '',
+      schedule: '',
+      timeSlot: '',
+      instructor: '',
+      contractTuition: '0đ',
+      requiredDeposit: '0đ',
+      remainingAmount: '0đ',
+      statusBadge: 'Chưa có hồ sơ',
+      buttonLabel: 'Tạo hồ sơ',
+    };
+
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const handleUpdateEnrollmentStatus = async (enrollmentId: string, nextStatus: EnrollmentStatus) => {
+    setIsUpdatingStatus(true);
+    try {
+      const res = await academyService.updateEnrollmentStatus(enrollmentId, nextStatus);
+      if (res.success) {
+        setLiveEnrollments((prev) =>
+          prev.map((e) => (e.id === enrollmentId ? { ...e, status: nextStatus } : e))
+        );
+        const statusMap: Record<string, string> = {
+          [EnrollmentStatus.ENROLLED]: 'Đã nhập học / Ghi danh',
+          [EnrollmentStatus.STUDYING]: 'Đang học tập',
+          [EnrollmentStatus.GRADUATED]: 'Đã tốt nghiệp',
+        };
+        toast.success(
+          'Cập nhật thành công',
+          `Trạng thái hồ sơ học viên đã chuyển thành: ${statusMap[nextStatus] || nextStatus}`
+        );
+      } else {
+        toast.error('Lỗi', res.message || 'Không thể cập nhật trạng thái hồ sơ');
+      }
+    } catch (err) {
+      toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   // Filter candidates
   const filteredCandidates = candidatesData.filter((c) => {
-    const matchSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm);
+    const isSearchMatch = matchSearch([c.name, c.code, c.phone, c.program, c.branch], searchTerm);
     const matchStage = stageFilter === 'all' || c.stage === stageFilter;
     const matchProgram =
       programFilter === 'all' || c.program.toLowerCase().includes(programFilter.toLowerCase());
-    return matchSearch && matchStage && matchProgram;
+    return isSearchMatch && matchStage && matchProgram;
   });
+
+  const countNew = candidatesData.filter((c) => c.stage === 'new').length;
+  const countConsulting = candidatesData.filter((c) => c.stage === 'consulting').length;
+  const countPending = candidatesData.filter((c) => c.stage === 'payment_pending').length;
+  const countStudying = candidatesData.filter((c) => c.stage === 'class_pending').length;
+
+  const hasActiveFilter = Boolean(
+    searchTerm.trim() ||
+      programFilter !== 'all' ||
+      stageFilter !== 'all' ||
+      branchFilter !== 'all'
+  );
 
   return (
     <div className="space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -205,7 +248,7 @@ export const W08_Enrollment: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Tuyển sinh</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Theo dõi hồ sơ tư vấn, khoản cọc và kế hoạch xếp lớp · 4 hồ sơ mẫu.
+            Theo dõi hồ sơ tư vấn, khoản cọc và kế hoạch xếp lớp trực tiếp từ Supabase Cloud.
           </p>
         </div>
 
@@ -227,8 +270,10 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Hồ sơ mới</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ mẫu</div>
-          <div className="text-xs text-[#73675F] mt-3">Phạm Thanh Mai</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countNew} hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'new')?.name || 'Chưa phát sinh mới'}
+          </div>
         </div>
 
         {/* KPI 2 */}
@@ -239,8 +284,10 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ tư vấn</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">Trần Ngọc Linh</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countConsulting} hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'consulting')?.name || 'Đã liên hệ hết'}
+          </div>
         </div>
 
         {/* KPI 3 */}
@@ -251,8 +298,10 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ thanh toán</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">Bùi Khương Duy · HV-2026-002</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countPending} hồ sơ</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'payment_pending')?.name || 'Không có khoản nợ đọng'}
+          </div>
         </div>
 
         {/* KPI 4 */}
@@ -263,30 +312,43 @@ export const W08_Enrollment: React.FC = () => {
           }`}
         >
           <div className="text-[13.5px] font-bold text-[#2C241E]">Đang theo học</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">1 hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">Xuân Trường · Spa K26</div>
+          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countStudying} học viên</div>
+          <div className="text-xs text-[#73675F] mt-3">
+            {candidatesData.find((c) => c.stage === 'class_pending')?.name || 'Lớp chưa khởi động'}
+          </div>
         </div>
       </div>
 
       {/* 3. Search & Filter Bar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap md:flex-nowrap items-center gap-3">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm tên, số điện thoại, mã hồ sơ..."
-            className="w-full pl-3.5 pr-8 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Filter: Tất cả chương trình */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả chương trình</option>
             <option value="massage">Massage Chuyên Nghiệp</option>
@@ -297,11 +359,11 @@ export const W08_Enrollment: React.FC = () => {
         </div>
 
         {/* Filter: Tất cả giai đoạn */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả giai đoạn</option>
             <option value="new">Hồ sơ mới</option>
@@ -313,11 +375,11 @@ export const W08_Enrollment: React.FC = () => {
         </div>
 
         {/* Filter: Tất cả chi nhánh */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
-            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018] whitespace-nowrap"
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018] whitespace-nowrap"
           >
             <option value="all">Tất cả chi nhánh</option>
             <option value="q3">Quận 3</option>
@@ -325,6 +387,24 @@ export const W08_Enrollment: React.FC = () => {
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
+
+        {/* Reset filter button */}
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setProgramFilter('all');
+              setStageFilter('all');
+              setBranchFilter('all');
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Đặt lại</span>
+          </button>
+        )}
       </div>
 
       {/* 4. Main 2-Column Grid */}
@@ -345,26 +425,57 @@ export const W08_Enrollment: React.FC = () => {
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[580px]">
+              <table className="w-full text-left border-collapse min-w-[580px] whitespace-nowrap">
                 <thead>
-                  <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9]">
+                  <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[28%]">Ứng viên / mã hồ sơ</th>
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[32%]">Chương trình / lớp</th>
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[22%]">Học phí / khoản thu</th>
                     <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[18%]">Giai đoạn</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EFE4D9] text-xs">
-                  {filteredCandidates.map((candidate) => {
-                    const isSelected = candidate.id === selectedCandidateId;
-                    return (
-                      <tr
-                        key={candidate.id}
-                        onClick={() => setSelectedCandidateId(candidate.id)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-[#F8F1E8]' : 'bg-white hover:bg-[#FAF6F0]'
-                        }`}
-                      >
+                <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
+                  {filteredCandidates.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-[#73675F]">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                          <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                            <Search className="w-5 h-5" />
+                          </div>
+                          <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy hồ sơ học viên</p>
+                          <p className="text-xs text-[#8C7A6B]">
+                            {searchTerm.trim()
+                              ? `Không có ứng viên nào khớp với từ khóa "${searchTerm}".`
+                              : 'Không có hồ sơ nào với bộ lọc đã chọn.'}
+                          </p>
+                          {hasActiveFilter && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchTerm('');
+                                setProgramFilter('all');
+                                setStageFilter('all');
+                                setBranchFilter('all');
+                              }}
+                              className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
+                            >
+                              Xóa bộ lọc
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCandidates.map((candidate) => {
+                      const isSelected = candidate.id === selectedCandidateId;
+                      return (
+                        <tr
+                          key={candidate.id}
+                          onClick={() => setSelectedCandidateId(candidate.id)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected ? 'bg-[#F8F1E8]' : 'bg-white hover:bg-[#FAF6F0]'
+                          }`}
+                        >
                         {/* 1. Ứng viên / Mã hồ sơ */}
                         <td className="py-3 px-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-2.5">
@@ -436,7 +547,7 @@ export const W08_Enrollment: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>
@@ -579,19 +690,68 @@ export const W08_Enrollment: React.FC = () => {
             </div>
           </div>
 
-          {/* Status banner */}
-          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
+          {/* Status banner with dynamic colors */}
+          <div
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
+              selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED
+                ? 'bg-[#E8F6ED] text-[#0D6832]'
+                : selectedCandidate.rawStatus === EnrollmentStatus.STUDYING
+                ? 'bg-[#EBF5FB] text-[#1B4F72]'
+                : selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED
+                ? 'bg-[#FEF9E7] text-[#7D6608]'
+                : 'bg-[#F3E2CE] text-[#8A4F23]'
+            }`}
+          >
             <Clock className="w-4 h-4 stroke-[2]" />
-            <span>{selectedCandidate.stageLabel}</span>
+            <span>Trạng thái: {selectedCandidate.stageLabel}</span>
           </div>
 
-          {/* Action button */}
-          <button
-            onClick={() => toast.success('Cập nhật trạng thái', `Đã cập nhật trạng thái hồ sơ học viên: ${selectedCandidate.buttonLabel}`)}
-            className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
-          >
-            {selectedCandidate.buttonLabel}
-          </button>
+          {/* Interactive FSM Action buttons */}
+          {selectedCandidate.id && (
+            <div className="space-y-2 pt-1">
+              {selectedCandidate.rawStatus === EnrollmentStatus.CONSULTING && (
+                <button
+                  type="button"
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.ENROLLED)}
+                  className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Ghi nhận đóng cọc / Nhập học'}</span>
+                </button>
+              )}
+
+              {selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED && (
+                <button
+                  type="button"
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.STUDYING)}
+                  className="w-full py-2.5 bg-[#1B4F72] hover:bg-[#153e5b] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xếp lớp & Bắt đầu học'}</span>
+                </button>
+              )}
+
+              {selectedCandidate.rawStatus === EnrollmentStatus.STUDYING && (
+                <button
+                  type="button"
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.GRADUATED)}
+                  className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xét tốt nghiệp & Cấp chứng chỉ'}</span>
+                </button>
+              )}
+
+              {selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED && (
+                <div className="p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-xs font-bold text-center border border-[#C2E8D1]">
+                  🎓 Học viên đã tốt nghiệp xuất sắc
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Footnote */}
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">

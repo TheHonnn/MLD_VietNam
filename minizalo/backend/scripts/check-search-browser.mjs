@@ -5,12 +5,14 @@ import { PGlite } from '@electric-sql/pglite';
 import { Prisma } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../dist/server.js';
+import {migrateFixture} from '../test/fixtures/migrations.mjs';
 import { chromium } from '../.relay-local/browser-check/node_modules/playwright/index.mjs';
 
 // Browser writes go only to this isolated, in-memory PostgreSQL database.
 const db=new PGlite();
 const schema=await readFile(new URL('../../../database/schema.sql',import.meta.url),'utf8');
 await db.exec(schema.split(/\r?\n/).filter(line=>!line.startsWith('CREATE EXTENSION')&&!line.includes('gin_trgm_ops')).join('\n'));
+await migrateFixture(db);
 const migration=JSON.parse(await readFile(new URL('../../docs/sql/003_search_history.json',import.meta.url),'utf8'));
 for(const statement of migration.statements) await db.exec(statement+';');
 const id=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
@@ -28,6 +30,7 @@ await db.exec(`UPDATE services SET duration_minutes=90 WHERE id='${id(6)}';
   INSERT INTO technician_slots(technician_id,branch_id,slot_date,start_time,end_time) VALUES
     ('${id(8)}','${id(3)}','2099-01-02','10:00','11:00'),
     ('${id(9)}','${id(7)}','2099-01-02','14:00','16:00');`);
+await db.exec('INSERT INTO miniapp_technician_services(technician_id,service_id) SELECT t.id,s.id FROM technicians t CROSS JOIN services s');
 const store=client=>({query:async q=>(await client.query(q.text,q.values.map(value=>Prisma.Decimal.isDecimal(value)?value.toString():value))).rows,
   transaction:run=>client.transaction(tx=>run(store(tx)))});
 const secret='isolated-browser-test-secret';
@@ -41,7 +44,8 @@ try {
   for(const viewport of [{width:390,height:844},{width:320,height:640},{width:1366,height:900}]) {
     const page=await browser.newPage({viewport});
     await page.route('**/*',route=>['GET','HEAD','OPTIONS'].includes(route.request().method())?route.continue():route.abort());
-    await page.route('http://127.0.0.1:5107/api/**',async route=>{
+    await page.route('**/api/**',async route=>{
+      if(route.request().resourceType()==='script')return route.fallback();
       const request=route.request(),url=new URL(request.url());
       const response=await fetch(base+url.pathname+url.search,{method:request.method(),headers:headers(1),body:request.postData()||undefined});
       await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:await response.text()});
@@ -149,7 +153,7 @@ try {
     await page.waitForFunction(() => document.querySelector('.specialist-result-count')?.textContent === '0 chuyên viên phù hợp');
     assert.equal(await page.locator('.specialist-card').count(),0);
     // API failures must remain visible rather than masquerading as empty availability.
-    await page.route('http://127.0.0.1:5107/api/slots?**', route => route.fulfill({status:503,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({success:false,statusCode:503,message:'Availability unavailable'})}));
+    await page.route('**/api/slots?**', route => route.fulfill({status:503,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({success:false,statusCode:503,message:'Availability unavailable'})}));
     await page.getByRole('textbox',{name:'Ngày có lịch chuyên viên',exact:true}).fill('2099-01-04');
     await page.locator('.specialist-filters [role=alert]').waitFor();
     assert.equal(await page.locator('.specialist-card').count(),0);

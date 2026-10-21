@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '@/api/client';
 import type { Branch, Course, Doctor, MedicalService } from '../../../../backend/src/data/database';
 import { ArrowLeftIcon, ClockIcon, CloseIcon, SearchIcon } from './Icons';
@@ -46,6 +46,9 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
   const revision = useRef(0);
   const queue = useRef(Promise.resolve());
   const lastSaved = useRef('');
+  const deferredKeyword = useDeferredValue(keyword);
+  const [resultLimit,setResultLimit] = useState(30);
+  useEffect(() => setResultLimit(30), [keyword,category]);
 
   useEffect(() => {
     const current = ++generation.current, version = revision.current;
@@ -70,11 +73,13 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
     if (!userId || authRequired) return Promise.resolve();
     const current = generation.current;
     revision.current++;
+    // Start persistence while still mounted. The API queue owns session checks and ordering.
+    const mutation = action();
     queue.current = queue.current.then(async () => {
       if (current !== generation.current) return;
       setBusy(true); setError('');
       try {
-        const result = await action();
+        const result = await mutation;
         if (current !== generation.current) return;
         if (result?.status === 401) { setAuthRequired(true); setHistory([]); return; }
         if (result?.error || (!result?.entry && result?.deleted !== true)) throw new Error(result?.error || 'Không thể lưu lịch sử tìm kiếm.');
@@ -103,15 +108,15 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
     return mutateHistory(() => apiClient.saveSearchHistory(query), key, refreshHistory);
   };
 
-  if (!isOpen) return null;
-  const items = [
+  const items = useMemo(() => [
     ...services.map(record => ({id:record.id,type:'service' as Category,title:record.title,image:record.image,detail:money(record.price),text:record.description,select:()=>onSelectService(record)})),
     ...courses.map(record => ({id:record.id,type:'course' as Category,title:record.title,image:record.image,detail:money(record.price),text:`${record.description || ''} ${record.instructor || ''}`,select:()=>onSelectCourse(record)})),
     ...branches.map(record => ({id:record.id,type:'branch' as Category,title:record.name,image:record.imageUrl,detail:record.address,text:record.address,select:()=>onSelectBranch(record)})),
     ...doctors.map(record => ({id:record.id,type:'specialist' as Category,title:record.name,image:record.avatar,detail:record.title || record.specialty,text:`${record.specialty || ''} ${record.hospital || ''}`,select:()=>onSelectSpecialist(record)})),
-  ];
-  const query = fold(keyword.trim());
-  const results = items.filter(item => (category === 'all' || item.type === category) && fold(`${item.title} ${item.text || ''}`).includes(query));
+  ].map(item => ({...item,search:fold(`${item.title} ${item.text || ''}`)})), [services,courses,branches,doctors,onSelectService,onSelectCourse,onSelectBranch,onSelectSpecialist]);
+  const query = fold(deferredKeyword.trim());
+  const results = useMemo(() => items.filter(item => (category === 'all' || item.type === category) && item.search.includes(query)), [items,category,query]);
+  if (!isOpen) return null;
 
   return <section className="search-screen" aria-labelledby="search-heading">
     <header className="search-header">
@@ -123,11 +128,10 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
           onChange={event => { setKeyword(event.target.value); lastSaved.current = ''; }} placeholder="Tìm dịch vụ, khóa học, chuyên viên..." />
       </form>
       <div className="search-categories" role="group" aria-label="Loại kết quả">
-        {categories.map(item => <button key={item.id} type="button" aria-pressed={category === item.id} disabled={busy} onClick={async () => {
+        {categories.map(item => <button key={item.id} type="button" aria-pressed={category === item.id} onClick={async () => {
           if (item.id === 'all') { setCategory('all'); return; }
-          const current = generation.current;
-          await commit(keyword, false);
-          if (current === generation.current) onNavigateCategory(item.id, keyword.trim());
+          void commit(keyword, false);
+          onNavigateCategory(item.id, keyword.trim());
         }}>{item.label}</button>)}
       </div>
       <button className="search-clear" type="button" disabled={busy} onClick={() => { setKeyword(''); lastSaved.current = ''; void mutateHistory(() => apiClient.deleteSearchHistory()); }}>Xóa tìm kiếm</button>
@@ -147,14 +151,14 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
           <div className="search-popular">{popular.map(item => <button key={item.query} type="button" onClick={() => void commit(item.query)}>{item.query}</button>)}</div>
         </section>
       </> : <section aria-label="Kết quả tìm kiếm" className="search-results">
-        {results.map(item => <button key={`${item.type}-${item.id}`} type="button" className="search-result" onClick={async () => {
-          const current = generation.current;
-          await commit(keyword, false);
-          if (current === generation.current) { item.select(); onClose(); }
+        {results.slice(0,resultLimit).map(item => <button key={`${item.type}-${item.id}`} type="button" className="search-result" onClick={() => {
+          void commit(keyword, false);
+          item.select(); onClose();
         }}>
           <EntityImage src={item.image} alt={item.title} className="search-result-photo" />
           <span className="search-result-copy"><small>{categories.find(value=>value.id===item.type)?.label}</small><strong>{item.title}</strong><span>{item.detail}</span></span>
         </button>)}
+        {results.length > resultLimit && <button type="button" className="search-clear" onClick={() => setResultLimit(value => value+30)}>Xem thêm</button>}
       </section>}
     </main>
   </section>;

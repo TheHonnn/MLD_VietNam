@@ -4,7 +4,7 @@
     "title": "MLD Việt Nam",
     "textColor": {
       "light": "black",
-      "dark": "white"
+      "dark": "black"
     },
     "statusBar": "transparent",
     "actionBarHidden": true,

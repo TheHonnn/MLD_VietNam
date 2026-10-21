@@ -5,8 +5,10 @@ import { EntityImage } from './GroupBExtensions';
 import { BookingRows, BookingStatus, bookingDate, bookingDuration } from './BookingInformation';
 import { apiClient } from '@/api/client';
 import '@/css/appointments.scss';
+import { useBackAction } from '@/hooks/useNavigationHistory';
 
 interface AppointmentsManagerProps {
+  initialBookingId?: string;
   bookings: Booking[];
   branches?: Branch[];
   onClose?: () => void;
@@ -21,17 +23,22 @@ type AppointmentTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
 const toInputDate = (date: string) => /^\d{4}-\d{2}-\d{2}/.test(date) ? date.slice(0, 10) : date.split('/').reverse().join('-');
 const todayInVietnam = () => new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
 const addDays = (date: string, days: number) => { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); };
-const isFutureSlot = (date: string, time: string) => Date.parse(`${date}T${time.slice(0, 5)}:00+07:00`) > Date.now();
+const isFutureSlot = (date: string, time: string, now=Date.now()) => Date.parse(`${date}T${time.slice(0, 5)}:00+07:00`) > now;
 
-export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookings, branches = [], loading = false, error, onRefresh, onClose, onUpdateBookings, onBookNewService, onRebookService }) => {
+export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookings, branches = [], loading = false, error, onRefresh, onClose, onUpdateBookings, onBookNewService, onRebookService, initialBookingId }) => {
   const [activeTab, setActiveTab] = useState<AppointmentTab>('upcoming');
+  const [clockNow,setClockNow]=useState(Date.now);
   const [dateRange, setDateRange] = useState('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
   const [serviceFilter, setServiceFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [visibleCount,setVisibleCount]=useState(50);
+  useEffect(()=>setVisibleCount(50),[activeTab,dateRange,fromDate,toDate,branchFilter,serviceFilter,statusFilter]);
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(initialBookingId || null);
+  const selectedBooking = bookings.find(item => item.id === selectedBookingId) || null;
+  const setSelectedBooking = (booking: Booking | null) => setSelectedBookingId(booking?.id || null);
   const [rescheduling, setRescheduling] = useState(false);
   const [newDate, setNewDate] = useState(todayInVietnam);
   const [newTime, setNewTime] = useState('');
@@ -46,6 +53,49 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   }, [confirmCancel, message]);
   const bookingsRef = useRef(bookings);
   const mutationLock = useRef(false);
+  const refreshGeneration=useRef(0);
+  const updateBookings=useRef(onUpdateBookings);updateBookings.current=onUpdateBookings;
+  const [refreshError,setRefreshError]=useState('');
+  useEffect(()=>{
+    let disposed=false,pending=false,repeat=false;
+    const refresh=async()=>{
+      if(disposed||document.visibilityState==='hidden')return;
+      setClockNow(Date.now());
+      if(pending){repeat=true;return;}
+      if(mutationLock.current)return;
+      pending=true;const generation=++refreshGeneration.current;
+      try {
+        apiClient.invalidateReadPaths(['/bookings']);
+        const response=await apiClient.getBookings();
+        if(disposed||generation!==refreshGeneration.current)return;
+        if(response?.error||!Array.isArray(response?.bookings)){setRefreshError('Không thể cập nhật lịch hẹn. Vui lòng thử lại.');return;}
+        setRefreshError('');
+        if(JSON.stringify(response.bookings)!==JSON.stringify(bookingsRef.current))updateBookings.current(response.bookings);
+      } finally {pending=false;if(repeat){repeat=false;void refresh();}}
+    };
+    const timer=window.setInterval(()=>void refresh(),30000);
+    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
+    return()=>{disposed=true;refreshGeneration.current++;clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+  },[]);
+  useBackAction(Boolean(selectedBooking || rescheduling || confirmCancel || submitting), () => {
+    if (mutationLock.current) return;
+    setMessage(null);
+    if (confirmCancel) setConfirmCancel(false);
+    else if (rescheduling) setRescheduling(false);
+    else setSelectedBooking(null);
+  });
+  useEffect(() => {
+    if (!initialBookingId) return;
+    setSelectedBookingId(initialBookingId);setRescheduling(false);setConfirmCancel(false);setMessage(null);
+  }, [initialBookingId]);
+  useEffect(() => {
+    if (selectedBookingId && !selectedBooking && !loading) {
+      setSelectedBookingId(null);setRescheduling(false);setConfirmCancel(false);setMessage(null);
+    }
+    if (selectedBooking && !['pending','confirmed'].includes(selectedBooking.status)) {
+      setRescheduling(false);setConfirmCancel(false);
+    }
+  }, [selectedBookingId,selectedBooking,loading]);
   bookingsRef.current = bookings;
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -75,12 +125,12 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   const rangeTo = dateRange === 'custom' ? toDate : dateRange === 'all' ? '' : addDays(today, dateRange === 'week' ? 6 : 29);
   const invalidRange = Boolean(rangeFrom && rangeTo && rangeFrom > rangeTo);
   const filteredBookings = useMemo(() => bookings.filter(booking => {
-    const matchesTab = activeTab === 'all' || (activeTab === 'upcoming' ? !['completed', 'cancelled', 'no_show'].includes(booking.status) && isFutureSlot(toInputDate(booking.date), booking.timeSlot) : booking.status === activeTab);
+    const matchesTab = activeTab === 'all' || (activeTab === 'upcoming' ? !['completed', 'cancelled', 'no_show'].includes(booking.status) && isFutureSlot(toInputDate(booking.date), booking.timeSlot,clockNow) : booking.status === activeTab);
     const date = toInputDate(booking.date);
     return matchesTab && !invalidRange && (!rangeFrom || date >= rangeFrom) && (!rangeTo || date <= rangeTo)
       && (!branchFilter || booking.branchId === branchFilter) && (!statusFilter || booking.status === statusFilter)
       && (!serviceFilter || booking.serviceId === serviceFilter || booking.items?.some(item => item.serviceId === serviceFilter));
-  }).sort((a, b) => `${toInputDate(a.date)} ${a.timeSlot}`.localeCompare(`${toInputDate(b.date)} ${b.timeSlot}`)), [bookings, activeTab, rangeFrom, rangeTo, invalidRange, branchFilter, statusFilter, serviceFilter]);
+  }).sort((a, b) => `${toInputDate(a.date)} ${a.timeSlot}`.localeCompare(`${toInputDate(b.date)} ${b.timeSlot}`)), [bookings, activeTab, rangeFrom, rangeTo, invalidRange, branchFilter, statusFilter, serviceFilter,clockNow]);
   const branchOptions = Array.from(new Map(bookings.map(booking => [booking.branchId, booking.branchName || branches.find(branch => branch.id === booking.branchId)?.name || ''])));
   const serviceOptions = Array.from(new Map(bookings.flatMap(booking => booking.items?.length ? booking.items.map(item => [item.serviceId, item.serviceTitle || booking.serviceTitle] as const) : [[booking.serviceId, booking.serviceTitle] as const])));
   const replaceBooking = (updated: Booking) => { onUpdateBookings(bookingsRef.current.map(item => item.id === updated.id ? updated : item)); setSelectedBooking(updated); };
@@ -88,7 +138,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   const submitReschedule = async () => {
     if (!selectedBooking || mutationLock.current) return;
     if (!newDate || newDate < today || !slotsReady || !availableTimes.includes(newTime) || !isFutureSlot(newDate, newTime)) { setMessage({ type: 'error', text: 'Vui lòng chọn giờ còn trống.' }); return; }
-    mutationLock.current = true; setSubmitting(true); setMessage(null);
+    mutationLock.current = true;refreshGeneration.current++;setSubmitting(true);setMessage(null);
     try {
       const response = await apiClient.rescheduleBooking(selectedBooking.id, newDate, newTime);
       if (!response?.error && response?.booking?.id === selectedBooking.id) { replaceBooking(response.booking); setMessage({ type: 'success', text: 'Đổi lịch thành công.' }); setRescheduling(false); }
@@ -98,7 +148,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   };
   const cancelBooking = async () => {
     if (!selectedBooking || mutationLock.current) return;
-    mutationLock.current = true; setSubmitting(true); setMessage(null);
+    mutationLock.current = true;refreshGeneration.current++;setSubmitting(true);setMessage(null);
     try {
       const response = await apiClient.cancelBooking(selectedBooking.id, 'Khách hàng hủy trên Mini App');
       if (!response?.error && response?.booking?.id === selectedBooking.id && response.booking.status === 'cancelled') { replaceBooking(response.booking); setConfirmCancel(false); setMessage({ type: 'success', text: 'Lịch hẹn đã được hủy.' }); }
@@ -106,7 +156,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
     } catch { setMessage({ type: 'error', text: 'Không thể hủy lịch. Vui lòng thử lại.' }); }
     finally { mutationLock.current = false; setSubmitting(false); }
   };
-  const feedback = message && <p role={message.type === 'error' ? 'alert' : 'status'} className={`appointment-feedback is-${message.type}`}>{message.text}</p>;
+  const feedback = <>{refreshError&&<p role="alert" className="appointment-feedback is-error">{refreshError}</p>}{message&&<p role={message.type === 'error' ? 'alert' : 'status'} className={`appointment-feedback is-${message.type}`}>{message.text}</p>}</>;
 
   if (rescheduling && selectedBooking) return <section className="appointment-screen appointment-reschedule" aria-labelledby="reschedule-heading">
     <header className="appointment-header"><div className="appointment-topbar"><button type="button" title="Quay lại chi tiết lịch hẹn" disabled={submitting} className="appointment-back" onClick={() => setRescheduling(false)}><ArrowLeftIcon size={20} /></button><span>ĐẶT LỊCH</span></div><h1 id="reschedule-heading">Đổi lịch hẹn</h1><p>Chọn thời gian mới phù hợp với bạn.</p></header>
@@ -117,7 +167,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   </section>;
 
   if (selectedBooking) {
-    const canEdit = ['confirmed', 'pending'].includes(selectedBooking.status);
+    const canEdit = ['confirmed', 'pending'].includes(selectedBooking.status) && isFutureSlot(toInputDate(selectedBooking.date),selectedBooking.timeSlot,clockNow);
     const canCancel = canEdit && !['paid', 'partial'].includes(selectedBooking.paymentStatus || '');
     const duration = bookingDuration(selectedBooking);
     return <section className="appointment-screen appointment-detail" aria-labelledby="appointment-detail-heading">
@@ -135,6 +185,6 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
       {dateRange === 'custom' && <div className="appointments-date-range"><label className="appointment-filter">Từ ngày<input aria-label="Từ ngày" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} /></label><label className="appointment-filter">Đến ngày<input aria-label="Đến ngày" type="date" value={toDate} onChange={event => setToDate(event.target.value)} /></label></div>}{invalidRange && <p role="alert" className="appointment-feedback is-error">Ngày kết thúc phải từ ngày bắt đầu.</p>}
       <details className="appointments-filter-menu"><summary>Chi nhánh / Dịch vụ / Trạng thái</summary><div><label className="appointment-filter">Chi nhánh<select aria-label="Lọc chi nhánh lịch hẹn" value={branchFilter} onChange={event => setBranchFilter(event.target.value)}><option value="">Tất cả</option>{branchOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label><label className="appointment-filter">Dịch vụ<select aria-label="Lọc dịch vụ lịch hẹn" value={serviceFilter} onChange={event => setServiceFilter(event.target.value)}><option value="">Tất cả</option>{serviceOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label><label className="appointment-filter">Trạng thái<select aria-label="Lọc trạng thái lịch hẹn" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">Tất cả</option>{[['pending', 'Chờ xác nhận'], ['confirmed', 'Đã xác nhận'], ['checked_in', 'Đã đến'], ['in_service', 'Đang thực hiện'], ['completed', 'Đã hoàn thành'], ['cancelled', 'Đã hủy'], ['no_show', 'Không đến']].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div></details>
     </header>
-    <main className="appointments-results" tabIndex={0} aria-label="Danh sách lịch hẹn">{loading && <p role="status">Đang tải lịch hẹn...</p>}{error && <p role="alert" className="appointment-feedback is-error">{error} <button type="button" onClick={onRefresh}>Thử lại</button></p>}{!loading && !error && !filteredBookings.length && <p className="appointment-empty" role="status"></p>}{filteredBookings.map(booking => <button key={booking.id} type="button" className="appointment-list-card" onClick={() => { setSelectedBooking(booking); setConfirmCancel(false); setMessage(null); }}><EntityImage src={booking.serviceImage} alt={booking.serviceTitle} className="appointment-photo" /><BookingStatus booking={booking} /><h2>{booking.serviceTitle}</h2><div className="appointment-list-row"><span>Ngày hẹn</span><strong>{bookingDate(booking.date)}</strong></div><div className="appointment-list-row"><span>Giờ hẹn</span><strong>{booking.timeSlot}</strong></div><p>{booking.branchName}</p></button>)}<button type="button" className="appointments-new" disabled={loading} onClick={onBookNewService}><CalendarIcon size={18} />Đặt lịch mới</button></main>
+    <main className="appointments-results" tabIndex={0} aria-label="Danh sách lịch hẹn">{loading && <p role="status">Đang tải lịch hẹn...</p>}{error && <p role="alert" className="appointment-feedback is-error">{error} <button type="button" onClick={onRefresh}>Thử lại</button></p>}{!loading && !error && !filteredBookings.length && <p className="appointment-empty" role="status"></p>}{filteredBookings.slice(0,visibleCount).map(booking => <button key={booking.id} type="button" className="appointment-list-card" onClick={() => { setSelectedBooking(booking); setConfirmCancel(false); setMessage(null); }}><EntityImage src={booking.serviceImage} alt={booking.serviceTitle} className="appointment-photo" /><BookingStatus booking={booking} /><h2>{booking.serviceTitle}</h2><div className="appointment-list-row"><span>Ngày hẹn</span><strong>{bookingDate(booking.date)}</strong></div><div className="appointment-list-row"><span>Giờ hẹn</span><strong>{booking.timeSlot}</strong></div><p>{booking.branchName}</p></button>)}{visibleCount<filteredBookings.length&&<button type="button" className="appointments-new" onClick={()=>setVisibleCount(value=>value+50)}>Xem thêm lịch hẹn</button>}<button type="button" className="appointments-new" disabled={loading} onClick={onBookNewService}><CalendarIcon size={18} />Đặt lịch mới</button></main>
   </section>;
 };

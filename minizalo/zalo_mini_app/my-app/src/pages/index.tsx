@@ -1,14 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Page, Box, Text } from 'zmp-ui';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Text } from 'zmp-ui';
 import { HeaderFigma } from '@/components/HeaderFigma';
 import { GroupBHome } from '@/components/HomeDashboard';
-import { GroupCBooking } from '@/components/GroupCBooking';
-import { AppointmentsManager } from '@/components/AppointmentsManager';
-import { ETicketGroupC } from '@/components/ETicketGroupC';
-import { GroupEAcademy } from '@/components/GroupEAcademy';
-import { GroupDTreatment } from '@/components/GroupDTreatment';
-import { GroupDRecords } from '@/components/GroupDRecords';
-import { GroupFProfile } from '@/components/GroupFProfile';
+import { deferredScreen } from '@/components/deferred-screen';
 import { GroupAAuthModal } from '@/components/GroupAAuthModal';
 import { RegistrationChallenge } from '@/components/ZaloProfileForm';
 import { NewCustomerOnboarding } from '@/components/NewCustomerOnboarding';
@@ -26,6 +20,9 @@ import {
 } from '@/components/GroupBExtensions';
 import { apiClient } from '@/api/client';
 import { searchText } from '@/utils/catalog';
+import {launchServiceId} from '@/utils/service-links';
+import { useNavigationHistory } from '@/hooks/useNavigationHistory';
+import { LegalLinks } from '@/components/LegalLinks';
 import {
   guestUser,
   MedicalService,
@@ -53,9 +50,19 @@ import {
   ArrowLeftIcon,
 } from '@/components/Icons';
 
+const GroupCBooking = deferredScreen(() => import('@/components/GroupCBooking').then(module => ({default:module.GroupCBooking})));
+const AppointmentsManager = deferredScreen(() => import('@/components/AppointmentsManager').then(module => ({default:module.AppointmentsManager})));
+const ETicketGroupC = deferredScreen(() => import('@/components/ETicketGroupC').then(module => ({default:module.ETicketGroupC})));
+const GroupEAcademy = deferredScreen(() => import('@/components/GroupEAcademy').then(module => ({default:module.GroupEAcademy})));
+const GroupDTreatment = deferredScreen(() => import('@/components/GroupDTreatment').then(module => ({default:module.GroupDTreatment})));
+const GroupDRecords = deferredScreen(() => import('@/components/GroupDRecords').then(module => ({default:module.GroupDRecords})));
+const GroupFProfile = deferredScreen(() => import('@/components/GroupFProfile').then(module => ({default:module.GroupFProfile})));
+
 function MasterHomePage() {
   const [showLaunchScreen, setShowLaunchScreen] = useState(true);
   const [showCareIntro, setShowCareIntro] = useState(true);
+  const [sharedServiceId]=useState(launchServiceId);
+  const sharedLinkOpened=useRef(false);
   // Navigation Tabs matching Figma Nhóm B & C: 'home' | 'services' | 'booking' | 'academy' | 'profile'
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking' | 'academy' | 'profile'>('home');
   const [academyMode, setAcademyMode] = useState<'catalog' | 'learning'>('catalog');
@@ -72,11 +79,83 @@ function MasterHomePage() {
   const [user, setUser] = useState<User>({ ...guestUser });
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationUnreadCount,setNotificationUnreadCount]=useState(0);
+  const [notificationTotalCount,setNotificationTotalCount]=useState(0);
+  const [notificationCursor,setNotificationCursor]=useState<string|null>(null);
+  const [notificationLoadingMore,setNotificationLoadingMore]=useState(false);
+  const [notificationFilter,setNotificationFilter]=useState<'all'|'unread'>('all');
+  const notificationFilterRef=useRef<'all'|'unread'>('all');
+  const notificationPageEpoch=useRef(0);
+  const notificationMoreLock=useRef(false);
+  const notificationPaged=useRef(false);
+  const notificationReadRevision=useRef(0);
+  const resetInbox=()=>{
+    notificationPageEpoch.current++;notificationMoreLock.current=false;
+    notificationFilterRef.current='all';setNotificationFilter('all');
+    setNotifications([]);setNotificationUnreadCount(0);setNotificationTotalCount(0);
+    setNotificationCursor(null);setNotificationLoadingMore(false);notificationPaged.current=false;
+  };
+  const applyNotificationPage=(response:any,more=false,readRevision=notificationReadRevision.current,filter:'all'|'unread'='all')=>{
+    if(notificationFilterRef.current!==filter)return;
+    if(readRevision!==notificationReadRevision.current)return;
+    if(!Array.isArray(response?.notifications))return;
+    const preserveOlder=notificationPaged.current;
+    if(readRevision===notificationReadRevision.current)setNotificationUnreadCount(Number(response.unreadCount)||0);
+    setNotificationTotalCount(Number(response.totalCount)||0);
+    setNotifications(current=>{
+      if(more)return [...current,...response.notifications.filter((item:AppNotification)=>!current.some(old=>old.id===item.id))];
+      const fresh=response.notifications.map((item:AppNotification)=>current.some(old=>old.id===item.id&&old.isRead)?{...item,isRead:true}:item);
+      const next=preserveOlder?[...fresh,...current.filter(old=>!fresh.some((item:AppNotification)=>item.id===old.id))]:fresh;
+      return JSON.stringify(next)===JSON.stringify(current)?current:next;
+    });
+    if(more||!notificationPaged.current)setNotificationCursor(response.nextCursor||null);
+  };
   const [memberSummary, setMemberSummary] = useState({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
   const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
   const [zaloAuthState, setZaloAuthState] = useState<'checking' | 'required' | 'connected' | 'web'>('checking');
   const [zaloAuthError, setZaloAuthError] = useState('');
+  const authAttempt = useRef(0);
+  const authBusy = useRef(false);
+  useEffect(() => () => { authAttempt.current++; apiClient.cancelZaloLogin(); }, []);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notificationError, setNotificationError] = useState('');
+  const [notificationRefresh, setNotificationRefresh] = useState(0);
+  const [bookingTarget, setBookingTarget] = useState<{id:string; bookingId:string} | undefined>();
+  const [academyTarget, setAcademyTarget] = useState<{id:string; enrollmentId:string; tab:string; quizId?:string} | undefined>();
+  const [profileTarget, setProfileTarget] = useState<{id:string; tab:'payments'|'points'|'vouchers'; entityId?:string} | undefined>();
+  const [treatmentEntityId, setTreatmentEntityId] = useState<string | undefined>();
+  const currentUserId = useRef(user.id);
+  currentUserId.current = user.id;
+
+  useEffect(() => {
+    if (!user.id) return;
+    let cancelled = false, busy = false;
+    const refresh = async (event?:Event) => {
+      if(event instanceof CustomEvent&&event.detail?.path==='/auth/settings')notificationPaged.current=false;
+      if (document.hidden || busy || cancelled) return;
+      busy = true;
+      const readRevision=notificationReadRevision.current,epoch=notificationPageEpoch.current;
+      try {
+        const response = await apiClient.getNotifications(true,undefined,notificationFilter);
+        if (cancelled||epoch!==notificationPageEpoch.current) return;
+        if (!Array.isArray(response?.notifications)) setNotificationError(response?.error || 'Không thể tải thông báo. Vui lòng thử lại.');
+        else { applyNotificationPage(response,false,readRevision,notificationFilter); setNotificationError(''); }
+      } catch { if (!cancelled) setNotificationError('Không thể tải thông báo. Vui lòng thử lại.'); }
+      finally { busy = false; }
+    };
+    if (isNotificationsOpen) {notificationPaged.current=false;void refresh();}
+    const timer = window.setInterval(() => void refresh(), 30000);
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('mld:activity', refresh);
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('focus', refresh); window.removeEventListener('mld:activity', refresh); };
+  }, [user.id, isNotificationsOpen, notificationRefresh,notificationFilter]);
+
+  useEffect(() => {
+    if (activeTab !== 'academy') setAcademyTarget(undefined);
+    if (activeTab !== 'profile') setProfileTarget(undefined);
+    if (activeTab !== 'booking') setBookingTarget(undefined);
+  }, [activeTab]);
 
   // Active Flow Modals (Starts at Group A Onboarding on initial launch)
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -90,6 +169,7 @@ function MasterHomePage() {
   const [bookingService, setBookingService] = useState<MedicalService | null>(null);
   const [bookingBranch, setBookingBranch] = useState<Branch | null>(null);
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null);
+  const [bookingPackage,setBookingPackage]=useState<{id:string;name:string}|null>(null);
   const [eTicketBooking, setETicketBooking] = useState<Booking | null>(null);
   const [isEMRModalOpen, setIsEMRModalOpen] = useState(false);
   const [isTreatmentOpen, setIsTreatmentOpen] = useState(false);
@@ -111,13 +191,44 @@ function MasterHomePage() {
   const [dataError, setDataError] = useState('');
   const [loadVersion, setLoadVersion] = useState(0);
   const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
+  useEffect(() => { if (!isTreatmentOpen) setTreatmentEntityId(undefined); }, [isTreatmentOpen]);
   const [appMetadata, setAppMetadata] = useState<any>({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
   const [guidelines, setGuidelines] = useState<any[]>([]);
+  const navigation = {activeTab,academyMode,selectedCourseId,isSearchOpen,isNotificationsOpen,viewingService,viewingDoctor,viewingBranch,directionsBranch,isBranchDirectoryOpen,isSpecialistDirectoryOpen,bookingService,bookingBranch,bookingDoctor,bookingPackage,eTicketBooking,isEMRModalOpen,isTreatmentOpen,treatmentInitialTab};
+  const navigationKey = JSON.stringify(Object.values(navigation).map(value => value && typeof value === 'object' ? value.id : value));
+  useNavigationHistory(navigationKey,navigation,view => {
+    setActiveTab(view.activeTab);setAcademyMode(view.academyMode);setSelectedCourseId(view.selectedCourseId);
+    setIsSearchOpen(view.isSearchOpen);setIsNotificationsOpen(view.isNotificationsOpen);
+    setViewingService(view.viewingService);setViewingDoctor(view.viewingDoctor);setViewingBranch(view.viewingBranch);setDirectionsBranch(view.directionsBranch);
+    setIsBranchDirectoryOpen(view.isBranchDirectoryOpen);setIsSpecialistDirectoryOpen(view.isSpecialistDirectoryOpen);
+    setBookingService(view.bookingService);setBookingBranch(view.bookingBranch);setBookingDoctor(view.bookingDoctor);setBookingPackage(view.bookingPackage);
+    setETicketBooking(view.eTicketBooking);setIsEMRModalOpen(view.isEMRModalOpen);setIsTreatmentOpen(view.isTreatmentOpen);setTreatmentInitialTab(view.treatmentInitialTab);
+  },user.id,!viewingService&&!viewingDoctor&&!viewingBranch&&!directionsBranch&&!isSearchOpen&&!isNotificationsOpen&&!bookingService&&!eTicketBooking&&!isTreatmentOpen&&!isEMRModalOpen&&!isBranchDirectoryOpen&&!isSpecialistDirectoryOpen);
+  useEffect(()=>{
+    if(!sharedServiceId||sharedLinkOpened.current||dataLoading||showLaunchScreen||showCareIntro||registration||zaloAuthState==='required'||zaloAuthState==='checking')return;
+    sharedLinkOpened.current=true;
+    const service=services.find(item=>item.id===sharedServiceId);
+    if(service)setViewingService(service);else setDataError('Dịch vụ trong liên kết không còn khả dụng.');
+  },[sharedServiceId,dataLoading,services,showLaunchScreen,showCareIntro,registration,zaloAuthState]);
   const refreshData = () => { apiClient.clearReadCache(); setLoadVersion(value => value + 1); };
+  useEffect(() => {
+    const expire = () => {
+      resetInbox();setBookingPackage(null);
+      setUser({...guestUser}); setBookings([]); setRecords([]); setVouchers([]); setNotifications([]); setTreatmentPlans([]);
+      setMemberSummary({upcomingBookings:0,remainingTreatmentSessions:0,activeCourses:0});
+      setIsNotificationsOpen(false); setIsTreatmentOpen(false); setIsEMRModalOpen(false); setETicketBooking(null); setBookingService(null);
+      setAcademyTarget(undefined); setProfileTarget(undefined); setBookingTarget(undefined); setActiveTab('home');
+      setZaloAuthError('Phiên đăng nhập đã hết hạn. Vui lòng kết nối lại với Zalo.'); setZaloAuthState('required');
+    };
+    window.addEventListener('mld:session-expired',expire);
+    return () => window.removeEventListener('mld:session-expired',expire);
+  }, []);
   // Fetch real data from Backend on mount
   useEffect(() => {
     let cancelled = false;
+    const images = new AbortController();
     async function loadBackendData() {
+      resetInbox();setBookingPackage(null);
       setDataLoading(true);
       setDataError('');
       setServices([]);
@@ -135,12 +246,24 @@ function MasterHomePage() {
       setMemberSummary({ upcomingBookings: 0, remainingTreatmentSessions: 0, activeCourses: 0 });
       setETicketBooking(null);
       setBookingService(null);
-      const publicPreload = apiClient.preloadPublicData();
-      const metadataRequest = apiClient.getAppMetadata();
+      void apiClient.preloadPublicData(images.signal).catch(() => {});
+      const publish = async (request: Promise<any>, apply: (value: any) => void) => {
+        const result = await request;
+        if (!cancelled && result && !result.error) apply(result);
+        return result;
+      };
+      const metadataRequest = publish(apiClient.getAppMetadata(),setAppMetadata);
+      const serviceRequest = publish(apiClient.getServices(),value => setServices(value.services || []));
+      void Promise.all([metadataRequest,serviceRequest]).finally(() => { if(!cancelled)setDataLoading(false); });
       const catalogRequest = Promise.all([
-        apiClient.getServices(), apiClient.getDoctors(), apiClient.getBranches(),
-        apiClient.getCourses(), apiClient.getCareGuidelines(),
+        serviceRequest, publish(apiClient.getDoctors(),value => setDoctors(value.doctors || [])), publish(apiClient.getBranches(),value => setBranches(value.branches || [])),
+        publish(apiClient.getCourses(),value => setCourses(value.courses || [])), publish(apiClient.getCareGuidelines(),value => setGuidelines(value.guidelines || [])),
       ]);
+      const publicReady = Promise.all([metadataRequest,catalogRequest]).then(([metadata,[srvData,docData,brData,crsData,care]]) => {
+        if (cancelled) return;
+        if ([metadata,srvData,docData,brData,crsData,care].some(result=>!result||result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
+        setDataLoading(false);
+      });
       let authenticated = false;
       const isInsideZalo = /Zalo/i.test(navigator.userAgent) || Boolean((window as any).ZJSBridge);
       if (isInsideZalo) {
@@ -161,44 +284,40 @@ function MasterHomePage() {
         if (session?.user) { setUser(session.user); authenticated = true; }
         else { apiClient.logout(); setUser({ ...guestUser }); }
       }
-      const privatePreload = authenticated ? apiClient.preloadPrivateData() : Promise.resolve([]);
-      const [metadata, [srvData, docData, brData, crsData, care], recData, membData, bkData, notifData, treatmentData] = await Promise.all([
-        metadataRequest, catalogRequest,
+      if (authenticated) void apiClient.preloadPrivateData().catch(() => {});
+      const authEpoch=apiClient.sessionVersion(),inboxEpoch=notificationPageEpoch.current,inboxReadRevision=notificationReadRevision.current;
+      const [recData, membData, bkData, notifData, treatmentData] = await Promise.all([
         authenticated ? apiClient.getMedicalRecords() : Promise.resolve({}),
         authenticated ? apiClient.getMembership() : Promise.resolve({}),
         authenticated ? apiClient.getBookings() : Promise.resolve({}),
         authenticated ? apiClient.getNotifications() : Promise.resolve({}),
         authenticated ? apiClient.getTreatmentPlans() : Promise.resolve({}),
-        publicPreload, privatePreload,
       ]);
       if (cancelled) return;
-      if (!metadata?.error) setAppMetadata(metadata);
-      if (care?.guidelines) setGuidelines(care.guidelines);
-
-      const results = [srvData, docData, brData, crsData, care, ...(authenticated ? [recData, membData, bkData, notifData, treatmentData] : [])];
-      if (metadata?.error || results.some(result => !result || result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
-      setDataLoading(false);
-      if (srvData?.services) setServices(srvData.services);
-      if (docData?.doctors) setDoctors(docData.doctors);
-      if (brData?.branches) setBranches(brData.branches);
-      if (crsData?.courses) setCourses(crsData.courses);
+      if(apiClient.sessionVersion()!==authEpoch)return;
       if (recData?.records) setRecords(recData.records);
       if (membData?.vouchers) setVouchers(membData.vouchers);
       if (membData?.user) setUser((prev) => ({ ...prev, ...membData.user }));
       if (membData?.summary) setMemberSummary(membData.summary);
       if (bkData?.bookings) setBookings(bkData.bookings);
-      if (notifData?.notifications) setNotifications(notifData.notifications);
+      if (notifData?.notifications&&inboxEpoch===notificationPageEpoch.current) applyNotificationPage(notifData,false,inboxReadRevision);
       if (treatmentData?.treatmentPlans) setTreatmentPlans(treatmentData.treatmentPlans);
+      await publicReady;
     }
 
     loadBackendData().catch(() => { if (!cancelled) { setDataError('Không thể tải dữ liệu. Vui lòng thử lại.'); setDataLoading(false); } });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; images.abort(); };
   }, [loadVersion]);
 
   const connectZaloProfile = async () => {
+    if (authBusy.current) return;
+    authBusy.current = true;
+    const attempt = ++authAttempt.current;
     setZaloAuthError('');
     setZaloAuthState('checking');
     const result = await apiClient.loginWithZalo(true);
+    if (attempt !== authAttempt.current) return;
+    authBusy.current = false;
     if (result?.registrationRequired && result.registrationToken) {
       setRegistration({ registrationToken: result.registrationToken, phone: result.phone, suggestedName: result.suggestedName, suggestedAvatar: result.suggestedAvatar });
       setZaloAuthState('web');
@@ -218,8 +337,12 @@ function MasterHomePage() {
   };
 
   const refreshBookingRelatedData = () => {
-    apiClient.getNotifications().then(response => response?.notifications && setNotifications(response.notifications));
+    const owner=currentUserId.current,epoch=notificationPageEpoch.current,filter=notificationFilterRef.current,revision=notificationReadRevision.current;
+    apiClient.getNotifications(true,undefined,filter).then(response => {
+      if(owner===currentUserId.current&&epoch===notificationPageEpoch.current)applyNotificationPage(response,false,revision,filter);
+    });
     apiClient.getMembership().then(response => {
+      if(owner!==currentUserId.current)return;
       if (response?.summary) setMemberSummary(response.summary);
       if (response?.vouchers) setVouchers(response.vouchers);
     });
@@ -239,12 +362,79 @@ function MasterHomePage() {
   const upcomingBooking = bookings.filter(booking => ['confirmed','pending'].includes(booking.status) && bookingStart(booking) > Date.now())
     .sort((a,b) => bookingStart(a)-bookingStart(b))[0] || null;
 
-  const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null) => {
+  const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null, ownedPackage?:{id:string;name:string}) => {
     if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return; }
     if (!services.length || !branches.length) return;
+    setBookingPackage(ownedPackage||null);
     setBookingBranch(branch || branches.find(item => item.id === homeBranchId) || branches[0] || null);
     setBookingDoctor(doctor || null);
     setBookingService(service || services[0] || null);
+  };
+
+  const openNotification = async (notification: AppNotification) => {
+    const owner = user.id;
+    if (!owner) throw new Error('Vui lòng đăng nhập lại.');
+    const target = notification.data?.target || (notification.type.toUpperCase() === 'BOOKING' && notification.entityId ? {screen:'booking' as const,entityId:notification.entityId} : undefined);
+    if (!target) return;
+    const requireCurrent = () => { if (currentUserId.current !== owner) throw new Error('Phiên đăng nhập đã thay đổi.'); };
+    const unavailable = () => new Error('Nội dung này không còn khả dụng hoặc bạn không có quyền truy cập.');
+    if (target.screen === 'booking') {
+      apiClient.invalidateReadPaths(['/bookings']);
+      const response = await apiClient.getBookings(); requireCurrent();
+      if (response?.error) throw new Error(response.error);
+      const booking = response?.bookings?.find((item: Booking) => item.id === target.entityId);
+      if (!booking) throw unavailable();
+      setBookings(response.bookings); setBookingTarget({id:notification.id,bookingId:booking.id}); setActiveTab('booking');
+    } else if (target.screen === 'academy') {
+      apiClient.invalidateReadPaths(['/course-enrollments',`/courses/${target.courseId}/learning`]);
+      const response = await apiClient.getCourseEnrollments(); requireCurrent();
+      if (response?.error) throw new Error(response.error);
+      const entry = response?.enrollments?.find((item: any) => item.id === target.enrollmentId && item.courseId === target.courseId);
+      if (!entry) throw unavailable();
+      setAcademyTarget({id:notification.id,enrollmentId:entry.id,tab:target.tab || 'content',quizId:target.quizId});
+      setSelectedCourseId(null); setAcademyMode('learning'); setActiveTab('academy');
+    } else if (target.screen === 'profile') {
+      if (!['payments','points','vouchers'].includes(target.tab || '')) throw unavailable();
+      apiClient.invalidateReadPaths(['/transactions','/membership']);
+      if (target.tab === 'vouchers') {
+        const response = await apiClient.getMembership(); requireCurrent();
+        if (response?.error) throw new Error(response.error);
+        if (!response?.vouchers?.some((item: any) => item.id === target.entityId)) throw unavailable();
+        setVouchers(response.vouchers);
+      } else {
+        const response = await apiClient.getTransactions(); requireCurrent();
+        if (response?.error) throw new Error(response.error);
+        const entries = target.tab === 'payments' ? response?.invoices : response?.pointTransactions;
+        if (!entries?.some((item: any) => item.id === target.entityId)) throw unavailable();
+      }
+      setProfileTarget({id:notification.id,tab:target.tab as 'payments'|'points'|'vouchers',entityId:target.entityId}); setActiveTab('profile');
+    } else if (target.screen === 'treatment') {
+      const tab = target.tab;
+      if (!['packages','journal','support'].includes(tab || '')) throw unavailable();
+      apiClient.invalidateReadPaths(['/treatment-plans','/records','/reviews/mine','/support-tickets']);
+      if (tab === 'packages') {
+        const response = await apiClient.getTreatmentPlans(); requireCurrent();
+        if (response?.error) throw new Error(response.error);
+        if (!response?.treatmentPlans?.some((item: any) => item.id === target.entityId)) throw unavailable();
+        setTreatmentPlans(response.treatmentPlans);
+      } else if (tab === 'journal') {
+        const response = await apiClient.getMedicalRecords(); requireCurrent();
+        if (response?.error) throw new Error(response.error);
+        if (!response?.records?.some((item: any) => item.id === target.entityId)) {
+          const reviews = await apiClient.getMyReviews(); requireCurrent();
+          if (reviews?.error) throw new Error(reviews.error);
+          if (!reviews?.reviews?.some((item: any) => item.id === target.entityId)) throw unavailable();
+        }
+        setRecords(response?.records || []);
+      } else if (tab === 'support') {
+        const response = await apiClient.getSupportTickets(); requireCurrent();
+        if (response?.error) throw new Error(response.error);
+        if (!response?.tickets?.some((item: any) => item.id === target.entityId)) throw unavailable();
+      }
+      setTreatmentEntityId(target.entityId); setTreatmentInitialTab(tab as 'packages'|'journal'|'support'); setIsTreatmentOpen(true);
+    }
+    if (target.screen !== 'treatment') setIsTreatmentOpen(false);
+    setIsNotificationsOpen(false);
   };
 
   // Filtered services for Tab 'services'
@@ -281,7 +471,8 @@ function MasterHomePage() {
                 {zaloAuthState === 'checking' ? 'Đang kết nối...' : 'Tiếp tục với Zalo'}
               </button>
               <p className="mt-3 text-[10px] text-[#8A7D74]">Không cần nhập số điện thoại hoặc mã OTP.</p>
-              <button type="button" disabled={zaloAuthState === 'checking'} onClick={() => setZaloAuthState('web')} className="mt-3 min-h-11 px-4 text-xs font-semibold text-[#75685F] disabled:opacity-60">Xem dịch vụ trước</button>
+              <LegalLinks />
+              <button type="button" onClick={() => { authAttempt.current++; authBusy.current=false; apiClient.cancelZaloLogin(); setZaloAuthState('web'); }} className="mt-3 min-h-11 px-4 text-xs font-semibold text-[#75685F]">Xem dịch vụ trước</button>
             </div>
           </div>
         )}
@@ -298,6 +489,7 @@ function MasterHomePage() {
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
           <GroupBHome
+            carouselPaused={showLaunchScreen || showCareIntro || Boolean(registration) || zaloAuthState === 'checking' || zaloAuthState === 'required' || isAuthOpen || isNotificationsOpen || Boolean(viewingService)}
             userName={user.name}
             userAvatar={user.avatar}
             selectedBranchId={homeBranchId}
@@ -320,13 +512,8 @@ function MasterHomePage() {
             onOpenDirections={(br) => setDirectionsBranch(br)}
             onNavigateTab={(tabKey) => setActiveTab(tabKey as any)}
             onOpenSearch={() => setIsSearchOpen(true)}
-            onOpenNotifications={() => {
-              apiClient.getNotifications().then((response) => {
-                if (response?.notifications) setNotifications(response.notifications);
-                setIsNotificationsOpen(true);
-              });
-            }}
-            unreadNotifications={notifications.filter((item) => !item.isRead).length}
+            onOpenNotifications={() => setIsNotificationsOpen(true)}
+            unreadNotifications={notificationUnreadCount}
             onOpenBranches={() => { setDirectoryQuery(''); setActiveTab('services'); setIsBranchDirectoryOpen(true); }}
             onOpenSpecialists={() => { setDirectoryQuery(''); setActiveTab('services'); setIsSpecialistDirectoryOpen(true); }}
           />
@@ -488,6 +675,8 @@ function MasterHomePage() {
         {/* TAB 3: ĐẶT LỊCH & QUẢN LÝ LỊCH HẸN (FIGMA GROUP C: C01 -> C10) */}
         {activeTab === 'booking' && (
           <AppointmentsManager
+            key={`${user.id}:${bookingTarget?.id || ''}`}
+            initialBookingId={bookingTarget?.bookingId}
             bookings={bookings}
             branches={branches}
             loading={dataLoading}
@@ -505,7 +694,8 @@ function MasterHomePage() {
         )}
 
         {/* TAB 4: HỌC VIỆN & ĐÀO TẠO NGHỀ (FIGMA GROUP E) */}
-        {activeTab === 'academy' && <GroupEAcademy key={`${user.id}:${academyMode}`} courses={courses} userId={user.id} user={user} branches={branches}
+        {activeTab === 'academy' && <GroupEAcademy key={`${user.id}:${academyMode}:${academyTarget?.id || ''}`} courses={courses} userId={user.id} user={user} branches={branches}
+          notificationTarget={academyTarget}
           loading={dataLoading} error={dataError} onRefresh={refreshData}
           onOpenNotifications={() => { if (user.id) setIsNotificationsOpen(true); else { setCanCloseAuth(true); setIsAuthOpen(true); } }}
           onRequireLogin={() => { setCanCloseAuth(true); setIsAuthOpen(true); }}
@@ -515,10 +705,14 @@ function MasterHomePage() {
         {activeTab === 'profile' && (
           <Box className="space-y-4">
             <GroupFProfile
-              key={user.id}
+              branches={branches}
+              onRefreshData={refreshData}
+              key={`${user.id}:${profileTarget?.id || ''}`}
+              notificationTarget={profileTarget}
               user={user}
-              metadata={{ tierRules: appMetadata.membershipTiers, loyalty: appMetadata.loyaltySettings }}
+              metadata={{ tierRules: appMetadata.membershipTiers, loyalty: appMetadata.loyaltySettings,phoneVerified:Boolean(user.id) }}
               onLogout={async () => {
+                resetInbox();setBookingPackage(null);
                 apiClient.logout(); setUser({ ...guestUser }); setRegistration(null); setIsTreatmentOpen(false);
                 setIsEMRModalOpen(false); setIsNotificationsOpen(false); setActiveTab('home');
                 setBookings([]); setRecords([]); setVouchers([]); setNotifications([]); setTreatmentPlans([]);
@@ -561,8 +755,35 @@ function MasterHomePage() {
 
       {isNotificationsOpen && (
         <NotificationCenter
+          key={user.id}
           notifications={notifications}
+          filter={notificationFilter}
+          onFilter={filter=>{
+            if(notificationFilterRef.current===filter)return;
+            notificationFilterRef.current=filter;notificationPageEpoch.current++;
+            notificationMoreLock.current=false;notificationPaged.current=false;
+            setNotificationLoadingMore(false);setNotifications([]);setNotificationCursor(null);
+            setNotificationError('');setNotificationFilter(filter);
+          }}
           onChange={setNotifications}
+          unreadCount={notificationUnreadCount}
+          totalCount={notificationTotalCount}
+          onUnreadCount={value=>{notificationReadRevision.current++;setNotificationUnreadCount(value);setNotificationRefresh(current=>current+1);}}
+          hasMore={Boolean(notificationCursor)}
+          loadingMore={notificationLoadingMore}
+          onLoadMore={()=>{
+            if(notificationMoreLock.current||!notificationCursor)return;
+            notificationMoreLock.current=true;
+            const owner=user.id,readRevision=notificationReadRevision.current,epoch=notificationPageEpoch.current;setNotificationLoadingMore(true);
+            void apiClient.getNotifications(false,notificationCursor,notificationFilter).then(response=>{
+              if(currentUserId.current!==owner||epoch!==notificationPageEpoch.current)return;
+              if(response?.error||!Array.isArray(response?.notifications)){setNotificationError(response?.error||'Không thể tải thông báo.');return;}
+              notificationPaged.current=true;applyNotificationPage(response,true,readRevision,notificationFilter);
+            }).catch(()=>{if(epoch===notificationPageEpoch.current)setNotificationError('Không thể tải thông báo.');}).finally(()=>{if(epoch===notificationPageEpoch.current){notificationMoreLock.current=false;setNotificationLoadingMore(false);}});
+          }}
+          onOpen={openNotification}
+          loadError={notificationError}
+          onRefresh={() => setNotificationRefresh(value => value + 1)}
           onClose={() => setIsNotificationsOpen(false)}
         />
       )}
@@ -583,6 +804,8 @@ function MasterHomePage() {
       {/* 4. GROUP B EXTENSIONS: SERVICE DETAIL MODAL (B03) */}
       {viewingService && (
         <ServiceDetailModal
+          userId={user.id}
+          onRequireLogin={()=>{setCanCloseAuth(true);setIsAuthOpen(true);}}
           service={viewingService}
           onClose={() => setViewingService(null)}
           onBookNow={(s) => {
@@ -601,7 +824,9 @@ function MasterHomePage() {
           onBookWithDoctor={(doctor) => {
             setViewingDoctor(null);
             setIsSpecialistDirectoryOpen(false);
-            openBooking(services[0], branches.find(branch => branch.id === doctor.branchId), doctor);
+            const service=services.find(item=>doctor.serviceIds?.includes(item.id));
+            if(service)openBooking(service, branches.find(branch => branch.id === doctor.branchId), doctor);
+            else setDataError('Chuyên viên này chưa có dịch vụ nhận đặt lịch.');
           }}
         />
       )}
@@ -667,6 +892,7 @@ function MasterHomePage() {
       {/* 8. GROUP C: 4-STEP BOOKING FLOW MODAL (C01 -> C07) */}
       {bookingService && (
         <GroupCBooking
+          userPackage={bookingPackage || undefined}
           currentUser={user}
           initialService={bookingService}
           initialBranch={bookingBranch}
@@ -776,12 +1002,20 @@ function MasterHomePage() {
         <div className="absolute inset-x-0 top-0 bottom-[68px] z-20 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in">
           <div className="flex-1 overflow-y-auto">
             <GroupDTreatment
-              key={`${user.id}:${treatmentInitialTab}`}
+              key={`${user.id}:${treatmentInitialTab}:${treatmentEntityId || ''}`}
+              initialEntityId={treatmentEntityId}
               initialTab={treatmentInitialTab}
               treatmentPlans={treatmentPlans}
               records={records}
               bookings={bookings}
               onNotificationsChange={setNotifications}
+              onOpenNotification={openNotification}
+              onOpenInbox={()=>setIsNotificationsOpen(true)}
+              onOpenPlanBooking={(id,serviceId)=>{
+                const service=services.find(item=>item.id===serviceId),plan=treatmentPlans.find(item=>item.id===id);
+                if(!service||!plan) { setDataError('Dịch vụ của gói không còn khả dụng.'); return; }
+                setIsTreatmentOpen(false); openBooking(service,null,null,{id,name:plan.name||plan.package?.name||''});
+              }}
               user={user}
               notifications={notifications}
               onClose={() => setIsTreatmentOpen(false)}

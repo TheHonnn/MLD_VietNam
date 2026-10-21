@@ -1,34 +1,54 @@
-const warmed = new Set<string>();
+import { concurrentMap } from '../utils/async-control';
 
-export async function preloadCatalogImages(payloads: any[]) {
-  const urls: string[] = [];
+const warmed = new Set<string>();
+const active = new Map<string, Promise<void>>();
+const MAX_IMAGES = 128;
+
+export async function preloadCatalogImages(payloads: any[], signal?: AbortSignal) {
+  const urls = new Set<string>();
   for (const payload of payloads) {
     for (const field of ['services','doctors','branches','courses','guidelines','instructors']) {
       if (!Array.isArray(payload?.[field])) continue;
       for (const record of payload[field]) {
-        for (const value of [record.image,record.imageUrl,record.avatar,record.avatarUrl,...(record.galleryUrls || [])]) {
+        for (const value of [record.image,record.imageUrl,record.avatar,record.avatarUrl,...(Array.isArray(record.galleryUrls) ? record.galleryUrls : [])]) {
           if (typeof value !== 'string' || !value.trim()) continue;
           try {
             const url = new URL(value,window.location.origin);
-            if (!['http:','https:'].includes(url.protocol) || url.username || url.password || warmed.has(url.href)) continue;
-            warmed.add(url.href); urls.push(url.href);
+            if (url.protocol !== 'https:' || url.username || url.password || warmed.has(url.href)) continue;
+            urls.add(url.href);
           } catch { /* Missing or invalid catalog media remains blank. */ }
         }
       }
     }
   }
-  let index = 0;
-  await Promise.all(Array.from({length:Math.min(3,urls.length)},async () => {
-    while (index < urls.length) {
-      const url = urls[index++];
-      await new Promise<void>(resolve => {
-        const photo = new Image();
-        const timer = window.setTimeout(() => { warmed.delete(url); resolve(); },15000);
-        photo.referrerPolicy = 'no-referrer';
-        photo.onload = () => { window.clearTimeout(timer); resolve(); };
-        photo.onerror = () => { window.clearTimeout(timer); warmed.delete(url); resolve(); };
-        photo.src = url;
-      });
-    }
-  }));
+  await concurrentMap([...urls].slice(0,MAX_IMAGES),3,async url => {
+    const pending = active.get(url);
+    if (pending) return pending;
+    const task = new Promise<void>(resolve => {
+      const photo = new Image();
+      let done = false;
+      const finish = (loaded: boolean) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        signal?.removeEventListener('abort',abort);
+        photo.onload = photo.onerror = null;
+        if (loaded) {
+          warmed.add(url);
+          while (warmed.size > MAX_IMAGES) warmed.delete(warmed.values().next().value!);
+        } else photo.src = '';
+        resolve();
+      };
+      const abort = () => finish(false);
+      const timer = window.setTimeout(abort,15000);
+      if (signal?.aborted) { abort(); return; }
+      signal?.addEventListener('abort',abort,{once:true});
+      photo.referrerPolicy = 'no-referrer';
+      photo.onload = () => finish(true);
+      photo.onerror = abort;
+      photo.src = url;
+    });
+    active.set(url,task);
+    try { await task; } finally { active.delete(url); }
+  },signal);
 }

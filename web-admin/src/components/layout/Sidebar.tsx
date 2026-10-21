@@ -23,9 +23,15 @@ import {
   BadgeCheck,
   ShieldCheck,
   type LucideIcon,
+  X,
 } from 'lucide-react';
 
-export const Sidebar: React.FC = () => {
+export interface SidebarProps {
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
   const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES);
   useEffect(() => {
     const controller = new AbortController();
@@ -74,21 +80,44 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-60 h-full min-h-0 overflow-y-auto overscroll-contain bg-white border-r border-[#EFE4D9] flex flex-col shrink-0 select-none font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Brand Logo Header Box (Exact Figma Pill Shape) */}
-      <div className="p-3.5 pb-2">
-        <NavLink
-          to="/"
-          title="MLD Vietnam - Tổng quan vận hành"
-          className="border border-[#D8C4B2] rounded-2xl px-3 py-2 bg-white flex items-center justify-center h-[56px] shadow-xs hover:border-[#BA7E4C] transition-colors"
-        >
-          <img
-            src="/logo.png"
-            alt="MLD Vietnam - Cộng Đồng Dẫn Lưu Bạch Huyết Việt Nam"
-            className="w-full h-full object-contain"
-          />
-        </NavLink>
-      </div>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      <div
+        className={`fixed inset-0 bg-black/50 backdrop-blur-[2px] z-40 transition-opacity duration-300 lg:hidden ${
+          isMobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onCloseMobile}
+        aria-hidden="true"
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] h-full min-h-0 overflow-y-auto overscroll-contain bg-white border-r border-[#EFE4D9] flex flex-col shrink-0 select-none font-['Plus_Jakarta_Sans',sans-serif] transition-transform duration-300 ease-in-out lg:static lg:w-60 lg:translate-x-0 ${
+          isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        {/* Brand Logo Header Box (Exact Figma Pill Shape) with Mobile Close Button */}
+        <div className="p-3.5 pb-2 flex items-center justify-between gap-2">
+          <NavLink
+            to="/"
+            onClick={onCloseMobile}
+            title="MLD Vietnam - Tổng quan vận hành"
+            className="border border-[#D8C4B2] rounded-2xl px-3 py-2 bg-white flex items-center justify-center h-[56px] flex-1 shadow-xs hover:border-[#BA7E4C] transition-colors"
+          >
+            <img
+              src="/logo.png"
+              alt="MLD Vietnam - Cộng Đồng Dẫn Lưu Bạch Huyết Việt Nam"
+              className="w-full h-full object-contain"
+            />
+          </NavLink>
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="lg:hidden p-2 rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+            title="Đóng danh mục"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
       {/* Workspace Section Header */}
       <div className="px-4 pt-2 pb-1.5">
@@ -144,5 +173,6 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
     </aside>
+    </>
   );
 };

@@ -251,6 +251,10 @@ export interface Branch {
   galleryUrls: string[];
   amenities: string[];
   isActive: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BranchRoom {
@@ -260,6 +264,9 @@ export interface BranchRoom {
   roomType: RoomType;
   bedCapacity: number;
   isAvailable: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
+  createdAt?: string;
 }
 
 export interface StaffProfile {
@@ -294,6 +301,20 @@ export interface Technician {
   specialties: string[];
   bio?: string | null;
   isActive: boolean;
+}
+
+export interface Instructor {
+  id: string;
+  userId?: string | null;
+  fullName: string;
+  title: string;
+  avatarUrl?: string;
+  experienceYears?: number;
+  bio?: string | null;
+  achievements?: string[];
+  isActive?: boolean;
+  createdAt?: string;
+  user?: Partial<User>;
 }
 
 export interface ServiceCategory {
@@ -374,6 +395,7 @@ export interface Booking {
   cancellationReason?: string | null;
   customer?: User;
   branch?: Branch;
+  room?: BranchRoom;
   technician?: Technician;
   items?: BookingItem[];
 }

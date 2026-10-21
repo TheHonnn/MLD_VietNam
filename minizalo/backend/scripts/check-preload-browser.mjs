@@ -18,8 +18,10 @@ try {
   await installApiAccess(guest);
   const guestRequests=[];
   await guest.route('**/*',route=>['GET','HEAD','OPTIONS'].includes(route.request().method())?route.continue():route.abort());
-  await guest.route('http://127.0.0.1:5107/api/**',async route=>{
-    const url=new URL(route.request().url()); guestRequests.push(url.pathname);
+  await guest.route('**/api/**',async route=>{
+    const url=new URL(route.request().url());
+    if(/\.(ts|tsx)$/.test(url.pathname))return route.fallback();
+    guestRequests.push(url.pathname);
     const response=await fetch(base+url.pathname+url.search);
     await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:await response.text()});
   });
@@ -39,8 +41,9 @@ try {
     await installApiAccess(page);
     const requests=[]; let owner=1;
     await page.route('**/*',route=>['GET','HEAD','OPTIONS'].includes(route.request().method())?route.continue():route.abort());
-    await page.route('http://127.0.0.1:5107/api/**',async route=>{
+    await page.route('**/api/**',async route=>{
       const request=route.request(),url=new URL(request.url());
+      if(/\.(ts|tsx)$/.test(url.pathname))return route.fallback();
       requests.push({path:url.pathname,query:url.search,method:request.method()});
       const response=await fetch(base+url.pathname+url.search,{method:request.method(),headers:headers(owner),body:request.postData()||undefined});
       await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:await response.text()});
@@ -49,6 +52,10 @@ try {
     await page.getByRole('button',{name:'Bỏ qua',exact:true}).click();
     await page.locator('.home-branch select:not([disabled])').waitFor();
     const paths=['/auth/settings','/transactions','/course-enrollments','/support-tickets','/consultation-surveys','/reviews/mine','/search/history'];
+    await page.waitForFunction(async()=>{
+      const api=await window.testApi(),enrollments=api.peek('/course-enrollments')?.enrollments;
+      return enrollments?.length===2&&enrollments.every(e=>api.peek(`/courses/${e.courseId}/learning?enrollmentId=${e.id}`));
+    });
     for(const path of paths) assert.equal(requests.filter(request=>request.method==='GET'&&request.path==='/api'+path).length,1,path);
     assert.equal(requests.filter(request=>request.path.endsWith('/learning')).length,2);
     const before=requests.length;

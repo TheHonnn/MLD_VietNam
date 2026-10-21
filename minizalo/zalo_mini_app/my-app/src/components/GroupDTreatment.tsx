@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/api/client';
+import { useBackAction } from '@/hooks/useNavigationHistory';
 import type { User, AppNotification, Booking } from '../../../../backend/src/data/database';
 import type { TreatmentPackage } from '../../../../../database/shared_types';
 import { ArrowLeftIcon, StarIcon } from './Icons';
@@ -11,6 +12,7 @@ type Plan = {
   id: string; status?: string; name?: string; image?: string; serviceName?: string; serviceImage?: string;
   serviceId?: string; package?: TreatmentPackage; totalSessions?: number; completedSessions?: number;
   usedSessions?: number; purchasedAt?: string; expiresAt?: string; purchaseDate?: string; expiryDate?: string;
+  reservedSessions?: number;
   sessions?: CareRecord[];
   durationMinutes?: number; serviceDescription?: string;
   serviceSteps?: (string | {title?:string;description?:string;desc?:string})[];
@@ -44,10 +46,13 @@ interface GroupDTreatmentProps {
   onClose: () => void;
   onOpenConsultation?: () => void;
   initialTab?: Tab;
+  initialEntityId?: string;
   treatmentPlans?: Plan[] | null;
   records?: CareRecord[] | null;
   bookings?: CareBooking[];
   onNotificationsChange?: (notifications: AppNotification[]) => void;
+  onOpenNotification?: (notification: AppNotification) => Promise<void>;
+  onOpenInbox?:()=>void;
 }
 
 const tabs: { id: Tab; label: string }[] = [
@@ -63,12 +68,12 @@ const emptySurvey = { bookingId: '', focusAreas: '', pressurePref: '', hasSensit
 const cachedPaths: Record<string,string> = {surveys:'/consultation-surveys',reviews:'/reviews/mine',guidelines:'/care-guidelines',tickets:'/support-tickets',faqs:'/support-faqs',records:'/records',bookings:'/bookings'};
 
 export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
-  user, notifications: serverNotifications, onClose, initialTab = 'packages',
-  treatmentPlans, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange,
+  user, notifications: serverNotifications, onClose, initialTab = 'packages', initialEntityId,
+  treatmentPlans, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange, onOpenNotification,onOpenPlanBooking,onOpenInbox,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [packageTab, setPackageTab] = useState('active');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialTab === 'packages' ? initialEntityId || null : null);
   const [articleId, setArticleId] = useState<string | null>(null);
   const [guidelines, setGuidelines] = useState<Guideline[]>(() => apiClient.peek('/care-guidelines')?.guidelines || []);
   const [tickets, setTickets] = useState<Ticket[]>(() => apiClient.peek('/support-tickets')?.tickets || []);
@@ -94,11 +99,21 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   const [survey, setSurvey] = useState(emptySurvey);
   const [notice, setNotice] = useState('');
   const busy = useRef(false);
+  useBackAction(Boolean(form || articleId || selectedId || loading.form || loading.send), () => {
+    if (busy.current) return;
+    if (form) setForm(null);
+    else if (articleId) setArticleId(null);
+    else setSelectedId(null);
+  },1);
   const notificationBusy = useRef(false);
   const error = (key: string, value: string) => setErrors(prev => ({ ...prev, [key]: value }));
 
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
   useEffect(() => { setLocalNotifications(serverNotifications); }, [serverNotifications]);
+  useEffect(() => {
+    if (!initialEntityId) return;
+    document.getElementById(`care-${initialEntityId}`)?.scrollIntoView({block:'center'});
+  }, [initialEntityId, tickets, myReviews, suppliedRecords]);
   useEffect(() => {
     let cancelled = false;
     setSavedSurveys(apiClient.peek('/consultation-surveys')?.surveys || null); setMyReviews(apiClient.peek('/reviews/mine')?.reviews || null); setReviewedBookings([]);
@@ -159,16 +174,17 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   };
 
   const markRead = async (id?: string) => {
-    if (notificationBusy.current || !localNotifications) return;
+    if (notificationBusy.current || !localNotifications) return false;
     notificationBusy.current = true; error('notifications', ''); setLoading(prev => ({ ...prev, notifications: true }));
     try {
       const result = id ? await apiClient.markNotificationRead(id) : await apiClient.markAllNotificationsRead();
       if (result?.error || (id ? result?.notification?.id !== id || result.notification.isRead !== true : result?.updated !== true)) {
-        error('notifications', result?.error || 'Không thể đánh dấu đã đọc.'); return;
+        error('notifications', result?.error || 'Không thể đánh dấu đã đọc.'); return false;
       }
       const next = localNotifications.map(item => !id || item.id === id ? { ...item, isRead: true } : item);
       setLocalNotifications(next); onNotificationsChange?.(next);
-    } catch { error('notifications', 'Không thể đánh dấu đã đọc.'); }
+      return true;
+    } catch { error('notifications', 'Không thể đánh dấu đã đọc.'); return false; }
     finally { notificationBusy.current = false; setLoading(prev => ({ ...prev, notifications: false })); }
   };
 
@@ -235,7 +251,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     <h2 className="text-sm font-bold">Lịch sử đánh giá</h2>{feedback('reviews')}
     {errors.reviews && <button className={button} onClick={() => setHistoryRetry(prev => prev + 1)}>Thử lại</button>}
     {!loading.reviews && !errors.reviews && <p className="text-xs">{myReviews ? myReviews.length ? '' : '' : ''}</p>}
-    {myReviews?.map(review => <article key={review.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+    {myReviews?.map(review => <article key={review.id} id={`care-${review.id}`} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
       <h3 className="font-semibold">{reviewName(review)}</h3><p>Ngày đánh giá: {careDate(review.createdAt)}</p>
       <p>{Number.isInteger(review.rating) && review.rating! >= 1 && review.rating! <= 5 ? `${review.rating}/5` : 'Mức đánh giá chưa khả dụng'}</p>
       {review.comment && <p className="whitespace-pre-wrap">{review.comment}</p>}
@@ -246,9 +262,9 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   </section>;
 
   return <div className="space-y-4 px-3 pt-3 pb-20 text-[#40352F] break-words">
-    <button disabled={loading.form} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
+    <button disabled={loading.form||loading.send} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
     {!form && !selected && !article && <nav aria-label="Chăm sóc" className="flex gap-2 overflow-x-auto pb-1">
-      {tabs.map(tab => <button key={tab.id} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
+      {tabs.map(tab => <button key={tab.id} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
     </nav>}
     {notice && <p role="status" className="text-sm">{notice}</p>}
 
@@ -265,6 +281,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
         setForm(null); setSurvey(emptySurvey); setNotice('Đã gửi phiếu thông tin.');
       });
     }}>
+      <fieldset disabled={Boolean(loading.form)} className="min-w-0 space-y-4 border-0 p-0">
       <h1 className="text-lg font-bold">Thông tin trước dịch vụ</h1>
       {feedback('bookings')}
       <label className="block space-y-1 text-xs">Lịch hẹn<select disabled={loading.bookings} className={input} value={survey.bookingId} onChange={e => setSurvey(prev => ({ ...prev, bookingId: e.target.value }))}>
@@ -274,6 +291,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <label className="block space-y-1 text-xs">Lực tác động<select required className={input} value={survey.pressurePref} onChange={e => setSurvey(prev => ({ ...prev, pressurePref: e.target.value }))}><option value="">Chọn mức lực</option><option value="LIGHT">Nhẹ</option><option value="MEDIUM">Vừa</option><option value="STRONG">Mạnh</option></select></label>
       {(['hasSensitiveSkin', 'hasOilAllergy'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{index === 0 ? 'Da nhạy cảm' : 'Dị ứng dầu'}<select required className={input} value={survey[field]} onChange={e => setSurvey(prev => ({ ...prev, [field]: e.target.value }))}><option value="">Chọn câu trả lời</option><option value="yes">Có</option><option value="no">Không</option></select></label>)}
       {feedback('form')}<button disabled={loading.form || loading.surveys} className={button} type="submit">Gửi phiếu thông tin</button>
+      </fieldset>
     </form>}
 
     {form === 'review' && reviewSession && <form className="space-y-4" onSubmit={event => {
@@ -288,6 +306,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
           setForm(null); setNotice('Đã gửi đánh giá.');
         });
     }}>
+      <fieldset disabled={Boolean(loading.form)} className="min-w-0 space-y-4 border-0 p-0">
       <h1 className="text-lg font-bold">Đánh giá trải nghiệm</h1>
       {reviewSession.serviceImage && <img src={reviewSession.serviceImage} alt={reviewSession.serviceName || ''} className="w-full rounded-[8px]" />}
       <p className="text-sm">{reviewSession.serviceName || 'Tên dịch vụ chưa khả dụng'}</p>
@@ -298,6 +317,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <p className="text-xs">{rating ? `${rating}/5` : 'Chưa chọn mức đánh giá'}</p>
       {(['comment', 'tags', 'photos'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{['Nhận xét', 'Nhãn đánh giá', 'Đường dẫn ảnh'][index]}<textarea className={input} rows={3} maxLength={field === 'comment' ? 10000 : undefined} value={field === 'comment' ? comment : field === 'tags' ? tags : photos} onChange={e => (field === 'comment' ? setComment : field === 'tags' ? setTags : setPhotos)(e.target.value)} /></label>)}
       {feedback('form')}<button type="submit" disabled={loading.form || !rating || !reviewable(reviewSession)} className={button}>Gửi đánh giá</button>
+      </fieldset>
     </form>}
 
     {!form && selected && <section className="space-y-4">
@@ -310,7 +330,9 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       {selected.serviceDescription && <p className="text-sm whitespace-pre-wrap">{selected.serviceDescription}</p>}
       {!!selected.serviceBenefits?.length && <section className="space-y-2"><h2 className="text-sm font-semibold">Lợi ích liệu trình</h2><ul className="list-disc pl-4 text-xs">{selected.serviceBenefits.map((benefit,index) => <li key={index}>{typeof benefit === 'string' ? benefit : benefit.title || benefit.description}</li>)}</ul></section>}
       {!!selected.serviceSteps?.length && <section className="space-y-3"><h2 className="text-sm font-semibold">Các bước thực hiện mỗi buổi</h2><ol className="list-decimal space-y-2 pl-4 text-xs">{selected.serviceSteps.map((step,index) => <li key={index}>{typeof step === 'string' ? step : <><strong>{step.title}</strong><p className="whitespace-pre-wrap">{step.description || step.desc}</p></>}</li>)}</ol></section>}
-      <button className={button} disabled title="Cần bổ sung liên kết lịch hẹn với gói sở hữu trong backend chung">Đặt lịch buổi tiếp theo</button>
+      <p className="text-xs">Đang giữ lịch: {selected.reservedSessions || 0} buổi</p>
+      <button className={button} disabled={!onOpenPlanBooking || selected.status?.toLowerCase()!=='active' || !selected.serviceId || (selected.totalSessions??0)-(selected.completedSessions??selected.usedSessions??0)-(selected.reservedSessions||0)<=0}
+        onClick={()=>selected.serviceId&&onOpenPlanBooking?.(selected.id,selected.serviceId)}>Đặt lịch buổi tiếp theo</button>
       {feedback('reviews')}
       <GroupDRecords records={sessions} />
       {sessions?.map(session => <div key={session.id} className="space-y-2 border-b border-[#EADECF] py-2">
@@ -382,7 +404,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       {faqs.map(faq => <details key={faq.id} className="border-b border-[#EADECF] py-2 text-sm"><summary>{faq.question}</summary><p className="mt-2 whitespace-pre-wrap">{faq.answer}</p></details>)}
       {feedback('tickets')}
       {!loading.tickets && !errors.tickets && !tickets.length && <p className="text-xs"></p>}
-      {tickets.map(ticket => <article key={ticket.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+      {tickets.map(ticket => <article key={ticket.id} id={`care-${ticket.id}`} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
         <h2 className="font-bold">{ticket.subject}</h2><p>{careDate(ticket.createdAt)}{ticket.status ? ` · ${ticket.status}` : ''}</p><p className="whitespace-pre-wrap">{ticket.message}</p>
         {ticket.adminReply && <div><h3 className="font-semibold">Phản hồi hỗ trợ</h3><p className="whitespace-pre-wrap">{ticket.adminReply}</p>{ticket.resolvedAt && <p>Ngày giải quyết: {careDate(ticket.resolvedAt)}</p>}</div>}
       </article>)}
@@ -391,9 +413,11 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
           setTickets(prev => [result.ticket, ...prev.filter(ticket => ticket.id !== result.ticket.id)]); setSubject(''); setMessage(''); setNotice('Đã gửi yêu cầu hỗ trợ.');
         });
       }}>
+        <fieldset disabled={Boolean(loading.send)} className="min-w-0 space-y-3 border-0 p-0">
         <label className="block space-y-1 text-xs">Tiêu đề<input required maxLength={200} className={input} value={subject} onChange={e => setSubject(e.target.value)} /></label>
         <label className="block space-y-1 text-xs">Nội dung<textarea required maxLength={10000} rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} /></label>
         {feedback('send')}<button type="submit" className={button} disabled={loading.send || loading.tickets || !subject.trim() || !message.trim()}>Gửi yêu cầu hỗ trợ</button>
+        </fieldset>
       </form>
     </section>}
 
@@ -406,6 +430,9 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       {localNotifications?.filter(item => !notifFilter || item.type === notifFilter).map(item => <article key={item.id} className={`space-y-2 rounded-[8px] border p-3 text-xs ${item.isRead ? 'border-[#EADECF]' : 'border-[#98501B]'}`}>
         <h2 className="font-bold">{item.title}</h2><p>{careDate(item.createdAt)}</p><p className="whitespace-pre-wrap">{item.message}</p>
         {!item.isRead && <button className={button} disabled={loading.notifications} onClick={() => void markRead(item.id)}>Đánh dấu đã đọc</button>}
+        {onOpenNotification && (item.data?.target || item.type.toUpperCase() === 'BOOKING') && <button className={button} disabled={loading.notifications} onClick={() => {
+          void (async () => { try { if (item.isRead || await markRead(item.id)) await onOpenNotification(item); } catch (failure) { error('notifications',failure instanceof Error ? failure.message : 'Không thể mở thông báo.'); } })();
+        }}>Xem nội dung</button>}
       </article>)}
     </section>}
   </div>;

@@ -4,8 +4,46 @@
 
 .mini-app-shell {
   --app-safe-top: max(env(safe-area-inset-top, 0px), 24px);
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+  --app-nav-height: calc(63px + var(--app-safe-bottom));
+  height: calc(100vh - var(--app-safe-top));
   height: calc(100dvh - var(--app-safe-top));
   margin-top: var(--app-safe-top);
+}
+
+/* The shell owns the status-bar inset; individual headers only add visual spacing. */
+.mini-app-shell[class] {
+  --home-safe-top: 16px;
+  --appointment-safe-top: 16px;
+  --booking-safe-top: 16px;
+  --branch-safe-top: 16px;
+  --specialist-safe-top: 16px;
+  --intro-safe-top: 16px;
+  --profile-safe-top: 16px;
+  --interest-safe-top: 16px;
+  --home-nav-height: var(--app-nav-height);
+  --appointment-nav-height: var(--app-nav-height);
+  --branch-nav-height: var(--app-nav-height);
+  --specialist-nav-height: var(--app-nav-height);
+}
+.mini-app-shell[class] > .app-bottom-nav { padding-bottom: var(--app-safe-bottom); }
+.mini-app-shell[class] > .app-bottom-nav > .app-home-indicator { display: none; }
+.mini-app-shell > .app-main-content:not(.app-main-content--home) { padding-bottom: calc(var(--app-nav-height) + 16px); }
+.mini-app-shell .academy-screen { bottom: var(--app-nav-height); }
+.mini-app-shell .academy-header, .mini-app-shell .search-header { padding-top: 16px; }
+.mini-app-shell .home-catalog-header { padding-top: 16px; }
+.mini-app-shell .service-detail-body { padding-top: 16px; }
+.mini-app-shell > .profile-overlay { padding-bottom: var(--app-safe-bottom); }
+
+@media (max-width: 639px) {
+  .mini-app-shell[class] {
+    height: calc(100vh - var(--app-safe-top));
+    height: calc(100dvh - var(--app-safe-top));
+    margin-top: var(--app-safe-top);
+    max-width: none;
+    border: 0;
+    box-shadow: none;
+  }
 }
 
 @media (min-width: 640px) {
