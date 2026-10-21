@@ -21,9 +21,18 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { customerService, treatmentService, branchService } from '../services';
+import { customerService, treatmentService, branchService, supabaseService } from '../services';
 import { toast } from '../components/common';
-import { User, MemberTier, UserPackage, PurposeInterest, UserRole, Branch } from '../types/shared_types';
+import {
+  User,
+  MemberTier,
+  UserPackage,
+  PurposeInterest,
+  UserRole,
+  Branch,
+  Booking,
+  CourseEnrollment,
+} from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 const INITIAL_NEW_CUSTOMER_FORM = {
@@ -36,119 +45,8 @@ const INITIAL_NEW_CUSTOMER_FORM = {
   address: '',
 };
 
-const SAMPLE_MOCK_CUSTOMERS: User[] = [
-  {
-    id: 'mock-001',
-    fullName: 'Nguyễn Minh Anh',
-    referralCode: 'WM-000128',
-    phone: '0912 345 678',
-    email: 'minhanh.nguyen@gmail.com',
-    membershipTier: MemberTier.GOLD,
-    rewardPoints: 2450,
-    totalSpent: 12500000,
-    gender: 'FEMALE',
-    purpose: PurposeInterest.BOTH,
-    role: UserRole.CUSTOMER,
-    address: 'Số 186 Nam Kỳ Khởi Nghĩa, Quận 3, TP.HCM',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-    isActive: true,
-    createdAt: '2026-10-08T09:30:00Z',
-    updatedAt: '2026-10-08T15:00:00Z',
-  },
-  {
-    id: 'mock-002',
-    fullName: 'Trần Ngọc Linh',
-    referralCode: 'WM-MH-002',
-    phone: '0912345214',
-    email: 'ngoclinh.tran@gmail.com',
-    membershipTier: MemberTier.SILVER,
-    rewardPoints: 0,
-    totalSpent: 4200000,
-    gender: 'FEMALE',
-    purpose: PurposeInterest.BEAUTY_SPA,
-    role: UserRole.CUSTOMER,
-    address: 'Phường Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
-    avatarUrl: null,
-    isActive: true,
-    createdAt: '2026-10-06T10:15:00Z',
-    updatedAt: '2026-10-06T14:20:00Z',
-  },
-  {
-    id: 'mock-003',
-    fullName: 'Phạm Thanh Mai',
-    referralCode: 'WM-MH-003',
-    phone: '0912345503',
-    email: 'thanhmai.pham@gmail.com',
-    membershipTier: MemberTier.STANDARD,
-    rewardPoints: 0,
-    totalSpent: 0,
-    gender: 'FEMALE',
-    purpose: PurposeInterest.ACADEMY,
-    role: UserRole.STUDENT,
-    address: 'Phường Võ Thị Sáu, Quận 3, TP.HCM',
-    avatarUrl: null,
-    isActive: true,
-    createdAt: '2026-10-04T08:45:00Z',
-    updatedAt: '2026-10-04T16:00:00Z',
-  },
-  {
-    id: 'mock-004',
-    fullName: 'Lê Bảo Ngọc',
-    referralCode: 'WM-MH-004',
-    phone: '0812345608',
-    email: 'baongoc.le@gmail.com',
-    membershipTier: MemberTier.SILVER,
-    rewardPoints: 0,
-    totalSpent: 3500000,
-    gender: 'FEMALE',
-    purpose: PurposeInterest.BEAUTY_SPA,
-    role: UserRole.CUSTOMER,
-    address: 'Quận 3, TP.HCM',
-    avatarUrl: null,
-    isActive: true,
-    createdAt: '2026-10-07T11:20:00Z',
-    updatedAt: '2026-10-07T17:30:00Z',
-  },
-  {
-    id: 'mock-005',
-    fullName: 'Võ Hải Yến',
-    referralCode: 'WM-MH-005',
-    phone: '0912345821',
-    email: 'haiyen.vo@gmail.com',
-    membershipTier: MemberTier.STANDARD,
-    rewardPoints: 0,
-    totalSpent: 1200000,
-    gender: 'FEMALE',
-    purpose: PurposeInterest.BEAUTY_SPA,
-    role: UserRole.CUSTOMER,
-    address: 'Quận 3, TP.HCM',
-    avatarUrl: null,
-    isActive: true,
-    createdAt: '2026-10-03T14:10:00Z',
-    updatedAt: '2026-10-03T18:00:00Z',
-  },
-  {
-    id: 'mock-006',
-    fullName: 'Đặng Quốc Huy',
-    referralCode: 'WM-MH-006',
-    phone: '0812345906',
-    email: 'quochuy.dang@gmail.com',
-    membershipTier: MemberTier.STANDARD,
-    rewardPoints: 0,
-    totalSpent: 850000,
-    gender: 'MALE',
-    purpose: PurposeInterest.BEAUTY_SPA,
-    role: UserRole.CUSTOMER,
-    address: 'Quận 3, TP.HCM',
-    avatarUrl: null,
-    isActive: true,
-    createdAt: '2026-10-02T13:00:00Z',
-    updatedAt: '2026-10-02T16:45:00Z',
-  },
-];
-
 const getInitials = (name: string) => {
-  const parts = name.trim().split(/\s+/);
+  const parts = (name || '').trim().split(/\s+/);
   if (parts.length === 0 || !parts[0]) return 'KH';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -170,28 +68,22 @@ const getTierLabel = (tier?: MemberTier) => {
   }
 };
 
-const getSourceLabel = (c: User, idx: number) => {
-  if (c.fullName === 'Nguyễn Minh Anh') return 'Ứng dụng mẫu';
-  if (c.fullName === 'Trần Ngọc Linh') return 'Tư vấn tại cơ sở';
-  if (c.fullName === 'Phạm Thanh Mai') return 'Giới thiệu mẫu';
-  if (c.fullName === 'Lê Bảo Ngọc') return 'Ứng dụng mẫu';
-  if (c.fullName === 'Võ Hải Yến') return 'Tư vấn tại cơ sở';
-  if (c.fullName === 'Đặng Quốc Huy') return 'Giới thiệu mẫu';
-  if (c.purpose === PurposeInterest.BOTH) return 'Ứng dụng mẫu';
-  if (c.role === UserRole.STUDENT) return 'Giới thiệu mẫu';
-  const sources = ['Ứng dụng mẫu', 'Tư vấn tại cơ sở', 'Giới thiệu mẫu'];
-  return sources[idx % sources.length];
+const getSourceLabel = (c: User) => {
+  if (c.referredById) return 'Giới thiệu bạn bè';
+  if (c.referralCode) return 'Mã giới thiệu';
+  if (c.purpose === PurposeInterest.ACADEMY) return 'Tuyển sinh học viện';
+  if (c.purpose === PurposeInterest.BEAUTY_SPA) return 'Tư vấn tại cơ sở';
+  if (c.purpose === PurposeInterest.BOTH) return 'Ứng dụng MLD';
+  return 'Ứng dụng MLD';
 };
 
-const getLastVisitDate = (c: User) => {
-  if (c.fullName === 'Nguyễn Minh Anh') return '08/10/2026';
-  if (c.fullName === 'Trần Ngọc Linh') return '06/10/2026';
-  if (c.fullName === 'Phạm Thanh Mai') return '04/10/2026';
-  if (c.fullName === 'Lê Bảo Ngọc') return '07/10/2026';
-  if (c.fullName === 'Võ Hải Yến') return '03/10/2026';
-  if (c.fullName === 'Đặng Quốc Huy') return '02/10/2026';
-  if (c.updatedAt) {
-    const d = new Date(c.updatedAt);
+const getLastVisitDate = (c: User, bookings: Booking[]) => {
+  const userBookings = (bookings || [])
+    .filter((b) => b.customerId === c.id && b.bookingDate)
+    .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
+
+  if (userBookings.length > 0) {
+    const d = new Date(userBookings[0].bookingDate);
     if (!isNaN(d.getTime())) {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -199,78 +91,90 @@ const getLastVisitDate = (c: User) => {
       return `${day}/${month}/${year}`;
     }
   }
-  return '08/10/2026';
-};
 
-const getPackageLine1 = (c: User) => {
-  if (c.fullName === 'Nguyễn Minh Anh') return '2 gói · 11 buổi còn';
-  if (c.fullName === 'Trần Ngọc Linh') return 'Chăm sóc da';
-  if (c.fullName === 'Phạm Thanh Mai') return 'Quan tâm học nghề';
-  if (c.fullName === 'Lê Bảo Ngọc') return 'Dịch vụ chăm sóc da';
-  if (c.fullName === 'Võ Hải Yến') return 'Dịch vụ cơ thể';
-  if (c.fullName === 'Đặng Quốc Huy') return 'Massage thư giãn';
-  if (c.purpose === PurposeInterest.BOTH) return '2 gói · 11 buổi còn';
-  if (c.purpose === PurposeInterest.ACADEMY) return 'Quan tâm học nghề';
-  if ((c.totalSpent || 0) > 3000000) return 'Dịch vụ chăm sóc da';
-  if ((c.totalSpent || 0) > 1000000) return 'Dịch vụ cơ thể';
-  if ((c.totalSpent || 0) > 0) return 'Massage thư giãn';
-  return 'Chăm sóc da';
-};
-
-const getPackageLine2 = (c: User) => {
-  if (c.fullName === 'Nguyễn Minh Anh') return '3 khóa · 1 đang học';
-  if (c.fullName === 'Phạm Thanh Mai') return 'Hồ sơ tuyển sinh mới';
-  if (
-    c.fullName === 'Trần Ngọc Linh' ||
-    c.fullName === 'Lê Bảo Ngọc' ||
-    c.fullName === 'Võ Hải Yến' ||
-    c.fullName === 'Đặng Quốc Huy'
-  ) {
-    return 'Chưa có gói mẫu';
+  if (c.updatedAt || c.createdAt) {
+    const d = new Date(c.updatedAt || c.createdAt);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
   }
-  if (c.purpose === PurposeInterest.BOTH) return '3 khóa · 1 đang học';
-  if (c.purpose === PurposeInterest.ACADEMY) return 'Hồ sơ tuyển sinh mới';
-  return 'Chưa có gói mẫu';
+
+  return 'Chưa có lượt hẹn';
 };
 
-const getPreferredBranch = (c: User) => {
-  if (c.fullName === 'Trần Ngọc Linh') return 'Cầu Giấy';
-  if (
-    c.fullName === 'Nguyễn Minh Anh' ||
-    c.fullName === 'Phạm Thanh Mai' ||
-    c.fullName === 'Lê Bảo Ngọc' ||
-    c.fullName === 'Võ Hải Yến' ||
-    c.fullName === 'Đặng Quốc Huy'
-  ) {
-    return 'Quận 3';
+const getPackageLine1 = (c: User, packages: UserPackage[]) => {
+  const userPkgs = (packages || []).filter((p) => p.customerId === c.id);
+  const activePkgs = userPkgs.filter((p) => p.status === 'ACTIVE');
+  if (activePkgs.length > 0) {
+    const remaining = activePkgs.reduce(
+      (sum, p) => sum + Math.max(0, p.totalSessions - (p.completedSessions || 0)),
+      0
+    );
+    if (activePkgs.length === 1 && activePkgs[0].package?.name) {
+      return `${activePkgs[0].package.name} · ${remaining} buổi còn`;
+    }
+    return `${activePkgs.length} gói · ${remaining} buổi còn`;
   }
-  const addr = (c.address || '').toLowerCase();
-  if (addr.includes('cầu giấy') || addr.includes('hà nội')) return 'Cầu Giấy';
-  if (addr.includes('quận 1') || addr.includes('minh khai')) return 'Quận 1';
-  return 'Quận 3';
+  if (userPkgs.length > 0) {
+    return `Đã hoàn thành ${userPkgs.length} gói`;
+  }
+  if (c.purpose === PurposeInterest.BEAUTY_SPA) return 'Chăm sóc da';
+  if (c.totalSpent && c.totalSpent > 0) return 'Khách sử dụng lẻ';
+  return 'Chưa đăng ký gói';
 };
 
-const getStatusLabel = (c: User) => {
-  if (c.fullName === 'Nguyễn Minh Anh') return 'Khách hàng & học viên';
-  if (c.fullName === 'Phạm Thanh Mai') return 'Khách tiềm năng';
-  if (
-    c.fullName === 'Trần Ngọc Linh' ||
-    c.fullName === 'Lê Bảo Ngọc' ||
-    c.fullName === 'Võ Hải Yến' ||
-    c.fullName === 'Đặng Quốc Huy'
-  ) {
-    return 'Đang theo dõi';
+const getPackageLine2 = (c: User, enrollments: CourseEnrollment[]) => {
+  const userEnrolls = (enrollments || []).filter((e) => e.studentId === c.id);
+  if (userEnrolls.length > 0) {
+    const studying = userEnrolls.filter((e) => e.status === 'STUDYING').length;
+    if (studying > 0) {
+      return `${userEnrolls.length} khóa · ${studying} đang học`;
+    }
+    return `${userEnrolls.length} khóa đào tạo`;
   }
-  if (c.purpose === PurposeInterest.BOTH) return 'Khách hàng & học viên';
-  if (c.purpose === PurposeInterest.ACADEMY || !c.totalSpent) return 'Khách tiềm năng';
-  return 'Đang theo dõi';
+  if (c.purpose === PurposeInterest.ACADEMY || c.role === UserRole.STUDENT) {
+    return 'Hồ sơ tuyển sinh mới';
+  }
+  return 'Chưa có gói đào tạo';
 };
 
-const getStatusStyle = (c: User) => {
-  if (c.fullName === 'Nguyễn Minh Anh' || c.purpose === PurposeInterest.BOTH) {
-    return 'bg-[#FDEEE4] text-[#A4532A]';
+const getPreferredBranch = (c: User, bookings: Booking[], branches: Branch[]) => {
+  const userBookings = (bookings || []).filter((b) => b.customerId === c.id);
+  if (userBookings.length > 0) {
+    const latestB = userBookings[0];
+    const br = (branches || []).find((b) => b.id === latestB.branchId);
+    if (br) {
+      return br.district || br.name.replace(/MLD Beauty & Spa – Cơ sở\s*/i, '');
+    }
   }
-  return 'bg-[#F4ECE3] text-[#8E6549]';
+  if (c.address) {
+    const addr = c.address.toLowerCase();
+    for (const br of branches || []) {
+      if (br.district && addr.includes(br.district.toLowerCase())) return br.district;
+      if (br.city && addr.includes(br.city.toLowerCase())) return br.city;
+    }
+  }
+  return branches[0]?.district || 'Quận 3';
+};
+
+const getStatusLabel = (c: User, packages: UserPackage[], enrollments: CourseEnrollment[]) => {
+  const hasEnroll = (enrollments || []).some((e) => e.studentId === c.id) || c.role === UserRole.STUDENT;
+  const hasService =
+    (packages || []).some((p) => p.customerId === c.id) || (c.totalSpent && c.totalSpent > 0);
+  if (hasEnroll && hasService) return 'Khách hàng & học viên';
+  if (hasEnroll) return 'Học viên học viện';
+  if (hasService) return 'Đang theo dõi';
+  return 'Khách tiềm năng';
+};
+
+const getStatusStyle = (label: string) => {
+  if (label === 'Khách hàng & học viên') return 'bg-[#FDEEE4] text-[#A4532A]';
+  if (label === 'Học viên học viện') return 'bg-[#E1F5FE] text-[#0277BD]';
+  if (label === 'Đang theo dõi') return 'bg-[#F4ECE3] text-[#8E6549]';
+  return 'bg-[#FFF3E0] text-[#E65100]';
 };
 
 const getFormattedCode = (c: User, idx: number) => {
@@ -280,15 +184,18 @@ const getFormattedCode = (c: User, idx: number) => {
     if (c.referralCode.length > 10) return `WM-${c.referralCode.slice(0, 6).toUpperCase()}`;
     return `WM-${c.referralCode}`;
   }
-  return `WM-MH-${String(idx + 1).padStart(3, '0')}`;
+  if (c.phone) {
+    const digits = c.phone.replace(/\D/g, '');
+    if (digits.length >= 4) return `WM-${digits.slice(-4)}`;
+  }
+  return `WM-${c.id.slice(0, 6).toUpperCase()}`;
 };
 
-const getMaskedPhone = (phone: string) => {
+const getMaskedPhone = (phone?: string) => {
   if (!phone) return '09•• ••• •••';
-  if (phone.includes(' ')) return phone;
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length >= 10) {
-    return `${digits.slice(0, 2)}•• ••• ${digits.slice(-3)}`;
+  const clean = phone.replace(/\D/g, '');
+  if (clean.length === 10) {
+    return `${clean.slice(0, 4)} ${clean.slice(4, 7)} ${clean.slice(7)}`;
   }
   return phone;
 };
@@ -298,6 +205,9 @@ export const W03_Customers: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [allCustomers, setAllCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [allPackages, setAllPackages] = useState<UserPackage[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
+  const [allEnrollments, setAllEnrollments] = useState<CourseEnrollment[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>('ALL');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedPackages, setSelectedPackages] = useState<UserPackage[]>([]);
@@ -316,22 +226,19 @@ export const W03_Customers: React.FC = () => {
   const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState(INITIAL_NEW_CUSTOMER_FORM);
 
-  // Fetch all customers & branches on load
+  // Fetch all customers, branches, packages, bookings, enrollments on load directly from Supabase Cloud
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
-      const [res, branchRes] = await Promise.all([
+      const [res, branchRes, pkgRes, bkgRes, enrollRes] = await Promise.all([
         customerService.getCustomers(),
         branchService.getAllBranches(),
+        supabaseService.getUserPackages(),
+        supabaseService.getBookings(),
+        supabaseService.getEnrollments(),
       ]);
-      const list = [...SAMPLE_MOCK_CUSTOMERS];
-      if (res.success && res.data && res.data.length > 0) {
-        for (const u of res.data) {
-          if (!list.some((m) => m.id === u.id || m.phone === u.phone)) {
-            list.push(u);
-          }
-        }
-      }
+
+      const list = res.success && res.data ? res.data : [];
       setAllCustomers(list);
       if (list.length > 0 && !selectedCustomerId) {
         setSelectedCustomerId(list[0].id);
@@ -339,8 +246,17 @@ export const W03_Customers: React.FC = () => {
       if (branchRes.success && branchRes.data) {
         setBranches(branchRes.data);
       }
+      if (pkgRes) {
+        setAllPackages(pkgRes);
+      }
+      if (bkgRes) {
+        setAllBookings(bkgRes);
+      }
+      if (enrollRes) {
+        setAllEnrollments(enrollRes);
+      }
     } catch (err) {
-      console.error('Failed to load customers or branches:', err);
+      console.error('Failed to load real customer data from Supabase:', err);
     } finally {
       setIsLoading(false);
     }
@@ -772,6 +688,88 @@ export const W03_Customers: React.FC = () => {
     filteredCustomers.length > 0
       ? allCustomers.find((c) => c.id === selectedCustomerId) || filteredCustomers[0]
       : null;
+
+  const selectedCustomerPackages = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return allPackages.filter((p) => p.customerId === selectedCustomer.id);
+  }, [allPackages, selectedCustomer]);
+
+  const selectedCustomerBookings = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return allBookings.filter((b) => b.customerId === selectedCustomer.id);
+  }, [allBookings, selectedCustomer]);
+
+  const selectedCustomerEnrollments = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return allEnrollments.filter((e) => e.studentId === selectedCustomer.id);
+  }, [allEnrollments, selectedCustomer]);
+
+  const isDualRole =
+    selectedCustomerEnrollments.length > 0 &&
+    (selectedCustomerPackages.length > 0 || (selectedCustomer?.totalSpent || 0) > 0);
+
+  const isStudentOnly =
+    selectedCustomerEnrollments.length > 0 || selectedCustomer?.role === UserRole.STUDENT;
+
+  const relatedBranchNames = useMemo(() => {
+    if (!selectedCustomer) return 'Quận 3';
+    const bIds = Array.from(new Set(selectedCustomerBookings.map((b) => b.branchId).filter(Boolean)));
+    const names = bIds
+      .map((id) => {
+        const br = branches.find((b) => b.id === id);
+        return br?.district || br?.name.replace(/MLD Beauty & Spa – Cơ sở\s*/i, '');
+      })
+      .filter(Boolean);
+    if (names.length > 0) return names.join(' · ');
+    return getPreferredBranch(selectedCustomer, selectedCustomerBookings, branches);
+  }, [selectedCustomer, selectedCustomerBookings, branches]);
+
+  const expiringPackages = useMemo(() => {
+    const now = new Date();
+    return selectedCustomerPackages.filter((p) => {
+      if (p.status !== 'ACTIVE' || !p.expiresAt) return false;
+      const expDate = new Date(p.expiresAt);
+      const diffDays = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays >= 0 && diffDays <= 60;
+    });
+  }, [selectedCustomerPackages]);
+
+  const careList = useMemo(() => {
+    const items: { date: string; title: string; note: string }[] = [];
+    const sortedBookings = [...allBookings]
+      .filter((b) => b.bookingDate)
+      .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
+
+    for (const b of sortedBookings.slice(0, 3)) {
+      const cust = allCustomers.find((u) => u.id === b.customerId) || b.customer;
+      const cName = cust?.fullName ? cust.fullName.split(' ').slice(-2).join(' ') : 'Khách hàng';
+      const d = new Date(b.bookingDate);
+      const dStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      const priceStr = b.finalPrice ? `${b.finalPrice.toLocaleString('vi-VN')}đ` : '';
+      const content = b.specialNotes || `lịch hẹn ${b.bookingCode}${priceStr ? ` (${priceStr})` : ''}`;
+      items.push({
+        date: dStr,
+        title: cName,
+        note: content,
+      });
+    }
+
+    if (items.length < 2) {
+      for (const e of allEnrollments.slice(0, 2)) {
+        const student = allCustomers.find((u) => u.id === e.studentId);
+        const sName = student?.fullName ? student.fullName.split(' ').slice(-2).join(' ') : 'Học viên';
+        const d = e.enrolledAt ? new Date(e.enrolledAt) : new Date();
+        const dStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        items.push({
+          date: dStr,
+          title: sName,
+          note: `theo dõi tiến độ học ${e.progressPercent || 0}% và lịch thực hành.`,
+        });
+      }
+    }
+
+    return items;
+  }, [allBookings, allEnrollments, allCustomers]);
 
   // CUST-01: Modal Handlers Tiếp nhận khách hàng mới
   const handleOpenCreateCustomerModal = () => {
@@ -1233,7 +1231,7 @@ export const W03_Customers: React.FC = () => {
         <div className="p-5 sm:px-6 sm:py-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-[#3E200C]">Danh sách khách hàng</h2>
           <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
-            {filteredCustomers.length} bản ghi mẫu
+            {filteredCustomers.length} khách hàng
           </span>
         </div>
 
@@ -1279,6 +1277,7 @@ export const W03_Customers: React.FC = () => {
               ) : (
                 paginatedCustomers.map((c, idx) => {
                   const isSelected = c.id === selectedCustomerId;
+                  const statusLbl = getStatusLabel(c, allPackages, allEnrollments);
                   return (
                     <tr
                       key={c.id}
@@ -1319,28 +1318,28 @@ export const W03_Customers: React.FC = () => {
                           {c.rewardPoints > 0 && ` · ${c.rewardPoints.toLocaleString('vi-VN')} điểm`}
                         </div>
                         <div className="text-[11px] text-[#73675F] whitespace-nowrap mt-0.5">
-                          {getSourceLabel(c, idx)}
+                          {getSourceLabel(c)}
                         </div>
                       </td>
 
                       {/* 3. Lần gần nhất */}
                       <td className="py-3 px-4 text-xs text-[#2C241E] whitespace-nowrap">
-                        {getLastVisitDate(c)}
+                        {getLastVisitDate(c, allBookings)}
                       </td>
 
                       {/* 4. Gói / học tập */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="text-xs font-medium text-[#2C241E] whitespace-nowrap">
-                          {getPackageLine1(c)}
+                          {getPackageLine1(c, allPackages)}
                         </div>
                         <div className="text-[11px] text-[#73675F] whitespace-nowrap mt-0.5">
-                          {getPackageLine2(c)}
+                          {getPackageLine2(c, allEnrollments)}
                         </div>
                       </td>
 
                       {/* 5. Chi nhánh ưu tiên */}
                       <td className="py-3 px-4 text-xs text-[#2C241E] whitespace-nowrap">
-                        {getPreferredBranch(c)}
+                        {getPreferredBranch(c, allBookings, branches)}
                       </td>
 
                       {/* 6. Trạng thái / thao tác */}
@@ -1348,10 +1347,10 @@ export const W03_Customers: React.FC = () => {
                         <div className="flex flex-col items-end sm:items-center gap-0.5">
                           <span
                             className={`inline-block px-2.5 py-0.5 rounded text-[10.5px] font-bold whitespace-nowrap ${getStatusStyle(
-                              c
+                              statusLbl
                             )}`}
                           >
-                            {getStatusLabel(c)}
+                            {statusLbl}
                           </span>
                           {isSelected && (
                             <button
@@ -1378,7 +1377,7 @@ export const W03_Customers: React.FC = () => {
         {/* Table Footer / Pagination */}
         <div className="px-6 py-3.5 flex items-center justify-between text-xs text-[#73675F] border-t border-[#F4ECE3] bg-white">
           <div>
-            Hiển thị {paginatedCustomers.length} / {filteredCustomers.length} bản ghi minh họa
+            Hiển thị {paginatedCustomers.length} / {filteredCustomers.length} khách hàng
           </div>
           <div className="flex items-center gap-1.5">
             <button
@@ -1414,7 +1413,7 @@ export const W03_Customers: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Bottom 3 Cards (Khách hàng & học viên | Sắp hết hạn gói | Danh sách chăm sóc mẫu) */}
+      {/* 4. Bottom 3 Cards (Khách hàng & học viên | Sắp hết hạn gói | Danh sách chăm sóc) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5 mt-5">
         {/* Card 1: Khách hàng & học viên */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
@@ -1429,27 +1428,34 @@ export const W03_Customers: React.FC = () => {
                 />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-[#F5E5D5] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8D4C1]">
-                  {getInitials(selectedCustomer?.fullName || 'Minh Anh')}
+                  {getInitials(selectedCustomer?.fullName || 'Khách hàng')}
                 </div>
               )}
               <div>
                 <h4 className="text-xs font-bold text-[#2C241E]">
-                  {selectedCustomer?.fullName || 'Nguyễn Minh Anh'}
+                  {selectedCustomer?.fullName || 'Chưa chọn khách hàng'}
                 </h4>
                 <p className="text-[11px] text-[#73675F] mt-0.5">
-                  Một tài khoản · {selectedCustomer?.purpose === 'BOTH' ? 'Dịch vụ và học viện' : selectedCustomer?.purpose === 'ACADEMY' ? 'Học viên đào tạo' : 'Dịch vụ và học viện'}
+                  Một tài khoản · {isDualRole ? 'Dịch vụ và học viện' : isStudentOnly ? 'Học viên đào tạo nghề' : 'Khách hàng dịch vụ spa'}
                 </p>
               </div>
             </div>
 
             <p className="text-xs text-[#73675F] leading-relaxed mt-4">
-              Phân nhóm trong tập mẫu: {selectedCustomer ? selectedCustomer.fullName.split(' ').slice(-2).join(' ') : 'Minh Anh'} đồng thời sử dụng dịch vụ và đã ghi danh học nghề.
+              Phân nhóm dữ liệu thực: {selectedCustomer?.fullName || 'Khách hàng'}{' '}
+              {isDualRole
+                ? 'đồng thời sử dụng dịch vụ chăm sóc sắc đẹp và ghi danh học nghề tại MLD Academy.'
+                : isStudentOnly
+                ? 'hiện đang theo học các chương trình chuyên môn tại viện đào tạo.'
+                : (selectedCustomer?.totalSpent || 0) > 0
+                ? `đang sử dụng dịch vụ spa với tổng chi tiêu ${(selectedCustomer?.totalSpent || 0).toLocaleString('vi-VN')} ₫.`
+                : 'được tiếp nhận qua hệ thống, đang tư vấn nhu cầu dịch vụ.'}
             </p>
           </div>
 
           <div className="pt-3 border-t border-[#F4ECE3] flex items-center justify-between text-xs mt-4">
             <span className="text-[#73675F]">Chi nhánh liên quan</span>
-            <span className="font-bold text-[#2C241E]">Quận 3 · Cầu Giấy</span>
+            <span className="font-bold text-[#2C241E]">{relatedBranchNames}</span>
           </div>
         </div>
 
@@ -1458,10 +1464,16 @@ export const W03_Customers: React.FC = () => {
           <div>
             <h3 className="text-base font-bold text-[#3E200C]">Sắp hết hạn gói</h3>
             <div className="text-xs font-bold text-[#2C241E] mt-3">
-              Chưa có gói hết hạn trong tháng này
+              {expiringPackages.length > 0
+                ? `Có ${expiringPackages.length} gói sắp hết hạn`
+                : 'Chưa có gói hết hạn trong tháng này'}
             </div>
             <p className="text-xs text-[#73675F] leading-relaxed mt-2">
-              2 gói của {selectedCustomer ? selectedCustomer.fullName.split(' ').slice(-2).join(' ') : 'Minh Anh'} có hạn đến 31/12/2026. Không suy rộng thành thống kê toàn chuỗi.
+              {expiringPackages.length > 0
+                ? `Gói của ${selectedCustomer?.fullName || 'khách hàng'} có hạn đến ${new Date(expiringPackages[0].expiresAt).toLocaleDateString('vi-VN')}. Vui lòng liên hệ nhắc lịch sử dụng.`
+                : selectedCustomerPackages.length > 0
+                ? `${selectedCustomerPackages.filter((p) => p.status === 'ACTIVE').length} gói của ${selectedCustomer?.fullName?.split(' ').slice(-2).join(' ') || 'khách hàng'} có hạn đến ${selectedCustomerPackages[0].expiresAt ? new Date(selectedCustomerPackages[0].expiresAt).toLocaleDateString('vi-VN') : 'vô thời hạn'}. Đồng bộ trực tiếp từ Supabase Cloud.`
+                : `${selectedCustomer?.fullName || 'Khách hàng'} hiện chưa kích hoạt gói liệu trình trả trước nào trong cơ sở dữ liệu.`}
             </p>
           </div>
 
@@ -1476,24 +1488,28 @@ export const W03_Customers: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 3: Danh sách chăm sóc mẫu */}
+        {/* Card 3: Danh sách chăm sóc */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-bold text-[#3E200C]">Danh sách chăm sóc mẫu</h3>
+            <h3 className="text-base font-bold text-[#3E200C]">Danh sách chăm sóc gần đây</h3>
             <div className="space-y-2.5 mt-3 text-xs text-[#2C241E]">
-              <div className="leading-snug">
-                <span className="font-medium text-[#73675F]">12/10/2026 · </span>
-                <span>Minh Anh: trao đổi về khoản cọc 150.000đ.</span>
-              </div>
-              <div className="leading-snug">
-                <span className="font-medium text-[#73675F]">13/10/2026 · </span>
-                <span>Thanh Mai: tư vấn khung giờ học.</span>
-              </div>
+              {careList.length > 0 ? (
+                careList.map((item, idx) => (
+                  <div key={idx} className="leading-snug">
+                    <span className="font-medium text-[#73675F]">{item.date} · </span>
+                    <span>{item.title}: {item.note}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-[#8C7A6B] py-2 text-xs">
+                  Chưa có lịch hẹn hoặc nhiệm vụ chăm sóc mới.
+                </div>
+              )}
             </div>
           </div>
 
           <div className="pt-3 border-t border-[#F4ECE3] text-[11px] text-[#8C7A6B] mt-4">
-            Nhiệm vụ minh họa, chưa gửi thông báo hoặc gọi điện.
+            Dữ liệu lịch hẹn và học vụ đồng bộ thời gian thực từ Supabase Cloud.
           </div>
         </div>
       </div>
