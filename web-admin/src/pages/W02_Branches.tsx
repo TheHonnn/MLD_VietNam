@@ -691,11 +691,10 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng chọn loại phòng dịch vụ.');
       return;
     }
-    if (
-      crossBranchCreateRoomForm.bedCapacity === '' ||
-      Number(crossBranchCreateRoomForm.bedCapacity) <= 0
-    ) {
-      toast.error('Thiếu thông tin', 'Vui lòng nhập số giường sức chứa (tối thiểu 1 giường).');
+    const rawBedCap = Number(crossBranchCreateRoomForm.bedCapacity);
+    const bedCap = Math.floor(rawBedCap);
+    if (!bedCap || bedCap < 1 || bedCap > 20) {
+      toast.error('Số giường không hợp lệ', 'Vui lòng nhập số giường nguyên dương từ 1 đến 20 giường.');
       return;
     }
 
@@ -723,7 +722,7 @@ export const W02_Branches: React.FC = () => {
 
       if (matchingArchived) {
         const roomType = crossBranchCreateRoomForm.roomType as RoomType;
-        const bedCapacity = Number(crossBranchCreateRoomForm.bedCapacity);
+        const bedCapacity = bedCap;
         const isAvailable = crossBranchCreateRoomForm.isAvailable;
 
         // 1. Khôi phục phòng trên Supabase Cloud
@@ -794,7 +793,7 @@ export const W02_Branches: React.FC = () => {
         branchId: targetBranchId,
         name: cleanName,
         roomType: crossBranchCreateRoomForm.roomType as RoomType,
-        bedCapacity: Number(crossBranchCreateRoomForm.bedCapacity),
+        bedCapacity: bedCap,
         isAvailable: crossBranchCreateRoomForm.isAvailable,
       };
 
@@ -882,11 +881,10 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng chọn loại phòng dịch vụ.');
       return;
     }
-    if (
-      crossBranchEditRoomForm.bedCapacity === '' ||
-      Number(crossBranchEditRoomForm.bedCapacity) <= 0
-    ) {
-      toast.error('Thiếu thông tin', 'Vui lòng nhập số giường sức chứa (tối thiểu 1 giường).');
+    const rawBedCap = Number(crossBranchEditRoomForm.bedCapacity);
+    const bedCap = Math.floor(rawBedCap);
+    if (!bedCap || bedCap < 1 || bedCap > 20) {
+      toast.error('Số giường không hợp lệ', 'Vui lòng nhập số giường nguyên dương từ 1 đến 20 giường.');
       return;
     }
 
@@ -897,7 +895,7 @@ export const W02_Branches: React.FC = () => {
         branchId: crossBranchEditRoomForm.branchId,
         name: crossBranchEditRoomForm.name.trim(),
         roomType: crossBranchEditRoomForm.roomType as RoomType,
-        bedCapacity: Number(crossBranchEditRoomForm.bedCapacity),
+        bedCapacity: bedCap,
         isAvailable: crossBranchEditRoomForm.isAvailable,
       };
 
@@ -1369,9 +1367,10 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin phòng', 'Vui lòng chọn loại phòng.');
       return;
     }
-    const bedCap = Number(newRoomData.bedCapacity);
-    if (!bedCap || bedCap <= 0) {
-      toast.error('Thiếu thông tin phòng', 'Vui lòng nhập số giường (tối thiểu 1 giường).');
+    const rawBedCap = Number(newRoomData.bedCapacity);
+    const bedCap = Math.floor(rawBedCap);
+    if (!bedCap || bedCap < 1 || bedCap > 20) {
+      toast.error('Số giường không hợp lệ', 'Vui lòng nhập số giường nguyên dương từ 1 đến 20 giường.');
       return;
     }
 
@@ -1577,22 +1576,48 @@ export const W02_Branches: React.FC = () => {
   const handleSaveBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!managingBranch) return;
-    if (!editForm.name.trim()) {
+
+    const cleanName = editForm.name.trim();
+    const cleanCode = editForm.code.trim().toUpperCase();
+    const cleanPhone = editForm.phone.trim();
+    const cleanAddress = editForm.address.trim();
+
+    if (!cleanName) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập tên chi nhánh.');
       return;
     }
-    if (!editForm.phone.trim()) {
+    if (!cleanCode) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập mã định danh chi nhánh.');
+      return;
+    }
+    if (!cleanPhone) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập hotline chi nhánh.');
+      return;
+    }
+    if (!cleanAddress) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập địa chỉ cơ sở.');
+      return;
+    }
+
+    // BUG-02: Kiểm tra trùng mã định danh với cơ sở khác
+    const isCodeDuplicate =
+      branches.some((b) => b.id !== managingBranch.id && b.code.trim().toUpperCase() === cleanCode) ||
+      allArchivedBranches.some((b) => b.id !== managingBranch.id && b.code.trim().toUpperCase() === cleanCode);
+    if (isCodeDuplicate) {
+      toast.warning(
+        'Trùng mã chi nhánh',
+        `Mã định danh "${cleanCode}" đã được sử dụng cho một cơ sở khác trên hệ thống. Vui lòng chọn mã khác.`
+      );
       return;
     }
 
     setIsSavingBranch(true);
     try {
       const updates: Partial<Branch> = {
-        name: editForm.name.trim(),
-        code: editForm.code.trim().toUpperCase(),
-        phone: editForm.phone.trim(),
-        address: editForm.address.trim(),
+        name: cleanName,
+        code: cleanCode,
+        phone: cleanPhone,
+        address: cleanAddress,
         district: editForm.district.trim(),
         city: editForm.city.trim(),
         openingTime: `${editForm.openingTime}:00`,
@@ -1688,30 +1713,47 @@ export const W02_Branches: React.FC = () => {
 
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
+    const cleanName = formData.name.trim();
+    const cleanCode = formData.code.trim().toUpperCase();
+    const cleanPhone = formData.phone.trim();
+    const cleanAddress = formData.address.trim();
+
+    if (!cleanName) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập tên chi nhánh.');
       return;
     }
-    if (!formData.code.trim()) {
+    if (!cleanCode) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập mã định danh chi nhánh.');
       return;
     }
-    if (!formData.phone.trim()) {
+    if (!cleanPhone) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập số điện thoại hotline cơ sở.');
       return;
     }
-    if (!formData.address.trim()) {
+    if (!cleanAddress) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập địa chỉ cơ sở.');
+      return;
+    }
+
+    // BUG-02: Kiểm tra trùng mã định danh chi nhánh
+    const isCodeDuplicate =
+      branches.some((b) => b.code.trim().toUpperCase() === cleanCode) ||
+      allArchivedBranches.some((b) => b.code.trim().toUpperCase() === cleanCode);
+    if (isCodeDuplicate) {
+      toast.warning(
+        'Trùng mã chi nhánh',
+        `Mã định danh "${cleanCode}" đã được sử dụng cho một cơ sở khác trên hệ thống. Vui lòng chọn mã khác.`
+      );
       return;
     }
 
     setIsSubmitting(true);
     try {
       const branchPayload: Omit<Branch, 'id'> = {
-        name: formData.name.trim(),
-        code: formData.code.trim().toUpperCase(),
-        phone: formData.phone.trim(),
-        address: formData.address.trim(),
+        name: cleanName,
+        code: cleanCode,
+        phone: cleanPhone,
+        address: cleanAddress,
         district: formData.district.trim() || 'Quận 1',
         city: formData.city.trim() || 'TP. Hồ Chí Minh',
         latitude: 10.7769,
@@ -1731,6 +1773,14 @@ export const W02_Branches: React.FC = () => {
       };
 
       const res = await branchService.createBranch(branchPayload);
+      // BUG-01: Kiểm tra nghiêm ngặt kết quả phản hồi từ API Supabase Cloud
+      if (!res.success || !res.data || !res.data.id) {
+        toast.error(
+          'Lỗi khởi tạo chi nhánh',
+          res.message || 'Không thể lưu chi nhánh vào cơ sở dữ liệu Supabase. Vui lòng kiểm tra lại kết nối.'
+        );
+        return;
+      }
       const createdBranch = res.data;
 
       // Update state
@@ -3624,7 +3674,7 @@ export const W02_Branches: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleToggleRoomAvailability(room.id)}
@@ -3636,6 +3686,20 @@ export const W02_Branches: React.FC = () => {
                             title="Bấm để chuyển đổi trạng thái sẵn sàng"
                           >
                             {room.isAvailable ? 'Sẵn sàng' : 'Bận / Bảo trì'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenCrossBranchEditRoom({
+                                ...room,
+                                branchName: managingBranch?.name,
+                                branchCode: managingBranch?.code,
+                              })
+                            }
+                            className="p-1.5 text-[#8C7A6B] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
+                            title="Chỉnh sửa tên phòng, loại phòng, số giường"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
@@ -4549,7 +4613,7 @@ export const W02_Branches: React.FC = () => {
               setEditingCrossBranchRoom(null);
             }
           }}
-          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-[60] p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}
