@@ -14,9 +14,10 @@ class ApiEndpoints {
   static String baseUrl = defaultBaseUrl;
 
   /// Backend Central Gateway (NestJS) Configuration
-  static const String backendBaseUrl = 'http://127.0.0.1:3000/api/v1';
-  static const String backendLanIp = '192.168.1.192';
-  static const String backendLanBaseUrl = 'http://192.168.1.192:3000/api/v1';
+  static const String backendBaseUrl = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: 'https://mld-vietnam.onrender.com/api/v1',
+  );
 
   // --- Supabase REST Data Endpoints ---
   static const String branches = '/rest/v1/branches';

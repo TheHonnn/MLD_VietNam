@@ -38,11 +38,17 @@ class ApiClient {
       QueuedInterceptorsWrapper(
         onRequest: (options, handler) async {
           // 0. Tự động định tuyến các API Xác thực (Auth) sang Backend Gateway NestJS
-          if (options.path.startsWith('/auth/') ||
+          if ((options.path.startsWith('/auth/') && !options.path.startsWith('/auth/v1/')) ||
               options.path.startsWith('/academy/') ||
               options.path.startsWith('/treatment/') ||
-              options.path.startsWith('/membership/') || options.path.startsWith('/bookings') || options.path.startsWith('/appointments') || options.path.startsWith('/payments')) {
-            const backendBase = ApiEndpoints.backendBaseUrl;
+              options.path.startsWith('/membership/') ||
+              options.path.startsWith('/bookings') ||
+              options.path.startsWith('/appointments') ||
+              options.path.startsWith('/payments')) {
+            var backendBase = ApiEndpoints.backendBaseUrl.replaceAll(RegExp(r'/+$'), '');
+            if (!backendBase.endsWith('/api/v1')) {
+              backendBase = '$backendBase/api/v1';
+            }
             options.baseUrl = '';
             options.path = '$backendBase${options.path}';
           }
@@ -78,28 +84,6 @@ class ApiClient {
           return handler.next(response);
         },
         onError: (DioException error, handler) async {
-          // 0. Tự động thử lại với LAN IP nếu kết nối qua 127.0.0.1 không phản hồi
-          final req = error.requestOptions;
-          if (req.path.contains('127.0.0.1:3000') &&
-              (error.type == DioExceptionType.connectionError ||
-               error.type == DioExceptionType.connectionTimeout)) {
-            try {
-              final lanPath = req.path.replaceAll('127.0.0.1:3000', '${ApiEndpoints.backendLanIp}:3000');
-              final retryOptions = Options(
-                method: req.method,
-                headers: req.headers,
-                contentType: req.contentType,
-                responseType: req.responseType,
-              );
-              final retryRes = await _dio.request(
-                lanPath,
-                data: req.data,
-                queryParameters: req.queryParameters,
-                options: retryOptions,
-              );
-              return handler.resolve(retryRes);
-            } catch (_) {}
-          }
           // Xử lý 401 Unauthorized: Kích hoạt Silent Refresh tự động
           if (error.response?.statusCode == 401) {
             final path = error.requestOptions.path;
