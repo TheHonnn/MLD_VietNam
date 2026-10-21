@@ -42,15 +42,15 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: PAYOS_CLIENT_ID
-        value: "bc4b5481-da88-4f8f-bacd-4226e4ce959a"
+        sync: false
       - key: PAYOS_API_KEY
         sync: false
       - key: PAYOS_CHECKSUM_KEY
         sync: false
       - key: PAYOS_BANK_BIN
-        value: "970422"
+        sync: false
       - key: PAYOS_BANK_ACCOUNT_NO
-        value: "0394316963"
+        sync: false
       - key: PAYOS_BANK_ACCOUNT_NAME
-        value: "BUI THE HOANG"
+        sync: false
 

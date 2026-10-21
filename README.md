@@ -74,19 +74,23 @@ npm run start:dev      # Khởi chạy server tại http://localhost:3000
 ---
 
 ## 💳 Cấu Hình Cổng Thanh Toán VietQR (PayOS)
-Hệ thống thanh toán đã tích hợp chuẩn **VietQR Napas 247** qua PayOS:
-- **Tài khoản nhận:** MBBank - `0394316963` (BUI THE HOANG).
-- **Cơ chế xác thực:** Cơ chế kiểm tra đối soát 2 lớp:
-  - Mobile App tự động kiểm tra trạng thái giao dịch ngân hàng theo thời gian thực (Polling mỗi 3 giây).
-  - Quy tắc bảo đảm an toàn: **"Chưa nhận tiền – Chưa hoàn tất đơn hàng"** (Không thể bypass nếu khách chưa quét mã chuyển khoản thành công).
-- **Các biến môi trường Backend (`backend/.env`):**
+Hệ thống thanh toán đã tích hợp chuẩn **VietQR Napas 247** qua cổng Open Banking PayOS:
+- **Nguyên lý hoạt động:**
+  - Tạo link và mã QR động kèm chính xác số tiền dịch vụ và nội dung chuyển khoản tự động.
+  - Mobile App đối soát trạng thái giao dịch ngân hàng theo thời gian thực (Polling mỗi 3 giây).
+  - Quy tắc an toàn bắt buộc: **"Chưa nhận tiền – Chưa hoàn tất đơn hàng"** (Chỉ khi ngân hàng xác nhận giao dịch thành công mới chuyển trạng thái hoàn tất).
+- **Cấu trúc biến môi trường mẫu (`backend/.env`):**
   ```env
-  PAYOS_CLIENT_ID=bc4b5481-da88-4f8f-bacd-4226e4ce959a
-  PAYOS_API_KEY=3fc4338f-0940-40df-bd37-30cf6e8ad734
-  PAYOS_CHECKSUM_KEY=46edada6e9e516bfca357fc1db04bddb529ce2f1185be31e6a3b9e9de7aad436
+  PAYOS_CLIENT_ID=your_client_id_here
+  PAYOS_API_KEY=your_api_key_here
+  PAYOS_CHECKSUM_KEY=your_checksum_key_here
+  PAYOS_BANK_BIN=970422
+  PAYOS_BANK_ACCOUNT_NO=your_account_number_here
+  PAYOS_BANK_ACCOUNT_NAME=your_account_name_here
   PAYOS_RETURN_URL=mld://payment/success
   PAYOS_CANCEL_URL=mld://payment/cancel
   ```
+  *(Lấy thông tin kết nối và bộ khóa API tại [payos.vn](https://payos.vn) và lưu vào file `.env` cục bộ).*
 
 ---
 
@@ -108,6 +112,24 @@ Trước khi push hoặc tạo Pull Request, lập trình viên cần chạy ki�
    cd backend
    npm run build
    ```
+
+---
+
+## 📊 Bảng Tiến Độ Dự Án (Mobile App & Backend Status)
+
+| Phân hệ / Tính năng | Mô tả chi tiết | Trạng thái |
+| :--- | :--- | :---: |
+| **Giao diện chuẩn Figma** | Toàn bộ 50+ màn hình Mobile hoàn thiện 100% theo bản vẽ Figma | ✅ Hoàn thành |
+| **Tương thích Responsive** | Bọc `SingleChildScrollView` toàn bộ Form, Dialog, Bottom Sheet; chống tràn chữ trên mọi cỡ màn hình | ✅ Hoàn thành |
+| **Hỗ trợ Cross-Platform** | Tự động hóa `flutter.ndkVersion` cho Android; Podfile chuẩn cho iOS/macOS | ✅ Hoàn thành |
+| **Live API: Đặt lịch khám (Booking)** | Tạo lịch thật, hủy lịch thật, đổi lịch thật kết nối DB PostgreSQL | ✅ Hoàn thành |
+| **Live API: Trị liệu (Treatment)** | Nhật ký buổi điều trị thực tế, ảnh chăm sóc spa, đánh giá dịch vụ | ✅ Hoàn thành |
+| **Live API: Học viện (Academy)** | Danh mục khóa học thật, nộp hồ sơ ghi danh, thời khóa biểu, làm bài test | ✅ Hoàn thành |
+| **Live API: Hội viên (Membership)** | Điểm tích lũy, đổi voucher thật, đồng bộ hồ sơ khách hàng giữa Mobile và Máy chủ | ✅ Hoàn thành |
+| **Thanh toán VietQR Napas** | Tích hợp PayOS VietQR, quét mã chuẩn xác số tiền, chặn hoàn tất khi chưa nhận tiền | ✅ Hoàn thành |
+| **Tự động Webhook ngân hàng** | Đấu nối nhận Webhook từ ngân hàng khi triển khai server production | ⏳ Chờ Server Free |
+| **Thông báo đẩy (FCM)** | Đẩy nhắc lịch hẹn, nhắc ca học qua Firebase Cloud Messaging | ⏳ Chờ Server Free |
+| **Web Admin & Mini App** | Các không gian làm việc độc lập do nhóm chuyên trách phát triển | 🔄 Đang triển khai |
 
 ---
 
