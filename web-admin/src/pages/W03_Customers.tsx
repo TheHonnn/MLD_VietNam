@@ -14,7 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { customerService, treatmentService } from '../services';
 import { toast } from '../components/common';
-import { User, MemberTier, UserPackage, PurposeInterest } from '../types/shared_types';
+import { User, MemberTier, UserPackage, PurposeInterest, UserRole } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 export const W03_Customers: React.FC = () => {
@@ -23,6 +23,7 @@ export const W03_Customers: React.FC = () => {
   const [allCustomers, setAllCustomers] = useState<User[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedPackages, setSelectedPackages] = useState<UserPackage[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string>('ALL');
   const [selectedTier, setSelectedTier] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedPurpose, setSelectedPurpose] = useState<string>('ALL');
@@ -67,24 +68,48 @@ export const W03_Customers: React.FC = () => {
       );
     }
 
-    // 2. Member Tier filter
+    // 2. Role filter (Khách hàng / Học viên / Kỹ thuật viên / Quản trị)
+    if (selectedRole !== 'ALL') {
+      if (selectedRole === 'CUSTOMER') {
+        result = result.filter((c) => c.role === UserRole.CUSTOMER);
+      } else if (selectedRole === 'STUDENT') {
+        result = result.filter((c) => c.role === UserRole.STUDENT);
+      } else if (selectedRole === 'TECHNICIAN') {
+        result = result.filter(
+          (c) =>
+            c.role === UserRole.TECHNICIAN ||
+            c.role === UserRole.INSTRUCTOR ||
+            c.role === UserRole.RECEPTIONIST ||
+            c.role === UserRole.CASHIER
+        );
+      } else if (selectedRole === 'ADMIN') {
+        result = result.filter(
+          (c) =>
+            c.role === UserRole.ADMIN ||
+            c.role === UserRole.SUPER_ADMIN ||
+            c.role === UserRole.BRANCH_MANAGER
+        );
+      }
+    }
+
+    // 3. Member Tier filter
     if (selectedTier !== 'ALL') {
       result = result.filter((c) => c.membershipTier === selectedTier);
     }
 
-    // 3. Status filter
+    // 4. Status filter
     if (selectedStatus === 'ACTIVE') {
       result = result.filter((c) => c.isActive !== false);
     } else if (selectedStatus === 'INACTIVE') {
       result = result.filter((c) => c.isActive === false);
     }
 
-    // 4. Purpose filter
+    // 5. Purpose filter
     if (selectedPurpose !== 'ALL') {
       result = result.filter((c) => c.purpose === selectedPurpose);
     }
 
-    // 5. Sorting
+    // 6. Sorting
     switch (selectedSort) {
       case 'SPENT_DESC':
         result.sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0));
@@ -106,14 +131,14 @@ export const W03_Customers: React.FC = () => {
     }
 
     return result;
-  }, [allCustomers, searchTerm, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
+  }, [allCustomers, searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
 
   // Reset page when filter criteria change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
+  }, [searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
 
   // Sync selected customer when list updates
   useEffect(() => {
@@ -132,6 +157,7 @@ export const W03_Customers: React.FC = () => {
 
   const hasActiveFilter =
     searchTerm.trim() !== '' ||
+    selectedRole !== 'ALL' ||
     selectedTier !== 'ALL' ||
     selectedStatus !== 'ALL' ||
     selectedPurpose !== 'ALL' ||
@@ -139,6 +165,7 @@ export const W03_Customers: React.FC = () => {
 
   const handleResetFilters = () => {
     setSearchTerm('');
+    setSelectedRole('ALL');
     setSelectedTier('ALL');
     setSelectedStatus('ALL');
     setSelectedPurpose('ALL');
@@ -181,6 +208,51 @@ export const W03_Customers: React.FC = () => {
         return 'bg-[#E8EDF2] text-[#4A5E73]';
       default:
         return 'bg-[#F4ECE3] text-[#78695E]';
+    }
+  };
+
+  const getRoleBadge = (role?: UserRole) => {
+    switch (role) {
+      case UserRole.CUSTOMER:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E8F5E9] text-[#2E7D32]">
+            Khách hàng
+          </span>
+        );
+      case UserRole.STUDENT:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E1F5FE] text-[#0277BD]">
+            Học viên
+          </span>
+        );
+      case UserRole.TECHNICIAN:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FFF3E0] text-[#E65100]">
+            Kỹ thuật viên
+          </span>
+        );
+      case UserRole.INSTRUCTOR:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F3E5F5] text-[#7B1FA2]">
+            Giảng viên
+          </span>
+        );
+      case UserRole.RECEPTIONIST:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FCE4EC] text-[#C2185B]">
+            Lễ tân
+          </span>
+        );
+      case UserRole.SUPER_ADMIN:
+      case UserRole.ADMIN:
+      case UserRole.BRANCH_MANAGER:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EDE7F6] text-[#512DA8]">
+            Quản trị
+          </span>
+        );
+      default:
+        return null;
     }
   };
 
@@ -281,6 +353,22 @@ export const W03_Customers: React.FC = () => {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* Role Dropdown */}
+        <div className="relative shrink-0 whitespace-nowrap">
+          <select
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
+          >
+            <option value="ALL">Vai trò</option>
+            <option value="CUSTOMER">Khách hàng</option>
+            <option value="STUDENT">Học viên</option>
+            <option value="TECHNICIAN">Kỹ thuật viên</option>
+            <option value="ADMIN">Quản trị</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Membership Tier Dropdown */}
@@ -426,7 +514,10 @@ export const W03_Customers: React.FC = () => {
                             className="w-9 h-9 rounded-full object-cover border border-[#E0D7CC]"
                           />
                           <div>
-                            <div className="font-bold text-[#2C241E]">{c.fullName}</div>
+                            <div className="font-bold text-[#2C241E] flex items-center gap-1.5 flex-wrap">
+                              <span>{c.fullName}</span>
+                              {getRoleBadge(c.role)}
+                            </div>
                             <div className="text-[11px] text-[#8C7A6B]">
                               Mã: {c.referralCode}
                             </div>
@@ -557,16 +648,25 @@ export const W03_Customers: React.FC = () => {
                 {selectedCustomer.fullName}
               </h3>
               <p className="text-xs text-[#73675F] mt-0.5">{selectedCustomer.phone}</p>
-              <span
-                className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold ${getTierBadgeStyle(
-                  selectedCustomer.membershipTier
-                )}`}
-              >
-                Hạng {selectedCustomer.membershipTier} · {selectedCustomer.rewardPoints} điểm
-              </span>
+              <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
+                {getRoleBadge(selectedCustomer.role)}
+                <span
+                  className={`px-3 py-0.5 rounded-full text-xs font-bold ${getTierBadgeStyle(
+                    selectedCustomer.membershipTier
+                  )}`}
+                >
+                  Hạng {selectedCustomer.membershipTier} · {selectedCustomer.rewardPoints} điểm
+                </span>
+              </div>
             </div>
 
             <div className="space-y-3 text-xs">
+              <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
+                <span className="text-[#73675F]">Vai trò tài khoản:</span>
+                <span className="font-semibold text-[#2C241E]">
+                  {getRoleBadge(selectedCustomer.role) || selectedCustomer.role}
+                </span>
+              </div>
               <div className="flex justify-between py-1 border-b border-[#FAF6F0]">
                 <span className="text-[#73675F]">Địa chỉ:</span>
                 <span className="font-semibold text-[#2C241E] text-right max-w-[200px]">
