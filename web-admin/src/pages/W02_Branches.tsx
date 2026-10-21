@@ -630,7 +630,7 @@ export const W02_Branches: React.FC = () => {
 
     toast.success(
       'Khôi phục thành công',
-      `Phòng "${room.name}" đã được khôi phục trở lại hệ thống vận hành.`
+      `Phòng "${room.name}" đã được khôi phục trở lại hệ thống vận hành. Toàn bộ lịch sử liên kết và đối soát trước đó được giữ nguyên vẹn 100%.`
     );
 
     await branchService.restoreRoom(room.id);
@@ -661,7 +661,8 @@ export const W02_Branches: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng chọn cơ sở chi nhánh cho phòng.');
       return;
     }
-    if (!crossBranchCreateRoomForm.name.trim()) {
+    const cleanName = crossBranchCreateRoomForm.name.trim();
+    if (!cleanName) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập tên phòng dịch vụ.');
       return;
     }
@@ -677,12 +678,100 @@ export const W02_Branches: React.FC = () => {
       return;
     }
 
+    const targetBranchId = crossBranchCreateRoomForm.branchId;
+    const targetBranch = branches.find((b) => b.id === targetBranchId);
+
+    // Kiểm tra trùng tên với phòng đang hoạt động tại cùng cơ sở
+    const alreadyActive = allRooms.some(
+      (r) => r.branchId === targetBranchId && r.name.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (alreadyActive) {
+      toast.warning(
+        'Trùng tên phòng',
+        `Phòng "${cleanName}" đang hoạt động tại ${targetBranch?.name || 'cơ sở này'}. Vui lòng chọn tên khác hoặc chỉnh sửa phòng hiện có.`
+      );
+      return;
+    }
+
     setIsCrossBranchCreatingRoom(true);
     try {
-      const targetBranch = branches.find((b) => b.id === crossBranchCreateRoomForm.branchId);
+      // KIỂM TRA PHÒNG ĐÃ TỪNG LƯU TRỮ (SOFT-DELETED): NẾU CÓ, KHÔI PHỤC BẢN GHI GỐC ĐỂ BẢO LƯU 100% LỊCH SỬ
+      const matchingArchived = allArchivedRooms.find(
+        (r) => r.branchId === targetBranchId && r.name.trim().toLowerCase() === cleanName.toLowerCase()
+      );
+
+      if (matchingArchived) {
+        const roomType = crossBranchCreateRoomForm.roomType as RoomType;
+        const bedCapacity = Number(crossBranchCreateRoomForm.bedCapacity);
+        const isAvailable = crossBranchCreateRoomForm.isAvailable;
+
+        // 1. Khôi phục phòng trên Supabase Cloud
+        await branchService.restoreRoom(matchingArchived.id);
+        // 2. Cập nhật cấu hình phòng nếu có thay đổi loại phòng / số giường
+        await branchService.updateRoom(matchingArchived.id, {
+          name: cleanName,
+          roomType,
+          bedCapacity,
+          isAvailable,
+        });
+
+        // 3. Cập nhật allArchivedRooms
+        setAllArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+
+        // 4. Đưa phòng được khôi phục vào allRooms (giữ nguyên ID gốc)
+        const restoredRoom: BranchRoom = {
+          ...matchingArchived,
+          name: cleanName,
+          roomType,
+          bedCapacity,
+          isAvailable,
+          isArchived: false,
+        };
+
+        const newJoinedRoom: BranchRoom & { branchName?: string; branchCode?: string } = {
+          ...restoredRoom,
+          branchName: targetBranch?.name || 'Cơ sở MLD',
+          branchCode: targetBranch?.code || '',
+        };
+
+        setAllRooms((prev) => [newJoinedRoom, ...prev.filter((r) => r.id !== matchingArchived.id)]);
+
+        // 5. Cập nhật localStorage
+        try {
+          const cached = localStorage.getItem(`mld_rooms_${targetBranchId}`);
+          const parsed: BranchRoom[] = cached ? JSON.parse(cached) : [];
+          localStorage.setItem(
+            `mld_rooms_${targetBranchId}`,
+            JSON.stringify([...parsed.filter((r) => r.id !== matchingArchived.id), restoredRoom])
+          );
+        } catch {}
+
+        // 6. Nếu đang mở modal quản lý cơ sở này, đồng bộ manageRooms và archivedRooms
+        if (managingBranch && managingBranch.id === targetBranchId) {
+          setArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+          setManageRooms((prev) => [...prev.filter((r) => r.id !== matchingArchived.id), restoredRoom]);
+        }
+
+        toast.success(
+          'Đã khôi phục và bảo toàn lịch sử phòng',
+          `Phòng "${cleanName}" tại cơ sở ${targetBranch?.name || ''} đã được kích hoạt lại với ID gốc. Toàn bộ lịch sử đặt hẹn, phân ca và đối soát trước đó được bảo lưu trọn vẹn 100%!`
+        );
+
+        setIsCrossBranchCreateRoomOpen(false);
+        setCrossBranchCreateRoomForm({
+          branchId: branches[0]?.id || '',
+          name: '',
+          roomType: '',
+          bedCapacity: '',
+          isAvailable: true,
+        });
+        return;
+      }
+
+      // NẾU LÀ PHÒNG HOÀN TOÀN MỚI: TẠO BẢN GHI MỚI
       const roomPayload = {
-        branchId: crossBranchCreateRoomForm.branchId,
-        name: crossBranchCreateRoomForm.name.trim(),
+        branchId: targetBranchId,
+        name: cleanName,
         roomType: crossBranchCreateRoomForm.roomType as RoomType,
         bedCapacity: Number(crossBranchCreateRoomForm.bedCapacity),
         isAvailable: crossBranchCreateRoomForm.isAvailable,
@@ -1185,7 +1274,8 @@ export const W02_Branches: React.FC = () => {
   const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!managingBranch) return;
-    if (!newRoomData.name.trim()) {
+    const cleanName = newRoomData.name.trim();
+    if (!cleanName) {
       toast.error('Thiếu thông tin phòng', 'Vui lòng nhập tên phòng.');
       return;
     }
@@ -1199,12 +1289,84 @@ export const W02_Branches: React.FC = () => {
       return;
     }
 
+    // Kiểm tra trùng tên với phòng đang hoạt động tại cơ sở này
+    const alreadyActive = manageRooms.some(
+      (r) => r.name.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (alreadyActive) {
+      toast.warning(
+        'Trùng tên phòng',
+        `Phòng "${cleanName}" đang hoạt động tại cơ sở này. Vui lòng chọn tên khác hoặc chỉnh sửa phòng hiện có.`
+      );
+      return;
+    }
+
     setIsAddingRoom(true);
     const roomType = newRoomData.roomType as RoomType;
+
     try {
+      // KIỂM TRA PHÒNG ĐÃ TỪNG LƯU TRỮ (SOFT-DELETED): NẾU CÓ, KHÔI PHỤC BẢN GHI GỐC ĐỂ BẢO LƯU 100% LỊCH SỬ
+      const matchingArchived =
+        archivedRooms.find((r) => r.name.trim().toLowerCase() === cleanName.toLowerCase()) ||
+        allArchivedRooms.find(
+          (r) => r.branchId === managingBranch.id && r.name.trim().toLowerCase() === cleanName.toLowerCase()
+        );
+
+      if (matchingArchived) {
+        // 1. Khôi phục phòng trên Supabase Cloud
+        await branchService.restoreRoom(matchingArchived.id);
+        // 2. Cập nhật cấu hình mới nếu người dùng thay đổi loại phòng / số giường
+        await branchService.updateRoom(matchingArchived.id, {
+          name: cleanName,
+          roomType,
+          bedCapacity: bedCap,
+          isAvailable: newRoomData.isAvailable,
+        });
+
+        // 3. Gỡ khỏi danh sách lưu trữ
+        setArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+        setAllArchivedRooms((prev) => prev.filter((r) => r.id !== matchingArchived.id));
+
+        // 4. Đưa phòng vào danh sách hoạt động với ID gốc
+        const restoredRoom: BranchRoom = {
+          ...matchingArchived,
+          name: cleanName,
+          roomType,
+          bedCapacity: bedCap,
+          isAvailable: newRoomData.isAvailable,
+          isArchived: false,
+        };
+
+        const updated = [...manageRooms.filter((r) => r.id !== matchingArchived.id), restoredRoom];
+        setManageRooms(updated);
+        localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
+
+        const joinedRestored: BranchRoom & { branchName?: string; branchCode?: string } = {
+          ...restoredRoom,
+          branchName: managingBranch.name,
+          branchCode: managingBranch.code,
+        };
+        setAllRooms((prev) => [joinedRestored, ...prev.filter((r) => r.id !== matchingArchived.id)]);
+
+        setNewRoomData({
+          name: '',
+          roomType: '',
+          bedCapacity: '',
+          isAvailable: true,
+        });
+        setShowAddRoom(false);
+
+        toast.success(
+          'Đã khôi phục và bảo toàn lịch sử phòng',
+          `Phòng "${cleanName}" đã từng tồn tại trong hệ thống. Hệ thống đã kích hoạt lại với ID gốc, bảo toàn 100% lịch sử đặt hẹn, phân ca và đối soát trước đó!`
+        );
+        return;
+      }
+
+      // NẾU LÀ PHÒNG HOÀN TOÀN MỚI: TẠO MỚI BẢN GHI
       const res = await branchService.createRoom({
         branchId: managingBranch.id,
-        name: newRoomData.name.trim(),
+        name: cleanName,
         roomType,
         bedCapacity: bedCap,
         isAvailable: newRoomData.isAvailable,
@@ -1215,7 +1377,7 @@ export const W02_Branches: React.FC = () => {
         : {
             id: `r-${managingBranch.id}-${Date.now()}`,
             branchId: managingBranch.id,
-            name: newRoomData.name.trim(),
+            name: cleanName,
             roomType,
             bedCapacity: bedCap,
             isAvailable: newRoomData.isAvailable,
@@ -1243,7 +1405,7 @@ export const W02_Branches: React.FC = () => {
       const fallbackRoom: BranchRoom = {
         id: `r-${managingBranch.id}-${Date.now()}`,
         branchId: managingBranch.id,
-        name: newRoomData.name.trim(),
+        name: cleanName,
         roomType,
         bedCapacity: bedCap,
         isAvailable: newRoomData.isAvailable,
@@ -1318,7 +1480,7 @@ export const W02_Branches: React.FC = () => {
 
     toast.success(
       'Khôi phục thành công',
-      `Phòng "${target.name}" đã được khôi phục trở lại hệ thống vận hành.`
+      `Phòng "${target.name}" đã được khôi phục trở lại hệ thống vận hành. Toàn bộ lịch sử đặt hẹn và đối soát trước đó được giữ nguyên vẹn 100%.`
     );
 
     // 3. Cập nhật restore trên Supabase Cloud
@@ -3250,6 +3412,23 @@ export const W02_Branches: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Cảnh báo thông minh: Tự động phát hiện phòng từng lưu trữ trong CSDL */}
+                    {(() => {
+                      const match = (managingBranch && newRoomData.name.trim().length > 1)
+                        ? archivedRooms.find(r => r.name.trim().toLowerCase() === newRoomData.name.trim().toLowerCase())
+                          || allArchivedRooms.find(r => r.branchId === managingBranch.id && r.name.trim().toLowerCase() === newRoomData.name.trim().toLowerCase())
+                        : null;
+                      if (!match) return null;
+                      return (
+                        <div className="p-2.5 bg-[#F5FBF6] border border-[#CDE5D2] rounded-xl text-[11px] text-[#2F6B38] flex items-start gap-2 animate-in fade-in-50">
+                          <RotateCcw className="w-3.5 h-3.5 text-[#2F6B38] shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold">Phát hiện phòng từng tồn tại trong CSDL:</span> Phòng "<strong>{match.name}</strong>" đang ở trạng thái lưu trữ. Khi bạn bấm <strong>Lưu phòng</strong>, hệ thống sẽ <strong>tự động kích hoạt lại bản ghi gốc</strong>, bảo toàn 100% lịch sử đặt hẹn, phân ca và đối soát trước đây!
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="flex items-center justify-end gap-2 pt-1">
                       <button
                         type="button"
@@ -3379,7 +3558,7 @@ export const W02_Branches: React.FC = () => {
                                   </span>
                                 </div>
                                 <div className="text-[11px] text-[#8C7A6B] mt-0.5">
-                                  {roomTypeLabels[room.roomType] || room.roomType} • {room.bedCapacity} giường
+                                  {roomTypeLabels[room.roomType] || room.roomType} • {room.bedCapacity} giường • Bảo lưu 100% lịch sử đối soát
                                 </div>
                               </div>
                             </div>
@@ -3388,7 +3567,7 @@ export const W02_Branches: React.FC = () => {
                               type="button"
                               onClick={() => handleRestoreRoom(room.id)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF3EC] text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-2xs"
-                              title="Khôi phục phòng này vào lại hệ thống vận hành"
+                              title="Khôi phục phòng này vào lại hệ thống vận hành và giữ nguyên vẹn lịch sử liên kết"
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>Khôi phục</span>
@@ -4048,6 +4227,25 @@ export const W02_Branches: React.FC = () => {
                   placeholder="VD: Phòng VIP 01 - Hoa Sen"
                   className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20"
                 />
+                {/* Cảnh báo thông minh: Tự động phát hiện phòng từng lưu trữ trong CSDL */}
+                {(() => {
+                  const match = (crossBranchCreateRoomForm.branchId && crossBranchCreateRoomForm.name.trim().length > 1)
+                    ? allArchivedRooms.find(
+                        (r) =>
+                          r.branchId === crossBranchCreateRoomForm.branchId &&
+                          r.name.trim().toLowerCase() === crossBranchCreateRoomForm.name.trim().toLowerCase()
+                      )
+                    : null;
+                  if (!match) return null;
+                  return (
+                    <div className="mt-2 p-2.5 bg-[#F5FBF6] border border-[#CDE5D2] rounded-xl text-[11px] text-[#2F6B38] flex items-start gap-2 animate-in fade-in-50">
+                      <RotateCcw className="w-3.5 h-3.5 text-[#2F6B38] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Phát hiện phòng từng tồn tại trong CSDL:</span> Phòng "<strong>{match.name}</strong>" đang ở trạng thái lưu trữ. Khi bạn bấm <strong>Thêm phòng dịch vụ</strong>, hệ thống sẽ <strong>tự động kích hoạt lại bản ghi gốc</strong>, bảo toàn 100% lịch sử đặt hẹn, phân ca và đối soát tài chính trước đây!
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Grid: Loại phòng & Sức chứa */}
