@@ -40,6 +40,15 @@ import { Branch, BranchRoom, Service, RoomType } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 import { VIETNAM_LOCATIONS_2026, VIETNAM_PROVINCE_NAMES } from '../data/vietnamLocations';
 
+const DEFAULT_AMENITIES = [
+  'Phòng VIP riêng biệt',
+  'Đỗ xe ô tô miễn phí',
+  'Trà thảo mộc & bánh ngọt',
+  'Phòng xông hơi đá muối',
+  'Thanh toán VietQR & Thẻ VIP',
+  'Học viện đào tạo chuyên sâu',
+];
+
 const roomTypeLabels: Record<string, string> = {
   VIP_ROOM: 'Phòng VIP',
   MASSAGE_ROOM: 'Phòng Massage',
@@ -244,14 +253,20 @@ export const W02_Branches: React.FC = () => {
     amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
   });
 
-  const availableAmenities = [
-    'Phòng VIP riêng biệt',
-    'Đỗ xe ô tô miễn phí',
-    'Trà thảo mộc & bánh ngọt',
-    'Phòng xông hơi đá muối',
-    'Thanh toán VietQR & Thẻ VIP',
-    'Học viện đào tạo chuyên sâu',
-  ];
+  const [availableAmenities, setAvailableAmenities] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('mld_custom_amenities');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return Array.from(new Set([...DEFAULT_AMENITIES, ...parsed]));
+        }
+      }
+    } catch {}
+    return [...DEFAULT_AMENITIES];
+  });
+  const [newEditAmenity, setNewEditAmenity] = useState('');
+  const [newCreateAmenity, setNewCreateAmenity] = useState('');
 
   const [isCustomDistrict, setIsCustomDistrict] = useState(false);
   const [isCustomEditDistrict, setIsCustomEditDistrict] = useState(false);
@@ -324,6 +339,12 @@ export const W02_Branches: React.FC = () => {
 
       setBranches(allBranches);
       setAllArchivedBranches(archivedBranchesList);
+
+      // Merge amenities from existing branches to ensure custom ones are visible
+      const allBranchAmenities = allBranches.flatMap((b) => b.amenities || []);
+      if (allBranchAmenities.length > 0) {
+        setAvailableAmenities((prev) => Array.from(new Set([...prev, ...allBranchAmenities])));
+      }
 
       // 1. Join archived rooms with branch info first to establish exclusion set
       let combinedArchived: (BranchRoom & { branchName?: string; branchCode?: string })[] = [];
@@ -1268,6 +1289,71 @@ export const W02_Branches: React.FC = () => {
           : [...prev.amenities, amenity],
       };
     });
+  };
+
+  const handleAddCustomAmenity = (name: string, targetModal: 'edit' | 'create') => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập tên tiện ích hoặc dịch vụ đi kèm.');
+      return;
+    }
+
+    const alreadyExists = availableAmenities.some(
+      (a) => a.toLowerCase() === trimmed.toLowerCase()
+    );
+
+    let updatedAmenities = availableAmenities;
+    if (!alreadyExists) {
+      updatedAmenities = [...availableAmenities, trimmed];
+      setAvailableAmenities(updatedAmenities);
+      try {
+        const customOnly = updatedAmenities.filter((a) => !DEFAULT_AMENITIES.includes(a));
+        localStorage.setItem('mld_custom_amenities', JSON.stringify(customOnly));
+      } catch {}
+    }
+
+    if (targetModal === 'edit') {
+      if (!editForm.amenities.includes(trimmed)) {
+        setEditForm((prev) => ({ ...prev, amenities: [...prev.amenities, trimmed] }));
+      }
+      setNewEditAmenity('');
+    } else {
+      if (!formData.amenities.includes(trimmed)) {
+        setFormData((prev) => ({ ...prev, amenities: [...prev.amenities, trimmed] }));
+      }
+      setNewCreateAmenity('');
+    }
+
+    toast.success(
+      alreadyExists ? 'Đã kích hoạt tiện ích' : 'Đã thêm tiện ích mới',
+      `Tiện ích "${trimmed}" đã được kích hoạt cho chi nhánh.`
+    );
+  };
+
+  const handleDeleteCustomAmenity = (amenityToDelete: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (DEFAULT_AMENITIES.includes(amenityToDelete)) {
+      toast.error('Không thể xóa', 'Không thể xóa các tiện ích tiêu chuẩn của hệ thống.');
+      return;
+    }
+
+    const updated = availableAmenities.filter((a) => a !== amenityToDelete);
+    setAvailableAmenities(updated);
+    try {
+      const customOnly = updated.filter((a) => !DEFAULT_AMENITIES.includes(a));
+      localStorage.setItem('mld_custom_amenities', JSON.stringify(customOnly));
+    } catch {}
+
+    setEditForm((prev) => ({
+      ...prev,
+      amenities: prev.amenities.filter((a) => a !== amenityToDelete),
+    }));
+    setFormData((prev) => ({
+      ...prev,
+      amenities: prev.amenities.filter((a) => a !== amenityToDelete),
+    }));
+
+    toast.info('Đã xóa tiện ích', `Đã xóa tiện ích "${amenityToDelete}" khỏi danh sách khả dụng.`);
   };
 
   // Add Room inside Manage Modal
@@ -3252,24 +3338,68 @@ export const W02_Branches: React.FC = () => {
                   </div>
 
                   <div className="sm:col-span-2 pt-2 border-t border-[#EFE4D9]">
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                      Tiện ích & Dịch vụ đi kèm
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-[#2C241E]">
+                        Tiện ích & Dịch vụ đi kèm
+                      </label>
+                      <span className="text-[11px] text-[#8C7A6B]">
+                        Đã chọn: <strong className="text-[#985018]">{editForm.amenities.length}</strong> tiện ích
+                      </span>
+                    </div>
+
+                    {/* Quick Add Custom Amenity Input */}
+                    <div className="flex gap-2 mb-2.5">
+                      <input
+                        type="text"
+                        value={newEditAmenity}
+                        onChange={(e) => setNewEditAmenity(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomAmenity(newEditAmenity, 'edit');
+                          }
+                        }}
+                        placeholder="Thêm tiện ích / dịch vụ mới (VD: Bể sục Jacuzzi, Thang máy riêng...)"
+                        className="flex-1 px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddCustomAmenity(newEditAmenity, 'edit')}
+                        className="px-3.5 py-2 bg-[#FAF0E4] hover:bg-[#F3E3D1] text-[#985018] border border-[#D7BBA6] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Thêm tiện ích</span>
+                      </button>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {availableAmenities.map((amenity) => {
                         const isSelected = editForm.amenities.includes(amenity);
+                        const isCustom = !DEFAULT_AMENITIES.includes(amenity);
                         return (
                           <div
                             key={amenity}
                             onClick={() => toggleEditAmenity(amenity)}
-                            className={`p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
+                            className={`group relative p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
                               isSelected
                                 ? 'bg-[#FAF0E4] border-[#985018] text-[#985018] ring-1 ring-[#985018]'
                                 : 'bg-white border-[#E8DFD8] text-[#73675F] hover:border-[#D7BBA6]'
                             }`}
                           >
-                            <span>{amenity}</span>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                            <span className="truncate pr-2">{amenity}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isCustom && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteCustomAmenity(amenity, e)}
+                                  title="Xóa tiện ích này khỏi danh sách"
+                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#F1E5D8] rounded text-[#A8988B] hover:text-[#B83E3E] transition-all cursor-pointer"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                            </div>
                           </div>
                         );
                       })}
@@ -4049,24 +4179,68 @@ export const W02_Branches: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Tiện ích cơ sở (Bấm để chọn/bỏ chọn)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-[#2C241E]">
+                      Tiện ích cơ sở (Bấm để chọn/bỏ chọn)
+                    </label>
+                    <span className="text-[11px] text-[#8C7A6B]">
+                      Đã chọn: <strong className="text-[#985018]">{formData.amenities.length}</strong> tiện ích
+                    </span>
+                  </div>
+
+                  {/* Quick Add Custom Amenity Input */}
+                  <div className="flex gap-2 mb-2.5">
+                    <input
+                      type="text"
+                      value={newCreateAmenity}
+                      onChange={(e) => setNewCreateAmenity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomAmenity(newCreateAmenity, 'create');
+                        }
+                      }}
+                      placeholder="Thêm tiện ích / dịch vụ mới (VD: Bể sục Jacuzzi, Thang máy riêng...)"
+                      className="flex-1 px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988B] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddCustomAmenity(newCreateAmenity, 'create')}
+                      className="px-3.5 py-2 bg-[#FAF0E4] hover:bg-[#F3E3D1] text-[#985018] border border-[#D7BBA6] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm tiện ích</span>
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {availableAmenities.map((amenity) => {
                       const isSelected = formData.amenities.includes(amenity);
+                      const isCustom = !DEFAULT_AMENITIES.includes(amenity);
                       return (
                         <div
                           key={amenity}
                           onClick={() => toggleAmenity(amenity)}
-                          className={`p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
+                          className={`group relative p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all flex items-center justify-between ${
                             isSelected
                               ? 'bg-[#FAF0E4] border-[#985018] text-[#985018] ring-1 ring-[#985018]'
                               : 'bg-white border-[#E8DFD8] text-[#73675F] hover:border-[#D7BBA6]'
                           }`}
                         >
-                          <span>{amenity}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                          <span className="truncate pr-2">{amenity}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isCustom && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteCustomAmenity(amenity, e)}
+                                title="Xóa tiện ích này khỏi danh sách"
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#F1E5D8] rounded text-[#A8988B] hover:text-[#B83E3E] transition-all cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                            {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                          </div>
                         </div>
                       );
                     })}
