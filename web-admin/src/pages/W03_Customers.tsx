@@ -230,15 +230,14 @@ export const W03_Customers: React.FC = () => {
     setSelectedSort('NEWEST');
   };
 
-  // Helper chuẩn hóa hiển thị dữ liệu xuất Excel & CSV
+  // Helper chuẩn hóa hiển thị dữ liệu xuất Excel & CSV (tối giản, ngắn gọn, không rườm rà)
   const getRoleExportLabel = (role?: string) => {
     switch (role) {
       case 'SUPER_ADMIN':
-        return 'Quản trị viên cấp cao';
       case 'ADMIN':
         return 'Quản trị viên';
       case 'INSTRUCTOR':
-        return 'Giảng viên Academy';
+        return 'Giảng viên';
       case 'TECHNICIAN':
         return 'Kỹ thuật viên';
       case 'RECEPTIONIST':
@@ -254,25 +253,25 @@ export const W03_Customers: React.FC = () => {
   const getTierExportLabel = (tier?: string) => {
     switch (tier) {
       case 'DIAMOND':
-        return 'Kim cương (Diamond)';
+        return 'Kim cương';
       case 'PLATINUM':
-        return 'Bạch kim (Platinum)';
+        return 'Bạch kim';
       case 'GOLD':
-        return 'Vàng (Gold)';
+        return 'Vàng';
       case 'SILVER':
-        return 'Bạc (Silver)';
+        return 'Bạc';
       case 'STANDARD':
       default:
-        return 'Tiêu chuẩn (Standard)';
+        return 'Tiêu chuẩn';
     }
   };
 
   const getPurposeExportLabel = (purpose?: string) => {
     switch (purpose) {
       case 'ACADEMY':
-        return 'Đào tạo Academy';
+        return 'Đào tạo';
       case 'BOTH':
-        return 'Cả hai (Spa & Academy)';
+        return 'Spa & Đào tạo';
       case 'BEAUTY_SPA':
       default:
         return 'Spa & Làm đẹp';
@@ -284,7 +283,7 @@ export const W03_Customers: React.FC = () => {
     return phone.trim();
   };
 
-  // 1. Tính năng xuất Excel (.xls) đẹp mắt, có logo MLD, tự căn độ rộng cột và định dạng tiền tệ
+  // 1. Tính năng xuất Excel (.xls) giao diện thanh lịch, tối giản, màu sắc nhẹ nhàng, chống rớt dòng
   const handleExportExcel = () => {
     if (filteredCustomers.length === 0) {
       toast.warning('Không có dữ liệu', 'Không có hồ sơ khách hàng nào trong danh sách hiện tại để xuất.');
@@ -312,38 +311,20 @@ export const W03_Customers: React.FC = () => {
         const points = (c.rewardPoints || 0).toLocaleString('vi-VN');
         const spent = (c.totalSpent || 0).toLocaleString('vi-VN') + ' ₫';
 
-        const roleStyle =
-          c.role === 'SUPER_ADMIN' || c.role === 'ADMIN'
-            ? 'color: #9A2C2C; font-weight: bold;'
-            : c.role === 'TECHNICIAN'
-            ? 'color: #8A4F23; font-weight: 600;'
-            : c.role === 'INSTRUCTOR'
-            ? 'color: #7C3AED; font-weight: 600;'
-            : 'color: #1B6E44; font-weight: 600;';
-
-        const tierStyle =
-          c.membershipTier === 'DIAMOND'
-            ? 'color: #0284C7; font-weight: bold;'
-            : c.membershipTier === 'PLATINUM'
-            ? 'color: #475569; font-weight: bold;'
-            : c.membershipTier === 'GOLD'
-            ? 'color: #D97706; font-weight: bold;'
-            : 'color: #64748B;';
-
         return `
-          <tr style="${isAlt ? 'background-color: #FAF8F5;' : 'background-color: #FFFFFF;'}">
-            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; color: #73675F;">${idx + 1}</td>
-            <td style="text-align: center; font-weight: bold; color: #8A4F23; border: 1px solid #E5D7CC; padding: 7px; mso-number-format: '\\@';">${code}</td>
-            <td style="font-weight: 600; color: #2C241E; border: 1px solid #E5D7CC; padding: 7px;">${c.fullName}</td>
-            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; mso-number-format: '\\@';">${phone}</td>
-            <td style="border: 1px solid #E5D7CC; padding: 7px; color: #50443D;">${email}</td>
-            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; ${roleStyle}">${role}</td>
-            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; ${tierStyle}">${tier}</td>
-            <td style="text-align: right; border: 1px solid #E5D7CC; padding: 7px; font-weight: 600;">${points}</td>
-            <td style="text-align: right; border: 1px solid #E5D7CC; padding: 7px; font-weight: bold; color: #8A4F23;">${spent}</td>
-            <td style="border: 1px solid #E5D7CC; padding: 7px; color: #50443D;">${purpose}</td>
-            <td style="border: 1px solid #E5D7CC; padding: 7px; color: #50443D;">${address}</td>
-            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; color: #73675F;">${created}</td>
+          <tr style="${isAlt ? 'background-color: #FAFAFA;' : 'background-color: #FFFFFF;'}">
+            <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; color: #6B7280; white-space: nowrap;">${idx + 1}</td>
+            <td style="text-align: center; font-weight: 500; color: #1F2937; border: 1px solid #E5E7EB; padding: 8px 10px; mso-number-format: '\\@'; white-space: nowrap;">${code}</td>
+            <td style="font-weight: 600; color: #111827; border: 1px solid #E5E7EB; padding: 8px 10px; white-space: nowrap;">${c.fullName}</td>
+            <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; mso-number-format: '\\@'; color: #374151; white-space: nowrap;">${phone}</td>
+            <td style="border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${email}</td>
+            <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${role}</td>
+            <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${tier}</td>
+            <td style="text-align: right; border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${points}</td>
+            <td style="text-align: right; border: 1px solid #E5E7EB; padding: 8px 10px; font-weight: 600; color: #111827; white-space: nowrap;">${spent}</td>
+            <td style="border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${purpose}</td>
+            <td style="border: 1px solid #E5E7EB; padding: 8px 10px; color: #4B5563; white-space: nowrap;">${address}</td>
+            <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; color: #6B7280; white-space: nowrap;">${created}</td>
           </tr>
         `;
       })
@@ -358,7 +339,7 @@ export const W03_Customers: React.FC = () => {
           <x:ExcelWorkbook>
             <x:ExcelWorksheets>
               <x:ExcelWorksheet>
-                <x:Name>Khách Hàng MLD</x:Name>
+                <x:Name>Khách Hàng</x:Name>
                 <x:WorksheetOptions>
                   <x:DisplayGridlines/>
                 </x:WorksheetOptions>
@@ -368,59 +349,55 @@ export const W03_Customers: React.FC = () => {
         </xml>
         <![endif]-->
         <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #2C241E; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #1F2937; margin: 0; }
           table { border-collapse: collapse; width: 100%; }
+          th, td { white-space: nowrap; }
         </style>
       </head>
       <body>
         <table>
           <tr>
-            <td colspan="12" style="font-size: 16pt; font-weight: bold; color: #8A4F23; text-align: center; padding: 12px;">
-              HỆ THỐNG QUẢN LÝ KHÁCH HÀNG MLD BEAUTY & ACADEMY
+            <td colspan="12" style="font-size: 14pt; font-weight: bold; color: #111827; text-align: center; padding: 14px 8px 4px 8px; white-space: nowrap;">
+              DANH SÁCH KHÁCH HÀNG - MLD BEAUTY & ACADEMY
             </td>
           </tr>
           <tr>
-            <td colspan="12" style="font-size: 11pt; font-weight: 600; color: #50443D; text-align: center; padding-bottom: 8px;">
-              DANH SÁCH KHÁCH HÀNG & HỘI VIÊN CHUẨN CRM
+            <td colspan="6" style="font-size: 9pt; color: #6B7280; padding: 4px 8px 12px 8px; white-space: nowrap;">
+              Thời gian xuất: ${exportDateStr}
             </td>
-          </tr>
-          <tr>
-            <td colspan="6" style="font-size: 9pt; color: #73675F; font-style: italic; padding-bottom: 12px;">
-              Thời gian xuất: ${exportDateStr} · Người xuất: Ban Quản Trị Hệ Thống
-            </td>
-            <td colspan="6" style="font-size: 9pt; color: #73675F; font-style: italic; text-align: right; padding-bottom: 12px;">
-              Tổng cộng: <b>${filteredCustomers.length}</b> hồ sơ khách hàng
+            <td colspan="6" style="font-size: 9pt; color: #6B7280; text-align: right; padding: 4px 8px 12px 8px; white-space: nowrap;">
+              Tổng cộng: <b>${filteredCustomers.length}</b> khách hàng
             </td>
           </tr>
           <thead>
-            <tr style="background-color: #985018; color: #FFFFFF; font-weight: bold; text-align: center;">
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 45px; background-color: #985018; color: #FFFFFF;">STT</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 130px; background-color: #985018; color: #FFFFFF;">Mã khách hàng</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 190px; background-color: #985018; color: #FFFFFF;">Họ và tên</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 120px; background-color: #985018; color: #FFFFFF;">Số điện thoại</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 220px; background-color: #985018; color: #FFFFFF;">Email</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 140px; background-color: #985018; color: #FFFFFF;">Vai trò</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 140px; background-color: #985018; color: #FFFFFF;">Hạng hội viên</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 110px; background-color: #985018; color: #FFFFFF;">Điểm tích lũy</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 150px; background-color: #985018; color: #FFFFFF;">Tổng chi tiêu</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 160px; background-color: #985018; color: #FFFFFF;">Nhu cầu quan tâm</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 200px; background-color: #985018; color: #FFFFFF;">Địa chỉ</th>
-              <th style="border: 1px solid #7D3E10; padding: 10px; width: 110px; background-color: #985018; color: #FFFFFF;">Ngày tạo</th>
+            <tr style="background-color: #F3F4F6; color: #111827; font-weight: 600; text-align: center;">
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 45px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">STT</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 140px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Mã khách hàng</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 180px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Họ và tên</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 120px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Số điện thoại</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 250px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Email</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 110px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Vai trò</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 110px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Hạng hội viên</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 100px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Điểm tích lũy</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 130px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Tổng chi tiêu</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 130px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Nhu cầu quan tâm</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 200px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Địa chỉ</th>
+              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 100px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Ngày tạo</th>
             </tr>
           </thead>
           <tbody>
             ${rowsHtml}
-            <tr style="background-color: #F5EBE1; font-weight: bold; border-top: 2px solid #985018;">
-              <td colspan="7" style="border: 1px solid #E5D7CC; padding: 9px; text-align: center; color: #50443D;">
-                TỔNG CỘNG (${filteredCustomers.length} HỒ SƠ)
+            <tr style="background-color: #F3F4F6; font-weight: bold; border-top: 2px solid #9CA3AF;">
+              <td colspan="7" style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: center; color: #374151; white-space: nowrap;">
+                TỔNG CỘNG (${filteredCustomers.length} KHÁCH HÀNG)
               </td>
-              <td style="border: 1px solid #E5D7CC; padding: 9px; text-align: right; color: #2C241E;">
+              <td style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: right; color: #111827; white-space: nowrap;">
                 ${totalPointsSum.toLocaleString('vi-VN')}
               </td>
-              <td style="border: 1px solid #E5D7CC; padding: 9px; text-align: right; color: #8A4F23;">
+              <td style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: right; color: #111827; white-space: nowrap;">
                 ${totalSpentSum.toLocaleString('vi-VN')} ₫
               </td>
-              <td colspan="3" style="border: 1px solid #E5D7CC; padding: 9px;"></td>
+              <td colspan="3" style="border: 1px solid #D1D5DB; padding: 8px 12px;"></td>
             </tr>
           </tbody>
         </table>
@@ -440,7 +417,7 @@ export const W03_Customers: React.FC = () => {
 
     toast.success(
       'Xuất Excel thành công',
-      `Đã xuất ${filteredCustomers.length} hồ sơ ra file Excel (.xls) với định dạng bảng biểu và màu sắc thương hiệu.`
+      `Đã xuất ${filteredCustomers.length} hồ sơ ra file Excel (.xls) định dạng chuẩn.`
     );
   };
 
