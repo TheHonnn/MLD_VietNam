@@ -620,6 +620,22 @@ export const W02_Branches: React.FC = () => {
   const handleRestoreCrossBranchRoom = async (
     room: BranchRoom & { branchName?: string }
   ) => {
+    // BUG-13: Chặn khôi phục nếu cơ sở này đã có phòng hoạt động cùng tên
+    const isConflict = allRooms.some(
+      (r) =>
+        !r.isArchived &&
+        r.branchId === room.branchId &&
+        r.id !== room.id &&
+        r.name.trim().toLowerCase() === room.name.trim().toLowerCase()
+    );
+    if (isConflict) {
+      toast.warning(
+        'Trùng tên phòng hoạt động',
+        `Phòng "${room.name}" hiện đã có một phòng khác cùng tên đang hoạt động tại cơ sở này. Vui lòng kiểm tra lại.`
+      );
+      return;
+    }
+
     // 1. Remove from allArchivedRooms
     setAllArchivedRooms((prev) => prev.filter((r) => r.id !== room.id));
 
@@ -1110,26 +1126,23 @@ export const W02_Branches: React.FC = () => {
         ]);
       }
 
-      // 3. Switch selected branch if it was deleted
+      // 3. Switch selected branch if it was deleted (BUG-11: Fallback gracefully when remaining branches is empty)
       if (selectedBranchId === target.id) {
         const nextBranch = remainingBranches[0];
-        if (nextBranch) {
-          setSelectedBranchId(nextBranch.id);
-        }
+        setSelectedBranchId(nextBranch ? nextBranch.id : '');
       }
 
-      // 4. Switch global working branch if it was deleted
+      // 4. Switch global working branch if it was deleted (BUG-11: Fallback to 'ALL' if no branches left)
       if (globalWorkingBranchId === target.id) {
         const nextBranch = remainingBranches[0];
-        if (nextBranch) {
-          setGlobalWorkingBranchId(nextBranch.id);
-          localStorage.setItem('mld_selected_branch_id', nextBranch.id);
-          window.dispatchEvent(
-            new CustomEvent('mld_branch_changed', {
-              detail: { branchId: nextBranch.id, branch: nextBranch },
-            })
-          );
-        }
+        const nextId = nextBranch ? nextBranch.id : 'ALL';
+        setGlobalWorkingBranchId(nextId);
+        localStorage.setItem('mld_selected_branch_id', nextId);
+        window.dispatchEvent(
+          new CustomEvent('mld_branch_changed', {
+            detail: { branchId: nextId, branch: nextBranch || null },
+          })
+        );
       }
 
       // 5. Update localStorage
@@ -1172,6 +1185,18 @@ export const W02_Branches: React.FC = () => {
 
   // Restore archived branch
   const handleRestoreBranch = async (branch: Branch) => {
+    // BUG-12: Chặn khôi phục nếu mã định danh chi nhánh đã được cơ sở khác đang hoạt động sử dụng
+    const isCodeConflict = branches.some(
+      (b) => b.id !== branch.id && b.code.trim().toUpperCase() === branch.code.trim().toUpperCase()
+    );
+    if (isCodeConflict) {
+      toast.warning(
+        'Trùng mã chi nhánh',
+        `Mã định danh "${branch.code}" hiện đang được sử dụng bởi một cơ sở khác đang hoạt động. Vui lòng kiểm tra lại trước khi khôi phục.`
+      );
+      return;
+    }
+
     // 1. Remove from allArchivedBranches
     setAllArchivedBranches((prev) => prev.filter((b) => b.id !== branch.id));
 
@@ -1345,20 +1370,23 @@ export const W02_Branches: React.FC = () => {
       try {
         const savedCustom = localStorage.getItem('mld_custom_amenities');
         const customArr: string[] = savedCustom ? JSON.parse(savedCustom) : [];
-        if (!customArr.includes(trimmed)) {
+        if (!customArr.some((a) => a.toLowerCase() === trimmed.toLowerCase())) {
           customArr.push(trimmed);
           localStorage.setItem('mld_custom_amenities', JSON.stringify(customArr));
         }
       } catch {}
     }
 
+    // BUG-14: Kiểm tra trùng lặp tiện ích không phân biệt chữ hoa/thường
     if (targetModal === 'edit') {
-      if (!editForm.amenities.includes(trimmed)) {
+      const alreadyInEdit = editForm.amenities.some((a) => a.toLowerCase() === trimmed.toLowerCase());
+      if (!alreadyInEdit) {
         setEditForm((prev) => ({ ...prev, amenities: [...prev.amenities, trimmed] }));
       }
       setNewEditAmenity('');
     } else {
-      if (!formData.amenities.includes(trimmed)) {
+      const alreadyInCreate = formData.amenities.some((a) => a.toLowerCase() === trimmed.toLowerCase());
+      if (!alreadyInCreate) {
         setFormData((prev) => ({ ...prev, amenities: [...prev.amenities, trimmed] }));
       }
       setNewCreateAmenity('');
@@ -1613,6 +1641,21 @@ export const W02_Branches: React.FC = () => {
     if (!managingBranch) return;
     const target = archivedRooms.find((r) => r.id === roomId);
     if (!target) return;
+
+    // BUG-13: Chặn khôi phục nếu cơ sở này đã có phòng hoạt động cùng tên
+    const isConflict = manageRooms.some(
+      (r) =>
+        !r.isArchived &&
+        r.id !== target.id &&
+        r.name.trim().toLowerCase() === target.name.trim().toLowerCase()
+    );
+    if (isConflict) {
+      toast.warning(
+        'Trùng tên phòng hoạt động',
+        `Phòng "${target.name}" hiện đã có một phòng khác cùng tên đang hoạt động tại cơ sở này. Vui lòng kiểm tra lại.`
+      );
+      return;
+    }
 
     // 1. Gỡ khỏi danh sách lưu trữ CSDL
     setArchivedRooms((prev) => prev.filter((r) => r.id !== roomId));
