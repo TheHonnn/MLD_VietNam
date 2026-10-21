@@ -103,8 +103,8 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
           refreshToken: refreshToken,
           userId: user?['id'] as String?,
           phone: user?['phone'] as String?,
-          displayName: user?['fullName'] as String?,
-          avatarUrl: user?['avatarUrl'] as String?,
+          displayName: (user?['full_name'] ?? user?['fullName']) as String?,
+          avatarUrl: (user?['avatar_url'] ?? user?['avatarUrl']) as String?,
         );
 
         if (mounted) {

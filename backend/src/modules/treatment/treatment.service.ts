@@ -20,16 +20,7 @@ export class TreatmentService {
     if (this.isValidUuid(userId)) {
       return userId;
     }
-    try {
-      const { data } = await this.supabaseService.adminClient
-        .from('users')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
-      return data?.id || null;
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   /**
