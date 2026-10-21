@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   Crown,
@@ -9,46 +9,148 @@ import {
   Info,
   Search,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { customerService, treatmentService } from '../services';
 import { toast } from '../components/common';
-import { User, MemberTier, UserPackage } from '../types/shared_types';
+import { User, MemberTier, UserPackage, PurposeInterest } from '../types/shared_types';
+import { matchSearch } from '../utils/searchUtils';
 
 export const W03_Customers: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [customers, setCustomers] = useState<User[]>([]);
+  const [allCustomers, setAllCustomers] = useState<User[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedPackages, setSelectedPackages] = useState<UserPackage[]>([]);
-  const [selectedTierFilter, setSelectedTierFilter] = useState<MemberTier | undefined>(undefined);
+  const [selectedTier, setSelectedTier] = useState<string>('ALL');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [selectedPurpose, setSelectedPurpose] = useState<string>('ALL');
+  const [selectedSort, setSelectedSort] = useState<string>('NEWEST');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const res = await customerService.getCustomers({
-          search: searchTerm,
-          tier: selectedTierFilter,
-        });
-        if (res.success && res.data) {
-          setCustomers(res.data);
-          if (res.data.length > 0 && (!selectedCustomerId || !res.data.find((c) => c.id === selectedCustomerId))) {
-            setSelectedCustomerId(res.data[0].id);
-          }
+  // Fetch all customers on load
+  const loadCustomers = async () => {
+    setIsLoading(true);
+    try {
+      const res = await customerService.getCustomers();
+      if (res.success && res.data) {
+        setAllCustomers(res.data);
+        if (res.data.length > 0 && !selectedCustomerId) {
+          setSelectedCustomerId(res.data[0].id);
         }
-      } catch (err) {
-        console.error('Failed to load customers:', err);
-      } finally {
-        setIsLoading(false);
       }
-    };
-    fetchCustomers();
-  }, [searchTerm, selectedTierFilter]);
+    } catch (err) {
+      console.error('Failed to load customers:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  // Filter & Sort Logic
+  const filteredCustomers = useMemo(() => {
+    let result = [...allCustomers];
+
+    // 1. Search (tên, số điện thoại, email, mã giới thiệu, địa chỉ)
+    if (searchTerm.trim()) {
+      result = result.filter((c) =>
+        matchSearch(
+          [c.fullName, c.phone, c.email, c.referralCode, c.address],
+          searchTerm
+        )
+      );
+    }
+
+    // 2. Member Tier filter
+    if (selectedTier !== 'ALL') {
+      result = result.filter((c) => c.membershipTier === selectedTier);
+    }
+
+    // 3. Status filter
+    if (selectedStatus === 'ACTIVE') {
+      result = result.filter((c) => c.isActive !== false);
+    } else if (selectedStatus === 'INACTIVE') {
+      result = result.filter((c) => c.isActive === false);
+    }
+
+    // 4. Purpose filter
+    if (selectedPurpose !== 'ALL') {
+      result = result.filter((c) => c.purpose === selectedPurpose);
+    }
+
+    // 5. Sorting
+    switch (selectedSort) {
+      case 'SPENT_DESC':
+        result.sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0));
+        break;
+      case 'POINTS_DESC':
+        result.sort((a, b) => (b.rewardPoints || 0) - (a.rewardPoints || 0));
+        break;
+      case 'NAME_ASC':
+        result.sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'));
+        break;
+      case 'NEWEST':
+      default:
+        result.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        break;
+    }
+
+    return result;
+  }, [allCustomers, searchTerm, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
+
+  // Reset page when filter criteria change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedTier, selectedStatus, selectedPurpose, selectedSort]);
+
+  // Sync selected customer when list updates
+  useEffect(() => {
+    if (filteredCustomers.length > 0) {
+      const exists = filteredCustomers.some((c) => c.id === selectedCustomerId);
+      if (!exists) {
+        setSelectedCustomerId(filteredCustomers[0].id);
+      }
+    }
+  }, [filteredCustomers, selectedCustomerId]);
+
+  const paginatedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredCustomers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredCustomers, currentPage]);
+
+  const hasActiveFilter =
+    searchTerm.trim() !== '' ||
+    selectedTier !== 'ALL' ||
+    selectedStatus !== 'ALL' ||
+    selectedPurpose !== 'ALL' ||
+    selectedSort !== 'NEWEST';
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setSelectedTier('ALL');
+    setSelectedStatus('ALL');
+    setSelectedPurpose('ALL');
+    setSelectedSort('NEWEST');
+  };
 
   // Load packages for selected customer
   useEffect(() => {
-    if (!selectedCustomerId) return;
+    if (!selectedCustomerId) {
+      setSelectedPackages([]);
+      return;
+    }
     const fetchPackages = async () => {
       try {
         const res = await treatmentService.getUserPackagesByCustomer(selectedCustomerId);
@@ -63,7 +165,9 @@ export const W03_Customers: React.FC = () => {
   }, [selectedCustomerId]);
 
   const selectedCustomer =
-    customers.find((c) => c.id === selectedCustomerId) || customers[0];
+    allCustomers.find((c) => c.id === selectedCustomerId) ||
+    filteredCustomers[0] ||
+    allCustomers[0];
 
   const getTierBadgeStyle = (tier?: MemberTier) => {
     switch (tier) {
@@ -111,10 +215,12 @@ export const W03_Customers: React.FC = () => {
             <Users className="w-4 h-4 text-[#8A4F23] stroke-[1.8]" />
           </div>
           <div className="text-[28px] font-extrabold text-[#8E4002] tracking-tight mt-1">
-            {isLoading ? '...' : customers.length}
+            {isLoading ? '...' : allCustomers.length}
           </div>
           <div className="text-[11px] text-[#73675F] font-medium mt-1">
-            Khách hàng & học viên đang hoạt động
+            {hasActiveFilter
+              ? `Lọc được ${filteredCustomers.length} / ${allCustomers.length} hồ sơ`
+              : 'Khách hàng & học viên đang hoạt động'}
           </div>
         </div>
 
@@ -155,13 +261,14 @@ export const W03_Customers: React.FC = () => {
 
       {/* 3. Filter Bar Box */}
       <div className="bg-white p-2.5 rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center gap-2.5 shadow-xs">
+        {/* Search Input */}
         <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm tên, mã giới thiệu hoặc số điện thoại..."
+            placeholder="Tìm tên, mã giới thiệu, số điện thoại hoặc email..."
             className="w-full h-10 pl-10 pr-9 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
           {searchTerm && (
@@ -177,36 +284,75 @@ export const W03_Customers: React.FC = () => {
         </div>
 
         {/* Membership Tier Dropdown */}
-        <button
-          onClick={() => {
-            const tiers = [undefined, MemberTier.STANDARD, MemberTier.SILVER, MemberTier.GOLD, MemberTier.DIAMOND];
-            const nextIdx = (tiers.indexOf(selectedTierFilter) + 1) % tiers.length;
-            setSelectedTierFilter(tiers[nextIdx]);
-          }}
-          className="flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none cursor-pointer"
-        >
-          <span>Hạng: {selectedTierFilter || 'Tất cả'}</span>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
-        </button>
+        <div className="relative shrink-0 whitespace-nowrap">
+          <select
+            value={selectedTier}
+            onChange={(e) => setSelectedTier(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
+          >
+            <option value="ALL">Hạng hội viên</option>
+            <option value={MemberTier.STANDARD}>Hạng Standard</option>
+            <option value={MemberTier.SILVER}>Hạng Silver (Bạc)</option>
+            <option value={MemberTier.GOLD}>Hạng Gold (Vàng)</option>
+            <option value={MemberTier.PLATINUM}>Hạng Platinum (Bạch Kim)</option>
+            <option value={MemberTier.DIAMOND}>Hạng Diamond (Kim Cương)</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
 
-        {/* Profile Status Dropdown */}
-        <button className="flex items-center justify-between gap-4 px-3.5 h-10 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors shrink-0 flex-1 sm:flex-none cursor-pointer">
-          <span>Trạng thái: Hoạt động</span>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B]" />
-        </button>
+        {/* Status Dropdown */}
+        <div className="relative shrink-0 whitespace-nowrap">
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
+          >
+            <option value="ALL">Trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="INACTIVE">Tạm dừng / Đã khóa</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Purpose / Interest Dropdown */}
+        <div className="relative shrink-0 whitespace-nowrap">
+          <select
+            value={selectedPurpose}
+            onChange={(e) => setSelectedPurpose(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
+          >
+            <option value="ALL">Nhu cầu quan tâm</option>
+            <option value={PurposeInterest.BEAUTY_SPA}>Beauty Spa</option>
+            <option value={PurposeInterest.ACADEMY}>Học viện Academy</option>
+            <option value={PurposeInterest.BOTH}>Cả Spa & Học viện</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Sort Dropdown */}
+        <div className="relative shrink-0 whitespace-nowrap">
+          <select
+            value={selectedSort}
+            onChange={(e) => setSelectedSort(e.target.value)}
+            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
+          >
+            <option value="NEWEST">Mới nhất</option>
+            <option value="SPENT_DESC">Chi tiêu cao nhất</option>
+            <option value="POINTS_DESC">Điểm thưởng nhiều nhất</option>
+            <option value="NAME_ASC">Tên A → Z</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
 
         {/* Reset filter button */}
-        {(searchTerm.trim() || selectedTierFilter) && (
+        {hasActiveFilter && (
           <button
             type="button"
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedTierFilter(undefined);
-            }}
+            onClick={handleResetFilters}
             className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-            title="Đặt lại bộ lọc"
+            title="Đặt lại toàn bộ bộ lọc"
           >
-            <X className="w-3.5 h-3.5" />
+            <RotateCcw className="w-3.5 h-3.5" />
             <span>Đặt lại</span>
           </button>
         )}
@@ -219,7 +365,7 @@ export const W03_Customers: React.FC = () => {
           <div className="px-5 py-3.5 flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#2C241E]">Danh sách khách hàng</h3>
             <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-[#F3E2CE] text-[#8A4F23]">
-              {customers.length} hồ sơ
+              {filteredCustomers.length} hồ sơ
             </span>
           </div>
 
@@ -235,7 +381,7 @@ export const W03_Customers: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFE4D9]">
-                {customers.length === 0 ? (
+                {filteredCustomers.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-[#73675F]">
                       <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
@@ -246,15 +392,12 @@ export const W03_Customers: React.FC = () => {
                         <p className="text-xs text-[#8C7A6B]">
                           {searchTerm.trim()
                             ? `Không có hồ sơ nào khớp với từ khóa "${searchTerm}".`
-                            : 'Không có khách hàng nào với bộ lọc này.'}
+                            : 'Không có khách hàng nào khớp với các tiêu chí bộ lọc đã chọn.'}
                         </p>
-                        {(searchTerm.trim() || selectedTierFilter) && (
+                        {hasActiveFilter && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setSearchTerm('');
-                              setSelectedTierFilter(undefined);
-                            }}
+                            onClick={handleResetFilters}
                             className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
                           >
                             Xóa bộ lọc
@@ -264,7 +407,7 @@ export const W03_Customers: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  customers.map((c) => {
+                  paginatedCustomers.map((c) => {
                     const isSelected = c.id === selectedCustomerId;
                     return (
                       <tr
@@ -335,21 +478,65 @@ export const W03_Customers: React.FC = () => {
           {/* Table Pagination */}
           <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B]">
             <span className="text-[11px]">
-              Hiển thị {customers.length} / {customers.length} khách hàng
+              Hiển thị {filteredCustomers.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1} -{' '}
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredCustomers.length)} trong{' '}
+              {filteredCustomers.length} khách hàng
             </span>
             <div className="flex items-center gap-1.5">
               <button
-                disabled
-                className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                  currentPage <= 1
+                    ? 'bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed'
+                    : 'bg-white border border-[#E0D7CC] text-[#783D19] hover:bg-[#FAF0E4] cursor-pointer'
+                }`}
+                title="Trang trước"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <button className="w-6 h-6 rounded-md flex items-center justify-center bg-[#E6D4C3] text-[#783D19] font-bold text-[11px]">
-                1
-              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                const isActive = pageNum === currentPage;
+                if (
+                  totalPages > 7 &&
+                  pageNum !== 1 &&
+                  pageNum !== totalPages &&
+                  Math.abs(pageNum - currentPage) > 1
+                ) {
+                  if (pageNum === 2 || pageNum === totalPages - 1) {
+                    return (
+                      <span key={pageNum} className="px-1 text-[#A69788]">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${
+                      isActive
+                        ? 'bg-[#985018] text-white shadow-2xs'
+                        : 'bg-white border border-[#E0D7CC] text-[#73675F] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
               <button
-                disabled
-                className="w-6 h-6 rounded-md flex items-center justify-center bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                  currentPage >= totalPages
+                    ? 'bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed'
+                    : 'bg-white border border-[#E0D7CC] text-[#783D19] hover:bg-[#FAF0E4] cursor-pointer'
+                }`}
+                title="Trang sau"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
