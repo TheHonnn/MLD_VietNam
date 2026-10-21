@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/booking_models.dart';
-import '../../data/repositories/mock_booking_repository.dart';
+import '../../data/repositories/booking_repository.dart';
 import '../widgets/booking_status_badge.dart';
 import '../widgets/cancel_booking_dialog.dart';
 import '../widgets/group_c_widgets.dart';
@@ -22,7 +22,7 @@ class C09MyAppointmentsScreen extends StatefulWidget {
 
 class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
   late int _selectedTab;
-  final MockBookingRepository _repo = MockBookingRepository();
+  final BookingRepository _repo = BookingRepository.instance;
 
   final String _dateRangeText = '12/10/2026–31/10/2026';
   final String _statusFilterText = 'Tất cả · Tất cả · Đã xác nhận';
@@ -31,6 +31,12 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
   void initState() {
     super.initState();
     _selectedTab = widget.initialTabIndex;
+    _loadAppointments();
+  }
+
+  Future<void> _loadAppointments() async {
+    await _repo.fetchMyAppointments();
+    if (mounted) setState(() {});
   }
 
   List<AppointmentItemModel> _getCurrentAppointments() {
@@ -50,7 +56,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => RescheduleBottomSheet(
         appointment: appointment,
-        onConfirmReschedule: (newDate, newSlot) {
+        onConfirmReschedule: (newDate, newSlot, [newSpecialist]) {
           _repo.rescheduleAppointment(appointment.id, newDate, newSlot);
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(

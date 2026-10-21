@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/mock_treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
 
 class D07CustomerSupportScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -17,7 +17,7 @@ class D07CustomerSupportScreen extends StatefulWidget {
 }
 
 class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
-  final MockTreatmentRepository _repo = MockTreatmentRepository();
+  final TreatmentRepository _repo = TreatmentRepository.instance;
   final TextEditingController _msgController = TextEditingController();
   late List<ChatMessageModel> _messages;
 

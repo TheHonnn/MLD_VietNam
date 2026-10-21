@@ -1,20 +1,29 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsDateString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class HoldSlotDto {
-  @ApiProperty({ example: '44444444-4444-4444-4444-444444444401', description: 'ID bác sĩ' })
-  @IsNotEmpty({ message: 'doctorId không được để trống' })
+  @ApiProperty({ description: 'ID khung giờ slot', required: false })
+  @IsOptional()
   @IsString()
-  doctorId: string;
+  slotId?: string;
 
-  @ApiProperty({ description: 'ID khung giờ khám' })
-  @IsNotEmpty({ message: 'slotId không được để trống' })
+  @ApiProperty({ description: 'ID chuyên viên / kỹ thuật viên', required: false })
+  @IsOptional()
   @IsString()
-  slotId: string;
+  technicianId?: string;
 
-  @ApiProperty({ example: '2026-10-15', description: 'Ngày khám YYYY-MM-DD' })
-  @IsNotEmpty({ message: 'slotDate không được để trống' })
-  @IsDateString()
-  slotDate: string;
+  @ApiProperty({ description: 'ID chi nhánh Spa', required: false })
+  @IsOptional()
+  @IsString()
+  branchId?: string;
+
+  @ApiProperty({ description: 'Ngày đặt YYYY-MM-DD', example: '2026-10-25', required: false })
+  @IsOptional()
+  @IsString()
+  slotDate?: string;
+
+  @ApiProperty({ description: 'Giờ bắt đầu HH:mm', example: '14:00', required: false })
+  @IsOptional()
+  @IsString()
+  startTime?: string;
 }
-

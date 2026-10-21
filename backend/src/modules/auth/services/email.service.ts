@@ -1,0 +1,368 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import { OtpPurpose } from './otp.service';
+
+export interface SendOtpEmailOptions {
+  to: string;
+  otp: string;
+  purpose: OtpPurpose;
+  fullName?: string;
+}
+
+@Injectable()
+export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter | null = null;
+  private readonly fromAddress: string;
+  private readonly fromName: string;
+
+  constructor(private configService: ConfigService) {
+    this.fromName = this.configService.get<string>('MAIL_FROM_NAME') || 'MLD Việt Nam';
+    this.fromAddress =
+      this.configService.get<string>('MAIL_FROM_ADDRESS') || 'no-reply@mldvietnam.vn';
+
+    this.initTransporter();
+  }
+
+  private initTransporter(): void {
+    const host = this.configService.get<string>('SMTP_HOST');
+    const port = Number(this.configService.get<number>('SMTP_PORT')) || 587;
+    const user = this.configService.get<string>('SMTP_USER');
+    const pass = this.configService.get<string>('SMTP_PASS');
+    const secure = this.configService.get<string>('SMTP_SECURE') === 'true';
+
+    if (host && user && pass) {
+      try {
+        this.transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure,
+          auth: { user, pass },
+          tls: {
+            rejectUnauthorized: false,
+          },
+        });
+        this.logger.log(`✅ Mail Transporter (SMTP) đã kết nối: ${host}:${port} (${user})`);
+      } catch (err: any) {
+        this.logger.error(`❌ Khởi tạo Mail Transporter thất bại: ${err.message}`);
+        this.transporter = null;
+      }
+    } else {
+      this.logger.warn(
+        '⚠️ Chưa cấu hình đầy đủ biến môi trường SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS). Email OTP sẽ được mô phỏng trong Terminal/Logger.',
+      );
+    }
+  }
+
+  /**
+   * Gửi email mã OTP xác thực chuẩn thương hiệu MLD Việt Nam
+   */
+  async sendOtpEmail(options: SendOtpEmailOptions): Promise<boolean> {
+    const { to, otp, purpose, fullName } = options;
+    const greeting = fullName ? `Chào ${fullName},` : 'Kính chào Quý khách,';
+
+    let subject = 'Mã xác thực OTP - MLD Việt Nam';
+    let actionDesc = 'hoàn tất xác thực tài khoản';
+
+    switch (purpose) {
+      case 'REGISTER':
+        subject = 'Mã xác thực đăng ký tài khoản - MLD Việt Nam';
+        actionDesc = 'hoàn tất thủ tục đăng ký tài khoản';
+        break;
+      case 'RESET_PASSWORD':
+        subject = 'Mã xác thực đặt lại mật khẩu - MLD Việt Nam';
+        actionDesc = 'thiết lập lại mật khẩu mới cho tài khoản';
+        break;
+      case 'ACCOUNT_LINKING':
+        subject = 'Mã xác thực liên kết tài khoản - MLD Việt Nam';
+        actionDesc = 'xác nhận liên kết định danh tài khoản';
+        break;
+      case 'LOGIN':
+        subject = 'Mã xác thực đăng nhập - MLD Việt Nam';
+        actionDesc = 'đăng nhập vào hệ thống ứng dụng';
+        break;
+    }
+
+    const htmlContent = this.generateHtmlTemplate({
+      greeting,
+      actionDesc,
+      otp,
+    });
+
+    // In log mã OTP ra terminal trong mọi trường hợp để dễ dàng debug/test
+    this.logger.log(`\n======================================================`);
+    this.logger.log(`📧 GỬI EMAIL OTP [${purpose}] TỚI: ${to}`);
+    this.logger.log(`🔑 MÃ XÁC THỰC OTP 6 SỐ: [ ${otp} ] (Hiệu lực: 5 phút)`);
+    this.logger.log(`======================================================\n`);
+
+    if (!this.transporter) {
+      // Mock mode khi chưa có SMTP thật
+      return true;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.fromName}" <${this.fromAddress}>`,
+        to,
+        subject,
+        html: htmlContent,
+      });
+      this.logger.log(`📨 Đã gửi thành công email OTP tới địa chỉ ${to}`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`❌ Gửi email OTP tới ${to} thất bại: ${err.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Tạo mẫu Email HTML chuẩn thương hiệu thẩm mỹ & đào tạo MLD Việt Nam
+   */
+  private generateHtmlTemplate(data: { greeting: string; actionDesc: string; otp: string }): string {
+    return `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mã xác thực OTP - MLD Việt Nam</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #F8F1E8;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #40352F;
+    }
+    .email-container {
+      max-width: 580px;
+      margin: 32px auto;
+      background-color: #FFFFFF;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(152, 80, 24, 0.08);
+      border: 1px solid #EADBCC;
+    }
+    .header {
+      background: linear-gradient(135deg, #985018 0%, #693B20 100%);
+      padding: 32px 24px;
+      text-align: center;
+      color: #FFFFFF;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .header p {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: #F3E2CE;
+      letter-spacing: 0.5px;
+    }
+    .content {
+      padding: 36px 32px;
+      line-height: 1.6;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 600;
+      color: #693B20;
+      margin-bottom: 12px;
+    }
+    .description {
+      font-size: 14px;
+      color: #6B6158;
+      margin-bottom: 24px;
+    }
+    .otp-box {
+      background-color: #F8F1E8;
+      border: 2px dashed #985018;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      margin: 28px 0;
+    }
+    .otp-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #985018;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+    }
+    .otp-code {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: 8px;
+      color: #985018;
+      margin: 0;
+    }
+    .otp-expiry {
+      font-size: 12px;
+      color: #A06436;
+      margin-top: 8px;
+    }
+    .warning {
+      background-color: #FFF8F0;
+      border-left: 4px solid #C58D59;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #6B6158;
+      margin-top: 24px;
+    }
+    .footer {
+      background-color: #FAF6F1;
+      border-top: 1px solid #EADBCC;
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #8C827A;
+      line-height: 1.6;
+    }
+    .footer a {
+      color: #985018;
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <h1>MLD VIỆT NAM</h1>
+      <p>HỆ THỐNG CHĂM SÓC SỨC KHỎE, SẮC ĐẸP & ĐÀO TẠO NGHỀ</p>
+    </div>
+
+    <div class="content">
+      <div class="greeting">${data.greeting}</div>
+      <div class="description">
+        Bạn (hoặc ai đó) vừa yêu cầu <strong>${data.actionDesc}</strong> trên ứng dụng MLD Việt Nam.
+        Vui lòng sử dụng mã xác thực dưới đây để hoàn tất:
+      </div>
+
+      <div class="otp-box">
+        <div class="otp-label">MÃ XÁC THỰC BẢO MẬT (OTP)</div>
+        <div class="otp-code">${data.otp}</div>
+        <div class="otp-expiry">⏳ Mã này sẽ tự động hết hạn sau <strong>5 phút</strong></div>
+      </div>
+
+      <div class="warning">
+        🔒 <strong>Lưu ý an toàn:</strong> Tuyệt đối không chia sẻ mã này cho bất kỳ ai, kể cả nhân viên tự xưng là đại diện MLD Việt Nam. Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>Hệ sinh thái Thẩm mỹ viện Dưỡng sinh & Học viện Đào tạo MLD Việt Nam</div>
+      <div>Hotline hỗ trợ: <a href="tel:0388886688">0388.886.688</a> | Website: <a href="https://mldvietnam.vn">mldvietnam.vn</a></div>
+      <div style="margin-top: 8px; color: #B3ABA3;">© 2026 MLD Việt Nam. Tất cả quyền được bảo lưu.</div>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
+
+  /**
+   * Gửi email nhắc hẹn tự động trước 24 giờ hoặc trước 2 giờ
+   */
+  async sendAppointmentReminderEmail(options: {
+    to: string;
+    customerName: string;
+    bookingCode: string;
+    serviceName: string;
+    branchName: string;
+    branchAddress: string;
+    date: string;
+    time: string;
+    specialistName?: string;
+    hoursBefore: 24 | 2;
+  }): Promise<boolean> {
+    const { to, customerName, bookingCode, serviceName, branchName, branchAddress, date, time, specialistName, hoursBefore } = options;
+
+    const subject = hoursBefore === 24
+      ? `[MLD Việt Nam] Nhắc lịch hẹn ngày mai (${time} - ${date}) - Mã ${bookingCode}`
+      : `[MLD Việt Nam] Lịch hẹn của bạn sẽ bắt đầu trong 2 giờ nữa (${time}) - Mã ${bookingCode}`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #F8F1E8; margin: 0; padding: 20px; color: #40352F; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E3D1BF; }
+    .header { background: linear-gradient(135deg, #985018 0%, #693B20 100%); color: #ffffff; padding: 28px 24px; text-align: center; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+    .content { padding: 28px 24px; }
+    .badge { display: inline-block; background-color: #FFF3E0; color: #985018; font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 20px; margin-bottom: 16px; }
+    .card { background-color: #FAF6F1; border: 1px solid #EADBCC; border-radius: 12px; padding: 18px; margin: 16px 0; }
+    .row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+    .label { color: #8C827A; }
+    .val { font-weight: 600; color: #40352F; }
+    .footer { background-color: #FAF6F1; border-top: 1px solid #EADBCC; padding: 20px; text-align: center; font-size: 12px; color: #8C827A; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>MLD VIỆT NAM</h1>
+      <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.9;">HỆ THỐNG TRỊ LIỆU DƯỠNG SINH & CHĂM SÓC SỨC KHỎE</p>
+    </div>
+    <div class="content">
+      <div class="badge">NHẮC LỊCH HẸN TRƯỚC ${hoursBefore} GIỜ</div>
+      <p>Xin chào <strong>${customerName}</strong>,</p>
+      <p>MLD Việt Nam xin gửi lời nhắc về lịch hẹn chăm sóc sức khỏe & trị liệu sắp tới của bạn:</p>
+      
+      <div class="card">
+        <div class="row"><span class="label">Mã lịch hẹn:</span><span class="val" style="color: #985018;">${bookingCode}</span></div>
+        <div class="row"><span class="label">Dịch vụ:</span><span class="val">${serviceName}</span></div>
+        <div class="row"><span class="label">Thời gian:</span><span class="val">${time} · Ngày ${date}</span></div>
+        <div class="row"><span class="label">Chuyên viên:</span><span class="val">${specialistName || 'Chuyên viên chỉ định MLD'}</span></div>
+        <div class="row"><span class="label">Chi nhánh:</span><span class="val">${branchName}</span></div>
+        <div class="row" style="margin-bottom: 0;"><span class="label">Địa chỉ:</span><span class="val" style="text-align: right; max-width: 60%;">${branchAddress}</span></div>
+      </div>
+
+      <p style="font-size: 13px; color: #6B6158; line-height: 1.5;">
+        * Quý khách vui lòng đến sớm hơn 10 phút để được đón tiếp và thăm khám tiền dịch vụ chu đáo nhất.
+        Nếu cần đổi giờ hẹn hoặc hỗ trợ, vui lòng liên hệ hotline chi nhánh hoặc sử dụng tính năng Đổi lịch trên app MLD.
+      </p>
+    </div>
+    <div class="footer">
+      <div>Hệ sinh thái Thẩm mỹ viện Dưỡng sinh & Học viện Đào tạo MLD Việt Nam</div>
+      <div>Hotline hỗ trợ: 0388.886.688 | Website: mldvietnam.vn</div>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    if (this.transporter) {
+      try {
+        await this.transporter.sendMail({
+          from: `"${this.fromName}" <${this.fromAddress}>`,
+          to,
+          subject,
+          html,
+        });
+        this.logger.log(`📧 [EMAIL SENT] Đã gửi email nhắc hẹn trước ${hoursBefore}h tới ${to} (Mã: ${bookingCode})`);
+        return true;
+      } catch (err: any) {
+        this.logger.error(`❌ Gửi email nhắc hẹn thất bại: ${err.message}`);
+      }
+    }
+
+    this.logger.log(`\n================================================================================`);
+    this.logger.log(`📧 [EMAIL MÔ PHỎNG] NHẮC LỊCH HẸN TRƯỚC ${hoursBefore}H`);
+    this.logger.log(`   Người nhận : ${customerName} <${to}>`);
+    this.logger.log(`   Tiêu đề    : ${subject}`);
+    this.logger.log(`   Lịch hẹn   : ${date} lúc ${time} tại ${branchName}`);
+    this.logger.log(`================================================================================\n`);
+    return true;
+  }
+
+}

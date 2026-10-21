@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: mld-vietnam-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        value: https://wstvwushpwcdsmhpunvh.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        value: super-secret-jwt-key-medical-healthcare-2026
+      - key: JWT_EXPIRES_IN
+        value: 30m
+      - key: JWT_REFRESH_SECRET
+        value: super-secret-refresh-token-key-mld-vietnam-2026
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: MAIL_FROM_NAME
+        value: "MLD Việt Nam"
+      - key: MAIL_FROM_ADDRESS
+        value: "hbui73444@gmail.com"
+      - key: SMTP_HOST
+        value: "smtp.gmail.com"
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        value: "hbui73444@gmail.com"
+      - key: SMTP_PASS
+        sync: false
+      - key: PAYOS_CLIENT_ID
+        sync: false
+      - key: PAYOS_API_KEY
+        sync: false
+      - key: PAYOS_CHECKSUM_KEY
+        sync: false
+      - key: PAYOS_BANK_BIN
+        sync: false
+      - key: PAYOS_BANK_ACCOUNT_NO
+        sync: false
+      - key: PAYOS_BANK_ACCOUNT_NAME
+        sync: false
+

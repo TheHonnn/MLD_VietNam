@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../widgets/academy_widgets.dart';
 import 'e02_course_catalog_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 
 /// Screen E01: Học viện đào tạo (Màn hình chính) [8116:25004]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -21,6 +23,8 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AcademyColors.background,
       body: SafeArea(
@@ -54,9 +58,9 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Học viện đào tạo',
-                style: TextStyle(
+              Text(
+                l10n?.academyTitle ?? 'Học viện đào tạo',
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   color: AcademyColors.heading,
@@ -64,9 +68,9 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Kiến tạo kỹ năng – Phát triển nghề nghiệp',
-                style: TextStyle(
+              Text(
+                l10n?.academySubtitle ?? 'Kiến tạo kỹ năng – Phát triển nghề nghiệp',
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: AcademyColors.textSecondary,
@@ -76,79 +80,90 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
               const SizedBox(height: 20),
 
               // 2. Chào học viên [8116:25019] (350x48)
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      color: AcademyColors.cardWarm,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'MA',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AcademyColors.primary,
+              Builder(
+                builder: (context) {
+                  final profile = MembershipRepository.instance.profile;
+                  final fullName = profile.fullName.trim();
+                  final greetingName = fullName.isNotEmpty ? fullName : 'quý khách';
+                  final initials = fullName.isNotEmpty
+                      ? fullName.split(' ').where((w) => w.isNotEmpty).map((w) => w[0]).take(2).join().toUpperCase()
+                      : 'HV';
+
+                  return Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          color: AcademyColors.cardWarm,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            initials,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AcademyColors.primary,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Xin chào, Minh Anh!',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AcademyColors.textPrimary,
-                          ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Xin chào, $greetingName!',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AcademyColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Sẵn sàng nâng cao kỹ năng hôm nay?',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: AcademyColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Sẵn sàng nâng cao kỹ năng hôm nay?',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AcademyColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Không có thông báo mới'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
+                      ),
+                      InkWell(
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Không có thông báo mới'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.notifications_none_rounded,
-                          color: AcademyColors.primary,
-                          size: 22,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.notifications_none_rounded,
+                              color: AcademyColors.primary,
+                              size: 22,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
@@ -259,9 +274,9 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text(
-                          'Khám phá khóa học',
-                          style: TextStyle(
+                        child: Text(
+                          l10n?.exploreCourses ?? 'Khám phá khóa học',
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: AcademyColors.primary,

@@ -38,6 +38,50 @@ class CourseModel {
     required this.description,
     this.tag = 'Thực hành chuyên nghiệp',
   });
+
+  factory CourseModel.fromJson(Map<String, dynamic> json) {
+    return CourseModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      category: json['categoryName']?.toString() ?? json['category']?.toString() ?? 'Đào tạo Spa',
+      level: json['level']?.toString() ?? 'Cơ bản',
+      durationWeeks: (json['durationWeeks'] as num?)?.toInt() ?? 12,
+      totalHours: (json['totalHours'] as num?)?.toInt() ?? (json['total_hours'] as num?)?.toInt() ?? 144,
+      theoryHours: (json['theoryHours'] as num?)?.toInt() ?? (json['theory_hours'] as num?)?.toInt() ?? 48,
+      practiceHours: (json['practiceHours'] as num?)?.toInt() ?? (json['practice_hours'] as num?)?.toInt() ?? 96,
+      tuitionFee: (json['tuitionFee'] as num?)?.toDouble() ?? (json['tuition_fee'] as num?)?.toDouble() ?? 9000000,
+      depositFee: (json['depositAmount'] as num?)?.toDouble() ?? (json['depositFee'] as num?)?.toDouble() ?? (json['deposit_amount'] as num?)?.toDouble() ?? 2000000,
+      image: json['imageUrl']?.toString() ?? json['image']?.toString() ?? 'assets/images/gioithieu_1.png',
+      instructorName: json['instructorName']?.toString() ?? 'ThS. Nguyễn Thu Hà',
+      instructorTitle: json['instructorTitle']?.toString() ?? 'Giảng viên chuyên môn',
+      instructorAvatar: json['instructorAvatar']?.toString() ?? 'assets/images/nguyen_thu_ha.png',
+      branch: json['branchName']?.toString() ?? json['branch']?.toString() ?? 'Chi nhánh Quận 3',
+      schedule: json['schedule']?.toString() ?? 'Thứ 6–7–Chủ nhật · 13:00–17:00',
+      description: json['fullDescription']?.toString() ?? json['shortDescription']?.toString() ?? json['description']?.toString() ?? '',
+      tag: json['tag']?.toString() ?? 'Thực hành chuyên nghiệp',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'category': category,
+    'level': level,
+    'durationWeeks': durationWeeks,
+    'totalHours': totalHours,
+    'theoryHours': theoryHours,
+    'practiceHours': practiceHours,
+    'tuitionFee': tuitionFee,
+    'depositFee': depositFee,
+    'image': image,
+    'instructorName': instructorName,
+    'instructorTitle': instructorTitle,
+    'instructorAvatar': instructorAvatar,
+    'branch': branch,
+    'schedule': schedule,
+    'description': description,
+    'tag': tag,
+  };
 }
 
 class InstructorModel {

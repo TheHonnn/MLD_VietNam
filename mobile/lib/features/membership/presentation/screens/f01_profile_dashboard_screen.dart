@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../data/models/membership_models.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
+import '../../../treatment/data/repositories/treatment_repository.dart';
+import '../../../treatment/data/models/treatment_models.dart';
 import '../../../treatment/presentation/screens/d03_care_journal_screen.dart';
 import '../../../treatment/presentation/screens/d04_pre_service_consultation_screen.dart';
 import '../../../treatment/presentation/screens/d06_home_care_guidelines_screen.dart';
@@ -34,13 +37,20 @@ class F01ProfileDashboardScreen extends StatefulWidget {
 }
 
 class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
-  final MockMembershipRepository _repo = MockMembershipRepository();
+  final MembershipRepository _repo = MembershipRepository.instance;
   late UserProfile _profile;
 
   @override
   void initState() {
     super.initState();
     _profile = _repo.profile;
+    MembershipRepository.instance.fetchProfile().then((p) {
+      if (mounted) {
+        setState(() {
+          _profile = p;
+        });
+      }
+    });
   }
 
   void _refreshProfile() {
@@ -97,7 +107,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _profile.fullName,
+                          _profile.fullName.trim().isNotEmpty ? _profile.fullName : 'Khách hàng',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -106,7 +116,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${_profile.phone} · Đã xác thực',
+                          _profile.phone.trim().isNotEmpty ? '${_profile.phone} · Đã xác thực' : 'Chưa cập nhật SĐT',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w400,
@@ -341,53 +351,63 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 16),
 
               // --- 4. TỔNG QUAN TÀI KHOẢN (3 CHỈ SỐ: Lịch hẹn, Liệu trình, Khóa học) ---
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildMetricCard(
-                      icon: Icons.calendar_today_rounded,
-                      value: '2',
-                      label: 'Lịch hẹn',
-                      subLabel: 'sắp tới',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildMetricCard(
-                      icon: Icons.spa_outlined,
-                      value: '11',
-                      label: 'Liệu trình',
-                      subLabel: 'buổi còn lại',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildMetricCard(
-                      icon: Icons.school_outlined,
-                      value: '1',
-                      label: 'Khóa học',
-                      subLabel: 'đang học',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              Builder(
+                builder: (context) {
+                  final upcomingCount = BookingRepository.instance.getUpcomingAppointments().length;
+                  final remainingSessions = TreatmentRepository.instance
+                      .packages
+                      .where((p) => p.status == PackageStatus.active)
+                      .fold<int>(0, (acc, p) => acc + (p.totalSessions - p.completedSessions));
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _buildMetricCard(
+                          icon: Icons.calendar_today_rounded,
+                          value: upcomingCount.toString(),
+                          label: 'Lịch hẹn',
+                          subLabel: 'sắp tới',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildMetricCard(
+                          icon: Icons.spa_outlined,
+                          value: remainingSessions.toString(),
+                          label: 'Liệu trình',
+                          subLabel: 'buổi còn lại',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildMetricCard(
+                          icon: Icons.school_outlined,
+                          value: '0',
+                          label: 'Khóa học',
+                          subLabel: 'đang học',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
 
               const SizedBox(height: 24),

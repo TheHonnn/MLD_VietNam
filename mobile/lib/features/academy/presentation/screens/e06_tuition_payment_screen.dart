@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medical_healthcare_app/features/booking/presentation/widgets/group_c_widgets.dart';
 import '../../data/models/academy_models.dart';
+import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e07_my_courses_screen.dart';
 
@@ -43,8 +44,18 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: 'Chờ thanh toán · Trả ngay 2.000.000đ',
         buttonText: 'Xác nhận thanh toán',
-        onPressed: () {
-          _showPaymentSuccessDialog(context);
+        onPressed: () async {
+          await AcademyRepository.instance.enrollCourse(
+            course: course,
+            studentName: widget.studentName,
+            studentPhone: widget.studentPhone,
+            studentEmail: widget.studentEmail,
+            selectedBranch: widget.selectedBranch,
+            selectedShift: widget.selectedShift,
+          );
+          if (context.mounted) {
+            _showPaymentSuccessDialog(context);
+          }
         },
       ),
       body: SingleChildScrollView(

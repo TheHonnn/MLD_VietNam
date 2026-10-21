@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/mock_treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
 
 class D04PreServiceConsultationScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -16,7 +16,7 @@ class D04PreServiceConsultationScreen extends StatefulWidget {
 }
 
 class _D04PreServiceConsultationScreenState extends State<D04PreServiceConsultationScreen> {
-  final MockTreatmentRepository _repo = MockTreatmentRepository();
+  final TreatmentRepository _repo = TreatmentRepository.instance;
 
   final Set<String> _selectedGoals = {'Thư giãn cơ thể.', 'Giảm cảm giác căng thẳng.'};
   final TextEditingController _attentionAreaCtrl = TextEditingController();

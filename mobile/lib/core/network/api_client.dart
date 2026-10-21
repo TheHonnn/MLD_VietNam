@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'api_endpoints.dart';
 import 'api_exception.dart';
@@ -31,17 +32,38 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  /// Setup Interceptors for Supabase apikey & Bearer Token injection and 401 handling
+  /// Setup Interceptors for Supabase apikey, Bearer Token, Accept-Language and Queued 401 Token Refresh
   void _setupInterceptors() {
     _dio.interceptors.add(
-      InterceptorsWrapper(
+      QueuedInterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Always ensure apikey is present for Supabase
+          // 0. Tự động định tuyến các API Xác thực (Auth) sang Backend Gateway NestJS
+          if (options.path.startsWith('/auth/') ||
+              options.path.startsWith('/academy/') ||
+              options.path.startsWith('/treatment/') ||
+              options.path.startsWith('/membership/') || options.path.startsWith('/bookings') || options.path.startsWith('/appointments') || options.path.startsWith('/payments')) {
+            const backendBase = ApiEndpoints.backendBaseUrl;
+            options.baseUrl = '';
+            options.path = '$backendBase${options.path}';
+          }
+
+          // 1. Luôn bảo đảm apikey cho Supabase
           if (!options.headers.containsKey('apikey')) {
             options.headers['apikey'] = ApiEndpoints.supabaseAnonKey;
           }
 
-          // Attach user Bearer token if logged in, otherwise use Supabase anon key
+          // 2. Tự động đính kèm Accept-Language
+          if (!options.headers.containsKey('Accept-Language')) {
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              final lang = prefs.getString('app_language_code') ?? 'vi';
+              options.headers['Accept-Language'] = lang;
+            } catch (_) {
+              options.headers['Accept-Language'] = 'vi';
+            }
+          }
+
+          // 3. Đính kèm Bearer token người dùng nếu đã đăng nhập
           if (!options.headers.containsKey('Authorization')) {
             final token = await AuthService.instance.getAccessToken();
             if (token != null && token.isNotEmpty) {
@@ -56,13 +78,90 @@ class ApiClient {
           return handler.next(response);
         },
         onError: (DioException error, handler) async {
-          // If 401 Unauthorized occurs on an authenticated route, clear session
+          // 0. Tự động thử lại với LAN IP nếu kết nối qua 127.0.0.1 không phản hồi
+          final req = error.requestOptions;
+          if (req.path.contains('127.0.0.1:3000') &&
+              (error.type == DioExceptionType.connectionError ||
+               error.type == DioExceptionType.connectionTimeout)) {
+            try {
+              final lanPath = req.path.replaceAll('127.0.0.1:3000', '${ApiEndpoints.backendLanIp}:3000');
+              final retryOptions = Options(
+                method: req.method,
+                headers: req.headers,
+                contentType: req.contentType,
+                responseType: req.responseType,
+              );
+              final retryRes = await _dio.request(
+                lanPath,
+                data: req.data,
+                queryParameters: req.queryParameters,
+                options: retryOptions,
+              );
+              return handler.resolve(retryRes);
+            } catch (_) {}
+          }
+          // Xử lý 401 Unauthorized: Kích hoạt Silent Refresh tự động
           if (error.response?.statusCode == 401) {
             final path = error.requestOptions.path;
-            final isAuthRoute = path.contains(ApiEndpoints.sendOtp) ||
-                path.contains(ApiEndpoints.verifyOtp);
+            final isAuthBypassRoute = path.contains(ApiEndpoints.sendOtp) ||
+                path.contains(ApiEndpoints.verifyOtp) ||
+                path.contains(ApiEndpoints.authLogin) ||
+                path.contains(ApiEndpoints.authLoginEmail) ||
+                path.contains(ApiEndpoints.authRegister) ||
+                path.contains(ApiEndpoints.authRegisterEmail) ||
+                path.contains(ApiEndpoints.authRefresh) ||
+                path.contains(ApiEndpoints.authForgotPassword) ||
+                path.contains(ApiEndpoints.authResetPassword);
 
-            if (!isAuthRoute) {
+            if (!isAuthBypassRoute) {
+              final currentRefreshToken = await AuthService.instance.getRefreshToken();
+              if (currentRefreshToken != null && currentRefreshToken.isNotEmpty) {
+                try {
+                  // Sử dụng Dio riêng biệt để gọi refresh, tránh lặp interceptor
+                  final refreshDio = Dio(
+                    BaseOptions(
+                      baseUrl: _dio.options.baseUrl,
+                      connectTimeout: const Duration(seconds: 10),
+                      receiveTimeout: const Duration(seconds: 10),
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': ApiEndpoints.supabaseAnonKey,
+                      },
+                    ),
+                  );
+
+                  final refreshResponse = await refreshDio.post(
+                    ApiEndpoints.authRefresh,
+                    data: {'refreshToken': currentRefreshToken},
+                  );
+
+                  if (refreshResponse.statusCode == 200 && refreshResponse.data != null) {
+                    final newAccessToken = refreshResponse.data['accessToken'] as String?;
+                    final newRefreshToken = refreshResponse.data['refreshToken'] as String?;
+
+                    if (newAccessToken != null && newAccessToken.isNotEmpty) {
+                      // Lưu token mới đã rotate
+                      await AuthService.instance.refreshSession(
+                        newAccessToken: newAccessToken,
+                        newRefreshToken: newRefreshToken,
+                      );
+
+                      // Cập nhật header Authorization cho request ban đầu bị lỗi và retry
+                      final requestOptions = error.requestOptions;
+                      requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+
+                      final clonedResponse = await _dio.fetch(requestOptions);
+                      return handler.resolve(clonedResponse);
+                    }
+                  }
+                } catch (refreshErr) {
+                  // Refresh thất bại (Refresh Token hết hạn hoặc bị thu hồi) -> Logout an toàn
+                  await AuthService.instance.logout();
+                  return handler.next(error);
+                }
+              }
+
+              // Không có Refresh Token hợp lệ -> Logout
               await AuthService.instance.logout();
             }
           }

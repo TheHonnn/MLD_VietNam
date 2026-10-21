@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import 'c06_booking_confirmation_screen.dart';
 
 /// Screen C05: Thông tin đặt lịch [8111:27011]
@@ -37,20 +39,23 @@ class _C05BookingInfoScreenState extends State<C05BookingInfoScreen> {
     _isFirstTime = widget.flowState.isFirstTime;
     _consentShareNeeds = widget.flowState.consentShareNeeds;
 
+    final profile = MembershipRepository.instance.profile;
     _nameController = TextEditingController(
       text: widget.flowState.customerName.isNotEmpty
           ? widget.flowState.customerName
-          : 'Nguyễn Minh Anh',
+          : profile.fullName,
     );
-    _phoneController = TextEditingController(
-      text: widget.flowState.customerPhone.isNotEmpty
-          ? widget.flowState.customerPhone
-          : '0912 345 678',
-    );
+    final currentPhone = AuthService.instance.currentPhone;
+    final initialPhone = widget.flowState.customerPhone.isNotEmpty
+        ? widget.flowState.customerPhone
+        : ((currentPhone != null && currentPhone.isNotEmpty)
+            ? currentPhone
+            : profile.phone);
+    _phoneController = TextEditingController(text: initialPhone);
     _emailController = TextEditingController(
       text: widget.flowState.customerEmail.isNotEmpty
           ? widget.flowState.customerEmail
-          : 'minh.anh@example.com',
+          : profile.email,
     );
     _specialRequestsController = TextEditingController(text: widget.flowState.specialRequests);
     _accessibilityController = TextEditingController(text: widget.flowState.accessibilityNeeds);
@@ -68,11 +73,12 @@ class _C05BookingInfoScreenState extends State<C05BookingInfoScreen> {
     super.dispose();
   }
 
-  void _onNext() {
+  Future<void> _onNext() async {
     if (_formKey.currentState?.validate() ?? false) {
+      final phone = _phoneController.text.trim().replaceAll(' ', '');
       widget.flowState.isForSelf = _isForSelf;
       widget.flowState.customerName = _nameController.text.trim();
-      widget.flowState.customerPhone = _phoneController.text.trim();
+      widget.flowState.customerPhone = phone;
       widget.flowState.customerEmail = _emailController.text.trim();
       widget.flowState.specialRequests = _specialRequestsController.text.trim();
       widget.flowState.isFirstTime = _isFirstTime;
@@ -80,11 +86,20 @@ class _C05BookingInfoScreenState extends State<C05BookingInfoScreen> {
       widget.flowState.otherNotes = _otherNotesController.text.trim();
       widget.flowState.consentShareNeeds = _consentShareNeeds;
 
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => C06BookingConfirmationScreen(flowState: widget.flowState),
-        ),
-      );
+      // Lưu lại số điện thoại cho khách hàng vào AuthService và Backend nếu có cập nhật
+      if (phone.isNotEmpty) {
+        await AuthService.instance.updatePhone(phone);
+        final repo = MembershipRepository.instance;
+        repo.updateProfile(repo.profile.copyWith(phone: phone, isPhoneVerified: true));
+      }
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => C06BookingConfirmationScreen(flowState: widget.flowState),
+          ),
+        );
+      }
     }
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/widgets/qr_scanner_screen.dart';
+import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
+import 'e02_course_catalog_screen.dart';
 
 /// Screen E11: Lịch học & điểm danh [8116:26294]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -14,6 +16,7 @@ class E11AttendanceScheduleScreen extends StatefulWidget {
 class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScreen> {
   int _selectedDay = 16;
   bool _isCheckedIn = false;
+  bool _showDemoSchedule = false;
 
   // Lịch mẫu tháng 10/2026
   final Map<int, String> _eventDots = {
@@ -50,13 +53,114 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
     }
   }
 
+  Widget _buildEmptyScheduleState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: const BoxDecoration(
+              color: AcademyColors.cardWarm,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.event_note_outlined,
+              size: 32,
+              color: AcademyColors.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Bạn chưa có lịch học & điểm danh',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AcademyColors.heading,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Bạn hiện chưa ghi danh khóa đào tạo nào tại Học viện MLD. Sau khi đăng ký, lịch học lý thuyết, các buổi thực hành và mã QR điểm danh sẽ xuất hiện tại đây.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AcademyColors.textSecondary,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AcademyColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.school_outlined, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Khám phá khóa đào tạo ngay',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  _showDemoSchedule = true;
+                });
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AcademyColors.cardBorder),
+                foregroundColor: AcademyColors.textPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'Xem lịch học thực hành mẫu',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasEnrolled = AcademyRepository.instance.hasEnrolledCourses;
+    final isShowingEmpty = !hasEnrolled && !_showDemoSchedule;
+
     return Scaffold(
       backgroundColor: AcademyColors.background,
-      appBar: const AcademyAppBar(
-        
-      ),
+      appBar: const AcademyAppBar(),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -85,8 +189,41 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
             ),
             const SizedBox(height: 20),
 
-            // 2. CalendarPicker / Tháng 10 năm 2026 [8116:26305]
-            Container(
+            if (isShowingEmpty) ...[
+              _buildEmptyScheduleState(),
+            ] else ...[
+              if (_showDemoSchedule && !hasEnrolled)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFCD34D)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 20, color: Color(0xFF92400E)),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Đang xem lịch đào tạo mẫu (demo).',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF92400E)),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => _showDemoSchedule = false),
+                        child: const Text(
+                          'Đóng',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AcademyColors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // 2. CalendarPicker / Tháng 10 năm 2026 [8116:26305]
+              Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -418,10 +555,11 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               ),
             ),
           ],
-        ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCalendarDaysGrid() {
     // Tháng 10/2026 bắt đầu từ Thứ 5 (offset = 3 nếu bắt đầu T2)

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
-import 'c08_booking_success_screen.dart';
+import '../widgets/vietqr_payment_modal.dart';
 
 /// Screen C07: Thanh toán [8111:27241]
 class C07PaymentQrScreen extends StatefulWidget {
@@ -24,9 +24,7 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
   void initState() {
     super.initState();
     _payFullAmount = widget.flowState.payFullAmount;
-    if (widget.flowState.usePrepaidPackage) {
-      _selectedPaymentMethod = 'PREPAID_PACKAGE';
-    }
+    _selectedPaymentMethod = 'BANK_TRANSFER_QR';
   }
 
   String _formatPrice(double price) {
@@ -230,40 +228,13 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Phương thức 2: Thanh toán trực tuyến
-                  _buildPaymentMethodTile(
-                    id: 'ONLINE',
-                    title: 'Thanh toán trực tuyến',
-                    subtitle: 'Thanh toán an toàn qua cổng trực tuyến VNPAY/MoMo.',
-                    isSelected: _selectedPaymentMethod == 'ONLINE',
-                    onSelect: () => setState(() => _selectedPaymentMethod = 'ONLINE'),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Phương thức 3: Thanh toán tại cơ sở
+                  // Phương thức 2: Thanh toán tại cơ sở
                   _buildPaymentMethodTile(
                     id: 'AT_BRANCH',
                     title: 'Thanh toán tại cơ sở',
-                    subtitle:
-                        'Chỉ được chọn khi chi nhánh cho phép. Trong ví dụ này, Quận 3 cho phép trả phần còn lại 300.000đ tại cơ sở; vẫn yêu cầu cọc 150.000đ.',
+                    subtitle: 'Yêu cầu cọc tiền trước',
                     isSelected: _selectedPaymentMethod == 'AT_BRANCH',
                     onSelect: () => setState(() => _selectedPaymentMethod = 'AT_BRANCH'),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Phương thức 4: Sử dụng gói dịch vụ đã mua
-                  _buildPaymentMethodTile(
-                    id: 'PREPAID_PACKAGE',
-                    title: 'Sử dụng gói dịch vụ đã mua',
-                    subtitle:
-                        'Kiểm tra dịch vụ, chi nhánh, số buổi và hạn dùng. Chỉ trừ buổi sau khi xác nhận lịch.',
-                    isSelected: _selectedPaymentMethod == 'PREPAID_PACKAGE',
-                    onSelect: () {
-                      setState(() {
-                        _selectedPaymentMethod = 'PREPAID_PACKAGE';
-                        widget.flowState.usePrepaidPackage = true;
-                      });
-                    },
                   ),
                   const SizedBox(height: 24),
 
@@ -298,11 +269,15 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
               buttonText: 'Thanh toán và hoàn tất',
               onPressed: () {
                 widget.flowState.paymentMethod = _selectedPaymentMethod;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => C08BookingSuccessScreen(flowState: widget.flowState),
-                  ),
+                final bookingCode =
+                    'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
+
+                VietQrPaymentModal.show(
+                  context: context,
+                  flowState: widget.flowState,
+                  payableAmount: payableNow,
+                  bookingCode: bookingCode,
+                  isDeposit: !_payFullAmount,
                 );
               },
             ),
@@ -333,53 +308,52 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
           ),
         ),
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isSelected ? BookingColors.primary : Colors.white,
-                    border: Border.all(
-                      color: BookingColors.primary,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: isSelected
-                      ? const Icon(Icons.check, size: 14, color: Colors.white)
-                      : null,
+            Container(
+              width: 24,
+              height: 24,
+              margin: const EdgeInsets.only(top: 1),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? BookingColors.primary : Colors.white,
+                border: Border.all(
+                  color: BookingColors.primary,
+                  width: 1.5,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.w500,
                       color: BookingColors.textPrimary,
                     ),
                   ),
-                ),
-              ],
-            ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.only(left: 36),
-                child: Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: BookingColors.textPrimary,
-                    height: 1.35,
-                  ),
-                ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: BookingColors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),

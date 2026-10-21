@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/booking_models.dart';
-import '../../data/repositories/mock_booking_repository.dart';
+import '../../data/repositories/booking_repository.dart';
 import '../widgets/booking_status_badge.dart';
 import '../widgets/cancel_booking_dialog.dart';
 import '../widgets/group_c_widgets.dart';
@@ -22,7 +22,7 @@ class C10AppointmentDetailScreen extends StatefulWidget {
 }
 
 class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen> {
-  final MockBookingRepository _repo = MockBookingRepository();
+  final BookingRepository _repo = BookingRepository.instance;
   late AppointmentItemModel? _appointment;
 
   @override
@@ -43,14 +43,21 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => RescheduleBottomSheet(
         appointment: _appointment!,
-        onConfirmReschedule: (newDate, newSlot) {
-          _repo.rescheduleAppointment(_appointment!.id, newDate, newSlot);
+        onConfirmReschedule: (newDate, newSlot, newSpecialist) {
+          _repo.rescheduleAppointment(
+            _appointment!.id,
+            newDate,
+            newSlot,
+            newSpecialistName: newSpecialist,
+          );
           setState(() {
             _loadAppointment();
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Đã dời lịch sang ${newDate.day}/${newDate.month} · $newSlot'),
+              content: Text(
+                'Đã đổi lịch sang ${newDate.day}/${newDate.month} · $newSlot${newSpecialist != null ? ' (NV: $newSpecialist)' : ''}',
+              ),
               backgroundColor: BookingColors.heading,
             ),
           );

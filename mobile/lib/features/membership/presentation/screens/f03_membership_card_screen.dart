@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../data/repositories/mock_membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
 import 'f04_loyalty_points_screen.dart';
 
 class F03MembershipCardScreen extends StatelessWidget {
@@ -8,7 +9,7 @@ class F03MembershipCardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final repo = MockMembershipRepository();
+    final repo = MembershipRepository.instance;
     final profile = repo.profile;
     final perks = repo.perks;
     final tiers = repo.tiers;
@@ -151,7 +152,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            profile.fullName.toUpperCase(),
+                            profile.fullName.trim().isNotEmpty ? profile.fullName.toUpperCase() : 'HỘI VIÊN MLD',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -234,29 +235,29 @@ class F03MembershipCardScreen extends StatelessWidget {
                       child: Column(
                         children: [
                           Container(
-                            width: 140,
-                            height: 140,
+                            width: 170,
+                            height: 170,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: AppColors.border, width: 1.0),
                             ),
-                            child: const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.qr_code_2_rounded, size: 76, color: AppColors.primary),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'MLD VIỆT NAM',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
+                            child: Center(
+                              child: QrImageView(
+                                data: profile.memberCode.isNotEmpty
+                                    ? profile.memberCode
+                                    : 'MLD-${profile.id}',
+                                version: QrVersions.auto,
+                                size: 146.0,
+                                eyeStyle: const QrEyeStyle(
+                                  eyeShape: QrEyeShape.square,
+                                  color: AppColors.primary,
+                                ),
+                                dataModuleStyle: const QrDataModuleStyle(
+                                  dataModuleShape: QrDataModuleShape.square,
+                                  color: AppColors.textHeading,
+                                ),
                               ),
                             ),
                           ),

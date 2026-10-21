@@ -2,17 +2,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../booking/data/models/booking_models.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
-import '../../../membership/data/repositories/mock_membership_repository.dart';
+import '../../../booking/presentation/screens/c10_appointment_detail_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/mock_home_repository.dart';
+import '../../data/repositories/service_repository.dart';
 import 'b04_search_screen.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
 import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
 import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../auth/widgets/update_phone_modal.dart';
 
 class B01HomeScreen extends StatefulWidget {
   final VoidCallback? onNavigateToServices;
@@ -105,7 +111,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     },
   ];
 
-  final List<Map<String, dynamic>> _suggestedServices = [
+  List<Map<String, dynamic>> _suggestedServices = [
     {
       'id': 'srv_1',
       'title': 'Massage thư giãn toàn thân',
@@ -130,6 +136,46 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   void initState() {
     super.initState();
     _startHeroTimer();
+    _loadSuggestedServices();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPhonePrompt();
+    });
+  }
+
+  static bool _hasPromptedPhoneThisSession = false;
+
+  void _checkPhonePrompt() {
+    if (!_hasPromptedPhoneThisSession &&
+        AuthService.instance.isLoggedIn &&
+        !AuthService.instance.hasPhoneNumber) {
+      _hasPromptedPhoneThisSession = true;
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted && !AuthService.instance.hasPhoneNumber) {
+          UpdatePhoneModal.show(context, isDismissible: true);
+        }
+      });
+    }
+  }
+
+  Future<void> _loadSuggestedServices() async {
+    final liveServices = await ServiceRepository.instance.getFeaturedServices();
+    if (mounted && liveServices.isNotEmpty) {
+      setState(() {
+        _suggestedServices = liveServices.map((s) {
+          final priceFormatted =
+              '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+          return {
+            'id': s.id,
+            'title': s.name,
+            'duration': '${s.durationMinutes} phút',
+            'price': priceFormatted,
+            'description': s.description,
+            'image': s.imageUrl,
+            'isFavorite': false,
+          };
+        }).toList();
+      });
+    }
   }
 
   @override
@@ -168,7 +214,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   void _handleBooking([String? serviceTitle]) {
     SpaServiceModel? preselectedService;
     if (serviceTitle != null && serviceTitle.isNotEmpty) {
-      final allServices = MockHomeRepository.getFeaturedServices();
+      final allServices = ServiceRepository.instance.cachedServices.isNotEmpty
+          ? ServiceRepository.instance.cachedServices
+          : MockHomeRepository.getFeaturedServices();
       try {
         preselectedService = allServices.firstWhere(
           (s) => s.name.toLowerCase().contains(serviceTitle.toLowerCase()) ||
@@ -193,13 +241,16 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -262,9 +313,11 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
+  },
+);
   }
 
   void _showNotificationSheet() {
@@ -274,7 +327,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
-  void _showAppointmentDetailSheet() {
+  void _showAppointmentDetailSheet(AppointmentItemModel item) {
+    final d = item.appointmentDate;
+    final dStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -284,12 +340,13 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       ),
       builder: (context) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -321,10 +378,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Mã lịch hẹn: MLD-20261012-8821',
-                            style: TextStyle(
-                              fontSize: 12,
+                          Text(
+                            'Mã lịch hẹn: ${item.bookingCode}',
+                            style: const TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
                             ),
@@ -335,9 +392,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               color: const Color(0xFF236B42).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
-                              'Đã xác nhận',
-                              style: TextStyle(
+                            child: Text(
+                              item.status.label,
+                              style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF236B42),
@@ -347,28 +404,28 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Massage thư giãn toàn thân',
-                        style: TextStyle(
+                      Text(
+                        item.serviceName,
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textHeading,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Thời gian: 10:00 – 11:00, Thứ Hai 12/10/2026 (60 phút)',
-                        style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                      Text(
+                        'Thời gian: ${item.timeSlot}, $dStr',
+                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'Kỹ thuật viên: Trần Minh Phương',
-                        style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                      Text(
+                        'Chuyên viên: ${item.specialistName}',
+                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'Địa điểm: Chi nhánh Quận 3\n123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
-                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      Text(
+                        'Địa điểm: ${item.branchName}\n${item.branchAddress}',
+                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -401,31 +458,58 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => C10AppointmentDetailScreen(appointmentId: item.id),
+                            ),
+                          );
+                        },
+                        child: const Text('Xem toàn bộ lịch trình'),
+                      ),
                     ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'Đóng',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          'Đóng',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
       body: SafeArea(
@@ -453,7 +537,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                       onTap: widget.onNavigateToProfile,
                       borderRadius: BorderRadius.circular(22),
                       child: AppProfileAvatar(
-                        avatarUrl: MockMembershipRepository().profile.avatarUrl,
+                        avatarUrl: MembershipRepository.instance.profile.avatarUrl,
                         size: 44,
                         borderWidth: 1.5,
                         borderColor: AppColors.secondary,
@@ -469,7 +553,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Xin chào, ${MockMembershipRepository().profile.fullName.split(' ').last}!',
+                            'Xin chào, ${MembershipRepository.instance.profile.fullName.split(' ').last}!',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -525,6 +609,82 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     ),
                   ],
                 ),
+              ),
+
+              // --- BANNER CẢNH BÁO BỔ SUNG SỐ ĐIỆN THOẠI (CHO TÀI KHOẢN ĐĂNG NHẬP EMAIL) ---
+              ValueListenableBuilder<String?>(
+                valueListenable: AuthService.instance.phoneNotifier,
+                builder: (context, phone, _) {
+                  final hasPhone = (phone != null && phone.trim().isNotEmpty) ||
+                      MembershipRepository.instance.profile.phone.trim().isNotEmpty;
+                  if (!AuthService.instance.isLoggedIn || hasPhone) {
+                    return const SizedBox.shrink();
+                  }
+                  return Container(
+                    margin: const EdgeInsets.only(top: 14, bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFFDBA74), width: 1.0),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFED7AA),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.phone_android_rounded,
+                            color: Color(0xFFC2410C),
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Cập nhật số điện thoại',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF9A3412),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Vui lòng cập nhật để nhận thông báo lịch hẹn & bảo mật tài khoản.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF7C2D12),
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                            minimumSize: const Size(0, 36),
+                          ),
+                          onPressed: () => UpdatePhoneModal.show(context),
+                          child: const Text('Cập nhật', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: 16),
@@ -606,18 +766,18 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                       width: 1.0,
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.search_rounded,
                         size: 22,
                         color: AppColors.textSecondary,
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Tìm dịch vụ, khóa học, chuyên viên...',
-                          style: TextStyle(
+                          l10n?.homeSearchHint ?? 'Tìm dịch vụ, khóa học, chuyên viên...',
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w400,
                             color: AppColors.textSecondary, // #6B6158
@@ -964,10 +1124,27 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               child: SizedBox(
                                 height: 172,
                                 width: double.infinity,
-                                child: Image.asset(
-                                  service['image'] as String,
-                                  fit: BoxFit.cover,
-                                ),
+                                child: (service['image'] as String).startsWith('http')
+                                    ? Image.network(
+                                        service['image'] as String,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: AppColors.surfaceSecondary,
+                                          child: const Center(
+                                            child: Icon(Icons.spa, size: 48, color: AppColors.primary),
+                                          ),
+                                        ),
+                                      )
+                                    : Image.asset(
+                                        service['image'] as String,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: AppColors.surfaceSecondary,
+                                          child: const Center(
+                                            child: Icon(Icons.spa, size: 48, color: AppColors.primary),
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ),
                             // Nút yêu thích FavoriteButton (44x44, r=12, white)
@@ -1094,92 +1271,206 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               ),
 
               // ==========================================
-              // 8. LỊCH HẸN SẮP TỚI (350x248, r=16, #F3E2CE)
+              // 8. LỊCH HẸN SẮP TỚI (Empty state 100% cho tài khoản mới)
               // ==========================================
-              Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary, // #F3E2CE
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Lịch hẹn sắp tới',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textHeading, // #693B20
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Massage thư giãn toàn thân',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary, // #40352F
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      '12/10/2026 · 10:00–11:00',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Chi nhánh Quận 3',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              Builder(
+                builder: (context) {
+                  final upcoming = BookingRepository.instance.getUpcomingAppointments();
+                  if (upcoming.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF236B42).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppColors.surfaceSecondary, // #F3E2CE
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.border, width: 1.0),
                       ),
-                      child: const Text(
-                        '✓ Đã xác nhận',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF236B42),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_month_outlined, size: 22, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                l10n?.upcomingAppointments ?? 'Lịch hẹn sắp tới',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textHeading,
+                                ),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 20),
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 28,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            l10n?.noUpcomingAppointments ?? 'Bạn chưa có lịch hẹn nào sắp tới',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textHeading,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            child: Text(
+                              l10n?.noUpcomingDesc ?? 'Đặt lịch ngay để được đón tiếp và trải nghiệm các dịch vụ chăm sóc sức khỏe & sắc đẹp chu đáo tại MLD.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 46,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: _handleBooking,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.add_rounded, size: 20),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    l10n?.bookNow ?? 'Đặt lịch hẹn ngay',
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final nextApp = upcoming.first;
+                  final d = nextApp.appointmentDate;
+                  final dStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} · ${nextApp.timeSlot}';
+
+                  return Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary, // #F3E2CE
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 1.0),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              l10n?.upcomingAppointments ?? 'Lịch hẹn sắp tới',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textHeading,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF236B42).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                nextApp.status.label,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF236B42),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        onPressed: _showAppointmentDetailSheet,
-                        child: const Text(
-                          'Xem chi tiết',
-                          style: TextStyle(
+                        const SizedBox(height: 12),
+                        Text(
+                          nextApp.serviceName,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 6),
+                        Text(
+                          dStr,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          nextApp.branchName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () => _showAppointmentDetailSheet(nextApp),
+                            child: Text(
+                              l10n?.viewDetails ?? 'Xem chi tiết',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
 
               const SizedBox(height: 24),

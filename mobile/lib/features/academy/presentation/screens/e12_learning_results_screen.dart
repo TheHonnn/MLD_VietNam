@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
+import 'e02_course_catalog_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 
 /// Screen E12: Kết quả học tập (Learning Results & Certificate) [8116:26507]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -8,12 +11,12 @@ class E12LearningResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasEnrolled = AcademyRepository.instance.hasEnrolledCourses;
+
     return Scaffold(
       backgroundColor: AcademyColors.background,
-      appBar: const AcademyAppBar(
-        
-      ),
-      bottomNavigationBar: Container(
+      appBar: const AcademyAppBar(),
+      bottomNavigationBar: hasEnrolled ? Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -75,7 +78,7 @@ class E12LearningResultsScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      ) : null,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -104,48 +107,59 @@ class E12LearningResultsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // 2. Hồ sơ học viên [8116:26518]
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: const BoxDecoration(
-                    color: AcademyColors.cardWarm,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'MA',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.primary,
+            if (!hasEnrolled) ...[
+              _buildEmptyResultState(context),
+            ] else ...[
+              // 2. Hồ sơ học viên [8116:26518]
+              Builder(
+                builder: (context) {
+                  final profile = MembershipRepository.instance.profile;
+                  final fullName = profile.fullName.trim().isNotEmpty ? profile.fullName : 'Học viên MLD';
+                  final initials = fullName.split(' ').where((w) => w.isNotEmpty).map((w) => w[0]).take(2).join().toUpperCase();
+
+                  return Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          color: AcademyColors.cardWarm,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            initials.isNotEmpty ? initials : 'HV',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AcademyColors.primary,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nguyễn Minh Anh',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.textPrimary,
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AcademyColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Lớp Kỹ thuật viên · Ban Đào Tạo MLD',
+                            style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                          ),
+                        ],
                       ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'MCB-0726 · Nguyễn Thanh Hương',
-                      style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                    ],
+                  );
+                },
+              ),
             const SizedBox(height: 20),
 
             // 3. LearningProgressCard / 03 (Thẻ hoàn thành) [8116:26524]
@@ -426,7 +440,87 @@ class E12LearningResultsScreen extends StatelessWidget {
               ),
             ),
           ],
-        ),
+        ],
+      ),
+    ),
+  );
+}
+
+  Widget _buildEmptyResultState(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: const BoxDecoration(
+              color: AcademyColors.cardWarm,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.workspace_premium_outlined,
+              size: 34,
+              color: AcademyColors.primary,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Chưa có kết quả học tập & chứng chỉ',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AcademyColors.heading,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Bạn hiện chưa tham gia khóa đào tạo nào tại Học viện MLD. Sau khi đăng ký và hoàn thành khóa học, toàn bộ kết quả đánh giá kỹ năng và chứng nhận số sẽ xuất hiện tại đây.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AcademyColors.textSecondary,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AcademyColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.school_outlined, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Đăng ký khóa học ngay',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -507,9 +601,10 @@ class E12LearningResultsScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               const Icon(Icons.workspace_premium, color: Color(0xFFC58D59), size: 48),
               const SizedBox(height: 12),
               const Text(
@@ -536,6 +631,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

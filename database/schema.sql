@@ -147,9 +147,11 @@ $$ LANGUAGE plpgsql;
 -- Bảng 1: users (Tài khoản người dùng toàn hệ thống)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone VARCHAR(20) UNIQUE NOT NULL,
+    phone VARCHAR(20) UNIQUE,
     email VARCHAR(255) UNIQUE,
     password_hash VARCHAR(255),
+    is_phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     full_name VARCHAR(150) NOT NULL,
     avatar_url TEXT,
     gender VARCHAR(10) DEFAULT 'OTHER' CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
@@ -169,12 +171,72 @@ CREATE TABLE IF NOT EXISTS users (
     locked_at TIMESTAMPTZ,
     fcm_device_token TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_users_identity CHECK (phone IS NOT NULL OR email IS NOT NULL)
 );
 
 CREATE TRIGGER trg_users_updated_at
 BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
+
+-- Bảng 1b: auth_identities (Kiểm soát liên kết định danh người dùng: SĐT, Email, Mật khẩu, Social)
+CREATE TABLE IF NOT EXISTS auth_identities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL, -- 'PHONE_OTP', 'EMAIL_PASSWORD', 'GOOGLE', 'APPLE'
+    identifier VARCHAR(255) NOT NULL, -- Số điện thoại hoặc địa chỉ email
+    password_hash VARCHAR(255),
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_provider_identifier UNIQUE (provider, identifier)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_identities_user_id ON auth_identities(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_identities_identifier ON auth_identities(identifier);
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_auth_identities_updated_at'
+    ) THEN
+        CREATE TRIGGER trg_auth_identities_updated_at
+        BEFORE UPDATE ON auth_identities
+        FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
+    END IF;
+END $$;
+
+-- Bảng 1c: refresh_tokens (Quản lý phiên đăng nhập dài hạn, hỗ trợ thu hồi Token)
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    jti VARCHAR(100) UNIQUE NOT NULL,
+    device_info TEXT,
+    expires_at TIMESTAMPTZ NOT NULL,
+    is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_jti ON refresh_tokens(jti);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+
+-- Bảng 1d: otp_verifications (Quản lý mã xác thực OTP đã được mã hóa/băm an toàn)
+CREATE TABLE IF NOT EXISTS otp_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    identifier VARCHAR(255) NOT NULL, -- Email hoặc Số điện thoại
+    purpose VARCHAR(50) NOT NULL, -- 'REGISTER', 'RESET_PASSWORD', 'ACCOUNT_LINKING', 'LOGIN'
+    otp_hash VARCHAR(255) NOT NULL, -- Bắt buộc băm SHA-256 hoặc Bcrypt, tuyệt đối không lưu plain text
+    attempts INT NOT NULL DEFAULT 0,
+    max_attempts INT NOT NULL DEFAULT 5,
+    expires_at TIMESTAMPTZ NOT NULL,
+    is_used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_otp_identifier_purpose ON otp_verifications(identifier, purpose);
+CREATE INDEX IF NOT EXISTS idx_otp_expires_at ON otp_verifications(expires_at);
 
 -- Bảng 2: user_settings (Thiết lập app người dùng F08)
 CREATE TABLE IF NOT EXISTS user_settings (
