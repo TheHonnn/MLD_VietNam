@@ -49,16 +49,7 @@ export class MembershipService {
     if (this.isValidUuid(userId)) {
       return userId;
     }
-    try {
-      const { data } = await this.supabaseService.adminClient
-        .from('users')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
-      return data?.id || null;
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   private mapTierName(tier?: string): string {
@@ -90,22 +81,28 @@ export class MembershipService {
 
         if (user) {
           const tier = this.mapTierName(user.membership_tier);
-          const points = typeof user.reward_points === 'number' ? user.reward_points : this.userProfile.points;
+          const points = typeof user.reward_points === 'number' ? user.reward_points : 0;
           const phone = user.phone || '';
 
           return {
             success: true,
             data: {
-              ...this.userProfile,
               id: user.id,
               fullName: user.full_name || 'Khách hàng MLD',
               phone: phone,
               isPhoneVerified: phone.trim().length > 0,
               email: user.email || '',
-              avatarUrl: user.avatar_url || this.userProfile.avatarUrl,
+              dateOfBirth: '',
+              gender: '',
+              address: '',
+              occupation: '',
+              emergencyContactName: '',
+              emergencyContactPhone: '',
+              avatarUrl: user.avatar_url || '',
               memberTier: tier,
-              memberCode: phone ? `MLD-${phone.slice(-6)}` : this.userProfile.memberCode,
+              memberCode: phone ? `MLD-${phone.slice(-6)}` : `MLD-${user.id.substring(0, 6).toUpperCase()}`,
               points: points,
+              validUntil: 'Đang hoạt động',
             },
           };
         }
@@ -116,7 +113,24 @@ export class MembershipService {
 
     return {
       success: true,
-      data: this.userProfile,
+      data: {
+        id: '',
+        fullName: 'Khách hàng MLD',
+        phone: '',
+        isPhoneVerified: false,
+        email: '',
+        dateOfBirth: '',
+        gender: '',
+        address: '',
+        occupation: '',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+        avatarUrl: '',
+        memberTier: 'Thành viên',
+        memberCode: 'MLD-KHACH',
+        points: 0,
+        validUntil: '',
+      },
     };
   }
 

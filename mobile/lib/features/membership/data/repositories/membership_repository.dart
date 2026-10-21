@@ -276,19 +276,33 @@ class MembershipRepository {
       final savedPhone = prefs.getString(_phonePrefKey);
       final savedEmail = prefs.getString(_emailPrefKey);
 
-      if (savedEmail == 'minh.anh@example.com') {
+      if (savedEmail == 'minh.anh@example.com' || savedEmail == 'letan.q3@mldvietnam.vn') {
         await prefs.remove(_emailPrefKey);
       }
-      final effectiveEmail = (savedEmail != null && savedEmail != 'minh.anh@example.com') ? savedEmail : '';
+      if (savedName == 'Nguyễn Minh Anh' || savedName == 'Lễ Tân Hoàng Yến') {
+        await prefs.remove(_namePrefKey);
+      }
+      final cleanSavedEmail = prefs.getString(_emailPrefKey);
+      final cleanSavedName = prefs.getString(_namePrefKey);
+      final effectiveEmail = (cleanSavedEmail != null &&
+              cleanSavedEmail != 'minh.anh@example.com' &&
+              cleanSavedEmail != 'letan.q3@mldvietnam.vn')
+          ? cleanSavedEmail
+          : '';
 
       final authPhone = AuthService.instance.currentPhone;
       final effectivePhone = (authPhone != null && authPhone.isNotEmpty)
           ? authPhone
           : (savedPhone ?? '');
 
+      final authDisplayName = AuthService.instance.currentDisplayName;
+      final effectiveFullName = (authDisplayName != null && authDisplayName.isNotEmpty)
+          ? authDisplayName
+          : (cleanSavedName ?? _userProfile.fullName);
+
       _userProfile = _userProfile.copyWith(
         avatarUrl: savedAvatar ?? _userProfile.avatarUrl,
-        fullName: savedName ?? _userProfile.fullName,
+        fullName: effectiveFullName,
         phone: effectivePhone,
         isPhoneVerified: effectivePhone.isNotEmpty,
         email: effectiveEmail,
@@ -307,11 +321,27 @@ class MembershipRepository {
           final currentAuthPhone = AuthService.instance.currentPhone ?? '';
           final finalPhone = currentAuthPhone.isNotEmpty ? currentAuthPhone : serverPhone;
 
+          final serverName = data['fullName']?.toString() ?? '';
+          final currentAuthName = AuthService.instance.currentDisplayName ?? '';
+          final isInvalidMockName = serverName == 'Lễ Tân Hoàng Yến' ||
+              serverName == 'Nguyễn Minh Anh' ||
+              serverName == 'Khách hàng MLD';
+          final finalFullName = (!isInvalidMockName && serverName.isNotEmpty)
+              ? serverName
+              : (currentAuthName.isNotEmpty ? currentAuthName : (serverName.isNotEmpty ? serverName : _userProfile.fullName));
+
+          final serverEmail = data['email']?.toString() ?? '';
+          final isInvalidMockEmail = serverEmail == 'letan.q3@mldvietnam.vn' ||
+              serverEmail == 'minh.anh@example.com';
+          final finalEmail = (!isInvalidMockEmail && serverEmail.isNotEmpty)
+              ? serverEmail
+              : _userProfile.email;
+
           _userProfile = _userProfile.copyWith(
-            fullName: data['fullName']?.toString() ?? _userProfile.fullName,
+            fullName: finalFullName,
             phone: finalPhone,
             isPhoneVerified: finalPhone.isNotEmpty,
-            email: data['email']?.toString() ?? _userProfile.email,
+            email: finalEmail,
             dateOfBirth: data['dateOfBirth']?.toString() ?? _userProfile.dateOfBirth,
             gender: data['gender']?.toString() ?? _userProfile.gender,
             address: data['address']?.toString() ?? _userProfile.address,

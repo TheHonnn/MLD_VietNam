@@ -74,7 +74,13 @@ class ApiClient {
             final token = await AuthService.instance.getAccessToken();
             if (token != null && token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
-            } else {
+            } else if (!options.path.startsWith('/auth/') &&
+                !options.path.startsWith('/membership/') &&
+                !options.path.startsWith('/treatment/') &&
+                !options.path.startsWith('/academy/') &&
+                !options.path.startsWith('/bookings') &&
+                !options.path.startsWith('/appointments') &&
+                !options.path.startsWith('/payments')) {
               options.headers['Authorization'] = 'Bearer ${ApiEndpoints.supabaseAnonKey}';
             }
           }
