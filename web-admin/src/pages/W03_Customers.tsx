@@ -692,32 +692,20 @@ export const W03_Customers: React.FC = () => {
             </div>
 
             {showExportMenu && (
-              <div className="absolute right-0 mt-1.5 w-64 bg-white border border-[#E8DFD8] rounded-2xl shadow-xl z-30 p-1.5 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-1.5 text-[11px] font-bold text-[#73675F] border-b border-[#F4ECE3] mb-1 flex items-center justify-between">
-                  <span>Định dạng tải về</span>
-                  <span className="text-[10px] bg-[#FAF0E4] text-[#985018] px-1.5 py-0.2 rounded font-bold">
-                    {filteredCustomers.length} hồ sơ
-                  </span>
-                </div>
+              <div className="absolute right-0 mt-1.5 w-52 bg-white border border-[#E8DFD8] rounded-xl shadow-lg z-30 p-1.5 animate-in fade-in zoom-in-95 duration-150">
                 <button
                   onClick={() => {
                     handleExportExcel();
                     setShowExportMenu(false);
                   }}
-                  className="w-full p-2.5 rounded-xl hover:bg-[#FAF0E4] text-left transition-colors flex items-start gap-2.5 cursor-pointer group"
+                  className="w-full px-3 py-2 rounded-lg hover:bg-[#FAF0E4] text-left transition-colors flex items-center gap-2.5 cursor-pointer group"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-[#E7F4EE] text-[#1E7145] flex items-center justify-center shrink-0 mt-0.5">
-                    <FileSpreadsheet className="w-4 h-4" />
+                  <div className="w-6 h-6 rounded-md bg-[#E7F4EE] text-[#1E7145] flex items-center justify-center shrink-0">
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-[#2C241E] group-hover:text-[#8A4F23] flex items-center gap-1.5">
-                      Bảng tính Excel (.xls)
-                      <span className="text-[9px] bg-[#E7F4EE] text-[#1E7145] px-1.5 py-0.2 rounded font-bold">Khuyên dùng</span>
-                    </div>
-                    <div className="text-[10px] text-[#73675F] mt-0.5 leading-snug">
-                      Đẹp, có màu thương hiệu MLD, tự căn cột & định dạng tiền tệ (Tối ưu cho WPS & Excel)
-                    </div>
-                  </div>
+                  <span className="text-xs font-semibold text-[#2C241E] group-hover:text-[#8A4F23]">
+                    Bảng tính Excel (.xls)
+                  </span>
                 </button>
 
                 <button
@@ -725,19 +713,14 @@ export const W03_Customers: React.FC = () => {
                     handleExportCSV();
                     setShowExportMenu(false);
                   }}
-                  className="w-full p-2.5 rounded-xl hover:bg-[#FAF0E4] text-left transition-colors flex items-start gap-2.5 cursor-pointer group mt-0.5"
+                  className="w-full px-3 py-2 rounded-lg hover:bg-[#FAF0E4] text-left transition-colors flex items-center gap-2.5 cursor-pointer group mt-0.5"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center shrink-0 mt-0.5">
-                    <Download className="w-4 h-4" />
+                  <div className="w-6 h-6 rounded-md bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center shrink-0">
+                    <Download className="w-3.5 h-3.5" />
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-[#2C241E] group-hover:text-[#8A4F23]">
-                      Tệp dữ liệu CSV (.csv)
-                    </div>
-                    <div className="text-[10px] text-[#73675F] mt-0.5 leading-snug">
-                      Chuẩn UTF-8 có lệnh sep=,, tự động tách cột trên Windows & Mac
-                    </div>
-                  </div>
+                  <span className="text-xs font-semibold text-[#2C241E] group-hover:text-[#8A4F23]">
+                    Tệp dữ liệu CSV (.csv)
+                  </span>
                 </button>
               </div>
             )}
