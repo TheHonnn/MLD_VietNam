@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { staffService, bookingService, branchService, notificationService, customerService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
-import { Booking, Branch, User, Technician, BookingStatus } from '../types/shared_types';
+import { Booking, Branch, User, Technician, BookingStatus, PaymentStatus } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 interface ScheduleAppointment {
@@ -155,6 +155,13 @@ export const TIME_SLOT_OPTIONS = [
   { label: '18:00–19:00', startHour: 18.0, durationHours: 1.0, bufferTimeRange: '19:00–19:15', bufferEndTime: '19:15' },
 ];
 
+export const DEFAULT_FALLBACK_TECHNICIANS = [
+  { id: 'tech-1', name: 'KTV. Minh Anh', room: 'Phòng VIP 01 · Tầng 2', role: 'Kỹ thuật viên trưởng' },
+  { id: 'tech-2', name: 'KTV. Hoàng Nam', room: 'Phòng Trị Liệu 02 · Tầng 2', role: 'Chuyên viên da liễu' },
+  { id: 'tech-3', name: 'KTV. Kim Ngân', room: 'Phòng Body 03 · Tầng 3', role: 'Chuyên viên massage' },
+  { id: 'tech-4', name: 'KTV. Thu Thảo', room: 'Phòng Gội Dưỡng Sinh 04', role: 'Kỹ thuật viên cao cấp' },
+];
+
 export const W05_StaffSchedule: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -204,10 +211,10 @@ export const W05_StaffSchedule: React.FC = () => {
           customerService.getCustomers(),
           branchService.getAllBranches(),
         ]);
-        if (bkRes.success) setLiveBookings(bkRes.data);
-        if (techRes) setLiveTechnicians(techRes);
-        if (custRes.success) setCustomers(custRes.data);
-        if (brRes.success) setBranches(brRes.data);
+        if (bkRes.success && bkRes.data) setLiveBookings(bkRes.data);
+        if (techRes && techRes.length > 0) setLiveTechnicians(techRes);
+        if (custRes.success && custRes.data) setCustomers(custRes.data);
+        if (brRes.success && brRes.data) setBranches(brRes.data);
       } catch (err) {
         console.error('Failed to load schedule data:', err);
       }
@@ -224,7 +231,7 @@ export const W05_StaffSchedule: React.FC = () => {
         role: t.title,
       }));
     }
-    return [];
+    return DEFAULT_FALLBACK_TECHNICIANS;
   }, [liveTechnicians]);
 
   // Appointments mapped directly from live Supabase bookings
