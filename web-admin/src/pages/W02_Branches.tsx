@@ -1973,7 +1973,7 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-6 text-center whitespace-nowrap">Thao tác</th>
+                <th className="py-2.5 px-4 text-center whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
@@ -2018,10 +2018,12 @@ export const W02_Branches: React.FC = () => {
                       } hover:bg-[#FAF6F0] transition-colors`}
                     >
                       {/* Tên */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2 whitespace-nowrap">
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-2 max-w-[300px]">
                           <Building2 className="w-4 h-4 text-[#985018] shrink-0" />
-                          <span className="font-bold text-[#2C241E]">{branch.name}</span>
+                          <span className="font-bold text-[#2C241E] truncate" title={branch.name}>
+                            {branch.name}
+                          </span>
                           {branch.id === globalWorkingBranchId && (
                             <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold border border-emerald-200 shrink-0 whitespace-nowrap">
                               Cơ sở chính
@@ -2049,11 +2051,20 @@ export const W02_Branches: React.FC = () => {
                       </td>
 
                       {/* Địa chỉ */}
-                      <td className="py-3.5 px-4 text-[#4A3E34] whitespace-nowrap">
-                        <span>{branch.address}</span>
-                        {branch.district && !branch.address?.includes(branch.district) && (
-                          <span className="text-[#8C7A6B]">, {branch.district}</span>
-                        )}
+                      <td
+                        className="py-3.5 px-4 text-[#4A3E34] max-w-[260px]"
+                        title={`${branch.address}${
+                          branch.district && !branch.address?.includes(branch.district)
+                            ? `, ${branch.district}`
+                            : ''
+                        }`}
+                      >
+                        <div className="truncate">
+                          <span>{branch.address}</span>
+                          {branch.district && !branch.address?.includes(branch.district) && (
+                            <span className="text-[#8C7A6B]">, {branch.district}</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Tỉnh / Thành phố */}
@@ -2079,19 +2090,8 @@ export const W02_Branches: React.FC = () => {
                       </td>
 
                       {/* Thao tác */}
-                      <td className="py-3.5 px-6 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectBranch(branch.id);
-                            }}
-                            className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
-                            title="Xem chi tiết cơ sở"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1 whitespace-nowrap">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2606,7 +2606,7 @@ export const W02_Branches: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-6 text-center whitespace-nowrap">Thao tác</th>
+                <th className="py-2.5 px-4 text-center whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
@@ -2642,7 +2642,11 @@ export const W02_Branches: React.FC = () => {
                 </tr>
               ) : (
                 paginatedRooms.map((room) => (
-                  <tr key={room.id} className="hover:bg-[#FAF6F0] transition-colors bg-white">
+                  <tr
+                    key={room.id}
+                    onClick={() => handleOpenCrossBranchViewRoom(room)}
+                    className="hover:bg-[#FAF6F0] transition-colors bg-white cursor-pointer"
+                  >
                     {/* Tên */}
                     <td className="py-3.5 px-5 whitespace-nowrap">
                       <span className="font-bold text-[#2C241E]">{room.name}</span>
@@ -2681,19 +2685,14 @@ export const W02_Branches: React.FC = () => {
                     </td>
 
                     {/* Thao tác */}
-                    <td className="py-3.5 px-6 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1 whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => handleOpenCrossBranchViewRoom(room)}
-                          className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
-                          title="Xem chi tiết phòng"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCrossBranchEditRoom(room)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCrossBranchEditRoom(room);
+                          }}
                           className="p-1.5 text-[#73675F] hover:text-[#985018] hover:bg-[#FAF0E4] rounded-lg transition-colors cursor-pointer"
                           title="Chỉnh sửa thông tin phòng"
                         >
@@ -2701,7 +2700,10 @@ export const W02_Branches: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteCrossBranchRoom(room)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCrossBranchRoom(room);
+                          }}
                           className="p-1.5 text-[#B0A294] hover:text-[#B83E3E] hover:bg-[#FDF2F2] rounded-lg transition-colors cursor-pointer"
                           title="Xóa phòng khỏi hệ thống (lưu trữ CSDL)"
                         >
