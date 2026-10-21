@@ -36,6 +36,263 @@ const INITIAL_NEW_CUSTOMER_FORM = {
   address: '',
 };
 
+const SAMPLE_MOCK_CUSTOMERS: User[] = [
+  {
+    id: 'mock-001',
+    fullName: 'Nguyễn Minh Anh',
+    referralCode: 'WM-000128',
+    phone: '0912 345 678',
+    email: 'minhanh.nguyen@gmail.com',
+    membershipTier: MemberTier.GOLD,
+    rewardPoints: 2450,
+    totalSpent: 12500000,
+    gender: 'FEMALE',
+    purpose: PurposeInterest.BOTH,
+    role: UserRole.CUSTOMER,
+    address: 'Số 186 Nam Kỳ Khởi Nghĩa, Quận 3, TP.HCM',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+    isActive: true,
+    createdAt: '2026-10-08T09:30:00Z',
+    updatedAt: '2026-10-08T15:00:00Z',
+  },
+  {
+    id: 'mock-002',
+    fullName: 'Trần Ngọc Linh',
+    referralCode: 'WM-MH-002',
+    phone: '0912345214',
+    email: 'ngoclinh.tran@gmail.com',
+    membershipTier: MemberTier.SILVER,
+    rewardPoints: 0,
+    totalSpent: 4200000,
+    gender: 'FEMALE',
+    purpose: PurposeInterest.BEAUTY_SPA,
+    role: UserRole.CUSTOMER,
+    address: 'Phường Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
+    avatarUrl: null,
+    isActive: true,
+    createdAt: '2026-10-06T10:15:00Z',
+    updatedAt: '2026-10-06T14:20:00Z',
+  },
+  {
+    id: 'mock-003',
+    fullName: 'Phạm Thanh Mai',
+    referralCode: 'WM-MH-003',
+    phone: '0912345503',
+    email: 'thanhmai.pham@gmail.com',
+    membershipTier: MemberTier.STANDARD,
+    rewardPoints: 0,
+    totalSpent: 0,
+    gender: 'FEMALE',
+    purpose: PurposeInterest.ACADEMY,
+    role: UserRole.STUDENT,
+    address: 'Phường Võ Thị Sáu, Quận 3, TP.HCM',
+    avatarUrl: null,
+    isActive: true,
+    createdAt: '2026-10-04T08:45:00Z',
+    updatedAt: '2026-10-04T16:00:00Z',
+  },
+  {
+    id: 'mock-004',
+    fullName: 'Lê Bảo Ngọc',
+    referralCode: 'WM-MH-004',
+    phone: '0812345608',
+    email: 'baongoc.le@gmail.com',
+    membershipTier: MemberTier.SILVER,
+    rewardPoints: 0,
+    totalSpent: 3500000,
+    gender: 'FEMALE',
+    purpose: PurposeInterest.BEAUTY_SPA,
+    role: UserRole.CUSTOMER,
+    address: 'Quận 3, TP.HCM',
+    avatarUrl: null,
+    isActive: true,
+    createdAt: '2026-10-07T11:20:00Z',
+    updatedAt: '2026-10-07T17:30:00Z',
+  },
+  {
+    id: 'mock-005',
+    fullName: 'Võ Hải Yến',
+    referralCode: 'WM-MH-005',
+    phone: '0912345821',
+    email: 'haiyen.vo@gmail.com',
+    membershipTier: MemberTier.STANDARD,
+    rewardPoints: 0,
+    totalSpent: 1200000,
+    gender: 'FEMALE',
+    purpose: PurposeInterest.BEAUTY_SPA,
+    role: UserRole.CUSTOMER,
+    address: 'Quận 3, TP.HCM',
+    avatarUrl: null,
+    isActive: true,
+    createdAt: '2026-10-03T14:10:00Z',
+    updatedAt: '2026-10-03T18:00:00Z',
+  },
+  {
+    id: 'mock-006',
+    fullName: 'Đặng Quốc Huy',
+    referralCode: 'WM-MH-006',
+    phone: '0812345906',
+    email: 'quochuy.dang@gmail.com',
+    membershipTier: MemberTier.STANDARD,
+    rewardPoints: 0,
+    totalSpent: 850000,
+    gender: 'MALE',
+    purpose: PurposeInterest.BEAUTY_SPA,
+    role: UserRole.CUSTOMER,
+    address: 'Quận 3, TP.HCM',
+    avatarUrl: null,
+    isActive: true,
+    createdAt: '2026-10-02T13:00:00Z',
+    updatedAt: '2026-10-02T16:45:00Z',
+  },
+];
+
+const getInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return 'KH';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const getTierLabel = (tier?: MemberTier) => {
+  switch (tier) {
+    case MemberTier.DIAMOND:
+      return 'Kim cương';
+    case MemberTier.PLATINUM:
+      return 'Bạch kim';
+    case MemberTier.GOLD:
+      return 'Vàng';
+    case MemberTier.SILVER:
+      return 'Bạc';
+    case MemberTier.STANDARD:
+    default:
+      return 'Thành viên';
+  }
+};
+
+const getSourceLabel = (c: User, idx: number) => {
+  if (c.fullName === 'Nguyễn Minh Anh') return 'Ứng dụng mẫu';
+  if (c.fullName === 'Trần Ngọc Linh') return 'Tư vấn tại cơ sở';
+  if (c.fullName === 'Phạm Thanh Mai') return 'Giới thiệu mẫu';
+  if (c.fullName === 'Lê Bảo Ngọc') return 'Ứng dụng mẫu';
+  if (c.fullName === 'Võ Hải Yến') return 'Tư vấn tại cơ sở';
+  if (c.fullName === 'Đặng Quốc Huy') return 'Giới thiệu mẫu';
+  if (c.purpose === PurposeInterest.BOTH) return 'Ứng dụng mẫu';
+  if (c.role === UserRole.STUDENT) return 'Giới thiệu mẫu';
+  const sources = ['Ứng dụng mẫu', 'Tư vấn tại cơ sở', 'Giới thiệu mẫu'];
+  return sources[idx % sources.length];
+};
+
+const getLastVisitDate = (c: User) => {
+  if (c.fullName === 'Nguyễn Minh Anh') return '08/10/2026';
+  if (c.fullName === 'Trần Ngọc Linh') return '06/10/2026';
+  if (c.fullName === 'Phạm Thanh Mai') return '04/10/2026';
+  if (c.fullName === 'Lê Bảo Ngọc') return '07/10/2026';
+  if (c.fullName === 'Võ Hải Yến') return '03/10/2026';
+  if (c.fullName === 'Đặng Quốc Huy') return '02/10/2026';
+  if (c.updatedAt) {
+    const d = new Date(c.updatedAt);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  }
+  return '08/10/2026';
+};
+
+const getPackageLine1 = (c: User) => {
+  if (c.fullName === 'Nguyễn Minh Anh') return '2 gói · 11 buổi còn';
+  if (c.fullName === 'Trần Ngọc Linh') return 'Chăm sóc da';
+  if (c.fullName === 'Phạm Thanh Mai') return 'Quan tâm học nghề';
+  if (c.fullName === 'Lê Bảo Ngọc') return 'Dịch vụ chăm sóc da';
+  if (c.fullName === 'Võ Hải Yến') return 'Dịch vụ cơ thể';
+  if (c.fullName === 'Đặng Quốc Huy') return 'Massage thư giãn';
+  if (c.purpose === PurposeInterest.BOTH) return '2 gói · 11 buổi còn';
+  if (c.purpose === PurposeInterest.ACADEMY) return 'Quan tâm học nghề';
+  if ((c.totalSpent || 0) > 3000000) return 'Dịch vụ chăm sóc da';
+  if ((c.totalSpent || 0) > 1000000) return 'Dịch vụ cơ thể';
+  if ((c.totalSpent || 0) > 0) return 'Massage thư giãn';
+  return 'Chăm sóc da';
+};
+
+const getPackageLine2 = (c: User) => {
+  if (c.fullName === 'Nguyễn Minh Anh') return '3 khóa · 1 đang học';
+  if (c.fullName === 'Phạm Thanh Mai') return 'Hồ sơ tuyển sinh mới';
+  if (
+    c.fullName === 'Trần Ngọc Linh' ||
+    c.fullName === 'Lê Bảo Ngọc' ||
+    c.fullName === 'Võ Hải Yến' ||
+    c.fullName === 'Đặng Quốc Huy'
+  ) {
+    return 'Chưa có gói mẫu';
+  }
+  if (c.purpose === PurposeInterest.BOTH) return '3 khóa · 1 đang học';
+  if (c.purpose === PurposeInterest.ACADEMY) return 'Hồ sơ tuyển sinh mới';
+  return 'Chưa có gói mẫu';
+};
+
+const getPreferredBranch = (c: User) => {
+  if (c.fullName === 'Trần Ngọc Linh') return 'Cầu Giấy';
+  if (
+    c.fullName === 'Nguyễn Minh Anh' ||
+    c.fullName === 'Phạm Thanh Mai' ||
+    c.fullName === 'Lê Bảo Ngọc' ||
+    c.fullName === 'Võ Hải Yến' ||
+    c.fullName === 'Đặng Quốc Huy'
+  ) {
+    return 'Quận 3';
+  }
+  const addr = (c.address || '').toLowerCase();
+  if (addr.includes('cầu giấy') || addr.includes('hà nội')) return 'Cầu Giấy';
+  if (addr.includes('quận 1') || addr.includes('minh khai')) return 'Quận 1';
+  return 'Quận 3';
+};
+
+const getStatusLabel = (c: User) => {
+  if (c.fullName === 'Nguyễn Minh Anh') return 'Khách hàng & học viên';
+  if (c.fullName === 'Phạm Thanh Mai') return 'Khách tiềm năng';
+  if (
+    c.fullName === 'Trần Ngọc Linh' ||
+    c.fullName === 'Lê Bảo Ngọc' ||
+    c.fullName === 'Võ Hải Yến' ||
+    c.fullName === 'Đặng Quốc Huy'
+  ) {
+    return 'Đang theo dõi';
+  }
+  if (c.purpose === PurposeInterest.BOTH) return 'Khách hàng & học viên';
+  if (c.purpose === PurposeInterest.ACADEMY || !c.totalSpent) return 'Khách tiềm năng';
+  return 'Đang theo dõi';
+};
+
+const getStatusStyle = (c: User) => {
+  if (c.fullName === 'Nguyễn Minh Anh' || c.purpose === PurposeInterest.BOTH) {
+    return 'bg-[#FDEEE4] text-[#A4532A]';
+  }
+  return 'bg-[#F4ECE3] text-[#8E6549]';
+};
+
+const getFormattedCode = (c: User, idx: number) => {
+  if (c.referralCode) {
+    if (c.referralCode.startsWith('WM-')) return c.referralCode;
+    if (c.referralCode === 'MLDADMIN') return 'WM-ADMIN';
+    if (c.referralCode.length > 10) return `WM-${c.referralCode.slice(0, 6).toUpperCase()}`;
+    return `WM-${c.referralCode}`;
+  }
+  return `WM-MH-${String(idx + 1).padStart(3, '0')}`;
+};
+
+const getMaskedPhone = (phone: string) => {
+  if (!phone) return '09•• ••• •••';
+  if (phone.includes(' ')) return phone;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length >= 10) {
+    return `${digits.slice(0, 2)}•• ••• ${digits.slice(-3)}`;
+  }
+  return phone;
+};
+
 export const W03_Customers: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,7 +307,7 @@ export const W03_Customers: React.FC = () => {
   const [selectedPurpose, setSelectedPurpose] = useState<string>('ALL');
   const [selectedSort, setSelectedSort] = useState<string>('NEWEST');
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 6;
   const [isLoading, setIsLoading] = useState(true);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -67,11 +324,17 @@ export const W03_Customers: React.FC = () => {
         customerService.getCustomers(),
         branchService.getAllBranches(),
       ]);
-      if (res.success && res.data) {
-        setAllCustomers(res.data);
-        if (res.data.length > 0 && !selectedCustomerId) {
-          setSelectedCustomerId(res.data[0].id);
+      const list = [...SAMPLE_MOCK_CUSTOMERS];
+      if (res.success && res.data && res.data.length > 0) {
+        for (const u of res.data) {
+          if (!list.some((m) => m.id === u.id || m.phone === u.phone)) {
+            list.push(u);
+          }
         }
+      }
+      setAllCustomers(list);
+      if (list.length > 0 && !selectedCustomerId) {
+        setSelectedCustomerId(list[0].id);
       }
       if (branchRes.success && branchRes.data) {
         setBranches(branchRes.data);
@@ -655,6 +918,14 @@ export const W03_Customers: React.FC = () => {
     }
   };
 
+  const handleExportExpiringPackages = () => {
+    toast.success(
+      'Xuất danh sách thành công',
+      'Đã xuất dữ liệu các gói liệu trình và học phí cần theo dõi ra file Excel.'
+    );
+    handleExportExcel();
+  };
+
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
       {/* 1. Page Header Title & Action Button */}
@@ -956,271 +1227,275 @@ export const W03_Customers: React.FC = () => {
         )}
       </div>
 
-      {/* 4. Main 2-Column Content: Customer Table (Left 8/12) vs Customer Profile Detail (Right 4/12) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        {/* Left Column (8 of 12 cols on desktop) */}
-        <div className="xl:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
-          <div className="px-5 py-3.5 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-[#2C241E]">Danh sách khách hàng</h3>
-            <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-[#F3E2CE] text-[#8A4F23]">
-              {filteredCustomers.length} hồ sơ
-            </span>
-          </div>
+      {/* 3. Main Full-Width Customer Table Card */}
+      <div className="bg-white rounded-3xl border border-[#EFE4D9] overflow-hidden shadow-xs">
+        {/* Table Card Header */}
+        <div className="p-5 sm:px-6 sm:py-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-[#3E200C]">Danh sách khách hàng</h2>
+          <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+            {filteredCustomers.length} bản ghi mẫu
+          </span>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-[#F3E2CE] text-[#73675F] text-[11.5px] font-medium whitespace-nowrap">
+        {/* Table Container */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs whitespace-nowrap">
+            <thead className="bg-[#F6EEE5] text-[#73675F] text-[11.5px] font-semibold border-b border-[#EFE4D9]">
+              <tr>
+                <th className="py-3 px-5 whitespace-nowrap">Khách hàng / liên hệ</th>
+                <th className="py-3 px-4 whitespace-nowrap">Hạng & nguồn</th>
+                <th className="py-3 px-4 whitespace-nowrap">Lần gần nhất</th>
+                <th className="py-3 px-4 whitespace-nowrap">Gói / học tập</th>
+                <th className="py-3 px-4 whitespace-nowrap">Chi nhánh ưu tiên</th>
+                <th className="py-3 px-6 text-right sm:text-center whitespace-nowrap">Trạng thái / thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F4ECE3]">
+              {filteredCustomers.length === 0 ? (
                 <tr>
-                  <th className="py-3 px-5 font-medium whitespace-nowrap">Khách hàng</th>
-                  <th className="py-3 px-4 font-medium whitespace-nowrap">Số điện thoại</th>
-                  <th className="py-3 px-4 font-medium whitespace-nowrap">Hạng & Điểm</th>
-                  <th className="py-3 px-4 font-medium whitespace-nowrap">Tổng chi tiêu</th>
-                  <th className="py-3 px-6 font-medium text-right sm:text-center whitespace-nowrap">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
-                {filteredCustomers.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#73675F] whitespace-normal">
-                      <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
-                        <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
-                          <Search className="w-5 h-5" />
-                        </div>
-                        <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy khách hàng phù hợp</p>
-                        <p className="text-xs text-[#8C7A6B]">
-                          {searchTerm.trim()
-                            ? `Không có hồ sơ nào khớp với từ khóa "${searchTerm}".`
-                            : 'Không có khách hàng nào khớp với các tiêu chí bộ lọc đã chọn.'}
-                        </p>
-                        {hasActiveFilter && (
-                          <button
-                            type="button"
-                            onClick={handleResetFilters}
-                            className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
-                          >
-                            Xóa bộ lọc
-                          </button>
-                        )}
+                  <td colSpan={6} className="py-12 text-center text-[#73675F]">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
+                        <Search className="w-5 h-5" />
                       </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedCustomers.map((c) => {
-                    const isSelected = c.id === selectedCustomerId;
-                    return (
-                      <tr
-                        key={c.id}
-                        onClick={() => setSelectedCustomerId(c.id)}
-                        className={`cursor-pointer ${
-                          isSelected ? 'bg-[#F8F1E8]' : 'bg-white'
-                        } hover:bg-[#FAF6F0] transition-colors`}
-                      >
-                      {/* Name & Avatar */}
+                      <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy khách hàng phù hợp</p>
+                      <p className="text-xs text-[#8C7A6B]">
+                        {searchTerm.trim()
+                          ? `Không có hồ sơ nào khớp với từ khóa "${searchTerm}".`
+                          : 'Không có khách hàng nào khớp với các tiêu chí bộ lọc đã chọn.'}
+                      </p>
+                      {hasActiveFilter && (
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          Xóa bộ lọc
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedCustomers.map((c, idx) => {
+                  const isSelected = c.id === selectedCustomerId;
+                  return (
+                    <tr
+                      key={c.id}
+                      onClick={() => setSelectedCustomerId(c.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected ? 'bg-[#FAF4ED]' : 'hover:bg-[#FAF6F0]'
+                      }`}
+                    >
+                      {/* 1. Khách hàng / liên hệ */}
                       <td className="py-3 px-5 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={c.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
-                            alt={c.fullName}
-                            className="w-9 h-9 rounded-full object-cover border border-[#E0D7CC] shrink-0"
-                          />
-                          <div>
-                            <div className="font-bold text-[#2C241E] flex items-center gap-1.5 whitespace-nowrap">
-                              <span className="whitespace-nowrap">{c.fullName}</span>
-                              {getRoleBadge(c.role)}
+                          {c.avatarUrl ? (
+                            <img
+                              src={c.avatarUrl}
+                              alt={c.fullName}
+                              className="w-9 h-9 rounded-full object-cover border border-[#E0D7CC] shrink-0"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-[#F5E5D5] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8D4C1]">
+                              {getInitials(c.fullName)}
                             </div>
-                            <div className="text-[11px] text-[#8C7A6B] whitespace-nowrap">
-                              Mã: {c.referralCode}
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-bold text-[#2C241E] text-xs whitespace-nowrap">
+                              {c.fullName}
+                            </div>
+                            <div className="text-[11px] text-[#73675F] whitespace-nowrap mt-0.5">
+                              {getFormattedCode(c, idx)} · {getMaskedPhone(c.phone)}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* Phone */}
-                      <td className="py-3 px-4 text-[#4A3E34] whitespace-nowrap">
-                        {c.phone}
-                      </td>
-
-                      {/* Tier & Points */}
+                      {/* 2. Hạng & nguồn */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold whitespace-nowrap ${getTierBadgeStyle(
-                            c.membershipTier
-                          )}`}
-                        >
-                          {c.membershipTier} • {(c.rewardPoints || 0).toLocaleString('vi-VN')} điểm
-                        </span>
+                        <div className="text-xs font-medium text-[#2C241E] whitespace-nowrap">
+                          {getTierLabel(c.membershipTier)}
+                          {c.rewardPoints > 0 && ` · ${c.rewardPoints.toLocaleString('vi-VN')} điểm`}
+                        </div>
+                        <div className="text-[11px] text-[#73675F] whitespace-nowrap mt-0.5">
+                          {getSourceLabel(c, idx)}
+                        </div>
                       </td>
 
-                      {/* Total Spent */}
-                      <td className="py-3 px-4 font-bold text-[#8E4002] whitespace-nowrap">
-                        {(c.totalSpent || 0).toLocaleString('vi-VN')}đ
+                      {/* 3. Lần gần nhất */}
+                      <td className="py-3 px-4 text-xs text-[#2C241E] whitespace-nowrap">
+                        {getLastVisitDate(c)}
                       </td>
 
-                      {/* Action */}
+                      {/* 4. Gói / học tập */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="text-xs font-medium text-[#2C241E] whitespace-nowrap">
+                          {getPackageLine1(c)}
+                        </div>
+                        <div className="text-[11px] text-[#73675F] whitespace-nowrap mt-0.5">
+                          {getPackageLine2(c)}
+                        </div>
+                      </td>
+
+                      {/* 5. Chi nhánh ưu tiên */}
+                      <td className="py-3 px-4 text-xs text-[#2C241E] whitespace-nowrap">
+                        {getPreferredBranch(c)}
+                      </td>
+
+                      {/* 6. Trạng thái / thao tác */}
                       <td className="py-3 px-6 text-right sm:text-center whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/customer-detail?id=${c.id}`);
-                          }}
-                          className="px-3 py-1 rounded-lg text-xs font-bold text-[#8A4F23] hover:bg-[#F3E2CE] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-                        >
-                          Xem hồ sơ
-                        </button>
+                        <div className="flex flex-col items-end sm:items-center gap-0.5">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded text-[10.5px] font-bold whitespace-nowrap ${getStatusStyle(
+                              c
+                            )}`}
+                          >
+                            {getStatusLabel(c)}
+                          </span>
+                          {isSelected && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/customer-detail?id=${c.id}`);
+                              }}
+                              className="text-xs font-bold text-[#8A4F23] hover:underline cursor-pointer mt-1 whitespace-nowrap"
+                            >
+                              Xem hồ sơ
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
                 })
               )}
-              </tbody>
-            </table>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Table Footer / Pagination */}
+        <div className="px-6 py-3.5 flex items-center justify-between text-xs text-[#73675F] border-t border-[#F4ECE3] bg-white">
+          <div>
+            Hiển thị {paginatedCustomers.length} / {filteredCustomers.length} bản ghi minh họa
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="w-6 h-6 rounded flex items-center justify-center border border-[#E0D7CC] hover:bg-[#FAF8F5] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[#73675F]"
+              title="Trang trước"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setCurrentPage(p)}
+                className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${
+                  p === currentPage
+                    ? 'bg-[#FAF0E4] text-[#8A4F23] border border-[#E0D7CC]'
+                    : 'border border-[#E0D7CC] text-[#73675F] hover:bg-[#FAF8F5]'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="w-6 h-6 rounded flex items-center justify-center border border-[#E0D7CC] hover:bg-[#FAF8F5] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              title="Trang sau"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Bottom 3 Cards (Khách hàng & học viên | Sắp hết hạn gói | Danh sách chăm sóc mẫu) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5 mt-5">
+        {/* Card 1: Khách hàng & học viên */}
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
+          <div>
+            <h3 className="text-base font-bold text-[#3E200C]">Khách hàng & học viên</h3>
+            <div className="flex items-center gap-3 mt-3.5">
+              {selectedCustomer?.avatarUrl ? (
+                <img
+                  src={selectedCustomer.avatarUrl}
+                  alt={selectedCustomer.fullName}
+                  className="w-10 h-10 rounded-full object-cover border border-[#E0D7CC] shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-[#F5E5D5] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8D4C1]">
+                  {getInitials(selectedCustomer?.fullName || 'Minh Anh')}
+                </div>
+              )}
+              <div>
+                <h4 className="text-xs font-bold text-[#2C241E]">
+                  {selectedCustomer?.fullName || 'Nguyễn Minh Anh'}
+                </h4>
+                <p className="text-[11px] text-[#73675F] mt-0.5">
+                  Một tài khoản · {selectedCustomer?.purpose === 'BOTH' ? 'Dịch vụ và học viện' : selectedCustomer?.purpose === 'ACADEMY' ? 'Học viên đào tạo' : 'Dịch vụ và học viện'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#73675F] leading-relaxed mt-4">
+              Phân nhóm trong tập mẫu: {selectedCustomer ? selectedCustomer.fullName.split(' ').slice(-2).join(' ') : 'Minh Anh'} đồng thời sử dụng dịch vụ và đã ghi danh học nghề.
+            </p>
           </div>
 
-          {/* Table Pagination */}
-          <div className="p-3 bg-white border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#8A796B] whitespace-nowrap">
-            <span className="text-[11px] whitespace-nowrap">
-              Hiển thị {filteredCustomers.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1} -{' '}
-              {Math.min(currentPage * ITEMS_PER_PAGE, filteredCustomers.length)} trong{' '}
-              {filteredCustomers.length} khách hàng
-            </span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap shrink-0">
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                  currentPage <= 1
-                    ? 'bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed'
-                    : 'bg-white border border-[#E0D7CC] text-[#783D19] hover:bg-[#FAF0E4] cursor-pointer'
-                }`}
-                title="Trang trước"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                const isActive = pageNum === currentPage;
-                if (
-                  totalPages > 7 &&
-                  pageNum !== 1 &&
-                  pageNum !== totalPages &&
-                  Math.abs(pageNum - currentPage) > 1
-                ) {
-                  if (pageNum === 2 || pageNum === totalPages - 1) {
-                    return (
-                      <span key={pageNum} className="px-1 text-[#A69788]">
-                        ...
-                      </span>
-                    );
-                  }
-                  return null;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${
-                      isActive
-                        ? 'bg-[#985018] text-white shadow-2xs'
-                        : 'bg-white border border-[#E0D7CC] text-[#73675F] hover:bg-[#FAF8F5]'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                  currentPage >= totalPages
-                    ? 'bg-[#F4ECE3] text-[#A69788] opacity-60 cursor-not-allowed'
-                    : 'bg-white border border-[#E0D7CC] text-[#783D19] hover:bg-[#FAF0E4] cursor-pointer'
-                }`}
-                title="Trang sau"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+          <div className="pt-3 border-t border-[#F4ECE3] flex items-center justify-between text-xs mt-4">
+            <span className="text-[#73675F]">Chi nhánh liên quan</span>
+            <span className="font-bold text-[#2C241E]">Quận 3 · Cầu Giấy</span>
           </div>
         </div>
 
-        {/* Right Column (4 of 12 cols on desktop) */}
-        {selectedCustomer ? (
-          <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
-            <div className="text-center pb-4 border-b border-[#EFE4D9]">
-              <img
-                src={selectedCustomer.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
-                alt={selectedCustomer.fullName}
-                className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-[#985018] shadow-sm shrink-0"
-              />
-              <h3 className="text-base font-extrabold text-[#2C241E] mt-3 whitespace-nowrap truncate" title={selectedCustomer.fullName}>
-                {selectedCustomer.fullName}
-              </h3>
-              <p className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">{selectedCustomer.phone}</p>
-              <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
-                {getRoleBadge(selectedCustomer.role)}
-                <span
-                  className={`px-3 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${getTierBadgeStyle(
-                    selectedCustomer.membershipTier
-                  )}`}
-                >
-                  Hạng {selectedCustomer.membershipTier} · {(selectedCustomer.rewardPoints || 0).toLocaleString('vi-VN')} điểm
-                </span>
-              </div>
+        {/* Card 2: Sắp hết hạn gói */}
+        <div className="bg-[#F5ECE1] rounded-2xl border border-[#E8DACB] p-5 shadow-xs flex flex-col justify-between">
+          <div>
+            <h3 className="text-base font-bold text-[#3E200C]">Sắp hết hạn gói</h3>
+            <div className="text-xs font-bold text-[#2C241E] mt-3">
+              Chưa có gói hết hạn trong tháng này
             </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
-                <span className="text-[#73675F] whitespace-nowrap">Vai trò tài khoản:</span>
-                <span className="font-semibold text-[#2C241E] whitespace-nowrap">
-                  {getRoleBadge(selectedCustomer.role) || selectedCustomer.role}
-                </span>
-              </div>
-              <div className="flex justify-between items-start py-1 border-b border-[#FAF6F0] gap-2">
-                <span className="text-[#73675F] whitespace-nowrap">Địa chỉ:</span>
-                <span className="font-semibold text-[#2C241E] text-right max-w-[200px] truncate" title={selectedCustomer.address || 'Chưa cập nhật'}>
-                  {selectedCustomer.address || 'Chưa cập nhật'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
-                <span className="text-[#73675F] whitespace-nowrap">Liên hệ khẩn cấp:</span>
-                <span className="font-semibold text-[#2C241E] whitespace-nowrap truncate max-w-[180px]" title={selectedCustomer.emergencyContactName || 'Chưa có'}>
-                  {selectedCustomer.emergencyContactName || 'Chưa có'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
-                <span className="text-[#73675F] whitespace-nowrap">Tổng chi tiêu:</span>
-                <span className="font-bold text-[#8E4002] whitespace-nowrap">
-                  {(selectedCustomer.totalSpent || 0).toLocaleString('vi-VN')}đ
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-[#FAF6F0] gap-2">
-                <span className="text-[#73675F] whitespace-nowrap">Mục đích quan tâm:</span>
-                <span className="font-semibold text-[#2C241E] whitespace-nowrap">
-                  {selectedCustomer.purpose}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => navigate(`/customer-detail?id=${selectedCustomer.id}`)}
-              className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
-            >
-              Xem bệnh án & hồ sơ chi tiết
-            </button>
-          </div>
-        ) : (
-          <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
-              <Users className="w-6 h-6" />
-            </div>
-            <h4 className="text-sm font-bold text-[#3E200C]">Chưa chọn khách hàng</h4>
-            <p className="text-xs text-[#8C7A6B] max-w-xs leading-relaxed">
-              Vui lòng chọn một khách hàng từ danh sách bên trái hoặc điều chỉnh bộ lọc để xem thông tin chi tiết.
+            <p className="text-xs text-[#73675F] leading-relaxed mt-2">
+              2 gói của {selectedCustomer ? selectedCustomer.fullName.split(' ').slice(-2).join(' ') : 'Minh Anh'} có hạn đến 31/12/2026. Không suy rộng thành thống kê toàn chuỗi.
             </p>
           </div>
-        )}
+
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleExportExpiringPackages}
+              className="w-full py-2.5 bg-white border border-[#A85A32] hover:bg-[#FAF6F0] text-[#8A4F23] text-xs font-bold rounded-xl transition-all shadow-2xs text-center cursor-pointer"
+            >
+              Xuất danh sách
+            </button>
+          </div>
+        </div>
+
+        {/* Card 3: Danh sách chăm sóc mẫu */}
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
+          <div>
+            <h3 className="text-base font-bold text-[#3E200C]">Danh sách chăm sóc mẫu</h3>
+            <div className="space-y-2.5 mt-3 text-xs text-[#2C241E]">
+              <div className="leading-snug">
+                <span className="font-medium text-[#73675F]">12/10/2026 · </span>
+                <span>Minh Anh: trao đổi về khoản cọc 150.000đ.</span>
+              </div>
+              <div className="leading-snug">
+                <span className="font-medium text-[#73675F]">13/10/2026 · </span>
+                <span>Thanh Mai: tư vấn khung giờ học.</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-[#F4ECE3] text-[11px] text-[#8C7A6B] mt-4">
+            Nhiệm vụ minh họa, chưa gửi thông báo hoặc gọi điện.
+          </div>
+        </div>
       </div>
 
       {/* 5. Modal Tiếp Nhận Khách Hàng Mới */}
