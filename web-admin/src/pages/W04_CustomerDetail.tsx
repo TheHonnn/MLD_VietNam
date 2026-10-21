@@ -346,7 +346,13 @@ export const W04_CustomerDetail: React.FC = () => {
         <button
           onClick={() => {
             const customerName = customer?.fullName || 'Nguyễn Mỹ Duyên';
-            navigate(`/staff-schedule?create=true&customer=${encodeURIComponent(customerName)}`);
+            const params = new URLSearchParams({
+              create: 'true',
+              customer: customerName,
+            });
+            if (customer?.id) params.set('customerId', customer.id);
+            if (customer?.phone) params.set('phone', customer.phone);
+            navigate(`/staff-schedule?${params.toString()}`);
           }}
           className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
         >
