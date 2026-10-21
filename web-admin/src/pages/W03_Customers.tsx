@@ -18,6 +18,7 @@ import {
   Loader2,
   Download,
   Building2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { customerService, treatmentService, branchService } from '../services';
@@ -51,6 +52,7 @@ export const W03_Customers: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const [isLoading, setIsLoading] = useState(true);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // CUST-01: Create Customer Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -228,7 +230,221 @@ export const W03_Customers: React.FC = () => {
     setSelectedSort('NEWEST');
   };
 
-  // Tính năng xuất danh sách khách hàng ra CSV chuẩn UTF-8
+  // Helper chuẩn hóa hiển thị dữ liệu xuất Excel & CSV
+  const getRoleExportLabel = (role?: string) => {
+    switch (role) {
+      case 'SUPER_ADMIN':
+        return 'Quản trị viên cấp cao';
+      case 'ADMIN':
+        return 'Quản trị viên';
+      case 'INSTRUCTOR':
+        return 'Giảng viên Academy';
+      case 'TECHNICIAN':
+        return 'Kỹ thuật viên';
+      case 'RECEPTIONIST':
+        return 'Lễ tân';
+      case 'STUDENT':
+        return 'Học viên';
+      case 'CUSTOMER':
+      default:
+        return 'Khách hàng';
+    }
+  };
+
+  const getTierExportLabel = (tier?: string) => {
+    switch (tier) {
+      case 'DIAMOND':
+        return 'Kim cương (Diamond)';
+      case 'PLATINUM':
+        return 'Bạch kim (Platinum)';
+      case 'GOLD':
+        return 'Vàng (Gold)';
+      case 'SILVER':
+        return 'Bạc (Silver)';
+      case 'STANDARD':
+      default:
+        return 'Tiêu chuẩn (Standard)';
+    }
+  };
+
+  const getPurposeExportLabel = (purpose?: string) => {
+    switch (purpose) {
+      case 'ACADEMY':
+        return 'Đào tạo Academy';
+      case 'BOTH':
+        return 'Cả hai (Spa & Academy)';
+      case 'BEAUTY_SPA':
+      default:
+        return 'Spa & Làm đẹp';
+    }
+  };
+
+  const cleanExportPhone = (phone?: string | null) => {
+    if (!phone || phone === 'null' || phone === 'undefined') return '';
+    return phone.trim();
+  };
+
+  // 1. Tính năng xuất Excel (.xls) đẹp mắt, có logo MLD, tự căn độ rộng cột và định dạng tiền tệ
+  const handleExportExcel = () => {
+    if (filteredCustomers.length === 0) {
+      toast.warning('Không có dữ liệu', 'Không có hồ sơ khách hàng nào trong danh sách hiện tại để xuất.');
+      return;
+    }
+
+    const now = new Date();
+    const exportDateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const fileDateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+
+    const totalSpentSum = filteredCustomers.reduce((acc, c) => acc + (c.totalSpent || 0), 0);
+    const totalPointsSum = filteredCustomers.reduce((acc, c) => acc + (c.rewardPoints || 0), 0);
+
+    const rowsHtml = filteredCustomers
+      .map((c, idx) => {
+        const isAlt = idx % 2 === 1;
+        const code = c.referralCode || `KH-${c.id.slice(0, 8).toUpperCase()}`;
+        const phone = cleanExportPhone(c.phone);
+        const email = c.email && c.email !== 'null' ? c.email : '';
+        const role = getRoleExportLabel(c.role);
+        const tier = getTierExportLabel(c.membershipTier);
+        const purpose = getPurposeExportLabel(c.purpose);
+        const address = c.address && c.address !== 'null' ? c.address : '';
+        const created = c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : '';
+        const points = (c.rewardPoints || 0).toLocaleString('vi-VN');
+        const spent = (c.totalSpent || 0).toLocaleString('vi-VN') + ' ₫';
+
+        const roleStyle =
+          c.role === 'SUPER_ADMIN' || c.role === 'ADMIN'
+            ? 'color: #9A2C2C; font-weight: bold;'
+            : c.role === 'TECHNICIAN'
+            ? 'color: #8A4F23; font-weight: 600;'
+            : c.role === 'INSTRUCTOR'
+            ? 'color: #7C3AED; font-weight: 600;'
+            : 'color: #1B6E44; font-weight: 600;';
+
+        const tierStyle =
+          c.membershipTier === 'DIAMOND'
+            ? 'color: #0284C7; font-weight: bold;'
+            : c.membershipTier === 'PLATINUM'
+            ? 'color: #475569; font-weight: bold;'
+            : c.membershipTier === 'GOLD'
+            ? 'color: #D97706; font-weight: bold;'
+            : 'color: #64748B;';
+
+        return `
+          <tr style="${isAlt ? 'background-color: #FAF8F5;' : 'background-color: #FFFFFF;'}">
+            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; color: #73675F;">${idx + 1}</td>
+            <td style="text-align: center; font-weight: bold; color: #8A4F23; border: 1px solid #E5D7CC; padding: 7px; mso-number-format: '\\@';">${code}</td>
+            <td style="font-weight: 600; color: #2C241E; border: 1px solid #E5D7CC; padding: 7px;">${c.fullName}</td>
+            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; mso-number-format: '\\@';">${phone}</td>
+            <td style="border: 1px solid #E5D7CC; padding: 7px; color: #50443D;">${email}</td>
+            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; ${roleStyle}">${role}</td>
+            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; ${tierStyle}">${tier}</td>
+            <td style="text-align: right; border: 1px solid #E5D7CC; padding: 7px; font-weight: 600;">${points}</td>
+            <td style="text-align: right; border: 1px solid #E5D7CC; padding: 7px; font-weight: bold; color: #8A4F23;">${spent}</td>
+            <td style="border: 1px solid #E5D7CC; padding: 7px; color: #50443D;">${purpose}</td>
+            <td style="border: 1px solid #E5D7CC; padding: 7px; color: #50443D;">${address}</td>
+            <td style="text-align: center; border: 1px solid #E5D7CC; padding: 7px; color: #73675F;">${created}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const excelTemplate = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Khách Hàng MLD</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #2C241E; }
+          table { border-collapse: collapse; width: 100%; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr>
+            <td colspan="12" style="font-size: 16pt; font-weight: bold; color: #8A4F23; text-align: center; padding: 12px;">
+              HỆ THỐNG QUẢN LÝ KHÁCH HÀNG MLD BEAUTY & ACADEMY
+            </td>
+          </tr>
+          <tr>
+            <td colspan="12" style="font-size: 11pt; font-weight: 600; color: #50443D; text-align: center; padding-bottom: 8px;">
+              DANH SÁCH KHÁCH HÀNG & HỘI VIÊN CHUẨN CRM
+            </td>
+          </tr>
+          <tr>
+            <td colspan="6" style="font-size: 9pt; color: #73675F; font-style: italic; padding-bottom: 12px;">
+              Thời gian xuất: ${exportDateStr} · Người xuất: Ban Quản Trị Hệ Thống
+            </td>
+            <td colspan="6" style="font-size: 9pt; color: #73675F; font-style: italic; text-align: right; padding-bottom: 12px;">
+              Tổng cộng: <b>${filteredCustomers.length}</b> hồ sơ khách hàng
+            </td>
+          </tr>
+          <thead>
+            <tr style="background-color: #985018; color: #FFFFFF; font-weight: bold; text-align: center;">
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 45px; background-color: #985018; color: #FFFFFF;">STT</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 130px; background-color: #985018; color: #FFFFFF;">Mã khách hàng</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 190px; background-color: #985018; color: #FFFFFF;">Họ và tên</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 120px; background-color: #985018; color: #FFFFFF;">Số điện thoại</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 220px; background-color: #985018; color: #FFFFFF;">Email</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 140px; background-color: #985018; color: #FFFFFF;">Vai trò</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 140px; background-color: #985018; color: #FFFFFF;">Hạng hội viên</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 110px; background-color: #985018; color: #FFFFFF;">Điểm tích lũy</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 150px; background-color: #985018; color: #FFFFFF;">Tổng chi tiêu</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 160px; background-color: #985018; color: #FFFFFF;">Nhu cầu quan tâm</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 200px; background-color: #985018; color: #FFFFFF;">Địa chỉ</th>
+              <th style="border: 1px solid #7D3E10; padding: 10px; width: 110px; background-color: #985018; color: #FFFFFF;">Ngày tạo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            <tr style="background-color: #F5EBE1; font-weight: bold; border-top: 2px solid #985018;">
+              <td colspan="7" style="border: 1px solid #E5D7CC; padding: 9px; text-align: center; color: #50443D;">
+                TỔNG CỘNG (${filteredCustomers.length} HỒ SƠ)
+              </td>
+              <td style="border: 1px solid #E5D7CC; padding: 9px; text-align: right; color: #2C241E;">
+                ${totalPointsSum.toLocaleString('vi-VN')}
+              </td>
+              <td style="border: 1px solid #E5D7CC; padding: 9px; text-align: right; color: #8A4F23;">
+                ${totalSpentSum.toLocaleString('vi-VN')} ₫
+              </td>
+              <td colspan="3" style="border: 1px solid #E5D7CC; padding: 9px;"></td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\uFEFF' + excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `MLD_DanhSachKhachHang_${fileDateStr}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(
+      'Xuất Excel thành công',
+      `Đã xuất ${filteredCustomers.length} hồ sơ ra file Excel (.xls) với định dạng bảng biểu và màu sắc thương hiệu.`
+    );
+  };
+
+  // 2. Tính năng xuất danh sách khách hàng ra CSV chuẩn UTF-8 có 'sep=,' để tự động phân tách cột
   const handleExportCSV = () => {
     if (filteredCustomers.length === 0) {
       toast.warning('Không có dữ liệu', 'Không có hồ sơ khách hàng nào trong danh sách hiện tại để xuất.');
@@ -236,6 +452,7 @@ export const W03_Customers: React.FC = () => {
     }
 
     const headers = [
+      'STT',
       'Mã khách hàng',
       'Họ và tên',
       'Số điện thoại',
@@ -249,21 +466,35 @@ export const W03_Customers: React.FC = () => {
       'Ngày tạo',
     ];
 
-    const rows = filteredCustomers.map((c) => [
-      `"${c.id}"`,
-      `"${c.fullName.replace(/"/g, '""')}"`,
-      `"${c.phone}"`,
-      `"${c.email || ''}"`,
-      `"${c.role}"`,
-      `"${c.membershipTier}"`,
-      c.rewardPoints || 0,
-      c.totalSpent || 0,
-      `"${c.purpose}"`,
-      `"${(c.address || '').replace(/"/g, '""')}"`,
-      `"${c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : ''}"`,
-    ]);
+    const rows = filteredCustomers.map((c, idx) => {
+      const code = c.referralCode || `KH-${c.id.slice(0, 8).toUpperCase()}`;
+      const phone = cleanExportPhone(c.phone);
+      const email = c.email && c.email !== 'null' ? c.email : '';
+      const role = getRoleExportLabel(c.role);
+      const tier = getTierExportLabel(c.membershipTier);
+      const purpose = getPurposeExportLabel(c.purpose);
+      const address = c.address && c.address !== 'null' ? c.address.replace(/"/g, '""') : '';
+      const created = c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : '';
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+      return [
+        idx + 1,
+        `"${code}"`,
+        `"${c.fullName.replace(/"/g, '""')}"`,
+        `"'\t${phone}"`,
+        `"${email.replace(/"/g, '""')}"`,
+        `"${role}"`,
+        `"${tier}"`,
+        c.rewardPoints || 0,
+        c.totalSpent || 0,
+        `"${purpose}"`,
+        `"${address}"`,
+        `"${created}"`,
+      ];
+    });
+
+    // \uFEFFsep=,\r\n tells Excel & WPS explicitly to use comma delimiter so columns are never lumped into Column A!
+    const csvContent =
+      '\uFEFFsep=,\r\n' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -274,7 +505,7 @@ export const W03_Customers: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    toast.success('Xuất file thành công', `Đã xuất ${filteredCustomers.length} hồ sơ khách hàng ra file CSV.`);
+    toast.success('Xuất file thành công', `Đã xuất ${filteredCustomers.length} hồ sơ khách hàng ra file CSV chuẩn UTF-8.`);
   };
 
   // Load packages for selected customer
@@ -460,14 +691,80 @@ export const W03_Customers: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleExportCSV}
-            className="px-4 py-2.5 bg-white border border-[#D7BBA6] hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold rounded-xl transition-all shadow-2xs shrink-0 cursor-pointer flex items-center gap-1.5"
-            title="Xuất dữ liệu khách hàng ra file Excel / CSV (chuẩn UTF-8)"
-          >
-            <Download className="w-4 h-4 stroke-[2]" />
-            <span>Xuất CSV</span>
-          </button>
+          {/* Export Dropdown Group */}
+          <div className="relative">
+            <div className="inline-flex rounded-xl shadow-2xs border border-[#D7BBA6] bg-white overflow-hidden">
+              <button
+                onClick={handleExportExcel}
+                className="px-3.5 py-2.5 hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Xuất bảng tính Excel (.xls) đẹp mắt với màu thương hiệu và tự căn cột cho WPS & Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-[#1E7145] stroke-[2]" />
+                <span>Xuất Excel</span>
+                <span className="text-[10px] font-semibold text-[#8A4F23] bg-[#FAF0E4] px-1.5 py-0.5 rounded-full border border-[#E8DFD8]">
+                  {filteredCustomers.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="px-2 py-2.5 border-l border-[#E8DFD8] hover:bg-[#FAF8F5] text-[#8A4F23] transition-colors cursor-pointer"
+                title="Tùy chọn định dạng xuất file"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {showExportMenu && (
+              <div className="absolute right-0 mt-1.5 w-64 bg-white border border-[#E8DFD8] rounded-2xl shadow-xl z-30 p-1.5 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-1.5 text-[11px] font-bold text-[#73675F] border-b border-[#F4ECE3] mb-1 flex items-center justify-between">
+                  <span>Định dạng tải về</span>
+                  <span className="text-[10px] bg-[#FAF0E4] text-[#985018] px-1.5 py-0.2 rounded font-bold">
+                    {filteredCustomers.length} hồ sơ
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    handleExportExcel();
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full p-2.5 rounded-xl hover:bg-[#FAF0E4] text-left transition-colors flex items-start gap-2.5 cursor-pointer group"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-[#E7F4EE] text-[#1E7145] flex items-center justify-center shrink-0 mt-0.5">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-[#2C241E] group-hover:text-[#8A4F23] flex items-center gap-1.5">
+                      Bảng tính Excel (.xls)
+                      <span className="text-[9px] bg-[#E7F4EE] text-[#1E7145] px-1.5 py-0.2 rounded font-bold">Khuyên dùng</span>
+                    </div>
+                    <div className="text-[10px] text-[#73675F] mt-0.5 leading-snug">
+                      Đẹp, có màu thương hiệu MLD, tự căn cột & định dạng tiền tệ (Tối ưu cho WPS & Excel)
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleExportCSV();
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full p-2.5 rounded-xl hover:bg-[#FAF0E4] text-left transition-colors flex items-start gap-2.5 cursor-pointer group mt-0.5"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center shrink-0 mt-0.5">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-[#2C241E] group-hover:text-[#8A4F23]">
+                      Tệp dữ liệu CSV (.csv)
+                    </div>
+                    <div className="text-[10px] text-[#73675F] mt-0.5 leading-snug">
+                      Chuẩn UTF-8 có lệnh sep=,, tự động tách cột trên Windows & Mac
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={handleOpenCreateCustomerModal}
             className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
