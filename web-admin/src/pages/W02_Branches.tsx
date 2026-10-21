@@ -255,13 +255,14 @@ export const W02_Branches: React.FC = () => {
 
   const [availableAmenities, setAvailableAmenities] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('mld_custom_amenities');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return Array.from(new Set([...DEFAULT_AMENITIES, ...parsed]));
-        }
-      }
+      const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+      const deletedSet = new Set(savedDeleted ? JSON.parse(savedDeleted) : []);
+      const savedCustom = localStorage.getItem('mld_custom_amenities');
+      const customList = savedCustom ? JSON.parse(savedCustom) : [];
+      const combined = Array.from(
+        new Set([...DEFAULT_AMENITIES, ...(Array.isArray(customList) ? customList : [])])
+      );
+      return combined.filter((a) => !deletedSet.has(a));
     } catch {}
     return [...DEFAULT_AMENITIES];
   });
@@ -340,10 +341,17 @@ export const W02_Branches: React.FC = () => {
       setBranches(allBranches);
       setAllArchivedBranches(archivedBranchesList);
 
-      // Merge amenities from existing branches to ensure custom ones are visible
+      // Merge amenities from existing branches to ensure custom ones are visible (excluding deleted)
       const allBranchAmenities = allBranches.flatMap((b) => b.amenities || []);
       if (allBranchAmenities.length > 0) {
-        setAvailableAmenities((prev) => Array.from(new Set([...prev, ...allBranchAmenities])));
+        let deletedSet = new Set<string>();
+        try {
+          const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+          if (savedDeleted) deletedSet = new Set(JSON.parse(savedDeleted));
+        } catch {}
+        setAvailableAmenities((prev) =>
+          Array.from(new Set([...prev, ...allBranchAmenities])).filter((a) => !deletedSet.has(a))
+        );
       }
 
       // 1. Join archived rooms with branch info first to establish exclusion set
@@ -1296,6 +1304,16 @@ export const W02_Branches: React.FC = () => {
       return;
     }
 
+    // Nếu tiện ích này từng bị xóa, loại khỏi danh sách đã xóa
+    try {
+      const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+      if (savedDeleted) {
+        const deletedList: string[] = JSON.parse(savedDeleted);
+        const filtered = deletedList.filter((a) => a.toLowerCase() !== trimmed.toLowerCase());
+        localStorage.setItem('mld_deleted_amenities', JSON.stringify(filtered));
+      }
+    } catch {}
+
     const alreadyExists = availableAmenities.some(
       (a) => a.toLowerCase() === trimmed.toLowerCase()
     );
@@ -1305,8 +1323,12 @@ export const W02_Branches: React.FC = () => {
       updatedAmenities = [...availableAmenities, trimmed];
       setAvailableAmenities(updatedAmenities);
       try {
-        const customOnly = updatedAmenities.filter((a) => !DEFAULT_AMENITIES.includes(a));
-        localStorage.setItem('mld_custom_amenities', JSON.stringify(customOnly));
+        const savedCustom = localStorage.getItem('mld_custom_amenities');
+        const customArr: string[] = savedCustom ? JSON.parse(savedCustom) : [];
+        if (!customArr.includes(trimmed)) {
+          customArr.push(trimmed);
+          localStorage.setItem('mld_custom_amenities', JSON.stringify(customArr));
+        }
       } catch {}
     }
 
@@ -1328,20 +1350,36 @@ export const W02_Branches: React.FC = () => {
     );
   };
 
-  const handleDeleteCustomAmenity = (amenityToDelete: string, e?: React.MouseEvent) => {
+  const handleDeleteAmenity = (amenityToDelete: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (DEFAULT_AMENITIES.includes(amenityToDelete)) {
-      toast.error('Không thể xóa', 'Không thể xóa các tiện ích tiêu chuẩn của hệ thống.');
-      return;
-    }
 
-    const updated = availableAmenities.filter((a) => a !== amenityToDelete);
-    setAvailableAmenities(updated);
+    // 1. Lưu vào danh sách đã xóa để không nạp lại
     try {
-      const customOnly = updated.filter((a) => !DEFAULT_AMENITIES.includes(a));
-      localStorage.setItem('mld_custom_amenities', JSON.stringify(customOnly));
+      const savedDeleted = localStorage.getItem('mld_deleted_amenities');
+      const deletedList: string[] = savedDeleted ? JSON.parse(savedDeleted) : [];
+      if (!deletedList.includes(amenityToDelete)) {
+        deletedList.push(amenityToDelete);
+        localStorage.setItem('mld_deleted_amenities', JSON.stringify(deletedList));
+      }
     } catch {}
 
+    // 2. Cập nhật state availableAmenities
+    const updated = availableAmenities.filter((a) => a !== amenityToDelete);
+    setAvailableAmenities(updated);
+
+    // 3. Nếu tiện ích nằm trong custom_amenities, cập nhật lại
+    try {
+      const savedCustom = localStorage.getItem('mld_custom_amenities');
+      if (savedCustom) {
+        const customArr: string[] = JSON.parse(savedCustom);
+        localStorage.setItem(
+          'mld_custom_amenities',
+          JSON.stringify(customArr.filter((a) => a !== amenityToDelete))
+        );
+      }
+    } catch {}
+
+    // 4. Bỏ chọn ở cả 2 modal nếu tiện ích này đang được chọn
     setEditForm((prev) => ({
       ...prev,
       amenities: prev.amenities.filter((a) => a !== amenityToDelete),
@@ -1351,7 +1389,20 @@ export const W02_Branches: React.FC = () => {
       amenities: prev.amenities.filter((a) => a !== amenityToDelete),
     }));
 
-    toast.info('Đã xóa tiện ích', `Đã xóa tiện ích "${amenityToDelete}" khỏi danh sách khả dụng.`);
+    toast.info('Đã xóa tiện ích', `Đã xóa tiện ích "${amenityToDelete}" khỏi danh sách hiển thị.`);
+  };
+
+  const handleResetDefaultAmenities = () => {
+    try {
+      localStorage.removeItem('mld_deleted_amenities');
+      const savedCustom = localStorage.getItem('mld_custom_amenities');
+      const customList = savedCustom ? JSON.parse(savedCustom) : [];
+      const restored = Array.from(
+        new Set([...DEFAULT_AMENITIES, ...(Array.isArray(customList) ? customList : [])])
+      );
+      setAvailableAmenities(restored);
+      toast.success('Đã khôi phục', 'Đã khôi phục danh sách tiện ích tiêu chuẩn của hệ thống.');
+    } catch {}
   };
 
   // Add Room inside Manage Modal
@@ -3392,9 +3443,20 @@ export const W02_Branches: React.FC = () => {
                       <label className="block text-xs font-bold text-[#2C241E]">
                         Tiện ích & Dịch vụ đi kèm
                       </label>
-                      <span className="text-[11px] text-[#8C7A6B]">
-                        Đã chọn: <strong className="text-[#985018]">{editForm.amenities.length}</strong> tiện ích
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleResetDefaultAmenities}
+                          title="Khôi phục danh sách tiện ích tiêu chuẩn"
+                          className="text-[11px] text-[#985018] hover:text-[#7A3F12] hover:underline transition-all cursor-pointer flex items-center gap-1 font-medium"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Khôi phục mặc định</span>
+                        </button>
+                        <span className="text-[11px] text-[#8C7A6B]">
+                          Đã chọn: <strong className="text-[#985018]">{editForm.amenities.length}</strong> tiện ích
+                        </span>
+                      </div>
                     </div>
 
                     {/* Quick Add Custom Amenity Input */}
@@ -3425,7 +3487,6 @@ export const W02_Branches: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {availableAmenities.map((amenity) => {
                         const isSelected = editForm.amenities.includes(amenity);
-                        const isCustom = !DEFAULT_AMENITIES.includes(amenity);
                         return (
                           <div
                             key={amenity}
@@ -3437,18 +3498,16 @@ export const W02_Branches: React.FC = () => {
                             }`}
                           >
                             <span className="truncate pr-2">{amenity}</span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {isCustom && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleDeleteCustomAmenity(amenity, e)}
-                                  title="Xóa tiện ích này khỏi danh sách"
-                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#F1E5D8] rounded text-[#A8988B] hover:text-[#B83E3E] transition-all cursor-pointer"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
+                            <div className="flex items-center gap-1 shrink-0">
                               {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteAmenity(amenity, e)}
+                                title={`Xóa tiện ích "${amenity}" khỏi danh sách`}
+                                className="p-1 rounded-lg text-[#A8988B] hover:text-[#B83E3E] hover:bg-[#FCEAE8] transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
                         );
@@ -4247,9 +4306,20 @@ export const W02_Branches: React.FC = () => {
                     <label className="block text-xs font-bold text-[#2C241E]">
                       Tiện ích cơ sở (Bấm để chọn/bỏ chọn)
                     </label>
-                    <span className="text-[11px] text-[#8C7A6B]">
-                      Đã chọn: <strong className="text-[#985018]">{formData.amenities.length}</strong> tiện ích
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleResetDefaultAmenities}
+                        title="Khôi phục danh sách tiện ích tiêu chuẩn"
+                        className="text-[11px] text-[#985018] hover:text-[#7A3F12] hover:underline transition-all cursor-pointer flex items-center gap-1 font-medium"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Khôi phục mặc định</span>
+                      </button>
+                      <span className="text-[11px] text-[#8C7A6B]">
+                        Đã chọn: <strong className="text-[#985018]">{formData.amenities.length}</strong> tiện ích
+                      </span>
+                    </div>
                   </div>
 
                   {/* Quick Add Custom Amenity Input */}
@@ -4280,7 +4350,6 @@ export const W02_Branches: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {availableAmenities.map((amenity) => {
                       const isSelected = formData.amenities.includes(amenity);
-                      const isCustom = !DEFAULT_AMENITIES.includes(amenity);
                       return (
                         <div
                           key={amenity}
@@ -4292,18 +4361,16 @@ export const W02_Branches: React.FC = () => {
                           }`}
                         >
                           <span className="truncate pr-2">{amenity}</span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {isCustom && (
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeleteCustomAmenity(amenity, e)}
-                                title="Xóa tiện ích này khỏi danh sách"
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#F1E5D8] rounded text-[#A8988B] hover:text-[#B83E3E] transition-all cursor-pointer"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
+                          <div className="flex items-center gap-1 shrink-0">
                             {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteAmenity(amenity, e)}
+                              title={`Xóa tiện ích "${amenity}" khỏi danh sách`}
+                              className="p-1 rounded-lg text-[#A8988B] hover:text-[#B83E3E] hover:bg-[#FCEAE8] transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       );
