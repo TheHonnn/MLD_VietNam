@@ -125,7 +125,7 @@ const TABLE_SELECTS: Record<string, string> = {
   course_lessons: "*,course_chapters(title)",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
-  consultation_surveys: "*,customer:users!customer_id(full_name,phone),bookings(booking_code)",
+  consultation_surveys: "*,customer:users!customer_id(full_name,phone,avatar_url),bookings(booking_code,booking_date,start_time,status)",
   reviews: "*,customer:users!customer_id(full_name,phone),services(name),technicians(full_name),bookings(booking_code)",
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
 };
@@ -316,7 +316,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (matchedUserIds.length > 0) {
         if (table === "staff_profiles") {
           orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
-        } else if (table === "bookings") {
+        } else if (["bookings", "consultation_surveys", "reviews", "support_tickets"].includes(table)) {
           orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
         }
       }
@@ -392,6 +392,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (r.customer) {
         r.customer_name = r.customer_name || r.customer.full_name;
         r.customer_phone = r.customer_phone || r.customer.phone;
+        r.customer_avatar = r.customer_avatar || r.customer.avatar_url;
       }
       if (r.technicians) {
         r.technician_name = r.technician_name || r.technicians.full_name;
@@ -401,6 +402,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.bookings) {
         r.booking_code = r.booking_code || r.bookings.booking_code;
+        r.booking_date = r.booking_date || r.bookings.booking_date;
+        r.booking_time = r.booking_time || r.bookings.start_time;
+        r.booking_status = r.booking_status || r.bookings.status;
       }
       if (r.courses) {
         r.course_title = r.course_title || r.courses.title;

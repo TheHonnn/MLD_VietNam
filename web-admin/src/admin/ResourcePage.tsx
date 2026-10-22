@@ -859,6 +859,9 @@ function RecordDialog({
         if (resource.name === "users" && ["reward_points", "total_spent", "membership_tier"].includes(name)) {
           continue; // Khóa chỉnh sửa thủ công để đảm bảo toàn vẹn dữ liệu kế toán và loyalty
         }
+        if (resource.name === "reviews" && name !== "branch_reply") {
+          continue; // Chỉ cho phép phản hồi chi nhánh, không can thiệp nội dung nhận xét hoặc số sao của khách
+        }
         const c = columns.find((x) => x.name === name);
         if (name === "password") {
           if (value) payload.password = value;
@@ -1002,6 +1005,10 @@ function RecordDialog({
                         ? "Tự động từ hóa đơn POS"
                         : "Tự động theo mức chi tiêu"}
                     </span>
+                  </div>
+                ) : resource.name === "reviews" && c.name !== "branch_reply" ? (
+                  <div className="admin-detail-value">
+                    {formatCell(row, c)}
                   </div>
                 ) : resource.name === "quiz_questions" &&
                   c.name === "correct_option" ? (
