@@ -21,6 +21,7 @@ import {
   Save,
   AlertCircle,
   Upload,
+  MapPin,
 } from "lucide-react";
 import {
   adminApi,
@@ -33,6 +34,7 @@ import {
 } from "./api";
 import { DEFAULT_RESOURCES } from "./defaultResources";
 import { display, enums, label } from "./labels";
+import { VIETNAM_LOCATIONS_2026, VIETNAM_PROVINCE_NAMES } from "../data/vietnamLocations";
 
 function formatCell(row: Row, c: Column): React.ReactNode {
   if (c.name === "branch_id") {
@@ -85,6 +87,13 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     if (!isNaN(val) && val > 0) {
       return val + " %";
     }
+  }
+  if (c.name === "gender") {
+    const val = String(row[c.name] || "").toUpperCase();
+    if (val === "MALE") return "👨 Nam";
+    if (val === "FEMALE") return "👩 Nữ";
+    if (val === "OTHER") return "🧑 Khác";
+    return display(row[c.name]);
   }
   if (c.name === "avatar_url" && row[c.name]) {
     return (
@@ -394,6 +403,414 @@ function ImageUploadInput({
   );
 }
 
+function GenderSelector({
+  value,
+  onChange,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+}) {
+  const options = [
+    { key: "MALE", label: "Nam", icon: "👨" },
+    { key: "FEMALE", label: "Nữ", icon: "👩" },
+    { key: "OTHER", label: "Khác", icon: "🧑" },
+  ];
+
+  const currentVal = String(value || "").toUpperCase();
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+        {options.map((opt) => {
+          const isSelected = currentVal === opt.key;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => {
+                if (isSelected && !required) {
+                  onChange("");
+                } else {
+                  onChange(opt.key);
+                }
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: isSelected ? 600 : 500,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                border: isSelected ? "1.5px solid #8A4F23" : "1px solid #E8DFD8",
+                background: isSelected ? "#FAF0E4" : "#ffffff",
+                color: isSelected ? "#8A4F23" : "#554A41",
+                boxShadow: isSelected ? "0 1px 3px rgba(138, 79, 35, 0.12)" : "none",
+              }}
+            >
+              <span style={{ fontSize: "14px" }}>{opt.icon}</span>
+              <span>{opt.label}</span>
+              {isSelected && <Check size={14} style={{ marginLeft: "2px" }} />}
+            </button>
+          );
+        })}
+      </div>
+      {currentVal && (
+        <span style={{ fontSize: "11px", color: "#8A4F23", paddingLeft: "2px" }}>
+          Đã chọn: <b>{currentVal === "MALE" ? "Nam (MALE)" : currentVal === "FEMALE" ? "Nữ (FEMALE)" : "Khác (OTHER)"}</b>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function parseVietnameseAddress(addr: string): {
+  province: string;
+  district: string;
+  street: string;
+} {
+  if (!addr || !addr.trim()) {
+    return { province: "", district: "", street: "" };
+  }
+  const trimmed = addr.trim();
+
+  // Match full province names first by descending length
+  const sortedProvinces = [...VIETNAM_PROVINCE_NAMES].sort((a, b) => b.length - a.length);
+
+  let matchedProvince = "";
+  let remainder = trimmed;
+
+  for (const p of sortedProvinces) {
+    const pLower = p.toLowerCase();
+    const rLower = remainder.toLowerCase();
+    const idx = rLower.lastIndexOf(pLower);
+    if (idx !== -1) {
+      const after = rLower.slice(idx + pLower.length).trim();
+      if (after === "" || after === "," || after === ".") {
+        matchedProvince = p;
+        remainder = remainder.slice(0, idx).trim().replace(/,\s*$/, "");
+        break;
+      }
+    }
+  }
+
+  let matchedDistrict = "";
+  if (matchedProvince && VIETNAM_LOCATIONS_2026[matchedProvince]) {
+    const districts = [...VIETNAM_LOCATIONS_2026[matchedProvince]].sort((a, b) => b.length - a.length);
+    for (const d of districts) {
+      const dLower = d.toLowerCase();
+      const rLower = remainder.toLowerCase();
+      const idx = rLower.lastIndexOf(dLower);
+      if (idx !== -1) {
+        const after = rLower.slice(idx + dLower.length).trim();
+        if (after === "" || after === "," || after === ".") {
+          matchedDistrict = d;
+          remainder = remainder.slice(0, idx).trim().replace(/,\s*$/, "");
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    province: matchedProvince,
+    district: matchedDistrict,
+    street: remainder,
+  };
+}
+
+function AddressInput({
+  value,
+  onChange,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+}) {
+  const [isManual, setIsManual] = useState(false);
+  const [province, setProvince] = useState("");
+  const [district, setDistrict] = useState("");
+  const [customDistrict, setCustomDistrict] = useState("");
+  const [isCustomDistrict, setIsCustomDistrict] = useState(false);
+  const [street, setStreet] = useState("");
+  const initialValueRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (initialValueRef.current === null) {
+      initialValueRef.current = value || "";
+      if (value) {
+        const parsed = parseVietnameseAddress(value);
+        if (parsed.province) {
+          setProvince(parsed.province);
+          if (parsed.district) {
+            setDistrict(parsed.district);
+          }
+          setStreet(parsed.street);
+          setIsManual(false);
+        } else {
+          setStreet(value);
+          setIsManual(true);
+        }
+      }
+    }
+  }, [value]);
+
+  const updateCombined = (newStreet: string, newDist: string, newProv: string) => {
+    const parts = [newStreet.trim(), newDist.trim(), newProv.trim()].filter(Boolean);
+    const combined = parts.join(", ");
+    onChange(combined);
+  };
+
+  const handleProvinceChange = (newProv: string) => {
+    setProvince(newProv);
+    setDistrict("");
+    setIsCustomDistrict(false);
+    setCustomDistrict("");
+    updateCombined(street, "", newProv);
+  };
+
+  const handleDistrictChange = (val: string) => {
+    if (val === "__CUSTOM__") {
+      setIsCustomDistrict(true);
+      setDistrict("");
+      updateCombined(street, customDistrict, province);
+    } else {
+      setIsCustomDistrict(false);
+      setDistrict(val);
+      updateCombined(street, val, province);
+    }
+  };
+
+  const handleCustomDistrictChange = (val: string) => {
+    setCustomDistrict(val);
+    updateCombined(street, val, province);
+  };
+
+  const handleStreetChange = (val: string) => {
+    setStreet(val);
+    const effectiveDistrict = isCustomDistrict ? customDistrict : district;
+    updateCombined(val, effectiveDistrict, province);
+  };
+
+  const switchToStructured = () => {
+    const parsed = parseVietnameseAddress(value);
+    setProvince(parsed.province);
+    setDistrict(parsed.district);
+    setStreet(parsed.street);
+    setIsCustomDistrict(false);
+    setIsManual(false);
+  };
+
+  const switchToManual = () => {
+    setIsManual(true);
+  };
+
+  const availableDistricts = province ? VIETNAM_LOCATIONS_2026[province] || [] : [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+      {isManual ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <textarea
+            rows={2}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Nhập địa chỉ đầy đủ (Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh)..."
+            required={required}
+            style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #E8DFD8", boxSizing: "border-box" }}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={switchToStructured}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#8A4F23",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer",
+                padding: "2px 4px",
+                textDecoration: "underline",
+              }}
+            >
+              ✨ Chuyển sang chọn theo Tỉnh / Thành phố & Quận / Huyện
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {/* Row 1: Tỉnh/Thành phố & Quận/Huyện */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
+                Tỉnh / Thành phố (63 tỉnh thành)
+              </span>
+              <select
+                value={province}
+                onChange={(e) => handleProvinceChange(e.target.value)}
+                required={required}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid #E8DFD8",
+                  background: "#fff",
+                  fontSize: "13px",
+                  color: "#332A24",
+                  width: "100%",
+                }}
+              >
+                <option value="">-- Chọn Tỉnh / Thành phố --</option>
+                {VIETNAM_PROVINCE_NAMES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
+                Quận / Huyện / Thị xã
+              </span>
+              {isCustomDistrict ? (
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <input
+                    type="text"
+                    value={customDistrict}
+                    onChange={(e) => handleCustomDistrictChange(e.target.value)}
+                    placeholder="Nhập quận/huyện..."
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid #E8DFD8",
+                      fontSize: "13px",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomDistrict(false);
+                      setCustomDistrict("");
+                    }}
+                    style={{
+                      padding: "6px 10px",
+                      fontSize: "11px",
+                      background: "#F3EDE7",
+                      border: "1px solid #E2D7CB",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Danh sách
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={district}
+                  onChange={(e) => handleDistrictChange(e.target.value)}
+                  disabled={!province}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #E8DFD8",
+                    background: province ? "#fff" : "#FAF8F5",
+                    fontSize: "13px",
+                    color: "#332A24",
+                    width: "100%",
+                  }}
+                >
+                  <option value="">
+                    {province ? "-- Chọn Quận / Huyện --" : "-- Hãy chọn Tỉnh/Thành trước --"}
+                  </option>
+                  {district && !availableDistricts.includes(district) && (
+                    <option value={district}>{district}</option>
+                  )}
+                  {availableDistricts.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                  {province && <option value="__CUSTOM__">+ Nhập quận / huyện khác...</option>}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {/* Row 2: Địa chỉ chi tiết */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
+              Số nhà, tên đường, tòa nhà, phường/xã
+            </span>
+            <input
+              type="text"
+              value={street}
+              onChange={(e) => handleStreetChange(e.target.value)}
+              placeholder="Ví dụ: Số 123 Nguyễn Huệ, Phường Bến Nghé..."
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: "1px solid #E8DFD8",
+                fontSize: "13px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* Combined Preview & Manual Mode switch */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "7px 10px",
+              background: "#FAF8F5",
+              border: "1px dashed #E2D7CB",
+              borderRadius: "8px",
+              fontSize: "12px",
+              gap: "8px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#554A41", overflow: "hidden", minWidth: 0 }}>
+              <MapPin size={14} style={{ color: "#8A4F23", flexShrink: 0 }} />
+              <span style={{ fontWeight: 600, color: "#8A4F23", flexShrink: 0 }}>Địa chỉ đầy đủ:</span>
+              <span style={{ color: value ? "#2C241E" : "#998E84", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                {value || "(Chưa có thông tin)"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={switchToManual}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#766554",
+                fontSize: "11px",
+                fontWeight: 500,
+                cursor: "pointer",
+                padding: "2px 6px",
+                textDecoration: "underline",
+                flexShrink: 0,
+              }}
+            >
+              Nhập tự do
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecordDialog({
   resource,
   columns,
@@ -602,7 +1019,7 @@ function RecordDialog({
               <label
                 key={c.name}
                 className={
-                  structured || c.type === "text" ? "admin-field-wide" : ""
+                  structured || c.type === "text" || c.name === "address" || c.name.endsWith("_address") ? "admin-field-wide" : ""
                 }
               >
                 <span>
@@ -664,6 +1081,18 @@ function RecordDialog({
                   </span>
                 ) : c.name === "avatar_url" || c.name === "image_url" || c.name.endsWith("_image_url") ? (
                   <ImageUploadInput
+                    value={String(value || "")}
+                    onChange={(v) => set(c.name, v)}
+                    required={required}
+                  />
+                ) : c.name === "gender" ? (
+                  <GenderSelector
+                    value={String(value || "")}
+                    onChange={(v) => set(c.name, v)}
+                    required={required}
+                  />
+                ) : c.name === "address" || c.name.endsWith("_address") ? (
+                  <AddressInput
                     value={String(value || "")}
                     onChange={(v) => set(c.name, v)}
                     required={required}
