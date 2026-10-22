@@ -20,6 +20,7 @@ import {
   Ban,
   Save,
   AlertCircle,
+  Upload,
 } from "lucide-react";
 import {
   adminApi,
@@ -84,6 +85,21 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     if (!isNaN(val) && val > 0) {
       return val + " %";
     }
+  }
+  if (c.name === "avatar_url" && row[c.name]) {
+    return (
+      <div className="flex items-center gap-2">
+        <img
+          src={row[c.name]}
+          alt=""
+          className="w-7 h-7 rounded-full object-cover border border-[#EFE4D9] bg-[#FAF8F5] shrink-0"
+          onError={(e) => {
+            (e.target as HTMLElement).style.display = "none";
+          }}
+        />
+        <span className="text-xs text-[#7A6D61] truncate max-w-[130px]">{row[c.name]}</span>
+      </div>
+    );
   }
   if (Array.isArray(row[c.name])) {
     return row[c.name].length > 0 ? row[c.name].join(", ") : "—";
@@ -193,6 +209,185 @@ function ReferenceInput({
           >
             <ChevronRight size={14} />
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImageUploadInput({
+  value,
+  onChange,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isSearchEngineUrl =
+    typeof value === "string" &&
+    (value.includes("bing.com/images") ||
+      value.includes("google.com/search") ||
+      value.includes("google.com/imgres") ||
+      value.includes("yandex.com/images"));
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setLoadError(false);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const cleanFileName = `avatar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+      const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
+      const KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
+
+      const res = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/avatars/${cleanFileName}`,
+        {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${KEY}`,
+            "Content-Type": file.type || "image/png",
+          },
+          body: file,
+        },
+      );
+      if (!res.ok) {
+        throw new Error("Không thể tải ảnh lên kho lưu trữ Supabase.");
+      }
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/avatars/${cleanFileName}`;
+      onChange(publicUrl);
+    } catch (err: any) {
+      alert(err.message || "Lỗi khi tải ảnh");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <input
+          type="url"
+          style={{ flex: 1 }}
+          placeholder="https://... (dán link ảnh trực tiếp đuôi .jpg, .png hoặc tải từ máy)"
+          value={value}
+          onChange={(e) => {
+            setLoadError(false);
+            onChange(e.target.value.trim());
+          }}
+          required={required}
+        />
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handleFileUpload}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="admin-secondary"
+          style={{
+            whiteSpace: "nowrap",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "6px 12px",
+            cursor: "pointer",
+          }}
+          title="Tải ảnh trực tiếp từ máy tính"
+        >
+          {uploading ? (
+            <LoaderCircle size={14} className="animate-spin" />
+          ) : (
+            <Upload size={14} />
+          )}
+          <span>{uploading ? "Đang tải..." : "Tải từ máy"}</span>
+        </button>
+      </div>
+
+      {isSearchEngineUrl && (
+        <div
+          style={{
+            padding: "8px 12px",
+            backgroundColor: "#FEF3C7",
+            border: "1px solid #FCD34D",
+            borderRadius: "8px",
+            fontSize: "12px",
+            color: "#92400E",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "6px",
+          }}
+        >
+          <AlertCircle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+          <div>
+            <b>Lưu ý link tìm kiếm:</b> Đường dẫn này là trang tìm kiếm Bing/Google, không phải file ảnh trực tiếp nên trình duyệt không thể hiển thị ảnh.
+            <br />
+            👉 <b>Cách làm:</b> Chuột phải vào bức ảnh trên Bing/Google &gt; chọn <b>"Sao chép địa chỉ hình ảnh" (Copy image address)</b> rồi dán lại, hoặc bấm nút <b>"Tải từ máy"</b> ở trên.
+          </div>
+        </div>
+      )}
+
+      {value && !isSearchEngineUrl && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "6px 10px",
+            backgroundColor: "#F9FAFB",
+            border: "1px solid #E5E7EB",
+            borderRadius: "8px",
+          }}
+        >
+          <div
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "50%",
+              overflow: "hidden",
+              backgroundColor: "#FFF",
+              border: "1px solid #D1D5DB",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            {loadError ? (
+              <AlertCircle size={20} color="#EF4444" />
+            ) : (
+              <img
+                src={value}
+                alt="Xem trước ảnh chân dung"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={() => setLoadError(true)}
+              />
+            )}
+          </div>
+          <div style={{ fontSize: "12px" }}>
+            {loadError ? (
+              <span style={{ color: "#DC2626", fontWeight: 500 }}>
+                ⚠️ Không tải được ảnh từ link này. Vui lòng kiểm tra lại đường dẫn ảnh trực tiếp.
+              </span>
+            ) : (
+              <span style={{ color: "#059669", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                <Check size={14} /> Ảnh hợp lệ (Xem trước trực tiếp)
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -467,6 +662,12 @@ function RecordDialog({
                     />
                     {value ? "Có" : "Không"}
                   </span>
+                ) : c.name === "avatar_url" || c.name === "image_url" || c.name.endsWith("_image_url") ? (
+                  <ImageUploadInput
+                    value={String(value || "")}
+                    onChange={(v) => set(c.name, v)}
+                    required={required}
+                  />
                 ) : c.name === "video_url" ? (
                   <input
                     type="url"
