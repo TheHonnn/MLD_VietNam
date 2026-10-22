@@ -772,16 +772,15 @@ function RecordDialog({
   }, []);
   const generated =
     resource.name === "users"
-      ? ["referral_code"]
+      ? ["referral_code", "locked_reason", "locked_at", "fcm_device_token"]
       : resource.name === "student_certificates"
         ? ["qr_verification_code"]
         : [];
   const fields = columns.filter(
     (c) =>
-      mode === "view" ||
-      (c.writable &&
-        !generated.includes(c.name) &&
-        !(mode === "update" && c.primary)),
+      !generated.includes(c.name) &&
+      (mode === "view" ||
+        (c.writable && !(mode === "update" && c.primary))),
   );
   const set = (name: string, value: any) =>
     setValues((old) => ({ ...old, [name]: value }));
