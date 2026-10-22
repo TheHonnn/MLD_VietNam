@@ -1056,6 +1056,26 @@ export const W01_Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Active Filter Notice & Reset Banner */}
+      {selectedBranchId !== 'ALL' && (
+        <div className="bg-[#FAF4EE] border border-[#ECD9C9] px-4 py-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-[#4A3E34]">
+            <Building2 className="w-4 h-4 text-[#985018] shrink-0" />
+            <span>
+              Đang lọc số liệu riêng cho: <strong className="text-[#3E200C] font-bold">{selectedBranchLabel}</strong> (Thực thu chi nhánh này: <strong className="text-[#985018]">{totalCollected.toLocaleString('vi-VN')}đ</strong>)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleSelectBranch('ALL')}
+            className="px-3 py-1 bg-white border border-[#D7BBA6] hover:bg-[#F5EBE1] text-[#985018] font-bold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer text-[11px]"
+          >
+            <span>Xem toàn bộ chuỗi (Tất cả chi nhánh)</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* 3. Five KPI Cards Row - Responsive: 1 col on mobile, 2 on small, 3 on tablet, 5 on wide desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         {kpis.map((kpi, idx) => {
