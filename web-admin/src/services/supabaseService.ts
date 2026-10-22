@@ -1627,6 +1627,17 @@ class SupabaseService {
     });
     return tier;
   }
+
+  // 18. KHẢO SÁT LÂM SÀNG & TIẾP NHẬN TRỊ LIỆU (CONSULTATION SURVEYS)
+  async getConsultationSurveys(): Promise<any[] | null> {
+    try {
+      const raw = await this.query<any[]>('consultation_surveys?select=*&order=created_at.desc');
+      return raw || [];
+    } catch (err) {
+      console.warn('[SupabaseService] getConsultationSurveys error:', err);
+      return [];
+    }
+  }
 }
 
 export const supabaseService = new SupabaseService(SUPABASE_URL, SUPABASE_KEY);

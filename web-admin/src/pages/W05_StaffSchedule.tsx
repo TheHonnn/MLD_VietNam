@@ -49,8 +49,6 @@ import { matchSearch } from '../utils/searchUtils';
 
 const SUPABASE_URL =
   (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
-const VALID_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
 
 interface ScheduleAppointment {
   id: string;
@@ -278,14 +276,7 @@ export const W05_StaffSchedule: React.FC = () => {
         branchService.getAllBranches(),
         supabaseService.getServices(),
         supabaseService.getRooms(),
-        fetch(`${SUPABASE_URL}/rest/v1/consultation_surveys?select=*`, {
-          headers: {
-            apikey: VALID_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
-          },
-        })
-          .then((r) => r.json())
-          .catch(() => []),
+        supabaseService.getConsultationSurveys(),
       ]);
 
       if (bkRes.success && bkRes.data) setLiveBookings(bkRes.data);
