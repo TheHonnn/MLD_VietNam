@@ -1660,8 +1660,8 @@ class SupabaseService {
       const payload = {
         table_name: entry.tableName,
         action: entry.action,
-        record_id: entry.recordId,
-        performed_by: entry.performedBy || null,
+        record_id: isUuid(entry.recordId) ? entry.recordId : null,
+        performed_by: isUuid(entry.performedBy) ? entry.performedBy : null,
         old_data: entry.oldData || null,
         new_data: entry.newData || null,
         description: entry.description || `Thao tác ${entry.action} trên bảng ${entry.tableName}`,

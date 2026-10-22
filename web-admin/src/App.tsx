@@ -2,11 +2,11 @@ import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Layout } from './components/layout/Layout';
 import { AdminAuth, useAdmin } from "./admin/Auth";
-import { LoginPage } from "./admin/LoginPage";
-import { TrainingActions } from './admin/TrainingActions';
 import "./admin/admin.css";
 
 // Lazy-loaded code-split modules for peak performance & minimal initial bundle
+const LoginPage = lazy(() => import('./admin/LoginPage').then((m) => ({ default: m.LoginPage })));
+const TrainingActions = lazy(() => import('./admin/TrainingActions').then((m) => ({ default: m.TrainingActions })));
 const W01_Dashboard = lazy(() => import('./pages/W01_Dashboard').then((m) => ({ default: m.W01_Dashboard })));
 const W02_Branches = lazy(() => import('./pages/W02_Branches').then((m) => ({ default: m.W02_Branches })));
 const W03_Customers = lazy(() => import('./pages/W03_Customers').then((m) => ({ default: m.W03_Customers })));
@@ -52,7 +52,11 @@ const AppContent: React.FC = () => {
   }
 
   if (!user) {
-    return <LoginPage />;
+    return (
+      <Suspense fallback={<PageLoadingFallback />}>
+        <LoginPage />
+      </Suspense>
+    );
   }
 
   return (

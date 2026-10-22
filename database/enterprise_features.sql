@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     table_name VARCHAR(64) NOT NULL,
     action VARCHAR(16) NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE'
-    record_id UUID NOT NULL,
+    record_id VARCHAR(128) NOT NULL,
     performed_by UUID REFERENCES users(id) ON DELETE SET NULL,
     ip_address VARCHAR(45) DEFAULT '127.0.0.1',
     user_agent TEXT DEFAULT 'MLD Admin Web Portal',
@@ -94,3 +94,13 @@ CREATE TABLE IF NOT EXISTS inventory_consumption_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_consumption_branch ON inventory_consumption_logs(branch_id, logged_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consumption_service ON inventory_consumption_logs(service_id);
+CREATE INDEX IF NOT EXISTS idx_consumption_booking ON inventory_consumption_logs(booking_id);
+
+-- 5. CHỈ MỤC TỐI ƯU HIỆU NĂNG CHO GÓI LIỆU TRÌNH & HÓA ĐƠN POS
+CREATE INDEX IF NOT EXISTS idx_invoices_user_package ON invoices(user_package_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_booking ON invoices(booking_id);
+CREATE INDEX IF NOT EXISTS idx_user_packages_customer ON user_packages(customer_id, status);
+CREATE INDEX IF NOT EXISTS idx_user_packages_package ON user_packages(package_id);
+CREATE INDEX IF NOT EXISTS idx_commissions_invoice ON staff_commissions(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_commissions_booking ON staff_commissions(booking_id);
