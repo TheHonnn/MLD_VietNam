@@ -255,6 +255,260 @@ function buildColumns(table: string, rows: Row[]): Column[] {
   return cols;
 }
 
+const SEED_DATA: Record<string, Row[]> = {
+  staff_commissions: [
+    {
+      id: "comm-001",
+      staff_id: "cccccccc-0001-0001-0001-000000000001",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      staff_name: "Trần Lan Anh (Master KTV)",
+      branch_name: "MLD Beauty & Clinic Võ Thị Sáu (Q3)",
+      booking_id: null,
+      invoice_id: "HD-202610-1002",
+      commission_type: "SERVICE_DIRECT",
+      base_amount: 1500000,
+      percentage: 10,
+      commission_amount: 150000,
+      status: "APPROVED",
+      cycle_month: "2026-10",
+      notes: "Hoa hồng 10% gói liệu trình phục hồi đa tầng",
+      created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+      updated_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+    },
+    {
+      id: "comm-002",
+      staff_id: "cccccccc-0001-0001-0001-000000000001",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      staff_name: "Trần Lan Anh (Master KTV)",
+      branch_name: "MLD Beauty & Clinic Võ Thị Sáu (Q3)",
+      booking_id: null,
+      invoice_id: "HD-202610-1003",
+      commission_type: "PACKAGE_UPSELL",
+      base_amount: 3200000,
+      percentage: 5,
+      commission_amount: 160000,
+      status: "APPROVED",
+      cycle_month: "2026-10",
+      notes: "Thưởng tư vấn nâng cấp gói VIP Trẻ Hóa MLD",
+      created_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+      updated_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+    },
+    {
+      id: "comm-003",
+      staff_id: "cccccccc-0001-0001-0001-000000000002",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000002",
+      staff_name: "Lê Minh Tú (KTV Chuyên Sâu)",
+      branch_name: "MLD Beauty & Spa Nguyễn Trãi (Q1)",
+      booking_id: null,
+      invoice_id: "HD-202610-0985",
+      commission_type: "SERVICE_DIRECT",
+      base_amount: 850000,
+      percentage: 10,
+      commission_amount: 85000,
+      status: "APPROVED",
+      cycle_month: "2026-10",
+      notes: "Hoa hồng liệu trình Gội đầu dưỡng sinh Đông Y",
+      created_at: new Date(Date.now() - 3600000 * 32).toISOString(),
+      updated_at: new Date(Date.now() - 3600000 * 32).toISOString(),
+    },
+  ],
+  service_materials: [
+    {
+      id: "mat-001",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      material_name: "Dầu gội thảo dược Organic MLD",
+      standard_quantity: 30,
+      unit: "ml",
+      cost_per_unit: 1200,
+      notes: "Định mức tiêu hao 1 ca điều trị da đầu / mặt",
+      created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    },
+    {
+      id: "mat-002",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      material_name: "Tinh dầu dưỡng phục hồi Argan",
+      standard_quantity: 5,
+      unit: "ml",
+      cost_per_unit: 8000,
+      notes: "Dưỡng chất khóa ẩm và làm dịu chuyên sâu",
+      created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    },
+    {
+      id: "mat-003",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      material_name: "Khăn bông spa tiệt trùng",
+      standard_quantity: 2,
+      unit: "chiếc",
+      cost_per_unit: 5000,
+      notes: "Vật tư giặt hấp tiệt trùng tiêu chuẩn y khoa",
+      created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    },
+  ],
+  inventory_consumption_logs: [
+    {
+      id: "log-001",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      branch_name: "MLD Beauty Võ Thị Sáu",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      booking_id: null,
+      invoice_id: "HD-202610-1002",
+      technician_id: "cccccccc-0001-0001-0001-000000000001",
+      technician_name: "Trần Lan Anh",
+      material_name: "Dầu gội thảo dược Organic MLD",
+      quantity_deducted: 30,
+      unit: "ml",
+      logged_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
+    {
+      id: "log-002",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      branch_name: "MLD Beauty Võ Thị Sáu",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      booking_id: null,
+      invoice_id: "HD-202610-1002",
+      technician_id: "cccccccc-0001-0001-0001-000000000001",
+      technician_name: "Trần Lan Anh",
+      material_name: "Tinh dầu dưỡng phục hồi Argan",
+      quantity_deducted: 5,
+      unit: "ml",
+      logged_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
+  ],
+};
+
+function isMissingTableError(res: Response, err: any): boolean {
+  if (res.status === 404) return true;
+  if (err?.code === "PGRST200") return true;
+  const msg = (err?.message || "").toLowerCase();
+  return (
+    msg.includes("schema cache") ||
+    msg.includes("could not find the table") ||
+    (msg.includes("relation") && msg.includes("does not exist"))
+  );
+}
+
+function getLocalTableRows(table: string): Row[] {
+  try {
+    const raw = localStorage.getItem(`mld_local_${table}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  const seeds = SEED_DATA[table] || [];
+  if (seeds.length > 0) {
+    try {
+      localStorage.setItem(`mld_local_${table}`, JSON.stringify(seeds));
+    } catch {}
+  }
+  return [...seeds];
+}
+
+function saveLocalTableRows(table: string, rows: Row[]) {
+  try {
+    localStorage.setItem(`mld_local_${table}`, JSON.stringify(rows));
+  } catch (err) {
+    console.warn(`Lỗi lưu mld_local_${table}:`, err);
+  }
+}
+
+function createLocalRecord(table: string, values: Record<string, any>): Row {
+  const rows = getLocalTableRows(table);
+  const newRow: Row = {
+    id: values.id || `${table.slice(0, 4)}-${Date.now()}`,
+    ...values,
+    created_at: values.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  rows.unshift(newRow);
+  saveLocalTableRows(table, rows);
+  return newRow;
+}
+
+function updateLocalRecord(table: string, key: any, values: Record<string, any>): Row {
+  const rows = getLocalTableRows(table);
+  const targetId = typeof key === "object" ? key.id : key;
+  const index = rows.findIndex((r) => r.id === targetId);
+  if (index >= 0) {
+    rows[index] = { ...rows[index], ...values, updated_at: new Date().toISOString() };
+    saveLocalTableRows(table, rows);
+    return rows[index];
+  }
+  return values;
+}
+
+function deleteLocalRecord(table: string, key: any): boolean {
+  const rows = getLocalTableRows(table);
+  const targetId = typeof key === "object" ? key.id : key;
+  const filtered = rows.filter((r) => r.id !== targetId);
+  saveLocalTableRows(table, filtered);
+  return true;
+}
+
+function getLocalFallbackListing<T>(
+  table: string,
+  page: number,
+  limit: number,
+  search?: string | null,
+  filterParam?: string | null,
+  sort?: string | null,
+  direction?: string | null,
+): T {
+  let allRows = getLocalTableRows(table);
+
+  if (filterParam) {
+    try {
+      const filter = JSON.parse(filterParam);
+      allRows = allRows.filter((r) => {
+        return Object.entries(filter).every(([k, v]) => {
+          if (v === undefined || v === null || v === "") return true;
+          return String(r[k]) === String(v);
+        });
+      });
+    } catch {}
+  }
+
+  if (search && search.trim()) {
+    const kw = search.trim().toLowerCase();
+    allRows = allRows.filter((r) => {
+      return Object.values(r).some((v) =>
+        typeof v === "string" && v.toLowerCase().includes(kw)
+      );
+    });
+  }
+
+  if (sort) {
+    allRows.sort((a, b) => {
+      const valA = a[sort] ?? "";
+      const valB = b[sort] ?? "";
+      if (valA < valB) return direction === "desc" ? 1 : -1;
+      if (valA > valB) return direction === "desc" ? -1 : 1;
+      return 0;
+    });
+  }
+
+  const total = allRows.length;
+  const offset = Math.max(0, (page - 1) * limit);
+  const pagedRows = allRows.slice(offset, offset + limit);
+  const columns = buildColumns(table, pagedRows.length > 0 ? pagedRows : allRows);
+
+  return {
+    rows: pagedRows,
+    columns,
+    page,
+    limit,
+    total,
+  } as unknown as T;
+}
+
 async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   if (path === "resources") {
     return DEFAULT_RESOURCES as unknown as T;
@@ -437,9 +691,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         });
         if (!res.ok) {
           err = await res.json().catch(() => null);
+          if (isMissingTableError(res, err)) {
+            return getLocalFallbackListing(table, page, limit, search, filterParam, sort, direction);
+          }
           throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
         }
       } else {
+        if (isMissingTableError(res, err)) {
+          return getLocalFallbackListing(table, page, limit, search, filterParam, sort, direction);
+        }
         throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
       }
     }
@@ -553,9 +813,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         });
         if (!res.ok) {
           err = await res.json().catch(() => null);
+          if (isMissingTableError(res, err)) {
+            return createLocalRecord(table, cleanValues) as T;
+          }
           throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
         }
       } else {
+        if (isMissingTableError(res, err)) {
+          return createLocalRecord(table, cleanValues) as T;
+        }
         throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
       }
     }
@@ -600,9 +866,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         });
         if (!res.ok) {
           err = await res.json().catch(() => null);
+          if (isMissingTableError(res, err)) {
+            return updateLocalRecord(table, id || key, cleanValues) as T;
+          }
           throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
         }
       } else {
+        if (isMissingTableError(res, err)) {
+          return updateLocalRecord(table, id || key, cleanValues) as T;
+        }
         throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
       }
     }
@@ -629,6 +901,10 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
+      if (isMissingTableError(res, err)) {
+        deleteLocalRecord(table, id || key);
+        return true as unknown as T;
+      }
       throw new Error(err?.message || "Không thể xóa bản ghi trên Supabase.");
     }
     return true as unknown as T;

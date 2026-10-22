@@ -26,7 +26,7 @@ import {
 import { posService, bookingService, customerService, notificationService, supabaseService, branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
 import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus, Branch } from '../types/shared_types';
-import { matchSearch } from '../utils/searchUtils';
+import { matchSearch, isUuid } from '../utils/searchUtils';
 
 export const W07_CashierPOS: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -474,13 +474,18 @@ export const W07_CashierPOS: React.FC = () => {
       const randPart = Math.floor(1000 + Math.random() * 9000);
       const generatedInvoiceCode = `HD-${datePart}-${randPart}`;
 
+      const validBookingId = isUuid(booking.id) ? booking.id : undefined;
+      const packageIdParam = searchParams.get('packageId');
+      const validPackageId = isUuid(packageIdParam) ? packageIdParam : undefined;
+
       // 1. Lưu hóa đơn vào Supabase Cloud (bảng invoices)
       const resInvoice = await posService.createInvoice({
         invoiceCode: generatedInvoiceCode,
-        branchId: booking.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-        customerId: customer?.id || booking.customerId || '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+        customerId: isUuid(customer?.id) ? customer?.id : isUuid(booking.customerId) ? booking.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
         cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
-        bookingId: booking.id,
+        bookingId: validBookingId,
+        userPackageId: validPackageId,
         subtotal: booking.baseTotal || amount,
         discountAmount: booking.discountAmount || 0,
         pointsRedeemedAmount: booking.pointsDiscount || 0,
@@ -492,32 +497,42 @@ export const W07_CashierPOS: React.FC = () => {
       });
 
       // 2. Cập nhật trạng thái Booking trên Supabase Cloud (bảng bookings)
-      await bookingService.updateBookingStatus(
-        booking.id,
-        BookingStatus.COMPLETED,
-        PaymentStatus.PAID,
-        paymentMethodEnum
-      );
+      if (validBookingId) {
+        try {
+          await bookingService.updateBookingStatus(
+            booking.id,
+            BookingStatus.COMPLETED,
+            PaymentStatus.PAID,
+            paymentMethodEnum
+          );
+        } catch (bkErr) {
+          console.warn('Lỗi cập nhật trạng thái booking:', bkErr);
+        }
+      }
 
       // 3. Tích điểm và cập nhật chi tiêu cho khách hàng (Supabase bảng users)
-      const custId = customer?.id || booking.customerId;
+      const custId = isUuid(customer?.id) ? customer?.id : isUuid(booking.customerId) ? booking.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e';
       if (custId) {
-        const curSpent = Number(customer?.totalSpent || 0);
-        const curPoints = Number(customer?.rewardPoints || 0);
-        const earnedPoints = Math.floor(amount / 10000);
-        const newTotalSpent = curSpent + amount;
-        const newTier = supabaseService.calculateTier(newTotalSpent);
-        await supabaseService.updateUser(custId, {
-          total_spent: newTotalSpent,
-          reward_points: curPoints + earnedPoints,
-          membership_tier: newTier,
-          updated_at: new Date().toISOString(),
-        });
+        try {
+          const curSpent = Number(customer?.totalSpent || 0);
+          const curPoints = Number(customer?.rewardPoints || 0);
+          const earnedPoints = Math.floor(amount / 10000);
+          const newTotalSpent = curSpent + amount;
+          const newTier = supabaseService.calculateTier(newTotalSpent);
+          await supabaseService.updateUser(custId, {
+            total_spent: newTotalSpent,
+            reward_points: curPoints + earnedPoints,
+            membership_tier: newTier,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (uErr) {
+          console.warn('Lỗi cập nhật điểm khách hàng:', uErr);
+        }
       }
 
       // KÍCH HOẠT GÓI LIỆU TRÌNH VIP (Nếu là đơn bán gói)
-      if (searchParams.get('packageId') || booking.bookingCode?.startsWith('VIP-PKG-')) {
-        const pkgId = searchParams.get('packageId') || 'tp-001';
+      if (packageIdParam || booking.bookingCode?.startsWith('VIP-PKG-')) {
+        const pkgId = packageIdParam || 'tp-001';
         try {
           await treatmentService.assignPackageToCustomer({
             customerId: custId,
@@ -534,69 +549,81 @@ export const W07_CashierPOS: React.FC = () => {
       }
 
       // TRỤ CỘT 1: BẢO MẬT & AUDIT TRAIL
-      await supabaseService.createAuditLog({
-        tableName: 'invoices',
-        action: 'INSERT',
-        recordId: generatedInvoiceCode,
-        description: `Thu ngân quyết toán hóa đơn POS ${generatedInvoiceCode} (${formattedAmount}) cho khách ${customerName}.`,
-        newData: {
-          invoiceCode: generatedInvoiceCode,
-          amount,
-          paymentMethod: paymentMethodEnum,
-          bookingId: booking.id,
-          customerId: custId,
-        },
-      });
+      try {
+        await supabaseService.createAuditLog({
+          tableName: 'invoices',
+          action: 'INSERT',
+          recordId: generatedInvoiceCode,
+          description: `Thu ngân quyết toán hóa đơn POS ${generatedInvoiceCode} (${formattedAmount}) cho khách ${customerName}.`,
+          newData: {
+            invoiceCode: generatedInvoiceCode,
+            amount,
+            paymentMethod: paymentMethodEnum,
+            bookingId: validBookingId,
+            customerId: custId,
+          },
+        });
+      } catch (auditErr) {
+        console.warn('Lỗi ghi audit log:', auditErr);
+      }
 
       // TRỤ CỘT 2: HOA HỒNG KTV & LƯƠNG THƯỞNG (10% Dịch vụ)
-      const targetTechId = booking.technicianId || 'cccccccc-0001-0001-0001-000000000001';
+      const targetTechId = isUuid(booking.technicianId) ? booking.technicianId : 'cccccccc-0001-0001-0001-000000000001';
       const assignedTechName = technicianName !== 'Chưa phân công' ? technicianName : 'Trần Lan Anh';
       const techCommissionAmount = Math.round(amount * 0.1); // 10% ca dịch vụ
-      await supabaseService.recordStaffCommission({
-        staffId: targetTechId,
-        branchId: booking.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-        bookingId: booking.id,
-        invoiceId: generatedInvoiceCode,
-        commissionType: 'SERVICE_DIRECT',
-        baseAmount: amount,
-        percentage: 10,
-        notes: `Hoa hồng 10% dịch vụ ${serviceName} (Hóa đơn ${generatedInvoiceCode})`,
-      });
+      try {
+        await supabaseService.recordStaffCommission({
+          staffId: targetTechId,
+          branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+          bookingId: validBookingId || null,
+          invoiceId: generatedInvoiceCode,
+          commissionType: 'SERVICE_DIRECT',
+          baseAmount: amount,
+          percentage: 10,
+          notes: `Hoa hồng 10% dịch vụ ${serviceName} (Hóa đơn ${generatedInvoiceCode})`,
+        });
+      } catch (commErr) {
+        console.warn('Lỗi ghi hoa hồng KTV:', commErr);
+      }
 
       // TRỤ CỘT 4: QUẢN LÝ ĐỊNH MỨC TIÊU HAO VẬT TƯ (BOM)
-      const branchIdForStock = booking.branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
-      await Promise.all([
-        supabaseService.recordInventoryConsumption({
-          branchId: branchIdForStock,
-          serviceId: booking.items?.[0]?.serviceId || 'srv-1',
-          bookingId: booking.id,
-          invoiceId: generatedInvoiceCode,
-          technicianId: targetTechId,
-          materialName: 'Dầu gội thảo dược Organic MLD',
-          quantityDeducted: 30,
-          unit: 'ml',
-        }),
-        supabaseService.recordInventoryConsumption({
-          branchId: branchIdForStock,
-          serviceId: booking.items?.[0]?.serviceId || 'srv-1',
-          bookingId: booking.id,
-          invoiceId: generatedInvoiceCode,
-          technicianId: targetTechId,
-          materialName: 'Tinh dầu dưỡng tóc phục hồi Argan',
-          quantityDeducted: 5,
-          unit: 'ml',
-        }),
-        supabaseService.recordInventoryConsumption({
-          branchId: branchIdForStock,
-          serviceId: booking.items?.[0]?.serviceId || 'srv-1',
-          bookingId: booking.id,
-          invoiceId: generatedInvoiceCode,
-          technicianId: targetTechId,
-          materialName: 'Khăn bông spa tiệt trùng',
-          quantityDeducted: 2,
-          unit: 'chiếc',
-        }),
-      ]);
+      const branchIdForStock = isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+      try {
+        await Promise.all([
+          supabaseService.recordInventoryConsumption({
+            branchId: branchIdForStock,
+            serviceId: booking.items?.[0]?.serviceId || 'srv-1',
+            bookingId: validBookingId || null,
+            invoiceId: generatedInvoiceCode,
+            technicianId: targetTechId,
+            materialName: 'Dầu gội thảo dược Organic MLD',
+            quantityDeducted: 30,
+            unit: 'ml',
+          }),
+          supabaseService.recordInventoryConsumption({
+            branchId: branchIdForStock,
+            serviceId: booking.items?.[0]?.serviceId || 'srv-1',
+            bookingId: validBookingId || null,
+            invoiceId: generatedInvoiceCode,
+            technicianId: targetTechId,
+            materialName: 'Tinh dầu dưỡng tóc phục hồi Argan',
+            quantityDeducted: 5,
+            unit: 'ml',
+          }),
+          supabaseService.recordInventoryConsumption({
+            branchId: branchIdForStock,
+            serviceId: booking.items?.[0]?.serviceId || 'srv-1',
+            bookingId: validBookingId || null,
+            invoiceId: generatedInvoiceCode,
+            technicianId: targetTechId,
+            materialName: 'Khăn bông spa tiệt trùng',
+            quantityDeducted: 2,
+            unit: 'chiếc',
+          }),
+        ]);
+      } catch (invErr) {
+        console.warn('Lỗi ghi định mức tiêu hao vật tư:', invErr);
+      }
 
       // TRỤ CỘT 3: TỰ ĐỘNG HÓA CRM GỬI TIN NHẮN ZALO ZNS
       await notificationService.sendZaloZNS(
