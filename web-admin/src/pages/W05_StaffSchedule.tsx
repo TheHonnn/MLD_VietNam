@@ -20,6 +20,10 @@ import {
   ArrowUpRight,
   AlertCircle,
   RotateCcw,
+  AlertTriangle,
+  Trash2,
+  AlertOctagon,
+  XCircle,
 } from 'lucide-react';
 import {
   bookingService,
@@ -112,6 +116,122 @@ export const DEFAULT_FALLBACK_TECHNICIANS: ScheduleTechnician[] = [
   { id: 'cccccccc-0001-0001-0001-000000000003', name: 'Nguyễn Thu Hà', room: 'Phòng Gội Đầu Dưỡng Sinh 03', role: 'Chuyên viên Chăm sóc Da & Phục hồi', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2' },
   { id: 'cccccccc-0001-0001-0001-000000000004', name: 'Trần Minh Phương', room: 'Phòng Trị Liệu 04', role: 'Kỹ thuật viên Trị liệu & Bấm huyệt', avatar: 'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848' },
 ];
+
+export interface ScheduleValidationResult {
+  isOverdue: boolean;
+  isEarlyDate: boolean;
+  isEarlyTime: boolean;
+  isValid: boolean;
+  reason: string;
+  detail: string;
+  scheduledTimeStr: string;
+}
+
+export const isBookingOverdue = (b: Booking): boolean => {
+  if (b.status === BookingStatus.COMPLETED || b.status === BookingStatus.CANCELLED) return false;
+  const now = new Date();
+  const nowY = now.getFullYear();
+  const nowM = String(now.getMonth() + 1).padStart(2, '0');
+  const nowD = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${nowY}-${nowM}-${nowD}`;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const bDate = (b.bookingDate || '').split('T')[0];
+  if (!bDate) return false;
+
+  if (bDate < todayStr) return true;
+
+  if (bDate === todayStr && b.endTime) {
+    const [h, m] = b.endTime.split(':').map(Number);
+    const endMinutes = (h || 0) * 60 + (m || 0);
+    if (currentMinutes > endMinutes + 15) return true;
+  }
+
+  return false;
+};
+
+export const validateAppointmentSchedule = (app: ScheduleAppointment): ScheduleValidationResult => {
+  const now = new Date();
+  const nowY = now.getFullYear();
+  const nowM = String(now.getMonth() + 1).padStart(2, '0');
+  const nowD = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${nowY}-${nowM}-${nowD}`;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const appDateStr = (app.dateRaw || '2026-10-16').split('T')[0];
+  const times = app.timeRange.split(/[–-]/);
+  const startTimeStr = times[0]?.trim() || '09:00';
+  const endTimeStr = times[1]?.trim() || '10:00';
+
+  const [startH, startM] = startTimeStr.split(':').map(Number);
+  const [endH, endM] = endTimeStr.split(':').map(Number);
+  const startMinutes = (startH || 0) * 60 + (startM || 0);
+  const endMinutes = (endH || 0) * 60 + (endM || 0);
+
+  // 1. Quá ngày hẹn trong quá khứ
+  if (appDateStr < todayStr) {
+    return {
+      isOverdue: true,
+      isEarlyDate: false,
+      isEarlyTime: false,
+      isValid: false,
+      reason: 'Đã quá ngày hẹn',
+      detail: `Lịch hẹn được đặt vào ngày ${app.date} (hôm nay là ${nowD}/${nowM}/${nowY}). Khách hàng đã không đến đúng ngày hẹn.`,
+      scheduledTimeStr: `${startTimeStr}–${endTimeStr} ngày ${app.date}`,
+    };
+  }
+
+  // 2. Trong ngày hôm nay
+  if (appDateStr === todayStr) {
+    // Quá giờ hẹn kết thúc + 15 phút đệm
+    if (currentMinutes > endMinutes + 15) {
+      return {
+        isOverdue: true,
+        isEarlyDate: false,
+        isEarlyTime: false,
+        isValid: false,
+        reason: 'Đã quá giờ hẹn hôm nay',
+        detail: `Khung giờ hẹn đã kết thúc lúc ${endTimeStr}. Khách hàng vắng mặt không đến ca dịch vụ.`,
+        scheduledTimeStr: `${startTimeStr}–${endTimeStr} hôm nay`,
+      };
+    }
+
+    // Khách đến quá sớm (> 45 phút)
+    if (currentMinutes < startMinutes - 45) {
+      return {
+        isOverdue: false,
+        isEarlyDate: false,
+        isEarlyTime: true,
+        isValid: false,
+        reason: 'Khách đến sớm hơn giờ hẹn',
+        detail: `Khách đến sớm trước giờ hẹn (Giờ hẹn lúc ${startTimeStr}, hiện tại là ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}).`,
+        scheduledTimeStr: `${startTimeStr}–${endTimeStr} hôm nay`,
+      };
+    }
+
+    // Đúng khung giờ
+    return {
+      isOverdue: false,
+      isEarlyDate: false,
+      isEarlyTime: false,
+      isValid: true,
+      reason: 'Đúng lịch hẹn',
+      detail: `Đúng lịch hẹn lúc ${startTimeStr}–${endTimeStr}. Sẵn sàng tiếp nhận phục vụ!`,
+      scheduledTimeStr: `${startTimeStr}–${endTimeStr} hôm nay`,
+    };
+  }
+
+  // 3. Ngày trong tương lai (Chưa đến ngày hẹn)
+  return {
+    isOverdue: false,
+    isEarlyDate: true,
+    isEarlyTime: false,
+    isValid: false,
+    reason: 'Chưa đến ngày hẹn',
+    detail: `Lịch hẹn được đặt vào ngày ${app.date} (chưa đến ngày hẹn). Hôm nay là ngày ${nowD}/${nowM}/${nowY}.`,
+    scheduledTimeStr: `${startTimeStr}–${endTimeStr} ngày ${app.date}`,
+  };
+};
 
 export const W05_StaffSchedule: React.FC = () => {
   const navigate = useNavigate();
@@ -547,6 +667,96 @@ export const W05_StaffSchedule: React.FC = () => {
     toast.success('Đã hủy lịch hẹn', 'Lịch hẹn đã được gỡ bỏ khỏi bảng phân công ca trực.');
   };
 
+  // Validation status of currently selected appointment
+  const scheduleCheck = useMemo(() => {
+    if (!selectedApp) return null;
+    return validateAppointmentSchedule(selectedApp);
+  }, [selectedApp]);
+
+  const isOverdue = Boolean(
+    selectedApp &&
+    (selectedApp.statusRaw === 'CONFIRMED' || selectedApp.statusRaw === 'PENDING') &&
+    scheduleCheck?.isOverdue
+  );
+
+  // Overdue bookings that need to be dropped/freed
+  const overdueBookings = useMemo(() => {
+    return liveBookings.filter((b) => {
+      if (selectedBranchId !== 'ALL' && b.branchId && b.branchId !== selectedBranchId) return false;
+      return isBookingOverdue(b);
+    });
+  }, [liveBookings, selectedBranchId]);
+
+  // Modal State for Schedule Check / Validation
+  const [validationModalApp, setValidationModalApp] = useState<{
+    app: ScheduleAppointment;
+    checkResult: ScheduleValidationResult;
+  } | null>(null);
+
+  // Check-in and start service workflow
+  const handleCheckInAndStart = (app: ScheduleAppointment) => {
+    const checkResult = validateAppointmentSchedule(app);
+    if (checkResult.isOverdue) {
+      setValidationModalApp({ app, checkResult });
+      return;
+    }
+    if (checkResult.isEarlyDate) {
+      setValidationModalApp({ app, checkResult });
+      return;
+    }
+    handleUpdateBookingStatus(app.id, BookingStatus.IN_SERVICE);
+  };
+
+  // Drop an overdue booking immediately and release resources
+  const handleDropOverdueBooking = async (bookingId: string) => {
+    setIsUpdatingStatus(true);
+    try {
+      const res = await bookingService.updateBookingStatus(bookingId, BookingStatus.CANCELLED);
+      if (res.success) {
+        setLiveBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? { ...b, status: BookingStatus.CANCELLED } : b))
+        );
+        toast.success(
+          'Đã bỏ lịch hẹn quá hạn',
+          'Lịch hẹn đã được hủy bỏ và giải phóng kỹ thuật viên, phòng/giường thành công.'
+        );
+        setValidationModalApp(null);
+      } else {
+        toast.error('Lỗi thao tác', res.message || 'Không thể hủy lịch hẹn.');
+      }
+    } catch (err) {
+      toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  // Drop ALL overdue bookings in bulk
+  const handleDropAllOverdueBookings = async () => {
+    if (overdueBookings.length === 0) {
+      toast.info('Thông báo', 'Không có lịch hẹn nào bị quá hạn.');
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    try {
+      await Promise.all(
+        overdueBookings.map((b) => bookingService.updateBookingStatus(b.id, BookingStatus.CANCELLED))
+      );
+      setLiveBookings((prev) =>
+        prev.map((b) => (isBookingOverdue(b) ? { ...b, status: BookingStatus.CANCELLED } : b))
+      );
+      toast.success(
+        'Đã dọn dẹp lịch quá hạn',
+        `Đã hủy và giải phóng thành công ${overdueBookings.length} lịch hẹn quá hạn.`
+      );
+    } catch (err) {
+      toast.error('Lỗi dọn dẹp', 'Không thể hoàn tất hủy các lịch quá hạn.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   // Dynamic Empty Slot Suggestions based on the day's schedule
   const emptySlotSuggestions = useMemo(() => {
     const suggestions: string[] = [];
@@ -886,6 +1096,54 @@ export const W05_StaffSchedule: React.FC = () => {
         </div>
       </div>
 
+      {/* Overdue Bookings Alert Banner */}
+      {overdueBookings.length > 0 && (
+        <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#FEE2E2] border border-[#FECACA] flex items-center justify-center text-[#DC2626] shrink-0">
+              <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <div>
+              <div className="font-bold text-[#991B1B] text-xs sm:text-sm flex items-center gap-2">
+                <span>Phát hiện {overdueBookings.length} lịch hẹn đã quá hạn chưa xử lý</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#FEE2E2] text-[#B91C1C]">
+                  Cần giải phóng
+                </span>
+              </div>
+              <div className="text-[11.5px] text-[#7F1D1D] mt-0.5">
+                Các lịch hẹn cũ (ví dụ: {overdueBookings[0].bookingCode} - {overdueBookings[0].customer?.fullName || overdueBookings[0].bookedForName || 'Khách'}) đã qua ngày/giờ hẹn mà khách không đến. Hãy bỏ ngay để giải phóng chuyên viên và phòng.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                const targetApp = allAppointments.find((a) => a.id === overdueBookings[0].id);
+                if (targetApp) {
+                  setSelectedAppId(targetApp.id);
+                  if (targetApp.dateRaw && targetApp.dateRaw !== selectedDate) {
+                    handleSelectDate(targetApp.dateRaw);
+                  }
+                }
+              }}
+              className="px-3 py-1.5 bg-white hover:bg-[#FAF4EE] border border-[#E8DFD8] text-[#8A4F23] font-bold rounded-xl transition-all cursor-pointer shadow-2xs text-xs"
+            >
+              Xem chi tiết
+            </button>
+            <button
+              type="button"
+              disabled={isUpdatingStatus}
+              onClick={handleDropAllOverdueBookings}
+              className="px-3.5 py-1.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold rounded-xl transition-all cursor-pointer shadow-xs text-xs flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isUpdatingStatus ? 'Đang bỏ lịch...' : 'Bỏ tất cả lịch quá hạn'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Quick Date Switcher Chips (Jump immediately between days with real bookings) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         <span className="text-[11px] font-bold text-[#73675F] shrink-0">Chọn nhanh ngày có lịch:</span>
@@ -1140,7 +1398,12 @@ export const W05_StaffSchedule: React.FC = () => {
 
                 {/* Status Badge */}
                 <div>
-                  {selectedApp.statusRaw === 'COMPLETED' ? (
+                  {isOverdue ? (
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] flex items-center gap-1 animate-pulse">
+                      <AlertTriangle className="w-3.5 h-3.5 text-[#DC2626]" />
+                      <span>Đã quá lịch · Vắng mặt</span>
+                    </span>
+                  ) : selectedApp.statusRaw === 'COMPLETED' ? (
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#E8F6ED] text-[#0D6832] border border-[#C5ECD0]">
                       Đã hoàn thành
                     </span>
@@ -1223,80 +1486,124 @@ export const W05_StaffSchedule: React.FC = () => {
               </div>
 
               {/* Status Banner with Dynamic Colors */}
-              <div
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
-                  selectedApp.statusRaw === 'COMPLETED'
-                    ? 'bg-[#E8F6ED] text-[#0D6832]'
-                    : selectedApp.statusRaw === 'IN_SERVICE'
-                    ? 'bg-[#E0F2FE] text-[#0369A1]'
-                    : selectedApp.statusRaw === 'CANCELLED'
-                    ? 'bg-[#FDF2F2] text-[#B02A37]'
-                    : selectedApp.statusRaw === 'CONFIRMED'
-                    ? 'bg-[#FAF0E4] text-[#8A4F23]'
-                    : 'bg-[#FEF3C7] text-[#92400E]'
-                }`}
-              >
-                <Clock className="w-4 h-4 stroke-[2]" />
-                <span>Trạng thái: {selectedApp.status}</span>
-              </div>
+              {isOverdue ? (
+                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-[#FEF2F2] text-[#991B1B] border border-[#FCA5A5] animate-in fade-in">
+                  <AlertOctagon className="w-4 h-4 stroke-[2.5] text-[#DC2626] shrink-0" />
+                  <span>Trạng thái: ĐÃ QUÁ LỊCH HẸN ({selectedApp.timeRange.split('–')[1]} · {selectedApp.date})</span>
+                </div>
+              ) : (
+                <div
+                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
+                    selectedApp.statusRaw === 'COMPLETED'
+                      ? 'bg-[#E8F6ED] text-[#0D6832]'
+                      : selectedApp.statusRaw === 'IN_SERVICE'
+                      ? 'bg-[#E0F2FE] text-[#0369A1]'
+                      : selectedApp.statusRaw === 'CANCELLED'
+                      ? 'bg-[#FDF2F2] text-[#B02A37]'
+                      : selectedApp.statusRaw === 'CONFIRMED'
+                      ? 'bg-[#FAF0E4] text-[#8A4F23]'
+                      : 'bg-[#FEF3C7] text-[#92400E]'
+                  }`}
+                >
+                  <Clock className="w-4 h-4 stroke-[2]" />
+                  <span>Trạng thái: {selectedApp.status}</span>
+                </div>
+              )}
 
-              {/* Resource Hold Alert Box */}
-              <div className="bg-[#FAF4EE] border border-[#ECD9C9] rounded-2xl p-3.5 space-y-1">
-                <div className="text-xs font-bold text-[#3E200C]">{selectedApp.bufferTitle}</div>
-                <p className="text-[11.5px] text-[#50443D] leading-relaxed">
-                  {selectedApp.bufferDesc}
-                </p>
-              </div>
+              {/* Resource Hold Alert Box or Overdue Warning */}
+              {isOverdue ? (
+                <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-2xl p-3.5 space-y-1.5 text-xs text-[#7A1D28]">
+                  <div className="font-bold flex items-center gap-1.5 text-[#B02A37]">
+                    <AlertTriangle className="w-4 h-4 shrink-0" /> Cảnh báo chiếm dụng phòng & kỹ thuật viên
+                  </div>
+                  <p className="text-[11.5px] leading-relaxed">
+                    Lịch hẹn này đã quá thời gian phục vụ mà khách không đến. Theo quy định, cần hủy bỏ lịch hẹn này ngay để giải phóng kỹ thuật viên <strong>{selectedApp.technicianName}</strong> và phòng <strong>{selectedApp.resource}</strong>.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-[#FAF4EE] border border-[#ECD9C9] rounded-2xl p-3.5 space-y-1">
+                  <div className="text-xs font-bold text-[#3E200C]">{selectedApp.bufferTitle}</div>
+                  <p className="text-[11.5px] text-[#50443D] leading-relaxed">
+                    {selectedApp.bufferDesc}
+                  </p>
+                </div>
+              )}
 
               {/* Interactive FSM Booking Actions for Real Bookings */}
               {!selectedApp.id.startsWith('app-custom-') && selectedApp.id && (
                 <div className="space-y-2 pt-1">
-                  {selectedApp.statusRaw === 'PENDING' && (
-                    <button
-                      type="button"
-                      disabled={isUpdatingStatus}
-                      onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CONFIRMED)}
-                      className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xác nhận lịch hẹn'}</span>
-                    </button>
-                  )}
+                  {/* Nếu lịch đã quá hạn: Nút hành động ưu tiên là BỎ LỊCH QUÁ HẠN NGAY */}
+                  {isOverdue ? (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        disabled={isUpdatingStatus}
+                        onClick={() => handleDropOverdueBooking(selectedApp.id)}
+                        className="w-full py-2.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white rounded-xl text-xs font-extrabold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4 stroke-[2.2]" />
+                        <span>{isUpdatingStatus ? 'Đang giải phóng...' : 'Bỏ lịch hẹn quá hạn ngay'}</span>
+                      </button>
 
-                  {selectedApp.statusRaw === 'CONFIRMED' && (
-                    <button
-                      type="button"
-                      disabled={isUpdatingStatus}
-                      onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.IN_SERVICE)}
-                      className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Khách đã đến & Bắt đầu'}</span>
-                    </button>
-                  )}
+                      <button
+                        type="button"
+                        onClick={() => handleCheckInAndStart(selectedApp)}
+                        className="w-full py-2 bg-[#FAF4EE] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Kiểm tra khách đến & Bắt đầu</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {selectedApp.statusRaw === 'PENDING' && (
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CONFIRMED)}
+                          className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xác nhận lịch hẹn'}</span>
+                        </button>
+                      )}
 
-                  {selectedApp.statusRaw === 'IN_SERVICE' && (
-                    <button
-                      type="button"
-                      disabled={isUpdatingStatus}
-                      onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.COMPLETED)}
-                      className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Hoàn thành dịch vụ'}</span>
-                    </button>
-                  )}
+                      {selectedApp.statusRaw === 'CONFIRMED' && (
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleCheckInAndStart(selectedApp)}
+                          className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Khách đã đến & Bắt đầu'}</span>
+                        </button>
+                      )}
 
-                  {selectedApp.statusRaw !== 'COMPLETED' && selectedApp.statusRaw !== 'CANCELLED' && (
-                    <button
-                      type="button"
-                      disabled={isUpdatingStatus}
-                      onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CANCELLED)}
-                      className="w-full py-2 bg-[#FDF2F2] hover:bg-[#FDE8E8] text-[#B02A37] border border-[#F5C2C7] rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Hủy lịch hẹn này</span>
-                    </button>
+                      {selectedApp.statusRaw === 'IN_SERVICE' && (
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.COMPLETED)}
+                          className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Hoàn thành dịch vụ'}</span>
+                        </button>
+                      )}
+
+                      {selectedApp.statusRaw !== 'COMPLETED' && selectedApp.statusRaw !== 'CANCELLED' && (
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CANCELLED)}
+                          className="w-full py-2 bg-[#FDF2F2] hover:bg-[#FDE8E8] text-[#B02A37] border border-[#F5C2C7] rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Hủy lịch hẹn này</span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1749,6 +2056,164 @@ export const W05_StaffSchedule: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Check-in Validation & Overdue Resolution Modal */}
+      {validationModalApp && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+              <div className="flex items-center gap-2 text-base font-extrabold text-[#3E200C]">
+                {validationModalApp.checkResult.isOverdue ? (
+                  <>
+                    <div className="w-8 h-8 rounded-xl bg-[#FEE2E2] text-[#DC2626] flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-4 h-4 stroke-[2.5]" />
+                    </div>
+                    <span>Kiểm tra: Lịch hẹn đã quá hạn</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-8 h-8 rounded-xl bg-[#E0F2FE] text-[#0369A1] flex items-center justify-center shrink-0">
+                      <Info className="w-4 h-4 stroke-[2.5]" />
+                    </div>
+                    <span>Kiểm tra thời gian khách đến</span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setValidationModalApp(null)}
+                className="p-1.5 rounded-full text-[#8C7A6B] hover:text-[#2C241E] hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="space-y-3 text-xs">
+              {/* Customer Box */}
+              <div className="p-3 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] flex items-center gap-3">
+                <img
+                  src={validationModalApp.app.avatar || '/avatar_minh_anh.png'}
+                  alt={validationModalApp.app.customer}
+                  className="w-10 h-10 rounded-full object-cover border border-[#E0D7CC] shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/avatar_minh_anh.png';
+                  }}
+                />
+                <div className="min-w-0">
+                  <div className="font-bold text-[#2C241E] text-sm truncate">{validationModalApp.app.customer}</div>
+                  <div className="text-[11px] text-[#73675F] truncate">
+                    {validationModalApp.app.customerPhone} · {validationModalApp.app.customerCode}
+                  </div>
+                  <div className="text-[11px] font-semibold text-[#8A4F23] mt-0.5 truncate">
+                    {validationModalApp.app.service}
+                  </div>
+                </div>
+              </div>
+
+              {/* Time Comparison Box */}
+              <div className={`p-3.5 rounded-2xl border space-y-2 ${
+                validationModalApp.checkResult.isOverdue
+                  ? 'bg-[#FFF5F5] border-[#F5C2C7] text-[#991B1B]'
+                  : 'bg-[#F0F9FF] border-[#BAE6FD] text-[#0369A1]'
+              }`}>
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Thời gian đặt hẹn:</span>
+                  <span className="font-extrabold">{validationModalApp.checkResult.scheduledTimeStr}</span>
+                </div>
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Thời điểm hiện tại:</span>
+                  <span className="font-extrabold">
+                    {new Intl.DateTimeFormat('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    }).format(new Date())}
+                  </span>
+                </div>
+                <div className="pt-1.5 border-t border-current/15 text-[11.5px] leading-relaxed">
+                  {validationModalApp.checkResult.detail}
+                </div>
+              </div>
+
+              {validationModalApp.checkResult.isOverdue && (
+                <div className="text-[11px] text-[#73675F] leading-relaxed bg-[#FAF8F5] p-3 rounded-xl border border-[#EFE4D9]">
+                  💡 <strong>Quy định vận hành:</strong> Không thể tiếp nhận ca dịch vụ cho lịch hẹn đã quá hạn. Vui lòng bấm <strong>Bỏ lịch hẹn</strong> để giải phóng kỹ thuật viên <strong>{validationModalApp.app.technicianName}</strong> và phòng <strong>{validationModalApp.app.resource}</strong>.
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-2 flex flex-col gap-2">
+              {validationModalApp.checkResult.isOverdue ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleDropOverdueBooking(validationModalApp.app.id)}
+                    className="w-full py-2.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{isUpdatingStatus ? 'Đang bỏ lịch...' : 'Bỏ lịch hẹn quá hạn ngay (Hủy & Giải phóng)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cust = customers.find(
+                        (c) => c.fullName === validationModalApp.app.customer || c.phone === validationModalApp.app.customerPhone
+                      );
+                      const appToSave = validationModalApp.app;
+                      setValidationModalApp(null);
+                      if (cust) {
+                        setSelectedCustomerId(cust.id);
+                        setCustName(cust.fullName);
+                        setCustPhone(cust.phone || '');
+                      } else {
+                        setCustName(appToSave.customer);
+                        setCustPhone(appToSave.customerPhone || '');
+                      }
+                      const today = new Date();
+                      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                      setAppDate(todayStr);
+                      setShowCreateModal(true);
+                    }}
+                    className="w-full py-2 bg-white hover:bg-[#FAF8F5] border border-[#D7BBA6] text-[#8A4F23] font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Đặt lịch hẹn mới hôm nay cho khách</span>
+                  </button>
+                </>
+              ) : validationModalApp.checkResult.isEarlyDate ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => {
+                      handleUpdateBookingStatus(validationModalApp.app.id, BookingStatus.IN_SERVICE);
+                      setValidationModalApp(null);
+                    }}
+                    className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Xác nhận tiếp nhận phục vụ sớm hôm nay</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setValidationModalApp(null)}
+                    className="w-full py-2 bg-white hover:bg-[#FAF8F5] border border-[#E8DFD8] text-[#73675F] font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    Giữ nguyên ngày hẹn ({validationModalApp.app.date})
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       )}
