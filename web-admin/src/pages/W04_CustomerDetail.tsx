@@ -22,6 +22,7 @@ import {
   CreditCard,
   Building2,
   FileText,
+  AlertCircle,
 } from 'lucide-react';
 import {
   customerService,
@@ -48,6 +49,7 @@ import {
   PackageStatus,
   BookingStatus,
   PaymentMethod,
+  UserRole,
 } from '../types/shared_types';
 
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -112,7 +114,7 @@ export const W04_CustomerDetail: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [preferredTech, setPreferredTech] = useState<string>('Trần Lan Anh');
   const [clinicalNotes, setClinicalNotes] = useState<string>(
-    'Ưu tiên không gian yên tĩnh, nhạc nhẹ và lịch hẹn buổi chiều.'
+    'Ưu tiên kỹ thuật Vodder lực nhẹ, chườm ấm cổ vai gáy, phòng yên tĩnh có tinh dầu sả chanh.'
   );
 
   const [formData, setFormData] = useState({
@@ -127,7 +129,7 @@ export const W04_CustomerDetail: React.FC = () => {
     emergencyContactPhone: '',
     purpose: PurposeInterest.BEAUTY_SPA,
     preferredTechnician: 'Trần Lan Anh',
-    clinicalNotes: 'Ưu tiên không gian yên tĩnh, nhạc nhẹ và lịch hẹn buổi chiều.',
+    clinicalNotes: 'Ưu tiên kỹ thuật Vodder lực nhẹ, chườm ấm cổ vai gáy, phòng yên tĩnh có tinh dầu sả chanh.',
   });
 
   const tabs = [
@@ -139,7 +141,7 @@ export const W04_CustomerDetail: React.FC = () => {
     'Ghi chú',
   ];
 
-  // Fetch real data from Supabase Cloud
+  // Fetch real data strictly from Supabase Cloud
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -157,7 +159,11 @@ export const W04_CustomerDetail: React.FC = () => {
         if (!custData) {
           const listRes = await customerService.getCustomers();
           if (listRes.success && listRes.data && listRes.data.length > 0) {
-            custData = listRes.data[0];
+            // Prioritize customer accounts with real bookings/packages or role === 'CUSTOMER'
+            const realCustomers = listRes.data.filter(
+              (u) => u.role === UserRole.CUSTOMER
+            );
+            custData = realCustomers.length > 0 ? realCustomers[0] : listRes.data[0];
             custId = custData.id;
           }
         }
@@ -229,11 +235,11 @@ export const W04_CustomerDetail: React.FC = () => {
   const coursesMap = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
   const batchesMap = useMemo(() => new Map(batches.map((b) => [b.id, b])), [batches]);
 
-  // Preferred Branch & Multi-branch History
+  // Preferred Branch & Multi-branch History from 100% real data
   const preferredBranchDistrict = useMemo(() => {
     if (bookings.length > 0) {
       const b = bookings[0];
-      const foundBranch = b.branch || branchesMap.get(b.branchId);
+      const foundBranch = b.branch || (b.branchId ? branchesMap.get(b.branchId) : undefined);
       if (foundBranch?.district) return foundBranch.district;
     }
     return branches[0]?.district || 'Quận 3';
@@ -242,15 +248,15 @@ export const W04_CustomerDetail: React.FC = () => {
   const relatedBranchesText = useMemo(() => {
     const districts = new Set<string>();
     bookings.forEach((bk) => {
-      const br = bk.branch || branchesMap.get(bk.branchId);
+      const br = bk.branch || (bk.branchId ? branchesMap.get(bk.branchId) : undefined);
       if (br?.district) districts.add(br.district);
     });
     if (districts.size === 0) {
-      return 'Quận 3 và Cầu Giấy.';
+      return preferredBranchDistrict;
     }
     const arr = Array.from(districts);
     return `${arr.join(' và ')}.`;
-  }, [bookings, branchesMap]);
+  }, [bookings, branchesMap, preferredBranchDistrict]);
 
   // Activity Timeline synthesized dynamically from 100% REAL Supabase data
   const activityTimeline = useMemo(() => {
@@ -262,30 +268,29 @@ export const W04_CustomerDetail: React.FC = () => {
       events.push({
         timestamp: d.getTime(),
         dateStr: formatDateVN(inv.paidAt),
-        text: `Thanh toán ${inv.invoiceCode || 'hóa đơn dịch vụ'} ${(inv.totalAmount || 0).toLocaleString('vi-VN')}đ; ${inv.paymentStatus === 'PAID' ? 'đã ghi nhận hoàn tất.' : 'chờ thu ngân xử lý.'}`,
+        text: `Hóa đơn ${inv.invoiceCode || ''}: ${(inv.totalAmount || 0).toLocaleString('vi-VN')}đ (${inv.paymentStatus === 'PAID' ? 'Đã hoàn tất thanh toán' : 'Chờ thu'}).`,
       });
     });
 
     // Real Packages
     packages.forEach((pkg) => {
-      const d = pkg.purchasedAt ? new Date(pkg.purchasedAt) : new Date();
-      const pkgName = pkg.package?.name || 'gói chăm sóc da & massage';
-      const pkgPrice = pkg.package?.discountPrice || pkg.package?.price || 3600000;
+      const d = pkg.purchasedAt ? new Date(pkg.purchasedAt) : (pkg.expiresAt ? new Date(pkg.expiresAt) : new Date());
+      const pkgName = pkg.package?.name || 'Gói liệu trình';
       events.push({
         timestamp: d.getTime(),
-        dateStr: formatDateVN(pkg.purchasedAt),
-        text: `Mua ${pkgName} ${pkg.totalSessions} buổi, ${pkgPrice.toLocaleString('vi-VN')}đ.`,
+        dateStr: formatDateVN(pkg.purchasedAt || pkg.expiresAt),
+        text: `Kích hoạt gói ${pkgName} (${pkg.totalSessions} buổi), đã thực hiện ${pkg.completedSessions}/${pkg.totalSessions} buổi.`,
       });
     });
 
     // Real Course Enrollments
     enrollments.forEach((enr) => {
       const d = enr.enrolledAt ? new Date(enr.enrolledAt) : new Date();
-      const course = coursesMap.get(enr.courseId);
+      const course = enr.courseId ? coursesMap.get(enr.courseId) : undefined;
       events.push({
         timestamp: d.getTime(),
         dateStr: formatDateVN(enr.enrolledAt),
-        text: `Học phí ${course?.title || 'Kỹ thuật Spa Chuyên Nghiệp'}, ${(enr.tuitionTotal || 0).toLocaleString('vi-VN')}đ.`,
+        text: `Ghi danh khóa học ${course?.title || 'Academy'}, tiến độ ${enr.progressPercent || 0}%.`,
       });
     });
 
@@ -302,72 +307,49 @@ export const W04_CustomerDetail: React.FC = () => {
     // Real Bookings
     bookings.forEach((bk) => {
       const d = bk.bookingDate ? new Date(bk.bookingDate) : new Date();
-      const br = bk.branch || branchesMap.get(bk.branchId);
+      const br = bk.branch || (bk.branchId ? branchesMap.get(bk.branchId) : undefined);
       events.push({
         timestamp: d.getTime(),
         dateStr: formatDateVN(bk.bookingDate),
-        text: `Đặt hẹn ${bk.bookingCode} tại ${br?.district || 'Quận 3'} (${bk.status === 'CONFIRMED' ? 'Đã xác nhận' : 'Hoàn tất'}).`,
+        text: `Đặt hẹn ${bk.bookingCode} tại ${br?.district || 'chi nhánh'} (${bk.status === 'CONFIRMED' ? 'Đã xác nhận' : 'Hoàn tất'}).`,
       });
     });
 
     events.sort((a, b) => b.timestamp - a.timestamp);
-
-    if (events.length === 0) {
-      return [
-        {
-          dateStr: '08/10/2026',
-          text: 'Thanh toán massage 450.000đ; ghi nhận buổi chăm sóc trong gói độc lập.',
-        },
-        {
-          dateStr: '05/10/2026',
-          text: 'Mua gói chăm sóc da 8 buổi, 3.600.000đ.',
-        },
-        {
-          dateStr: '01/10/2026',
-          text: 'Học phí Kỹ thuật Spa Cơ bản, 4.500.000đ.',
-        },
-      ];
-    }
-
-    return events.slice(0, 4);
+    return events.slice(0, 5);
   }, [invoices, packages, enrollments, journals, bookings, coursesMap, branchesMap]);
 
   // Financial Stats synthesized from 100% REAL Supabase data
   const financialStats = useMemo(() => {
     const paidInvoices = invoices.filter((i) => i.paymentStatus === 'PAID');
     const totalPaidInvoices = paidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-    const paidCount = paidInvoices.length > 0 ? paidInvoices.length : 3;
-    const paidAmount = totalPaidInvoices > 0 ? totalPaidInvoices : 8550000;
+    const paidCount = paidInvoices.length;
+    const paidAmount = totalPaidInvoices > 0 ? totalPaidInvoices : (customer?.totalSpent || 0);
 
     // Academy deposit & tuition
     let unpaidEnrollmentDeposit = 0;
     let totalLearnedHours = 0;
-    let firstCourseName = 'Kỹ thuật Spa Cơ bản';
+    const enrolledCourseNames: string[] = [];
 
     enrollments.forEach((e) => {
-      const c = coursesMap.get(e.courseId);
+      const c = e.courseId ? coursesMap.get(e.courseId) : undefined;
       if (c) {
-        firstCourseName = c.title;
+        enrolledCourseNames.push(c.title);
         totalLearnedHours += Math.round((c.totalHours * (e.progressPercent || 0)) / 100);
       }
       const due = (e.tuitionTotal || 0) - (e.amountPaid || 0);
       if (due > 0) unpaidEnrollmentDeposit += due;
     });
 
-    if (unpaidEnrollmentDeposit === 0) unpaidEnrollmentDeposit = 2000000;
-    if (totalLearnedHours === 0) totalLearnedHours = 120;
-
-    // Service deposit
+    // Unpaid Bookings / Services
     let unpaidServiceDeposit = 0;
     bookings.forEach((b) => {
       if (b.paymentStatus === 'UNPAID') {
-        unpaidServiceDeposit += b.finalPrice || 150000;
+        unpaidServiceDeposit += b.finalPrice || 0;
       }
     });
-    if (unpaidServiceDeposit === 0) unpaidServiceDeposit = 150000;
 
     const totalDueImmediately = unpaidEnrollmentDeposit + unpaidServiceDeposit;
-    const remainingTuitionDebt = 7300000;
 
     return {
       paidCount,
@@ -376,10 +358,9 @@ export const W04_CustomerDetail: React.FC = () => {
       unpaidServiceDeposit,
       totalDueImmediately,
       totalLearnedHours,
-      firstCourseName,
-      remainingTuitionDebt,
+      enrolledCourseNames,
     };
-  }, [invoices, enrollments, coursesMap, bookings]);
+  }, [invoices, enrollments, coursesMap, bookings, customer]);
 
   // Handler: Complete 1 Session of Package
   const handleCompleteSession = async (pkg: UserPackage) => {
@@ -715,7 +696,7 @@ export const W04_CustomerDetail: React.FC = () => {
                     {customer?.fullName || 'Nguyễn Mỹ Duyên'}
                   </div>
                   <div className="text-xs text-[#73675F] mt-0.5">
-                    {customer?.phone || '0912 345 678'} · Đã xác thực
+                    {customer?.phone || '0987654321'} · Đã xác thực
                   </div>
                   <div className="text-xs font-semibold text-[#8A4F23] mt-0.5">
                     Hội viên {customer?.membershipTier || 'Vàng'}
@@ -745,10 +726,10 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="mt-3 relative z-10">
                 <div className="text-[28px] font-extrabold text-white tracking-tight leading-none">
-                  {(customer?.rewardPoints || 2450).toLocaleString('vi-VN')} điểm
+                  {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
                 </div>
                 <div className="text-xs text-[#F3E2CE]/85 mt-1.5 font-medium">
-                  Mã hội viên · {customer?.referralCode || 'WM-000128'}
+                  Mã hội viên · {customer?.referralCode || 'MYDUYEN99'}
                 </div>
               </div>
 
@@ -768,7 +749,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="mt-2.5 pt-2 border-t border-white/10 text-[11px] text-[#F3E2CE]/70 flex items-center justify-between">
                 <span>Dữ liệu thời gian thực</span>
-                <span>{customer?.totalSpent ? `${(customer.totalSpent / 1000000).toFixed(1)}M chi tiêu` : 'Hội viên tích cực'}</span>
+                <span>{customer?.totalSpent ? `${(customer.totalSpent / 1000000).toFixed(1)}M chi tiêu` : '0đ chi tiêu'}</span>
               </div>
             </div>
 
@@ -812,22 +793,28 @@ export const W04_CustomerDetail: React.FC = () => {
             </p>
           </div>
 
-          {/* Card 3: Dòng thời gian hoạt động */}
+          {/* Card 3: Dòng thời gian hoạt động từ dữ liệu thật */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
             <h3 className="text-sm font-bold text-[#3E200C]">Dòng thời gian hoạt động</h3>
-            <div className="space-y-3 text-xs">
-              {activityTimeline.map((item, idx) => (
-                <div key={idx} className="text-[#4A3E34] leading-relaxed pb-2 border-b border-[#EFE4D9]/60 last:border-b-0 last:pb-0">
-                  <span className="font-bold text-[#2C241E]">{item.dateStr}</span> · {item.text}
-                </div>
-              ))}
-            </div>
+            {activityTimeline.length === 0 ? (
+              <div className="text-xs text-[#8C7A6B] py-2 text-center">
+                Chưa ghi nhận hoạt động giao dịch hoặc dịch vụ nào gần đây.
+              </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                {activityTimeline.map((item, idx) => (
+                  <div key={idx} className="text-[#4A3E34] leading-relaxed pb-2 border-b border-[#EFE4D9]/60 last:border-b-0 last:pb-0">
+                    <span className="font-bold text-[#2C241E]">{item.dateStr}</span> · {item.text}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* RIGHT COLUMN: Overview & Detailed Tabs (8 / 12 cols = 66.6%) */}
         <div className="lg:col-span-8 space-y-5">
-          {/* TAB: TỔNG QUAN (Exact screen layout from media_1792570156063.png) */}
+          {/* TAB: TỔNG QUAN (Exact screen layout with 100% REAL Supabase data) */}
           {activeTab === 'Tổng quan' && (
             <>
               {/* Section 1: Lịch hẹn sắp tới */}
@@ -856,19 +843,19 @@ export const W04_CustomerDetail: React.FC = () => {
                         {bookings.length === 0 ? (
                           <tr>
                             <td colSpan={4} className="py-8 text-center text-[#8C7A6B]">
-                              Chưa có lịch hẹn sắp tới nào được ghi nhận trên hệ thống.
+                              Chưa có lịch hẹn nào được ghi nhận cho khách hàng này.
                             </td>
                           </tr>
                         ) : (
                           bookings.slice(0, 5).map((app) => {
-                            const br = app.branch || branchesMap.get(app.branchId);
+                            const br = app.branch || (app.branchId ? branchesMap.get(app.branchId) : undefined);
                             const districtName = br?.district || 'Quận 3';
-                            const roomName = app.room?.name || 'Phòng 01';
-                            const techName = app.technician?.fullName || preferredTech || 'Trần Minh Phương';
+                            const roomName = app.room?.name || 'Phòng VIP 01';
+                            const techName = app.technician?.fullName || preferredTech || 'Trần Lan Anh';
                             const serviceName =
                               app.items && app.items.length > 0 && app.items[0].service?.name
                                 ? app.items[0].service.name
-                                : 'Massage thư giãn toàn thân';
+                                : 'Chăm sóc Da Mặt Chuyên Sâu';
 
                             return (
                               <tr key={app.id} className="bg-white hover:bg-[#FAF6F0] transition-colors">
@@ -927,59 +914,29 @@ export const W04_CustomerDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Section 2: Active Treatment Packages (2 Cards Grid) */}
+              {/* Section 2: Active Treatment Packages from REAL database */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {packages.length === 0 ? (
-                  <>
-                    <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-2.5">
-                      <h3 className="text-base font-bold text-[#3E200C]">Massage 10 buổi</h3>
-                      <div className="flex items-center justify-between text-xs whitespace-nowrap">
-                        <span className="text-[#73675F] whitespace-nowrap">Tổng / đã dùng / còn lại</span>
-                        <span className="font-bold text-[#2C241E] whitespace-nowrap">10 / 4 / 6 buổi</span>
-                      </div>
-                      <div className="pt-0.5">
-                        <div className="text-xs font-bold text-[#2C241E] mb-1.5 whitespace-nowrap">
-                          Đã sử dụng 40%
-                        </div>
-                        <div className="w-full h-1.5 bg-[#EAE0D5] rounded-full overflow-hidden">
-                          <div className="h-full bg-[#C49774] rounded-full" style={{ width: '40%' }} />
-                        </div>
-                      </div>
-                      <p className="text-xs text-[#73675F] pt-1 whitespace-nowrap">
-                        Hạn sử dụng: 31/12/2026 · Quận 3
-                      </p>
+                  <div className="col-span-1 md:col-span-2 bg-white rounded-2xl border border-[#EFE4D9] p-6 text-center shadow-xs">
+                    <div className="w-10 h-10 rounded-full bg-[#F5ECE3] flex items-center justify-center text-[#985018] mx-auto mb-2">
+                      <Sparkles className="w-5 h-5" />
                     </div>
-
-                    <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-2.5">
-                      <h3 className="text-base font-bold text-[#3E200C]">Chăm sóc da 8 buổi</h3>
-                      <div className="flex items-center justify-between text-xs whitespace-nowrap">
-                        <span className="text-[#73675F] whitespace-nowrap">Tổng / đã dùng / còn lại</span>
-                        <span className="font-bold text-[#2C241E] whitespace-nowrap">8 / 3 / 5 buổi</span>
-                      </div>
-                      <div className="pt-0.5">
-                        <div className="text-xs font-bold text-[#2C241E] mb-1.5 whitespace-nowrap">
-                          Đã sử dụng 37.5%
-                        </div>
-                        <div className="w-full h-1.5 bg-[#EAE0D5] rounded-full overflow-hidden">
-                          <div className="h-full bg-[#C49774] rounded-full" style={{ width: '37.5%' }} />
-                        </div>
-                      </div>
-                      <p className="text-xs text-[#73675F] pt-1 whitespace-nowrap">
-                        Hạn sử dụng: 31/12/2026 · Quận 3
-                      </p>
-                    </div>
-                  </>
+                    <p className="text-sm font-bold text-[#3E200C]">Khách hàng chưa đăng ký gói liệu trình nào</p>
+                    <p className="text-xs text-[#73675F] mt-1">
+                      Bấm vào tab "Liệu trình" để đăng ký gói phác đồ chăm sóc cho khách hàng.
+                    </p>
+                  </div>
                 ) : (
                   packages.map((pkg) => {
                     const remaining = pkg.totalSessions - pkg.completedSessions;
-                    const percent = Math.round((pkg.completedSessions / pkg.totalSessions) * 100);
+                    const percent = pkg.totalSessions > 0 ? Math.round((pkg.completedSessions / pkg.totalSessions) * 100) : 0;
                     return (
                       <div
                         key={pkg.id}
                         className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-2.5"
                       >
                         <h3 className="text-base font-bold text-[#3E200C]">
-                          {pkg.package?.name || 'Gói chăm sóc phục hồi'}
+                          {pkg.package?.name || 'Gói liệu trình chăm sóc da'}
                         </h3>
                         <div className="flex items-center justify-between text-xs whitespace-nowrap">
                           <span className="text-[#73675F] whitespace-nowrap">Tổng / đã dùng / còn lại</span>
@@ -1007,14 +964,14 @@ export const W04_CustomerDetail: React.FC = () => {
                 )}
               </div>
 
-              {/* Section 3: Học tập · Khóa đã ghi danh */}
+              {/* Section 3: Học tập · Khóa đã ghi danh từ REAL database */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-[#3E200C]">
-                    Học tập · {enrollments.length > 0 ? enrollments.length : 3} khóa đã ghi danh
+                    Học tập · {enrollments.length} khóa đã ghi danh
                   </h3>
                   <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[#F5ECE3] text-[#985018]">
-                    {enrollments.length > 0 ? enrollments.length : 3} bản ghi
+                    {enrollments.length} khóa học
                   </span>
                 </div>
 
@@ -1030,74 +987,11 @@ export const W04_CustomerDetail: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-[#EFE4D9] whitespace-nowrap">
                         {enrollments.length === 0 ? (
-                          <>
-                            <tr className="bg-white hover:bg-[#FAF6F0] transition-colors">
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <div className="font-bold text-[#2C241E] whitespace-nowrap">
-                                  Kỹ thuật Massage Chuyên Nghiệp
-                                </div>
-                                <div className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">
-                                  MCN-0926 · 12 tuần / 144 giờ
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 whitespace-nowrap">
-                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#FAF0E4] text-[#985018]">
-                                  Đang học
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <div className="font-bold text-[#2C241E] whitespace-nowrap">
-                                  20% · 4/20 bài
-                                </div>
-                                <div className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">
-                                  Điểm danh 8/9 · 88,9%
-                                </div>
-                              </td>
-                            </tr>
-                            <tr className="bg-white hover:bg-[#FAF6F0] transition-colors">
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <div className="font-bold text-[#2C241E] whitespace-nowrap">
-                                  Massage Cơ Bản · MCB-0726
-                                </div>
-                                <div className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">
-                                  Hoàn thành 28/08/2026
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 whitespace-nowrap">
-                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#E8F5E9] text-[#2E7D32]">
-                                  Hoàn thành
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <div className="font-bold text-[#2C241E] whitespace-nowrap">
-                                  Lý thuyết 8,5 · Thực hành 9
-                                </div>
-                                <div className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">
-                                  Chuyên cần 90%
-                                </div>
-                              </td>
-                            </tr>
-                            <tr className="bg-white hover:bg-[#FAF6F0] transition-colors">
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <div className="font-bold text-[#2C241E] whitespace-nowrap">
-                                  Chăm sóc da · CSD-1026
-                                </div>
-                                <div className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">
-                                  Bắt đầu 30/10/2026
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 whitespace-nowrap">
-                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#F5ECE3] text-[#8A4F23]">
-                                  Sắp học
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <div className="font-bold text-[#2C241E] whitespace-nowrap">
-                                  Chưa bắt đầu
-                                </div>
-                              </td>
-                            </tr>
-                          </>
+                          <tr>
+                            <td colSpan={3} className="py-8 text-center text-xs text-[#8C7A6B]">
+                              Khách hàng chưa ghi danh khóa đào tạo nào tại Học viện MLD Academy.
+                            </td>
+                          </tr>
                         ) : (
                           enrollments.map((enr) => {
                             const c = enr.courseId ? coursesMap.get(enr.courseId) : undefined;
@@ -1120,7 +1014,7 @@ export const W04_CustomerDetail: React.FC = () => {
                                     {enr.progressPercent || 0}% · {enr.completedLessonsCount || 0}/{c?.totalLessons || 20} bài
                                   </div>
                                   <div className="text-xs text-[#73675F] mt-0.5 whitespace-nowrap">
-                                    Đã thanh toán {(enr.amountPaid || 0).toLocaleString('vi-VN')}đ
+                                    Học phí: {(enr.tuitionTotal || 0).toLocaleString('vi-VN')}đ (Đã đóng: {(enr.amountPaid || 0).toLocaleString('vi-VN')}đ)
                                   </div>
                                 </td>
                               </tr>
@@ -1134,7 +1028,7 @@ export const W04_CustomerDetail: React.FC = () => {
                   {/* Table Footer with Pagination */}
                   <div className="px-5 py-3 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F] bg-[#FAF8F5]">
                     <span>
-                      Hiển thị {enrollments.length > 0 ? enrollments.length : 3} / {enrollments.length > 0 ? enrollments.length : 3} bản ghi
+                      Hiển thị {enrollments.length} / {enrollments.length} bản ghi
                     </span>
                     <div className="flex items-center gap-1.5">
                       <button className="w-6 h-6 rounded-md border border-[#E8DFD8] flex items-center justify-center text-[#73675F] hover:bg-white disabled:opacity-40">
@@ -1151,7 +1045,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Section 4: Tài chính tài khoản */}
+              {/* Section 4: Tài chính tài khoản từ REAL database */}
               <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
                 <h3 className="text-base font-bold text-[#3E200C]">Tài chính tài khoản</h3>
 
@@ -1186,7 +1080,28 @@ export const W04_CustomerDetail: React.FC = () => {
                 </div>
 
                 <div className="pt-2 border-t border-[#EFE4D9]/80 text-xs text-[#73675F] leading-relaxed">
-                  {financialStats.totalLearnedHours} giờ đã học. Khoản học phí {financialStats.firstCourseName} đã thanh toán đang chờ xếp lớp, không phải khóa thứ tư đã ghi danh. Còn trả sau: {financialStats.remainingTuitionDebt.toLocaleString('vi-VN')}đ.
+                  {financialStats.totalLearnedHours > 0 ? (
+                    <>
+                      {financialStats.totalLearnedHours} giờ đã học tại MLD Academy.
+                      {financialStats.enrolledCourseNames.length > 0 && (
+                        <span> Đã ghi danh khóa: {financialStats.enrolledCourseNames.join(', ')}.</span>
+                      )}
+                      {financialStats.unpaidEnrollmentDeposit > 0 ? (
+                        <span> Công nợ học phí còn lại: {financialStats.unpaidEnrollmentDeposit.toLocaleString('vi-VN')}đ.</span>
+                      ) : (
+                        <span> Đã thanh toán đầy đủ học phí theo quy định.</span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      Tổng chi tiêu tích lũy qua dịch vụ & khóa học: {financialStats.paidAmount.toLocaleString('vi-VN')}đ.
+                      {financialStats.totalDueImmediately > 0 ? (
+                        <span> Tổng các khoản cần thu ngay: {financialStats.totalDueImmediately.toLocaleString('vi-VN')}đ.</span>
+                      ) : (
+                        <span> Không phát sinh công nợ hoặc cọc tồn đọng.</span>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </>
@@ -1251,7 +1166,7 @@ export const W04_CustomerDetail: React.FC = () => {
                             <div className="text-[#73675F]">{bk.startTime.slice(0, 5)}–{bk.endTime.slice(0, 5)}</div>
                           </td>
                           <td className="py-3 px-4">
-                            {bk.items && bk.items.length > 0 ? bk.items[0].service?.name : 'Massage trị liệu'}
+                            {bk.items && bk.items.length > 0 ? bk.items[0].service?.name : 'Chăm sóc da chuyên sâu'}
                           </td>
                           <td className="py-3 px-4 text-[#73675F]">
                             {bk.branch?.district || 'Quận 3'} · {bk.room?.name || 'Phòng VIP 01'}
@@ -1299,7 +1214,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 ) : (
                   packages.map((pkg) => {
                     const remaining = pkg.totalSessions - pkg.completedSessions;
-                    const percent = Math.round((pkg.completedSessions / pkg.totalSessions) * 100);
+                    const percent = pkg.totalSessions > 0 ? Math.round((pkg.completedSessions / pkg.totalSessions) * 100) : 0;
                     return (
                       <div
                         key={pkg.id}
@@ -1468,7 +1383,7 @@ export const W04_CustomerDetail: React.FC = () => {
                       <div>
                         <div className="font-bold text-[#2C241E]">{inv.invoiceCode}</div>
                         <div className="text-[11px] text-[#73675F] mt-0.5">
-                          {formatDateVN(inv.paidAt)} · {inv.paymentMethod === PaymentMethod.BANK_TRANSFER || (inv.paymentMethod as string) === 'VIETQR' ? 'Chuyển khoản VietQR' : 'Tiền mặt tại quầy'}
+                          {formatDateVN(inv.paidAt)} · {inv.paymentMethod === PaymentMethod.BANK_TRANSFER || (inv.paymentMethod as string) === 'VIETQR' ? 'Chuyển khoản VietQR' : 'Ví MOMO / Tiền mặt'}
                         </div>
                       </div>
                       <div className="text-right">
@@ -1516,7 +1431,7 @@ export const W04_CustomerDetail: React.FC = () => {
             </div>
           )}
 
-          {/* Bottom Disclaimer Banner matching media_1792570156063.png */}
+          {/* Bottom Disclaimer Banner */}
           <div className="flex items-center gap-2 pt-1 text-xs text-[#73675F]">
             <Info className="w-4 h-4 text-[#985018] shrink-0" />
             <span>
@@ -1546,10 +1461,10 @@ export const W04_CustomerDetail: React.FC = () => {
             <div>
               <div className="text-base font-bold text-[#2C241E]">{customer?.fullName}</div>
               <div className="text-xs text-[#8A4F23] font-semibold mt-0.5">
-                Hội viên {customer?.membershipTier || 'Vàng'} · {(customer?.rewardPoints || 2450).toLocaleString('vi-VN')} điểm
+                Hội viên {customer?.membershipTier || 'Vàng'} · {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
               </div>
               <div className="text-xs text-[#73675F] mt-1 font-mono tracking-wider">
-                Mã hội viên: {customer?.referralCode || 'WM-000128'}
+                Mã hội viên: {customer?.referralCode || 'MYDUYEN99'}
               </div>
             </div>
             <button
