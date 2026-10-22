@@ -21,6 +21,7 @@ import {
   Save,
   AlertCircle,
   Upload,
+  Lock,
 } from "lucide-react";
 import {
   adminApi,
@@ -772,7 +773,13 @@ function RecordDialog({
   }, []);
   const generated =
     resource.name === "users"
-      ? ["referral_code", "locked_reason", "locked_at", "fcm_device_token"]
+      ? [
+          "referral_code",
+          "locked_reason",
+          "locked_at",
+          "fcm_device_token",
+          ...(mode === "create" ? ["reward_points", "total_spent", "membership_tier"] : []),
+        ]
       : resource.name === "student_certificates"
         ? ["qr_verification_code"]
         : [];
@@ -849,6 +856,9 @@ function RecordDialog({
       }
 
       for (const [name, value] of Object.entries(mergedValues)) {
+        if (resource.name === "users" && ["reward_points", "total_spent", "membership_tier"].includes(name)) {
+          continue; // Khóa chỉnh sửa thủ công để đảm bảo toàn vẹn dữ liệu kế toán và loyalty
+        }
         const c = columns.find((x) => x.name === name);
         if (name === "password") {
           if (value) payload.password = value;
@@ -961,6 +971,37 @@ function RecordDialog({
                 {mode === "view" ? (
                   <div className="admin-detail-value">
                     {formatCell(row, c)}
+                  </div>
+                ) : resource.name === "users" && (c.name === "reward_points" || c.name === "total_spent" || c.name === "membership_tier") ? (
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      background: "#FAF8F5",
+                      border: "1px solid #E8DFD8",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      color: "#332A24",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: c.name === "total_spent" ? "#0D6832" : "#8A4F23" }}>
+                      {c.name === "reward_points"
+                        ? `${Number(value || 0).toLocaleString("vi-VN")} điểm`
+                        : c.name === "total_spent"
+                        ? `${Number(value || 0).toLocaleString("vi-VN")} đ`
+                        : enums[value] || value || "STANDARD"}
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#8A7968", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <Lock size={12} />
+                      {c.name === "reward_points"
+                        ? "Tự động từ giao dịch điểm"
+                        : c.name === "total_spent"
+                        ? "Tự động từ hóa đơn POS"
+                        : "Tự động theo mức chi tiêu"}
+                    </span>
                   </div>
                 ) : resource.name === "quiz_questions" &&
                   c.name === "correct_option" ? (
