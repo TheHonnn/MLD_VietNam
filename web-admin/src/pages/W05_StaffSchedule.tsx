@@ -96,6 +96,16 @@ export interface ScheduleTechnician {
   branchId?: string;
 }
 
+export const TECHNICIAN_ROOM_MAP: Record<string, string> = {
+  'cccccccc-0001-0001-0001-000000000001': 'Phòng VIP 01 - Hoa Sen',
+  'cccccccc-0001-0001-0001-000000000002': 'Phòng Massage Body 02',
+  'cccccccc-0001-0001-0001-000000000003': 'Phòng Gội Đầu Dưỡng Sinh 03',
+  'cccccccc-0001-0001-0001-000000000004': 'Phòng Trị Liệu Đông Y 04',
+  'cccccccc-0001-0001-0001-000000000005': 'Phòng Massage Thư Giãn',
+  'cccccccc-0001-0001-0001-000000000006': 'Phòng Thực Hành Lab 01',
+  'cccccccc-0001-0001-0001-000000000007': 'Phòng Thải Độc Thảo Dược',
+};
+
 export const DEFAULT_FALLBACK_TECHNICIANS: ScheduleTechnician[] = [
   { id: 'cccccccc-0001-0001-0001-000000000001', name: 'Trần Lan Anh', room: 'Phòng VIP 01 - Hoa Sen', role: 'Chuyên viên Trị liệu Cấp cao', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956' },
   { id: 'cccccccc-0001-0001-0001-000000000002', name: 'Lê Quỳnh Nga', room: 'Phòng Massage Body 02', role: 'Chuyên viên Chăm sóc da & Dưỡng sinh', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2' },
@@ -245,12 +255,19 @@ export const W05_StaffSchedule: React.FC = () => {
       return DEFAULT_FALLBACK_TECHNICIANS;
     }
 
-    const branchRooms = rooms.filter(
-      (r) => r.isAvailable && (!selectedBranchId || selectedBranchId === 'ALL' || r.branchId === selectedBranchId)
+    const validRooms = rooms.filter(
+      (r) =>
+        r.isAvailable &&
+        !r.name?.toLowerCase().startsWith('test') &&
+        !r.name?.startsWith('[') &&
+        (!selectedBranchId || selectedBranchId === 'ALL' || r.branchId === selectedBranchId)
     );
 
     return list.map((t, idx) => {
-      const matchedRoom = branchRooms[idx % Math.max(1, branchRooms.length)]?.name || `Phòng 0${idx + 1}`;
+      const matchedRoom =
+        TECHNICIAN_ROOM_MAP[t.id] ||
+        validRooms[idx % Math.max(1, validRooms.length)]?.name ||
+        `Phòng Trị Liệu 0${idx + 1}`;
       return {
         id: t.id,
         name: t.fullName,
@@ -906,35 +923,39 @@ export const W05_StaffSchedule: React.FC = () => {
 
       {/* 3. Main Content: Schedule Timetable Matrix (Left) + Detail Sidebar (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Column (Matrix + Legend) */}
-        <div className="lg:col-span-8 space-y-3">
+        {/* Left Column (Matrix + Legend) - min-w-0 prevents grid blowout */}
+        <div className="lg:col-span-8 space-y-3 min-w-0">
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
-            <div className="min-w-[620px] sm:min-w-[680px]">
+            <div className="w-max min-w-full inline-block align-top">
               {/* Timetable Header Row */}
-              <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE]">
-                {/* Corner spacer */}
-                <div className="w-16 sm:w-20 shrink-0 border-r border-[#EFE4D9] flex items-center justify-center p-2 text-[10.5px] font-bold text-[#73675F]">
+              <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full">
+                {/* Corner spacer - Sticky on horizontal scroll */}
+                <div className="w-16 sm:w-20 shrink-0 sticky left-0 z-30 bg-[#F3E2CE] border-r border-[#EFE4D9] flex items-center justify-center p-2 text-[10.5px] font-bold text-[#73675F] shadow-[1px_0_0_#EFE4D9]">
                   Giờ
                 </div>
 
-                {/* Technician Headers */}
+                {/* Technician Headers - Uniform fixed column width */}
                 {visibleTechnicians.map((t, idx) => (
                   <div
                     key={t.id}
-                    className={`flex-1 px-4 py-3 whitespace-nowrap ${
-                      idx < visibleTechnicians.length - 1 ? 'border-r border-[#EFE4D9]' : ''
+                    className={`w-[200px] min-w-[200px] shrink-0 px-4 py-3 border-r border-[#EFE4D9] ${
+                      idx === visibleTechnicians.length - 1 ? 'border-r-0' : ''
                     }`}
                   >
-                    <div className="text-[13px] font-bold text-[#2C241E] whitespace-nowrap">{t.name}</div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">{t.room}</div>
+                    <div className="text-[13px] font-bold text-[#2C241E] truncate" title={t.name}>
+                      {t.name}
+                    </div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 truncate" title={t.room}>
+                      {t.room}
+                    </div>
                   </div>
                 ))}
               </div>
 
               {/* Timetable Body (Rows + Absolute Appointment Layers) */}
-              <div className="relative flex">
-                {/* Left Column: Time Labels */}
-                <div className="w-16 sm:w-20 shrink-0 border-r border-[#EFE4D9] select-none bg-white">
+              <div className="relative flex w-max min-w-full">
+                {/* Left Column: Time Labels - Sticky on horizontal scroll */}
+                <div className="w-16 sm:w-20 shrink-0 sticky left-0 z-20 bg-white border-r border-[#EFE4D9] select-none shadow-[1px_0_0_#EFE4D9]">
                   {hours.map((hour) => (
                     <div
                       key={hour}
@@ -946,7 +967,7 @@ export const W05_StaffSchedule: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Technician Columns */}
+                {/* Technician Columns - Exact same fixed width as header */}
                 {visibleTechnicians.map((t, colIdx) => {
                   const colAppointments = displayedAppointments.filter(
                     (a) => a.technicianId === t.id
@@ -955,16 +976,16 @@ export const W05_StaffSchedule: React.FC = () => {
                   return (
                     <div
                       key={t.id}
-                      className={`flex-1 relative ${
-                        colIdx < visibleTechnicians.length - 1 ? 'border-r border-[#EFE4D9]' : ''
+                      className={`w-[200px] min-w-[200px] shrink-0 relative border-r border-[#EFE4D9] ${
+                        colIdx === visibleTechnicians.length - 1 ? 'border-r-0' : ''
                       }`}
                     >
-                      {/* Background Grid Lines */}
+                      {/* Background Grid Lines extending full width of column */}
                       {hours.map((hour) => (
                         <div
                           key={hour}
                           style={{ height: `${ROW_HEIGHT}px` }}
-                          className="border-b border-[#F0E6DC]"
+                          className="border-b border-[#F0E6DC] w-full"
                         />
                       ))}
 
