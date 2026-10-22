@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Leaf,
   Calendar,
@@ -86,11 +87,20 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const [searchParams] = useSearchParams();
+  const packageIdParam = searchParams.get('packageId') || '';
+
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterPackageType, setFilterPackageType] = useState('');
+  const [filterPackageType, setFilterPackageType] = useState(() => packageIdParam);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterExpiry, setFilterExpiry] = useState('');
+
+  useEffect(() => {
+    if (packageIdParam) {
+      setFilterPackageType(packageIdParam);
+    }
+  }, [packageIdParam]);
 
   // Selection & Pagination
   const [selectedPkgId, setSelectedPkgId] = useState<string>('');

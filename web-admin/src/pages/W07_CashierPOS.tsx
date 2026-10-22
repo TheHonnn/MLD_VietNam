@@ -227,10 +227,66 @@ export const W07_CashierPOS: React.FC = () => {
       }
     }
 
+    // Xử lý nạp nhanh Gói liệu trình VIP khi chuyển từ trang Quản lý Gói liệu trình
+    const packageIdParam = searchParams.get('packageId');
+    const packageNameParam = searchParams.get('packageName');
+    if (packageIdParam || packageNameParam) {
+      const foundPkg = treatmentPackages.find(
+        (p) =>
+          p.id === packageIdParam ||
+          (packageNameParam && p.name?.toLowerCase().includes(packageNameParam.toLowerCase()))
+      );
+      const pkgName = foundPkg?.name || packageNameParam || 'Liệu Trình Phục Hồi & Trẻ Hóa Da 5 Buổi';
+      const pkgPrice = foundPkg?.price || 2290000;
+      const totalSessions = foundPkg?.totalSessions || 5;
+
+      setCustomer({
+        id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        fullName: 'Xuân Trường',
+        phone: '0334750241',
+        membershipTier: 'GOLD',
+      } as any);
+
+      setBooking({
+        id: `pkg-order-${packageIdParam || Date.now()}`,
+        bookingCode: `VIP-PKG-${Math.floor(1000 + Math.random() * 9000)}`,
+        branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
+        customerId: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        technicianId: 'cccccccc-0001-0001-0001-000000000001',
+        bookingDate: new Date().toISOString().split('T')[0],
+        status: BookingStatus.PENDING,
+        paymentStatus: PaymentStatus.UNPAID,
+        baseTotal: foundPkg?.discountPrice && foundPkg.discountPrice > pkgPrice ? foundPkg.discountPrice : Math.round(pkgPrice * 1.2),
+        discountAmount: foundPkg?.discountPrice && foundPkg.discountPrice > pkgPrice ? foundPkg.discountPrice - pkgPrice : Math.round(pkgPrice * 0.2),
+        finalPrice: pkgPrice,
+        customer: {
+          id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+          fullName: 'Xuân Trường',
+          phone: '0334750241',
+        } as any,
+        items: [
+          {
+            id: `item-${packageIdParam || 'pkg'}`,
+            serviceId: foundPkg?.serviceId || 'srv-pkg',
+            service: {
+              id: foundPkg?.serviceId || 'srv-pkg',
+              name: `${pkgName} (${totalSessions} buổi)`,
+              durationMinutes: 75,
+              price: pkgPrice,
+            } as any,
+            quantity: 1,
+            unitPrice: pkgPrice,
+          } as any,
+        ],
+      } as any);
+      setIsPaid(false);
+      setSearchTerm(`Xuân Trường / ${pkgName}`);
+    }
+
     if (receiptParam === 'true') {
       setShowReceiptModal(true);
     }
-  }, [searchParams, allBookings]);
+  }, [searchParams, allBookings, treatmentPackages]);
 
   // Handle cross-page / in-page dispatch event from notification click
   useEffect(() => {
@@ -457,6 +513,24 @@ export const W07_CashierPOS: React.FC = () => {
           membership_tier: newTier,
           updated_at: new Date().toISOString(),
         });
+      }
+
+      // KÍCH HOẠT GÓI LIỆU TRÌNH VIP (Nếu là đơn bán gói)
+      if (searchParams.get('packageId') || booking.bookingCode?.startsWith('VIP-PKG-')) {
+        const pkgId = searchParams.get('packageId') || 'tp-001';
+        try {
+          await treatmentService.assignPackageToCustomer({
+            customerId: custId,
+            packageId: pkgId,
+            packageName: serviceName,
+            totalSessions: 5,
+            price: amount,
+            validityMonths: 6,
+            notes: `Khách mua gói qua POS - Hóa đơn ${generatedInvoiceCode}`,
+          });
+        } catch (pkgErr) {
+          console.warn('Lỗi gán gói liệu trình:', pkgErr);
+        }
       }
 
       // TRỤ CỘT 1: BẢO MẬT & AUDIT TRAIL

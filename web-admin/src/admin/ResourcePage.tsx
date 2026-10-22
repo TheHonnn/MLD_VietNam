@@ -3,6 +3,7 @@ import { TrainingActions } from "./TrainingActions";
 import { QuizOptions, quizOptions } from "./QuizOptions";
 import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
 import { ServiceDetailSheet } from "./ServiceDetailView";
+import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -1789,6 +1790,15 @@ function RecordDialog({
               onRefresh={onSaved}
             />
           </div>
+        ) : resource.name === "treatment_packages" && mode === "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[85vh]">
+            <TreatmentPackageDetailSheet
+              row={row}
+              onClose={onClose}
+              onEdit={() => (onSwitchMode ? onSwitchMode("update", row) : undefined)}
+              onRefresh={onSaved}
+            />
+          </div>
         ) : (
           <div className="admin-form-grid">
             {fields.map((c) => {
@@ -2260,8 +2270,13 @@ function availableActions(table: string, row: Row) {
       },
       {
         key: "open-pos",
-        title: "Tạo đơn thu ngân cho gói này",
+        title: "Tạo đơn thu ngân mở bán gói này",
         icon: CreditCard,
+      },
+      {
+        key: "open-treatment",
+        title: "Xem phác đồ & tiến trình điều trị",
+        icon: Layers,
       },
     ];
   if (table === "bookings")
@@ -2791,8 +2806,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                     return;
                                   }
                                   if (a.key === "open-pos") {
+                                    if (table === "treatment_packages") {
+                                      window.location.href = `/cashier-pos?packageId=${encodeURIComponent(row.id)}&packageName=${encodeURIComponent(row.name || "")}`;
+                                      return;
+                                    }
                                     const sName = row.name || "";
                                     window.location.href = `/cashier-pos?serviceName=${encodeURIComponent(sName)}`;
+                                    return;
+                                  }
+                                  if (a.key === "open-treatment") {
+                                    window.location.href = `/treatment-management?packageId=${encodeURIComponent(row.id)}`;
                                     return;
                                   }
                                   if (a.key === "view-schedule") {
