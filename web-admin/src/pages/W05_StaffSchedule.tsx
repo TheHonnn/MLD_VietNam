@@ -24,6 +24,7 @@ import {
   Trash2,
   AlertOctagon,
   XCircle,
+  FileText,
 } from 'lucide-react';
 import {
   bookingService,
@@ -45,6 +46,11 @@ import {
   BranchRoom,
 } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
+
+const SUPABASE_URL =
+  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
+const VALID_SERVICE_ROLE_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
 
 interface ScheduleAppointment {
   id: string;
@@ -244,6 +250,7 @@ export const W05_StaffSchedule: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [rooms, setRooms] = useState<BranchRoom[]>([]);
+  const [consultationSurveys, setConsultationSurveys] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Filters State
@@ -264,13 +271,21 @@ export const W05_StaffSchedule: React.FC = () => {
   const fetchScheduleData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [bkRes, techRes, custRes, brRes, srvRes, roomRes] = await Promise.all([
+      const [bkRes, techRes, custRes, brRes, srvRes, roomRes, surveysRes] = await Promise.all([
         bookingService.getBookings(),
         supabaseService.getTechnicians(),
         customerService.getCustomers(),
         branchService.getAllBranches(),
         supabaseService.getServices(),
         supabaseService.getRooms(),
+        fetch(`${SUPABASE_URL}/rest/v1/consultation_surveys?select=*`, {
+          headers: {
+            apikey: VALID_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
+          },
+        })
+          .then((r) => r.json())
+          .catch(() => []),
       ]);
 
       if (bkRes.success && bkRes.data) setLiveBookings(bkRes.data);
@@ -279,6 +294,7 @@ export const W05_StaffSchedule: React.FC = () => {
       if (brRes.success && brRes.data) setBranches(brRes.data);
       if (srvRes && srvRes.length > 0) setServices(srvRes);
       if (roomRes && roomRes.length > 0) setRooms(roomRes);
+      if (Array.isArray(surveysRes)) setConsultationSurveys(surveysRes);
     } catch (err) {
       console.error('Failed to load schedule data:', err);
       toast.error('Lỗi tải dữ liệu', 'Không thể kết nối đến máy chủ. Vui lòng thử lại.');
@@ -581,6 +597,22 @@ export const W05_StaffSchedule: React.FC = () => {
       allAppointments[0]
     );
   }, [allAppointments, displayedAppointments, selectedAppId]);
+
+  // Consultation survey for the currently selected appointment
+  const surveyForSelectedApp = useMemo(() => {
+    if (!selectedApp) return null;
+    return consultationSurveys.find(
+      (s) =>
+        s.booking_id === selectedApp.id ||
+        (s.customer_id &&
+          s.customer_id ===
+            customers.find(
+              (c) =>
+                c.fullName === selectedApp.customer ||
+                c.phone === selectedApp.customerPhone
+            )?.id)
+    );
+  }, [consultationSurveys, selectedApp, customers]);
 
   // Handle URL navigation with booking code or id
   useEffect(() => {
@@ -1484,6 +1516,73 @@ export const W05_StaffSchedule: React.FC = () => {
                   <span className="font-bold text-[#0D6832]">{selectedApp.remaining}</span>
                 </div>
               </div>
+
+              {/* Consultation Survey / Customer Intake Card */}
+              {surveyForSelectedApp && (
+                <div className="bg-[#FAF8F5] border border-[#E8DFD8] rounded-2xl p-3.5 space-y-2 text-xs animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold text-[#3E200C] flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-[#985018]" />
+                      <span>Khảo sát trước dịch vụ của khách</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(
+                          `/manage/consultation_surveys?search=${encodeURIComponent(selectedApp.customer)}`
+                        )
+                      }
+                      className="text-[11px] font-bold text-[#985018] hover:underline cursor-pointer flex items-center gap-0.5"
+                    >
+                      <span>Xem phiếu</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Safety Alert Chips */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {surveyForSelectedApp.has_sensitive_skin && (
+                      <span className="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5]">
+                        ⚠️ Da nhạy cảm
+                      </span>
+                    )}
+                    {surveyForSelectedApp.has_oil_allergy && (
+                      <span className="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]">
+                        ⛔ Dị ứng: {surveyForSelectedApp.allergy_details || 'Tinh dầu'}
+                      </span>
+                    )}
+                    {surveyForSelectedApp.pressure_pref && (
+                      <span className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                        Lực:{' '}
+                        {surveyForSelectedApp.pressure_pref === 'STRONG'
+                          ? 'Lực mạnh'
+                          : surveyForSelectedApp.pressure_pref === 'LIGHT'
+                          ? 'Nhẹ nhàng'
+                          : 'Vừa phải'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Focus areas */}
+                  {surveyForSelectedApp.focus_areas && (
+                    <div className="text-[11px] text-[#73675F]">
+                      <span className="font-semibold text-[#2C241E]">Vùng tập trung: </span>
+                      <span>
+                        {Array.isArray(surveyForSelectedApp.focus_areas)
+                          ? surveyForSelectedApp.focus_areas.join(', ')
+                          : String(surveyForSelectedApp.focus_areas)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Special requests */}
+                  {surveyForSelectedApp.special_requests && (
+                    <div className="text-[11px] text-[#2C241E] bg-[#FAF0E4]/60 p-2 rounded-lg italic">
+                      "{surveyForSelectedApp.special_requests}"
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Status Banner with Dynamic Colors */}
               {isOverdue ? (

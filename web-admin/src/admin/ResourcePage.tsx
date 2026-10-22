@@ -1410,38 +1410,54 @@ function RecordDialog({
             </label>
           )}
         </div>
+        )}
         {error && (
           <p role="alert" className="admin-error">
             {error}
           </p>
         )}
-        <footer>
-          <button
-            type="button"
-            className="admin-secondary"
-            onClick={onClose}
-            disabled={busy}
-          >
-            Đóng
-          </button>
-          {mode !== "view" && (
+        {!(resource.name === "consultation_surveys" && mode === "view") && (
+          <footer>
             <button
-              className="admin-primary"
-              disabled={
-                busy || (mode === "update" && !Object.keys(values).length)
-              }
+              type="button"
+              className="admin-secondary"
+              onClick={onClose}
+              disabled={busy}
             >
-              {busy ? <LoaderCircle className="animate-spin" /> : <Save />}Lưu
-              thay đổi
+              Đóng
             </button>
-          )}
-        </footer>
+            {mode !== "view" && (
+              <button
+                className="admin-primary"
+                disabled={
+                  busy || (mode === "update" && !Object.keys(values).length)
+                }
+              >
+                {busy ? <LoaderCircle className="animate-spin" /> : <Save />}Lưu
+                thay đổi
+              </button>
+            )}
+          </footer>
+        )}
       </form>
     </dialog>
   );
 }
 
 function availableActions(table: string, row: Row) {
+  if (table === "consultation_surveys")
+    return [
+      {
+        key: "open-schedule",
+        title: "Xem ca hẹn trên Lịch trình chuyên viên",
+        icon: Calendar,
+      },
+      {
+        key: "handover-tech",
+        title: "Dặn dò KTV phụ trách ca hẹn",
+        icon: Send,
+      },
+    ];
   if (table === "bookings")
     return row.status === "CONFIRMED"
       ? [{ key: "checkin", title: "Check-in", icon: Check }]
@@ -1934,6 +1950,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                 className="admin-icon"
                                 title={a.title}
                                 onClick={() => {
+                                  if (a.key === "open-schedule") {
+                                    const bCode =
+                                      row.booking_code ||
+                                      row.bookings?.booking_code ||
+                                      (typeof row.booking_id === "string"
+                                        ? row.booking_id
+                                        : "");
+                                    window.location.href = `/staff-schedule?booking=${encodeURIComponent(bCode)}`;
+                                    return;
+                                  }
                                   setReason("");
                                   setConfirmation({
                                     row,
@@ -2038,16 +2064,25 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               ? "Bản ghi sẽ bị xóa khỏi database chung."
               : confirmation.action === "confirm-payment"
                 ? "Chỉ xác nhận khi thực tế đã nhận đủ tiền mặt hoặc kiểm tra giao dịch chuyển khoản."
-                : ["refund", "confirm-refund"].includes(confirmation.action)
-                  ? "Chỉ xác nhận sau khi thực tế đã hoàn tiền cho khách hàng."
-                  : "Thay đổi sẽ được lưu vào database chung."}
+                : confirmation.action === "handover-tech"
+                  ? "Nhập nội dung dặn dò kỹ thuật viên phụ trách ca hẹn này để KTV xem được trực tiếp trên lịch phòng:"
+                  : ["refund", "confirm-refund"].includes(confirmation.action)
+                    ? "Chỉ xác nhận sau khi thực tế đã hoàn tiền cho khách hàng."
+                    : "Thay đổi sẽ được lưu vào database chung."}
           </p>
-          {["revoke", "refund", "confirm-refund"].includes(
+          {["revoke", "refund", "confirm-refund", "handover-tech"].includes(
             confirmation.action,
           ) && (
             <label>
-              Lý do
+              {confirmation.action === "handover-tech"
+                ? "Nội dung dặn dò chuyên viên / KTV phụ trách"
+                : "Lý do"}
               <textarea
+                placeholder={
+                  confirmation.action === "handover-tech"
+                    ? "Ví dụ: Khách da nhạy cảm vùng cổ, massage nhẹ nhàng vai gáy, dùng tinh dầu gừng ấm..."
+                    : ""
+                }
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 maxLength={2000}
@@ -2066,7 +2101,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               className="admin-primary"
               disabled={
                 pending ||
-                (["revoke", "refund", "confirm-refund"].includes(
+                (["revoke", "refund", "confirm-refund", "handover-tech"].includes(
                   confirmation.action,
                 ) &&
                   !reason.trim())
@@ -2074,6 +2109,25 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               onClick={async () => {
                 setPending(true);
                 try {
+                  if (confirmation.action === "handover-tech") {
+                    const bId = confirmation.row.booking_id;
+                    if (bId) {
+                      await adminApi("bookings/update", {
+                        key: { id: bId },
+                        values: {
+                          special_notes: reason,
+                          checkin_notes: `[Dặn dò KTV từ Khảo sát] ${reason}`,
+                        },
+                      });
+                      setNotice(
+                        "Đã chuyển nội dung dặn dò tới ca làm việc của chuyên viên thành công."
+                      );
+                    }
+                    setConfirmation(null);
+                    setVersion((v) => v + 1);
+                    return;
+                  }
+
                   await adminApi(
                     `${table}/${confirmation.action === "delete" ? "delete" : "action"}`,
                     {
