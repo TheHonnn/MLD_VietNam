@@ -142,6 +142,29 @@ export const academyService = {
       };
     }
   },
+  async createEnrollment(data: {
+    studentId: string;
+    courseId: string;
+    batchId?: string | null;
+    status?: EnrollmentStatus;
+    tuitionTotal?: number;
+    amountPaid?: number;
+  }): Promise<ApiResponse<CourseEnrollment>> {
+    try {
+      const created = await supabaseService.createEnrollment(data);
+      if (created) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Tạo hồ sơ tuyển sinh thành công trên Supabase Cloud',
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] createEnrollment error:', err);
+    }
+    return legacyWrite<CourseEnrollment>('course_enrollments', data);
+  },
 
   async updateEnrollmentStatus(
     id: string,

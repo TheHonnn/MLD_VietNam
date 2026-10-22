@@ -1386,6 +1386,53 @@ class SupabaseService {
   }
 
   // 15. QUẢN LÝ GHI DANH & HỌC PHÍ HỌC VIỆN (ACADEMY ENROLLMENT FSM)
+  async createEnrollment(data: {
+    studentId: string;
+    courseId: string;
+    batchId?: string | null;
+    status?: EnrollmentStatus;
+    tuitionTotal?: number;
+    amountPaid?: number;
+  }): Promise<CourseEnrollment | null> {
+    try {
+      const payload: Record<string, any> = {
+        student_id: data.studentId,
+        course_id: data.courseId,
+        batch_id: data.batchId || null,
+        status: data.status || EnrollmentStatus.CONSULTING,
+        tuition_total: data.tuitionTotal || 9000000,
+        amount_paid: data.amountPaid || 0,
+        completed_lessons_count: 0,
+        progress_percent: 0,
+        enrolled_at: new Date().toISOString(),
+      };
+      const res = await this.query<any[]>('course_enrollments', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const enr = res[0];
+        return {
+          id: enr.id,
+          studentId: enr.student_id,
+          courseId: enr.course_id,
+          batchId: enr.batch_id,
+          status: enr.status as EnrollmentStatus,
+          tuitionTotal: Number(enr.tuition_total),
+          amountPaid: Number(enr.amount_paid),
+          completedLessonsCount: enr.completed_lessons_count || 0,
+          progressPercent: enr.progress_percent || 0,
+          enrolledAt: enr.enrolled_at,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[SupabaseService] createEnrollment error:', err);
+      return null;
+    }
+  }
+
   async updateEnrollment(
     enrollmentId: string,
     updates: {
