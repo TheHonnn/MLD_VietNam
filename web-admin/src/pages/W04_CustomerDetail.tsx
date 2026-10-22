@@ -44,6 +44,7 @@ import {
   CourseBatch,
   Branch,
   Invoice,
+  TuitionTransaction,
   MemberTier,
   PurposeInterest,
   PackageStatus,
@@ -53,6 +54,27 @@ import {
 } from '../types/shared_types';
 
 import { useSearchParams, useNavigate } from 'react-router-dom';
+
+const formatTierName = (tier?: MemberTier | string) => {
+  switch (tier) {
+    case MemberTier.SILVER:
+    case 'SILVER':
+      return 'Bạc';
+    case MemberTier.GOLD:
+    case 'GOLD':
+      return 'Vàng';
+    case MemberTier.PLATINUM:
+    case 'PLATINUM':
+      return 'Bạch Kim';
+    case MemberTier.DIAMOND:
+    case 'DIAMOND':
+      return 'Kim Cương';
+    case MemberTier.STANDARD:
+    case 'STANDARD':
+    default:
+      return 'Tiêu chuẩn';
+  }
+};
 
 const getNextTierInfo = (tier?: MemberTier, spent: number = 0) => {
   const TIER_THRESHOLDS = [
@@ -99,6 +121,7 @@ export const W04_CustomerDetail: React.FC = () => {
   const [batches, setBatches] = useState<CourseBatch[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [tuitionTransactions, setTuitionTransactions] = useState<TuitionTransaction[]>([]);
   const [availablePackages, setAvailablePackages] = useState<TreatmentPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -193,6 +216,7 @@ export const W04_CustomerDetail: React.FC = () => {
           branchRes,
           invRes,
           treatPkgRes,
+          tuitionRes,
         ] = await Promise.all([
           custId ? bookingService.getBookings({ customerId: custId }) : Promise.resolve({ success: true, data: [] }),
           custId ? treatmentService.getUserPackagesByCustomer(custId) : Promise.resolve({ success: true, data: [] }),
@@ -203,6 +227,7 @@ export const W04_CustomerDetail: React.FC = () => {
           branchService.getAllBranches(),
           custId ? posService.getInvoices({ customerId: custId }) : Promise.resolve({ success: true, data: [] }),
           treatmentService.getTreatmentPackages(),
+          academyService.getTuitionTransactions(),
         ]);
 
         if (bkRes.success && bkRes.data) setBookings(bkRes.data);
@@ -215,6 +240,11 @@ export const W04_CustomerDetail: React.FC = () => {
         if (treatPkgRes.success && treatPkgRes.data) {
           setAvailablePackages(treatPkgRes.data);
           if (treatPkgRes.data.length > 0) setSelectedPackageId(treatPkgRes.data[0].id);
+        }
+
+        if (tuitionRes.success && tuitionRes.data && custId) {
+          const userTuitions = tuitionRes.data.filter((tt: TuitionTransaction) => tt.studentId === custId);
+          setTuitionTransactions(userTuitions);
         }
 
         if (enrRes.success && enrRes.data && custId) {
@@ -272,6 +302,16 @@ export const W04_CustomerDetail: React.FC = () => {
       });
     });
 
+    // Real Tuition Transactions
+    tuitionTransactions.forEach((tt) => {
+      const d = tt.paidAt ? new Date(tt.paidAt) : new Date();
+      events.push({
+        timestamp: d.getTime(),
+        dateStr: formatDateVN(tt.paidAt),
+        text: `Biên lai học phí ${tt.transactionCode || ''}: ${(tt.amount || 0).toLocaleString('vi-VN')}đ (${tt.paymentStatus === 'PAID' ? 'Đã hoàn tất thanh toán' : 'Chờ thu'}).`,
+      });
+    });
+
     // Real Packages
     packages.forEach((pkg) => {
       const d = pkg.purchasedAt ? new Date(pkg.purchasedAt) : (pkg.expiresAt ? new Date(pkg.expiresAt) : new Date());
@@ -317,14 +357,43 @@ export const W04_CustomerDetail: React.FC = () => {
 
     events.sort((a, b) => b.timestamp - a.timestamp);
     return events.slice(0, 5);
-  }, [invoices, packages, enrollments, journals, bookings, coursesMap, branchesMap]);
+  }, [invoices, tuitionTransactions, packages, enrollments, journals, bookings, coursesMap, branchesMap]);
+
+  // Total actual spending combining Spa invoices & Academy tuition payments
+  const totalActualSpent = useMemo(() => {
+    const paidInvoices = invoices.filter((i) => i.paymentStatus === 'PAID');
+    const totalPaidInvoices = paidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+    const paidTuitions = tuitionTransactions.filter((t) => t.paymentStatus === 'PAID');
+    const totalPaidTuition = paidTuitions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const enrollmentPaid = enrollments.reduce((sum, e) => sum + (e.amountPaid || 0), 0);
+    const actualTuition = Math.max(totalPaidTuition, enrollmentPaid);
+    const calculatedSum = totalPaidInvoices + actualTuition;
+    return Math.max(customer?.totalSpent || 0, calculatedSum);
+  }, [invoices, tuitionTransactions, enrollments, customer]);
+
+  // Effective tier derived from actual spending or user record
+  const effectiveTier = useMemo(() => {
+    if (customer?.membershipTier && customer.membershipTier !== MemberTier.STANDARD) {
+      return customer.membershipTier;
+    }
+    if (totalActualSpent >= 100_000_000) return MemberTier.DIAMOND;
+    if (totalActualSpent >= 50_000_000) return MemberTier.PLATINUM;
+    if (totalActualSpent >= 25_000_000) return MemberTier.GOLD;
+    if (totalActualSpent >= 10_000_000) return MemberTier.SILVER;
+    return MemberTier.STANDARD;
+  }, [customer?.membershipTier, totalActualSpent]);
 
   // Financial Stats synthesized from 100% REAL Supabase data
   const financialStats = useMemo(() => {
     const paidInvoices = invoices.filter((i) => i.paymentStatus === 'PAID');
     const totalPaidInvoices = paidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-    const paidCount = paidInvoices.length;
-    const paidAmount = totalPaidInvoices > 0 ? totalPaidInvoices : (customer?.totalSpent || 0);
+    const paidTuitions = tuitionTransactions.filter((t) => t.paymentStatus === 'PAID');
+    const totalPaidTuition = paidTuitions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const enrollmentPaid = enrollments.reduce((sum, e) => sum + (e.amountPaid || 0), 0);
+    const actualTuition = Math.max(totalPaidTuition, enrollmentPaid);
+
+    const paidCount = paidInvoices.length + (paidTuitions.length > 0 ? paidTuitions.length : (actualTuition > 0 ? 1 : 0));
+    const paidAmount = totalActualSpent;
 
     // Academy deposit & tuition
     let unpaidEnrollmentDeposit = 0;
@@ -360,7 +429,87 @@ export const W04_CustomerDetail: React.FC = () => {
       totalLearnedHours,
       enrolledCourseNames,
     };
-  }, [invoices, enrollments, coursesMap, bookings, customer]);
+  }, [invoices, tuitionTransactions, enrollments, coursesMap, bookings, customer, totalActualSpent]);
+
+  // Unified Transactions List for Tab Giao dịch
+  const allTransactions = useMemo(() => {
+    type UnifiedTransaction = {
+      id: string;
+      code: string;
+      type: 'INVOICE' | 'TUITION';
+      title: string;
+      dateStr: string;
+      timestamp: number;
+      method: string;
+      amount: number;
+      status: string;
+      isPaid: boolean;
+    };
+
+    const list: UnifiedTransaction[] = [];
+
+    invoices.forEach((inv) => {
+      const d = inv.paidAt ? new Date(inv.paidAt) : new Date();
+      list.push({
+        id: inv.id,
+        code: inv.invoiceCode || 'HD-POS',
+        type: 'INVOICE',
+        title: 'Hóa đơn dịch vụ & liệu trình Spa',
+        dateStr: formatDateVN(inv.paidAt),
+        timestamp: d.getTime(),
+        method:
+          inv.paymentMethod === PaymentMethod.BANK_TRANSFER || (inv.paymentMethod as string) === 'VIETQR'
+            ? 'Chuyển khoản VietQR'
+            : 'Ví MOMO / Tiền mặt',
+        amount: inv.totalAmount || 0,
+        status: inv.paymentStatus === 'PAID' ? 'Đã hoàn tất' : 'Chờ thanh toán',
+        isPaid: inv.paymentStatus === 'PAID',
+      });
+    });
+
+    tuitionTransactions.forEach((tt) => {
+      const d = tt.paidAt ? new Date(tt.paidAt) : new Date();
+      list.push({
+        id: tt.id,
+        code: tt.transactionCode || 'HP-ACADEMY',
+        type: 'TUITION',
+        title: 'Học phí đào tạo Học viện MLD Academy',
+        dateStr: formatDateVN(tt.paidAt),
+        timestamp: d.getTime(),
+        method:
+          tt.paymentMethod === PaymentMethod.BANK_TRANSFER || (tt.paymentMethod as string) === 'VIETQR'
+            ? 'Chuyển khoản VietQR'
+            : 'Chuyển khoản ngân hàng',
+        amount: tt.amount || 0,
+        status: tt.paymentStatus === 'PAID' ? 'Đã hoàn tất' : 'Chờ thanh toán',
+        isPaid: tt.paymentStatus === 'PAID',
+      });
+    });
+
+    if (tuitionTransactions.length === 0 && enrollments.some((e) => (e.amountPaid || 0) > 0)) {
+      enrollments.forEach((e) => {
+        if ((e.amountPaid || 0) > 0) {
+          const c = e.courseId ? coursesMap.get(e.courseId) : undefined;
+          const d = e.enrolledAt ? new Date(e.enrolledAt) : new Date();
+          list.push({
+            id: `enr-pay-${e.id}`,
+            code: `HP-${c?.code || 'K26'}-001`,
+            type: 'TUITION',
+            title: `Học phí khóa ${c?.title || 'Academy'}`,
+            dateStr: formatDateVN(e.enrolledAt),
+            timestamp: d.getTime(),
+            method: 'Chuyển khoản VietQR',
+            amount: e.amountPaid || 0,
+            status: 'Đã hoàn tất',
+            isPaid: true,
+          });
+        }
+      });
+    }
+
+    list.sort((a, b) => b.timestamp - a.timestamp);
+    return list;
+  }, [invoices, tuitionTransactions, enrollments, coursesMap]);
 
   // Handler: Complete 1 Session of Package
   const handleCompleteSession = async (pkg: UserPackage) => {
@@ -572,7 +721,7 @@ export const W04_CustomerDetail: React.FC = () => {
     }
   };
 
-  const tierInfo = getNextTierInfo(customer?.membershipTier, customer?.totalSpent || 0);
+  const tierInfo = getNextTierInfo(effectiveTier, totalActualSpent);
 
   // Status Badge for Bookings
   const renderBookingStatusBadge = (status?: BookingStatus | string) => {
@@ -699,7 +848,7 @@ export const W04_CustomerDetail: React.FC = () => {
                     {customer?.phone || '0987654321'} · Đã xác thực
                   </div>
                   <div className="text-xs font-semibold text-[#8A4F23] mt-0.5">
-                    Hội viên {customer?.membershipTier || 'Vàng'}
+                    Hội viên {formatTierName(effectiveTier)}
                   </div>
                 </div>
               </div>
@@ -719,7 +868,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="flex items-center justify-between relative z-10">
                 <span className="text-xs font-semibold text-[#F3E2CE]">
-                  Hội viên {customer?.membershipTier || 'Vàng'}
+                  Hội viên {formatTierName(effectiveTier)}
                 </span>
                 <Crown className="w-4 h-4 text-[#F3E2CE] stroke-[2]" />
               </div>
@@ -749,7 +898,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="mt-2.5 pt-2 border-t border-white/10 text-[11px] text-[#F3E2CE]/70 flex items-center justify-between">
                 <span>Dữ liệu thời gian thực</span>
-                <span>{customer?.totalSpent ? `${(customer.totalSpent / 1000000).toFixed(1)}M chi tiêu` : '0đ chi tiêu'}</span>
+                <span>{totalActualSpent > 0 ? `${(totalActualSpent / 1000000).toFixed(1)}M chi tiêu` : '0đ chi tiêu'}</span>
               </div>
             </div>
 
@@ -1352,16 +1501,16 @@ export const W04_CustomerDetail: React.FC = () => {
             </div>
           )}
 
-          {/* TAB: GIAO DỊCH (Invoices & POS Receipts) */}
+          {/* TAB: GIAO DỊCH (Invoices & POS Receipts & Tuition) */}
           {activeTab === 'Giao dịch' && (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
                 <div>
                   <h3 className="text-base font-bold text-[#3E200C]">
-                    Lịch sử giao dịch & Hóa đơn thu ngân ({invoices.length})
+                    Lịch sử giao dịch & Hóa đơn thu ngân ({allTransactions.length})
                   </h3>
                   <p className="text-xs text-[#73675F] mt-0.5">
-                    Biên nhận thanh toán POS, chuyển khoản VietQR và đặt cọc
+                    Hóa đơn dịch vụ Spa, biên lai học phí Academy và chuyển khoản VietQR
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F5ECE3] text-[#985018]">
@@ -1370,28 +1519,39 @@ export const W04_CustomerDetail: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                {invoices.length === 0 ? (
+                {allTransactions.length === 0 ? (
                   <div className="p-6 text-center text-xs text-[#8C7A6B]">
-                    Chưa ghi nhận hóa đơn giao dịch nào cho khách hàng này.
+                    Chưa ghi nhận hóa đơn giao dịch hay biên lai học phí nào cho khách hàng này.
                   </div>
                 ) : (
-                  invoices.map((inv) => (
+                  allTransactions.map((tx) => (
                     <div
-                      key={inv.id}
+                      key={tx.id}
                       className="p-3.5 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-bold text-[#2C241E]">{inv.invoiceCode}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#2C241E]">{tx.code}</span>
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              tx.type === 'TUITION'
+                                ? 'bg-[#EBF3E8] text-[#3D7A39] border border-[#CDE3C9]'
+                                : 'bg-[#F5ECE3] text-[#985018] border border-[#F3C7A8]'
+                            }`}
+                          >
+                            {tx.type === 'TUITION' ? 'Học phí Academy' : 'Dịch vụ Spa'}
+                          </span>
+                        </div>
                         <div className="text-[11px] text-[#73675F] mt-0.5">
-                          {formatDateVN(inv.paidAt)} · {inv.paymentMethod === PaymentMethod.BANK_TRANSFER || (inv.paymentMethod as string) === 'VIETQR' ? 'Chuyển khoản VietQR' : 'Ví MOMO / Tiền mặt'}
+                          {tx.dateStr} · {tx.title} · {tx.method}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-[#985018]">
-                          {(inv.totalAmount || 0).toLocaleString('vi-VN')}đ
+                          {(tx.amount || 0).toLocaleString('vi-VN')}đ
                         </div>
-                        <span className="text-[10px] text-[#2E7D32] font-semibold">
-                          {inv.paymentStatus === 'PAID' ? 'Đã hoàn tất' : 'Chờ thanh toán'}
+                        <span className={`text-[10px] font-semibold ${tx.isPaid ? 'text-[#2E7D32]' : 'text-[#C2410C]'}`}>
+                          {tx.status}
                         </span>
                       </div>
                     </div>
@@ -1461,7 +1621,7 @@ export const W04_CustomerDetail: React.FC = () => {
             <div>
               <div className="text-base font-bold text-[#2C241E]">{customer?.fullName}</div>
               <div className="text-xs text-[#8A4F23] font-semibold mt-0.5">
-                Hội viên {customer?.membershipTier || 'Vàng'} · {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
+                Hội viên {formatTierName(effectiveTier)} · {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
               </div>
               <div className="text-xs text-[#73675F] mt-1 font-mono tracking-wider">
                 Mã hội viên: {customer?.referralCode || 'MYDUYEN99'}
