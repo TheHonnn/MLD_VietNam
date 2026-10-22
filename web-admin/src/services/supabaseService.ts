@@ -1548,17 +1548,18 @@ class SupabaseService {
 
   // 17. NÂNG HẠNG THÀNH VIÊN THEO MỨC CHI TIÊU (LOYALTY FSM)
   calculateTier(totalSpent: number): MemberTier {
-    if (totalSpent >= 30000000) return MemberTier.DIAMOND;
-    if (totalSpent >= 15000000) return MemberTier.PLATINUM;
-    if (totalSpent >= 5000000) return MemberTier.GOLD;
-    return MemberTier.SILVER;
+    if (totalSpent >= 100000000) return MemberTier.DIAMOND;
+    if (totalSpent >= 50000000) return MemberTier.PLATINUM;
+    if (totalSpent >= 25000000) return MemberTier.GOLD;
+    if (totalSpent >= 10000000) return MemberTier.SILVER;
+    return MemberTier.STANDARD;
   }
 
   async calculateAndUpgradeTier(userId: string, newTotalSpent: number): Promise<MemberTier> {
     const tier = this.calculateTier(newTotalSpent);
     await this.updateUser(userId, {
       total_spent: newTotalSpent,
-      member_tier: tier,
+      membership_tier: tier,
       updated_at: new Date().toISOString(),
     });
     return tier;

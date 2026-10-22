@@ -366,7 +366,7 @@ export const W07_CashierPOS: React.FC = () => {
         await supabaseService.updateUser(custId, {
           total_spent: newTotalSpent,
           reward_points: curPoints + earnedPoints,
-          member_tier: newTier,
+          membership_tier: newTier,
           updated_at: new Date().toISOString(),
         });
       }
