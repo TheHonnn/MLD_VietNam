@@ -136,6 +136,10 @@ export const W07_CashierPOS: React.FC = () => {
     discount?: string;
     date: string;
     status?: string;
+    commissionText?: string;
+    technicianName?: string;
+    znsSent?: boolean;
+    materialsText?: string;
   } | null>(null);
 
   const [newReceipts, setNewReceipts] = useState<Array<{
@@ -455,8 +459,124 @@ export const W07_CashierPOS: React.FC = () => {
         });
       }
 
+      // TRỤ CỘT 1: BẢO MẬT & AUDIT TRAIL
+      await supabaseService.createAuditLog({
+        tableName: 'invoices',
+        action: 'INSERT',
+        recordId: generatedInvoiceCode,
+        description: `Thu ngân quyết toán hóa đơn POS ${generatedInvoiceCode} (${formattedAmount}) cho khách ${customerName}.`,
+        newData: {
+          invoiceCode: generatedInvoiceCode,
+          amount,
+          paymentMethod: paymentMethodEnum,
+          bookingId: booking.id,
+          customerId: custId,
+        },
+      });
+
+      // TRỤ CỘT 2: HOA HỒNG KTV & LƯƠNG THƯỞNG (10% Dịch vụ)
+      const targetTechId = booking.technicianId || 'cccccccc-0001-0001-0001-000000000001';
+      const assignedTechName = technicianName !== 'Chưa phân công' ? technicianName : 'Trần Lan Anh';
+      const techCommissionAmount = Math.round(amount * 0.1); // 10% ca dịch vụ
+      await supabaseService.recordStaffCommission({
+        staffId: targetTechId,
+        branchId: booking.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+        bookingId: booking.id,
+        invoiceId: generatedInvoiceCode,
+        commissionType: 'SERVICE_DIRECT',
+        baseAmount: amount,
+        percentage: 10,
+        notes: `Hoa hồng 10% dịch vụ ${serviceName} (Hóa đơn ${generatedInvoiceCode})`,
+      });
+
+      // TRỤ CỘT 4: QUẢN LÝ ĐỊNH MỨC TIÊU HAO VẬT TƯ (BOM)
+      const branchIdForStock = booking.branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
+      await Promise.all([
+        supabaseService.recordInventoryConsumption({
+          branchId: branchIdForStock,
+          serviceId: booking.items?.[0]?.serviceId || 'srv-1',
+          bookingId: booking.id,
+          invoiceId: generatedInvoiceCode,
+          technicianId: targetTechId,
+          materialName: 'Dầu gội thảo dược Organic MLD',
+          quantityDeducted: 30,
+          unit: 'ml',
+        }),
+        supabaseService.recordInventoryConsumption({
+          branchId: branchIdForStock,
+          serviceId: booking.items?.[0]?.serviceId || 'srv-1',
+          bookingId: booking.id,
+          invoiceId: generatedInvoiceCode,
+          technicianId: targetTechId,
+          materialName: 'Tinh dầu dưỡng tóc phục hồi Argan',
+          quantityDeducted: 5,
+          unit: 'ml',
+        }),
+        supabaseService.recordInventoryConsumption({
+          branchId: branchIdForStock,
+          serviceId: booking.items?.[0]?.serviceId || 'srv-1',
+          bookingId: booking.id,
+          invoiceId: generatedInvoiceCode,
+          technicianId: targetTechId,
+          materialName: 'Khăn bông spa tiệt trùng',
+          quantityDeducted: 2,
+          unit: 'chiếc',
+        }),
+      ]);
+
+      // TRỤ CỘT 3: TỰ ĐỘNG HÓA CRM GỬI TIN NHẮN ZALO ZNS
+      await notificationService.sendZaloZNS(
+        'BOOKING_CONFIRM',
+        customerPhone,
+        customerName,
+        {
+          serviceName,
+          appointmentTime: booking.bookingDate || 'Hôm nay',
+          branchName,
+          invoiceCode: generatedInvoiceCode,
+          amount: formattedAmount,
+          customerId: custId,
+        }
+      );
+
       // 4. Đồng bộ State giao diện lập tức
       setIsPaid(true);
+
+      const methodLabel =
+        selectedMethod === 'onsite'
+          ? 'Thanh toán tại cơ sở'
+          : selectedMethod === 'online'
+          ? 'Thanh toán trực tuyến (MoMo)'
+          : 'Chuyển khoản VietQR (MB Bank · 0099999999678)';
+
+      setSelectedReceiptData({
+        id: generatedInvoiceCode,
+        customerName,
+        customerPhone,
+        customerTier: customer?.membershipTier || 'MEMBER',
+        branchName,
+        branchAddress,
+        serviceName,
+        category: 'SERVICE',
+        method: methodLabel,
+        amount: formattedAmount,
+        subtotal: `${(booking.baseTotal || amount).toLocaleString('vi-VN')}đ`,
+        discount: booking.discountAmount ? `${booking.discountAmount.toLocaleString('vi-VN')}đ` : '0đ',
+        date: new Intl.DateTimeFormat('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        }).format(new Date()),
+        status: 'Đã thanh toán',
+        commissionText: `+${techCommissionAmount.toLocaleString('vi-VN')}đ (KTV ${assignedTechName})`,
+        technicianName: assignedTechName,
+        znsSent: true,
+        materialsText: 'Dầu gội Organic (30ml) · Tinh dầu Argan (5ml) · Khăn spa (2)',
+      });
+
       setShowReceiptModal(true);
 
       if (resInvoice.success && resInvoice.data) {
@@ -486,13 +606,6 @@ export const W07_CashierPOS: React.FC = () => {
             : b
         )
       );
-
-      const methodLabel =
-        selectedMethod === 'onsite'
-          ? 'Thanh toán tại cơ sở'
-          : selectedMethod === 'online'
-          ? 'Thanh toán trực tuyến (MoMo)'
-          : 'Chuyển khoản VietQR (MB Bank · 0099999999678)';
 
       const newReceipt = {
         id: generatedInvoiceCode,
@@ -527,7 +640,7 @@ export const W07_CashierPOS: React.FC = () => {
 
       toast.success(
         'Ghi nhận thanh toán thành công!',
-        `Đã thu ${formattedAmount} cho hóa đơn ${bookingCode} (${customerName}) và lưu tự động vào Supabase Cloud.`
+        `Đã thu ${formattedAmount} đơn ${bookingCode} (${customerName}), tự động tính hoa hồng KTV & xuất kho tiêu hao.`
       );
 
       notificationService.addNotification({
@@ -1992,6 +2105,39 @@ export const W07_CashierPOS: React.FC = () => {
                   <span className="text-base font-extrabold text-[#0D6832]">
                     {selectedReceiptData?.amount || `${(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ`}
                   </span>
+                </div>
+
+                {/* Trụ cột Enterprise: Hoa hồng KTV, Zalo ZNS & Xuất kho BOM */}
+                <div className="pt-2 border-t border-[#EFE4D9] space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] bg-[#FFF8F0] px-2.5 py-1.5 rounded-lg border border-[#F5E5D5]">
+                    <span className="text-[#8A4F23] font-medium flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#8A4F23]" />
+                      <span>Hoa hồng KTV (10%):</span>
+                    </span>
+                    <span className="font-bold text-[#8A4F23]">
+                      {selectedReceiptData?.commissionText || '+39.000đ (KTV Phụ trách)'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] bg-[#F0FDF4] px-2.5 py-1.5 rounded-lg border border-[#DCFCE7]">
+                    <span className="text-[#166534] font-medium flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#166534]" />
+                      <span>Tự động hóa Zalo ZNS:</span>
+                    </span>
+                    <span className="font-bold text-[#166534]">
+                      Đã gửi xác nhận đơn & CSKH
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] bg-[#F8FAFC] px-2.5 py-1.5 rounded-lg border border-[#E2E8F0]">
+                    <span className="text-[#475569] font-medium flex items-center gap-1.5">
+                      <Receipt className="w-3.5 h-3.5 text-[#475569]" />
+                      <span>Định mức kho (BOM):</span>
+                    </span>
+                    <span className="font-semibold text-[#475569] truncate max-w-[200px]" title="Đã xuất vật tư tiêu hao">
+                      {selectedReceiptData?.materialsText || 'Đã xuất 3 vật tư định mức'}
+                    </span>
+                  </div>
                 </div>
               </div>
 

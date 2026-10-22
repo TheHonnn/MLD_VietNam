@@ -7050,5 +7050,278 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       "writable": false,
       "reference": null
     }
+  ],
+  "staff_commissions": [
+    {
+      "name": "id",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": true,
+      "writable": false,
+      "reference": null
+    },
+    {
+      "name": "staff_id",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": {
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "branch_id",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "commission_type",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [
+        "SERVICE_DIRECT",
+        "PACKAGE_UPSELL",
+        "CSAT_BONUS"
+      ],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "base_amount",
+      "type": "numeric",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "percentage",
+      "type": "numeric",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "commission_amount",
+      "type": "numeric",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "status",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [
+        "PENDING",
+        "APPROVED",
+        "PAID"
+      ],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "cycle_month",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "required": false,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "created_at",
+      "type": "timestamptz",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": false,
+      "reference": null
+    }
+  ],
+  "service_materials": [
+    {
+      "name": "id",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": true,
+      "writable": false,
+      "reference": null
+    },
+    {
+      "name": "service_id",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": {
+        "table": "services",
+        "column": "id"
+      }
+    },
+    {
+      "name": "material_name",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "dosage_per_session",
+      "type": "numeric",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "unit",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "required": false,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    }
+  ],
+  "inventory_consumption_logs": [
+    {
+      "name": "id",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": true,
+      "writable": false,
+      "reference": null
+    },
+    {
+      "name": "branch_id",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "material_name",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "quantity_deducted",
+      "type": "numeric",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "unit",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "logged_at",
+      "type": "timestamptz",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": false,
+      "reference": null
+    }
   ]
 };

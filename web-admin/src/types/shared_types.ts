@@ -629,3 +629,71 @@ export interface VoucherDistributionRule {
   description: string;
   isActive: boolean;
 }
+
+// ==========================================
+// ENTERPRISE EXTENSION TYPES
+// ==========================================
+
+export interface AuditLog {
+  id: string;
+  tableName: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  recordId: string;
+  performedBy?: string | null;
+  ipAddress?: string;
+  userAgent?: string;
+  oldData?: Record<string, any> | null;
+  newData?: Record<string, any> | null;
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface StaffCommission {
+  id: string;
+  staffId: string;
+  branchId: string;
+  bookingId?: string | null;
+  invoiceId?: string | null;
+  commissionType: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS';
+  baseAmount: number;
+  percentage: number;
+  commissionAmount: number;
+  status: 'PENDING' | 'APPROVED' | 'PAID';
+  cycleMonth: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface ServiceMaterial {
+  id: string;
+  serviceId: string;
+  materialName: string;
+  dosagePerSession: number;
+  unit: string;
+  notes?: string | null;
+}
+
+export interface InventoryConsumptionLog {
+  id: string;
+  branchId: string;
+  serviceId?: string | null;
+  bookingId?: string | null;
+  invoiceId?: string | null;
+  technicianId?: string | null;
+  materialName: string;
+  quantityDeducted: number;
+  unit: string;
+  loggedAt: string;
+}
+
+export interface ZaloZnsLog {
+  id: string;
+  customerId: string;
+  customerName: string;
+  phone: string;
+  templateType: 'BOOKING_CONFIRM' | 'PRE_REMINDER_2H' | 'POST_CARE_24H' | 'REVISIT_14D';
+  status: 'SENT' | 'DELIVERED' | 'FAILED';
+  contentPreview: string;
+  sentAt: string;
+}
+

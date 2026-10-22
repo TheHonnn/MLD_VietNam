@@ -25,6 +25,7 @@ import {
   AlertOctagon,
   XCircle,
   FileText,
+  Send,
 } from 'lucide-react';
 import {
   bookingService,
@@ -1505,6 +1506,57 @@ export const W05_StaffSchedule: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span>Còn lại thanh toán</span>
                   <span className="font-bold text-[#0D6832]">{selectedApp.remaining}</span>
+                </div>
+              </div>
+
+              {/* Enterprise Trụ cột 2 & 3: Hoa hồng KTV & Zalo ZNS */}
+              <div className="bg-[#FAF8F5] border border-[#E8DFD8] rounded-2xl p-3 space-y-2.5 text-xs animate-in fade-in">
+                <div className="flex items-center justify-between text-[#8A4F23] bg-[#FFF8F0] px-2.5 py-1.5 rounded-lg border border-[#F5E5D5]">
+                  <span className="font-medium flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#8A4F23]" />
+                    <span>Hoa hồng KTV (10% ca):</span>
+                  </span>
+                  <span className="font-bold text-[#8A4F23]">
+                    +{Math.round((parseInt(selectedApp.price.replace(/\D/g, ''), 10) || 390000) * 0.1).toLocaleString('vi-VN')}đ
+                  </span>
+                </div>
+
+                <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-xl p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#166534] flex items-center gap-1.5">
+                      <Send className="w-3 h-3 text-[#166534]" />
+                      <span>Zalo ZNS tự động</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#DCFCE7] text-[#166534]">
+                      Sẵn sàng
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#15803D] leading-snug">
+                    Tự động gửi thông báo xác nhận và tin nhắn ZNS nhắc hẹn trước 2 giờ tới {selectedApp.customerPhone || 'SĐT khách hàng'}.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await notificationService.sendZaloZNS(
+                        'PRE_REMINDER_2H',
+                        selectedApp.customerPhone || '0334750241',
+                        selectedApp.customer,
+                        {
+                          serviceName: selectedApp.service,
+                          appointmentTime: selectedApp.timeRange,
+                          branchName: 'MLD Clinic',
+                        }
+                      );
+                      toast.success(
+                        'Gửi Zalo ZNS thành công!',
+                        `Đã gửi tin nhắn nhắc hẹn 2h tới ${selectedApp.customer} (${selectedApp.customerPhone || '0334750241'}).`
+                      );
+                    }}
+                    className="w-full py-1.5 bg-white border border-[#86EFAC] text-[#15803D] hover:bg-[#F0FDF4] rounded-lg text-[11px] font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Gửi thử Zalo ZNS nhắc hẹn 2h</span>
+                  </button>
                 </div>
               </div>
 
