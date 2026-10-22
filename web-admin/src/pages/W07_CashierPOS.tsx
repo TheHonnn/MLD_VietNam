@@ -42,10 +42,27 @@ export const W07_CashierPOS: React.FC = () => {
     return 'pos';
   });
 
+  const handleBranchSelect = (bId: string) => {
+    setSelectedBranchId(bId);
+    localStorage.setItem('mld_selected_branch_id', bId);
+    window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId: bId } }));
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (bId && bId !== 'ALL') {
+        next.set('branchId', bId);
+      } else {
+        next.delete('branchId');
+      }
+      return next;
+    });
+  };
+
   // Listen to searchParams and global branch changes
   useEffect(() => {
     const p = searchParams.get('branchId');
-    if (p) setSelectedBranchId(p);
+    if (p && p !== selectedBranchId) {
+      setSelectedBranchId(p);
+    }
 
     const tab = searchParams.get('tab');
     if (tab === 'receipts' || window.location.hash === '#receipts') {
@@ -58,7 +75,18 @@ export const W07_CashierPOS: React.FC = () => {
   useEffect(() => {
     const handleGlobalBranchChange = (e: any) => {
       const bId = e?.detail?.branchId;
-      if (bId) setSelectedBranchId(bId);
+      if (bId) {
+        setSelectedBranchId(bId);
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          if (bId !== 'ALL') {
+            next.set('branchId', bId);
+          } else {
+            next.delete('branchId');
+          }
+          return next;
+        });
+      }
     };
 
     const handleBranchesUpdated = () => {
@@ -90,7 +118,6 @@ export const W07_CashierPOS: React.FC = () => {
 
   // Invoices Tab Filter States
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
-  const [invoiceBranchFilter, setInvoiceBranchFilter] = useState('ALL');
   const [invoiceMethodFilter, setInvoiceMethodFilter] = useState('ALL');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
 
@@ -344,15 +371,18 @@ export const W07_CashierPOS: React.FC = () => {
   const serviceDuration = primaryItem?.service?.durationMinutes || primaryItem?.durationMinutes || 0;
   const serviceImage = primaryItem?.service?.imageUrl || '/spa_massage_banner.png';
 
-  const activeBranch = branches.find((b) => b.id === selectedBranchId) || (selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId) : undefined) || branches[0];
+  const activeBranch = selectedBranchId !== 'ALL'
+    ? branches.find((b) => b.id === selectedBranchId)
+    : undefined;
 
-  const branchName = booking?.branch?.name || activeBranch?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa';
+  const primaryBranch = activeBranch || branches[0];
+  const branchName = booking?.branch?.name || primaryBranch?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa';
   const branchAddress = booking?.branch?.address
     ? `${booking.branch.address}, ${booking.branch.district}, ${booking.branch.city}`
-    : activeBranch
-    ? `${activeBranch.address}, ${activeBranch.district}, ${activeBranch.city}`
+    : primaryBranch
+    ? `${primaryBranch.address}, ${primaryBranch.district}, ${primaryBranch.city}`
     : 'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh';
-  const branchCode = booking?.branch?.code || activeBranch?.code || 'MLD-Q3';
+  const branchCode = booking?.branch?.code || primaryBranch?.code || 'MLD-Q3';
 
   const roomName = booking?.room?.name
     ? `${booking.room.name}${booking.assignedBedNumber ? ` (${booking.assignedBedNumber})` : ''}`
@@ -619,7 +649,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   // Filtering for Invoices Tab
   const filteredReceipts = pastReceipts.filter((r) => {
-    if (invoiceBranchFilter !== 'ALL' && r.branchId !== invoiceBranchFilter) {
+    if (selectedBranchId !== 'ALL' && r.branchId !== selectedBranchId) {
       return false;
     }
     if (invoiceMethodFilter !== 'ALL' && r.methodCode !== invoiceMethodFilter) {
@@ -642,9 +672,9 @@ export const W07_CashierPOS: React.FC = () => {
     .reduce((sum, r) => sum + r.rawAmount, 0);
 
   // Overall KPI metrics
-  const kpiDataset = invoiceBranchFilter === 'ALL'
+  const kpiDataset = selectedBranchId === 'ALL'
     ? pastReceipts
-    : pastReceipts.filter((r) => r.branchId === invoiceBranchFilter);
+    : pastReceipts.filter((r) => r.branchId === selectedBranchId);
 
   const kpiPaid = kpiDataset.filter((r) => r.statusCode === PaymentStatus.PAID || r.status === 'Đã thanh toán');
   const kpiTotalRevenue = kpiPaid.reduce((sum, r) => sum + r.rawAmount, 0);
@@ -662,11 +692,24 @@ export const W07_CashierPOS: React.FC = () => {
             <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
               Thu ngân & Quản lý Hóa đơn
             </h1>
-            {activeBranch && (
-              <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
-                {activeBranch.name} ({activeBranch.code})
-              </span>
-            )}
+            
+            {/* Interactive Branch Switcher Pill in Header */}
+            <div className="relative inline-flex items-center">
+              <select
+                value={selectedBranchId}
+                onChange={(e) => handleBranchSelect(e.target.value)}
+                className="h-8 pl-3 pr-8 rounded-full border border-[#D7BBA6] bg-[#FAF0E4] hover:bg-[#F3E2CE] text-xs font-bold text-[#8A4F23] transition-colors appearance-none focus:outline-none focus:ring-2 focus:ring-[#985018]/20 cursor-pointer shadow-xs"
+                title="Bấm để chuyển đổi cơ sở làm việc"
+              >
+                <option value="ALL">🏢 Tất cả cơ sở ({branches.length})</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    📍 {b.name} ({b.code})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-[#8A4F23] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
             MLD Beauty & Spa • Hệ thống quản lý thanh toán POS & sổ hóa đơn điện tử thời gian thực
@@ -797,25 +840,7 @@ export const W07_CashierPOS: React.FC = () => {
         <div className="relative shrink-0">
           <select
             value={selectedBranchId}
-            onChange={(e) => {
-              const bId = e.target.value;
-              setSelectedBranchId(bId);
-              localStorage.setItem('mld_selected_branch_id', bId);
-              window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId: bId } }));
-              if (bId !== 'ALL') {
-                setSearchParams((prev) => {
-                  const next = new URLSearchParams(prev);
-                  next.set('branchId', bId);
-                  return next;
-                });
-              } else {
-                setSearchParams((prev) => {
-                  const next = new URLSearchParams(prev);
-                  next.delete('branchId');
-                  return next;
-                });
-              }
-            }}
+            onChange={(e) => handleBranchSelect(e.target.value)}
             className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
           >
             <option value="ALL">Tất cả chi nhánh ({branches.length})</option>
@@ -864,14 +889,28 @@ export const W07_CashierPOS: React.FC = () => {
                   Vui lòng nhập mã đơn (ví dụ: BK-20261016-003) hoặc tên khách hàng tại thanh tìm kiếm phía trên để tra cứu và quyết toán.
                 </p>
               </div>
-              {allBookings.filter((b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING').length > 0 && (
+              {allBookings.filter((b) => {
+                const isPending = b.paymentStatus === 'UNPAID' || b.status === 'PENDING';
+                if (!isPending) return false;
+                if (selectedBranchId !== 'ALL' && b.branchId && b.branchId !== selectedBranchId) {
+                  return false;
+                }
+                return true;
+              }).length > 0 && (
                 <div className="pt-2">
                   <div className="text-[11px] font-semibold text-[#8A4F23] mb-2">
                     Hoặc chọn nhanh đơn đang chờ thanh toán:
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-md mx-auto">
                     {allBookings
-                      .filter((b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING')
+                      .filter((b) => {
+                        const isPending = b.paymentStatus === 'UNPAID' || b.status === 'PENDING';
+                        if (!isPending) return false;
+                        if (selectedBranchId !== 'ALL' && b.branchId && b.branchId !== selectedBranchId) {
+                          return false;
+                        }
+                        return true;
+                      })
                       .slice(0, 4)
                       .map((b) => (
                         <button
@@ -1556,8 +1595,8 @@ export const W07_CashierPOS: React.FC = () => {
             {/* Branch Filter */}
             <div className="relative shrink-0">
               <select
-                value={invoiceBranchFilter}
-                onChange={(e) => setInvoiceBranchFilter(e.target.value)}
+                value={selectedBranchId}
+                onChange={(e) => handleBranchSelect(e.target.value)}
                 className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
               >
                 <option value="ALL">Tất cả chi nhánh ({pastReceipts.length})</option>
@@ -1600,12 +1639,12 @@ export const W07_CashierPOS: React.FC = () => {
             </div>
 
             {/* Reset Filter Button */}
-            {(invoiceSearchTerm || invoiceBranchFilter !== 'ALL' || invoiceMethodFilter !== 'ALL' || invoiceStatusFilter !== 'ALL') && (
+            {(invoiceSearchTerm || selectedBranchId !== 'ALL' || invoiceMethodFilter !== 'ALL' || invoiceStatusFilter !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
                   setInvoiceSearchTerm('');
-                  setInvoiceBranchFilter('ALL');
+                  handleBranchSelect('ALL');
                   setInvoiceMethodFilter('ALL');
                   setInvoiceStatusFilter('ALL');
                 }}
