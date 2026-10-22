@@ -449,6 +449,63 @@ function formatCell(row: Row, c: Column): React.ReactNode {
       </div>
     );
   }
+  if (c.name === "commission_amount") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="font-extrabold text-[#0D6832] text-xs">
+        +{val.toLocaleString("vi-VN")} ₫
+      </span>
+    );
+  }
+  if (c.name === "base_amount") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="font-medium text-[#2C241E] text-xs">
+        {val.toLocaleString("vi-VN")} ₫
+      </span>
+    );
+  }
+  if (c.name === "percentage") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="font-bold text-[#8A4F23] text-xs">
+        {val}%
+      </span>
+    );
+  }
+  if (c.name === "staff_id") {
+    const name = row.staff_name || row.staff?.full_name || (typeof row[c.name] === "string" ? row[c.name] : null);
+    const phone = row.staff_phone || row.staff?.phone;
+    return (
+      <div>
+        <div className="font-bold text-[#2C241E] text-xs">{name || "—"}</div>
+        {phone && <div className="text-[10px] text-[#8C7A6B]">{phone}</div>}
+      </div>
+    );
+  }
+  if (c.name === "status" && (row.commission_type || row.commission_amount !== undefined)) {
+    const s = String(row[c.name] || "APPROVED");
+    const isPaid = s === "PAID";
+    const isApproved = s === "APPROVED";
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          isPaid
+            ? "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]"
+            : isApproved
+            ? "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]"
+            : "bg-[#FEF9C3] text-[#854D0E] border-[#FEF08A]"
+        }`}
+      >
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${
+            isPaid ? "bg-[#1D4ED8]" : isApproved ? "bg-[#0D6832]" : "bg-[#854D0E]"
+          }`}
+        />
+        <span>{enums[s] || s}</span>
+      </span>
+    );
+  }
   if (c.name === "booking_id") {
     const bCode = row.booking_code || row.bookings?.booking_code || (typeof row[c.name] === "string" ? row[c.name] : null);
     if (!bCode) return "—";
@@ -2512,6 +2569,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "comment",
       "branch_reply",
       "created_at",
+    ],
+    staff_commissions: [
+      "staff_id",
+      "branch_id",
+      "commission_type",
+      "base_amount",
+      "percentage",
+      "commission_amount",
+      "status",
+      "cycle_month",
+      "notes",
     ],
     support_tickets: [
       "customer_id",

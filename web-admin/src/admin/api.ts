@@ -144,6 +144,7 @@ const TABLE_SELECTS: Record<string, string> = {
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
   services: "*,service_categories(name,code)",
   treatment_packages: "*,services(name)",
+  staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -314,6 +315,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         "customer_vouchers",
         "point_transactions",
         "invoices",
+        "staff_commissions",
       ];
       if (tablesWithUser.includes(table)) {
         try {
@@ -330,7 +332,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
 
       // Pre-search bookings if table references booking_id
-      if (["consultation_surveys", "reviews", "treatment_records"].includes(table)) {
+      if (["consultation_surveys", "reviews", "treatment_records", "staff_commissions"].includes(table)) {
         try {
           const bSearchUrl = `${SUPABASE_URL}/rest/v1/bookings?select=id&booking_code=ilike.*${encodeURIComponent(s)}*&limit=25`;
           const bRes = await fetch(bSearchUrl, {
@@ -378,6 +380,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (matchedUserIds.length > 0) {
         if (table === "staff_profiles") {
           orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
+        } else if (table === "staff_commissions") {
+          orClauses.push(`staff_id.in.(${matchedUserIds.join(",")})`);
         } else if (tablesWithUser.includes(table)) {
           orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
         }
@@ -465,6 +469,10 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.technicians) {
         r.technician_name = r.technician_name || r.technicians.full_name;
+      }
+      if (r.staff) {
+        r.staff_name = r.staff_name || r.staff.full_name;
+        r.staff_phone = r.staff_phone || r.staff.phone;
       }
       if (r.services) {
         r.service_name = r.service_name || r.services.name;

@@ -42,6 +42,7 @@ const breadcrumbs: Record<string, string> = {
   '/manage/services': 'Danh mục Dịch vụ Spa',
   '/manage/treatment_packages': 'Gói Liệu trình Combo',
   '/manage/service_categories': 'Danh mục Nhóm Dịch vụ',
+  '/manage/staff_commissions': 'Hoa hồng KTV & Lương thưởng',
   '/cashier-pos': 'Thu ngân',
   '/academy-enrollment': 'Tuyển sinh',
   '/instructors': 'Giảng viên',
