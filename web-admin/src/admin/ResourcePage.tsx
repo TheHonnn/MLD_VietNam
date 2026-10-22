@@ -34,7 +34,12 @@ import {
 } from "./api";
 import { DEFAULT_RESOURCES } from "./defaultResources";
 import { display, enums, label } from "./labels";
-import { VIETNAM_LOCATIONS_2026, VIETNAM_PROVINCE_NAMES } from "../data/vietnamLocations";
+import {
+  VIETNAM_LOCATIONS_2026,
+  VIETNAM_PROVINCE_NAMES,
+  HISTORICAL_TO_2026_PROVINCE,
+  HISTORICAL_PROVINCE_NAMES,
+} from "../data/vietnamLocations";
 
 function formatCell(row: Row, c: Column): React.ReactNode {
   if (c.name === "branch_id") {
@@ -479,13 +484,13 @@ function parseVietnameseAddress(addr: string): {
   }
   const trimmed = addr.trim();
 
-  // Match full province names first by descending length
-  const sortedProvinces = [...VIETNAM_PROVINCE_NAMES].sort((a, b) => b.length - a.length);
+  // 1. Khớp theo 34 tỉnh thành chính thức năm 2026 (ưu tiên tên dài trước)
+  const sorted2026 = [...VIETNAM_PROVINCE_NAMES].sort((a, b) => b.length - a.length);
 
   let matchedProvince = "";
   let remainder = trimmed;
 
-  for (const p of sortedProvinces) {
+  for (const p of sorted2026) {
     const pLower = p.toLowerCase();
     const rLower = remainder.toLowerCase();
     const idx = rLower.lastIndexOf(pLower);
@@ -495,6 +500,24 @@ function parseVietnameseAddress(addr: string): {
         matchedProvince = p;
         remainder = remainder.slice(0, idx).trim().replace(/,\s*$/, "");
         break;
+      }
+    }
+  }
+
+  // 2. Nếu địa chỉ cũ dùng tên 63 tỉnh trước sáp nhập (ví dụ Bình Dương, Hải Dương...), tự động quy đổi về đơn vị mới năm 2026
+  if (!matchedProvince) {
+    const sortedHistorical = [...HISTORICAL_PROVINCE_NAMES].sort((a, b) => b.length - a.length);
+    for (const oldP of sortedHistorical) {
+      const pLower = oldP.toLowerCase();
+      const rLower = remainder.toLowerCase();
+      const idx = rLower.lastIndexOf(pLower);
+      if (idx !== -1) {
+        const after = rLower.slice(idx + pLower.length).trim();
+        if (after === "" || after === "," || after === ".") {
+          matchedProvince = HISTORICAL_TO_2026_PROVINCE[oldP] || oldP;
+          remainder = remainder.slice(0, idx).trim().replace(/,\s*$/, "");
+          break;
+        }
       }
     }
   }
@@ -650,7 +673,7 @@ function AddressInput({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
-                Tỉnh / Thành phố (63 tỉnh thành)
+                Tỉnh / Thành phố (34 tỉnh thành năm 2026)
               </span>
               <select
                 value={province}
