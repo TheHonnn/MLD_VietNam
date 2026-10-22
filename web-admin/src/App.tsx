@@ -57,7 +57,7 @@ const AppContent: React.FC = () => {
           <Route path="treatment-management" element={<W06_TreatmentManagement />} />
           <Route path="staff-schedule" element={<W05_StaffSchedule />} />
           <Route path="technician-schedule" element={<W05_StaffSchedule />} />
-          <Route path="services-catalog" element={<W06_TreatmentManagement />} />
+          <Route path="services-catalog" element={<Navigate to="/manage/services" replace />} />
           <Route path="cashier-pos" element={<W07_CashierPOS />} />
           <Route path="invoices" element={<InvoicesRedirect />} />
           <Route path="receipts" element={<InvoicesRedirect />} />

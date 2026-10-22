@@ -109,6 +109,20 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
       continue;
     }
 
+    // Ensure jsonb / arrays are serialized/parsed cleanly
+    if (colDef && ["json", "jsonb"].includes(colDef.type)) {
+      if (typeof v === "string") {
+        try {
+          clean[k] = JSON.parse(v);
+        } catch {
+          clean[k] = v.split("\n").map((s: string) => s.trim()).filter(Boolean);
+        }
+      } else {
+        clean[k] = v;
+      }
+      continue;
+    }
+
     clean[k] = v;
   }
   return clean;
@@ -128,6 +142,8 @@ const TABLE_SELECTS: Record<string, string> = {
   consultation_surveys: "*,customer:users!customer_id(full_name,phone,avatar_url),bookings(booking_code,booking_date,start_time,status)",
   reviews: "*,customer:users!customer_id(full_name,phone),services(name),technicians(full_name),bookings(booking_code)",
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
+  services: "*,service_categories(name,code)",
+  treatment_packages: "*,services(name)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -400,6 +416,10 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (r.services) {
         r.service_name = r.service_name || r.services.name;
       }
+      if (r.service_categories) {
+        r.category_name = r.category_name || r.service_categories.name;
+        r.category_code = r.category_code || r.service_categories.code;
+      }
       if (r.bookings) {
         r.booking_code = r.booking_code || r.bookings.booking_code;
         r.booking_date = r.booking_date || r.bookings.booking_date;
@@ -583,6 +603,36 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       });
       return true as unknown as T;
     }
+    if (payload.action === "toggle-active" && payload.key?.id) {
+      const targetActive = payload.targetActive !== undefined ? Boolean(payload.targetActive) : !Boolean(payload.currentActive);
+      await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
+        method: "PATCH",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_active: targetActive }),
+        signal,
+      });
+      return true as unknown as T;
+    }
+
+    if (payload.action === "toggle-featured" && payload.key?.id) {
+      const targetFeatured = payload.targetFeatured !== undefined ? Boolean(payload.targetFeatured) : !Boolean(payload.currentFeatured);
+      await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
+        method: "PATCH",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_featured: targetFeatured }),
+        signal,
+      });
+      return true as unknown as T;
+    }
+
     return true as unknown as T;
   }
 
