@@ -300,11 +300,24 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (search && search.trim()) {
       const s = search.trim();
       let matchedUserIds: string[] = [];
+      let matchedBookingIds: string[] = [];
 
-      // Pre-search users if table has user relations
-      if (table === "staff_profiles" || table === "bookings") {
+      // Pre-search users if table has customer/user relations
+      const tablesWithUser = [
+        "staff_profiles",
+        "bookings",
+        "consultation_surveys",
+        "reviews",
+        "support_tickets",
+        "treatment_records",
+        "treatment_courses",
+        "customer_vouchers",
+        "point_transactions",
+        "invoices",
+      ];
+      if (tablesWithUser.includes(table)) {
         try {
-          const userSearchUrl = `${SUPABASE_URL}/rest/v1/users?select=id&or=(full_name.ilike.*${encodeURIComponent(s)}*,phone.ilike.*${encodeURIComponent(s)}*)&limit=20`;
+          const userSearchUrl = `${SUPABASE_URL}/rest/v1/users?select=id&or=(full_name.ilike.*${encodeURIComponent(s)}*,phone.ilike.*${encodeURIComponent(s)}*)&limit=25`;
           const uRes = await fetch(userSearchUrl, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
             signal,
@@ -316,14 +329,47 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         } catch {}
       }
 
+      // Pre-search bookings if table references booking_id
+      if (["consultation_surveys", "reviews", "treatment_records"].includes(table)) {
+        try {
+          const bSearchUrl = `${SUPABASE_URL}/rest/v1/bookings?select=id&booking_code=ilike.*${encodeURIComponent(s)}*&limit=25`;
+          const bRes = await fetch(bSearchUrl, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            signal,
+          });
+          if (bRes.ok) {
+            const bRows: Array<{ id: string }> = await bRes.json();
+            matchedBookingIds = bRows.map((b) => b.id);
+          }
+        } catch {}
+      }
+
+      const NON_SEARCHABLE_COLS = new Set([
+        "focus_areas",
+        "medical_conditions",
+        "skin_condition_tags",
+        "steps",
+        "benefits",
+        "review_tags",
+        "photos",
+        "tags",
+        "options",
+        "metadata",
+        "extra_data",
+        "custom_fields",
+      ]);
+
       const textCols = (SCHEMA_COLUMNS[table] || [])
         .filter(
           (c) =>
             ["varchar", "text"].includes(c.type) &&
+            !c.type.includes("[]") &&
+            !c.type.includes("array") &&
             !c.name.endsWith("_url") &&
             !c.name.endsWith("_hash") &&
             c.name !== "id" &&
-            !c.name.endsWith("_id"),
+            !c.name.endsWith("_id") &&
+            !NON_SEARCHABLE_COLS.has(c.name),
         )
         .map((c) => c.name)
         .slice(0, 5);
@@ -332,13 +378,20 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (matchedUserIds.length > 0) {
         if (table === "staff_profiles") {
           orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
-        } else if (["bookings", "consultation_surveys", "reviews", "support_tickets"].includes(table)) {
+        } else if (tablesWithUser.includes(table)) {
           orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
         }
       }
 
+      if (matchedBookingIds.length > 0) {
+        orClauses.push(`booking_id.in.(${matchedBookingIds.join(",")})`);
+      }
+
       if (orClauses.length > 0) {
         url += `&or=(${orClauses.join(",")})`;
+      } else if (tablesWithUser.includes(table)) {
+        // Searched user keyword with no match and no text cols matched
+        url += `&id=eq.00000000-0000-0000-0000-000000000000`;
       }
     }
 

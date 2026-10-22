@@ -3061,7 +3061,7 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
     },
     {
       "name": "focus_areas",
-      "type": "text",
+      "type": "text[]",
       "required": false,
       "hasDefault": true,
       "maxLength": null,
@@ -3116,7 +3116,7 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
     },
     {
       "name": "medical_conditions",
-      "type": "text",
+      "type": "text[]",
       "required": false,
       "hasDefault": true,
       "maxLength": null,
