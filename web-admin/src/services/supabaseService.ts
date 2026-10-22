@@ -1118,8 +1118,8 @@ class SupabaseService {
 
   // 11. HÓA ĐƠN THU NGÂN (INVOICES)
   async getInvoices(branchId?: string, customerId?: string): Promise<Invoice[] | null> {
-    let path = `invoices?select=*&order=paid_at.desc`;
-    if (branchId) path += `&branch_id=eq.${branchId}`;
+    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city)&order=paid_at.desc`;
+    if (branchId && branchId !== 'ALL') path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
     const raw = await this.query<any[]>(path);
@@ -1144,6 +1144,22 @@ class SupabaseService {
       gatewayTransactionId: inv.gateway_transaction_id,
       refundAmount: Number(inv.refund_amount || 0),
       paidAt: inv.paid_at,
+      customer: inv.customer ? {
+        id: inv.customer.id,
+        fullName: inv.customer.full_name || 'Khách hàng',
+        phone: inv.customer.phone || '--',
+        email: inv.customer.email,
+        avatarUrl: inv.customer.avatar_url,
+        membershipTier: inv.customer.membership_tier,
+      } as any : undefined,
+      branch: inv.branch ? {
+        id: inv.branch.id,
+        name: inv.branch.name,
+        code: inv.branch.code,
+        address: inv.branch.address,
+        district: inv.branch.district,
+        city: inv.branch.city,
+      } as any : undefined,
     }));
   }
 

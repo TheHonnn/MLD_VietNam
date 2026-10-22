@@ -447,7 +447,7 @@ export const W01_Dashboard: React.FC = () => {
       value: `${totalCollected.toLocaleString('vi-VN')}đ`,
       subtext: `${paidCount} biên nhận đã hoàn tất`,
       icon: Wallet,
-      route: '/cashier-pos?tab=receipts#receipts',
+      route: '/cashier-pos?tab=receipts',
       actionLabel: 'Xem hóa đơn',
     },
     {
@@ -455,7 +455,7 @@ export const W01_Dashboard: React.FC = () => {
       value: `${paidCount}`,
       subtext: 'Hoàn tiền: 0đ',
       icon: Receipt,
-      route: '/cashier-pos?tab=receipts#receipts',
+      route: '/cashier-pos?tab=receipts',
       actionLabel: 'Xem hóa đơn',
     },
     {

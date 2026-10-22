@@ -21,7 +21,6 @@ import {
   Save,
   AlertCircle,
   Upload,
-  MapPin,
 } from "lucide-react";
 import {
   adminApi,
@@ -556,7 +555,6 @@ function AddressInput({
   onChange: (v: string) => void;
   required?: boolean;
 }) {
-  const [isManual, setIsManual] = useState(false);
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
   const [customDistrict, setCustomDistrict] = useState("");
@@ -575,10 +573,8 @@ function AddressInput({
             setDistrict(parsed.district);
           }
           setStreet(parsed.street);
-          setIsManual(false);
         } else {
           setStreet(value);
-          setIsManual(true);
         }
       }
     }
@@ -621,215 +617,129 @@ function AddressInput({
     updateCombined(val, effectiveDistrict, province);
   };
 
-  const switchToStructured = () => {
-    const parsed = parseVietnameseAddress(value);
-    setProvince(parsed.province);
-    setDistrict(parsed.district);
-    setStreet(parsed.street);
-    setIsCustomDistrict(false);
-    setIsManual(false);
-  };
-
-  const switchToManual = () => {
-    setIsManual(true);
-  };
-
   const availableDistricts = province ? VIETNAM_LOCATIONS_2026[province] || [] : [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-      {isManual ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <textarea
-            rows={2}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Nhập địa chỉ đầy đủ (Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh)..."
+      {/* Row 1: Tỉnh/Thành phố & Quận/Huyện */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
+            Tỉnh / Thành phố
+          </span>
+          <select
+            value={province}
+            onChange={(e) => handleProvinceChange(e.target.value)}
             required={required}
-            style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #E8DFD8", boxSizing: "border-box" }}
-          />
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={switchToStructured}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#8A4F23",
-                fontSize: "12px",
-                fontWeight: 600,
-                cursor: "pointer",
-                padding: "2px 4px",
-                textDecoration: "underline",
-              }}
-            >
-              ✨ Chuyển sang chọn theo Tỉnh / Thành phố & Quận / Huyện
-            </button>
-          </div>
+            style={{
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: "1px solid #E8DFD8",
+              background: "#fff",
+              fontSize: "13px",
+              color: "#332A24",
+              width: "100%",
+            }}
+          >
+            <option value="">-- Chọn Tỉnh / Thành phố --</option>
+            {VIETNAM_PROVINCE_NAMES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {/* Row 1: Tỉnh/Thành phố & Quận/Huyện */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
-                Tỉnh / Thành phố (34 tỉnh thành năm 2026)
-              </span>
-              <select
-                value={province}
-                onChange={(e) => handleProvinceChange(e.target.value)}
-                required={required}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
+            Quận / Huyện / Thị xã
+          </span>
+          {isCustomDistrict ? (
+            <div style={{ display: "flex", gap: "6px" }}>
+              <input
+                type="text"
+                value={customDistrict}
+                onChange={(e) => handleCustomDistrictChange(e.target.value)}
+                placeholder="Nhập quận/huyện..."
                 style={{
+                  flex: 1,
                   padding: "8px 12px",
                   borderRadius: "8px",
                   border: "1px solid #E8DFD8",
-                  background: "#fff",
                   fontSize: "13px",
-                  color: "#332A24",
-                  width: "100%",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomDistrict(false);
+                  setCustomDistrict("");
+                }}
+                style={{
+                  padding: "6px 10px",
+                  fontSize: "11px",
+                  background: "#F3EDE7",
+                  border: "1px solid #E2D7CB",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <option value="">-- Chọn Tỉnh / Thành phố --</option>
-                {VIETNAM_PROVINCE_NAMES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+                Danh sách
+              </button>
             </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
-                Quận / Huyện / Thị xã
-              </span>
-              {isCustomDistrict ? (
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <input
-                    type="text"
-                    value={customDistrict}
-                    onChange={(e) => handleCustomDistrictChange(e.target.value)}
-                    placeholder="Nhập quận/huyện..."
-                    style={{
-                      flex: 1,
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid #E8DFD8",
-                      fontSize: "13px",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCustomDistrict(false);
-                      setCustomDistrict("");
-                    }}
-                    style={{
-                      padding: "6px 10px",
-                      fontSize: "11px",
-                      background: "#F3EDE7",
-                      border: "1px solid #E2D7CB",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Danh sách
-                  </button>
-                </div>
-              ) : (
-                <select
-                  value={district}
-                  onChange={(e) => handleDistrictChange(e.target.value)}
-                  disabled={!province}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    border: "1px solid #E8DFD8",
-                    background: province ? "#fff" : "#FAF8F5",
-                    fontSize: "13px",
-                    color: "#332A24",
-                    width: "100%",
-                  }}
-                >
-                  <option value="">
-                    {province ? "-- Chọn Quận / Huyện --" : "-- Hãy chọn Tỉnh/Thành trước --"}
-                  </option>
-                  {district && !availableDistricts.includes(district) && (
-                    <option value={district}>{district}</option>
-                  )}
-                  {availableDistricts.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                  {province && <option value="__CUSTOM__">+ Nhập quận / huyện khác...</option>}
-                </select>
-              )}
-            </div>
-          </div>
-
-          {/* Row 2: Địa chỉ chi tiết */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
-              Số nhà, tên đường, tòa nhà, phường/xã
-            </span>
-            <input
-              type="text"
-              value={street}
-              onChange={(e) => handleStreetChange(e.target.value)}
-              placeholder="Ví dụ: Số 123 Nguyễn Huệ, Phường Bến Nghé..."
+          ) : (
+            <select
+              value={district}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              disabled={!province}
               style={{
-                width: "100%",
                 padding: "8px 12px",
                 borderRadius: "8px",
                 border: "1px solid #E8DFD8",
+                background: province ? "#fff" : "#FAF8F5",
                 fontSize: "13px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          {/* Combined Preview & Manual Mode switch */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "7px 10px",
-              background: "#FAF8F5",
-              border: "1px dashed #E2D7CB",
-              borderRadius: "8px",
-              fontSize: "12px",
-              gap: "8px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#554A41", overflow: "hidden", minWidth: 0 }}>
-              <MapPin size={14} style={{ color: "#8A4F23", flexShrink: 0 }} />
-              <span style={{ fontWeight: 600, color: "#8A4F23", flexShrink: 0 }}>Địa chỉ đầy đủ:</span>
-              <span style={{ color: value ? "#2C241E" : "#998E84", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                {value || "(Chưa có thông tin)"}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={switchToManual}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#766554",
-                fontSize: "11px",
-                fontWeight: 500,
-                cursor: "pointer",
-                padding: "2px 6px",
-                textDecoration: "underline",
-                flexShrink: 0,
+                color: "#332A24",
+                width: "100%",
               }}
             >
-              Nhập tự do
-            </button>
-          </div>
+              <option value="">
+                {province ? "-- Chọn Quận / Huyện --" : "-- Hãy chọn Tỉnh/Thành trước --"}
+              </option>
+              {district && !availableDistricts.includes(district) && (
+                <option value={district}>{district}</option>
+              )}
+              {availableDistricts.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+              {province && <option value="__CUSTOM__">+ Nhập quận / huyện khác...</option>}
+            </select>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* Row 2: Địa chỉ chi tiết */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        <span style={{ fontSize: "11px", fontWeight: 600, color: "#766554" }}>
+          Số nhà, tên đường, tòa nhà, phường/xã
+        </span>
+        <input
+          type="text"
+          value={street}
+          onChange={(e) => handleStreetChange(e.target.value)}
+          placeholder="Ví dụ: Số 123 Nguyễn Huệ, Phường Bến Nghé..."
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "1px solid #E8DFD8",
+            fontSize: "13px",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -578,6 +578,8 @@ export interface Invoice {
   paidAt: string;
   customer?: User;
   branch?: Branch;
+  serviceTitle?: string;
+  serviceCategory?: 'SERVICE' | 'PACKAGE' | 'ACADEMY' | 'OTHER';
 }
 
 export interface Coupon {
