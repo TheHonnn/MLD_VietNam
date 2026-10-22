@@ -17,6 +17,7 @@ import {
   User,
   Phone,
   Radio,
+  ArrowUpRight,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -426,36 +427,60 @@ export const W01_Dashboard: React.FC = () => {
   const packagePct = ((packageRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
   const tuitionPct = ((tuitionRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
 
+  const handleKpiClick = useCallback((route?: string) => {
+    if (!route) return;
+    if (route.includes('#')) {
+      const [baseWithQuery, hash] = route.split('#');
+      const sep = baseWithQuery.includes('?') ? '&' : '?';
+      const branchParam = selectedBranchId && selectedBranchId !== 'ALL' ? `${sep}branchId=${selectedBranchId}` : '';
+      navigate(`${baseWithQuery}${branchParam}#${hash}`);
+    } else {
+      const sep = route.includes('?') ? '&' : '?';
+      const branchParam = selectedBranchId && selectedBranchId !== 'ALL' ? `${sep}branchId=${selectedBranchId}` : '';
+      navigate(`${route}${branchParam}`);
+    }
+  }, [navigate, selectedBranchId]);
+
   const kpis = [
     {
       title: 'Thực thu trong kỳ',
       value: `${totalCollected.toLocaleString('vi-VN')}đ`,
       subtext: `${paidCount} biên nhận đã hoàn tất`,
       icon: Wallet,
+      route: '/cashier-pos?tab=receipts#receipts',
+      actionLabel: 'Xem hóa đơn',
     },
     {
       title: 'Giao dịch đã thanh toán',
       value: `${paidCount}`,
       subtext: 'Hoàn tiền: 0đ',
       icon: Receipt,
+      route: '/cashier-pos?tab=receipts#receipts',
+      actionLabel: 'Xem hóa đơn',
     },
     {
       title: 'Lịch hẹn sắp tới',
       value: `${upcomingCount}`,
       subtext: `${pendingBookings.length} lịch hẹn chờ thanh toán`,
       icon: Calendar,
+      route: '/staff-schedule',
+      actionLabel: 'Xem lịch hẹn',
     },
     {
       title: 'Gói liệu trình đang dùng',
       value: `${packagesCount}`,
       subtext: `${userPackages.reduce((s, p) => s + (p.totalSessions - p.completedSessions), 0)} buổi còn lại`,
       icon: Leaf,
+      route: '/treatment-management',
+      actionLabel: 'Xem liệu trình',
     },
     {
       title: 'Khóa đã ghi danh',
       value: `${enrolledCount}`,
       subtext: `${filteredEnrollments.filter((e) => e.status === 'STUDYING' || e.status === 'ENROLLED').length} học viên đang học`,
       icon: GraduationCap,
+      route: '/academy-enrollment',
+      actionLabel: 'Xem ghi danh',
     },
   ];
 
@@ -1083,20 +1108,40 @@ export const W01_Dashboard: React.FC = () => {
           return (
             <div
               key={idx}
-              className="bg-white p-4 rounded-2xl border border-[#EFE4D9] flex flex-col justify-between shadow-xs transition-transform hover:-translate-y-0.5"
+              role="button"
+              tabIndex={0}
+              onClick={() => handleKpiClick(kpi.route)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleKpiClick(kpi.route);
+                }
+              }}
+              className="group bg-white p-4 rounded-2xl border border-[#EFE4D9] hover:border-[#985018] flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer text-left select-none relative overflow-hidden"
+              title={`Nhấp để mở ${kpi.title.toLowerCase()} (${kpi.actionLabel})`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold text-[#7A6E63]">{kpi.title}</span>
-                <Icon className="w-4 h-4 text-[#985018] stroke-[1.6]" />
+                <span className="text-[11px] font-semibold text-[#7A6E63] group-hover:text-[#985018] transition-colors">
+                  {kpi.title}
+                </span>
+                <div className="w-6 h-6 rounded-lg bg-[#FAF4EE] group-hover:bg-[#985018] flex items-center justify-center transition-colors">
+                  <Icon className="w-3.5 h-3.5 text-[#985018] group-hover:text-white stroke-[1.8] transition-colors" />
+                </div>
               </div>
               <div className="my-1">
                 <div className="text-[22px] sm:text-[24px] xl:text-[26px] font-extrabold text-[#8E4002] tracking-tight leading-none">
                   {isLoading ? '...' : kpi.value}
                 </div>
               </div>
-              <p className="text-[10.5px] text-[#8C7E72] font-medium truncate mt-1">
-                {kpi.subtext}
-              </p>
+              <div className="flex items-center justify-between gap-1 mt-1 pt-1 border-t border-[#F5EBE1]/70">
+                <p className="text-[10.5px] text-[#8C7E72] font-medium truncate">
+                  {kpi.subtext}
+                </p>
+                <span className="text-[10px] font-bold text-[#985018] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
+                  <span>{kpi.actionLabel}</span>
+                  <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+                </span>
+              </div>
             </div>
           );
         })}
@@ -1275,11 +1320,22 @@ export const W01_Dashboard: React.FC = () => {
 
           {/* Card: Cần xử lý */}
           <div className="bg-[#F3E2CE] p-5 rounded-xl border border-[#ECD9C6] space-y-3.5 shadow-xs">
-            <div>
-              <h3 className="text-sm font-bold text-[#2C241E]">Cần xử lý</h3>
-              <p className="text-[11px] font-bold text-[#985018] mt-0.5">
-                Cần thu ngay • {totalNeedToCollect.toLocaleString('vi-VN')}đ
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-[#2C241E]">Cần xử lý</h3>
+                <p className="text-[11px] font-bold text-[#985018] mt-0.5">
+                  Cần thu ngay • {totalNeedToCollect.toLocaleString('vi-VN')}đ
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleKpiClick('/cashier-pos')}
+                className="px-2.5 py-1 text-[11px] font-bold text-[#985018] bg-white hover:bg-[#FAF4EE] border border-[#D7BBA6] rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                title="Đến trang thu ngân để thanh toán & đối soát hóa đơn"
+              >
+                <span>Thu ngân</span>
+                <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+              </button>
             </div>
 
             <div className="space-y-3 text-xs">

@@ -34,6 +34,15 @@ export const W07_CashierPOS: React.FC = () => {
   useEffect(() => {
     const p = searchParams.get('branchId');
     if (p) setSelectedBranchId(p);
+
+    if (window.location.hash === '#receipts' || searchParams.get('tab') === 'receipts') {
+      const el = document.getElementById('receipts');
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+      }
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -468,7 +477,7 @@ export const W07_CashierPOS: React.FC = () => {
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight">
-              Thu ngân
+              Thu ngân & Hóa đơn
             </h1>
             {activeBranch && (
               <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
@@ -482,12 +491,25 @@ export const W07_CashierPOS: React.FC = () => {
               : 'Chưa chọn đơn dịch vụ · Vui lòng nhập mã đơn hoặc tên khách hàng để quyết toán'}
           </p>
         </div>
-        <button
-          onClick={handleLookupClick}
-          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
-        >
-          Tra cứu đơn dịch vụ
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('receipts');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="px-4 py-2.5 bg-white hover:bg-[#FAF4EE] border border-[#D7BBA6] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Xem sổ hóa đơn ({pastReceipts.length})</span>
+          </button>
+          <button
+            onClick={handleLookupClick}
+            className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+          >
+            Tra cứu đơn dịch vụ
+          </button>
+        </div>
       </div>
 
       {/* 2. Filter Toolbar */}
@@ -1148,7 +1170,7 @@ export const W07_CashierPOS: React.FC = () => {
       )}
 
       {/* 5. Previous Receipts Reconciliation Table */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
+      <div id="receipts" className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs scroll-mt-6">
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between border-b border-[#EFE4D9]">
           <h2 className="text-base font-bold text-[#2C241E]">

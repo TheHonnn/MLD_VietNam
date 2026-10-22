@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Layout } from './components/layout/Layout';
 import { ResourcePage } from "./admin/ResourcePage";
 import { AdminAuth, useAdmin } from "./admin/Auth";
@@ -18,6 +18,11 @@ import { W11_Curriculum } from './pages/W11_Curriculum';
 import { W12_FinancialReports } from './pages/W12_FinancialReports';
 import { TrainingActions } from './admin/TrainingActions';
 import "./admin/admin.css";
+
+const InvoicesRedirect: React.FC = () => {
+  const location = useLocation();
+  return <Navigate to={`/cashier-pos${location.search}`} replace />;
+};
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAdmin();
@@ -54,6 +59,9 @@ const AppContent: React.FC = () => {
           <Route path="technician-schedule" element={<W05_StaffSchedule />} />
           <Route path="services-catalog" element={<W06_TreatmentManagement />} />
           <Route path="cashier-pos" element={<W07_CashierPOS />} />
+          <Route path="invoices" element={<InvoicesRedirect />} />
+          <Route path="receipts" element={<InvoicesRedirect />} />
+          <Route path="hoa-don" element={<InvoicesRedirect />} />
           <Route path="academy-enrollment" element={<W08_Enrollment />} />
           <Route path="instructors" element={<W09_Instructors />} />
           <Route path="instructor" element={<W09_Instructors />} />
