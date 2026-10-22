@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { TrainingActions } from "./TrainingActions";
 import { QuizOptions, quizOptions } from "./QuizOptions";
+import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -22,6 +23,12 @@ import {
   AlertCircle,
   Upload,
   Lock,
+  Calendar,
+  ArrowUpRight,
+  Printer,
+  FileText,
+  Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import {
   adminApi,
@@ -49,7 +56,31 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     return row.full_name || row.users?.full_name || display(row[c.name]);
   }
   if (c.name === "customer_id") {
-    return row.customer_name || row.customer?.full_name || row.users?.full_name || display(row[c.name]);
+    const custName = row.customer_name || row.customer?.full_name || row.users?.full_name || display(row[c.name]);
+    const phone = row.customer_phone || row.customer?.phone || row.users?.phone;
+    const avatar = row.customer_avatar || row.customer?.avatar_url || row.users?.avatar_url;
+    return (
+      <div className="flex items-center gap-2.5">
+        {avatar ? (
+          <img
+            src={avatar}
+            alt=""
+            className="w-7 h-7 rounded-full object-cover border border-[#EFE4D9] shrink-0"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-[#FAF0E4] text-[#985018] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8DFD8]">
+            {String(custName || "K").slice(0, 1)}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-bold text-[#2C241E] truncate leading-tight">{custName}</div>
+          {phone && <div className="text-[10px] text-[#73675F]">{phone}</div>}
+        </div>
+      </div>
+    );
   }
   if (c.name === "technician_id") {
     return row.technician_name || row.technicians?.full_name || display(row[c.name]);
@@ -58,7 +89,98 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     return row.service_name || row.services?.name || display(row[c.name]);
   }
   if (c.name === "booking_id") {
-    return row.booking_code || row.bookings?.booking_code || display(row[c.name]);
+    const bCode = row.booking_code || row.bookings?.booking_code || (typeof row[c.name] === "string" ? row[c.name] : null);
+    if (!bCode) return "—";
+    const shortCode = bCode.startsWith("BK-") ? bCode : `BK-${String(bCode).slice(0, 8)}`;
+    return (
+      <a
+        href={`/staff-schedule?booking=${encodeURIComponent(bCode)}`}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8] hover:bg-[#F3E2CE] hover:text-[#854412] transition-colors"
+        title="Bấm để mở lịch trình ca làm này"
+      >
+        <span>{shortCode}</span>
+        <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+      </a>
+    );
+  }
+  if (c.name === "focus_areas") {
+    const areas = Array.isArray(row[c.name])
+      ? row[c.name]
+      : typeof row[c.name] === "string" && row[c.name].trim().length > 0
+        ? row[c.name].split(",").map((s: string) => s.trim()).filter(Boolean)
+        : [];
+    if (areas.length === 0) return "—";
+    return (
+      <div className="flex flex-wrap gap-1 max-w-[220px]">
+        {areas.map((a: string, idx: number) => (
+          <span
+            key={idx}
+            className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#FAF0E4] text-[#6B4B35] border border-[#E8DFD8]"
+          >
+            {a}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (c.name === "pressure_pref") {
+    const val = String(row[c.name] || "").toUpperCase();
+    if (val === "LIGHT" || val === "NHẸ NHÀNG") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#E8F6ED] text-[#0D6832] border border-[#BDE8CD]">
+          <span>🍃</span>
+          <span>Nhẹ nhàng</span>
+        </span>
+      );
+    }
+    if (val === "MEDIUM" || val === "VỪA PHẢI") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
+          <span>⚡</span>
+          <span>Vừa phải</span>
+        </span>
+      );
+    }
+    if (val === "STRONG" || val === "LỰC MẠNH") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
+          <span>💪</span>
+          <span>Lực mạnh</span>
+        </span>
+      );
+    }
+    return display(row[c.name]);
+  }
+  if (c.name === "has_sensitive_skin") {
+    const isSensitive = Boolean(row[c.name]);
+    return isSensitive ? (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5]">
+        <span>⚠️</span>
+        <span>Da nhạy cảm</span>
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium text-[#73675F] bg-[#FAF8F5] border border-[#E8DFD8]">
+        Bình thường
+      </span>
+    );
+  }
+  if (c.name === "has_oil_allergy") {
+    const hasAllergy = Boolean(row[c.name]);
+    const details = row.allergy_details;
+    return hasAllergy ? (
+      <span
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]"
+        title={details ? `Chi tiết: ${details}` : "Dị ứng tinh dầu"}
+      >
+        <span>⛔</span>
+        <span>Dị ứng{details ? `: ${details}` : ""}</span>
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium text-[#166534] bg-[#E8F6ED] border border-[#DCFCE7]">
+        An toàn
+      </span>
+    );
   }
   if (c.name === "primary_instructor_id" || c.name === "instructor_id") {
     return row.instructor_name || row.instructor?.full_name || display(row[c.name]);
@@ -114,6 +236,30 @@ function formatCell(row: Row, c: Column): React.ReactNode {
         <span className="text-xs text-[#7A6D61] truncate max-w-[130px]">{row[c.name]}</span>
       </div>
     );
+  }
+  if (
+    c.type === "timestamptz" ||
+    c.type === "timestamp" ||
+    c.name === "created_at" ||
+    c.name === "updated_at" ||
+    c.name.endsWith("_at")
+  ) {
+    const val = row[c.name];
+    if (!val) return "—";
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return (
+        <span className="text-[11.5px] font-medium text-[#73675F]" title={String(val)}>
+          {new Intl.DateTimeFormat("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }).format(d)}
+        </span>
+      );
+    }
   }
   if (Array.isArray(row[c.name])) {
     return row[c.name].length > 0 ? row[c.name].join(", ") : "—";
@@ -862,6 +1008,9 @@ function RecordDialog({
         if (resource.name === "reviews" && name !== "branch_reply") {
           continue; // Chỉ cho phép phản hồi chi nhánh, không can thiệp nội dung nhận xét hoặc số sao của khách
         }
+        if (resource.name === "support_tickets" && !["admin_reply", "status"].includes(name)) {
+          continue; // Chỉ cho phép phản hồi và cập nhật trạng thái xử lý yêu cầu hỗ trợ
+        }
         const c = columns.find((x) => x.name === name);
         if (name === "password") {
           if (value) payload.password = value;
@@ -916,13 +1065,19 @@ function RecordDialog({
       <form onSubmit={save}>
         <header>
           <div>
-            <p className="admin-eyebrow">{resource.title}</p>
+            <p className="admin-eyebrow">
+              {resource.name === "consultation_surveys" && mode === "view"
+                ? "MLD Spa & Clinic · Khảo sát lâm sàng"
+                : resource.title}
+            </p>
             <h2 id="record-heading">
-              {mode === "view"
-                ? "Chi tiết"
-                : mode === "create"
-                  ? "Thêm mới"
-                  : "Chỉnh sửa"}
+              {resource.name === "consultation_surveys" && mode === "view"
+                ? "Phiếu Khảo Sát & Chỉ Định Trước Dịch Vụ"
+                : mode === "view"
+                  ? "Chi tiết"
+                  : mode === "create"
+                    ? "Thêm mới"
+                    : "Chỉnh sửa"}
             </h2>
           </div>
           <button
@@ -935,31 +1090,108 @@ function RecordDialog({
             <X />
           </button>
         </header>
-        <div className="admin-form-grid">
-          {fields.map((c) => {
-            const value = current(c),
-              structured =
-                ["json", "jsonb"].includes(c.type) || c.type.startsWith("_");
-            const required = c.required && !c.hasDefault && mode === "create";
-            const text =
-              structured && typeof value === "object"
-                ? JSON.stringify(value, null, 2)
-                : String(value);
-            if (
-              resource.name === "quiz_questions" &&
-              c.name === "options" &&
-              mode !== "view"
-            )
-              return (
-                <QuizOptions
-                  key={c.name}
-                  value={value}
-                  onChange={(options, removed) => {
-                    set("options", options);
-                    if (removed) set("correct_option", "");
-                  }}
-                />
-              );
+
+        {resource.name === "consultation_surveys" && mode === "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[80vh]">
+            <ConsultationSurveySheet
+              row={row}
+              onClose={onClose}
+              onRefresh={onSaved}
+            />
+          </div>
+        ) : (
+          <div className="admin-form-grid">
+            {fields.map((c) => {
+              const value = current(c),
+                structured =
+                  ["json", "jsonb"].includes(c.type) || c.type.startsWith("_");
+              const required = c.required && !c.hasDefault && mode === "create";
+              const text =
+                structured && typeof value === "object"
+                  ? JSON.stringify(value, null, 2)
+                  : String(value);
+
+              if (
+                resource.name === "consultation_surveys" &&
+                c.name === "focus_areas" &&
+                mode !== "view"
+              ) {
+                const currentAreas: string[] = Array.isArray(value)
+                  ? value
+                  : typeof value === "string" && value.length > 0
+                    ? value.split(",").map((s: string) => s.trim())
+                    : [];
+                return (
+                  <div key={c.name} className="admin-field-wide space-y-2">
+                    <span className="text-xs font-bold text-[#2C241E]">
+                      {label(c.name)} {required && <b className="admin-required">*</b>}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 p-3 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl">
+                      {COMMON_FOCUS_AREAS.map((area) => {
+                        const isSelected = currentAreas.includes(area);
+                        return (
+                          <button
+                            type="button"
+                            key={area}
+                            onClick={() => {
+                              const next = isSelected
+                                ? currentAreas.filter((x) => x !== area)
+                                : [...currentAreas, area];
+                              set("focus_areas", next);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              isSelected
+                                ? "bg-[#985018] text-white border-[#985018] shadow-xs"
+                                : "bg-white text-[#73675F] border-[#E8DFD8] hover:border-[#D8BDA7]"
+                            }`}
+                          >
+                            {isSelected ? "✓ " : "+ "}
+                            {area}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (
+                resource.name === "consultation_surveys" &&
+                c.name === "has_oil_allergy" &&
+                mode !== "view"
+              ) {
+                return (
+                  <div key={c.name} className="space-y-2">
+                    <label className="flex items-center gap-2 p-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(value)}
+                        onChange={(e) => set("has_oil_allergy", e.target.checked)}
+                        className="w-4 h-4 text-[#985018] rounded"
+                      />
+                      <span className="text-xs font-bold text-[#2C241E]">
+                        Khách bị dị ứng tinh dầu
+                      </span>
+                    </label>
+                  </div>
+                );
+              }
+
+              if (
+                resource.name === "quiz_questions" &&
+                c.name === "options" &&
+                mode !== "view"
+              )
+                return (
+                  <QuizOptions
+                    key={c.name}
+                    value={value}
+                    onChange={(options, removed) => {
+                      set("options", options);
+                      if (removed) set("correct_option", "");
+                    }}
+                  />
+                );
             return (
               <label
                 key={c.name}
@@ -1007,6 +1239,10 @@ function RecordDialog({
                     </span>
                   </div>
                 ) : resource.name === "reviews" && c.name !== "branch_reply" ? (
+                  <div className="admin-detail-value">
+                    {formatCell(row, c)}
+                  </div>
+                ) : resource.name === "support_tickets" && !["admin_reply", "status"].includes(c.name) ? (
                   <div className="admin-detail-value">
                     {formatCell(row, c)}
                   </div>
@@ -1403,6 +1639,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "focus_areas",
       "pressure_pref",
       "has_sensitive_skin",
+      "has_oil_allergy",
       "special_requests",
       "created_at",
     ],

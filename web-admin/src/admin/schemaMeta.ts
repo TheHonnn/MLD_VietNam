@@ -3076,7 +3076,7 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       "required": false,
       "hasDefault": true,
       "maxLength": null,
-      "options": [],
+      "options": ["LIGHT", "MEDIUM", "STRONG"],
       "primary": false,
       "writable": true,
       "reference": null
