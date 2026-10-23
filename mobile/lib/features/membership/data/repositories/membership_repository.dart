@@ -310,6 +310,28 @@ class MembershipRepository {
     } catch (_) {}
   }
 
+  /// Đồng bộ tức thì thông tin người dùng vừa đăng nhập hoặc xác thực OTP thành công
+  void syncUserSession({
+    String? fullName,
+    String? phone,
+    String? email,
+    String? avatarUrl,
+  }) {
+    final cleanName = fullName?.trim() ?? '';
+    final cleanPhone = phone?.trim() ?? '';
+    final cleanEmail = email?.trim() ?? '';
+    final cleanAvatar = avatarUrl?.trim() ?? '';
+
+    _userProfile = _userProfile.copyWith(
+      fullName: cleanName.isNotEmpty ? cleanName : _userProfile.fullName,
+      phone: cleanPhone.isNotEmpty ? cleanPhone : _userProfile.phone,
+      isPhoneVerified: cleanPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
+      email: cleanEmail.isNotEmpty ? cleanEmail : _userProfile.email,
+      avatarUrl: cleanAvatar.isNotEmpty ? cleanAvatar : _userProfile.avatarUrl,
+    );
+    _persistLocalProfile(_userProfile);
+  }
+
   /// F01/F02: Lấy thông tin hồ sơ cá nhân từ Live Backend Gateway
   Future<UserProfile> fetchProfile() async {
     try {

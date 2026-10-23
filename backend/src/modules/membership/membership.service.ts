@@ -88,7 +88,7 @@ export class MembershipService {
             success: true,
             data: {
               id: user.id,
-              fullName: user.full_name || 'Khách hàng MLD',
+              fullName: user.full_name || '',
               phone: phone,
               isPhoneVerified: phone.trim().length > 0,
               email: user.email || '',
@@ -115,7 +115,7 @@ export class MembershipService {
       success: true,
       data: {
         id: '',
-        fullName: 'Khách hàng MLD',
+        fullName: '',
         phone: '',
         isPhoneVerified: false,
         email: '',

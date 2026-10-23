@@ -144,9 +144,14 @@ class AuthService {
       await _prefs!.setBool(_keyIsLoggedIn, true);
       if (displayName != null) {
         await _prefs!.setString(_keyDisplayName, displayName);
+        await _prefs!.setString('user_full_name', displayName);
       }
       if (avatarUrl != null) {
         await _prefs!.setString(_keyAvatarUrl, avatarUrl);
+        await _prefs!.setString('user_avatar_url', avatarUrl);
+      }
+      if (phone != null) {
+        await _prefs!.setString('user_phone', phone);
       }
     }
 

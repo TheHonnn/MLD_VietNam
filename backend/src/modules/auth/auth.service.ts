@@ -171,7 +171,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-      otp: rawOtp,
+
     };
   }
 
@@ -201,7 +201,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi lại tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-      otp: rawOtp,
+
     };
   }
 

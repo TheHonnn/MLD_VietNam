@@ -137,9 +137,35 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     super.initState();
     _startHeroTimer();
     _loadSuggestedServices();
+    _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
     });
+  }
+
+  Future<void> _loadUserProfile() async {
+    if (AuthService.instance.isLoggedIn) {
+      try {
+        await MembershipRepository.instance.fetchProfile();
+        if (mounted) setState(() {});
+      } catch (_) {}
+    }
+  }
+
+  String _getGreetingName() {
+    final authName = AuthService.instance.currentDisplayName?.trim();
+    final repoName = MembershipRepository.instance.profile.fullName.trim();
+    bool isInvalidMock(String s) => s.isEmpty || s == 'Khách hàng MLD' || s == 'Khách hàng' || s == 'Lễ Tân Hoàng Yến' || s == 'Nguyễn Minh Anh';
+
+    String effective = '';
+    if (authName != null && !isInvalidMock(authName)) {
+      effective = authName;
+    } else if (!isInvalidMock(repoName)) {
+      effective = repoName;
+    }
+
+    if (effective.isEmpty) return 'Bạn';
+    return effective.split(' ').last;
   }
 
   static bool _hasPromptedPhoneThisSession = false;
@@ -553,7 +579,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Xin chào, ${MembershipRepository.instance.profile.fullName.split(' ').last}!',
+                            'Xin chào, ${_getGreetingName()}!',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
