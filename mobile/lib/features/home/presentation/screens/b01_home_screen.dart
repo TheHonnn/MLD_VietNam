@@ -188,20 +188,36 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     if (mounted && liveServices.isNotEmpty) {
       setState(() {
         _suggestedServices = liveServices.map((s) {
+          final displayPriceVal = s.displayPrice;
           final priceFormatted =
-              '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+              '${displayPriceVal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+          final originalPriceFormatted = s.hasDiscount
+              ? '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ'
+              : null;
           return {
             'id': s.id,
             'title': s.name,
             'duration': '${s.durationMinutes} phút',
             'price': priceFormatted,
+            'originalPrice': originalPriceFormatted,
+            'hasDiscount': s.hasDiscount,
+            'discountPercent': s.discountPercent,
             'description': s.description,
             'image': s.imageUrl,
+            'category': s.category,
             'isFavorite': false,
+            'model': s,
           };
         }).toList();
       });
     }
+  }
+
+  Future<void> _handleRefresh() async {
+    await Future.wait([
+      _loadSuggestedServices(),
+      _loadUserProfile(),
+    ]);
   }
 
   @override
@@ -539,9 +555,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(
+        child: RefreshIndicator(
+          onRefresh: _handleRefresh,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(
             left: 20.0,
             right: 20.0,
             top: 8.0,
@@ -1118,8 +1137,11 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             title: service['title'] as String,
                             duration: service['duration'] as String,
                             price: service['price'] as String,
+                            originalPrice: service['originalPrice'] as String?,
+                            category: (service['category'] as String?) ?? 'Massage',
                             image: service['image'] as String,
                             description: service['description'] as String,
+                            service: service['model'] as SpaServiceModel?,
                           ),
                         ),
                       );
@@ -1230,7 +1252,8 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
                               // Thông số thời lượng & Giá
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
                                 children: [
                                   Text(
                                     service['duration'] as String,
@@ -1240,14 +1263,43 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                       color: AppColors.textSecondary, // #6B6158
                                     ),
                                   ),
+                                  const Spacer(),
                                   Text(
                                     service['price'] as String,
                                     style: const TextStyle(
                                       fontSize: 16,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w700,
                                       color: AppColors.primary, // #985018
                                     ),
                                   ),
+                                  if (service['hasDiscount'] == true && service['originalPrice'] != null) ...[
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      service['originalPrice'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        decoration: TextDecoration.lineThrough,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFD64545).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '-${service['discountPercent']}%',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFFD64545),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -1586,6 +1638,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

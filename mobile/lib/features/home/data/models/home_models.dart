@@ -189,6 +189,8 @@ class SpaServiceModel {
   });
 
   double get displayPrice => discountPrice ?? price;
+  bool get hasDiscount => discountPrice != null && discountPrice! > 0 && discountPrice! < price;
+  int get discountPercent => hasDiscount ? (((price - discountPrice!) / price) * 100).round() : 0;
   String get description => shortDescription.isNotEmpty ? shortDescription : fullDescription;
   String get category => categoryName;
 
