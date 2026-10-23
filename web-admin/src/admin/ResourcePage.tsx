@@ -3128,15 +3128,36 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     return;
                   }
 
+                  const targetRow = confirmation.row;
+                  const isDeleteAction = confirmation.action === "delete";
+
                   await adminApi(
-                    `${table}/${confirmation.action === "delete" ? "delete" : "action"}`,
+                    `${table}/${isDeleteAction ? "delete" : "action"}`,
                     {
-                      key: rowKey(listing.columns, confirmation.row),
+                      key: {
+                        ...rowKey(listing.columns, targetRow),
+                        ...(targetRow?.id ? { id: targetRow.id } : {}),
+                      },
+                      id: targetRow?.id,
                       action: confirmation.action,
                       reason,
-                      expectedUpdatedAt: confirmation.row.updated_at,
+                      expectedUpdatedAt: targetRow?.updated_at,
                     },
                   );
+
+                  if (isDeleteAction) {
+                    setListing((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            rows: prev.rows.filter((r) => r.id !== targetRow.id),
+                            total: Math.max(0, prev.total - 1),
+                          }
+                        : null,
+                    );
+                    setNotice(`Đã xóa "${targetRow?.name || targetRow?.title || "bản ghi"}" thành công.`);
+                  }
+
                   setConfirmation(null);
                   setVersion((v) => v + 1);
                 } catch (err) {

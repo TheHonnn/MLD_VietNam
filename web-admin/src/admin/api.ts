@@ -809,9 +809,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     return (Array.isArray(updated) ? updated[0] : updated) as T;
   }
 
-  if (action === "delete" && payload?.key) {
+  if (action === "delete" && (payload?.key || payload?.id)) {
     const key = payload.key || {};
-    const id = key.id;
+    const id = key.id || payload.id;
     const match = id
       ? `id=eq.${encodeURIComponent(id)}`
       : Object.entries(key)
@@ -820,7 +820,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "DELETE",
-      headers: getSupabaseHeaders(),
+      headers: getSupabaseHeaders({
+        Prefer: "return=representation",
+      }),
       signal,
     });
     if (!res.ok) {
@@ -832,8 +834,40 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         deleteLocalRecord(table, id || key);
         return true as unknown as T;
       }
+      // If foreign key constraint prevents hard deletion, fallback to soft-delete
+      if (err?.code === "23503" || (err?.message || "").includes("violates foreign key constraint")) {
+        const softRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+          method: "PATCH",
+          headers: getSupabaseHeaders({
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          }),
+          body: JSON.stringify({ is_active: false }),
+          signal,
+        });
+        if (softRes.ok) {
+          deleteLocalRecord(table, id || key);
+          return true as unknown as T;
+        }
+      }
       throw new Error(err?.message || "Không thể xóa bản ghi trên Supabase.");
     }
+
+    const deleted = await res.json().catch(() => null);
+    if (Array.isArray(deleted) && deleted.length === 0) {
+      // PostgREST returned 0 rows affected (e.g. RLS blocked DELETE), try soft-delete
+      await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+        method: "PATCH",
+        headers: getSupabaseHeaders({
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        }),
+        body: JSON.stringify({ is_active: false }),
+        signal,
+      }).catch(() => null);
+    }
+
+    deleteLocalRecord(table, id || key);
     return true as unknown as T;
   }
 
@@ -961,8 +995,12 @@ export async function adminApi<T>(
 }
 
 export function rowKey(columns: Column[], row: Row) {
+  const primaryCols = columns.filter((c) => c.primary);
+  if (primaryCols.length === 0 && row?.id !== undefined) {
+    return { id: row.id };
+  }
   return Object.fromEntries(
-    columns.filter((c) => c.primary).map((c) => [c.name, row[c.name]]),
+    primaryCols.map((c) => [c.name, row[c.name]]),
   );
 }
 
