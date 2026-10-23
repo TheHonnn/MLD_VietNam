@@ -35,36 +35,6 @@ const InvoicesRedirect: React.FC = () => {
   return <Navigate to={`/cashier-pos${location.search}`} replace />;
 };
 
-const RoleRoute: React.FC<{ allowedRoles: string[]; children: React.ReactNode }> = ({
-  allowedRoles,
-  children,
-}) => {
-  const { user } = useAdmin();
-  if (!user) return <Navigate to="/" replace />;
-  if (!allowedRoles.includes(user.role)) {
-    return (
-      <div className="p-8 max-w-lg mx-auto my-12 bg-white rounded-2xl shadow-sm border border-[#EAD8C7] text-center font-['Plus_Jakarta_Sans',sans-serif]">
-        <div className="w-14 h-14 mx-auto mb-4 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-700">
-          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
-        <h2 className="text-base font-bold text-[#2D1B08] mb-2">Giới hạn quyền truy cập</h2>
-        <p className="text-xs text-[#7D6E63] leading-relaxed mb-6">
-          Tài khoản với vai trò <span className="font-bold text-[#8A4F23]">{user.role}</span> không có quyền truy cập phân hệ này. Vui lòng liên hệ Quản trị viên cấp cao để được cấp quyền.
-        </p>
-        <a
-          href="/"
-          className="inline-flex items-center justify-center px-5 py-2.5 bg-[#8A4F23] text-white text-xs font-semibold rounded-xl hover:bg-[#723F1A] transition-all shadow-sm"
-        >
-          Quay lại Bảng điều khiển
-        </a>
-      </div>
-    );
-  }
-  return <>{children}</>;
-};
-
 const AppContent: React.FC = () => {
   const { user, loading } = useAdmin();
 
@@ -104,95 +74,17 @@ const AppContent: React.FC = () => {
             <Route path="staff-schedule" element={<W05_StaffSchedule />} />
             <Route path="technician-schedule" element={<W05_StaffSchedule />} />
             <Route path="services-catalog" element={<Navigate to="/manage/services" replace />} />
-            <Route
-              path="cashier-pos"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
-                  <W07_CashierPOS />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="invoices"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
-                  <InvoicesRedirect />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="receipts"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
-                  <InvoicesRedirect />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="hoa-don"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
-                  <InvoicesRedirect />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="academy-enrollment"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <W08_Enrollment />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="instructors"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <W09_Instructors />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="instructor"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <W09_Instructors />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="giang-vien"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <W09_Instructors />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="attendance"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <W10_Attendance />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="curriculum"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <TrainingActions />
-                  <W11_Curriculum />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="reports"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
-                  <W12_FinancialReports />
-                </RoleRoute>
-              }
-            />
+            <Route path="cashier-pos" element={<W07_CashierPOS />} />
+            <Route path="invoices" element={<InvoicesRedirect />} />
+            <Route path="receipts" element={<InvoicesRedirect />} />
+            <Route path="hoa-don" element={<InvoicesRedirect />} />
+            <Route path="academy-enrollment" element={<W08_Enrollment />} />
+            <Route path="instructors" element={<W09_Instructors />} />
+            <Route path="instructor" element={<W09_Instructors />} />
+            <Route path="giang-vien" element={<W09_Instructors />} />
+            <Route path="attendance" element={<W10_Attendance />} />
+            <Route path="curriculum" element={<><TrainingActions /><W11_Curriculum /></>} />
+            <Route path="reports" element={<W12_FinancialReports />} />
             <Route path="manage/branches" element={<Navigate to="/branches" replace />} />
             <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />

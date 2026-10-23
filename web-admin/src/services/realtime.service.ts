@@ -10,7 +10,7 @@ export type RealtimeTable =
   | 'tuition_transactions'
   | 'course_enrollments'
   | 'user_packages'
-  | 'users'
+  | 'customers'
   | 'notifications';
 
 export interface RealtimeChangeEvent<T = any> {
@@ -82,7 +82,7 @@ class RealtimeSyncService {
         'tuition_transactions',
         'course_enrollments',
         'user_packages',
-        'users',
+        'customers',
         'notifications',
       ];
 
@@ -220,8 +220,8 @@ class RealtimeSyncService {
         return `Học phí ${record.transaction_code || ''}: ${Number(record.amount || 0).toLocaleString('vi-VN')}đ`;
       case 'course_enrollments':
         return `Hồ sơ tuyển sinh khóa học (${record.status || 'ENROLLED'})`;
-      case 'users':
-        return `Khách hàng / Người dùng: ${record.full_name || record.phone || ''} (${record.role || 'CUSTOMER'})`;
+      case 'customers':
+        return `Khách hàng mới: ${record.full_name || record.phone || ''}`;
       default:
         return `${eventType} bản ghi trên ${table}`;
     }
@@ -252,13 +252,6 @@ class RealtimeSyncService {
         message: `Giao dịch học phí #${record.transaction_code || ''} trị giá ${amount}đ đã được ghi nhận.`,
         type: 'ACADEMY',
         link: '/academy-enrollment',
-      });
-    } else if (table === 'users' && eventType === 'INSERT' && (record.role === 'CUSTOMER' || !record.role)) {
-      notificationService.addNotification({
-        title: '👤 Khách hàng mới gia nhập',
-        message: `Khách hàng ${record.full_name || record.phone || 'mới'} vừa tạo tài khoản trên hệ thống.`,
-        type: 'SYSTEM',
-        link: `/customers?search=${encodeURIComponent(record.phone || record.full_name || '')}`,
       });
     }
   }

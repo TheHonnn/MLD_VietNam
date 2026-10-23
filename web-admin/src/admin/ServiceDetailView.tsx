@@ -22,7 +22,11 @@ import {
 } from 'lucide-react';
 import { Row } from './api';
 import { toast } from '../components/common';
-import { SUPABASE_URL, getSupabaseHeaders } from '../services/supabaseClient';
+
+const SUPABASE_URL =
+  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
+const VALID_SERVICE_ROLE_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
 
 interface RelatedPackage {
   id: string;
@@ -106,7 +110,10 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
     fetch(
       `${SUPABASE_URL}/rest/v1/treatment_packages?service_id=eq.${encodeURIComponent(serviceId)}&select=id,name,total_sessions,validity_months,price,discount_price,is_active`,
       {
-        headers: getSupabaseHeaders(),
+        headers: {
+          apikey: VALID_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
+        },
       }
     )
       .then((res) => (res.ok ? res.json() : []))
@@ -133,9 +140,11 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/services?id=eq.${encodeURIComponent(serviceId)}`, {
         method: 'PATCH',
-        headers: getSupabaseHeaders({
+        headers: {
+          apikey: VALID_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
           'Content-Type': 'application/json',
-        }),
+        },
         body: JSON.stringify({ is_active: nextStatus }),
       });
       if (res.ok) {
@@ -162,9 +171,11 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/services?id=eq.${encodeURIComponent(serviceId)}`, {
         method: 'PATCH',
-        headers: getSupabaseHeaders({
+        headers: {
+          apikey: VALID_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
           'Content-Type': 'application/json',
-        }),
+        },
         body: JSON.stringify({ is_featured: nextFeatured }),
       });
       if (res.ok) {

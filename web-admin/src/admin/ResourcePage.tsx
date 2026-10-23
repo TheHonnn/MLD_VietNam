@@ -5,7 +5,6 @@ import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurve
 import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useAdmin } from "./Auth";
 import {
   Plus,
   Pencil,
@@ -2637,53 +2636,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       setParams(next, { replace: true });
     } else setVersion((v) => v + 1);
   };
-
-  const { user } = useAdmin();
-  const isSuperAdminOrAdmin = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
-  const isManagerOrAdmin = isSuperAdminOrAdmin || user?.role === "BRANCH_MANAGER";
-  const isRestrictedAdminOnly = ["roles", "permissions", "audit_logs"].includes(table);
-  const isRestrictedManagerOnly = ["staff_commissions"].includes(table);
-
-  if (isRestrictedAdminOnly && !isSuperAdminOrAdmin) {
-    return (
-      <div className="p-8 max-w-lg mx-auto my-12 bg-white rounded-2xl shadow-sm border border-[#EAD8C7] text-center font-['Plus_Jakarta_Sans',sans-serif]">
-        <div className="w-14 h-14 mx-auto mb-4 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-700">
-          <AlertTriangle className="w-7 h-7" />
-        </div>
-        <h2 className="text-base font-bold text-[#2D1B08] mb-2">Giới hạn quyền quản trị</h2>
-        <p className="text-xs text-[#7D6E63] leading-relaxed mb-6">
-          Chỉ Quản trị viên cấp cao (Admin / Super Admin) mới có quyền truy cập bảng <code className="bg-[#F8F1E8] px-1.5 py-0.5 rounded text-[#8A4F23] font-bold">{table}</code>.
-        </p>
-        <Link
-          to="/"
-          className="inline-flex items-center justify-center px-5 py-2.5 bg-[#8A4F23] text-white text-xs font-semibold rounded-xl hover:bg-[#723F1A] transition-all shadow-sm"
-        >
-          Quay lại Bảng điều khiển
-        </Link>
-      </div>
-    );
-  }
-
-  if (isRestrictedManagerOnly && !isManagerOrAdmin) {
-    return (
-      <div className="p-8 max-w-lg mx-auto my-12 bg-white rounded-2xl shadow-sm border border-[#EAD8C7] text-center font-['Plus_Jakarta_Sans',sans-serif]">
-        <div className="w-14 h-14 mx-auto mb-4 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-700">
-          <AlertTriangle className="w-7 h-7" />
-        </div>
-        <h2 className="text-base font-bold text-[#2D1B08] mb-2">Giới hạn quyền hoa hồng</h2>
-        <p className="text-xs text-[#7D6E63] leading-relaxed mb-6">
-          Chỉ Quản lý chi nhánh hoặc Quản trị viên mới có quyền xem dữ liệu hoa hồng nhân viên.
-        </p>
-        <Link
-          to="/"
-          className="inline-flex items-center justify-center px-5 py-2.5 bg-[#8A4F23] text-white text-xs font-semibold rounded-xl hover:bg-[#723F1A] transition-all shadow-sm"
-        >
-          Quay lại Bảng điều khiển
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <section className="admin-resource">
       <div className="admin-page-heading">

@@ -17,7 +17,11 @@ import {
 } from 'lucide-react';
 import { Row } from './api';
 import { toast } from '../components/common';
-import { SUPABASE_URL, getSupabaseHeaders } from '../services/supabaseClient';
+
+const SUPABASE_URL =
+  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
+const VALID_SERVICE_ROLE_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
 
 export const COMMON_FOCUS_AREAS = [
   'Cổ vai gáy',
@@ -76,7 +80,10 @@ export const ConsultationSurveySheet: React.FC<ConsultationSurveySheetProps> = (
   useEffect(() => {
     if (!bookingId) return;
     fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${encodeURIComponent(bookingId)}&select=special_notes,checkin_notes`, {
-      headers: getSupabaseHeaders(),
+      headers: {
+        apikey: VALID_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
+      },
     })
       .then((r) => r.json())
       .then((data) => {
@@ -106,10 +113,12 @@ export const ConsultationSurveySheet: React.FC<ConsultationSurveySheetProps> = (
 
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${encodeURIComponent(bookingId)}`, {
         method: 'PATCH',
-        headers: getSupabaseHeaders({
+        headers: {
+          apikey: VALID_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
           'Content-Type': 'application/json',
           Prefer: 'return=representation',
-        }),
+        },
         body: JSON.stringify({
           special_notes: fullNote,
         }),
