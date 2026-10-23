@@ -273,6 +273,7 @@ class TreatmentRepository {
       await _apiClient.dio.post(
         ApiEndpoints.treatmentReviews,
         data: {
+          'rating': model.overallRating,
           'overallRating': model.overallRating,
           'serviceQualityRating': model.serviceQualityRating,
           'staffAttitudeRating': model.staffAttitudeRating,
