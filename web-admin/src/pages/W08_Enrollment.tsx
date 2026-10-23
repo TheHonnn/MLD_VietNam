@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { academyService, customerService } from '../services';
 import { toast } from '../components/common';
-import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus } from '../types/shared_types';
+import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus, UserRole, PurposeInterest } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 interface CandidateRecord {
@@ -51,6 +51,16 @@ export const W08_Enrollment: React.FC = () => {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Form add new candidate state
+  const [formName, setFormName] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formCourseId, setFormCourseId] = useState('');
+  const [formBatchId, setFormBatchId] = useState('');
+  const [formBranchId, setFormBranchId] = useState('q3');
+  const [formStage, setFormStage] = useState<EnrollmentStatus>(EnrollmentStatus.CONSULTING);
+  const [formTuition, setFormTuition] = useState('9.000.000đ');
+  const [isCreatingCandidate, setIsCreatingCandidate] = useState(false);
 
   const showToast = (message: string) => {
     setSuccessToast(message);
@@ -191,6 +201,67 @@ export const W08_Enrollment: React.FC = () => {
       statusBadge: 'Chưa có hồ sơ',
       buttonLabel: 'Tạo hồ sơ',
     };
+
+  const handleCreateCandidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = formName.trim();
+    const cleanPhone = formPhone.trim();
+    if (!cleanName || !cleanPhone) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập họ tên và số điện thoại học viên.');
+      return;
+    }
+    setIsCreatingCandidate(true);
+    try {
+      const cleanDigits = cleanPhone.replace(/\D/g, '');
+      let student = customers.find(
+        (c) => (c.phone || '').replace(/\D/g, '') === cleanDigits
+      );
+      if (!student) {
+        const createRes = await customerService.createCustomer({
+          fullName: cleanName,
+          phone: cleanPhone,
+          role: UserRole.STUDENT,
+          purpose: PurposeInterest.ACADEMY,
+        });
+        if (createRes.data) {
+          student = createRes.data;
+          setCustomers((prev) => [student!, ...prev]);
+        }
+      }
+
+      const targetCourseId = formCourseId || liveCourses[0]?.id || 'cccccccc-0001-0001-0001-000000000001';
+      const cleanTuition = Number(formTuition.replace(/\D/g, '')) || 9000000;
+
+      const enrRes = await academyService.createEnrollment({
+        studentId: student?.id || '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        courseId: targetCourseId,
+        batchId: formBatchId || null,
+        status: formStage,
+        tuitionTotal: cleanTuition,
+        amountPaid: formStage === EnrollmentStatus.ENROLLED || formStage === EnrollmentStatus.STUDYING ? cleanTuition : 0,
+      });
+
+      if (enrRes.success && enrRes.data) {
+        setLiveEnrollments((prev) => [enrRes.data!, ...prev]);
+        setSelectedCandidateId(enrRes.data.id);
+      }
+
+      toast.success(
+        'Tạo hồ sơ thành công',
+        `Đã tạo hồ sơ tuyển sinh cho học viên ${cleanName} trên Supabase Cloud.`
+      );
+      showToast(`Đã tạo hồ sơ học viên ${cleanName} thành công!`);
+
+      setIsAddModalOpen(false);
+      setFormName('');
+      setFormPhone('');
+    } catch (err) {
+      console.error('Failed to create candidate enrollment:', err);
+      toast.error('Lỗi tạo hồ sơ', 'Không thể lưu hồ sơ học viên. Vui lòng kiểm tra lại.');
+    } finally {
+      setIsCreatingCandidate(false);
+    }
+  };
 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const handleUpdateEnrollmentStatus = async (enrollmentId: string, nextStatus: EnrollmentStatus) => {
@@ -794,18 +865,16 @@ export const W08_Enrollment: React.FC = () => {
             </div>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setIsAddModalOpen(false);
-                showToast('Đã tạo hồ sơ tuyển sinh mới thành công!');
-              }}
+              onSubmit={handleCreateCandidate}
               className="p-5 space-y-4 text-xs"
             >
               <div>
-                <label className="block font-semibold text-[#2C241E] mb-1.5">Họ và tên học viên</label>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">Họ và tên học viên <span className="text-[#8D4B1A]">*</span></label>
                 <input
                   required
                   type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ví dụ: Lê Thị Hồng Ánh"
                   className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 />
@@ -813,17 +882,23 @@ export const W08_Enrollment: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Số điện thoại</label>
+                  <label className="block font-semibold text-[#2C241E] mb-1.5">Số điện thoại <span className="text-[#8D4B1A]">*</span></label>
                   <input
                     required
                     type="tel"
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
                     placeholder="0912 888 999"
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
                 <div>
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Chi nhánh đăng ký</label>
-                  <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
+                  <select
+                    value={formBranchId}
+                    onChange={(e) => setFormBranchId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  >
                     <option value="q3">Quận 3</option>
                     <option value="q1">Quận 1</option>
                   </select>
@@ -832,28 +907,47 @@ export const W08_Enrollment: React.FC = () => {
 
               <div>
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Chương trình quan tâm</label>
-                <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                  <option value="massage">Kỹ thuật Massage Chuyên Nghiệp</option>
-                  <option value="spa">Kỹ thuật Spa Cơ bản</option>
-                  <option value="da">Chăm sóc da cơ bản</option>
+                <select
+                  value={formCourseId}
+                  onChange={(e) => setFormCourseId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                >
+                  {liveCourses.length > 0 ? (
+                    liveCourses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title} ({c.code})
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="cccccccc-0001-0001-0001-000000000001">Kỹ thuật Massage Chuyên Nghiệp</option>
+                      <option value="cccccccc-0001-0001-0001-000000000002">Kỹ thuật Spa Cơ bản</option>
+                      <option value="cccccccc-0001-0001-0001-000000000003">Chăm sóc da cơ bản</option>
+                    </>
+                  )}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Giai đoạn hồ sơ</label>
-                  <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                    <option value="new">Hồ sơ mới</option>
-                    <option value="consulting">Chờ tư vấn</option>
-                    <option value="payment_pending">Chờ thanh toán cọc</option>
-                    <option value="class_pending">Chờ xếp lớp</option>
+                  <select
+                    value={formStage}
+                    onChange={(e) => setFormStage(e.target.value as EnrollmentStatus)}
+                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  >
+                    <option value={EnrollmentStatus.CONSULTING}>Chờ tư vấn (CONSULTING)</option>
+                    <option value={EnrollmentStatus.ENROLLED}>Đã nhập học (ENROLLED)</option>
+                    <option value={EnrollmentStatus.STUDYING}>Đang theo học (STUDYING)</option>
+                    <option value={EnrollmentStatus.GRADUATED}>Đã tốt nghiệp (GRADUATED)</option>
                   </select>
                 </div>
                 <div>
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Học phí dự kiến</label>
                   <input
                     type="text"
-                    defaultValue="9.000.000đ"
+                    value={formTuition}
+                    onChange={(e) => setFormTuition(e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -869,9 +963,10 @@ export const W08_Enrollment: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs"
+                  disabled={isCreatingCandidate}
+                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  Tạo hồ sơ
+                  {isCreatingCandidate ? 'Đang lưu vào Supabase...' : 'Tạo hồ sơ'}
                 </button>
               </div>
             </form>

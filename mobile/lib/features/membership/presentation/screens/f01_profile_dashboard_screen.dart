@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../data/models/membership_models.dart';
-import '../../data/repositories/membership_repository.dart';
+import '../../data/repositories/membership_repository.dart';
+
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
 import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
@@ -61,6 +63,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isEn = _repo.settings.language == 'English' || Localizations.localeOf(context).languageCode == 'en';
+    final String cleanMemberCode = _profile.memberCode.isNotEmpty && _profile.memberCode != 'MLD-000001'
+        ? _profile.memberCode
+        : (_profile.phone.isNotEmpty
+            ? 'MLD-${_profile.phone.replaceAll(RegExp(r'\D'), '').padLeft(6, '0').substring(_profile.phone.replaceAll(RegExp(r'\D'), '').length > 6 ? _profile.phone.replaceAll(RegExp(r'\D'), '').length - 6 : 0)}'
+            : 'MLD-MEMBER');
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
       body: SafeArea(
@@ -70,9 +78,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- 1. TIÊU ĐỀ TRANG ---
-              const Text(
-                'Tài khoản của tôi',
-                style: TextStyle(
+              Text(
+                isEn ? 'My Account' : 'Tài khoản của tôi',
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w600,
                   height: 36.4 / 28,
@@ -107,7 +115,11 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _profile.fullName.trim().isNotEmpty ? _profile.fullName : 'Khách hàng',
+                          (_profile.fullName.trim().isNotEmpty && _profile.fullName != "Khách hàng MLD")
+                              ? _profile.fullName
+                              : ((AuthService.instance.currentDisplayName?.trim().isNotEmpty ?? false)
+                                  ? AuthService.instance.currentDisplayName!
+                                  : "Khách hàng"),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -138,11 +150,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
 
                   // Nút Thông báo (D08)
                   InkWell(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const D08NotificationsScreen()),
                       );
+                      if (mounted) setState(() {});
                     },
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
@@ -168,18 +181,19 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                             size: 22,
                             color: AppColors.primary,
                           ),
-                          Positioned(
-                            top: 10,
-                            right: 11,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF985018),
-                                shape: BoxShape.circle,
+                          if (TreatmentRepository.instance.hasUnreadNotifications)
+                            Positioned(
+                              top: 10,
+                              right: 11,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFD64545),
+                                  shape: BoxShape.circle,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -286,7 +300,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Mã hội viên · ${_profile.memberCode}',
+                      '${isEn ? "Member Code" : "Mã hội viên"} · $cleanMemberCode',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -316,25 +330,25 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                           ),
                           color: Colors.black.withValues(alpha: 0.12),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.qr_code_2_rounded,
                               size: 20,
                               color: Color(0xFFC58D59),
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Xem thẻ hội viên',
-                                style: TextStyle(
+                                isEn ? 'View Membership Card' : 'Xem thẻ hội viên',
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                   color: Colors.white,
                                 ),
                               ),
                             ),
-                            Icon(
+                            const Icon(
                               Icons.arrow_forward_rounded,
                               size: 16,
                               color: Colors.white,
@@ -365,8 +379,8 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         child: _buildMetricCard(
                           icon: Icons.calendar_today_rounded,
                           value: upcomingCount.toString(),
-                          label: 'Lịch hẹn',
-                          subLabel: 'sắp tới',
+                          label: isEn ? 'Bookings' : 'Lịch hẹn',
+                          subLabel: isEn ? 'upcoming' : 'sắp tới',
                           onTap: () {
                             Navigator.push(
                               context,
@@ -380,8 +394,8 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         child: _buildMetricCard(
                           icon: Icons.spa_outlined,
                           value: remainingSessions.toString(),
-                          label: 'Liệu trình',
-                          subLabel: 'buổi còn lại',
+                          label: isEn ? 'Treatments' : 'Liệu trình',
+                          subLabel: isEn ? 'remaining' : 'buổi còn lại',
                           onTap: () {
                             Navigator.push(
                               context,
@@ -395,8 +409,8 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         child: _buildMetricCard(
                           icon: Icons.school_outlined,
                           value: '0',
-                          label: 'Khóa học',
-                          subLabel: 'đang học',
+                          label: isEn ? 'Courses' : 'Khóa học',
+                          subLabel: isEn ? 'learning' : 'đang học',
                           onTap: () {
                             Navigator.push(
                               context,
@@ -413,11 +427,11 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 24),
 
               // --- 5. NHÓM 1: DỊCH VỤ CỦA TÔI ---
-              _buildSectionTitle('Dịch vụ của tôi'),
+              _buildSectionTitle(isEn ? 'My Services' : 'Dịch vụ của tôi'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.calendar_month_outlined,
-                  title: 'Lịch hẹn của tôi',
+                  title: isEn ? 'My Appointments' : 'Lịch hẹn của tôi',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -427,7 +441,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.spa_outlined,
-                  title: 'Gói liệu trình',
+                  title: isEn ? 'My Packages' : 'Gói liệu trình',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -437,7 +451,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.menu_book_outlined,
-                  title: 'Nhật ký trị liệu',
+                  title: isEn ? 'Care Journal' : 'Nhật ký trị liệu',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -447,7 +461,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.assignment_outlined,
-                  title: 'Phiếu thông tin trước dịch vụ',
+                  title: isEn ? 'Pre-service Questionnaire' : 'Phiếu thông tin trước dịch vụ',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -457,7 +471,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.menu_book_rounded,
-                  title: 'Hướng dẫn chăm sóc tại nhà',
+                  title: isEn ? 'Home Care Guidelines' : 'Hướng dẫn chăm sóc tại nhà',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -467,7 +481,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.headset_mic_outlined,
-                  title: 'Tư vấn & hỗ trợ',
+                  title: isEn ? 'Support & Inquiries' : 'Tư vấn & hỗ trợ',
                   isLast: true,
                   onTap: () {
                     Navigator.push(
@@ -481,11 +495,11 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 20),
 
               // --- 7. NHÓM 2: HỘI VIÊN & ƯU ĐÃI ---
-              _buildSectionTitle('Hội viên & ưu đãi'),
+              _buildSectionTitle(isEn ? 'Membership & Offers' : 'Hội viên & ưu đãi'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.credit_card_outlined,
-                  title: 'Thẻ hội viên',
+                  title: isEn ? 'Membership Card' : 'Thẻ hội viên',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -495,7 +509,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.auto_awesome_outlined,
-                  title: 'Điểm tích lũy',
+                  title: isEn ? 'Reward Points' : 'Điểm tích lũy',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -505,7 +519,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.confirmation_number_outlined,
-                  title: 'Ưu đãi của tôi',
+                  title: isEn ? 'My Vouchers' : 'Ưu đãi của tôi',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -515,7 +529,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.people_outline_rounded,
-                  title: 'Giới thiệu bạn bè',
+                  title: isEn ? 'Refer Friends' : 'Giới thiệu bạn bè',
                   isLast: true,
                   onTap: () {
                     Navigator.push(
@@ -529,11 +543,11 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 20),
 
               // --- 8. NHÓM 3: HỌC VIỆN ---
-              _buildSectionTitle('Học viện'),
+              _buildSectionTitle(isEn ? 'Academy' : 'Học viện'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.school_outlined,
-                  title: 'Khóa học của tôi',
+                  title: isEn ? 'My Courses' : 'Khóa học của tôi',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -543,7 +557,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.event_note_outlined,
-                  title: 'Lịch học',
+                  title: isEn ? 'Schedule' : 'Lịch học',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -553,7 +567,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.workspace_premium_outlined,
-                  title: 'Chứng chỉ & điểm',
+                  title: isEn ? 'Certificates & Grades' : 'Chứng chỉ & điểm',
                   isLast: true,
                   onTap: () {
                     Navigator.push(
@@ -567,11 +581,11 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 20),
 
               // --- 9. NHÓM 4: TÀI KHOẢN ---
-              _buildSectionTitle('Tài khoản'),
+              _buildSectionTitle(isEn ? 'Account' : 'Tài khoản'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.receipt_long_outlined,
-                  title: 'Lịch sử thanh toán',
+                  title: isEn ? 'Payment History' : 'Lịch sử thanh toán',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -581,7 +595,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.person_outline_rounded,
-                  title: 'Thông tin cá nhân',
+                  title: isEn ? 'Personal Profile' : 'Thông tin cá nhân',
                   onTap: () async {
                     await Navigator.push(
                       context,
@@ -592,7 +606,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
-                  title: 'Cài đặt tài khoản',
+                  title: isEn ? 'Account Settings' : 'Cài đặt tài khoản',
                   isLast: true,
                   onTap: () {
                     Navigator.push(
@@ -603,60 +617,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
               ]),
 
-              const SizedBox(height: 24),
 
-              // --- 10. THẺ THÔNG TIN TỔNG QUAN (350x234, r=20, #F3E2CE) ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary, // #F3E2CE
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border, width: 1.0),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Một tài khoản, nhiều trải nghiệm',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Buổi liệu trình tiếp theo: 15/10/2026 · 09:00. 2 gói dịch vụ đang hoạt động.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.45,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      '3 khóa đã ghi danh · 1 đang học · 1 hoàn thành · 1 bảo lưu.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.45,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Chi nhánh Quận 3 (ưu tiên)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
               const SizedBox(height: 24),
             ],

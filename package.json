@@ -1,0 +1,8 @@
+{
+  "name": "mld-vietnam",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd web-admin && npm install && npm run build"
+  }
+}

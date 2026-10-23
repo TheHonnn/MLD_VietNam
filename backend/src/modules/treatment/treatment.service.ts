@@ -52,7 +52,7 @@ export class TreatmentService {
           .eq('customer_id', resolvedId)
           .order('purchased_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           return data.map((pkg: any) => ({
             id: pkg.id,
             total_sessions: pkg.total_sessions,
@@ -62,7 +62,7 @@ export class TreatmentService {
             treatment_packages: pkg.treatment_packages,
             assigned_specialist: 'Trần Minh Phương',
             branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-            next_session_recommended: '16/10/2026',
+            next_session_recommended: '',
           }));
         }
       } catch (err) {
@@ -70,44 +70,7 @@ export class TreatmentService {
       }
     }
 
-    return [
-      {
-        id: 'pkg-user-001',
-        total_sessions: 10,
-        completed_sessions: 4,
-        status: 'ACTIVE',
-        expires_at: '2026-12-31T23:59:59Z',
-        treatment_packages: {
-          id: 'tp-001',
-          name: 'Liệu trình Trị liệu Cổ Vai Gáy & Cột sống 10 buổi',
-          description: 'Phác đồ khai thông kinh lạc, giải phóng chèn ép cơ và phục hồi vận động.',
-          image_url: 'assets/images/specialist_hero_1.png',
-          total_sessions: 10,
-          price: 3500000,
-        },
-        assigned_specialist: 'Trần Minh Phương',
-        branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        next_session_recommended: '16/10/2026',
-      },
-      {
-        id: 'pkg-user-002',
-        total_sessions: 5,
-        completed_sessions: 2,
-        status: 'ACTIVE',
-        expires_at: '2026-11-20T23:59:59Z',
-        treatment_packages: {
-          id: 'tp-002',
-          name: 'Gói Chăm Sóc Da & Phục Hồi Dưỡng Ẩm 5 buổi',
-          description: 'Quy trình phục hồi màng ẩm sinh học tự nhiên với tinh chất thảo mộc quý.',
-          image_url: 'assets/images/gioithieu_2.png',
-          total_sessions: 5,
-          price: 2100000,
-        },
-        assigned_specialist: 'Nguyễn Thu Hà',
-        branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        next_session_recommended: '18/10/2026',
-      },
-    ];
+    return [];
   }
 
   /**
@@ -238,22 +201,22 @@ export class TreatmentService {
           .eq('customer_id', resolvedId)
           .order('session_date', { ascending: false });
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           return data.map((j: any) => ({
             id: j.id,
             session_number: j.session_number,
             date: j.session_date,
             service_name: 'Buổi chăm sóc trị liệu phục hồi',
-            technician_name: j.technicians?.users?.full_name || 'Trần Minh Phương',
-            specialist_name: j.technicians?.users?.full_name || 'Trần Minh Phương',
+            technician_name: j.technicians?.users?.full_name || 'Kỹ thuật viên MLD',
+            specialist_name: j.technicians?.users?.full_name || 'Kỹ thuật viên MLD',
             branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-            condition_before: j.condition_before || 'Cơ thể mỏi nhẹ sau các buổi làm việc',
-            condition_after: j.condition_after || 'Cơ bắp thả lỏng, nhẹ nhõm rõ rệt',
+            condition_before: j.condition_before || '',
+            condition_after: j.condition_after || '',
             recovery_score: 85,
             rating: 5,
-            doctor_advice: j.specialist_advice || 'Uống nhiều nước ấm và sinh hoạt điều độ',
-            home_advice: j.specialist_advice || 'Uống nhiều nước ấm và sinh hoạt điều độ',
-            customer_feedback: j.treatment_notes || 'Cảm nhận cơ thể nhẹ nhõm, giấc ngủ ngon hơn.',
+            doctor_advice: j.specialist_advice || '',
+            home_advice: j.specialist_advice || '',
+            customer_feedback: j.treatment_notes || '',
             customer_note: j.treatment_notes || '',
             therapist_note: j.condition_after || '',
           }));
@@ -263,62 +226,7 @@ export class TreatmentService {
       }
     }
 
-    return [
-      {
-        id: 'jrn-001',
-        session_number: 4,
-        date: '11/10/2026',
-        service_name: 'Trị liệu Cổ Vai Gáy & Cột sống',
-        technician_name: 'Trần Minh Phương',
-        specialist_name: 'Trần Minh Phương',
-        branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        condition_before: 'Cổ hơi mỏi sau 3 ngày làm việc văn phòng.',
-        condition_after: 'Cổ xoay nhẹ nhàng, hết hoàn toàn cảm giác căng nặng vai.',
-        recovery_score: 85,
-        rating: 5,
-        doctor_advice: 'Uống nhiều nước ấm, tránh ngồi cúi gập đầu xem điện thoại quá 30 phút liên tục.',
-        home_advice: 'Uống nhiều nước ấm, tránh ngồi cúi gập đầu xem điện thoại quá 30 phút liên tục.',
-        customer_feedback: 'Buổi thứ 4 cảm nhận cơ thể nhẹ nhõm rõ rệt, đêm ngủ rất ngon giấc.',
-        customer_note: 'Buổi thứ 4 cảm nhận cơ thể nhẹ nhõm rõ rệt, đêm ngủ rất ngon giấc.',
-        therapist_note: 'Độ mềm cơ đạt 75%, khách không còn tê bì cánh tay.',
-      },
-      {
-        id: 'jrn-002',
-        session_number: 3,
-        date: '08/10/2026',
-        service_name: 'Trị liệu Cổ Vai Gáy & Cột sống',
-        technician_name: 'Trần Minh Phương',
-        specialist_name: 'Trần Minh Phương',
-        branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        condition_before: 'Căng cơ nhẹ, ngủ chập chờn.',
-        condition_after: 'Người ấm áp, cơ vai giãn mềm tốt.',
-        recovery_score: 70,
-        rating: 5,
-        doctor_advice: 'Dùng túi chườm ấm thảo dược trước khi đi ngủ 15 phút.',
-        home_advice: 'Dùng túi chườm ấm thảo dược trước khi đi ngủ 15 phút.',
-        customer_feedback: 'Ấn huyệt Phong Trì rất dễ chịu, giảm đau đầu ngay.',
-        customer_note: 'Ấn huyệt Phong Trì rất dễ chịu, giảm đau đầu ngay.',
-        therapist_note: 'Kinh lạc lưu thông tốt, da ấm hồng hào.',
-      },
-      {
-        id: 'jrn-003',
-        session_number: 2,
-        date: '04/10/2026',
-        service_name: 'Trị liệu Cổ Vai Gáy & Cột sống',
-        technician_name: 'Trần Minh Phương',
-        specialist_name: 'Trần Minh Phương',
-        branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        condition_before: 'Đau mỏi vùng gáy lan sang bả vai phải.',
-        condition_after: 'Đỡ mỏi khoảng 50%, hơi ê nhẹ do giải phóng điểm co thắt.',
-        recovery_score: 55,
-        rating: 5,
-        doctor_advice: 'Hiện tượng ê cơ nhẹ trong 24h là bình thường, sẽ dịu đi vào ngày mai.',
-        home_advice: 'Hiện tượng ê cơ nhẹ trong 24h là bình thường, sẽ dịu đi vào ngày mai.',
-        customer_feedback: 'Kỹ thuật viên làm rất có tâm, lực bấm vừa vặn.',
-        customer_note: 'Kỹ thuật viên làm rất có tâm, lực bấm vừa vặn.',
-        therapist_note: 'Biên độ xoay cổ cải thiện 40%.',
-      },
-    ];
+    return [];
   }
 
   /**

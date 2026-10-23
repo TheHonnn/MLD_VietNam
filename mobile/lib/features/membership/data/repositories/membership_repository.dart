@@ -21,6 +21,7 @@ class MembershipRepository {
   static const String _namePrefKey = 'user_full_name';
   static const String _phonePrefKey = 'user_phone';
   static const String _emailPrefKey = 'user_email';
+  static const String _memberCodePrefKey = 'user_member_code';
 
   UserProfile _userProfile = const UserProfile(
     id: 'user-000001',
@@ -36,7 +37,7 @@ class MembershipRepository {
     emergencyContactPhone: '',
     avatarUrl: '',
     memberTier: 'Thành viên',
-    memberCode: 'MLD-000001',
+    memberCode: '',
     points: 0,
     validUntil: 'Đang hoạt động',
   );
@@ -109,152 +110,7 @@ class MembershipRepository {
   final List<ReferralRecord> _referralHistory = [];
 
   void _initData() {
-    _pointHistory.addAll([
-      const PointsTransaction(
-        id: 'pt-01',
-        type: 'EARN',
-        title: 'Đánh giá dịch vụ trị liệu cổ vai gáy',
-        date: '08/10/2026',
-        branch: 'Chi nhánh Quận 3',
-        points: '+150',
-      ),
-      const PointsTransaction(
-        id: 'pt-02',
-        type: 'REDEEM',
-        title: 'Đổi voucher chăm sóc da 100.000đ',
-        date: '05/10/2026',
-        branch: 'Ứng dụng di động',
-        points: '−500',
-      ),
-      const PointsTransaction(
-        id: 'pt-03',
-        type: 'EARN',
-        title: 'Giới thiệu bạn bè đăng ký thành công',
-        date: '03/10/2026',
-        branch: 'Chương trình giới thiệu',
-        points: '+200',
-      ),
-    ]);
-
-    _vouchers.addAll([
-      const VoucherItem(
-        id: 'vc-01',
-        title: 'Ưu đãi dịch vụ massage',
-        subtitle: 'Dành thời gian thư giãn và chăm sóc bản thân.',
-        discountBanner: 'GIẢM 20%',
-        description:
-            'Hóa đơn massage từ 300.000đ; giảm tối đa 150.000đ. Chi nhánh Quận 3. Không cộng dồn ưu đãi khác.',
-        expiryDate: '31/12/2026',
-        code: 'MASSAGE20DEMO',
-        status: 'AVAILABLE',
-        statusText: 'Có thể sử dụng',
-      ),
-      const VoucherItem(
-        id: 'vc-02',
-        title: 'Áp dụng cho dịch vụ chăm sóc da',
-        subtitle: 'Một đặc quyền nhỏ cho làn da được nâng niu.',
-        discountBanner: 'GIẢM 100.000Đ',
-        description:
-            'Hóa đơn chăm sóc da từ 500.000đ. Áp dụng tại Chi nhánh Quận 3. Áp dụng theo chính sách voucher của MLD Vietnam.',
-        expiryDate: '15/11/2026',
-        code: 'DA100DEMO',
-        status: 'AVAILABLE',
-        statusText: 'Có thể sử dụng',
-      ),
-      const VoucherItem(
-        id: 'vc-03',
-        title: 'Trải nghiệm chăm sóc cơ thể',
-        subtitle: 'Áp dụng theo điều kiện chương trình',
-        discountBanner: 'TẶNG 01 BUỔI',
-        description:
-            'Dành cho trải nghiệm mới của dịch vụ cơ thể đủ điều kiện. Cần đặt lịch hẹn trước ít nhất 24 giờ.',
-        expiryDate: '31/10/2026',
-        code: 'BODY01DEMO',
-        status: 'AVAILABLE',
-        statusText: 'Có thể sử dụng',
-      ),
-    ]);
-
-    _payments.addAll([
-      const PaymentTransaction(
-        id: 'pay-01',
-        code: 'MH-DV-1008',
-        date: '08/10/2026',
-        type: 'Dịch vụ',
-        icon: 'receipt',
-        serviceName: 'Massage thư giãn toàn thân',
-        branch: 'Chi nhánh Quận 3',
-        amount: 450000,
-        amountFormatted: '450.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thanh toán thành công',
-        paymentMethod: 'Thanh toán tại cơ sở',
-        refundAmount: 0,
-        remainingAmount: 0,
-      ),
-      const PaymentTransaction(
-        id: 'pay-02',
-        code: 'MH-LT-1005',
-        date: '05/10/2026',
-        type: 'Liệu trình',
-        icon: 'receipt',
-        serviceName: 'Gói chăm sóc da 8 buổi',
-        branch: 'Chi nhánh Quận 3',
-        amount: 3600000,
-        amountFormatted: '3.600.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thanh toán thành công',
-        paymentMethod: 'Thanh toán trực tuyến',
-        refundAmount: 0,
-        remainingAmount: 0,
-      ),
-      const PaymentTransaction(
-        id: 'pay-03',
-        code: 'MH-HP-1001',
-        date: '01/10/2026',
-        type: 'Học phí',
-        icon: 'graduation-cap',
-        serviceName: 'Học phí khóa Kỹ thuật Spa Cơ bản',
-        branch: 'Học viện MLD · Chi nhánh Quận 3',
-        amount: 4500000,
-        amountFormatted: '4.500.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thanh toán thành công',
-        paymentMethod: 'Chuyển khoản',
-        refundAmount: 0,
-        remainingAmount: 0,
-      ),
-    ]);
-
-    _referralHistory.addAll([
-      const ReferralRecord(
-        id: 'ref-01',
-        maskedName: 'N*** Linh',
-        date: '02/10/2026',
-        status: 'ELIGIBLE',
-        statusText: 'Đủ điều kiện',
-        points: '+100 điểm',
-        recordedDate: '03/10/2026',
-      ),
-      const ReferralRecord(
-        id: 'ref-02',
-        maskedName: 'Tr*** Ngọc',
-        date: '03/10/2026',
-        status: 'ELIGIBLE',
-        statusText: 'Đủ điều kiện',
-        points: '+100 điểm',
-        recordedDate: '03/10/2026',
-      ),
-      const ReferralRecord(
-        id: 'ref-03',
-        maskedName: 'Ph*** Hà',
-        date: '08/10/2026',
-        status: 'PENDING',
-        statusText: 'Đang chờ',
-        points: '0 điểm',
-        recordedDate: 'Chưa đủ điều kiện',
-      ),
-    ]);
+    // Không chứa dữ liệu mẫu; toàn bộ dữ liệu tải trực tiếp từ Backend
   }
 
   // Getters
@@ -306,8 +162,45 @@ class MembershipRepository {
         phone: effectivePhone,
         isPhoneVerified: effectivePhone.isNotEmpty,
         email: effectiveEmail,
+        memberCode: prefs.getString(_memberCodePrefKey)?.isNotEmpty == true
+            ? prefs.getString(_memberCodePrefKey)!
+            : _userProfile.memberCode,
       );
     } catch (_) {}
+  }
+
+  /// Đồng bộ tức thì thông tin người dùng vừa đăng nhập hoặc xác thực OTP thành công
+  void syncUserSession({
+    String? fullName,
+    String? phone,
+    String? email,
+    String? avatarUrl,
+    String? memberCode,
+  }) {
+    final cleanName = fullName?.trim() ?? '';
+    final cleanPhone = phone?.trim() ?? '';
+    final cleanEmail = email?.trim() ?? '';
+    final cleanAvatar = avatarUrl?.trim() ?? '';
+
+    String derivedCode = (memberCode != null && memberCode.trim().isNotEmpty)
+        ? memberCode.trim()
+        : _userProfile.memberCode;
+    if (derivedCode.isEmpty || derivedCode == 'MLD-000001') {
+      if (cleanPhone.isNotEmpty) {
+        final nums = cleanPhone.replaceAll(RegExp(r'\D'), '');
+        derivedCode = 'MLD-${nums.length >= 6 ? nums.substring(nums.length - 6) : nums.padLeft(6, '0')}';
+      }
+    }
+
+    _userProfile = _userProfile.copyWith(
+      fullName: cleanName.isNotEmpty ? cleanName : _userProfile.fullName,
+      phone: cleanPhone.isNotEmpty ? cleanPhone : _userProfile.phone,
+      isPhoneVerified: cleanPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
+      email: cleanEmail.isNotEmpty ? cleanEmail : _userProfile.email,
+      avatarUrl: cleanAvatar.isNotEmpty ? cleanAvatar : _userProfile.avatarUrl,
+      memberCode: derivedCode.isNotEmpty ? derivedCode : _userProfile.memberCode,
+    );
+    _persistLocalProfile(_userProfile);
   }
 
   /// F01/F02: Lấy thông tin hồ sơ cá nhân từ Live Backend Gateway
@@ -355,11 +248,33 @@ class MembershipRepository {
             validUntil: data['validUntil']?.toString() ?? _userProfile.validUntil,
           );
           _persistLocalProfile(_userProfile);
-          return _userProfile;
         }
       }
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error fetching profile: $e');
+    }
+    // Đồng bộ trực tiếp mã hội viên (referral_code) từ bảng users Supabase Cloud
+    final lookupPhone = _userProfile.phone.trim();
+    final lookupId = AuthService.instance.currentUserId;
+    if (lookupPhone.isNotEmpty || (lookupId != null && lookupId.isNotEmpty)) {
+      try {
+        final queryParam = lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'id=eq.$lookupId';
+        final sRes = await _apiClient.dio.get('${ApiEndpoints.users}?$queryParam&select=referral_code,membership_tier,reward_points&limit=1');
+        if (sRes.statusCode == 200 && sRes.data is List && (sRes.data as List).isNotEmpty) {
+          final u = (sRes.data as List).first as Map<String, dynamic>;
+          final dbCode = u['referral_code']?.toString() ?? '';
+          final dbPoints = (u['reward_points'] as num?)?.toInt();
+          final dbTier = u['membership_tier']?.toString();
+          if (dbCode.isNotEmpty) {
+            _userProfile = _userProfile.copyWith(
+              memberCode: dbCode,
+              points: dbPoints ?? _userProfile.points,
+              memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
+            );
+            _persistLocalProfile(_userProfile);
+          }
+        }
+      } catch (_) {}
     }
     return _userProfile;
   }
@@ -613,12 +528,30 @@ class MembershipRepository {
     }
   }
 
+  String _mapTierName(String tier) {
+    switch (tier.toUpperCase()) {
+      case 'DIAMOND':
+        return 'Hội viên Kim cương';
+      case 'PLATINUM':
+        return 'Hội viên Bạch kim';
+      case 'GOLD':
+        return 'Hội viên Vàng';
+      case 'SILVER':
+        return 'Hội viên Bạc';
+      default:
+        return 'Thành viên';
+    }
+  }
+
   void _persistLocalProfile(UserProfile p) {
     SharedPreferences.getInstance().then((prefs) {
       prefs.setString(_avatarPrefKey, p.avatarUrl);
       prefs.setString(_namePrefKey, p.fullName);
       prefs.setString(_phonePrefKey, p.phone);
       prefs.setString(_emailPrefKey, p.email);
+      if (p.memberCode.isNotEmpty) {
+        prefs.setString(_memberCodePrefKey, p.memberCode);
+      }
     }).catchError((_) {});
   }
 }

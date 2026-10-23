@@ -20,26 +20,15 @@ import {
   PackageStatus,
   EnrollmentStatus,
   RoomType,
+  AuditLog,
+  StaffCommission,
+  ServiceMaterial,
+  InventoryConsumptionLog,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
-import { matchSearch } from '../utils/searchUtils';
-
-const SUPABASE_URL =
-  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
-const VALID_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
-
-function getValidSupabaseKey(): string {
-  const envServiceKey = (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY;
-  if (typeof envServiceKey === 'string' && envServiceKey.split('.').length === 3 && envServiceKey.length > 50) {
-    return envServiceKey;
-  }
-  return VALID_SERVICE_ROLE_KEY;
-}
-
-const SUPABASE_KEY = getValidSupabaseKey();
-
+import { matchSearch, isUuid } from '../utils/searchUtils';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, getSupabaseHeaders } from './supabaseClient';
 
 class SupabaseService {
   private url: string;
@@ -51,13 +40,11 @@ class SupabaseService {
   }
 
   private getHeaders(): Record<string, string> {
-    return {
-      apikey: this.key,
-      Authorization: `Bearer ${this.key}`,
+    return getSupabaseHeaders({
       'Content-Type': 'application/json',
       Accept: 'application/json',
       Prefer: 'return=representation',
-    };
+    });
   }
 
   private async query<T>(path: string, options: RequestInit = {}): Promise<T | null> {
@@ -931,6 +918,9 @@ class SupabaseService {
       technicianId?: string | null;
     }
   ): Promise<boolean> {
+    if (!isUuid(bookingId)) {
+      return false;
+    }
     try {
       const payload: Record<string, any> = {
         updated_at: new Date().toISOString(),
@@ -1118,8 +1108,8 @@ class SupabaseService {
 
   // 11. HÓA ĐƠN THU NGÂN (INVOICES)
   async getInvoices(branchId?: string, customerId?: string): Promise<Invoice[] | null> {
-    let path = `invoices?select=*&order=paid_at.desc`;
-    if (branchId) path += `&branch_id=eq.${branchId}`;
+    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city)&order=paid_at.desc`;
+    if (branchId && branchId !== 'ALL') path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
     const raw = await this.query<any[]>(path);
@@ -1144,6 +1134,22 @@ class SupabaseService {
       gatewayTransactionId: inv.gateway_transaction_id,
       refundAmount: Number(inv.refund_amount || 0),
       paidAt: inv.paid_at,
+      customer: inv.customer ? {
+        id: inv.customer.id,
+        fullName: inv.customer.full_name || 'Khách hàng',
+        phone: inv.customer.phone || '--',
+        email: inv.customer.email,
+        avatarUrl: inv.customer.avatar_url,
+        membershipTier: inv.customer.membership_tier,
+      } as any : undefined,
+      branch: inv.branch ? {
+        id: inv.branch.id,
+        name: inv.branch.name,
+        code: inv.branch.code,
+        address: inv.branch.address,
+        district: inv.branch.district,
+        city: inv.branch.city,
+      } as any : undefined,
     }));
   }
 
@@ -1168,12 +1174,12 @@ class SupabaseService {
     try {
       const payload = {
         invoice_code: invoice.invoiceCode,
-        branch_id: invoice.branchId,
-        customer_id: invoice.customerId,
-        cashier_id: invoice.cashierId || 'bbbbbbbb-0001-0001-0001-000000000002',
-        booking_id: invoice.bookingId || null,
-        user_package_id: invoice.userPackageId || null,
-        enrollment_id: invoice.enrollmentId || null,
+        branch_id: isUuid(invoice.branchId) ? invoice.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+        customer_id: isUuid(invoice.customerId) ? invoice.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        cashier_id: isUuid(invoice.cashierId) ? invoice.cashierId : 'bbbbbbbb-0001-0001-0001-000000000002',
+        booking_id: isUuid(invoice.bookingId) ? invoice.bookingId : null,
+        user_package_id: isUuid(invoice.userPackageId) ? invoice.userPackageId : null,
+        enrollment_id: isUuid(invoice.enrollmentId) ? invoice.enrollmentId : null,
         subtotal: invoice.subtotal,
         discount_amount: invoice.discountAmount || 0,
         points_redeemed_amount: invoice.pointsRedeemedAmount || 0,
@@ -1370,6 +1376,53 @@ class SupabaseService {
   }
 
   // 15. QUẢN LÝ GHI DANH & HỌC PHÍ HỌC VIỆN (ACADEMY ENROLLMENT FSM)
+  async createEnrollment(data: {
+    studentId: string;
+    courseId: string;
+    batchId?: string | null;
+    status?: EnrollmentStatus;
+    tuitionTotal?: number;
+    amountPaid?: number;
+  }): Promise<CourseEnrollment | null> {
+    try {
+      const payload: Record<string, any> = {
+        student_id: data.studentId,
+        course_id: data.courseId,
+        batch_id: data.batchId || null,
+        status: data.status || EnrollmentStatus.CONSULTING,
+        tuition_total: data.tuitionTotal || 9000000,
+        amount_paid: data.amountPaid || 0,
+        completed_lessons_count: 0,
+        progress_percent: 0,
+        enrolled_at: new Date().toISOString(),
+      };
+      const res = await this.query<any[]>('course_enrollments', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const enr = res[0];
+        return {
+          id: enr.id,
+          studentId: enr.student_id,
+          courseId: enr.course_id,
+          batchId: enr.batch_id,
+          status: enr.status as EnrollmentStatus,
+          tuitionTotal: Number(enr.tuition_total),
+          amountPaid: Number(enr.amount_paid),
+          completedLessonsCount: enr.completed_lessons_count || 0,
+          progressPercent: enr.progress_percent || 0,
+          enrolledAt: enr.enrolled_at,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[SupabaseService] createEnrollment error:', err);
+      return null;
+    }
+  }
+
   async updateEnrollment(
     enrollmentId: string,
     updates: {
@@ -1548,21 +1601,348 @@ class SupabaseService {
 
   // 17. NÂNG HẠNG THÀNH VIÊN THEO MỨC CHI TIÊU (LOYALTY FSM)
   calculateTier(totalSpent: number): MemberTier {
-    if (totalSpent >= 30000000) return MemberTier.DIAMOND;
-    if (totalSpent >= 15000000) return MemberTier.PLATINUM;
-    if (totalSpent >= 5000000) return MemberTier.GOLD;
-    return MemberTier.SILVER;
+    if (totalSpent >= 100000000) return MemberTier.DIAMOND;
+    if (totalSpent >= 50000000) return MemberTier.PLATINUM;
+    if (totalSpent >= 25000000) return MemberTier.GOLD;
+    if (totalSpent >= 10000000) return MemberTier.SILVER;
+    return MemberTier.STANDARD;
   }
 
   async calculateAndUpgradeTier(userId: string, newTotalSpent: number): Promise<MemberTier> {
     const tier = this.calculateTier(newTotalSpent);
     await this.updateUser(userId, {
       total_spent: newTotalSpent,
-      member_tier: tier,
+      membership_tier: tier,
       updated_at: new Date().toISOString(),
     });
     return tier;
   }
+
+  // 18. KHẢO SÁT LÂM SÀNG & TIẾP NHẬN TRỊ LIỆU (CONSULTATION SURVEYS)
+  async getConsultationSurveys(): Promise<any[] | null> {
+    try {
+      const raw = await this.query<any[]>('consultation_surveys?select=*&order=created_at.desc');
+      return raw || [];
+    } catch (err) {
+      console.warn('[SupabaseService] getConsultationSurveys error:', err);
+      return [];
+    }
+  }
+
+  // 19. HỆ THỐNG KIỂM TOÁN CHỐNG GIAN LẬN NỘI BỘ (AUDIT TRAIL ENGINE)
+  async createAuditLog(entry: {
+    tableName: string;
+    action: 'INSERT' | 'UPDATE' | 'DELETE';
+    recordId: string;
+    performedBy?: string | null;
+    oldData?: Record<string, any> | null;
+    newData?: Record<string, any> | null;
+    description?: string;
+  }): Promise<AuditLog | null> {
+    try {
+      const payload = {
+        table_name: entry.tableName,
+        action: entry.action,
+        record_id: isUuid(entry.recordId) ? entry.recordId : null,
+        performed_by: isUuid(entry.performedBy) ? entry.performedBy : null,
+        old_data: entry.oldData || null,
+        new_data: entry.newData || null,
+        description: entry.description || `Thao tác ${entry.action} trên bảng ${entry.tableName}`,
+        created_at: new Date().toISOString(),
+      };
+      const res = await this.query<any[]>('audit_logs', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const row = res[0];
+        return {
+          id: row.id,
+          tableName: row.table_name,
+          action: row.action,
+          recordId: row.record_id,
+          performedBy: row.performed_by,
+          oldData: row.old_data,
+          newData: row.new_data,
+          description: row.description,
+          createdAt: row.created_at,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[SupabaseService] createAuditLog error:', err);
+      return null;
+    }
+  }
+
+  async getAuditLogs(tableName?: string): Promise<AuditLog[]> {
+    try {
+      const path = tableName
+        ? `audit_logs?table_name=eq.${tableName}&order=created_at.desc&limit=50`
+        : `audit_logs?order=created_at.desc&limit=50`;
+      const raw = await this.query<any[]>(path);
+      if (!raw || raw.length === 0) return [];
+      return raw.map((r) => ({
+        id: r.id,
+        tableName: r.table_name,
+        action: r.action,
+        recordId: r.record_id,
+        performedBy: r.performed_by,
+        ipAddress: r.ip_address,
+        userAgent: r.user_agent,
+        oldData: r.old_data,
+        newData: r.new_data,
+        description: r.description,
+        createdAt: r.created_at,
+      }));
+    } catch (err) {
+      console.warn('[SupabaseService] getAuditLogs error:', err);
+      return [];
+    }
+  }
+
+  // 20. ĐỘNG CƠ TÍNH HOA HỒNG & LƯƠNG THƯỞNG KỸ THUẬT VIÊN (STAFF COMMISSION ENGINE)
+  async recordStaffCommission(data: {
+    staffId: string;
+    branchId: string;
+    bookingId?: string | null;
+    invoiceId?: string | null;
+    commissionType?: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS';
+    baseAmount: number;
+    percentage?: number;
+    notes?: string;
+  }): Promise<StaffCommission | null> {
+    const pct = data.percentage || (data.commissionType === 'PACKAGE_UPSELL' ? 3.0 : 10.0);
+    const commissionAmount = Math.round((data.baseAmount * pct) / 100);
+    const now = new Date();
+    const cycleMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const validBookingId = isUuid(data.bookingId) ? data.bookingId : null;
+    const validStaffId = isUuid(data.staffId) ? data.staffId : 'cccccccc-0001-0001-0001-000000000001';
+    const validBranchId = isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+
+    try {
+      const payload = {
+        staff_id: validStaffId,
+        branch_id: validBranchId,
+        booking_id: validBookingId,
+        invoice_id: data.invoiceId || null,
+        commission_type: data.commissionType || 'SERVICE_DIRECT',
+        base_amount: data.baseAmount,
+        percentage: pct,
+        commission_amount: commissionAmount,
+        status: 'APPROVED',
+        cycle_month: cycleMonth,
+        notes: data.notes || `Hoa hồng tự động ${pct}% từ đơn dịch vụ`,
+        created_at: now.toISOString(),
+      };
+
+      const res = await this.query<any[]>('staff_commissions', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res && res.length > 0) {
+        const row = res[0];
+        return {
+          id: row.id,
+          staffId: row.staff_id,
+          branchId: row.branch_id,
+          bookingId: row.booking_id,
+          invoiceId: row.invoice_id,
+          commissionType: row.commission_type,
+          baseAmount: Number(row.base_amount),
+          percentage: Number(row.percentage),
+          commissionAmount: Number(row.commission_amount),
+          status: row.status,
+          cycleMonth: row.cycle_month,
+          notes: row.notes,
+          createdAt: row.created_at,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] recordStaffCommission error:', err);
+    }
+
+    // Local fallback persistence
+    try {
+      const raw = localStorage.getItem('mld_local_staff_commissions');
+      const list = raw ? JSON.parse(raw) : [];
+      const localItem = {
+        id: `comm-${Date.now()}`,
+        staff_id: validStaffId,
+        branch_id: validBranchId,
+        booking_id: validBookingId,
+        invoice_id: data.invoiceId || null,
+        commission_type: data.commissionType || 'SERVICE_DIRECT',
+        base_amount: data.baseAmount,
+        percentage: pct,
+        commission_amount: commissionAmount,
+        status: 'APPROVED',
+        cycle_month: cycleMonth,
+        notes: data.notes || `Hoa hồng tự động ${pct}% từ đơn dịch vụ`,
+        created_at: now.toISOString(),
+      };
+      localStorage.setItem('mld_local_staff_commissions', JSON.stringify([localItem, ...list]));
+      return {
+        id: localItem.id,
+        staffId: localItem.staff_id,
+        branchId: localItem.branch_id,
+        bookingId: localItem.booking_id,
+        invoiceId: localItem.invoice_id,
+        commissionType: localItem.commission_type as any,
+        baseAmount: localItem.base_amount,
+        percentage: localItem.percentage,
+        commissionAmount: localItem.commission_amount,
+        status: (localItem.status || 'APPROVED') as any,
+        cycleMonth: localItem.cycle_month,
+        notes: localItem.notes,
+        createdAt: localItem.created_at,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async getStaffCommissions(staffId?: string, cycleMonth?: string): Promise<StaffCommission[]> {
+    try {
+      let path = 'staff_commissions?order=created_at.desc';
+      if (staffId && isUuid(staffId)) path += `&staff_id=eq.${staffId}`;
+      if (cycleMonth) path += `&cycle_month=eq.${cycleMonth}`;
+
+      const raw = await this.query<any[]>(path);
+      if (raw && raw.length > 0) {
+        return raw.map((r) => ({
+          id: r.id,
+          staffId: r.staff_id,
+          branchId: r.branch_id,
+          bookingId: r.booking_id,
+          invoiceId: r.invoice_id,
+          commissionType: r.commission_type as any,
+          baseAmount: Number(r.base_amount),
+          percentage: Number(r.percentage),
+          commissionAmount: Number(r.commission_amount),
+          status: (r.status || 'APPROVED') as any,
+          cycleMonth: r.cycle_month,
+          notes: r.notes,
+          createdAt: r.created_at,
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] getStaffCommissions error:', err);
+    }
+
+    try {
+      const raw = localStorage.getItem('mld_local_staff_commissions');
+      if (raw) {
+        let list = JSON.parse(raw);
+        if (staffId) list = list.filter((r: any) => r.staff_id === staffId);
+        if (cycleMonth) list = list.filter((r: any) => r.cycle_month === cycleMonth);
+        return list.map((r: any) => ({
+          id: r.id,
+          staffId: r.staff_id,
+          branchId: r.branch_id,
+          bookingId: r.booking_id,
+          invoiceId: r.invoice_id,
+          commissionType: r.commission_type as any,
+          baseAmount: Number(r.base_amount),
+          percentage: Number(r.percentage),
+          commissionAmount: Number(r.commission_amount),
+          status: (r.status || 'APPROVED') as any,
+          cycleMonth: r.cycle_month,
+          notes: r.notes,
+          createdAt: r.created_at,
+        }));
+      }
+    } catch {}
+    return [];
+  }
+
+  // 21. ĐỊNH MỨC TIÊU HAO VẬT TƯ & XUẤT KHO THEO CA (INVENTORY CONSUMPTION)
+  async recordInventoryConsumption(data: {
+    branchId: string;
+    serviceId?: string | null;
+    bookingId?: string | null;
+    invoiceId?: string | null;
+    technicianId?: string | null;
+    materialName: string;
+    quantityDeducted: number;
+    unit?: string;
+  }): Promise<InventoryConsumptionLog | null> {
+    const validBookingId = isUuid(data.bookingId) ? data.bookingId : null;
+    const validBranchId = isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+    const validTechId = isUuid(data.technicianId) ? data.technicianId : null;
+
+    try {
+      const payload = {
+        branch_id: validBranchId,
+        service_id: data.serviceId || null,
+        booking_id: validBookingId,
+        invoice_id: data.invoiceId || null,
+        technician_id: validTechId,
+        material_name: data.materialName,
+        quantity_deducted: data.quantityDeducted,
+        unit: data.unit || 'ml',
+        logged_at: new Date().toISOString(),
+      };
+      const res = await this.query<any[]>('inventory_consumption_logs', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const row = res[0];
+        return {
+          id: row.id,
+          branchId: row.branch_id,
+          serviceId: row.service_id,
+          bookingId: row.booking_id,
+          invoiceId: row.invoice_id,
+          technicianId: row.technician_id,
+          materialName: row.material_name,
+          quantityDeducted: Number(row.quantity_deducted),
+          unit: row.unit,
+          loggedAt: row.logged_at,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] recordInventoryConsumption error:', err);
+    }
+
+    // Local fallback persistence
+    try {
+      const raw = localStorage.getItem('mld_local_inventory_consumption_logs');
+      const list = raw ? JSON.parse(raw) : [];
+      const localLog = {
+        id: `log-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        branch_id: validBranchId,
+        service_id: data.serviceId || null,
+        booking_id: validBookingId,
+        invoice_id: data.invoiceId || null,
+        technician_id: validTechId,
+        material_name: data.materialName,
+        quantity_deducted: data.quantityDeducted,
+        unit: data.unit || 'ml',
+        logged_at: new Date().toISOString(),
+      };
+      localStorage.setItem('mld_local_inventory_consumption_logs', JSON.stringify([localLog, ...list]));
+      return {
+        id: localLog.id,
+        branchId: localLog.branch_id,
+        serviceId: localLog.service_id,
+        bookingId: localLog.booking_id,
+        invoiceId: localLog.invoice_id,
+        technicianId: localLog.technician_id,
+        materialName: localLog.material_name,
+        quantityDeducted: Number(localLog.quantity_deducted),
+        unit: localLog.unit,
+        loggedAt: localLog.logged_at,
+      };
+    } catch {
+      return null;
+    }
+  }
 }
 
-export const supabaseService = new SupabaseService(SUPABASE_URL, SUPABASE_KEY);
+export const supabaseService = new SupabaseService(SUPABASE_URL, SUPABASE_ANON_KEY);

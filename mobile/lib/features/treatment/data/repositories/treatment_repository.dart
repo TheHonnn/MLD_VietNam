@@ -105,6 +105,22 @@ class TreatmentRepository {
   List<HomeCareArticleModel> get guidelineArticles => List.unmodifiable(_guidelineArticles);
   List<ChatMessageModel> get chatMessages => List.unmodifiable(_chatMessages);
   List<TreatmentNotificationModel> get notifications => List.unmodifiable(_notifications);
+  bool get hasUnreadNotifications => _notifications.any((n) => !n.isRead);
+
+  void markAllNotificationsAsRead() {
+    for (final n in _notifications) {
+      n.isRead = true;
+    }
+  }
+
+  void markNotificationAsRead(String id) {
+    for (final n in _notifications) {
+      if (n.id == id) {
+        n.isRead = true;
+        break;
+      }
+    }
+  }
   ConsultationPreferenceModel get latestConsultation => _latestConsultation;
   ServiceReviewDataModel get latestReview => _latestReview;
   UserPackageModel? get mainPackage => _packages.isNotEmpty ? _packages.first : null;

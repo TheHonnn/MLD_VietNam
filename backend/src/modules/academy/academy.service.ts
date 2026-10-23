@@ -302,26 +302,7 @@ export class AcademyService {
 
     return {
       success: true,
-      data: [
-        {
-          id: 'my-course-01',
-          courseId: '30303030-0001-0001-0001-000000000001',
-          title: 'Khóa Đào Tạo Kỹ Thuật Viên Spa Chuyên Nghiệp',
-          batchCode: 'K24-SPA-HCM',
-          branchName: 'Chi nhánh Quận 3',
-          schedule: 'Thứ 6–7–Chủ nhật (13:00 – 17:00)',
-          startDate: '23/10/2026',
-          endDate: '23/12/2026',
-          completedLessons: 6,
-          totalLessons: 20,
-          progressPercentage: 30,
-          status: 'IN_PROGRESS',
-          statusText: 'Đang học',
-          instructorName: 'ThS. Nguyễn Thu Hà',
-          instructorAvatar: 'assets/images/le_hoai_an.png',
-          imageUrl: 'assets/images/gioithieu_1.png',
-        },
-      ],
+      data: [],
     };
   }
 

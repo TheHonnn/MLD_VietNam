@@ -18,6 +18,18 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
   @override
   Widget build(BuildContext context) {
     final vouchers = _repo.vouchers;
+    final availableVouchers = vouchers.where((v) {
+      final s = v.status.toUpperCase();
+      return s == 'AVAILABLE' || s == 'ACTIVE' || (s.contains('SỬ DỤNG') && !s.contains('ĐÃ'));
+    }).toList();
+    final usedVouchers = vouchers.where((v) {
+      final s = v.status.toUpperCase();
+      return s == 'USED' || s.contains('ĐÃ');
+    }).toList();
+    final expiredVouchers = vouchers.where((v) {
+      final s = v.status.toUpperCase();
+      return s == 'EXPIRED' || s.contains('HẾT HẠN');
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
@@ -90,25 +102,25 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppColors.border, width: 1.0),
                       ),
-                      child: const Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               Text(
-                                '3',
-                                style: TextStyle(
+                                '${availableVouchers.length}',
+                                style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.primary, // #985018
                                 ),
                               ),
-                              SizedBox(width: 14),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    const Text(
                                       'Ưu đãi có thể sử dụng',
                                       style: TextStyle(
                                         fontSize: 16,
@@ -116,10 +128,12 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
-                                    SizedBox(height: 2),
+                                    const SizedBox(height: 2),
                                     Text(
-                                      'Hết hạn gần nhất: 31/10/2026',
-                                      style: TextStyle(
+                                      availableVouchers.isNotEmpty
+                                          ? 'Hết hạn gần nhất: ${availableVouchers.first.expiryDate}'
+                                          : 'Hiện chưa có ưu đãi khả dụng',
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w400,
                                         color: AppColors.textSecondary,
@@ -128,15 +142,15 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                                   ],
                                 ),
                               ),
-                              Icon(
+                              const Icon(
                                 Icons.card_giftcard_rounded,
                                 size: 28,
                                 color: Color(0xFFC58D59),
                               ),
                             ],
                           ),
-                          SizedBox(height: 10),
-                          Text(
+                          const SizedBox(height: 10),
+                          const Text(
                             'Áp dụng cho mọi dịch vụ chăm sóc tại MLD',
                             style: TextStyle(
                               fontSize: 11,
@@ -164,17 +178,45 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                     const SizedBox(height: 20),
 
                     // --- 4. DANH SÁCH VOUCHER TICKETS ---
-                    if (_selectedFilter != 'Có thể sử dụng')
+                    if (_selectedFilter == 'Có thể sử dụng' && availableVouchers.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                        alignment: Alignment.center,
+                        child: const Column(
+                          children: [
+                            Icon(Icons.confirmation_number_outlined, size: 48, color: AppColors.textSecondary),
+                            SizedBox(height: 12),
+                            Text(
+                              'Bạn chưa có mã ưu đãi nào',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              'Các mã giảm giá và ưu đãi khi đặt dịch vụ sẽ hiển thị tại đây.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_selectedFilter == 'Đã sử dụng' && usedVouchers.isEmpty)
                       Container(
                         padding: const EdgeInsets.all(32),
                         alignment: Alignment.center,
-                        child: Text(
-                          'Không có ưu đãi nào trong mục $_selectedFilter',
-                          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                        ),
+                        child: const Text('Chưa có ưu đãi nào đã sử dụng', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                       )
+                    else if (_selectedFilter == 'Hết hạn' && expiredVouchers.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        child: const Text('Không có ưu đãi nào đã hết hạn', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                      )
+                    else if (_selectedFilter == 'Có thể sử dụng')
+                      ...availableVouchers.map((vc) => _buildVoucherTicket(vc))
+                    else if (_selectedFilter == 'Đã sử dụng')
+                      ...usedVouchers.map((vc) => _buildVoucherTicket(vc))
                     else
-                      ...vouchers.map((vc) => _buildVoucherTicket(vc)),
+                      ...expiredVouchers.map((vc) => _buildVoucherTicket(vc)),
 
                     const SizedBox(height: 12),
 

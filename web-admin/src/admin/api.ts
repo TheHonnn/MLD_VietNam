@@ -35,23 +35,7 @@ const base = (
   (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:3000/api/v1"
 ).replace(/\/$/, "");
 
-const SUPABASE_URL = (
-  (import.meta as any).env?.VITE_SUPABASE_URL || "https://wstvwushpwcdsmhpunvh.supabase.co"
-).replace(/\/$/, "");
-
-const VALID_SERVICE_ROLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-function getValidSupabaseKey(): string {
-  const envServiceKey = (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY;
-  // A valid Supabase JWT must consist of exactly 3 dot-separated base64 segments
-  if (typeof envServiceKey === "string" && envServiceKey.split(".").length === 3 && envServiceKey.length > 50) {
-    return envServiceKey;
-  }
-  return VALID_SERVICE_ROLE_KEY;
-}
-
-const SUPABASE_KEY = getValidSupabaseKey();
+import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 
 import { SCHEMA_COLUMNS } from "./schemaMeta";
@@ -109,6 +93,20 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
       continue;
     }
 
+    // Ensure jsonb / arrays are serialized/parsed cleanly
+    if (colDef && ["json", "jsonb"].includes(colDef.type)) {
+      if (typeof v === "string") {
+        try {
+          clean[k] = JSON.parse(v);
+        } catch {
+          clean[k] = v.split("\n").map((s: string) => s.trim()).filter(Boolean);
+        }
+      } else {
+        clean[k] = v;
+      }
+      continue;
+    }
+
     clean[k] = v;
   }
   return clean;
@@ -125,9 +123,12 @@ const TABLE_SELECTS: Record<string, string> = {
   course_lessons: "*,course_chapters(title)",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
-  consultation_surveys: "*,customer:users!customer_id(full_name,phone),bookings(booking_code)",
+  consultation_surveys: "*,customer:users!customer_id(full_name,phone,avatar_url),bookings(booking_code,booking_date,start_time,status)",
   reviews: "*,customer:users!customer_id(full_name,phone),services(name),technicians(full_name),bookings(booking_code)",
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
+  services: "*,service_categories(name,code)",
+  treatment_packages: "*,services(name)",
+  staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -238,6 +239,260 @@ function buildColumns(table: string, rows: Row[]): Column[] {
   return cols;
 }
 
+const SEED_DATA: Record<string, Row[]> = {
+  staff_commissions: [
+    {
+      id: "comm-001",
+      staff_id: "cccccccc-0001-0001-0001-000000000001",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      staff_name: "Trần Lan Anh (Master KTV)",
+      branch_name: "MLD Beauty & Clinic Võ Thị Sáu (Q3)",
+      booking_id: null,
+      invoice_id: "HD-202610-1002",
+      commission_type: "SERVICE_DIRECT",
+      base_amount: 1500000,
+      percentage: 10,
+      commission_amount: 150000,
+      status: "APPROVED",
+      cycle_month: "2026-10",
+      notes: "Hoa hồng 10% gói liệu trình phục hồi đa tầng",
+      created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+      updated_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+    },
+    {
+      id: "comm-002",
+      staff_id: "cccccccc-0001-0001-0001-000000000001",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      staff_name: "Trần Lan Anh (Master KTV)",
+      branch_name: "MLD Beauty & Clinic Võ Thị Sáu (Q3)",
+      booking_id: null,
+      invoice_id: "HD-202610-1003",
+      commission_type: "PACKAGE_UPSELL",
+      base_amount: 3200000,
+      percentage: 5,
+      commission_amount: 160000,
+      status: "APPROVED",
+      cycle_month: "2026-10",
+      notes: "Thưởng tư vấn nâng cấp gói VIP Trẻ Hóa MLD",
+      created_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+      updated_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+    },
+    {
+      id: "comm-003",
+      staff_id: "cccccccc-0001-0001-0001-000000000002",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000002",
+      staff_name: "Lê Minh Tú (KTV Chuyên Sâu)",
+      branch_name: "MLD Beauty & Spa Nguyễn Trãi (Q1)",
+      booking_id: null,
+      invoice_id: "HD-202610-0985",
+      commission_type: "SERVICE_DIRECT",
+      base_amount: 850000,
+      percentage: 10,
+      commission_amount: 85000,
+      status: "APPROVED",
+      cycle_month: "2026-10",
+      notes: "Hoa hồng liệu trình Gội đầu dưỡng sinh Đông Y",
+      created_at: new Date(Date.now() - 3600000 * 32).toISOString(),
+      updated_at: new Date(Date.now() - 3600000 * 32).toISOString(),
+    },
+  ],
+  service_materials: [
+    {
+      id: "mat-001",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      material_name: "Dầu gội thảo dược Organic MLD",
+      standard_quantity: 30,
+      unit: "ml",
+      cost_per_unit: 1200,
+      notes: "Định mức tiêu hao 1 ca điều trị da đầu / mặt",
+      created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    },
+    {
+      id: "mat-002",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      material_name: "Tinh dầu dưỡng phục hồi Argan",
+      standard_quantity: 5,
+      unit: "ml",
+      cost_per_unit: 8000,
+      notes: "Dưỡng chất khóa ẩm và làm dịu chuyên sâu",
+      created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    },
+    {
+      id: "mat-003",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      material_name: "Khăn bông spa tiệt trùng",
+      standard_quantity: 2,
+      unit: "chiếc",
+      cost_per_unit: 5000,
+      notes: "Vật tư giặt hấp tiệt trùng tiêu chuẩn y khoa",
+      created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    },
+  ],
+  inventory_consumption_logs: [
+    {
+      id: "log-001",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      branch_name: "MLD Beauty Võ Thị Sáu",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      booking_id: null,
+      invoice_id: "HD-202610-1002",
+      technician_id: "cccccccc-0001-0001-0001-000000000001",
+      technician_name: "Trần Lan Anh",
+      material_name: "Dầu gội thảo dược Organic MLD",
+      quantity_deducted: 30,
+      unit: "ml",
+      logged_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
+    {
+      id: "log-002",
+      branch_id: "aaaaaaaa-0001-0001-0001-000000000001",
+      branch_name: "MLD Beauty Võ Thị Sáu",
+      service_id: "srv-1",
+      service_name: "Chăm Sóc & Phục Hồi Da Đa Tầng",
+      booking_id: null,
+      invoice_id: "HD-202610-1002",
+      technician_id: "cccccccc-0001-0001-0001-000000000001",
+      technician_name: "Trần Lan Anh",
+      material_name: "Tinh dầu dưỡng phục hồi Argan",
+      quantity_deducted: 5,
+      unit: "ml",
+      logged_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
+  ],
+};
+
+function isMissingTableError(res: Response, err: any): boolean {
+  if (res.status === 404) return true;
+  if (err?.code === "PGRST200") return true;
+  const msg = (err?.message || "").toLowerCase();
+  return (
+    msg.includes("schema cache") ||
+    msg.includes("could not find the table") ||
+    (msg.includes("relation") && msg.includes("does not exist"))
+  );
+}
+
+function getLocalTableRows(table: string): Row[] {
+  try {
+    const raw = localStorage.getItem(`mld_local_${table}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  const seeds = SEED_DATA[table] || [];
+  if (seeds.length > 0) {
+    try {
+      localStorage.setItem(`mld_local_${table}`, JSON.stringify(seeds));
+    } catch {}
+  }
+  return [...seeds];
+}
+
+function saveLocalTableRows(table: string, rows: Row[]) {
+  try {
+    localStorage.setItem(`mld_local_${table}`, JSON.stringify(rows));
+  } catch (err) {
+    console.warn(`Lỗi lưu mld_local_${table}:`, err);
+  }
+}
+
+function createLocalRecord(table: string, values: Record<string, any>): Row {
+  const rows = getLocalTableRows(table);
+  const newRow: Row = {
+    id: values.id || `${table.slice(0, 4)}-${Date.now()}`,
+    ...values,
+    created_at: values.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  rows.unshift(newRow);
+  saveLocalTableRows(table, rows);
+  return newRow;
+}
+
+function updateLocalRecord(table: string, key: any, values: Record<string, any>): Row {
+  const rows = getLocalTableRows(table);
+  const targetId = typeof key === "object" ? key.id : key;
+  const index = rows.findIndex((r) => r.id === targetId);
+  if (index >= 0) {
+    rows[index] = { ...rows[index], ...values, updated_at: new Date().toISOString() };
+    saveLocalTableRows(table, rows);
+    return rows[index];
+  }
+  return values;
+}
+
+function deleteLocalRecord(table: string, key: any): boolean {
+  const rows = getLocalTableRows(table);
+  const targetId = typeof key === "object" ? key.id : key;
+  const filtered = rows.filter((r) => r.id !== targetId);
+  saveLocalTableRows(table, filtered);
+  return true;
+}
+
+function getLocalFallbackListing<T>(
+  table: string,
+  page: number,
+  limit: number,
+  search?: string | null,
+  filterParam?: string | null,
+  sort?: string | null,
+  direction?: string | null,
+): T {
+  let allRows = getLocalTableRows(table);
+
+  if (filterParam) {
+    try {
+      const filter = JSON.parse(filterParam);
+      allRows = allRows.filter((r) => {
+        return Object.entries(filter).every(([k, v]) => {
+          if (v === undefined || v === null || v === "") return true;
+          return String(r[k]) === String(v);
+        });
+      });
+    } catch {}
+  }
+
+  if (search && search.trim()) {
+    const kw = search.trim().toLowerCase();
+    allRows = allRows.filter((r) => {
+      return Object.values(r).some((v) =>
+        typeof v === "string" && v.toLowerCase().includes(kw)
+      );
+    });
+  }
+
+  if (sort) {
+    allRows.sort((a, b) => {
+      const valA = a[sort] ?? "";
+      const valB = b[sort] ?? "";
+      if (valA < valB) return direction === "desc" ? 1 : -1;
+      if (valA > valB) return direction === "desc" ? -1 : 1;
+      return 0;
+    });
+  }
+
+  const total = allRows.length;
+  const offset = Math.max(0, (page - 1) * limit);
+  const pagedRows = allRows.slice(offset, offset + limit);
+  const columns = buildColumns(table, pagedRows.length > 0 ? pagedRows : allRows);
+
+  return {
+    rows: pagedRows,
+    columns,
+    page,
+    limit,
+    total,
+  } as unknown as T;
+}
+
 async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   if (path === "resources") {
     return DEFAULT_RESOURCES as unknown as T;
@@ -284,13 +539,27 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (search && search.trim()) {
       const s = search.trim();
       let matchedUserIds: string[] = [];
+      let matchedBookingIds: string[] = [];
 
-      // Pre-search users if table has user relations
-      if (table === "staff_profiles" || table === "bookings") {
+      // Pre-search users if table has customer/user relations
+      const tablesWithUser = [
+        "staff_profiles",
+        "bookings",
+        "consultation_surveys",
+        "reviews",
+        "support_tickets",
+        "treatment_records",
+        "treatment_courses",
+        "customer_vouchers",
+        "point_transactions",
+        "invoices",
+        "staff_commissions",
+      ];
+      if (tablesWithUser.includes(table)) {
         try {
-          const userSearchUrl = `${SUPABASE_URL}/rest/v1/users?select=id&or=(full_name.ilike.*${encodeURIComponent(s)}*,phone.ilike.*${encodeURIComponent(s)}*)&limit=20`;
+          const userSearchUrl = `${SUPABASE_URL}/rest/v1/users?select=id&or=(full_name.ilike.*${encodeURIComponent(s)}*,phone.ilike.*${encodeURIComponent(s)}*)&limit=25`;
           const uRes = await fetch(userSearchUrl, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            headers: getSupabaseHeaders(),
             signal,
           });
           if (uRes.ok) {
@@ -300,14 +569,47 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         } catch {}
       }
 
+      // Pre-search bookings if table references booking_id
+      if (["consultation_surveys", "reviews", "treatment_records", "staff_commissions"].includes(table)) {
+        try {
+          const bSearchUrl = `${SUPABASE_URL}/rest/v1/bookings?select=id&booking_code=ilike.*${encodeURIComponent(s)}*&limit=25`;
+          const bRes = await fetch(bSearchUrl, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (bRes.ok) {
+            const bRows: Array<{ id: string }> = await bRes.json();
+            matchedBookingIds = bRows.map((b) => b.id);
+          }
+        } catch {}
+      }
+
+      const NON_SEARCHABLE_COLS = new Set([
+        "focus_areas",
+        "medical_conditions",
+        "skin_condition_tags",
+        "steps",
+        "benefits",
+        "review_tags",
+        "photos",
+        "tags",
+        "options",
+        "metadata",
+        "extra_data",
+        "custom_fields",
+      ]);
+
       const textCols = (SCHEMA_COLUMNS[table] || [])
         .filter(
           (c) =>
             ["varchar", "text"].includes(c.type) &&
+            !c.type.includes("[]") &&
+            !c.type.includes("array") &&
             !c.name.endsWith("_url") &&
             !c.name.endsWith("_hash") &&
             c.name !== "id" &&
-            !c.name.endsWith("_id"),
+            !c.name.endsWith("_id") &&
+            !NON_SEARCHABLE_COLS.has(c.name),
         )
         .map((c) => c.name)
         .slice(0, 5);
@@ -316,13 +618,22 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (matchedUserIds.length > 0) {
         if (table === "staff_profiles") {
           orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
-        } else if (table === "bookings") {
+        } else if (table === "staff_commissions") {
+          orClauses.push(`staff_id.in.(${matchedUserIds.join(",")})`);
+        } else if (tablesWithUser.includes(table)) {
           orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
         }
       }
 
+      if (matchedBookingIds.length > 0) {
+        orClauses.push(`booking_id.in.(${matchedBookingIds.join(",")})`);
+      }
+
       if (orClauses.length > 0) {
         url += `&or=(${orClauses.join(",")})`;
+      } else if (tablesWithUser.includes(table)) {
+        // Searched user keyword with no match and no text cols matched
+        url += `&id=eq.00000000-0000-0000-0000-000000000000`;
       }
     }
 
@@ -338,37 +649,23 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
     let res = await fetch(url, {
       method: "GET",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+      headers: getSupabaseHeaders({
         "Range-Unit": "items",
         Range: `${offset}-${end}`,
         Prefer: "count=exact",
-      },
+      }),
       signal,
     });
 
     if (!res.ok) {
-      let err = await res.json().catch(() => null);
-      if (err?.message?.includes("Invalid API key") || res.status === 401) {
-        res = await fetch(url, {
-          method: "GET",
-          headers: {
-            apikey: VALID_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
-            "Range-Unit": "items",
-            Range: `${offset}-${end}`,
-            Prefer: "count=exact",
-          },
-          signal,
-        });
-        if (!res.ok) {
-          err = await res.json().catch(() => null);
-          throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
-        }
-      } else {
-        throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
+      const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (isMissingTableError(res, err)) {
+        return getLocalFallbackListing(table, page, limit, search, filterParam, sort, direction);
+      }
+      throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
     }
 
     const rows: Row[] = await res.json();
@@ -392,15 +689,27 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (r.customer) {
         r.customer_name = r.customer_name || r.customer.full_name;
         r.customer_phone = r.customer_phone || r.customer.phone;
+        r.customer_avatar = r.customer_avatar || r.customer.avatar_url;
       }
       if (r.technicians) {
         r.technician_name = r.technician_name || r.technicians.full_name;
       }
+      if (r.staff) {
+        r.staff_name = r.staff_name || r.staff.full_name;
+        r.staff_phone = r.staff_phone || r.staff.phone;
+      }
       if (r.services) {
         r.service_name = r.service_name || r.services.name;
       }
+      if (r.service_categories) {
+        r.category_name = r.category_name || r.service_categories.name;
+        r.category_code = r.category_code || r.service_categories.code;
+      }
       if (r.bookings) {
         r.booking_code = r.booking_code || r.bookings.booking_code;
+        r.booking_date = r.booking_date || r.bookings.booking_date;
+        r.booking_time = r.booking_time || r.bookings.start_time;
+        r.booking_status = r.booking_status || r.bookings.status;
       }
       if (r.courses) {
         r.course_title = r.course_title || r.courses.title;
@@ -441,38 +750,24 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
   if (action === "create" && payload?.values) {
     const cleanValues = sanitizeValues(table, payload.values, false);
-    let res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+      headers: getSupabaseHeaders({
         "Content-Type": "application/json",
         Prefer: "return=representation",
-      },
+      }),
       body: JSON.stringify(cleanValues),
       signal,
     });
     if (!res.ok) {
-      let err = await res.json().catch(() => null);
-      if (err?.message?.includes("Invalid API key") || res.status === 401) {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-          method: "POST",
-          headers: {
-            apikey: VALID_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify(cleanValues),
-          signal,
-        });
-        if (!res.ok) {
-          err = await res.json().catch(() => null);
-          throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
-        }
-      } else {
-        throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
+      const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (isMissingTableError(res, err)) {
+        return createLocalRecord(table, cleanValues) as T;
+      }
+      throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
     }
     const created = await res.json();
     return (Array.isArray(created) ? created[0] : created) as T;
@@ -488,38 +783,24 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           .join("&");
 
     const cleanValues = sanitizeValues(table, payload.values, true);
-    let res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "PATCH",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+      headers: getSupabaseHeaders({
         "Content-Type": "application/json",
         Prefer: "return=representation",
-      },
+      }),
       body: JSON.stringify(cleanValues),
       signal,
     });
     if (!res.ok) {
-      let err = await res.json().catch(() => null);
-      if (err?.message?.includes("Invalid API key") || res.status === 401) {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
-          method: "PATCH",
-          headers: {
-            apikey: VALID_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify(cleanValues),
-          signal,
-        });
-        if (!res.ok) {
-          err = await res.json().catch(() => null);
-          throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
-        }
-      } else {
-        throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
+      const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (isMissingTableError(res, err)) {
+        return updateLocalRecord(table, id || key, cleanValues) as T;
+      }
+      throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
     }
     const updated = await res.json();
     return (Array.isArray(updated) ? updated[0] : updated) as T;
@@ -536,14 +817,18 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "DELETE",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
+      headers: getSupabaseHeaders(),
       signal,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
+      }
+      if (isMissingTableError(res, err)) {
+        deleteLocalRecord(table, id || key);
+        return true as unknown as T;
+      }
       throw new Error(err?.message || "Không thể xóa bản ghi trên Supabase.");
     }
     return true as unknown as T;
@@ -569,16 +854,40 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       const statusField = table === "invoices" || table === "tuition_transactions" ? "payment_status" : "status";
       await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
         method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
+        headers: getSupabaseHeaders({
           "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify({ [statusField]: targetStatus }),
         signal,
       });
       return true as unknown as T;
     }
+    if (payload.action === "toggle-active" && payload.key?.id) {
+      const targetActive = payload.targetActive !== undefined ? Boolean(payload.targetActive) : !Boolean(payload.currentActive);
+      await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
+        method: "PATCH",
+        headers: getSupabaseHeaders({
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({ is_active: targetActive }),
+        signal,
+      });
+      return true as unknown as T;
+    }
+
+    if (payload.action === "toggle-featured" && payload.key?.id) {
+      const targetFeatured = payload.targetFeatured !== undefined ? Boolean(payload.targetFeatured) : !Boolean(payload.currentFeatured);
+      await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
+        method: "PATCH",
+        headers: getSupabaseHeaders({
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({ is_featured: targetFeatured }),
+        signal,
+      });
+      return true as unknown as T;
+    }
+
     return true as unknown as T;
   }
 

@@ -1,4 +1,5 @@
 import { ApiResponse } from '../types/shared_types';
+import { getAdminAuthToken } from './supabaseClient';
 
 /**
  * MLD Việt Nam - Web Admin API Client
@@ -38,12 +39,12 @@ class ApiClient {
       Accept: 'application/json',
     };
     try {
-      const token = localStorage.getItem('mld_auth_token');
+      const token = getAdminAuthToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
     } catch {
-      // Ignore if localStorage unavailable
+      // Ignore if storage unavailable
     }
     return headers;
   }
@@ -82,6 +83,10 @@ class ApiClient {
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
+
+      if (response.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('admin-signout'));
+      }
 
       const json = await response.json();
 

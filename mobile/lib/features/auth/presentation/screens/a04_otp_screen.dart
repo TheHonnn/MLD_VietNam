@@ -6,6 +6,7 @@ import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import '../../widgets/primary_button.dart';
 
 class A04OtpScreen extends StatefulWidget {
@@ -40,11 +41,6 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
   void initState() {
     super.initState();
     _startCountdown();
-    if (widget.initialOtp != null && widget.initialOtp!.length == 6) {
-      for (int i = 0; i < 6; i++) {
-        _controllers[i].text = widget.initialOtp![i];
-      }
-    }
   }
 
   @override
@@ -134,13 +130,24 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
         final user = data['user'] as Map<String, dynamic>?;
 
         if (accessToken != null && accessToken.isNotEmpty) {
+          final registeredName = (user?['full_name'] ?? user?['fullName']) as String?;
+          final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+          final userPhone = user?['phone'] as String?;
           await AuthService.instance.saveSession(
             accessToken: accessToken,
             refreshToken: refreshToken,
             userId: user?['id'] as String?,
-            phone: user?['phone'] as String?,
-            displayName: (user?['full_name'] ?? user?['fullName']) as String?,
-            avatarUrl: (user?['avatar_url'] ?? user?['avatarUrl']) as String?,
+            phone: userPhone,
+            displayName: registeredName,
+            avatarUrl: userAvatar,
+          );
+
+          MembershipRepository.instance.syncUserSession(
+            fullName: registeredName,
+            phone: userPhone,
+            email: widget.email?.trim(),
+            avatarUrl: userAvatar,
+            memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
           );
         }
 

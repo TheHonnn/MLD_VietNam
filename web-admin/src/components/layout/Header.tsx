@@ -38,7 +38,11 @@ const breadcrumbs: Record<string, string> = {
   '/staff-schedule': 'Lịch kỹ thuật viên',
   '/medical-records': 'Quản lý liệu trình',
   '/treatment-management': 'Quản lý liệu trình',
-  '/services-catalog': 'Quản lý liệu trình',
+  '/services-catalog': 'Danh mục Dịch vụ Spa',
+  '/manage/services': 'Danh mục Dịch vụ Spa',
+  '/manage/treatment_packages': 'Gói Liệu trình Combo',
+  '/manage/service_categories': 'Danh mục Nhóm Dịch vụ',
+  '/manage/staff_commissions': 'Hoa hồng KTV & Lương thưởng',
   '/cashier-pos': 'Thu ngân',
   '/academy-enrollment': 'Tuyển sinh',
   '/instructors': 'Giảng viên',
@@ -647,9 +651,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
 
         {/* User profile & Logout */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-[#EFE4D9]">
-          <div className="w-8 h-8 rounded-full bg-[#F0E5D8] text-[#8C4C22] font-bold text-xs flex items-center justify-center shrink-0">
-            {userInitials || 'QT'}
-          </div>
+          {user?.avatar_url ? (
+            <img
+              src={user.avatar_url}
+              alt={user?.full_name || 'Avatar'}
+              className="w-8 h-8 rounded-full object-cover border border-[#EFE4D9] shrink-0 bg-[#FAF8F5]"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-[#F0E5D8] text-[#8C4C22] font-bold text-xs flex items-center justify-center shrink-0">
+              {userInitials || 'QT'}
+            </div>
+          )}
           <div className="hidden sm:block text-left">
             <div
               className="text-xs font-bold text-[#2C241E] leading-tight max-w-[140px] truncate"

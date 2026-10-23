@@ -75,7 +75,7 @@ export class MembershipService {
       try {
         const { data: user } = await this.supabaseService.adminClient
           .from('users')
-          .select('id, full_name, phone, email, avatar_url, membership_tier, reward_points')
+          .select('id, full_name, phone, email, avatar_url, membership_tier, reward_points, referral_code')
           .eq('id', resolvedId)
           .maybeSingle();
 
@@ -88,7 +88,7 @@ export class MembershipService {
             success: true,
             data: {
               id: user.id,
-              fullName: user.full_name || 'Khách hàng MLD',
+              fullName: user.full_name || '',
               phone: phone,
               isPhoneVerified: phone.trim().length > 0,
               email: user.email || '',
@@ -100,7 +100,7 @@ export class MembershipService {
               emergencyContactPhone: '',
               avatarUrl: user.avatar_url || '',
               memberTier: tier,
-              memberCode: phone ? `MLD-${phone.slice(-6)}` : `MLD-${user.id.substring(0, 6).toUpperCase()}`,
+              memberCode: user.referral_code || (phone ? `MLD-${phone.slice(-6)}` : `MLD-${user.id.substring(0, 6).toUpperCase()}`),
               points: points,
               validUntil: 'Đang hoạt động',
             },
@@ -115,7 +115,7 @@ export class MembershipService {
       success: true,
       data: {
         id: '',
-        fullName: 'Khách hàng MLD',
+        fullName: '',
         phone: '',
         isPhoneVerified: false,
         email: '',
@@ -260,34 +260,7 @@ export class MembershipService {
       }
     }
 
-    if (transactions.length === 0) {
-      transactions = [
-        {
-          id: 'pt-01',
-          type: 'EARN',
-          title: 'Đánh giá dịch vụ trị liệu cổ vai gáy',
-          date: '08/10/2026',
-          branch: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-          points: '+150',
-        },
-        {
-          id: 'pt-02',
-          type: 'REDEEM',
-          title: 'Đổi voucher chăm sóc da 100.000đ',
-          date: '05/10/2026',
-          branch: 'Ứng dụng di động',
-          points: '−500',
-        },
-        {
-          id: 'pt-03',
-          type: 'EARN',
-          title: 'Giới thiệu bạn bè đăng ký thành công',
-          date: '03/10/2026',
-          branch: 'Chương trình giới thiệu',
-          points: '+200',
-        },
-      ];
-    }
+
 
     const targetPoints = 3000;
     const needed = Math.max(0, targetPoints - points);
@@ -479,47 +452,11 @@ export class MembershipService {
       }
     }
 
-    const vouchers = [
-      {
-        id: 'vc-01',
-        title: 'Ưu đãi dịch vụ massage',
-        subtitle: 'Dành thời gian thư giãn và chăm sóc bản thân.',
-        discountBanner: 'GIẢM 20%',
-        description: 'Hóa đơn massage từ 300.000đ; giảm tối đa 150.000đ. Chi nhánh Quận 3 — TP. Hồ Chí Minh.',
-        expiryDate: '31/12/2026',
-        code: 'MASSAGE20DEMO',
-        status: 'AVAILABLE',
-        statusText: 'Có thể sử dụng',
-      },
-      {
-        id: 'vc-02',
-        title: 'Áp dụng cho dịch vụ chăm sóc da',
-        subtitle: 'Một đặc quyền nhỏ cho làn da được nâng niu.',
-        discountBanner: 'GIẢM 100.000Đ',
-        description: 'Hóa đơn chăm sóc da từ 500.000đ. Áp dụng tại Chi nhánh Quận 3 — TP. Hồ Chí Minh.',
-        expiryDate: '15/11/2026',
-        code: 'DA100DEMO',
-        status: 'AVAILABLE',
-        statusText: 'Có thể sử dụng',
-      },
-      {
-        id: 'vc-03',
-        title: 'Trải nghiệm chăm sóc cơ thể',
-        subtitle: 'Áp dụng theo điều kiện chương trình',
-        discountBanner: 'TẶNG 01 BUỔI',
-        description: 'Dành cho trải nghiệm mới của dịch vụ cơ thể đủ điều kiện. Cần đặt lịch hẹn trước ít nhất 24 giờ.',
-        expiryDate: '31/10/2026',
-        code: 'BODY01DEMO',
-        status: 'AVAILABLE',
-        statusText: 'Có thể sử dụng',
-      },
-    ];
-
     return {
       success: true,
-      totalAvailable: 3,
-      nearestExpiry: '31/10/2026',
-      data: vouchers,
+      totalAvailable: 0,
+      nearestExpiry: '',
+      data: [],
     };
   }
 
@@ -591,65 +528,14 @@ export class MembershipService {
       }
     }
 
-    const defaultPayments = [
-      {
-        id: 'pay-01',
-        code: 'MH-DV-1008',
-        date: '08/10/2026',
-        type: 'Dịch vụ',
-        icon: 'receipt',
-        serviceName: 'Massage thư giãn toàn thân',
-        branch: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        amount: 450000,
-        amountFormatted: '450.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thanh toán thành công',
-        paymentMethod: 'Thanh toán tại cơ sở',
-        refundAmount: 0,
-        remainingAmount: 0,
-      },
-      {
-        id: 'pay-02',
-        code: 'MH-LT-1005',
-        date: '05/10/2026',
-        type: 'Liệu trình',
-        icon: 'receipt',
-        serviceName: 'Gói chăm sóc da 8 buổi',
-        branch: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        amount: 3600000,
-        amountFormatted: '3.600.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thanh toán thành công',
-        paymentMethod: 'Thanh toán trực tuyến',
-        refundAmount: 0,
-        remainingAmount: 0,
-      },
-      {
-        id: 'pay-03',
-        code: 'MH-HP-1001',
-        date: '01/10/2026',
-        type: 'Học phí',
-        icon: 'graduation-cap',
-        serviceName: 'Học phí khóa Kỹ thuật Spa Cơ bản',
-        branch: 'Học viện MLD · Chi nhánh Quận 3',
-        amount: 4500000,
-        amountFormatted: '4.500.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thanh toán thành công',
-        paymentMethod: 'Chuyển khoản',
-        refundAmount: 0,
-        remainingAmount: 0,
-      },
-    ];
-
     return {
       success: true,
-      monthPeriod: 'Tháng 10/2026 (01/10/2026 – 31/10/2026)',
-      totalPaid: 8550000,
-      totalPaidFormatted: '8.550.000đ',
-      transactionCount: 3,
-      latestPayment: '08/10/2026 · 450.000đ',
-      data: defaultPayments,
+      monthPeriod: month || '',
+      totalPaid: 0,
+      totalPaidFormatted: '0đ',
+      transactionCount: 0,
+      latestPayment: '',
+      data: [],
     };
   }
 
@@ -724,40 +610,12 @@ export class MembershipService {
       data: {
         referralCode: referralCode,
         stats: {
-          totalReferred: 3,
-          eligibleCount: 2,
-          pointsEarned: 200,
-          lastRecorded: '03/10/2026',
+          totalReferred: 0,
+          eligibleCount: 0,
+          pointsEarned: 0,
+          lastRecorded: '',
         },
-        history: [
-          {
-            id: 'ref-01',
-            maskedName: 'N*** Linh',
-            date: '02/10/2026',
-            status: 'ELIGIBLE',
-            statusText: 'Đủ điều kiện',
-            points: '+100 điểm',
-            recordedDate: '03/10/2026',
-          },
-          {
-            id: 'ref-02',
-            maskedName: 'Tr*** Ngọc',
-            date: '03/10/2026',
-            status: 'ELIGIBLE',
-            statusText: 'Đủ điều kiện',
-            points: '+100 điểm',
-            recordedDate: '03/10/2026',
-          },
-          {
-            id: 'ref-03',
-            maskedName: 'Ph*** Hà',
-            date: '08/10/2026',
-            status: 'PENDING',
-            statusText: 'Đang chờ',
-            points: '0 điểm',
-            recordedDate: 'Chưa đủ điều kiện · Chưa ghi nhận điểm',
-          },
-        ],
+        history: [],
       },
     };
   }

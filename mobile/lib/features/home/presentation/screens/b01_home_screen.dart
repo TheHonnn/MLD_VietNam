@@ -1,3 +1,4 @@
+import '../../../treatment/data/repositories/treatment_repository.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -137,9 +138,35 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     super.initState();
     _startHeroTimer();
     _loadSuggestedServices();
+    _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
     });
+  }
+
+  Future<void> _loadUserProfile() async {
+    if (AuthService.instance.isLoggedIn) {
+      try {
+        await MembershipRepository.instance.fetchProfile();
+        if (mounted) setState(() {});
+      } catch (_) {}
+    }
+  }
+
+  String _getGreetingName() {
+    final authName = AuthService.instance.currentDisplayName?.trim();
+    final repoName = MembershipRepository.instance.profile.fullName.trim();
+    bool isInvalidMock(String s) => s.isEmpty || s == 'Khách hàng MLD' || s == 'Khách hàng' || s == 'Lễ Tân Hoàng Yến' || s == 'Nguyễn Minh Anh';
+
+    String effective = '';
+    if (authName != null && !isInvalidMock(authName)) {
+      effective = authName;
+    } else if (!isInvalidMock(repoName)) {
+      effective = repoName;
+    }
+
+    if (effective.isEmpty) return 'Bạn';
+    return effective.split(' ').last;
   }
 
   static bool _hasPromptedPhoneThisSession = false;
@@ -320,11 +347,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 );
   }
 
-  void _showNotificationSheet() {
-    Navigator.push(
+  Future<void> _showNotificationSheet() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const D08NotificationsScreen()),
     );
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _showAppointmentDetailSheet(AppointmentItemModel item) {
@@ -553,7 +583,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Xin chào, ${MembershipRepository.instance.profile.fullName.split(' ').last}!',
+                            'Xin chào, ${_getGreetingName()}!',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -591,18 +621,19 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               size: 26,
                               color: AppColors.primary, // #985018
                             ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFD64545), // #D64545 đỏ
-                                  shape: BoxShape.circle,
+                            if (TreatmentRepository.instance.hasUnreadNotifications)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFD64545), // #D64545 đỏ
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),

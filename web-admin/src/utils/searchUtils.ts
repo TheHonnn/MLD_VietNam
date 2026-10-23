@@ -12,19 +12,30 @@
  * ==============================================================================
  */
 
+const normCache = new Map<string, string>();
+const cleanCache = new Map<string, string>();
+const expandCache = new Map<string, string>();
+
 /**
  * Loại bỏ dấu tiếng Việt và chuẩn hóa chuỗi
  */
 export function normalizeVietnamese(text: string | number | null | undefined): string {
   if (text == null) return '';
-  return text
-    .toString()
+  const str = text.toString();
+  const cached = normCache.get(str);
+  if (cached !== undefined) return cached;
+
+  const res = str
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[đĐ]/g, 'd')
     .replace(/[\u02C6\u0306\u031B]/g, '')
     .trim();
+
+  if (normCache.size > 2000) normCache.clear();
+  normCache.set(str, res);
+  return res;
 }
 
 /**
@@ -32,16 +43,27 @@ export function normalizeVietnamese(text: string | number | null | undefined): s
  */
 export function cleanSearchText(text: string | number | null | undefined): string {
   if (text == null) return '';
-  return normalizeVietnamese(text)
+  const str = text.toString();
+  const cached = cleanCache.get(str);
+  if (cached !== undefined) return cached;
+
+  const res = normalizeVietnamese(str)
     .replace(/[.,\-_/\\():;""''[\]{}|+=*&^%$#@!~`?<>]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+  if (cleanCache.size > 2000) cleanCache.clear();
+  cleanCache.set(str, res);
+  return res;
 }
 
 /**
  * Mở rộng từ khóa viết tắt sang cụm từ đầy đủ và ngược lại
  */
 export function expandAbbreviations(str: string): string {
+  const cached = expandCache.get(str);
+  if (cached !== undefined) return cached;
+
   let result = str;
 
   // q1, q2, q3... <-> quan 1, quan 2, quan 3...
@@ -60,7 +82,10 @@ export function expandAbbreviations(str: string): string {
   // ky thuat vien <-> ktv
   result = result.replace(/\b(ky\s*thuat\s*vien|ktv)\b/g, 'ky thuat vien ktv');
 
-  return result.replace(/\s+/g, ' ').trim();
+  const finalRes = result.replace(/\s+/g, ' ').trim();
+  if (expandCache.size > 2000) expandCache.clear();
+  expandCache.set(str, finalRes);
+  return finalRes;
 }
 
 /**
@@ -115,4 +140,12 @@ export function matchSearch(
       (isQNumber && (cleanedTarget.includes(expandedToken) || expandedTarget.includes(expandedToken)))
     );
   });
+}
+
+/**
+ * Kiểm tra chuỗi có phải định dạng UUID (RFC 4122) hợp lệ không
+ */
+export function isUuid(val: unknown): val is string {
+  if (typeof val !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
 }

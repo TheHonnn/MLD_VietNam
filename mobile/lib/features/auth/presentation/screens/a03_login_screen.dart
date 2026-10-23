@@ -5,6 +5,7 @@ import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import '../../widgets/primary_button.dart';
 import 'a03_email_register_screen.dart';
 import 'a03_forgot_password_screen.dart';
@@ -98,13 +99,26 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
       final user = data['user'] as Map<String, dynamic>?;
 
       if (accessToken != null) {
+        final loggedInName = (user?['full_name'] ?? user?['fullName']) as String?;
+        final loggedInAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+        final loggedInPhone = user?['phone'] as String?;
+        final loggedInEmail = user?['email'] as String? ?? _emailController.text.trim();
+
         await AuthService.instance.saveSession(
           accessToken: accessToken,
           refreshToken: refreshToken,
           userId: user?['id'] as String?,
-          phone: user?['phone'] as String?,
-          displayName: (user?['full_name'] ?? user?['fullName']) as String?,
-          avatarUrl: (user?['avatar_url'] ?? user?['avatarUrl']) as String?,
+          phone: loggedInPhone,
+          displayName: loggedInName,
+          avatarUrl: loggedInAvatar,
+        );
+
+        MembershipRepository.instance.syncUserSession(
+          fullName: loggedInName,
+          phone: loggedInPhone,
+          email: loggedInEmail,
+          avatarUrl: loggedInAvatar,
+          memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
         );
 
         if (mounted) {

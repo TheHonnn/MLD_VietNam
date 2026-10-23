@@ -107,6 +107,7 @@ export const W12_FinancialReports: React.FC = () => {
 
   // Modals state
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'excel' | 'csv'>('excel');
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   const showToast = (message: string) => {
@@ -386,6 +387,124 @@ export const W12_FinancialReports: React.FC = () => {
       };
     });
   }, [completedInvoicesData]);
+
+  const handleExportReport = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const fileDateStr = new Date().toISOString().split('T')[0];
+      const rows = filteredInvoices.map((inv, idx) => ({
+        stt: idx + 1,
+        code: inv.code,
+        date: inv.date,
+        description: inv.description,
+        category:
+          inv.category === 'service'
+            ? 'Dịch vụ Spa'
+            : inv.category === 'package'
+            ? 'Gói liệu trình'
+            : 'Học phí học viện',
+        method: inv.method,
+        amount: inv.amountNumber,
+        status: inv.statusText,
+      }));
+
+      if (exportFormat === 'excel') {
+        const tableHeader = `
+          <tr style="background-color: #8A4F23; color: #ffffff; font-weight: bold; text-align: center;">
+            <th style="border: 1px solid #cccccc; padding: 10px;">STT</th>
+            <th style="border: 1px solid #cccccc; padding: 10px;">Mã chứng từ / Hóa đơn</th>
+            <th style="border: 1px solid #cccccc; padding: 10px;">Ngày ghi nhận</th>
+            <th style="border: 1px solid #cccccc; padding: 10px;">Nội dung quyết toán</th>
+            <th style="border: 1px solid #cccccc; padding: 10px;">Phân loại</th>
+            <th style="border: 1px solid #cccccc; padding: 10px;">Hình thức thanh toán</th>
+            <th style="border: 1px solid #cccccc; padding: 10px;">Số tiền thực thu (VNĐ)</th>
+            <th style="border: 1px solid #cccccc; padding: 10px;">Trạng thái</th>
+          </tr>`;
+
+        const tableBody = rows
+          .map(
+            (r) => `
+          <tr>
+            <td style="border: 1px solid #cccccc; padding: 8px; text-align: center;">${r.stt}</td>
+            <td style="border: 1px solid #cccccc; padding: 8px; font-weight: bold;">${r.code}</td>
+            <td style="border: 1px solid #cccccc; padding: 8px; text-align: center;">${r.date}</td>
+            <td style="border: 1px solid #cccccc; padding: 8px;">${r.description}</td>
+            <td style="border: 1px solid #cccccc; padding: 8px;">${r.category}</td>
+            <td style="border: 1px solid #cccccc; padding: 8px;">${r.method}</td>
+            <td style="border: 1px solid #cccccc; padding: 8px; text-align: right; font-weight: bold;">${r.amount.toLocaleString('vi-VN')}</td>
+            <td style="border: 1px solid #cccccc; padding: 8px; text-align: center; color: #166534;">${r.status}</td>
+          </tr>`
+          )
+          .join('');
+
+        const excelTemplate = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+          </head>
+          <body>
+            <h2>BÁO CÁO DOANH THU & ĐỐI SOÁT TÀI CHÍNH - MLD VIETNAM</h2>
+            <p>Khoảng thời gian: ${dateRange} | Xuất lúc: ${new Date().toLocaleString('vi-VN')}</p>
+            <table style="border-collapse: collapse; width: 100%;">
+              <thead>${tableHeader}</thead>
+              <tbody>${tableBody}</tbody>
+            </table>
+          </body>
+          </html>`;
+
+        const blob = new Blob(['\uFEFF' + excelTemplate], {
+          type: 'application/vnd.ms-excel;charset=utf-8;',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `MLD_BaoCaoDoanhThu_${fileDateStr}.xls`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        const headers = [
+          'STT',
+          'Mã hóa đơn',
+          'Ngày ghi nhận',
+          'Nội dung',
+          'Phân loại',
+          'Hình thức',
+          'Số tiền (VNĐ)',
+          'Trạng thái',
+        ];
+        const csvRows = rows.map((r) => [
+          r.stt,
+          `"${r.code}"`,
+          `"${r.date}"`,
+          `"${r.description.replace(/"/g, '""')}"`,
+          `"${r.category}"`,
+          `"${r.method}"`,
+          r.amount,
+          `"${r.status}"`,
+        ]);
+        const csvContent =
+          '\uFEFFsep=,\n' +
+          [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `MLD_BaoCaoDoanhThu_${fileDateStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      setIsExportModalOpen(false);
+      showToast(`Đã xuất báo cáo ${filteredInvoices.length} chứng từ thành công!`);
+    } catch (err) {
+      console.error('Export error:', err);
+      showToast('Có lỗi khi tạo tệp báo cáo.');
+    }
+  };
 
   return (
     <div className="space-y-5 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -894,11 +1013,7 @@ export const W12_FinancialReports: React.FC = () => {
             </div>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setIsExportModalOpen(false);
-                showToast('Đã xuất báo cáo doanh thu thành công!');
-              }}
+              onSubmit={handleExportReport}
               className="p-5 space-y-4 text-xs"
             >
               <div>
@@ -913,13 +1028,39 @@ export const W12_FinancialReports: React.FC = () => {
               <div>
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Định dạng tệp xuất</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="p-3 border-2 border-[#8D4B1A] bg-[#FAF5EF] rounded-xl flex items-center gap-2.5 cursor-pointer">
-                    <input type="radio" name="format" defaultChecked className="accent-[#8D4B1A]" />
-                    <span className="font-semibold text-[#2C241E]">Bảng tính Excel (.xlsx)</span>
+                  <label
+                    onClick={() => setExportFormat('excel')}
+                    className={`p-3 border-2 rounded-xl flex items-center gap-2.5 cursor-pointer transition-all ${
+                      exportFormat === 'excel'
+                        ? 'border-[#8D4B1A] bg-[#FAF5EF]'
+                        : 'border-[#EFE4D9] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="format"
+                      checked={exportFormat === 'excel'}
+                      onChange={() => setExportFormat('excel')}
+                      className="accent-[#8D4B1A]"
+                    />
+                    <span className="font-semibold text-[#2C241E]">Bảng tính Excel (.xls)</span>
                   </label>
-                  <label className="p-3 border border-[#EFE4D9] hover:bg-[#FAF8F5] rounded-xl flex items-center gap-2.5 cursor-pointer">
-                    <input type="radio" name="format" className="accent-[#8D4B1A]" />
-                    <span className="font-semibold text-[#2C241E]">Bản in PDF (.pdf)</span>
+                  <label
+                    onClick={() => setExportFormat('csv')}
+                    className={`p-3 border-2 rounded-xl flex items-center gap-2.5 cursor-pointer transition-all ${
+                      exportFormat === 'csv'
+                        ? 'border-[#8D4B1A] bg-[#FAF5EF]'
+                        : 'border-[#EFE4D9] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="format"
+                      checked={exportFormat === 'csv'}
+                      onChange={() => setExportFormat('csv')}
+                      className="accent-[#8D4B1A]"
+                    />
+                    <span className="font-semibold text-[#2C241E]">Tệp CSV chuẩn (.csv)</span>
                   </label>
                 </div>
               </div>

@@ -123,12 +123,12 @@ export class AuthService {
       }
       // Đã có user (đăng ký qua SĐT trước đó nhưng chưa có mật khẩu email) -> Đề xuất liên kết
       const rawOtp = await this.otpService.generateAndSaveOtp(normalizedEmail, 'ACCOUNT_LINKING');
-      await this.emailService.sendOtpEmail({
+      this.emailService.sendOtpEmail({
         to: normalizedEmail,
         otp: rawOtp,
         purpose: 'ACCOUNT_LINKING',
         fullName: existingUser.full_name,
-      });
+      }).catch(err => this.logger.error(`Email sending error: ${err.message}`));
       return {
         needAccountLinking: true,
         message: 'Email này đã gắn với tài khoản số điện thoại của bạn. Hệ thống đã gửi mã OTP xác nhận để kích hoạt đăng nhập Email.',
@@ -158,20 +158,20 @@ export class AuthService {
     });
     await this.redisService.set(`pending_email_reg:${normalizedEmail}`, pendingData, 900); // 15 phút
 
-    // 4. Sinh OTP an toàn, băm trước khi lưu và gửi Email thật
+    // 4. Sinh OTP an toàn, băm trước khi lưu và gửi Email thật (không chặn luồng HTTP)
     const rawOtp = await this.otpService.generateAndSaveOtp(normalizedEmail, 'REGISTER');
-    await this.emailService.sendOtpEmail({
+    this.emailService.sendOtpEmail({
       to: normalizedEmail,
       otp: rawOtp,
       purpose: 'REGISTER',
       fullName,
-    });
+    }).catch(err => this.logger.error(`Email sending error: ${err.message}`));
 
     return {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-      otp: rawOtp,
+
     };
   }
 
@@ -190,18 +190,18 @@ export class AuthService {
     }
 
     const rawOtp = await this.otpService.generateAndSaveOtp(normalizedEmail, purpose);
-    await this.emailService.sendOtpEmail({
+    this.emailService.sendOtpEmail({
       to: normalizedEmail,
       otp: rawOtp,
       purpose,
       fullName,
-    });
+    }).catch(err => this.logger.error(`Email sending error: ${err.message}`));
 
     return {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi lại tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-      otp: rawOtp,
+
     };
   }
 
@@ -311,7 +311,7 @@ export class AuthService {
     // 1. Tìm user theo số điện thoại hoặc email
     const { data: user, error } = await this.supabaseService.adminClient
       .from('users')
-      .select('id, phone, email, password_hash, full_name, role, is_active, avatar_url')
+      .select('id, phone, email, password_hash, full_name, role, is_active, avatar_url, referral_code')
       .or(`phone.eq.${cleanId},email.eq.${cleanId.toLowerCase()}`)
       .maybeSingle();
 
@@ -476,12 +476,12 @@ export class AuthService {
     }
 
     const rawOtp = await this.otpService.generateAndSaveOtp(cleanEmail, 'RESET_PASSWORD');
-    await this.emailService.sendOtpEmail({
+    this.emailService.sendOtpEmail({
       to: cleanEmail,
       otp: rawOtp,
       purpose: 'RESET_PASSWORD',
       fullName: user.full_name,
-    });
+    }).catch(err => this.logger.error(`Email sending error: ${err.message}`));
 
     return {
       success: true,
