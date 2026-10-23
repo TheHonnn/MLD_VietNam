@@ -16,6 +16,82 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
   String _selectedFilter = 'Tất cả';
 
   @override
+  void initState() {
+    super.initState();
+    _repo.fetchLoyaltyPoints().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _showRedeemConfirmation(RewardItem rw) {
+    final currentPoints = _repo.profile.points;
+    if (currentPoints < rw.pointsRequired) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Chưa đủ điểm thưởng', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textHeading)),
+          content: Text('Bạn cần ${rw.pointsRequired} điểm để đổi "${rw.title}". Hiện tại bạn đang có $currentPoints điểm.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Đã hiểu', style: TextStyle(color: AppColors.primary)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Xác nhận đổi ưu đãi', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textHeading)),
+        content: Text('Bạn có chắc chắn muốn dùng ${rw.pointsRequired} điểm để đổi "${rw.title}" không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _repo.redeemReward(rw);
+              if (mounted) {
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Đổi thành công "${rw.title}"! Voucher đã được lưu vào ví ưu đãi.'),
+                    backgroundColor: const Color(0xFF236B42),
+                    duration: const Duration(seconds: 3),
+                    action: SnackBarAction(
+                      label: 'Xem ví',
+                      textColor: Colors.white,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Đổi quà'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final profile = _repo.profile;
     final history = _repo.pointHistory;
@@ -468,66 +544,89 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                     const SizedBox(height: 12),
 
                     ...rewards.map((rw) {
+                      final canRedeem = profile.points >= rw.pointsRequired;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: AppColors.border, width: 1.0),
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceSecondary,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.confirmation_number_outlined,
-                                size: 22,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _showRedeemConfirmation(rw),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    rw.title,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceSecondary,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.confirmation_number_outlined,
+                                      size: 22,
+                                      color: AppColors.primary,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${rw.pointsRequired} điểm',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary, // #985018
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          rw.title,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${rw.pointsRequired} điểm',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          rw.condition,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.4,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    rw.condition,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.4,
-                                      color: AppColors.textSecondary,
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    onPressed: () => _showRedeemConfirmation(rw),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: canRedeem ? AppColors.primary : Colors.grey.shade300,
+                                      foregroundColor: canRedeem ? Colors.white : Colors.grey.shade600,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      minimumSize: const Size(64, 34),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
+                                    child: const Text('Đổi quà', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       );
                     }),

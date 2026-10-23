@@ -3,6 +3,8 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
+  ForbiddenException,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
@@ -246,7 +248,14 @@ export class AppointmentsService {
     const { newDate, newStartTime, newEndTime, isAutoAssign, technicianId, reason } = dto;
     const calculatedEndTime = newEndTime || this.calculateEndTime(newStartTime, 60);
 
-    // 1. Lấy thông tin lịch hẹn hiện tại
+    // 1. Chặn đổi lịch về ngày/giờ trong quá khứ
+    const now = new Date();
+    const scheduledTime = new Date(`${newDate}T${newStartTime}:00`);
+    if (isNaN(scheduledTime.getTime()) || scheduledTime.getTime() < now.getTime()) {
+      throw new BadRequestException('Không thể đổi lịch về ngày hoặc giờ trong quá khứ');
+    }
+
+    // 2. Lấy thông tin lịch hẹn hiện tại
     let currentBooking: any = null;
     try {
       const { data, error } = await this.supabaseService.adminClient
@@ -260,6 +269,24 @@ export class AppointmentsService {
       }
     } catch (_) {}
 
+    if (!currentBooking) {
+      throw new NotFoundException('Không tìm thấy lịch hẹn');
+    }
+
+    // 3. Kiểm tra đăng nhập và quyền sở hữu customer_id
+    if (!userId || userId === 'default-user') {
+      throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện thao tác này');
+    }
+    if (currentBooking.customer_id && currentBooking.customer_id !== userId) {
+      throw new ForbiddenException('Bạn không có quyền thao tác trên lịch hẹn này');
+    }
+
+    // 4. Kiểm tra trạng thái booking: Chặn đổi nếu booking đã COMPLETED hoặc CANCELLED
+    if (currentBooking.status === 'COMPLETED' || currentBooking.status === 'CANCELLED') {
+      throw new BadRequestException(
+        `Không thể đổi lịch cho lịch hẹn đã ${currentBooking.status === 'COMPLETED' ? 'hoàn thành' : 'bị hủy'}`,
+      );
+    }
     const branchId = currentBooking?.branch_id || 'aaaaaaaa-0001-0001-0001-000000000001';
     let assignedTechnicianId = technicianId || currentBooking?.technician_id;
 
@@ -556,15 +583,74 @@ export class AppointmentsService {
    * 7. HỦY LỊCH HẸN
    */
   async cancelAppointment(userId: string, id: string, reason: string) {
+    // 1. Lấy thông tin lịch hẹn hiện tại
+    let currentBooking: any = null;
+    try {
+      const { data, error } = await this.supabaseService.adminClient
+        .from('bookings')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (!error && data) {
+        currentBooking = data;
+      }
+    } catch (_) {}
+
+    if (!currentBooking) {
+      throw new NotFoundException('Không tìm thấy lịch hẹn');
+    }
+
+    // 2. Kiểm tra đăng nhập và quyền sở hữu customer_id
+    if (!userId || userId === 'default-user') {
+      throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện thao tác này');
+    }
+    if (currentBooking.customer_id && currentBooking.customer_id !== userId) {
+      throw new ForbiddenException('Bạn không có quyền thao tác trên lịch hẹn này');
+    }
+
+    // 3. Kiểm tra trạng thái booking: Chặn hủy nếu booking đã COMPLETED hoặc CANCELLED
+    if (currentBooking.status === 'COMPLETED' || currentBooking.status === 'CANCELLED') {
+      throw new BadRequestException(
+        `Không thể hủy lịch hẹn đã ${currentBooking.status === 'COMPLETED' ? 'hoàn thành' : 'bị hủy'}`,
+      );
+    }
+
+    // 4. Cập nhật bookings: status = 'CANCELLED', cancelled_by_id = userId
+    const cancelledById = (userId && userId !== 'default-user') ? userId : (currentBooking.customer_id || null);
+
     try {
       await this.supabaseService.adminClient
         .from('bookings')
         .update({
           status: 'CANCELLED',
           cancellation_reason: reason,
+          cancelled_by_id: cancelledById,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id);
-    } catch (_) {}
+    } catch (err: any) {
+      this.logger.error(`Lỗi cập nhật cancel booking: ${err.message}`);
+      throw new InternalServerErrorException('Không thể hủy lịch hẹn');
+    }
+
+    // 5. Giải phóng slot trong bảng technician_slots về status = 'AVAILABLE'
+    try {
+      if (currentBooking.technician_id && currentBooking.booking_date && currentBooking.start_time) {
+        await this.supabaseService.adminClient
+          .from('technician_slots')
+          .update({
+            status: 'AVAILABLE',
+            held_by_user_id: null,
+            hold_expires_at: null,
+          })
+          .eq('technician_id', currentBooking.technician_id)
+          .eq('slot_date', currentBooking.booking_date)
+          .eq('start_time', currentBooking.start_time);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi giải phóng slot khi hủy booking: ${err.message}`);
+    }
 
     return {
       success: true,

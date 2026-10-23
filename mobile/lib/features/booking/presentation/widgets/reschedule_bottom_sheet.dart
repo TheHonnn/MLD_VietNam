@@ -9,7 +9,7 @@ import 'group_c_widgets.dart';
 /// - Nếu Chọn/Giữ nhân viên: Hiện khung giờ còn trống để chọn; khung giờ bận hiển thị lý do.
 class RescheduleBottomSheet extends StatefulWidget {
   final AppointmentItemModel appointment;
-  final void Function(DateTime newDate, String newSlot, String? newSpecialistName) onConfirmReschedule;
+  final void Function(DateTime newDate, String newSlot, bool isAutoAssign, String? newSpecialistName) onConfirmReschedule;
 
   const RescheduleBottomSheet({
     super.key,
@@ -610,6 +610,7 @@ class _RescheduleBottomSheetState extends State<RescheduleBottomSheet> {
                       widget.onConfirmReschedule(
                         _selectedDate,
                         _selectedSlot,
+                        _isAutoAssign,
                         _assignedSpecialistName,
                       );
                       nav.pop();

@@ -227,19 +227,19 @@ class BookingRepository {
     return item;
   }
 
-  void _syncBookingToBackend(BookingFlowState flow, AppointmentItemModel item) {
+  Future<String?> _syncBookingToBackend(BookingFlowState flow, AppointmentItemModel item) async {
     try {
       final dateStr = '${flow.selectedDate.year}-${flow.selectedDate.month.toString().padLeft(2, '0')}-${flow.selectedDate.day.toString().padLeft(2, '0')}';
       final slotParts = (flow.selectedSlot?.time ?? '14:00 - 15:00').split('-');
       final startTime = slotParts.first.trim();
       final endTime = slotParts.length > 1 ? slotParts.last.trim() : '15:00';
 
-      _apiClient.dio.post(
+      final res = await _apiClient.dio.post(
         ApiEndpoints.bookingCreate,
         data: {
-          'branchId': flow.selectedBranch?.id,
-          'serviceId': flow.selectedService?.id,
-          'technicianId': flow.selectedSpecialist?.id,
+          if (flow.selectedBranch?.id != null) 'branchId': flow.selectedBranch!.id,
+          if (flow.selectedService?.id != null) 'serviceId': flow.selectedService!.id,
+          if (flow.selectedSpecialist?.id != null) 'technicianId': flow.selectedSpecialist!.id,
           'bookingDate': dateStr,
           'startTime': startTime,
           'endTime': endTime,
@@ -248,16 +248,72 @@ class BookingRepository {
           'specialNotes': flow.specialNotes,
           'paymentMethod': flow.paymentMethod,
         },
-      ).then((_) {
-        debugPrint('>>> [BookingRepository] Booking successfully persisted to Backend DB!');
-      }).catchError((e) {
-        debugPrint('>>> [BookingRepository] Sync booking to backend notice: $e');
-      });
-    } catch (_) {}
+      );
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final body = res.data;
+        final data = body is Map ? (body['data'] ?? body) : null;
+        final realId = data?['id']?.toString();
+        if (realId != null && realId.isNotEmpty) {
+          final idx = _appointments.indexWhere((a) => a.id == item.id || a.bookingCode == item.bookingCode);
+          if (idx != -1) {
+            _appointments[idx] = _appointments[idx].copyWith(id: realId);
+            debugPrint('>>> [BookingRepository] Updated appointment id to real UUID: $realId');
+          }
+          return realId;
+        }
+      }
+      debugPrint('>>> [BookingRepository] Booking successfully persisted to Backend DB!');
+    } catch (e) {
+      debugPrint('>>> [BookingRepository] Sync booking to backend notice: $e');
+    }
+    return null;
   }
 
-  void createAppointment(AppointmentItemModel appointment) {
+  void createAppointment(AppointmentItemModel appointment, [BookingFlowState? flow]) {
     _appointments.insert(0, appointment);
+    if (flow != null) {
+      _syncBookingToBackend(flow, appointment);
+    } else {
+      _syncAppointmentDirect(appointment);
+    }
+  }
+
+  Future<String?> _syncAppointmentDirect(AppointmentItemModel appointment) async {
+    try {
+      final dateStr = '${appointment.appointmentDate.year}-${appointment.appointmentDate.month.toString().padLeft(2, '0')}-${appointment.appointmentDate.day.toString().padLeft(2, '0')}';
+      final slotParts = appointment.timeSlot.split('-');
+      final startTime = slotParts.first.trim();
+      final endTime = slotParts.length > 1 ? slotParts.last.trim() : '15:00';
+
+      final res = await _apiClient.dio.post(
+        ApiEndpoints.bookingCreate,
+        data: {
+          'bookingDate': dateStr,
+          'startTime': startTime,
+          'endTime': endTime,
+          'bookedForName': appointment.customerName,
+          'bookedForPhone': appointment.customerPhone,
+          'specialNotes': appointment.specialNotes,
+          'paymentMethod': appointment.paymentMethod,
+        },
+      );
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final body = res.data;
+        final data = body is Map ? (body['data'] ?? body) : null;
+        final realId = data?['id']?.toString();
+        if (realId != null && realId.isNotEmpty) {
+          final idx = _appointments.indexWhere((a) => a.id == appointment.id || a.bookingCode == appointment.bookingCode);
+          if (idx != -1) {
+            _appointments[idx] = _appointments[idx].copyWith(id: realId);
+            debugPrint('>>> [BookingRepository] Updated appointment id to real UUID: $realId');
+          }
+          return realId;
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [BookingRepository] Sync appointment direct notice: $e');
+    }
+    return null;
   }
 
   /// C10: Đổi lịch hẹn (Reschedule) lưu vào Database Backend
@@ -272,20 +328,6 @@ class BookingRepository {
     String? technicianId,
     String? reason,
   }) async {
-    // 1. Cập nhật local state ngay lập tức
-    final index = _appointments.indexWhere((a) => a.id == id);
-    if (index != -1) {
-      final old = _appointments[index];
-      _appointments[index] = old.copyWith(
-        appointmentDate: newDate,
-        timeSlot: newTimeSlot,
-        specialistName: newSpecialistName ?? old.specialistName,
-        specialistTitle: newSpecialistTitle ?? old.specialistTitle,
-        specialistAvatar: newSpecialistAvatar ?? old.specialistAvatar,
-      );
-    }
-
-    // 2. Gửi lệnh đổi lịch lên Backend Gateway
     try {
       final dateStr = '${newDate.year}-${newDate.month.toString().padLeft(2, '0')}-${newDate.day.toString().padLeft(2, '0')}';
       final slotParts = newTimeSlot.split('-');
@@ -303,33 +345,49 @@ class BookingRepository {
           if (reason != null) 'reason': reason,
         },
       );
-      return res.statusCode == 200;
+      if (res.statusCode == 200) {
+        final index = _appointments.indexWhere((a) => a.id == id);
+        if (index != -1) {
+          final old = _appointments[index];
+          _appointments[index] = old.copyWith(
+            appointmentDate: newDate,
+            timeSlot: newTimeSlot,
+            specialistName: newSpecialistName ?? old.specialistName,
+            specialistTitle: newSpecialistTitle ?? old.specialistTitle,
+            specialistAvatar: newSpecialistAvatar ?? old.specialistAvatar,
+          );
+        }
+        return true;
+      }
+      return false;
     } catch (e) {
-      debugPrint('>>> [BookingRepository] Notice on rescheduling booking: $e');
-      return true; // Optimistic update
+      debugPrint('>>> [BookingRepository] Error on rescheduling booking: ');
+      return false;
     }
   }
 
   /// C10: Hủy lịch hẹn và giải phóng khung giờ
   Future<bool> cancelAppointment(String id, String reason) async {
-    final index = _appointments.indexWhere((a) => a.id == id);
-    if (index != -1) {
-      final old = _appointments[index];
-      _appointments[index] = old.copyWith(
-        status: AppointmentStatus.cancelled,
-        specialNotes: reason.isNotEmpty ? 'Lý do hủy: $reason' : old.specialNotes,
-      );
-    }
-
     try {
       final res = await _apiClient.dio.patch(
         ApiEndpoints.bookingCancel(id),
         data: {'reason': reason},
       );
-      return res.statusCode == 200;
+      if (res.statusCode == 200) {
+        final index = _appointments.indexWhere((a) => a.id == id);
+        if (index != -1) {
+          final old = _appointments[index];
+          _appointments[index] = old.copyWith(
+            status: AppointmentStatus.cancelled,
+            specialNotes: reason.isNotEmpty ? 'Lý do hủy: ' : old.specialNotes,
+          );
+        }
+        return true;
+      }
+      return false;
     } catch (e) {
-      debugPrint('>>> [BookingRepository] Notice on canceling booking: $e');
-      return true;
+      debugPrint('>>> [BookingRepository] Error on canceling booking: ');
+      return false;
     }
   }
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
@@ -312,73 +312,119 @@ export class MembershipService {
    */
   async redeemReward(userId: string, dto: RedeemVoucherDto) {
     const resolvedId = await this.resolveUserId(userId);
+    if (!resolvedId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để đổi điểm thưởng');
+    }
+
     let pointCost = 300;
     let rewardTitle = 'Voucher dịch vụ giảm 20%';
+    let couponTargetCode = 'SPADAY20';
+    let discountPercent = 20;
+    let discountAmount = 0;
+    let maxDiscount = 150000;
+    let minOrderAmount = 400000;
+    let description = 'Hóa đơn massage từ 300.000đ, giảm tối đa 150.000đ.';
 
     if (dto.code === 'rw-01' || dto.code.includes('100')) {
       pointCost = 500;
       rewardTitle = 'Voucher chăm sóc da 100.000đ';
+      couponTargetCode = 'MLDCHAOXIN';
+      discountPercent = 0;
+      discountAmount = 100000;
+      maxDiscount = 100000;
+      minOrderAmount = 300000;
+      description = 'Hóa đơn chăm sóc da từ 500.000đ. Không cộng dồn ưu đãi khác.';
     } else if (dto.code === 'rw-03' || dto.code.includes('BODY')) {
       pointCost = 800;
       rewardTitle = 'Quà trải nghiệm chăm sóc cơ thể';
+      couponTargetCode = 'BODYTREAT';
+      discountPercent = 0;
+      discountAmount = 250000;
+      maxDiscount = 250000;
+      minOrderAmount = 0;
+      description = 'Áp dụng cho 01 dịch vụ chăm sóc cơ thể tiêu chuẩn, cần đặt lịch trước.';
     }
 
-    let updatedPoints = this.userProfile.points;
+    let updatedPoints = 0;
 
-    if (resolvedId) {
-      try {
-        const { data: user } = await this.supabaseService.adminClient
-          .from('users')
-          .select('reward_points')
-          .eq('id', resolvedId)
+    try {
+      const { data: user } = await this.supabaseService.adminClient
+        .from('users')
+        .select('reward_points')
+        .eq('id', resolvedId)
+        .maybeSingle();
+
+      const currentPts = (user?.reward_points as number) || 0;
+      if (currentPts < pointCost) {
+        throw new BadRequestException(`Bạn không đủ điểm thưởng (Cần ${pointCost} điểm, bạn đang có ${currentPts} điểm).`);
+      }
+
+      updatedPoints = currentPts - pointCost;
+
+      await this.supabaseService.adminClient
+        .from('users')
+        .update({ reward_points: updatedPoints })
+        .eq('id', resolvedId);
+
+      await this.supabaseService.adminClient
+        .from('point_transactions')
+        .insert({
+          user_id: resolvedId,
+          points_change: -pointCost,
+          balance_after: updatedPoints,
+          action_type: 'REDEEM_VOUCHER',
+          description: `Đổi quà: ${rewardTitle} (-${pointCost} điểm)`,
+        });
+
+      let couponId: string | null = null;
+      const { data: existingCoupon } = await this.supabaseService.adminClient
+        .from('coupons')
+        .select('id')
+        .or(`code.eq.${couponTargetCode},code.ilike.%${dto.code}%`)
+        .maybeSingle();
+
+      if (existingCoupon) {
+        couponId = existingCoupon.id;
+      } else {
+        const newCouponId = '44444444-0001-0001-0001-' + (dto.code === 'rw-01' ? '000000000001' : (dto.code === 'rw-02' ? '000000000002' : '000000000003'));
+        const { data: createdCoupon } = await this.supabaseService.adminClient
+          .from('coupons')
+          .upsert({
+            id: newCouponId,
+            code: couponTargetCode,
+            title: rewardTitle,
+            description: description,
+            discount_percent: discountPercent,
+            discount_amount: discountAmount,
+            max_discount: maxDiscount,
+            min_order_amount: minOrderAmount,
+            valid_from: new Date().toISOString(),
+            valid_to: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+            usage_limit: 1000,
+          })
+          .select('id')
           .maybeSingle();
 
-        const currentPts = (user?.reward_points as number) || this.userProfile.points;
-        if (currentPts < pointCost) {
-          throw new BadRequestException(`Bạn không đủ điểm thưởng (Cần ${pointCost} điểm, bạn đang có ${currentPts} điểm).`);
+        if (createdCoupon) {
+          couponId = createdCoupon.id;
         }
+      }
 
-        updatedPoints = currentPts - pointCost;
-
+      if (couponId) {
         await this.supabaseService.adminClient
-          .from('users')
-          .update({ reward_points: updatedPoints })
-          .eq('id', resolvedId);
-
-        await this.supabaseService.adminClient
-          .from('point_transactions')
+          .from('user_vouchers')
           .insert({
             user_id: resolvedId,
-            points_change: -pointCost,
-            balance_after: updatedPoints,
-            action_type: 'REDEEM_VOUCHER',
-            description: `Đổi quà: ${rewardTitle} (-${pointCost} điểm)`,
+            coupon_id: couponId,
+            source_trigger: 'PUBLIC_CLAIM',
+            status: 'AVAILABLE',
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           });
-
-        const { data: coupon } = await this.supabaseService.adminClient
-          .from('coupons')
-          .select('id')
-          .ilike('code', `%${dto.code}%`)
-          .maybeSingle();
-
-        if (coupon) {
-          await this.supabaseService.adminClient
-            .from('user_vouchers')
-            .insert({
-              user_id: resolvedId,
-              coupon_id: coupon.id,
-              source_trigger: 'PUBLIC_CLAIM',
-              status: 'AVAILABLE',
-              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            });
-        }
-      } catch (err) {
-        if (err instanceof BadRequestException) throw err;
-        this.logger.warn(`Error during redeemReward: ${err}`);
       }
-    } else {
-      updatedPoints = Math.max(0, updatedPoints - pointCost);
-      this.userProfile.points = updatedPoints;
+    } catch (err) {
+      if (err instanceof BadRequestException || err instanceof UnauthorizedException) throw err;
+      this.logger.warn(`Error during redeemReward: ${err}`);
+      throw err;
     }
 
     return {
@@ -387,7 +433,6 @@ export class MembershipService {
       currentPoints: updatedPoints,
     };
   }
-
   /**
    * F05: Lấy danh sách voucher/ưu đãi của tôi
    */

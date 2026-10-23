@@ -43,24 +43,36 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => RescheduleBottomSheet(
         appointment: _appointment!,
-        onConfirmReschedule: (newDate, newSlot, newSpecialist) {
-          _repo.rescheduleAppointment(
+        onConfirmReschedule: (newDate, newSlot, isAutoAssign, newSpecialist) async {
+          final success = await _repo.rescheduleAppointment(
             _appointment!.id,
             newDate,
             newSlot,
+            isAutoAssign: isAutoAssign,
             newSpecialistName: newSpecialist,
           );
-          setState(() {
-            _loadAppointment();
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Đã đổi lịch sang ${newDate.day}/${newDate.month} · $newSlot${newSpecialist != null ? ' (NV: $newSpecialist)' : ''}',
-              ),
-              backgroundColor: BookingColors.heading,
-            ),
-          );
+          if (mounted) {
+            setState(() {
+              _loadAppointment();
+            });
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Đã đổi lịch sang ${newDate.day}/${newDate.month} · $newSlot${newSpecialist != null ? ' (NV: $newSpecialist)' : ''}',
+                  ),
+                  backgroundColor: BookingColors.heading,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Không thể đổi lịch hẹn. Vui lòng thử lại!'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
         },
       ),
     );
@@ -72,17 +84,28 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
       context: context,
       builder: (_) => CancelBookingDialog(
         appointment: _appointment!,
-        onConfirmCancel: (reason) {
-          _repo.cancelAppointment(_appointment!.id, reason);
-          setState(() {
-            _loadAppointment();
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã hủy lịch hẹn theo yêu cầu'),
-              backgroundColor: BookingColors.primary,
-            ),
-          );
+        onConfirmCancel: (reason) async {
+          final success = await _repo.cancelAppointment(_appointment!.id, reason);
+          if (mounted) {
+            setState(() {
+              _loadAppointment();
+            });
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã hủy lịch hẹn theo yêu cầu'),
+                  backgroundColor: BookingColors.primary,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Không thể hủy lịch hẹn. Vui lòng thử lại!'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
         },
       ),
     );

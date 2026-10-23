@@ -376,6 +376,8 @@ class MembershipRepository {
         final pts = (res.data['currentPoints'] as num).toInt();
         _userProfile = _userProfile.copyWith(points: pts);
       }
+      await fetchLoyaltyPoints();
+      await fetchVouchers();
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error redeeming reward: $e');
     }

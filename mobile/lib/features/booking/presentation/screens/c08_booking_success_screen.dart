@@ -87,7 +87,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
       ],
     );
 
-    BookingRepository.instance.createAppointment(newAppointment);
+    BookingRepository.instance.createAppointment(newAppointment, widget.flowState);
   }
 
   String _formatCurrency(double amount) {
