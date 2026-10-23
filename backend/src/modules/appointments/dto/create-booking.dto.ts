@@ -70,5 +70,10 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  @ApiProperty({ description: 'Mã đặt lịch từ ứng dụng di động', required: false })
+  @IsOptional()
+  @IsString()
+  bookingCode?: string;
 }
 

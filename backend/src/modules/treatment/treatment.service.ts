@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
 import { CreateJournalDto } from './dto/create-journal.dto';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
@@ -337,134 +337,165 @@ export class TreatmentService {
       if (firstUser) resolvedId = firstUser.id;
     }
 
-    let savedReview = null;
-    if (resolvedId) {
+    if (!resolvedId) {
+      throw new BadRequestException('Không tìm thấy thông tin khách hàng hợp lệ.');
+    }
+
+    const ratingVal = dto.rating || (dto as any).overallRating || 5;
+    const quickTags: string[] = dto.quickTags && dto.quickTags.length > 0 ? [...dto.quickTags] : [];
+    if ((dto as any).serviceQualityRating) quickTags.push(`Chất lượng dịch vụ: ${(dto as any).serviceQualityRating}★`);
+    if ((dto as any).staffAttitudeRating) quickTags.push(`Thái độ nhân viên: ${(dto as any).staffAttitudeRating}★`);
+    if ((dto as any).spaceAmbianceRating) quickTags.push(`Không gian: ${(dto as any).spaceAmbianceRating}★`);
+    if ((dto as any).procedureRating) quickTags.push(`Quy trình: ${(dto as any).procedureRating}★`);
+    if ((dto as any).willingnessToRefer) quickTags.push(`Giới thiệu bạn bè: ${(dto as any).willingnessToRefer}`);
+
+    // 1. Resolve & check booking_id (BUG-012, BUG-013)
+    let bookingId = this.isValidUuid(dto.bookingId || '') ? dto.bookingId : null;
+    let technicianId = this.isValidUuid(dto.technicianId || '') ? dto.technicianId : null;
+    let serviceId = this.isValidUuid(dto.serviceId || '') ? dto.serviceId : null;
+
+    if (bookingId) {
+      // Kiểm tra booking này đã được đánh giá chưa (BUG-012)
+      const { data: existingRev } = await this.supabaseService.adminClient
+        .from('reviews')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .maybeSingle();
+
+      if (existingRev) {
+        throw new ConflictException('Buổi hẹn này đã được đánh giá rồi.');
+      }
+
+      // Lấy thông tin service_id, technician_id từ booking nếu dto chưa có
+      const { data: bkgData } = await this.supabaseService.adminClient
+        .from('bookings')
+        .select('id, service_id, technician_id')
+        .eq('id', bookingId)
+        .maybeSingle();
+
+      if (bkgData) {
+        if (!technicianId && bkgData.technician_id) technicianId = bkgData.technician_id;
+        if (!serviceId && bkgData.service_id) serviceId = bkgData.service_id;
+      }
+    } else {
+      // Tìm booking gần nhất của user chưa được đánh giá
+      const { data: reviewedList } = await this.supabaseService.adminClient
+        .from('reviews')
+        .select('booking_id')
+        .eq('customer_id', resolvedId);
+
+      const reviewedIds = (reviewedList || []).map((r: any) => r.booking_id).filter(Boolean);
+
+      let bkgQuery = this.supabaseService.adminClient
+        .from('bookings')
+        .select('id, service_id, technician_id')
+        .eq('customer_id', resolvedId)
+        .order('created_at', { ascending: false });
+
+      if (reviewedIds.length > 0) {
+        bkgQuery = bkgQuery.not('id', 'in', `(${reviewedIds.join(',')})`);
+      }
+
+      const { data: availableBookings } = await bkgQuery.limit(1);
+
+      if (availableBookings && availableBookings.length > 0) {
+        bookingId = availableBookings[0].id;
+        if (!technicianId && availableBookings[0].technician_id) technicianId = availableBookings[0].technician_id;
+        if (!serviceId && availableBookings[0].service_id) serviceId = availableBookings[0].service_id;
+      } else {
+        throw new BadRequestException('Không tìm thấy buổi hẹn hợp lệ để thực hiện đánh giá.');
+      }
+    }
+
+    // Fallback serviceId / technicianId if still missing
+    if (!serviceId) {
+      const { data: firstService } = await this.supabaseService.adminClient
+        .from('services')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+      if (firstService) serviceId = firstService.id;
+    }
+
+    if (!technicianId) {
+      const { data: firstTech } = await this.supabaseService.adminClient
+        .from('technicians')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+      if (firstTech) technicianId = firstTech.id;
+    }
+
+    // 2. Insert Review (BUG-014: ném lỗi nếu insert thất bại)
+    const reviewPayload: Record<string, any> = {
+      customer_id: resolvedId,
+      rating: ratingVal,
+      review_tags: quickTags,
+      comment: dto.comment || 'Khách hàng đánh giá chất lượng dịch vụ rất tốt.',
+      photos: dto.photos || [],
+      service_id: serviceId,
+      booking_id: bookingId,
+    };
+    if (technicianId) reviewPayload.technician_id = technicianId;
+
+    const { data: savedReview, error: revError } = await this.supabaseService.adminClient
+      .from('reviews')
+      .insert(reviewPayload)
+      .select()
+      .maybeSingle();
+
+    if (revError || !savedReview) {
+      this.logger.error(`Error inserting review to Supabase: ${revError?.message}`);
+      throw new BadRequestException(revError?.message || 'Không thể lưu đánh giá. Vui lòng thử lại sau.');
+    }
+
+    // 3. Tích điểm thưởng cho khách hàng sau khi đánh giá thành công (BUG-014: chỉ tích điểm khi review insert OK)
+    try {
+      const { data: user } = await this.supabaseService.adminClient
+        .from('users')
+        .select('reward_points')
+        .eq('id', resolvedId)
+        .maybeSingle();
+
+      const currentPts = (user?.reward_points as number) || 0;
+      const newPts = currentPts + 50;
+
+      await this.supabaseService.adminClient
+        .from('users')
+        .update({ reward_points: newPts })
+        .eq('id', resolvedId);
+
+      await this.supabaseService.adminClient
+        .from('point_transactions')
+        .insert({
+          user_id: resolvedId,
+          points_change: 50,
+          balance_after: newPts,
+          action_type: 'REVIEW_SERVICE',
+          description: `Đánh giá chất lượng dịch vụ (+50 điểm) cho lịch hẹn ${bookingId}`,
+        });
+    } catch (ptErr) {
+      this.logger.warn(`Error updating loyalty points: ${ptErr}`);
+    }
+
+    // 4. Cập nhật rating_avg và review_count của technician (BUG-015)
+    if (technicianId) {
       try {
-        const ratingVal = dto.rating || (dto as any).overallRating || 5;
-        const quickTags: string[] = dto.quickTags && dto.quickTags.length > 0 ? [...dto.quickTags] : [];
-        if ((dto as any).serviceQualityRating) quickTags.push(`Chất lượng dịch vụ: ${(dto as any).serviceQualityRating}★`);
-        if ((dto as any).staffAttitudeRating) quickTags.push(`Thái độ nhân viên: ${(dto as any).staffAttitudeRating}★`);
-        if ((dto as any).spaceAmbianceRating) quickTags.push(`Không gian: ${(dto as any).spaceAmbianceRating}★`);
-        if ((dto as any).procedureRating) quickTags.push(`Quy trình: ${(dto as any).procedureRating}★`);
-        if ((dto as any).willingnessToRefer) quickTags.push(`Giới thiệu bạn bè: ${(dto as any).willingnessToRefer}`);
-
-        // 1. Resolve service_id
-        let serviceId = this.isValidUuid(dto.serviceId || '') ? dto.serviceId : null;
-        if (!serviceId) {
-          const { data: firstService } = await this.supabaseService.adminClient
-            .from('services')
-            .select('id')
-            .limit(1)
-            .maybeSingle();
-          if (firstService) serviceId = firstService.id;
-        }
-
-        // 2. Resolve technician_id
-        let technicianId = this.isValidUuid(dto.technicianId || '') ? dto.technicianId : null;
-        if (!technicianId) {
-          const { data: firstTech } = await this.supabaseService.adminClient
-            .from('technicians')
-            .select('id')
-            .limit(1)
-            .maybeSingle();
-          if (firstTech) technicianId = firstTech.id;
-        }
-
-        // 3. Resolve booking_id
-        let bookingId = this.isValidUuid(dto.bookingId || '') ? dto.bookingId : null;
-        if (!bookingId) {
-          const { data: existingBooking } = await this.supabaseService.adminClient
-            .from('bookings')
-            .select('id')
-            .eq('customer_id', resolvedId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (existingBooking) {
-            bookingId = existingBooking.id;
-          } else {
-            const { data: firstBranch } = await this.supabaseService.adminClient
-              .from('branches')
-              .select('id')
-              .limit(1)
-              .maybeSingle();
-
-            const newCode = `SPA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-            const { data: newBkg } = await this.supabaseService.adminClient
-              .from('bookings')
-              .insert({
-                booking_code: newCode,
-                customer_id: resolvedId,
-                branch_id: firstBranch?.id || 'aaaaaaaa-0001-0001-0001-000000000001',
-                technician_id: technicianId,
-                booking_date: new Date().toISOString().split('T')[0],
-                start_time: '09:00:00',
-                end_time: '10:00:00',
-                status: 'COMPLETED',
-                payment_status: 'PAID',
-                base_total: 500000,
-                final_price: 500000,
-                qr_code_hash: `QR-${newCode}`,
-              })
-              .select('id')
-              .maybeSingle();
-
-            if (newBkg) {
-              bookingId = newBkg.id;
-            }
-          }
-        }
-
-        const reviewPayload: Record<string, any> = {
-          customer_id: resolvedId,
-          rating: ratingVal,
-          review_tags: quickTags,
-          comment: dto.comment || 'Khách hàng đánh giá chất lượng dịch vụ rất tốt.',
-          photos: dto.photos || [],
-          service_id: serviceId,
-          booking_id: bookingId,
-        };
-        if (technicianId) reviewPayload.technician_id = technicianId;
-
-        const { data, error } = await this.supabaseService.adminClient
+        const { data: techReviews } = await this.supabaseService.adminClient
           .from('reviews')
-          .insert(reviewPayload)
-          .select()
-          .maybeSingle();
+          .select('rating')
+          .eq('technician_id', technicianId);
 
-        if (error) {
-          this.logger.error(`Error inserting review to Supabase: ${error.message}`);
-        } else if (data) {
-          savedReview = data;
+        if (techReviews && techReviews.length > 0) {
+          const revCount = techReviews.length;
+          const revAvg = +(techReviews.reduce((sum: number, r: any) => sum + (r.rating || 5), 0) / revCount).toFixed(2);
+          await this.supabaseService.adminClient
+            .from('technicians')
+            .update({ rating_avg: revAvg, review_count: revCount })
+            .eq('id', technicianId);
         }
-
-        // Tích điểm thưởng cho khách hàng sau đánh giá (+50 điểm)
-        const { data: user } = await this.supabaseService.adminClient
-          .from('users')
-          .select('reward_points')
-          .eq('id', resolvedId)
-          .maybeSingle();
-
-        const currentPts = (user?.reward_points as number) || 0;
-        const newPts = currentPts + 50;
-
-        await this.supabaseService.adminClient
-          .from('users')
-          .update({ reward_points: newPts })
-          .eq('id', resolvedId);
-
-        await this.supabaseService.adminClient
-          .from('point_transactions')
-          .insert({
-            user_id: resolvedId,
-            points_change: 50,
-            balance_after: newPts,
-            action_type: 'REVIEW_SERVICE',
-            description: 'Đánh giá chất lượng dịch vụ & chuyên viên (+50 điểm)',
-          });
-      } catch (err) {
-        this.logger.warn(`Error submitting review or granting loyalty points: ${err}`);
+      } catch (techErr) {
+        this.logger.warn(`Error updating technician rating stats: ${techErr}`);
       }
     }
 
@@ -472,12 +503,7 @@ export class TreatmentService {
       success: true,
       message: 'Cảm ơn bạn đã đánh giá! Bạn được cộng +50 điểm thưởng hội viên VIP.',
       reward_points: 50,
-      data: savedReview || {
-        id: `rev-${Date.now()}`,
-        customer_id: userId,
-        created_at: new Date().toISOString(),
-        ...dto,
-      },
+      data: savedReview,
     };
   }
 

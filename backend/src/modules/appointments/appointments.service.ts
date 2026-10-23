@@ -105,7 +105,7 @@ export class AppointmentsService {
       couponCode,
     } = dto;
 
-    const bookingCode = `MLD-BK-${Date.now().toString().slice(-6)}`;
+    const bookingCode = dto.bookingCode || `MLD-BK-${Date.now().toString().slice(-6)}`;
     const effectiveUserId = userId && userId !== 'default-user' ? userId : 'bbbbbbbb-0001-0001-0001-000000000001';
 
     // 1. Lấy thông tin Dịch vụ & Giá từ Supabase
@@ -137,7 +137,23 @@ export class AppointmentsService {
     let createdBooking: any = null;
 
     try {
-      // 2. Chèn vào bảng bookings
+      // 2. Phân loại payment_status và booking_status theo phương thức thanh toán
+      let initialPaymentStatus = 'UNPAID';
+      let initialBookingStatus = 'CONFIRMED';
+      const upperMethod = (paymentMethod || '').toUpperCase();
+      if (upperMethod === 'MEMBERSHIP_WALLET' || upperMethod === 'PACKAGE' || upperMethod === 'MEMBERSHIP_CARD') {
+        initialPaymentStatus = 'PAID';
+        initialBookingStatus = 'CONFIRMED';
+      } else if (upperMethod === 'VIETQR' || upperMethod === 'BANK_TRANSFER' || upperMethod === 'MOMO' || upperMethod === 'VNPAY') {
+        initialPaymentStatus = 'UNPAID';
+        initialBookingStatus = 'PENDING';
+      } else {
+        // CASH_AT_SPA, AT_BRANCH, CASH
+        initialPaymentStatus = 'UNPAID';
+        initialBookingStatus = 'CONFIRMED';
+      }
+
+      // 3. Chèn vào bảng bookings
       const { data: booking, error: bErr } = await this.supabaseService.adminClient
         .from('bookings')
         .insert({
@@ -148,8 +164,8 @@ export class AppointmentsService {
           booking_date: bookingDate,
           start_time: startTime,
           end_time: calculatedEndTime,
-          status: 'CONFIRMED',
-          payment_status: 'PAID',
+          status: initialBookingStatus,
+          payment_status: initialPaymentStatus,
           payment_method: paymentMethod,
           base_total: basePrice,
           final_price: finalPrice,

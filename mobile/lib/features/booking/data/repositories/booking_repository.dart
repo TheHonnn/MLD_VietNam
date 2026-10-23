@@ -237,6 +237,7 @@ class BookingRepository {
       final res = await _apiClient.dio.post(
         ApiEndpoints.bookingCreate,
         data: {
+          'bookingCode': item.bookingCode,
           if (flow.selectedBranch?.id != null) 'branchId': flow.selectedBranch!.id,
           if (flow.selectedService?.id != null) 'serviceId': flow.selectedService!.id,
           if (flow.selectedSpecialist?.id != null) 'technicianId': flow.selectedSpecialist!.id,

@@ -24,7 +24,8 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
   @override
   void initState() {
     super.initState();
-    _bookingCode = 'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
+    _bookingCode = widget.flowState.bookingCode ??
+        'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
 
     // Lưu vào mock repository để đồng bộ với C09 và C10
     final newAppointment = AppointmentItemModel(

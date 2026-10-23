@@ -23,6 +23,11 @@ export class CreatePaymentLinkDto {
   @IsString()
   bookingId?: string;
 
+  @ApiPropertyOptional({ description: 'Mã hiển thị lịch hẹn (Booking Code)', example: 'MLD-17726372' })
+  @IsOptional()
+  @IsString()
+  bookingCode?: string;
+
   @ApiPropertyOptional({ description: 'ID Khóa học (Academy Enrollment)', example: 'enr-99823' })
   @IsOptional()
   @IsString()

@@ -140,6 +140,7 @@ class _VietQrPaymentModalState extends State<VietQrPaymentModal> {
           'amount': widget.payableAmount,
           'description': 'MLD $_currentOrderCode',
           'orderCode': _currentOrderCode,
+          'bookingCode': widget.bookingCode,
           'customerName': widget.flowState.customerName.trim().isNotEmpty
               ? widget.flowState.customerName
               : accountName,
@@ -239,6 +240,7 @@ class _VietQrPaymentModalState extends State<VietQrPaymentModal> {
     // Hiển thị hiệu ứng thành công 1.2s trước khi chuyển trang
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
+      widget.flowState.bookingCode = widget.bookingCode;
       Navigator.of(context).pop();
 
       Navigator.pushAndRemoveUntil(

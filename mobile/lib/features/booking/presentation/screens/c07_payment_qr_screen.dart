@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
 import '../widgets/vietqr_payment_modal.dart';
+import 'c08_booking_success_screen.dart';
 
 /// Screen C07: Thanh toán [8111:27241]
 class C07PaymentQrScreen extends StatefulWidget {
@@ -271,6 +272,18 @@ class _C07PaymentQrScreenState extends State<C07PaymentQrScreen> {
                 widget.flowState.paymentMethod = _selectedPaymentMethod;
                 final bookingCode =
                     'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
+                widget.flowState.bookingCode = bookingCode;
+
+                // BUG-020: Nếu không cần thanh toán trước (payableNow <= 0) hoặc chọn thanh toán tại cơ sở
+                if (payableNow <= 0 || _selectedPaymentMethod == 'AT_BRANCH') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => C08BookingSuccessScreen(flowState: widget.flowState),
+                    ),
+                  );
+                  return;
+                }
 
                 VietQrPaymentModal.show(
                   context: context,

@@ -270,25 +270,37 @@ class TreatmentRepository {
   Future<void> saveReview(ServiceReviewDataModel model) async {
     _latestReview = model;
     try {
+      final payload = <String, dynamic>{
+        'rating': model.overallRating,
+        'overallRating': model.overallRating,
+        'serviceQualityRating': model.serviceQualityRating,
+        'staffAttitudeRating': model.staffAttitudeRating,
+        'spaceAmbianceRating': model.spaceAmbianceRating,
+        'procedureRating': model.procedureRating,
+        'comment': model.comment,
+        'willingnessToRefer': model.willingnessToRefer,
+      };
+      if (model.bookingId != null && model.bookingId!.isNotEmpty) {
+        payload['bookingId'] = model.bookingId;
+      }
+      if (model.serviceId != null && model.serviceId!.isNotEmpty) {
+        payload['serviceId'] = model.serviceId;
+      }
+      if (model.technicianId != null && model.technicianId!.isNotEmpty) {
+        payload['technicianId'] = model.technicianId;
+      }
+
       await _apiClient.dio.post(
         ApiEndpoints.treatmentReviews,
-        data: {
-          'rating': model.overallRating,
-          'overallRating': model.overallRating,
-          'serviceQualityRating': model.serviceQualityRating,
-          'staffAttitudeRating': model.staffAttitudeRating,
-          'spaceAmbianceRating': model.spaceAmbianceRating,
-          'procedureRating': model.procedureRating,
-          'comment': model.comment,
-          'willingnessToRefer': model.willingnessToRefer,
-        },
+        data: payload,
       );
     } catch (e) {
       debugPrint('>>> [TreatmentRepository] Error submitting review: $e');
+      rethrow;
     }
   }
 
-  void submitReviewData(ServiceReviewDataModel model) => saveReview(model);
+  Future<void> submitReviewData(ServiceReviewDataModel model) => saveReview(model);
 
   /// D07: Gửi tin nhắn hỗ trợ khách hàng
   Future<void> sendChatMessage(String text) async {

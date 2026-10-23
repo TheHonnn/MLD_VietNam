@@ -193,6 +193,7 @@ class AppointmentItemModel {
 
 /// 4. Quản lý trạng thái xuyên suốt luồng đặt lịch (BookingFlowState)
 class BookingFlowState {
+  String? bookingCode;
   SpaServiceModel? selectedService;
   List<SpaServiceModel> selectedServices;
   BranchModel? selectedBranch;
@@ -219,6 +220,7 @@ class BookingFlowState {
   bool agreeTerms; // Đồng ý với điều khoản dịch vụ
 
   BookingFlowState({
+    this.bookingCode,
     this.selectedService,
     List<SpaServiceModel>? selectedServices,
     this.selectedBranch,
@@ -274,6 +276,7 @@ class BookingFlowState {
   double get remainingAmount => usePrepaidPackage ? 0.0 : (payFullAmount ? 0.0 : (servicePrice - depositAmount).clamp(0.0, double.infinity));
 
   BookingFlowState copyWith({
+    String? bookingCode,
     SpaServiceModel? selectedService,
     BranchModel? selectedBranch,
     TechnicianModel? selectedSpecialist,
@@ -289,6 +292,7 @@ class BookingFlowState {
     String? paymentMethod,
   }) {
     return BookingFlowState(
+      bookingCode: bookingCode ?? this.bookingCode,
       selectedService: selectedService ?? this.selectedService,
       selectedBranch: selectedBranch ?? this.selectedBranch,
       selectedSpecialist: selectedSpecialist ?? this.selectedSpecialist,

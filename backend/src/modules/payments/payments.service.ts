@@ -25,6 +25,7 @@ export class PaymentsService {
   // In-memory cache dự phòng mapping orderCode -> bookingId
   private readonly orderMappings = new Map<number, {
     bookingId?: string;
+    bookingCode?: string;
     enrollmentId?: string;
     amount: number;
     description: string;
@@ -96,6 +97,7 @@ export class PaymentsService {
     // Lưu mapping để đối soát
     const mappingData = {
       bookingId: dto.bookingId,
+      bookingCode: dto.bookingCode,
       enrollmentId: dto.enrollmentId,
       amount: dto.amount,
       description: cleanDesc,
@@ -145,6 +147,31 @@ export class PaymentsService {
         const raw = await this.redisService.get(`payos:order:${orderCode}`);
         if (raw) mapping = JSON.parse(raw);
       } catch (_) {}
+    }
+
+    if (!mapping) {
+      try {
+        const { data: bkg } = await this.supabaseService.adminClient
+          .from('bookings')
+          .select('id, booking_code, branch_id, customer_id, final_price, payment_status')
+          .or(`booking_code.eq.MLD-${orderCode},booking_code.ilike.%${orderCode}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (bkg) {
+          mapping = {
+            bookingId: bkg.id,
+            bookingCode: bkg.booking_code,
+            amount: Number(bkg.final_price) || 0,
+            description: `MLD ${orderCode}`,
+            status: bkg.payment_status || 'PENDING',
+            createdAt: new Date(),
+          };
+          this.orderMappings.set(orderCode, mapping);
+        }
+      } catch (err) {
+        this.logger.warn(`Fallback query booking for orderCode ${orderCode} failed: ${err}`);
+      }
     }
 
     try {
@@ -206,6 +233,31 @@ export class PaymentsService {
         } catch (_) {}
       }
 
+      if (!mapping) {
+        try {
+          const { data: bkg } = await this.supabaseService.adminClient
+            .from('bookings')
+            .select('id, booking_code, branch_id, customer_id, final_price, payment_status')
+            .or(`booking_code.eq.MLD-${orderCode},booking_code.ilike.%${orderCode}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (bkg) {
+            mapping = {
+              bookingId: bkg.id,
+              bookingCode: bkg.booking_code,
+              amount: Number(bkg.final_price) || 0,
+              description: `MLD ${orderCode}`,
+              status: bkg.payment_status || 'PENDING',
+              createdAt: new Date(),
+            };
+            this.orderMappings.set(orderCode, mapping);
+          }
+        } catch (err) {
+          this.logger.warn(`Webhook fallback query booking for orderCode ${orderCode} failed: ${err}`);
+        }
+      }
+
       if (webhookBody.code === '00') {
         await this.handlePaymentSuccess(orderCode, mapping, verifiedData);
       }
@@ -230,38 +282,80 @@ export class PaymentsService {
     }
 
     const bookingId = mapping?.bookingId;
+    let bkgData: any = null;
+
     if (bookingId) {
       try {
-        // Cập nhật trạng thái Booking sang CONFIRMED
+        const { data } = await this.supabaseService.adminClient
+          .from('bookings')
+          .select('id, branch_id, customer_id, final_price, booking_code')
+          .eq('id', bookingId)
+          .maybeSingle();
+        bkgData = data;
+      } catch (e) {
+        this.logger.warn(`Could not load booking details for ${bookingId}: ${e}`);
+      }
+    } else if (mapping?.bookingCode) {
+      try {
+        const { data } = await this.supabaseService.adminClient
+          .from('bookings')
+          .select('id, branch_id, customer_id, final_price, booking_code')
+          .eq('booking_code', mapping.bookingCode)
+          .maybeSingle();
+        bkgData = data;
+      } catch (e) {
+        this.logger.warn(`Could not load booking details by code ${mapping.bookingCode}: ${e}`);
+      }
+    }
+
+    const targetBookingId = bkgData?.id || bookingId;
+    const amountPaid = Number(paymentData?.amount || mapping?.amount || 0);
+
+    if (targetBookingId) {
+      try {
+        const finalPrice = Number(bkgData?.final_price || 0);
+        const newPaymentStatus = (finalPrice > 0 && amountPaid < finalPrice) ? 'PARTIAL' : 'PAID';
+
         await this.supabaseService.adminClient
           .from('bookings')
           .update({
             status: 'CONFIRMED',
-            special_notes: `[PayOS] Đã thanh toán cọc ${paymentData.amount || mapping?.amount || 0}đ qua VietQR MBBank.`,
+            payment_status: newPaymentStatus,
+            special_notes: `[PayOS] Đã nhận thanh toán ${amountPaid}đ qua VietQR MBBank. Trạng thái: ${newPaymentStatus}`,
           })
-          .eq('id', bookingId);
-        this.logger.log(`[Database Sync] Booking ${bookingId} has been confirmed via PayOS payment.`);
+          .eq('id', targetBookingId);
+        this.logger.log(`[Database Sync] Booking ${targetBookingId} updated to CONFIRMED / ${newPaymentStatus} via PayOS payment.`);
       } catch (e) {
-        this.logger.error(`[Database Sync Error] for booking ${bookingId}: ${e}`);
+        this.logger.error(`[Database Sync Error] for booking ${targetBookingId}: ${e}`);
       }
     }
 
-    // Ghi nhận hóa đơn/giao dịch thanh toán vào Supabase (nếu có bảng invoices)
-    try {
-      const invoiceCode = `INV-${orderCode}`;
-      await this.supabaseService.adminClient
-        .from('invoices')
-        .insert({
-          invoice_code: invoiceCode,
-          subtotal: paymentData.amount || mapping?.amount || 150000,
-          total_amount: paymentData.amount || mapping?.amount || 150000,
-          payment_method: 'BANK_TRANSFER',
-          payment_status: 'PAID',
-          gateway_transaction_id: String(orderCode),
-          paid_at: new Date().toISOString(),
-        });
-    } catch (_) {
-      // Bỏ qua nếu bảng invoices yêu cầu khóa ngoại khác
+    // Ghi nhận hóa đơn/giao dịch thanh toán vào Supabase (bảng invoices)
+    if (bkgData?.customer_id && bkgData?.branch_id) {
+      try {
+        const invoiceCode = `INV-${orderCode}-${Date.now().toString().slice(-4)}`;
+        const { error: invErr } = await this.supabaseService.adminClient
+          .from('invoices')
+          .insert({
+            invoice_code: invoiceCode,
+            booking_id: targetBookingId || null,
+            customer_id: bkgData.customer_id,
+            branch_id: bkgData.branch_id,
+            subtotal: amountPaid,
+            total_amount: amountPaid,
+            payment_method: 'BANK_TRANSFER',
+            payment_status: 'PAID',
+            gateway_transaction_id: String(orderCode),
+            paid_at: new Date().toISOString(),
+          });
+        if (invErr) {
+          this.logger.warn(`[Invoice Insert Warning]: ${invErr.message}`);
+        } else {
+          this.logger.log(`[Invoice Created] ${invoiceCode} for booking ${targetBookingId}`);
+        }
+      } catch (invErr) {
+        this.logger.warn(`[Invoice Insert Catch]: ${invErr}`);
+      }
     }
   }
 
