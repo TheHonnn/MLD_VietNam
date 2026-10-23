@@ -21,6 +21,7 @@ class MembershipRepository {
   static const String _namePrefKey = 'user_full_name';
   static const String _phonePrefKey = 'user_phone';
   static const String _emailPrefKey = 'user_email';
+  static const String _memberCodePrefKey = 'user_member_code';
 
   UserProfile _userProfile = const UserProfile(
     id: 'user-000001',
@@ -161,6 +162,9 @@ class MembershipRepository {
         phone: effectivePhone,
         isPhoneVerified: effectivePhone.isNotEmpty,
         email: effectiveEmail,
+        memberCode: prefs.getString(_memberCodePrefKey)?.isNotEmpty == true
+            ? prefs.getString(_memberCodePrefKey)!
+            : _userProfile.memberCode,
       );
     } catch (_) {}
   }
@@ -171,13 +175,16 @@ class MembershipRepository {
     String? phone,
     String? email,
     String? avatarUrl,
+    String? memberCode,
   }) {
     final cleanName = fullName?.trim() ?? '';
     final cleanPhone = phone?.trim() ?? '';
     final cleanEmail = email?.trim() ?? '';
     final cleanAvatar = avatarUrl?.trim() ?? '';
 
-    String derivedCode = _userProfile.memberCode;
+    String derivedCode = (memberCode != null && memberCode.trim().isNotEmpty)
+        ? memberCode.trim()
+        : _userProfile.memberCode;
     if (derivedCode.isEmpty || derivedCode == 'MLD-000001') {
       if (cleanPhone.isNotEmpty) {
         final nums = cleanPhone.replaceAll(RegExp(r'\D'), '');
@@ -241,11 +248,57 @@ class MembershipRepository {
             validUntil: data['validUntil']?.toString() ?? _userProfile.validUntil,
           );
           _persistLocalProfile(_userProfile);
-          return _userProfile;
+          // Đồng bộ trực tiếp mã hội viên (referral_code) từ bảng users Supabase Cloud
+    final lookupPhone = _userProfile.phone.trim();
+    final lookupId = AuthService.instance.currentUserId;
+    if (lookupPhone.isNotEmpty || (lookupId != null && lookupId.isNotEmpty)) {
+      try {
+        final queryParam = lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'id=eq.$lookupId';
+        final sRes = await _apiClient.dio.get('${ApiEndpoints.users}?$queryParam&select=referral_code,membership_tier,reward_points&limit=1');
+        if (sRes.statusCode == 200 && sRes.data is List && (sRes.data as List).isNotEmpty) {
+          final u = (sRes.data as List).first as Map<String, dynamic>;
+          final dbCode = u['referral_code']?.toString() ?? '';
+          final dbPoints = (u['reward_points'] as num?)?.toInt();
+          final dbTier = u['membership_tier']?.toString();
+          if (dbCode.isNotEmpty) {
+            _userProfile = _userProfile.copyWith(
+              memberCode: dbCode,
+              points: dbPoints ?? _userProfile.points,
+              memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
+            );
+            _persistLocalProfile(_userProfile);
+          }
+        }
+      } catch (_) {}
+    }
+    return _userProfile;
         }
       }
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error fetching profile: $e');
+    }
+    // Đồng bộ trực tiếp mã hội viên (referral_code) từ bảng users Supabase Cloud
+    final lookupPhone = _userProfile.phone.trim();
+    final lookupId = AuthService.instance.currentUserId;
+    if (lookupPhone.isNotEmpty || (lookupId != null && lookupId.isNotEmpty)) {
+      try {
+        final queryParam = lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'id=eq.$lookupId';
+        final sRes = await _apiClient.dio.get('${ApiEndpoints.users}?$queryParam&select=referral_code,membership_tier,reward_points&limit=1');
+        if (sRes.statusCode == 200 && sRes.data is List && (sRes.data as List).isNotEmpty) {
+          final u = (sRes.data as List).first as Map<String, dynamic>;
+          final dbCode = u['referral_code']?.toString() ?? '';
+          final dbPoints = (u['reward_points'] as num?)?.toInt();
+          final dbTier = u['membership_tier']?.toString();
+          if (dbCode.isNotEmpty) {
+            _userProfile = _userProfile.copyWith(
+              memberCode: dbCode,
+              points: dbPoints ?? _userProfile.points,
+              memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
+            );
+            _persistLocalProfile(_userProfile);
+          }
+        }
+      } catch (_) {}
     }
     return _userProfile;
   }
@@ -505,6 +558,9 @@ class MembershipRepository {
       prefs.setString(_namePrefKey, p.fullName);
       prefs.setString(_phonePrefKey, p.phone);
       prefs.setString(_emailPrefKey, p.email);
+      if (p.memberCode.isNotEmpty) {
+        prefs.setString(_memberCodePrefKey, p.memberCode);
+      }
     }).catchError((_) {});
   }
 }

@@ -311,7 +311,7 @@ export class AuthService {
     // 1. Tìm user theo số điện thoại hoặc email
     const { data: user, error } = await this.supabaseService.adminClient
       .from('users')
-      .select('id, phone, email, password_hash, full_name, role, is_active, avatar_url')
+      .select('id, phone, email, password_hash, full_name, role, is_active, avatar_url, referral_code')
       .or(`phone.eq.${cleanId},email.eq.${cleanId.toLowerCase()}`)
       .maybeSingle();
 

@@ -15,7 +15,7 @@ export const Layout: React.FC = () => {
   }, [pathname]);
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-[#F8F1E8] antialiased text-[#2C241E] font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="flex h-dvh overflow-hidden bg-[#F8F1E8] antialiased text-[#2C241E] font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Sidebar - Off-canvas Drawer on < lg, Static 240px on >= lg */}
       <Sidebar
         isMobileOpen={isMobileNavOpen}
@@ -23,7 +23,7 @@ export const Layout: React.FC = () => {
       />
 
       {/* Main Column */}
-      <div className="flex-1 flex flex-col w-full min-w-0 min-h-0 overflow-hidden [&>header]:shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 [&>header]:shrink-0">
         {/* Header - Pure White, border-b with Hamburger */}
         <Header
           onToggleMobileNav={() => setIsMobileNavOpen((prev) => !prev)}
@@ -32,9 +32,9 @@ export const Layout: React.FC = () => {
         {/* Content Area - Warm Sand Canvas #F8F1E8 with Responsive Padding */}
         <main
           ref={content}
-          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain bg-[#F8F1E8] p-3 sm:p-5 md:p-6"
+          className="flex-1 min-h-0 overflow-auto overscroll-contain bg-[#F8F1E8] p-3 sm:p-5 md:p-6"
         >
-          <div className="max-w-[1440px] w-full mx-auto">
+          <div className="max-w-[1440px] mx-auto">
             <Outlet />
           </div>
         </main>

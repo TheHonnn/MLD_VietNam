@@ -75,7 +75,7 @@ export class MembershipService {
       try {
         const { data: user } = await this.supabaseService.adminClient
           .from('users')
-          .select('id, full_name, phone, email, avatar_url, membership_tier, reward_points')
+          .select('id, full_name, phone, email, avatar_url, membership_tier, reward_points, referral_code')
           .eq('id', resolvedId)
           .maybeSingle();
 
@@ -100,7 +100,7 @@ export class MembershipService {
               emergencyContactPhone: '',
               avatarUrl: user.avatar_url || '',
               memberTier: tier,
-              memberCode: phone ? `MLD-${phone.slice(-6)}` : `MLD-${user.id.substring(0, 6).toUpperCase()}`,
+              memberCode: user.referral_code || (phone ? `MLD-${phone.slice(-6)}` : `MLD-${user.id.substring(0, 6).toUpperCase()}`),
               points: points,
               validUntil: 'Đang hoạt động',
             },
