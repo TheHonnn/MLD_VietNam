@@ -118,6 +118,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
           phone: loggedInPhone,
           email: loggedInEmail,
           avatarUrl: loggedInAvatar,
+          memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
         );
 
         if (mounted) {

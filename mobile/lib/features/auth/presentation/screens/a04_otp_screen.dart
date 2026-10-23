@@ -147,6 +147,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             phone: userPhone,
             email: widget.email?.trim(),
             avatarUrl: userAvatar,
+            memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
           );
         }
 
