@@ -82,17 +82,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
   return (
     <>
       {/* Mobile Backdrop Overlay */}
-      <div
-        className={`fixed inset-0 bg-black/50 backdrop-blur-[2px] z-40 transition-opacity duration-300 lg:hidden ${
-          isMobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={onCloseMobile}
-        aria-hidden="true"
-      />
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 transition-opacity duration-200 lg:hidden"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] h-full min-h-0 overflow-y-auto overscroll-contain bg-white border-r border-[#EFE4D9] flex flex-col shrink-0 select-none font-['Plus_Jakarta_Sans',sans-serif] transition-transform duration-300 ease-in-out lg:static lg:w-60 lg:translate-x-0 ${
-          isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
+        className={`h-full min-h-0 overflow-y-auto overscroll-contain bg-white border-r border-[#EFE4D9] flex-col shrink-0 select-none font-['Plus_Jakarta_Sans',sans-serif] ${
+          isMobileOpen
+            ? 'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] shadow-2xl animate-in slide-in-from-left duration-200'
+            : 'hidden lg:flex lg:static lg:w-60 lg:shadow-none'
         }`}
       >
         {/* Brand Logo Header Box (Exact Figma Pill Shape) with Mobile Close Button */}
@@ -112,8 +114,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           <button
             type="button"
             onClick={onCloseMobile}
-            className="lg:hidden p-2 rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+            className="lg:hidden min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
             title="Đóng danh mục"
+            aria-label="Đóng danh mục"
           >
             <X className="w-5 h-5" />
           </button>
@@ -134,7 +137,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
               {section.title}
             </div>
             <div className="space-y-0.5">
-              {section.items.filter(item => !item.onlyWhenAllowed || resources.some(resource => menuResources[item.path]?.includes(resource.name))).map(item => <SidebarItem key={item.path} {...item} resources={resources} />)}
+              {section.items.filter(item => !item.onlyWhenAllowed || resources.some(resource => menuResources[item.path]?.includes(resource.name))).map(item => (
+                <SidebarItem key={item.path} {...item} resources={resources} onNavigate={onCloseMobile} />
+              ))}
             </div>
           </div>
         ))}
@@ -144,12 +149,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       <div className="p-3 border-t border-[#EFE4D9] space-y-0.5 mt-auto">
         <button
           type="button"
-          onClick={() =>
+          onClick={() => {
+            onCloseMobile?.();
             toast.info(
               'Trung tâm hỗ trợ MLD',
               'Hotline kỹ thuật: 1900 8888 · Email hỗ trợ: support@mldvietnam.vn (08:00–22:00).'
-            )
-          }
+            );
+          }}
           className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
         >
           <HelpCircle className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
@@ -157,12 +163,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         </button>
         <button
           type="button"
-          onClick={() =>
+          onClick={() => {
+            onCloseMobile?.();
             toast.info(
               'Cấu hình quản trị',
               'Hệ thống đang hoạt động theo chính sách phân quyền bảo mật MLD Spa & Clinic.'
-            )
-          }
+            );
+          }}
           className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
         >
           <Settings className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
