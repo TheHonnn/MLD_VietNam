@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
@@ -107,7 +108,11 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _profile.fullName.trim().isNotEmpty ? _profile.fullName : 'Khách hàng',
+                          (_profile.fullName.trim().isNotEmpty && _profile.fullName != "Khách hàng MLD")
+                              ? _profile.fullName
+                              : ((AuthService.instance.currentDisplayName?.trim().isNotEmpty ?? false)
+                                  ? AuthService.instance.currentDisplayName!
+                                  : "Khách hàng"),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

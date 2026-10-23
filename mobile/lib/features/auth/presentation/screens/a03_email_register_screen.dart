@@ -62,18 +62,16 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
 
       if (mounted) {
         final body = res.data;
-        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
-        final otpCode = (data is Map) ? data['otp']?.toString() : null;
         final message = (body is Map && body['message'] is String)
             ? body['message'] as String
             : ((body is Map && body['data'] is Map && body['data']['message'] is String)
                 ? body['data']['message'] as String
-                : 'Mã xác thực OTP đã được gửi đến email của bạn');
+                : 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(otpCode != null ? '$message\n[Mã OTP: $otpCode]' : message),
+            content: Text(message),
             backgroundColor: AppColors.primary,
-            duration: const Duration(seconds: 8),
+            duration: const Duration(seconds: 5),
           ),
         );
 
@@ -83,7 +81,6 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
             builder: (_) => A04OtpScreen(
               email: email,
               purpose: 'REGISTER_EMAIL',
-              initialOtp: otpCode,
             ),
           ),
         );

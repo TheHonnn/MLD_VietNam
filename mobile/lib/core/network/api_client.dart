@@ -37,14 +37,16 @@ class ApiClient {
     _dio.interceptors.add(
       QueuedInterceptorsWrapper(
         onRequest: (options, handler) async {
-          // 0. Tự động định tuyến các API Xác thực (Auth) sang Backend Gateway NestJS
-          if ((options.path.startsWith('/auth/') && !options.path.startsWith('/auth/v1/')) ||
+          // 0. Xác định tuyến Backend Gateway NestJS
+          final isNestBackendRoute = (options.path.startsWith('/auth/') && !options.path.startsWith('/auth/v1/')) ||
               options.path.startsWith('/academy/') ||
               options.path.startsWith('/treatment/') ||
               options.path.startsWith('/membership/') ||
               options.path.startsWith('/bookings') ||
               options.path.startsWith('/appointments') ||
-              options.path.startsWith('/payments')) {
+              options.path.startsWith('/payments');
+
+          if (isNestBackendRoute) {
             var backendBase = ApiEndpoints.backendBaseUrl.replaceAll(RegExp(r'/+$'), '');
             if (!backendBase.endsWith('/api/v1')) {
               backendBase = '$backendBase/api/v1';
@@ -74,13 +76,8 @@ class ApiClient {
             final token = await AuthService.instance.getAccessToken();
             if (token != null && token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
-            } else if (!options.path.startsWith('/auth/') &&
-                !options.path.startsWith('/membership/') &&
-                !options.path.startsWith('/treatment/') &&
-                !options.path.startsWith('/academy/') &&
-                !options.path.startsWith('/bookings') &&
-                !options.path.startsWith('/appointments') &&
-                !options.path.startsWith('/payments')) {
+            } else if (!isNestBackendRoute) {
+              // Chỉ đính kèm Supabase Anon Key đối với các request trực tiếp đến Supabase
               options.headers['Authorization'] = 'Bearer ${ApiEndpoints.supabaseAnonKey}';
             }
           }
