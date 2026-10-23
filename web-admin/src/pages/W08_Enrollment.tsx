@@ -9,9 +9,9 @@ import {
   X,
   CheckCircle2,
 } from 'lucide-react';
-import { academyService, customerService } from '../services';
+import { academyService, customerService, supabaseService } from '../services';
 import { toast } from '../components/common';
-import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus, UserRole, PurposeInterest } from '../types/shared_types';
+import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus, UserRole, PurposeInterest, PaymentMethod, PaymentStatus } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 interface CandidateRecord {
@@ -121,15 +121,17 @@ export const W08_Enrollment: React.FC = () => {
       const stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending' =
         enr.status === 'STUDYING' || isGraduated
           ? 'class_pending'
-          : paid > 0 && !isFullyPaid
+          : enr.status === 'ENROLLED' || (paid > 0 && !isFullyPaid)
           ? 'payment_pending'
-          : paid === 0
+          : enr.status === 'CONSULTING' || paid === 0
           ? 'consulting'
           : 'class_pending';
 
       const stageLabel =
         stage === 'class_pending'
           ? (isGraduated ? 'Tốt nghiệp' : 'Đang học')
+          : enr.status === 'ENROLLED'
+          ? 'Đã nhập học / Ghi danh'
           : stage === 'payment_pending'
           ? 'Chờ thanh toán'
           : 'Chờ tư vấn';
@@ -137,6 +139,9 @@ export const W08_Enrollment: React.FC = () => {
       const startDateFormatted = bat?.startDate
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(bat.startDate))
         : '01/10/2026';
+
+      const minDeposit = crs?.depositAmount || 2000000;
+      const depositDisplay = paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : `${minDeposit.toLocaleString('vi-VN')}đ`;
 
       return {
         id: enr.id,
@@ -159,7 +164,7 @@ export const W08_Enrollment: React.FC = () => {
         timeSlot: '08:30–11:30',
         instructor: 'Master Trainer Nguyễn Thảo Ngọc',
         contractTuition: `${total.toLocaleString('vi-VN')}đ`,
-        requiredDeposit: `${paid.toLocaleString('vi-VN')}đ`,
+        requiredDeposit: depositDisplay,
         remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
         statusBadge: isFullyPaid ? 'Đã hoàn tất học phí' : paid > 0 ? 'Đã đóng cọc tuyển sinh' : 'Chờ tư vấn học phí',
         buttonLabel: isFullyPaid ? 'Xem hồ sơ học viên' : 'Gửi thông tin lớp',
@@ -267,25 +272,58 @@ export const W08_Enrollment: React.FC = () => {
   const handleUpdateEnrollmentStatus = async (enrollmentId: string, nextStatus: EnrollmentStatus) => {
     setIsUpdatingStatus(true);
     try {
-      const res = await academyService.updateEnrollmentStatus(enrollmentId, nextStatus);
+      const targetEnrollment = liveEnrollments.find((e) => e.id === enrollmentId);
+      const isDepositAction = nextStatus === EnrollmentStatus.ENROLLED && (!targetEnrollment?.amountPaid || targetEnrollment.amountPaid === 0);
+      const depositVal = isDepositAction ? (targetEnrollment?.course?.depositAmount || 2000000) : undefined;
+
+      const res = await academyService.updateEnrollmentStatus(
+        enrollmentId,
+        nextStatus,
+        depositVal ? { amountPaid: depositVal } : undefined
+      );
+
       if (res.success) {
         setLiveEnrollments((prev) =>
-          prev.map((e) => (e.id === enrollmentId ? { ...e, status: nextStatus } : e))
+          prev.map((e) =>
+            e.id === enrollmentId
+              ? { ...e, status: nextStatus, ...(depositVal ? { amountPaid: depositVal } : {}) }
+              : e
+          )
         );
+
+        if (isDepositAction && targetEnrollment) {
+          try {
+            await supabaseService.recordTuitionPayment({
+              transactionCode: `HP-COC-${Date.now().toString().slice(-6)}`,
+              enrollmentId,
+              studentId: targetEnrollment.studentId,
+              courseId: targetEnrollment.courseId,
+              branchId: targetEnrollment.batch?.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+              amount: depositVal || 2000000,
+              paymentMethod: PaymentMethod.BANK_TRANSFER,
+              paymentStatus: PaymentStatus.PAID,
+              notes: `Ghi nhận tiền cọc nhập học khóa đào tạo (${depositVal?.toLocaleString('vi-VN')}đ)`,
+            });
+          } catch (tErr) {
+            console.warn('Lỗi ghi nhận giao dịch cọc học phí:', tErr);
+          }
+        }
+
         const statusMap: Record<string, string> = {
-          [EnrollmentStatus.ENROLLED]: 'Đã nhập học / Ghi danh',
-          [EnrollmentStatus.STUDYING]: 'Đang học tập',
-          [EnrollmentStatus.GRADUATED]: 'Đã tốt nghiệp',
+          [EnrollmentStatus.ENROLLED]: 'Đã ghi nhận đóng cọc & Nhập học thành công',
+          [EnrollmentStatus.STUDYING]: 'Đã xếp lớp & Bắt đầu học',
+          [EnrollmentStatus.GRADUATED]: 'Đã tốt nghiệp & Cấp chứng chỉ',
         };
         toast.success(
-          'Cập nhật thành công',
-          `Trạng thái hồ sơ học viên đã chuyển thành: ${statusMap[nextStatus] || nextStatus}`
+          'Thao tác thành công',
+          statusMap[nextStatus] || 'Đã cập nhật trạng thái hồ sơ học viên'
         );
       } else {
         toast.error('Lỗi', res.message || 'Không thể cập nhật trạng thái hồ sơ');
       }
-    } catch (err) {
-      toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+    } catch (err: any) {
+      console.error('Lỗi cập nhật hồ sơ học viên:', err);
+      toast.error('Lỗi hệ thống', err?.message || 'Vui lòng thử lại sau.');
     } finally {
       setIsUpdatingStatus(false);
     }

@@ -803,6 +803,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
     }
     const updated = await res.json();
+    if (Array.isArray(updated) && updated.length === 0) {
+      return updateLocalRecord(table, id || key, cleanValues) as T;
+    }
     return (Array.isArray(updated) ? updated[0] : updated) as T;
   }
 
