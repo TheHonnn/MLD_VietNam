@@ -7,10 +7,12 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../booking/data/models/booking_models.dart';
 import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
+import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
 import '../../../booking/presentation/screens/c10_appointment_detail_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/mock_home_repository.dart';
+import '../../data/repositories/branch_repository.dart';
 import '../../data/repositories/service_repository.dart';
 import 'b04_search_screen.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
@@ -141,12 +143,37 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _initBranchListener();
     _startHeroTimer();
     _loadSuggestedServices();
     _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
     });
+  }
+
+  void _initBranchListener() {
+    BranchRepository.instance.activeBranchNotifier.addListener(_onActiveBranchChanged);
+    final current = BranchRepository.instance.activeBranch;
+    if (current != null) {
+      _selectedBranch = current.name;
+    } else {
+      BranchRepository.instance.init().then((_) {
+        if (mounted && BranchRepository.instance.activeBranch != null) {
+          setState(() {
+            _selectedBranch = BranchRepository.instance.activeBranch!.name;
+          });
+        }
+      });
+    }
+  }
+
+  void _onActiveBranchChanged() {
+    if (mounted && BranchRepository.instance.activeBranch != null) {
+      setState(() {
+        _selectedBranch = BranchRepository.instance.activeBranch!.name;
+      });
+    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -209,6 +236,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             'hasDiscount': hasDiscount,
             'description': s.description,
             'image': s.imageUrl,
+            'model': s,
             'isFavorite': false,
           };
         }).toList();
@@ -224,6 +252,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
   @override
   void dispose() {
+    BranchRepository.instance.activeBranchNotifier.removeListener(_onActiveBranchChanged);
     _heroTimer?.cancel();
     _heroBannerController.dispose();
     super.dispose();
@@ -263,19 +292,41 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       } catch (_) {}
     }
 
-    final flow = BookingFlowState(
-      selectedService: preselectedService,
-    );
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => C01ServiceSelectionScreen(flowState: flow),
-      ),
-    );
+    if (preselectedService != null) {
+      // Người dùng đã bấm "Đặt lịch" tại thẻ dịch vụ cụ thể trên Home -> Mở thẳng Bước 2: Chọn Chi nhánh
+      final flow = BookingFlowState(
+        selectedServices: [preselectedService],
+        selectedService: preselectedService,
+        selectedBranch: BranchRepository.instance.activeBranch,
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => C02BranchSelectionScreen(flowState: flow),
+        ),
+      );
+    } else {
+      // Người dùng bấm icon Shortcut "Đặt lịch" -> Mở Bước 1: Chọn dịch vụ từ đầu
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => C01ServiceSelectionScreen(
+            flowState: BookingFlowState(
+              selectedBranch: BranchRepository.instance.activeBranch,
+            ),
+          ),
+        ),
+      );
+    }
   }
 
-  void _showBranchPicker() {
+  void _showBranchPicker() async {
+    List<BranchModel> branches = BranchRepository.instance.cachedBranches;
+    if (branches.isEmpty) {
+      branches = await BranchRepository.instance.getBranches();
+    }
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -283,79 +334,82 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (modalContext) {
+        final activeId = BranchRepository.instance.activeBranch?.id;
         return SafeArea(
           child: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Chọn chi nhánh',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Chi nhánh Quận 3'),
-                subtitle: const Text('123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh'),
-                trailing: _selectedBranch == 'Chi nhánh Quận 3'
-                    ? const Icon(Icons.check_circle, color: AppColors.primary)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _selectedBranch = 'Chi nhánh Quận 3';
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              const Divider(),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Chi nhánh Cầu Giấy'),
-                subtitle: const Text('45 Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội'),
-                trailing: _selectedBranch == 'Chi nhánh Cầu Giấy'
-                    ? const Icon(Icons.check_circle, color: AppColors.primary)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _selectedBranch = 'Chi nhánh Cầu Giấy';
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              const Divider(),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.store_mall_directory_outlined, color: AppColors.primary),
-                  label: const Text(
-                    'Xem toàn bộ hệ thống chi nhánh',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Chọn chi nhánh',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
                   ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const B05BranchListingScreen()),
+                  const SizedBox(height: 16),
+                  ...branches.map((b) {
+                    final isSelected = b.id == activeId || b.name == _selectedBranch;
+                    return Column(
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            b.name,
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            ),
+                          ),
+                          subtitle: Text(
+                            b.address,
+                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: AppColors.primary)
+                              : null,
+                          onTap: () {
+                            BranchRepository.instance.setActiveBranch(b);
+                            setState(() {
+                              _selectedBranch = b.name;
+                            });
+                            Navigator.pop(modalContext);
+                          },
+                        ),
+                        const Divider(),
+                      ],
                     );
-                  },
-                ),
+                  }),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.store_mall_directory_outlined, color: AppColors.primary),
+                      label: const Text(
+                        'Xem toàn bộ hệ thống chi nhánh',
+                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(modalContext);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const B05BranchListingScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
-  },
-);
   }
 
   Future<void> _showNotificationSheet() async {
@@ -1141,6 +1195,8 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => B03ServiceDetailScreen(
+                            serviceCode: service['id'] as String?,
+                            serviceModel: service['model'] as SpaServiceModel?,
                             title: service['title'] as String,
                             duration: service['duration'] as String,
                             price: service['price'] as String,

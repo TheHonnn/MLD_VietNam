@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../directory/presentation/screens/b08_specialist_profile_screen.dart';
 import '../../../home/data/models/home_models.dart';
-import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../home/data/repositories/technician_repository.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c04_datetime_selection_screen.dart';
 
 /// Screen C03: Chọn chuyên viên [8111:26759]
+/// Tải dữ liệu kỹ thuật viên thực tế từ Supabase PostgreSQL Database
 class C03SpecialistSelectionScreen extends StatefulWidget {
   final BookingFlowState flowState;
 
@@ -20,23 +21,23 @@ class C03SpecialistSelectionScreen extends StatefulWidget {
 }
 
 class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScreen> {
-  late List<TechnicianModel> _allSpecialists;
-  bool _isLoading = false;
-  String _selectedExpertise = 'Massage · Chi nhánh Quận 3';
-
-  final List<String> _expertiseOptions = [
-    'Massage · Chi nhánh Quận 3',
-    'Tất cả chuyên môn',
-    'Chăm sóc da',
-    'Chăm sóc cơ thể',
-  ];
+  List<TechnicianModel> _allSpecialists = [];
+  bool _isLoading = true;
+  String _selectedExpertise = 'Tất cả chuyên môn';
+  final List<String> _expertiseOptions = ['Tất cả chuyên môn'];
 
   @override
   void initState() {
     super.initState();
-    _allSpecialists = MockHomeRepository.getTopTechnicians();
 
-    // Mặc định chọn chuyên viên đầu tiên phù hợp nếu chưa có
+    // Khởi tạo tức thì từ cache nếu có sẵn để tránh giật lag UI
+    if (TechnicianRepository.instance.cachedTechnicians.isNotEmpty) {
+      _allSpecialists = List.from(TechnicianRepository.instance.cachedTechnicians);
+      _isLoading = false;
+      _updateExpertiseOptions();
+    }
+
+    // Mặc định chọn chuyên viên đầu tiên nếu chưa có
     if (!widget.flowState.autoAssignSpecialist &&
         widget.flowState.selectedSpecialist == null &&
         _allSpecialists.isNotEmpty) {
@@ -44,6 +45,30 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
     }
 
     _loadSpecialists();
+  }
+
+  void _updateExpertiseOptions() {
+    final Set<String> options = {'Tất cả chuyên môn'};
+
+    for (final spec in _allSpecialists) {
+      for (final s in spec.specialties) {
+        final trimmed = s.trim();
+        if (trimmed.isNotEmpty && trimmed.length <= 35) {
+          options.add(trimmed);
+        }
+      }
+      final specField = spec.speciality.trim();
+      if (specField.isNotEmpty && specField.length <= 35) {
+        options.add(specField);
+      }
+    }
+
+    _expertiseOptions.clear();
+    _expertiseOptions.addAll(options);
+
+    if (!_expertiseOptions.contains(_selectedExpertise)) {
+      _selectedExpertise = 'Tất cả chuyên môn';
+    }
   }
 
   Future<void> _loadSpecialists() async {
@@ -54,19 +79,45 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
       setState(() {
         _allSpecialists = liveSpecialists;
         _isLoading = false;
-        if (!widget.flowState.autoAssignSpecialist &&
-            widget.flowState.selectedSpecialist == null &&
-            _allSpecialists.isNotEmpty) {
-          widget.flowState.selectedSpecialist = _allSpecialists.first;
+        _updateExpertiseOptions();
+
+        // Đồng bộ lại selectedSpecialist nếu đang trỏ tới mock specialist (4444...)
+        // hoặc specialist không tồn tại trong danh sách Supabase mới tải
+        if (!widget.flowState.autoAssignSpecialist && _allSpecialists.isNotEmpty) {
+          final currentId = widget.flowState.selectedSpecialist?.id;
+          final isMock = currentId == null || currentId.startsWith('4444');
+          final match = _allSpecialists.where((s) => s.id == currentId).firstOrNull;
+          if (match != null) {
+            widget.flowState.selectedSpecialist = match;
+          } else if (isMock) {
+            widget.flowState.selectedSpecialist = _allSpecialists.first;
+          }
         }
       });
     }
+  }
+
+  List<TechnicianModel> get _filteredSpecialists {
+    if (_selectedExpertise == 'Tất cả chuyên môn') {
+      return _allSpecialists;
+    }
+    final filter = _selectedExpertise.toLowerCase().trim();
+    return _allSpecialists.where((spec) {
+      final specMatches = spec.specialties.any(
+        (s) => s.toLowerCase().contains(filter) || filter.contains(s.toLowerCase()),
+      );
+      final titleMatches = spec.title.toLowerCase().contains(filter);
+      final fieldMatches = spec.speciality.toLowerCase().contains(filter) ||
+          filter.contains(spec.speciality.toLowerCase());
+      return specMatches || titleMatches || fieldMatches;
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final isAuto = widget.flowState.autoAssignSpecialist;
     final selectedSpecialist = widget.flowState.selectedSpecialist;
+    final branchName = widget.flowState.selectedBranch?.name;
 
     return Scaffold(
       backgroundColor: BookingColors.background,
@@ -159,13 +210,31 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                   const SizedBox(height: 24),
 
                   // Dropdown: Lọc theo chuyên môn
-                  const Text(
-                    'Lọc theo chuyên môn',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: BookingColors.textPrimary,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Lọc theo chuyên môn',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: BookingColors.textPrimary,
+                        ),
+                      ),
+                      if (branchName != null)
+                        Flexible(
+                          child: Text(
+                            branchName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: BookingColors.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Container(
@@ -187,6 +256,7 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                             child: Text(
                               e,
                               style: const TextStyle(fontSize: 14, color: BookingColors.textPrimary),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           );
                         }).toList(),
@@ -198,9 +268,11 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                       ),
                     ),
                   ),
-                  if (_isLoading)
+                  const SizedBox(height: 16),
+
+                  if (_isLoading && _allSpecialists.isEmpty)
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
+                      padding: EdgeInsets.symmetric(vertical: 36),
                       child: Center(
                         child: CircularProgressIndicator(color: BookingColors.primary),
                       ),
@@ -210,13 +282,32 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(
                         child: Text(
-                          'Chưa có dữ liệu chuyên viên.',
+                          'Chưa có dữ liệu chuyên viên từ cơ sở dữ liệu.',
                           style: TextStyle(color: BookingColors.textSecondary, fontSize: 14),
                         ),
                       ),
                     )
+                  else if (_filteredSpecialists.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Không có chuyên viên phù hợp với chuyên môn đã chọn.',
+                              style: TextStyle(color: BookingColors.textSecondary, fontSize: 14),
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: () => setState(() => _selectedExpertise = 'Tất cả chuyên môn'),
+                              child: const Text('Xem tất cả chuyên môn'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                   else
-                    ..._allSpecialists.map((spec) {
+                    ..._filteredSpecialists.map((spec) {
                       final isSelected = !isAuto && selectedSpecialist?.id == spec.id;
                       final tagline = spec.specialties.isNotEmpty
                           ? spec.specialties.join(' · ')
@@ -255,6 +346,9 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
 
             // Fixed Bottom Bar
             BookingFixedBottomBar(
+              summaryText: isAuto
+                  ? 'Đang chọn: Để trung tâm sắp xếp'
+                  : 'Đang chọn: ${selectedSpecialist?.name ?? "Chưa chọn chuyên viên"}',
               buttonText: 'Chọn ngày và giờ',
               onPressed: () {
                 Navigator.push(
@@ -420,7 +514,18 @@ class _C03SpecialistSelectionScreenState extends State<C03SpecialistSelectionScr
                     width: double.infinity,
                     height: 44,
                     child: TextButton(
-                      onPressed: onSelect,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => B08SpecialistProfileScreen(
+                              name: specialist.name,
+                              role: specialist.title,
+                              avatar: specialist.avatarUrl,
+                            ),
+                          ),
+                        );
+                      },
                       style: TextButton.styleFrom(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),

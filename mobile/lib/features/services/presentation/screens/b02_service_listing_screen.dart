@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../home/data/repositories/service_repository.dart';
+import '../../../home/data/models/home_models.dart';
 import 'b03_service_detail_screen.dart';
 import '../../../home/presentation/screens/b04_search_screen.dart';
 
@@ -71,6 +72,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
             'originalPrice': originalPriceFormatted,
             'hasDiscount': hasDiscount,
             'priceRaw': s.displayPrice,
+            'model': s,
             'description': s.description,
             'image': s.imageUrl,
             'category': s.category,
@@ -736,6 +738,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                     MaterialPageRoute(
                                       builder: (_) => B03ServiceDetailScreen(
                                         serviceId: id,
+                                        serviceCode: service['serviceId'] as String?,
+                                        serviceModel: service['model'] as SpaServiceModel?,
                                         title: service['title'] as String,
                                         duration: service['duration'] as String,
                                         price: service['price'] as String,

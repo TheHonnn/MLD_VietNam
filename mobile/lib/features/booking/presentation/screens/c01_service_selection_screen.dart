@@ -52,9 +52,23 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
     _allServices = MockHomeRepository.getFeaturedServices();
 
     if (_flowState.selectedServices.isNotEmpty) {
+      final updatedSelected = <SpaServiceModel>[];
+      for (final sel in _flowState.selectedServices) {
+        final match = _allServices.firstWhere(
+          (s) => s.id == sel.id || s.name.toLowerCase().trim() == sel.name.toLowerCase().trim(),
+          orElse: () => sel,
+        );
+        updatedSelected.add(match);
+      }
+      _flowState.selectedServices = updatedSelected;
       _flowState.selectedService = _flowState.selectedServices.first;
     } else if (_flowState.selectedService != null) {
-      _flowState.selectedServices = [_flowState.selectedService!];
+      final match = _allServices.firstWhere(
+        (s) => s.id == _flowState.selectedService!.id || s.name.toLowerCase().trim() == _flowState.selectedService!.name.toLowerCase().trim(),
+        orElse: () => _flowState.selectedService!,
+      );
+      _flowState.selectedServices = [match];
+      _flowState.selectedService = match;
     }
 
     _applyFilter(callSetState: false);
@@ -78,6 +92,15 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
         }
         _isLoading = false;
         if (_flowState.selectedServices.isNotEmpty) {
+          final updatedSelected = <SpaServiceModel>[];
+          for (final sel in _flowState.selectedServices) {
+            final match = _allServices.firstWhere(
+              (s) => s.id == sel.id || s.name.toLowerCase().trim() == sel.name.toLowerCase().trim(),
+              orElse: () => sel,
+            );
+            updatedSelected.add(match);
+          }
+          _flowState.selectedServices = updatedSelected;
           _flowState.selectedService = _flowState.selectedServices.first;
         }
         _applyFilter(callSetState: false);
@@ -108,9 +131,13 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
   void _toggleServiceSelection(SpaServiceModel service) {
     setState(() {
-      final isCurrentlySelected = _flowState.selectedServices.any((s) => s.id == service.id);
+      final isCurrentlySelected = _flowState.selectedServices.any(
+        (s) => s.id == service.id || s.name.toLowerCase().trim() == service.name.toLowerCase().trim(),
+      );
       if (isCurrentlySelected) {
-        _flowState.selectedServices.removeWhere((s) => s.id == service.id);
+        _flowState.selectedServices.removeWhere(
+          (s) => s.id == service.id || s.name.toLowerCase().trim() == service.name.toLowerCase().trim(),
+        );
         _flowState.selectedService = _flowState.selectedServices.isNotEmpty ? _flowState.selectedServices.first : null;
       } else {
         _flowState.selectedServices.add(service);
@@ -310,7 +337,9 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                     )
                   else
                     ..._filteredServices.map((service) {
-                      final isSelected = _flowState.selectedServices.any((s) => s.id == service.id);
+                      final isSelected = _flowState.selectedServices.any(
+                        (s) => s.id == service.id || s.name.toLowerCase().trim() == service.name.toLowerCase().trim(),
+                      );
                       final isFav = _favoriteServiceIds.contains(service.id);
 
                       return Container(

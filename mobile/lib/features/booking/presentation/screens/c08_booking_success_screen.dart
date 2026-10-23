@@ -105,8 +105,8 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
         : 'Massage thư giãn toàn thân';
     final branchName = widget.flowState.selectedBranch?.name ?? 'Chi nhánh Quận 3';
     final specialistName = widget.flowState.autoAssignSpecialist
-        ? 'Trần Minh Phương (Hệ thống sắp xếp)'
-        : (widget.flowState.selectedSpecialist?.name ?? 'Trần Minh Phương');
+        ? 'Hệ thống tự động sắp xếp'
+        : (widget.flowState.selectedSpecialist?.name ?? 'Kỹ thuật viên chỉ định');
     final customerName = widget.flowState.customerName.isNotEmpty
         ? widget.flowState.customerName
         : 'Nguyễn Minh Anh';

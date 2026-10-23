@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
+import '../../../home/data/repositories/technician_repository.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c05_booking_info_screen.dart';
@@ -605,7 +606,7 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
     final isAuto = widget.flowState.autoAssignSpecialist;
     final specialistName = isAuto
         ? 'Để trung tâm sắp xếp'
-        : (widget.flowState.selectedSpecialist?.name ?? 'Trần Minh Phương');
+        : (widget.flowState.selectedSpecialist?.name ?? 'Kỹ thuật viên chỉ định');
     final durationMinutes = widget.flowState.totalDurationMinutes;
 
     final dateStr = _formatDateShort(_selectedDate);
@@ -1071,7 +1072,9 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
           slot.subtext != null &&
           slot.subtext!.startsWith('NV: ')) {
         final assignedName = slot.subtext!.replaceFirst('NV: ', '').trim();
-        final techs = MockHomeRepository.getTopTechnicians();
+        final techs = TechnicianRepository.instance.cachedTechnicians.isNotEmpty
+            ? TechnicianRepository.instance.cachedTechnicians
+            : MockHomeRepository.getTopTechnicians();
         for (final t in techs) {
           if (t.name.contains(assignedName) || assignedName.contains(t.name)) {
             widget.flowState.selectedSpecialist = t;

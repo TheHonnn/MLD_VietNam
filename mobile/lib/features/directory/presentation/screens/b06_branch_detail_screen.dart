@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
+import '../../../booking/data/models/booking_models.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
+import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
 import 'b08_specialist_profile_screen.dart';
 
@@ -9,12 +12,14 @@ class B06BranchDetailScreen extends StatefulWidget {
   final String branchName;
   final String branchAddress;
   final String branchImage;
+  final BranchModel? branch;
 
   const B06BranchDetailScreen({
     super.key,
     this.branchName = 'Chi nhánh Quận 3',
     this.branchAddress = '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
     this.branchImage = 'assets/images/branch_hero_1.png',
+    this.branch,
   });
 
   @override
@@ -23,6 +28,27 @@ class B06BranchDetailScreen extends StatefulWidget {
 
 class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
   bool _isFavorite = true;
+
+  BranchModel _resolveBranch() {
+    if (widget.branch != null) return widget.branch!;
+    final cached = BranchRepository.instance.cachedBranches;
+    try {
+      return cached.firstWhere((b) => b.name == widget.branchName || b.address == widget.branchAddress);
+    } catch (_) {}
+    return BranchRepository.instance.activeBranch ??
+        BranchModel(
+          id: 'aaaaaaaa-0001-0001-0001-000000000001',
+          name: widget.branchName,
+          phone: '02839301234',
+          address: widget.branchAddress,
+          city: 'TP. Hồ Chí Minh',
+          distanceKm: 1.2,
+          openingHours: '08:30 - 20:30 (Cả tuần)',
+          rating: 4.9,
+          imageUrl: widget.branchImage,
+          services: const ['Massage Thư Giãn', 'Chăm Sóc Da', 'Gội Đầu Dưỡng Sinh', 'Đào Tạo'],
+        );
+  }
 
   final List<Map<String, String>> _weeklyHours = [
     {'day': 'Thứ hai', 'hours': '09:00–20:00'},

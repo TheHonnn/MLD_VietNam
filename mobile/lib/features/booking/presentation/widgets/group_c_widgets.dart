@@ -322,8 +322,9 @@ class BookingSummaryCardWidget extends StatelessWidget {
         flowState?.selectedBranch?.address ??
         '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh';
     final specialistName = appointment?.specialistName ??
-        flowState?.selectedSpecialist?.name ??
-        'Trần Minh Phương';
+        (flowState?.autoAssignSpecialist == true
+            ? 'Để trung tâm sắp xếp'
+            : (flowState?.selectedSpecialist?.name ?? 'Để trung tâm sắp xếp'));
     final customerName = appointment?.customerName ??
         (flowState?.customerName.isNotEmpty == true
             ? flowState!.customerName

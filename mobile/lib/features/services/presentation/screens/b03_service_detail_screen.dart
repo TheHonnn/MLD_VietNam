@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../booking/data/models/booking_models.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
+import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
@@ -16,6 +16,8 @@ class B03ServiceDetailScreen extends StatefulWidget {
   final String category;
   final String image;
   final String description;
+  final SpaServiceModel? serviceModel;
+  final String? serviceCode;
 
   const B03ServiceDetailScreen({
     super.key,
@@ -28,6 +30,8 @@ class B03ServiceDetailScreen extends StatefulWidget {
     this.image = 'assets/images/gioithieu_1.png',
     this.description =
         'Dành một khoảng lặng cho chính mình với trải nghiệm massage nhẹ nhàng. Nhịp chăm sóc được điều chỉnh theo nhu cầu thư giãn, trong không gian ấm áp và yên tĩnh.',
+    this.serviceModel,
+    this.serviceCode,
   });
 
   @override
@@ -675,21 +679,66 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           elevation: 0,
                         ),
                         onPressed: () {
-                          SpaServiceModel? srv;
-                          final allServices = MockHomeRepository.getFeaturedServices();
-                          try {
-                            srv = allServices.firstWhere(
-                              (s) => s.name.toLowerCase().contains(widget.title.toLowerCase()) ||
-                                     widget.title.toLowerCase().contains(s.name.toLowerCase()),
-                            );
-                          } catch (_) {}
+                          // 1. Xác định hoặc tái tạo SpaServiceModel tương ứng
+                          SpaServiceModel? effectiveService = widget.serviceModel;
 
+                          if (effectiveService == null) {
+                            final allServices = MockHomeRepository.getFeaturedServices();
+                            try {
+                              effectiveService = allServices.firstWhere(
+                                (s) => (widget.serviceCode != null && s.id == widget.serviceCode) ||
+                                       s.name.toLowerCase().trim() == widget.title.toLowerCase().trim() ||
+                                       s.name.toLowerCase().contains(widget.title.toLowerCase()) ||
+                                       widget.title.toLowerCase().contains(s.name.toLowerCase()),
+                              );
+                            } catch (_) {}
+                          }
+
+                          if (effectiveService == null) {
+                            // Helper bóc tách số từ chuỗi tiền tệ (ví dụ "450.000đ" -> 450000.0)
+                            double parseMoney(String text) {
+                              final digits = text.replaceAll(RegExp(r'\D'), '');
+                              return double.tryParse(digits) ?? 0.0;
+                            }
+
+                            // Helper bóc tách thời lượng phút từ chuỗi (ví dụ "60 phút" -> 60)
+                            int parseDuration(String text) {
+                              final digits = text.replaceAll(RegExp(r'\D'), '');
+                              return int.tryParse(digits) ?? 60;
+                            }
+
+                            final hasOriginalPrice = widget.originalPrice != null && widget.originalPrice!.isNotEmpty;
+                            final double regularPrice = hasOriginalPrice
+                                ? parseMoney(widget.originalPrice!)
+                                : parseMoney(widget.price);
+                            final double? promoPrice = hasOriginalPrice
+                                ? parseMoney(widget.price)
+                                : null;
+
+                            effectiveService = SpaServiceModel(
+                              id: widget.serviceCode ?? (widget.serviceId > 0 ? 'srv-${widget.serviceId.toString().padLeft(3, '0')}' : 'srv-custom'),
+                              name: widget.title,
+                              categoryName: widget.category,
+                              price: regularPrice > 0 ? regularPrice : 450000.0,
+                              discountPrice: promoPrice,
+                              durationMinutes: parseDuration(widget.duration),
+                              imageUrl: widget.image,
+                              shortDescription: widget.description,
+                              fullDescription: widget.description,
+                              isFeatured: true,
+                            );
+                          }
+
+                          final flow = BookingFlowState(
+                            selectedServices: [effectiveService],
+                            selectedService: effectiveService,
+                          );
+
+                          // Điều hướng THẲNG sang Bước 2: Chọn Chi nhánh (C02BranchSelectionScreen)
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => C01ServiceSelectionScreen(
-                                flowState: BookingFlowState(selectedService: srv),
-                              ),
+                              builder: (_) => C02BranchSelectionScreen(flowState: flow),
                             ),
                           );
                         },
