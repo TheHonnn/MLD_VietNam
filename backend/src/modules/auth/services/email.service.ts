@@ -42,6 +42,9 @@ export class EmailService {
           tls: {
             rejectUnauthorized: false,
           },
+          connectionTimeout: 3500,
+          greetingTimeout: 3500,
+          socketTimeout: 4000,
         });
         this.logger.log(`✅ Mail Transporter (SMTP) đã kết nối: ${host}:${port} (${user})`);
       } catch (err: any) {
@@ -96,22 +99,57 @@ export class EmailService {
     this.logger.log(`🔑 MÃ XÁC THỰC OTP 6 SỐ: [ ${otp} ] (Hiệu lực: 5 phút)`);
     this.logger.log(`======================================================\n`);
 
+    // 1. Ưu tiên gửi qua Resend HTTP API (Cổng HTTPS 443 - Không bao giờ bị Cloud/Render chặn)
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
+    if (resendApiKey) {
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: `${this.fromName} <onboarding@resend.dev>`,
+            to: [to],
+            subject,
+            html: htmlContent,
+          }),
+        });
+        if (res.ok) {
+          this.logger.log(`📨 [Resend HTTP API 443] Đã gửi thành công email OTP tới: ${to}`);
+          return true;
+        } else {
+          const errText = await res.text();
+          this.logger.error(`❌ [Resend HTTP API] Gửi email thất bại: ${errText}`);
+        }
+      } catch (httpErr: any) {
+        this.logger.error(`❌ [Resend HTTP API] Lỗi kết nối: ${httpErr.message}`);
+      }
+    }
+
+    // 2. Dự phòng qua SMTP (Nodemailer) với timeout an toàn 3.5s chống nghẽn kết nối
     if (!this.transporter) {
-      // Mock mode khi chưa có SMTP thật
       return true;
     }
 
     try {
-      await this.transporter.sendMail({
+      const sendPromise = this.transporter.sendMail({
         from: `"${this.fromName}" <${this.fromAddress}>`,
         to,
         subject,
         html: htmlContent,
       });
-      this.logger.log(`📨 Đã gửi thành công email OTP tới địa chỉ ${to}`);
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP timeout: Render free tier blocks outbound ports 25, 465, 587')), 3500),
+      );
+
+      await Promise.race([sendPromise, timeoutPromise]);
+      this.logger.log(`📨 Đã gửi thành công email OTP qua SMTP tới ${to}`);
       return true;
     } catch (err: any) {
-      this.logger.error(`❌ Gửi email OTP tới ${to} thất bại: ${err.message}`);
+      this.logger.warn(`⚠️ Gửi email OTP SMTP thất bại hoặc quá hạn: ${err.message}`);
       return false;
     }
   }

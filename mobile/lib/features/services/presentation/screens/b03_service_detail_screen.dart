@@ -4,6 +4,7 @@ import '../../../booking/data/models/booking_models.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
+import '../../../home/data/repositories/service_repository.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
 import '../../../directory/presentation/screens/b08_specialist_profile_screen.dart';
 
@@ -12,9 +13,11 @@ class B03ServiceDetailScreen extends StatefulWidget {
   final String title;
   final String duration;
   final String price;
+  final String? originalPrice;
   final String category;
   final String image;
   final String description;
+  final SpaServiceModel? service;
 
   const B03ServiceDetailScreen({
     super.key,
@@ -22,10 +25,12 @@ class B03ServiceDetailScreen extends StatefulWidget {
     this.title = 'Massage thư giãn toàn thân',
     this.duration = '60 phút',
     this.price = '450.000đ',
+    this.originalPrice,
     this.category = 'Massage',
     this.image = 'assets/images/gioithieu_1.png',
     this.description =
         'Dành một khoảng lặng cho chính mình với trải nghiệm massage nhẹ nhàng. Nhịp chăm sóc được điều chỉnh theo nhu cầu thư giãn, trong không gian ấm áp và yên tĩnh.',
+    this.service,
   });
 
   @override
@@ -292,6 +297,8 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
 
                           // Price & Duration
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
                                 widget.price,
@@ -301,6 +308,18 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                                   color: AppColors.primary,
                                 ),
                               ),
+                              if (widget.originalPrice != null && widget.originalPrice!.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  widget.originalPrice!,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    decoration: TextDecoration.lineThrough,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(width: 14),
                               Container(
                                 width: 4,
@@ -614,13 +633,31 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        widget.price,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            widget.price,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          if (widget.originalPrice != null && widget.originalPrice!.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              widget.originalPrice!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                decoration: TextDecoration.lineThrough,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       Text(
                         widget.duration,
@@ -644,14 +681,19 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           elevation: 0,
                         ),
                         onPressed: () {
-                          SpaServiceModel? srv;
-                          final allServices = MockHomeRepository.getFeaturedServices();
-                          try {
-                            srv = allServices.firstWhere(
-                              (s) => s.name.toLowerCase().contains(widget.title.toLowerCase()) ||
-                                     widget.title.toLowerCase().contains(s.name.toLowerCase()),
-                            );
-                          } catch (_) {}
+                          SpaServiceModel? srv = widget.service;
+                          if (srv == null) {
+                            final allServices = ServiceRepository.instance.cachedServices.isNotEmpty
+                                ? ServiceRepository.instance.cachedServices
+                                : MockHomeRepository.getFeaturedServices();
+                            try {
+                              srv = allServices.firstWhere(
+                                (s) => (widget.serviceId != 0 && s.id.hashCode == widget.serviceId) ||
+                                       s.name.toLowerCase().contains(widget.title.toLowerCase()) ||
+                                       widget.title.toLowerCase().contains(s.name.toLowerCase()),
+                              );
+                            } catch (_) {}
+                          }
 
                           Navigator.push(
                             context,
