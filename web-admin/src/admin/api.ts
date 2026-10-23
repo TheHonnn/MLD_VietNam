@@ -35,23 +35,7 @@ const base = (
   (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:3000/api/v1"
 ).replace(/\/$/, "");
 
-const SUPABASE_URL = (
-  (import.meta as any).env?.VITE_SUPABASE_URL || "https://wstvwushpwcdsmhpunvh.supabase.co"
-).replace(/\/$/, "");
-
-const VALID_SERVICE_ROLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-function getValidSupabaseKey(): string {
-  const envServiceKey = (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY;
-  // A valid Supabase JWT must consist of exactly 3 dot-separated base64 segments
-  if (typeof envServiceKey === "string" && envServiceKey.split(".").length === 3 && envServiceKey.length > 50) {
-    return envServiceKey;
-  }
-  return VALID_SERVICE_ROLE_KEY;
-}
-
-const SUPABASE_KEY = getValidSupabaseKey();
+import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 
 import { SCHEMA_COLUMNS } from "./schemaMeta";
@@ -575,7 +559,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         try {
           const userSearchUrl = `${SUPABASE_URL}/rest/v1/users?select=id&or=(full_name.ilike.*${encodeURIComponent(s)}*,phone.ilike.*${encodeURIComponent(s)}*)&limit=25`;
           const uRes = await fetch(userSearchUrl, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            headers: getSupabaseHeaders(),
             signal,
           });
           if (uRes.ok) {
@@ -590,7 +574,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         try {
           const bSearchUrl = `${SUPABASE_URL}/rest/v1/bookings?select=id&booking_code=ilike.*${encodeURIComponent(s)}*&limit=25`;
           const bRes = await fetch(bSearchUrl, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            headers: getSupabaseHeaders(),
             signal,
           });
           if (bRes.ok) {
@@ -665,43 +649,23 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
     let res = await fetch(url, {
       method: "GET",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+      headers: getSupabaseHeaders({
         "Range-Unit": "items",
         Range: `${offset}-${end}`,
         Prefer: "count=exact",
-      },
+      }),
       signal,
     });
 
     if (!res.ok) {
-      let err = await res.json().catch(() => null);
-      if (err?.message?.includes("Invalid API key") || res.status === 401) {
-        res = await fetch(url, {
-          method: "GET",
-          headers: {
-            apikey: VALID_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
-            "Range-Unit": "items",
-            Range: `${offset}-${end}`,
-            Prefer: "count=exact",
-          },
-          signal,
-        });
-        if (!res.ok) {
-          err = await res.json().catch(() => null);
-          if (isMissingTableError(res, err)) {
-            return getLocalFallbackListing(table, page, limit, search, filterParam, sort, direction);
-          }
-          throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
-        }
-      } else {
-        if (isMissingTableError(res, err)) {
-          return getLocalFallbackListing(table, page, limit, search, filterParam, sort, direction);
-        }
-        throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
+      const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (isMissingTableError(res, err)) {
+        return getLocalFallbackListing(table, page, limit, search, filterParam, sort, direction);
+      }
+      throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
     }
 
     const rows: Row[] = await res.json();
@@ -786,44 +750,24 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
   if (action === "create" && payload?.values) {
     const cleanValues = sanitizeValues(table, payload.values, false);
-    let res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+      headers: getSupabaseHeaders({
         "Content-Type": "application/json",
         Prefer: "return=representation",
-      },
+      }),
       body: JSON.stringify(cleanValues),
       signal,
     });
     if (!res.ok) {
-      let err = await res.json().catch(() => null);
-      if (err?.message?.includes("Invalid API key") || res.status === 401) {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-          method: "POST",
-          headers: {
-            apikey: VALID_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify(cleanValues),
-          signal,
-        });
-        if (!res.ok) {
-          err = await res.json().catch(() => null);
-          if (isMissingTableError(res, err)) {
-            return createLocalRecord(table, cleanValues) as T;
-          }
-          throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
-        }
-      } else {
-        if (isMissingTableError(res, err)) {
-          return createLocalRecord(table, cleanValues) as T;
-        }
-        throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
+      const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (isMissingTableError(res, err)) {
+        return createLocalRecord(table, cleanValues) as T;
+      }
+      throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
     }
     const created = await res.json();
     return (Array.isArray(created) ? created[0] : created) as T;
@@ -839,44 +783,24 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           .join("&");
 
     const cleanValues = sanitizeValues(table, payload.values, true);
-    let res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "PATCH",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+      headers: getSupabaseHeaders({
         "Content-Type": "application/json",
         Prefer: "return=representation",
-      },
+      }),
       body: JSON.stringify(cleanValues),
       signal,
     });
     if (!res.ok) {
-      let err = await res.json().catch(() => null);
-      if (err?.message?.includes("Invalid API key") || res.status === 401) {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
-          method: "PATCH",
-          headers: {
-            apikey: VALID_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${VALID_SERVICE_ROLE_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify(cleanValues),
-          signal,
-        });
-        if (!res.ok) {
-          err = await res.json().catch(() => null);
-          if (isMissingTableError(res, err)) {
-            return updateLocalRecord(table, id || key, cleanValues) as T;
-          }
-          throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
-        }
-      } else {
-        if (isMissingTableError(res, err)) {
-          return updateLocalRecord(table, id || key, cleanValues) as T;
-        }
-        throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
+      const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (isMissingTableError(res, err)) {
+        return updateLocalRecord(table, id || key, cleanValues) as T;
+      }
+      throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
     }
     const updated = await res.json();
     return (Array.isArray(updated) ? updated[0] : updated) as T;
@@ -893,14 +817,14 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "DELETE",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
+      headers: getSupabaseHeaders(),
       signal,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("admin-signout"));
+      }
       if (isMissingTableError(res, err)) {
         deleteLocalRecord(table, id || key);
         return true as unknown as T;
@@ -930,11 +854,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       const statusField = table === "invoices" || table === "tuition_transactions" ? "payment_status" : "status";
       await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
         method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
+        headers: getSupabaseHeaders({
           "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify({ [statusField]: targetStatus }),
         signal,
       });
@@ -944,11 +866,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       const targetActive = payload.targetActive !== undefined ? Boolean(payload.targetActive) : !Boolean(payload.currentActive);
       await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
         method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
+        headers: getSupabaseHeaders({
           "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify({ is_active: targetActive }),
         signal,
       });
@@ -959,11 +879,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       const targetFeatured = payload.targetFeatured !== undefined ? Boolean(payload.targetFeatured) : !Boolean(payload.currentFeatured);
       await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(payload.key.id)}`, {
         method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
+        headers: getSupabaseHeaders({
           "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify({ is_featured: targetFeatured }),
         signal,
       });

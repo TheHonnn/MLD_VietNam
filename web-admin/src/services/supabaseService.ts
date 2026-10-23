@@ -28,22 +28,7 @@ import {
 
 import { adminApi, Listing } from '../admin/api';
 import { matchSearch, isUuid } from '../utils/searchUtils';
-
-const SUPABASE_URL =
-  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
-const VALID_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
-
-function getValidSupabaseKey(): string {
-  const envServiceKey = (import.meta as any).env?.VITE_SUPABASE_SERVICE_ROLE_KEY;
-  if (typeof envServiceKey === 'string' && envServiceKey.split('.').length === 3 && envServiceKey.length > 50) {
-    return envServiceKey;
-  }
-  return VALID_SERVICE_ROLE_KEY;
-}
-
-const SUPABASE_KEY = getValidSupabaseKey();
-
+import { SUPABASE_URL, SUPABASE_ANON_KEY, getSupabaseHeaders } from './supabaseClient';
 
 class SupabaseService {
   private url: string;
@@ -55,13 +40,11 @@ class SupabaseService {
   }
 
   private getHeaders(): Record<string, string> {
-    return {
-      apikey: this.key,
-      Authorization: `Bearer ${this.key}`,
+    return getSupabaseHeaders({
       'Content-Type': 'application/json',
       Accept: 'application/json',
       Prefer: 'return=representation',
-    };
+    });
   }
 
   private async query<T>(path: string, options: RequestInit = {}): Promise<T | null> {
@@ -1962,4 +1945,4 @@ class SupabaseService {
   }
 }
 
-export const supabaseService = new SupabaseService(SUPABASE_URL, SUPABASE_KEY);
+export const supabaseService = new SupabaseService(SUPABASE_URL, SUPABASE_ANON_KEY);
