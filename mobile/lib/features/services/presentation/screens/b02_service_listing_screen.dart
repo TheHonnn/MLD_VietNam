@@ -55,8 +55,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           _categories = ['Tất cả', ...categories];
         }
         _allServices = services.map((s) {
+          final hasDiscount = s.discountPrice != null && s.discountPrice! < s.price;
           final priceFormatted =
-              '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+              '${s.displayPrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+          final originalPriceFormatted = hasDiscount
+              ? '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ'
+              : null;
           return {
             'id': s.id.hashCode,
             'serviceId': s.id,
@@ -64,7 +68,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
             'duration': '${s.durationMinutes} phút',
             'durationMinutes': s.durationMinutes,
             'price': priceFormatted,
-            'priceRaw': s.price,
+            'originalPrice': originalPriceFormatted,
+            'hasDiscount': hasDiscount,
+            'priceRaw': s.displayPrice,
             'description': s.description,
             'image': s.imageUrl,
             'category': s.category,
@@ -676,6 +682,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
+                                if (service['hasDiscount'] == true && service['originalPrice'] != null) ...[
+                                  Text(
+                                    service['originalPrice'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.textSecondary,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
                                 Text(
                                   service['price'] as String,
                                   style: const TextStyle(
@@ -721,6 +739,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                         title: service['title'] as String,
                                         duration: service['duration'] as String,
                                         price: service['price'] as String,
+                                        originalPrice: service['originalPrice'] as String?,
                                         category: service['category'] as String,
                                         image: service['image'] as String,
                                         description: service['description'] as String,

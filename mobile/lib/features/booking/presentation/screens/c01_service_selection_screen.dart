@@ -470,13 +470,54 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                         color: BookingColors.textSecondary,
                                       ),
                                     ),
-                                    Text(
-                                      '${_formatPrice(service.displayPrice)}đ',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: BookingColors.primary,
-                                      ),
+                                    Row(
+
+                                      mainAxisSize: MainAxisSize.min,
+
+                                      children: [
+
+                                        if (service.discountPrice != null && service.discountPrice! < service.price) ...[
+
+                                          Text(
+
+                                            '${_formatPrice(service.price)}đ',
+
+                                            style: const TextStyle(
+
+                                              fontSize: 13,
+
+                                              fontWeight: FontWeight.w400,
+
+                                              color: BookingColors.textSecondary,
+
+                                              decoration: TextDecoration.lineThrough,
+
+                                            ),
+
+                                          ),
+
+                                          const SizedBox(width: 6),
+
+                                        ],
+
+                                        Text(
+
+                                          '${_formatPrice(service.displayPrice)}đ',
+
+                                          style: const TextStyle(
+
+                                            fontSize: 16,
+
+                                            fontWeight: FontWeight.w600,
+
+                                            color: BookingColors.primary,
+
+                                          ),
+
+                                        ),
+
+                                      ],
+
                                     ),
                                   ],
                                 ),
@@ -495,14 +536,24 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                   height: 44,
                                   child: TextButton(
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => B03ServiceDetailScreen(
-                                            serviceId: int.tryParse(service.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
-                                          ),
-                                        ),
-                                      );
+                                          final hasDiscount = service.discountPrice != null && service.discountPrice! < service.price;
+                                          final priceFormatted = '${_formatPrice(service.displayPrice)}đ';
+                                          final originalPriceFormatted = hasDiscount ? '${_formatPrice(service.price)}đ' : null;
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => B03ServiceDetailScreen(
+                                                serviceId: int.tryParse(service.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
+                                                title: service.name,
+                                                duration: '${service.durationMinutes} phút',
+                                                price: priceFormatted,
+                                                originalPrice: originalPriceFormatted,
+                                                category: service.categoryName,
+                                                image: service.imageUrl,
+                                                description: service.shortDescription,
+                                              ),
+                                            ),
+                                          );
                                     },
                                     style: TextButton.styleFrom(
                                       shape: RoundedRectangleBorder(

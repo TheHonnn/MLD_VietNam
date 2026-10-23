@@ -19,6 +19,17 @@ class AuthService {
   static const String _keyDisplayName = 'user_display_name';
   static const String _keyAvatarUrl = 'user_avatar_path';
 
+  // Hybrid fallback keys in SharedPreferences
+  static const String _keyCachedToken = 'mld_cached_token';
+  static const String _keyCachedRefreshToken = 'mld_cached_refresh_token';
+  static const String _keyCachedUserId = 'mld_cached_user_id';
+  static const String _keyCachedPhone = 'mld_cached_phone';
+
+  // Remember last login identifier
+  static const String _keyLastLoginPhone = 'last_login_phone';
+  static const String _keyLastLoginEmail = 'last_login_email';
+  static const String _keyLastLoginMethod = 'last_login_method';
+
   FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
@@ -48,6 +59,26 @@ class AuthService {
   String? get currentDisplayName => _cachedDisplayName;
   String? get currentAvatarUrl => _cachedAvatarUrl;
   String? get currentUserId => _cachedUserId;
+  String? get lastLoginPhone => _prefs?.getString(_keyLastLoginPhone);
+  String? get lastLoginEmail => _prefs?.getString(_keyLastLoginEmail);
+  String? get lastLoginMethod => _prefs?.getString(_keyLastLoginMethod);
+
+  /// Save last login credentials / method
+  Future<void> saveLastLogin({
+    String? phone,
+    String? email,
+    String? method,
+  }) async {
+    if (phone != null && phone.isNotEmpty) {
+      await _prefs?.setString(_keyLastLoginPhone, phone);
+    }
+    if (email != null && email.isNotEmpty) {
+      await _prefs?.setString(_keyLastLoginEmail, email);
+    }
+    if (method != null && method.isNotEmpty) {
+      await _prefs?.setString(_keyLastLoginMethod, method);
+    }
+  }
 
   /// Initialize storage and restore existing session
   Future<void> init({
@@ -68,11 +99,18 @@ class AuthService {
       _cachedRefreshToken = await _secureStorage.read(key: _keyRefreshToken);
       _cachedUserId = await _secureStorage.read(key: _keyUserId);
       _cachedPhone = await _secureStorage.read(key: _keyUserPhone);
-      phoneNotifier.value = _cachedPhone;
     } catch (e) {
       debugPrint('Error reading secure storage: $e');
       _cachedAccessToken = null;
     }
+
+    // Hybrid fallback from SharedPreferences if secure storage is null/empty
+    _cachedAccessToken ??= _prefs?.getString(_keyCachedToken);
+    _cachedRefreshToken ??= _prefs?.getString(_keyCachedRefreshToken);
+    _cachedUserId ??= _prefs?.getString(_keyCachedUserId);
+    _cachedPhone ??= _prefs?.getString(_keyCachedPhone);
+
+    phoneNotifier.value = _cachedPhone;
 
     final hasToken = _cachedAccessToken != null && _cachedAccessToken!.isNotEmpty;
     final loggedInFlag = _prefs?.getBool(_keyIsLoggedIn) ?? false;
@@ -87,10 +125,11 @@ class AuthService {
     }
     try {
       _cachedAccessToken = await _secureStorage.read(key: _keyAccessToken);
-      return _cachedAccessToken;
     } catch (_) {
-      return null;
+      _cachedAccessToken = null;
     }
+    _cachedAccessToken ??= _prefs?.getString(_keyCachedToken);
+    return _cachedAccessToken;
   }
 
   /// Get active refresh token
@@ -100,10 +139,11 @@ class AuthService {
     }
     try {
       _cachedRefreshToken = await _secureStorage.read(key: _keyRefreshToken);
-      return _cachedRefreshToken;
     } catch (_) {
-      return null;
+      _cachedRefreshToken = null;
     }
+    _cachedRefreshToken ??= _prefs?.getString(_keyCachedRefreshToken);
+    return _cachedRefreshToken;
   }
 
   /// Save session after successful login or profile creation
@@ -142,6 +182,18 @@ class AuthService {
 
     if (_prefs != null) {
       await _prefs!.setBool(_keyIsLoggedIn, true);
+      await _prefs!.setString(_keyCachedToken, accessToken);
+      if (refreshToken != null) {
+        await _prefs!.setString(_keyCachedRefreshToken, refreshToken);
+      }
+      if (userId != null) {
+        await _prefs!.setString(_keyCachedUserId, userId);
+      }
+      if (phone != null) {
+        await _prefs!.setString(_keyCachedPhone, phone);
+        await _prefs!.setString('user_phone', phone);
+        await saveLastLogin(phone: phone, method: 'phone');
+      }
       if (displayName != null) {
         await _prefs!.setString(_keyDisplayName, displayName);
         await _prefs!.setString('user_full_name', displayName);
@@ -149,9 +201,6 @@ class AuthService {
       if (avatarUrl != null) {
         await _prefs!.setString(_keyAvatarUrl, avatarUrl);
         await _prefs!.setString('user_avatar_url', avatarUrl);
-      }
-      if (phone != null) {
-        await _prefs!.setString('user_phone', phone);
       }
     }
 
@@ -169,6 +218,8 @@ class AuthService {
     } catch (e) {
       debugPrint('Error writing phone to secure storage: $e');
     }
+    await _prefs?.setString(_keyCachedPhone, cleanPhone);
+    await _prefs?.setString('user_phone', cleanPhone);
 
     // Gửi yêu cầu cập nhật lên Backend Gateway NestJS nếu đang đăng nhập
     try {
@@ -208,11 +259,21 @@ class AuthService {
     String? newRefreshToken,
   }) async {
     _cachedAccessToken = newAccessToken;
-    await _secureStorage.write(key: _keyAccessToken, value: newAccessToken);
+    try {
+      await _secureStorage.write(key: _keyAccessToken, value: newAccessToken);
+    } catch (e) {
+      debugPrint('Error writing new access token to secure storage: $e');
+    }
+    await _prefs?.setString(_keyCachedToken, newAccessToken);
 
     if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
       _cachedRefreshToken = newRefreshToken;
-      await _secureStorage.write(key: _keyRefreshToken, value: newRefreshToken);
+      try {
+        await _secureStorage.write(key: _keyRefreshToken, value: newRefreshToken);
+      } catch (e) {
+        debugPrint('Error writing new refresh token to secure storage: $e');
+      }
+      await _prefs?.setString(_keyCachedRefreshToken, newRefreshToken);
     }
   }
 
@@ -250,7 +311,11 @@ class AuthService {
 
     if (_prefs != null) {
       await _prefs!.setBool(_keyIsLoggedIn, false);
-      // Keep _keyCompletedOnboarding so user goes to Login directly
+      await _prefs!.remove(_keyCachedToken);
+      await _prefs!.remove(_keyCachedRefreshToken);
+      await _prefs!.remove(_keyCachedUserId);
+      await _prefs!.remove(_keyCachedPhone);
+      // Keep _keyCompletedOnboarding, _keyLastLoginPhone, _keyLastLoginEmail, _keyLastLoginMethod
     }
 
     isLoggedInNotifier.value = false;

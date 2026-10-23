@@ -115,19 +115,23 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
   List<Map<String, dynamic>> _suggestedServices = [
     {
-      'id': 'srv_1',
+      'id': 'srv-001',
       'title': 'Massage thư giãn toàn thân',
       'duration': '60 phút',
-      'price': '450.000đ',
+      'price': '350.000đ',
+      'originalPrice': '450.000đ',
+      'hasDiscount': true,
       'description': 'Thả lỏng cơ thể trong không gian yên tĩnh.',
       'image': 'assets/images/gioithieu_1.png',
       'isFavorite': true,
     },
     {
-      'id': 'srv_2',
+      'id': 'srv-002',
       'title': 'Chăm sóc da chuyên sâu',
       'duration': '90 phút',
-      'price': '650.000đ',
+      'price': '520.000đ',
+      'originalPrice': '650.000đ',
+      'hasDiscount': true,
       'description': 'Chăm sóc làn da với quy trình nhẹ nhàng, chu đáo.',
       'image': 'assets/images/gioithieu_2.png',
       'isFavorite': false,
@@ -190,13 +194,19 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     if (mounted && liveServices.isNotEmpty) {
       setState(() {
         _suggestedServices = liveServices.map((s) {
+          final hasDiscount = s.discountPrice != null && s.discountPrice! < s.price;
           final priceFormatted =
-              '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+              '${s.displayPrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+          final originalPriceFormatted = hasDiscount
+              ? '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ'
+              : null;
           return {
             'id': s.id,
             'title': s.name,
             'duration': '${s.durationMinutes} phút',
             'price': priceFormatted,
+            'originalPrice': originalPriceFormatted,
+            'hasDiscount': hasDiscount,
             'description': s.description,
             'image': s.imageUrl,
             'isFavorite': false,
@@ -1134,6 +1144,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             title: service['title'] as String,
                             duration: service['duration'] as String,
                             price: service['price'] as String,
+                            originalPrice: service['originalPrice'] as String?,
                             image: service['image'] as String,
                             description: service['description'] as String,
                           ),
@@ -1256,13 +1267,30 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                       color: AppColors.textSecondary, // #6B6158
                                     ),
                                   ),
-                                  Text(
-                                    service['price'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary, // #985018
-                                    ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (service['hasDiscount'] == true && service['originalPrice'] != null) ...[
+                                        Text(
+                                          service['originalPrice'] as String,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w400,
+                                            color: AppColors.textSecondary,
+                                            decoration: TextDecoration.lineThrough,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      Text(
+                                        service['price'] as String,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary, // #985018
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

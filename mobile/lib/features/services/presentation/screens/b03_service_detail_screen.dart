@@ -12,6 +12,7 @@ class B03ServiceDetailScreen extends StatefulWidget {
   final String title;
   final String duration;
   final String price;
+  final String? originalPrice;
   final String category;
   final String image;
   final String description;
@@ -22,6 +23,7 @@ class B03ServiceDetailScreen extends StatefulWidget {
     this.title = 'Massage thư giãn toàn thân',
     this.duration = '60 phút',
     this.price = '450.000đ',
+    this.originalPrice,
     this.category = 'Massage',
     this.image = 'assets/images/gioithieu_1.png',
     this.description =
@@ -293,6 +295,18 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           // Price & Duration
                           Row(
                             children: [
+                              if (widget.originalPrice != null && widget.originalPrice!.isNotEmpty) ...[
+                                Text(
+                                  widget.originalPrice!,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.textSecondary,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
                               Text(
                                 widget.price,
                                 style: const TextStyle(
@@ -614,13 +628,30 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        widget.price,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.originalPrice != null && widget.originalPrice!.isNotEmpty) ...[
+                            Text(
+                              widget.originalPrice!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.textSecondary,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            widget.price,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
                         widget.duration,

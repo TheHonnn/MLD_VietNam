@@ -142,14 +142,17 @@ class ApiClient {
                     }
                   }
                 } catch (refreshErr) {
-                  // Refresh thất bại (Refresh Token hết hạn hoặc bị thu hồi) -> Logout an toàn
-                  await AuthService.instance.logout();
+                  // Chỉ kích hoạt Logout nếu Backend trả 401 hoặc 403 xác nhận Refresh Token hết hạn/bị thu hồi
+                  if (refreshErr is DioException &&
+                      (refreshErr.response?.statusCode == 401 ||
+                          refreshErr.response?.statusCode == 403)) {
+                    await AuthService.instance.logout();
+                  }
                   return handler.next(error);
                 }
               }
 
-              // Không có Refresh Token hợp lệ -> Logout
-              await AuthService.instance.logout();
+              // Không tự tiện silent logout nếu không có refresh token (tránh mất phiên offline/mock)
             }
           }
           return handler.next(error);

@@ -246,7 +246,7 @@ class SpaServiceModel {
       fullDescription: json['full_description'] as String? ?? json['description'] as String? ?? '',
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 60,
       price: (json['price'] as num?)?.toDouble() ?? (json['priceRaw'] as num?)?.toDouble() ?? 450000.0,
-      discountPrice: (json['discount_price'] as num?)?.toDouble(),
+      discountPrice: (json['discount_price'] as num?)?.toDouble() ?? (json['discountPrice'] as num?)?.toDouble(),
       imageUrl: json['image_url'] as String? ?? json['image'] as String? ?? 'assets/images/gioithieu_1.png',
       steps: stepsList,
       benefits: benefitsList,
