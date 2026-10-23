@@ -319,9 +319,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
         <button
           type="button"
           onClick={onToggleMobileNav}
-          className="lg:hidden min-w-[40px] min-h-[40px] -ml-1 flex items-center justify-center rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] active:bg-[#F3E2CE] transition-colors cursor-pointer shrink-0"
+          className="lg:hidden p-2 -ml-1 rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer shrink-0"
           title="Mở danh mục điều hướng"
-          aria-label="Mở danh mục điều hướng"
         >
           <Menu className="w-5 h-5" />
         </button>
