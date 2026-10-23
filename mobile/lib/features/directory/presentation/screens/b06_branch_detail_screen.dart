@@ -594,10 +594,16 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                     elevation: 0,
                   ),
                   onPressed: () {
+                    final targetBranch = _resolveBranch();
+                    BranchRepository.instance.setActiveBranch(targetBranch);
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const C01ServiceSelectionScreen(),
+                        builder: (_) => C01ServiceSelectionScreen(
+                          flowState: BookingFlowState(
+                            selectedBranch: targetBranch,
+                          ),
+                        ),
                       ),
                     );
                   },
