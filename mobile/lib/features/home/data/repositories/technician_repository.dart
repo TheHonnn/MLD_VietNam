@@ -56,6 +56,21 @@ class TechnicianRepository {
               return allList;
             }
           }
+        } else if (hasValidBranch) {
+          // Chi nhánh này trong DB chưa có KTV (ví dụ Long Biên), query tất cả KTV active để khách chọn
+          debugPrint('>>> [TechnicianRepository] Branch $branchId has 0 technicians. Fetching all active technicians.');
+          const allPath = '${ApiEndpoints.technicians}?select=*,branches(name,address)&is_active=eq.true&order=rating_avg.desc';
+          final allRes = await _apiClient.dio.get(allPath);
+          if (allRes.statusCode == 200 && allRes.data is List) {
+            final allList = (allRes.data as List)
+                .map((item) => TechnicianModel.fromJson(item as Map<String, dynamic>))
+                .toList();
+            if (allList.isNotEmpty) {
+              debugPrint('>>> [TechnicianRepository] Loaded ${allList.length} general technicians from Supabase.');
+              _cachedTechnicians = allList;
+              return allList;
+            }
+          }
         }
       }
     } catch (e) {

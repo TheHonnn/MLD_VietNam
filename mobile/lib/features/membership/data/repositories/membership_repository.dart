@@ -160,6 +160,51 @@ class MembershipRepository {
         remainingAmount: 0,
       ),
     ]);
+
+    _pointHistory.addAll([
+      const PointsTransaction(
+        id: 'pt-01',
+        type: 'EARN',
+        title: 'Tích điểm dịch vụ Massage',
+        date: '15/10/2026',
+        branch: 'Chi nhánh Quận 3',
+        points: '+45',
+      ),
+      const PointsTransaction(
+        id: 'pt-02',
+        type: 'EARN',
+        title: 'Tích điểm dịch vụ Chăm sóc da',
+        date: '08/10/2026',
+        branch: 'Chi nhánh Quận 3',
+        points: '+280',
+      ),
+    ]);
+
+    _vouchers.addAll([
+      const VoucherItem(
+        id: 'vc-01',
+        title: 'Giảm 20% Dịch vụ Massage Chuyên Sâu',
+        subtitle: 'Áp dụng cho mọi cơ sở',
+        discountBanner: '20% OFF',
+        description: 'Voucher chào mừng hội viên mới',
+        expiryDate: '31/12/2026',
+        code: 'MLDNEW20',
+        status: 'AVAILABLE',
+        statusText: 'Có thể sử dụng',
+      ),
+    ]);
+
+    _referralHistory.addAll([
+      const ReferralRecord(
+        id: 'ref-01',
+        maskedName: 'Nguyễn V***',
+        date: '10/10/2026',
+        status: 'ELIGIBLE',
+        statusText: 'Đủ điều kiện',
+        points: '+100',
+        recordedDate: '10/10/2026',
+      ),
+    ]);
   }
 
   // Getters

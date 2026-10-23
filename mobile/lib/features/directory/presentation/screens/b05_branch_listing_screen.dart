@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
+import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
+import '../../../home/data/repositories/mock_home_repository.dart';
 import 'b06_branch_detail_screen.dart';
 
 class B05BranchListingScreen extends StatefulWidget {
@@ -21,11 +24,10 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
   String _selectedService = 'Tất cả dịch vụ';
   bool _isMapView = false;
   int _mapSelectedBranchIndex = 0;
+  bool _isLoading = false;
 
-  final List<String> _cities = [
+  List<String> _cities = [
     'Tất cả tỉnh / thành phố',
-    'TP. Hồ Chí Minh',
-    'Hà Nội',
   ];
 
   final List<String> _services = [
@@ -34,28 +36,90 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
     'Chăm sóc da',
   ];
 
-  final List<Map<String, dynamic>> _branches = [
-    {
-      'id': 1,
-      'name': 'Chi nhánh Quận 3',
-      'address': '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
-      'city': 'TP. Hồ Chí Minh',
-      'hours': '09:00–20:00 · Cả tuần ',
-      'services': 'Massage · Chăm sóc da',
-      'image': 'assets/images/branch_hero_1.png',
-      'phone': '0901 234 567',
-    },
-    {
-      'id': 2,
-      'name': 'Chi nhánh Cầu Giấy',
-      'address': '45 Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội',
-      'city': 'Hà Nội',
-      'hours': '09:00–20:00 · Cả tuần ',
-      'services': 'Massage · Chăm sóc da',
-      'image': 'assets/images/branch_hero_2.png',
-      'phone': '0909 876 543',
-    },
-  ];
+  late List<BranchModel> _branches;
+
+  @override
+  void initState() {
+    super.initState();
+    _branches = BranchRepository.instance.cachedBranches.isNotEmpty
+        ? BranchRepository.instance.cachedBranches
+        : MockHomeRepository.getBranches();
+    _extractCities(_branches);
+    _loadBranches();
+  }
+
+  void _extractCities(List<BranchModel> list) {
+    final citySet = <String>{};
+    for (final b in list) {
+      if (b.city.trim().isNotEmpty) {
+        citySet.add(b.city.trim());
+      }
+    }
+    _cities = ['Tất cả tỉnh / thành phố', ...citySet];
+    if (!_cities.contains(_selectedCity)) {
+      _selectedCity = 'Tất cả tỉnh / thành phố';
+    }
+  }
+
+  Future<void> _loadBranches() async {
+    setState(() => _isLoading = true);
+    final branches = await BranchRepository.instance.getBranches();
+    if (mounted) {
+      setState(() {
+        _branches = branches;
+        _isLoading = false;
+        _extractCities(_branches);
+      });
+    }
+  }
+
+  Widget _buildBranchImage(String imageUrl, {double height = 180, double width = double.infinity, BorderRadius? borderRadius}) {
+    final imgWidget = imageUrl.startsWith('http')
+        ? Image.network(
+            imageUrl,
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                width: width,
+                height: height,
+                color: AppColors.surfaceSecondary,
+                child: const Center(
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                ),
+              );
+            },
+            errorBuilder: (_, __, ___) => Container(
+              width: width,
+              height: height,
+              color: AppColors.surfaceSecondary,
+              child: const Center(
+                child: Icon(Icons.store, size: 48, color: AppColors.primary),
+              ),
+            ),
+          )
+        : Image.asset(
+            imageUrl,
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              width: width,
+              height: height,
+              color: AppColors.surfaceSecondary,
+              child: const Center(
+                child: Icon(Icons.store, size: 48, color: AppColors.primary),
+              ),
+            ),
+          );
+
+    if (borderRadius != null) {
+      return ClipRRect(borderRadius: borderRadius, child: imgWidget);
+    }
+    return imgWidget;
+  }
 
   @override
   void dispose() {
@@ -63,17 +127,21 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredBranches {
+  List<BranchModel> get _filteredBranches {
     final query = _searchController.text.toLowerCase().trim();
     return _branches.where((branch) {
       final matchesQuery = query.isEmpty ||
-          (branch['name'] as String).toLowerCase().contains(query) ||
-          (branch['address'] as String).toLowerCase().contains(query);
+          branch.name.toLowerCase().contains(query) ||
+          branch.address.toLowerCase().contains(query);
 
       final matchesCity = _selectedCity == 'Tất cả tỉnh / thành phố' ||
-          (branch['city'] as String).contains(_selectedCity);
+          branch.city.toLowerCase().contains(_selectedCity.toLowerCase()) ||
+          branch.address.toLowerCase().contains(_selectedCity.toLowerCase());
 
-      return matchesQuery && matchesCity;
+      final matchesService = _selectedService == 'Tất cả dịch vụ' ||
+          branch.services.any((s) => s.toLowerCase().contains(_selectedService.toLowerCase()));
+
+      return matchesQuery && matchesCity && matchesService;
     }).toList();
   }
 
@@ -383,7 +451,14 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
               const SizedBox(height: 20),
 
               // --- 7. BRANCH CARDS LIST OR MAP VIEW ---
-              if (_isMapView)
+              if (_isLoading && branches.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                )
+              else if (_isMapView)
                 _buildMapView(branches)
               else
                 ..._buildListView(branches),
@@ -394,7 +469,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
     );
   }
 
-  List<Widget> _buildListView(List<Map<String, dynamic>> branches) {
+  List<Widget> _buildListView(List<BranchModel> branches) {
     return branches.map((branch) {
       return Container(
         margin: const EdgeInsets.only(bottom: 20),
@@ -416,22 +491,10 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
             // Photo with Badge
             Stack(
               children: [
-                ClipRRect(
+                _buildBranchImage(
+                  branch.imageUrl,
+                  height: 180,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 180,
-                    child: Image.asset(
-                      branch['image'] as String,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: AppColors.surfaceSecondary,
-                        child: const Center(
-                          child: Icon(Icons.store, size: 48, color: AppColors.primary),
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
                 Positioned(
                   top: 12,
@@ -462,7 +525,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    branch['name'] as String,
+                    branch.name,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -477,7 +540,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          branch['address'] as String,
+                          branch.address,
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -492,7 +555,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                       const Icon(Icons.access_time_rounded, size: 16, color: AppColors.textSecondary),
                       const SizedBox(width: 6),
                       Text(
-                        branch['hours'] as String,
+                        branch.openingHours,
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -506,7 +569,9 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                       const Icon(Icons.spa_outlined, size: 16, color: AppColors.primary),
                       const SizedBox(width: 6),
                       Text(
-                        branch['services'] as String,
+                        branch.services.isNotEmpty
+                            ? branch.services.join(' · ')
+                            : 'Massage · Chăm sóc da',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textPrimary,
@@ -534,9 +599,10 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => B06BranchDetailScreen(
-                                  branchName: branch['name'] as String,
-                                  branchAddress: branch['address'] as String,
-                                  branchImage: branch['image'] as String,
+                                  branch: branch,
+                                  branchName: branch.name,
+                                  branchAddress: branch.address,
+                                  branchImage: branch.imageUrl,
                                 ),
                               ),
                             );
@@ -584,7 +650,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
     }).toList();
   }
 
-  Widget _buildMapView(List<Map<String, dynamic>> branches) {
+  Widget _buildMapView(List<BranchModel> branches) {
     if (branches.isEmpty) {
       return Container(
         height: 280,
@@ -674,7 +740,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  b['name'] as String,
+                                  b.name,
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -748,20 +814,11 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
+                  _buildBranchImage(
+                    selectedBranch.imageUrl,
+                    width: 72,
+                    height: 72,
                     borderRadius: BorderRadius.circular(10),
-                    child: SizedBox(
-                      width: 72,
-                      height: 72,
-                      child: Image.asset(
-                        selectedBranch['image'] as String,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceSecondary,
-                          child: const Icon(Icons.store, color: AppColors.primary),
-                        ),
-                      ),
-                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -769,7 +826,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          selectedBranch['name'] as String,
+                          selectedBranch.name,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -778,14 +835,14 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          selectedBranch['address'] as String,
+                          selectedBranch.address,
                           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          selectedBranch['hours'] as String,
+                          selectedBranch.openingHours,
                           style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -808,9 +865,10 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => B06BranchDetailScreen(
-                              branchName: selectedBranch['name'] as String,
-                              branchAddress: selectedBranch['address'] as String,
-                              branchImage: selectedBranch['image'] as String,
+                              branch: selectedBranch,
+                              branchName: selectedBranch.name,
+                              branchAddress: selectedBranch.address,
+                              branchImage: selectedBranch.imageUrl,
                             ),
                           ),
                         );
@@ -846,7 +904,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
     );
   }
 
-  void _showDirectionsModal(Map<String, dynamic> branch) {
+  void _showDirectionsModal(BranchModel branch) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -892,7 +950,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        branch['name'] as String,
+                        branch.name,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -907,7 +965,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              branch['address'] as String,
+                              branch.address,
                               style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                             ),
                           ),
@@ -965,7 +1023,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                 const SizedBox(height: 10),
                 _buildRouteStep('1', 'Khởi hành từ vị trí của bạn hướng về trung tâm quận'),
                 _buildRouteStep('2', 'Di chuyển dọc theo trục đường chính khoảng 2.5 km'),
-                _buildRouteStep('3', 'Điểm đến ${branch['name']} nằm ở bên tay phải'),
+                _buildRouteStep('3', 'Điểm đến ${branch.name} nằm ở bên tay phải'),
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -979,7 +1037,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                         onPressed: () {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Đã sao chép địa chỉ: ${branch['address']}')),
+                            SnackBar(content: Text('Đã sao chép địa chỉ: ${branch.address}')),
                           );
                         },
                         icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
@@ -1002,8 +1060,8 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                           Navigator.pop(context);
                           AppLauncherHelper.openMapLocation(
                             context,
-                            address: branch['address'] as String?,
-                            label: branch['name'] as String?,
+                            address: branch.address,
+                            label: branch.name,
                           );
                         },
                         icon: const Icon(Icons.navigation_rounded, size: 18, color: AppColors.textInverse),
