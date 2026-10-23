@@ -7,68 +7,12 @@ import '../models/booking_models.dart';
 /// Central Booking Repository connecting Mobile to NestJS Backend Gateway
 /// (/api/v1/bookings/*) with automatic resilient caching.
 class BookingRepository {
-  BookingRepository._internal() {
-    _initDefaultAppointments();
-  }
+  BookingRepository._internal();
   static final BookingRepository instance = BookingRepository._internal();
   factory BookingRepository() => instance;
 
   final ApiClient _apiClient = ApiClient.instance;
   final List<AppointmentItemModel> _appointments = [];
-
-  void _initDefaultAppointments() {
-    // Khởi tạo các lịch hẹn mẫu chuẩn UI Figma để hiển thị ngay khi ứng dụng mở
-    _appointments.addAll([
-      AppointmentItemModel(
-        id: 'apt-001',
-        bookingCode: 'MLD-BK-261015',
-        serviceName: 'Massage thư giãn toàn thân & Dưỡng sinh',
-        serviceImage: 'assets/images/specialist_hero_1.png',
-        durationMinutes: 60,
-        branchName: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-        branchAddress: '123 Đường Mẫu, Phường Mẫu, Quận 3, TP. Hồ Chí Minh',
-        branchPhone: '0901 234 567',
-        specialistName: 'Trần Minh Phương',
-        specialistTitle: 'Kỹ thuật viên Trị liệu & Bấm huyệt',
-        specialistAvatar: 'assets/images/specialist_avatar_1.png',
-        appointmentDate: DateTime.now().add(const Duration(days: 2)),
-        timeSlot: '14:00 - 15:00',
-        customerName: 'Khách hàng MLD',
-        customerPhone: '0912 345 678',
-        totalAmount: 650000,
-        depositAmount: 150000,
-        remainingAmount: 500000,
-        paymentMethod: 'Chuyển khoản ngân hàng / QR',
-        status: AppointmentStatus.confirmed,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        timeline: [
-          BookingTimelineEvent(
-            title: 'Đã tạo yêu cầu',
-            description: 'Đăng ký dịch vụ qua ứng dụng',
-            timestamp: DateTime.now().subtract(const Duration(days: 1)),
-            isCompleted: true,
-          ),
-          BookingTimelineEvent(
-            title: 'Chờ xác nhận / thanh toán',
-            description: 'Đã thanh toán cọc 150.000đ',
-            timestamp: DateTime.now().subtract(const Duration(days: 1)),
-            isCompleted: true,
-          ),
-          const BookingTimelineEvent(
-            title: 'Đã xác nhận',
-            description: 'Hệ thống đã ghi nhận lịch hẹn',
-            isCompleted: true,
-            isCurrent: true,
-          ),
-          const BookingTimelineEvent(
-            title: 'Hoàn thành',
-            description: 'Chưa diễn ra',
-            isCompleted: false,
-          ),
-        ],
-      ),
-    ]);
-  }
 
   // --- GETTERS ĐỒNG BỘ CHO UI ---
   List<AppointmentItemModel> getAppointments({AppointmentStatus? status}) {
@@ -172,11 +116,9 @@ class BookingRepository {
             }
           }
 
-          if (list.isNotEmpty) {
-            _appointments.clear();
-            _appointments.addAll(list);
-            return _appointments;
-          }
+          _appointments.clear();
+          _appointments.addAll(list);
+          return _appointments;
         }
       }
     } catch (e) {

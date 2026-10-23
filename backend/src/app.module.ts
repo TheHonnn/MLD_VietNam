@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as path from 'path';
 import * as fs from 'fs';
-import { I18nModule, HeaderResolver, AcceptLanguageResolver } from 'nestjs-i18n';
+import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SpecialitiesModule } from './modules/specialities/specialities.module';
@@ -34,7 +34,6 @@ import { AdminModule } from './modules/admin/admin.module';
         watch: true,
       },
       resolvers: [
-        new HeaderResolver(['accept-language']),
         AcceptLanguageResolver,
       ],
     }),

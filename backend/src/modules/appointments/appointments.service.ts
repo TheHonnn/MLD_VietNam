@@ -495,7 +495,7 @@ export class AppointmentsService {
       }
 
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         return {
           success: true,
           data,
@@ -503,40 +503,9 @@ export class AppointmentsService {
       }
     } catch (_) {}
 
-    // Fallback dữ liệu mẫu chuẩn MLD
     return {
       success: true,
-      data: [
-        {
-          id: 'bk-mock-01',
-          booking_code: 'MLD-BK-261015',
-          booking_date: '2026-10-25',
-          start_time: '14:00',
-          end_time: '15:00',
-          status: 'CONFIRMED',
-          payment_status: 'PAID',
-          final_price: 650000,
-          booked_for_name: 'Nguyễn Minh Anh',
-          branches: {
-            name: 'Chi nhánh Quận 3',
-            address: '123 Đường Nam Kỳ Khởi Nghĩa, Quận 3, TP. HCM',
-            phone: '028 3930 1234',
-          },
-          technicians: {
-            full_name: 'Trần Minh Phương',
-            title: 'Kỹ thuật viên Trị liệu & Bấm huyệt',
-            avatar_url: 'assets/images/tran_minh_phuong.png',
-          },
-          booking_items: [
-            {
-              services: {
-                name: 'Liệu trình Trị liệu Cổ Vai Gáy & Cột sống',
-                image_url: 'assets/images/gioithieu_2.png',
-              },
-            },
-          ],
-        },
-      ],
+      data: [],
     };
   }
 
