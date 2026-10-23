@@ -248,30 +248,6 @@ class MembershipRepository {
             validUntil: data['validUntil']?.toString() ?? _userProfile.validUntil,
           );
           _persistLocalProfile(_userProfile);
-          // Đồng bộ trực tiếp mã hội viên (referral_code) từ bảng users Supabase Cloud
-    final lookupPhone = _userProfile.phone.trim();
-    final lookupId = AuthService.instance.currentUserId;
-    if (lookupPhone.isNotEmpty || (lookupId != null && lookupId.isNotEmpty)) {
-      try {
-        final queryParam = lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'id=eq.$lookupId';
-        final sRes = await _apiClient.dio.get('${ApiEndpoints.users}?$queryParam&select=referral_code,membership_tier,reward_points&limit=1');
-        if (sRes.statusCode == 200 && sRes.data is List && (sRes.data as List).isNotEmpty) {
-          final u = (sRes.data as List).first as Map<String, dynamic>;
-          final dbCode = u['referral_code']?.toString() ?? '';
-          final dbPoints = (u['reward_points'] as num?)?.toInt();
-          final dbTier = u['membership_tier']?.toString();
-          if (dbCode.isNotEmpty) {
-            _userProfile = _userProfile.copyWith(
-              memberCode: dbCode,
-              points: dbPoints ?? _userProfile.points,
-              memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
-            );
-            _persistLocalProfile(_userProfile);
-          }
-        }
-      } catch (_) {}
-    }
-    return _userProfile;
         }
       }
     } catch (e) {
@@ -549,6 +525,21 @@ class MembershipRepository {
       );
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error updating settings: $e');
+    }
+  }
+
+  String _mapTierName(String tier) {
+    switch (tier.toUpperCase()) {
+      case 'DIAMOND':
+        return 'Hội viên Kim cương';
+      case 'PLATINUM':
+        return 'Hội viên Bạch kim';
+      case 'GOLD':
+        return 'Hội viên Vàng';
+      case 'SILVER':
+        return 'Hội viên Bạc';
+      default:
+        return 'Thành viên';
     }
   }
 
