@@ -39,6 +39,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
         n.isRead = true;
       }
     });
+    _repo.markAllNotificationsAsRead();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã đánh dấu tất cả thông báo là đã đọc'),
@@ -51,6 +52,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
     setState(() {
       item.isRead = true;
     });
+    _repo.markNotificationAsRead(item.id);
 
     if (item.category == NotificationCategory.treatments ||
         item.category == NotificationCategory.appointments) {

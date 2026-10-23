@@ -182,7 +182,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                '01/10/2026 – 31/10/2026',
+                'Toàn bộ giao dịch gần nhất',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,

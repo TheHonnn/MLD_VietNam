@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c03_specialist_selection_screen.dart';
@@ -32,11 +33,15 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
 
   late List<BranchModel> _allBranches;
   late List<BranchModel> _filteredBranches;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _allBranches = MockHomeRepository.getBranches();
+    _allBranches = BranchRepository.instance.cachedBranches.isNotEmpty
+        ? BranchRepository.instance.cachedBranches
+        : MockHomeRepository.getBranches();
+    _filteredBranches = _allBranches;
 
     // Mặc định chọn chi nhánh đầu tiên nếu chưa có
     if (widget.flowState.selectedBranch == null && _allBranches.isNotEmpty) {
@@ -44,6 +49,22 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
     }
 
     _applyFilter();
+    _loadBranches();
+  }
+
+  Future<void> _loadBranches() async {
+    setState(() => _isLoading = true);
+    final liveBranches = await BranchRepository.instance.getBranches();
+    if (mounted) {
+      setState(() {
+        _allBranches = liveBranches;
+        _isLoading = false;
+        if (widget.flowState.selectedBranch == null && _allBranches.isNotEmpty) {
+          widget.flowState.selectedBranch = _allBranches.first;
+        }
+        _applyFilter();
+      });
+    }
   }
 
   void _applyFilter() {
@@ -234,43 +255,44 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                         ),
                       ),
                     )
-                  else ...[
-                    // Thẻ 1: BranchSelectionCard / Đang chọn (Chi nhánh Quận 3)
-                    _buildBranchCard(
-                      branch: _allBranches.isNotEmpty
-                          ? _allBranches.first
-                          : MockHomeRepository.getBranches().first,
-                      isSelected: selectedBranch?.id == (_allBranches.isNotEmpty ? _allBranches.first.id : 'br-001'),
-                      isAvailable: true,
-                      servicesText: 'Massage · Chăm sóc da · Chăm sóc cơ thể · Chăm sóc sức khỏe · Gói liệu trình',
-                      noteText: 'Giờ hoạt động, dịch vụ, giá và chính sách đều là ví dụ; chưa có giữ chỗ thực.',
-                      onSelect: () {
-                        setState(() {
-                          widget.flowState.selectedBranch = _allBranches.isNotEmpty ? _allBranches.first : null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Thẻ 2: BranchSelectionCard / Không cung cấp dịch vụ (Chi nhánh Cầu Giấy)
-                    _buildBranchCard(
-                      branch: _allBranches.length > 1
-                          ? _allBranches[1]
-                          : MockHomeRepository.getBranches().last,
-                      isSelected: false,
-                      isAvailable: false,
-                      servicesText: 'Chăm sóc da · Chăm sóc cơ thể',
-                      noteText: 'Chưa cung cấp dịch vụ massage tại chi nhánh này',
-                      onSelect: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Chi nhánh này hiện chưa cung cấp dịch vụ bạn đã chọn.'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                  else if (_isLoading && _allBranches.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: CircularProgressIndicator(color: BookingColors.primary),
+                      ),
+                    )
+                  else if (_filteredBranches.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32.0),
+                      child: Center(
+                        child: Text(
+                          'Không tìm thấy chi nhánh phù hợp.',
+                          style: TextStyle(color: BookingColors.textSecondary),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._filteredBranches.map((branch) {
+                      final isSelected = selectedBranch?.id == branch.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20.0),
+                        child: _buildBranchCard(
+                          branch: branch,
+                          isSelected: isSelected,
+                          isAvailable: true,
+                          servicesText: branch.services.isNotEmpty
+                              ? branch.services.join(' · ')
+                              : 'Massage · Chăm sóc da · Chăm sóc cơ thể · Gói liệu trình',
+                          noteText: 'Giờ hoạt động: ${branch.openingHours} · Hotline: ${branch.phone}',
+                          onSelect: () {
+                            setState(() {
+                              widget.flowState.selectedBranch = branch;
+                            });
+                          },
+                        ),
+                      );
+                    }),
                   const SizedBox(height: 24),
 
                   // Link: Vị trí hiện tại — chưa cấu hình

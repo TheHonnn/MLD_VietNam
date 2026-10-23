@@ -36,7 +36,7 @@ class MembershipRepository {
     emergencyContactPhone: '',
     avatarUrl: '',
     memberTier: 'Thành viên',
-    memberCode: 'MLD-000001',
+    memberCode: '',
     points: 0,
     validUntil: 'Đang hoạt động',
   );
@@ -177,12 +177,21 @@ class MembershipRepository {
     final cleanEmail = email?.trim() ?? '';
     final cleanAvatar = avatarUrl?.trim() ?? '';
 
+    String derivedCode = _userProfile.memberCode;
+    if (derivedCode.isEmpty || derivedCode == 'MLD-000001') {
+      if (cleanPhone.isNotEmpty) {
+        final nums = cleanPhone.replaceAll(RegExp(r'\D'), '');
+        derivedCode = 'MLD-${nums.length >= 6 ? nums.substring(nums.length - 6) : nums.padLeft(6, '0')}';
+      }
+    }
+
     _userProfile = _userProfile.copyWith(
       fullName: cleanName.isNotEmpty ? cleanName : _userProfile.fullName,
       phone: cleanPhone.isNotEmpty ? cleanPhone : _userProfile.phone,
       isPhoneVerified: cleanPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
       email: cleanEmail.isNotEmpty ? cleanEmail : _userProfile.email,
       avatarUrl: cleanAvatar.isNotEmpty ? cleanAvatar : _userProfile.avatarUrl,
+      memberCode: derivedCode.isNotEmpty ? derivedCode : _userProfile.memberCode,
     );
     _persistLocalProfile(_userProfile);
   }

@@ -438,6 +438,66 @@ class BookingRepository {
     return 0.0;
   }
 
+  /// Xác thực mã giảm giá trực tuyến với bảng coupons trên Supabase Cloud
+  static Future<Map<String, dynamic>> validateCouponOnline(String code, double currentPrice) async {
+    final cleanCode = code.trim().toUpperCase();
+    if (cleanCode.isEmpty) {
+      return {'isValid': false, 'message': 'Vui lòng nhập mã ưu đãi'};
+    }
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/rest/v1/coupons?code=eq.$cleanCode&is_active=eq.true',
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        final coupon = (res.data as List).first as Map<String, dynamic>;
+        final minOrder = (coupon['min_order_amount'] as num?)?.toDouble() ?? 0.0;
+        if (currentPrice < minOrder) {
+          final minStr = minOrder.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+          return {
+            'isValid': false,
+            'message': 'Đơn hàng chưa đạt mức tối thiểu $minStrđ để áp dụng mã này.',
+          };
+        }
+        final discountPercent = (coupon['discount_percent'] as num?)?.toDouble() ?? 0.0;
+        final discountAmount = (coupon['discount_amount'] as num?)?.toDouble() ?? 0.0;
+        final maxDiscount = (coupon['max_discount'] as num?)?.toDouble() ?? 0.0;
+
+        double calculatedDiscount = 0.0;
+        if (discountPercent > 0) {
+          calculatedDiscount = currentPrice * (discountPercent / 100);
+          if (maxDiscount > 0 && calculatedDiscount > maxDiscount) {
+            calculatedDiscount = maxDiscount;
+          }
+        } else if (discountAmount > 0) {
+          calculatedDiscount = discountAmount;
+        }
+
+        final discountStr = calculatedDiscount.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+        return {
+          'isValid': true,
+          'discount': calculatedDiscount,
+          'message': 'Áp dụng thành công mã $cleanCode (-$discountStrđ)!',
+        };
+      }
+    } catch (_) {}
+
+    // Fallback kiểm tra mã khuyến mãi nội bộ
+    final fallbackDiscount = validateCoupon(cleanCode, currentPrice);
+    if (fallbackDiscount > 0) {
+      final discountStr = fallbackDiscount.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+      return {
+        'isValid': true,
+        'discount': fallbackDiscount,
+        'message': 'Áp dụng thành công mã $cleanCode (-$discountStrđ)!',
+      };
+    }
+
+    return {
+      'isValid': false,
+      'message': 'Mã ưu đãi không hợp lệ hoặc đã hết hạn.',
+    };
+  }
+
   static AppointmentConfirmationModel confirmAppointment(BookingDraftModel draft) {
     final randomNum = 1000 + Random().nextInt(9000);
     final dateStr = '${draft.selectedDate.year}${draft.selectedDate.month.toString().padLeft(2, '0')}${draft.selectedDate.day.toString().padLeft(2, '0')}';

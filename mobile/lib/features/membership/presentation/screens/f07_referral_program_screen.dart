@@ -38,7 +38,18 @@ class _F07ReferralProgramScreenState extends State<F07ReferralProgramScreen> {
   @override
   Widget build(BuildContext context) {
     final history = _repo.referralHistory;
-    final String referralCode = _repo.profile.memberCode.isNotEmpty ? _repo.profile.memberCode : 'MLD-000001';
+        String referralCode = _repo.profile.memberCode;
+    if (referralCode.isEmpty || referralCode == 'MLD-000001') {
+      final phone = _repo.profile.phone.replaceAll(RegExp(r'\D'), '');
+      if (phone.isNotEmpty) {
+        referralCode = 'MLD-${phone.length >= 6 ? phone.substring(phone.length - 6) : phone.padLeft(6, '0')}';
+      } else if (_repo.profile.id.isNotEmpty) {
+        final cleanId = _repo.profile.id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+        referralCode = 'MLD-${cleanId.length >= 6 ? cleanId.substring(0, 6).toUpperCase() : cleanId.toUpperCase()}';
+      } else {
+        referralCode = 'MLD-MEMBER';
+      }
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
