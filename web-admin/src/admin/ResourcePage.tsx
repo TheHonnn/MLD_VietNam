@@ -2641,7 +2641,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { user } = useAdmin();
   const isSuperAdminOrAdmin = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
   const isManagerOrAdmin = isSuperAdminOrAdmin || user?.role === "BRANCH_MANAGER";
-  const isRestrictedAdminOnly = ["roles", "permissions", "audit_logs"].includes(table);
+  const isRestrictedAdminOnly = [
+    "roles",
+    "permissions",
+    "role_permissions",
+    "user_roles",
+    "audit_logs",
+    "loyalty_point_settings",
+    "voucher_distribution_rules",
+    "membership_tier_rules",
+  ].includes(table);
   const isRestrictedManagerOnly = ["staff_commissions"].includes(table);
 
   if (isRestrictedAdminOnly && !isSuperAdminOrAdmin) {

@@ -838,4 +838,56 @@ describe('Admin shared-schema integration', () => {
     ]);
     await expect(guard.canActivate(context(token))).rejects.toThrow();
   });
+
+  it('validates Supabase GoTrue Auth JWTs when SUPABASE_JWT_SECRET is configured', async () => {
+    const supabaseSecret = 'supabase-test-jwt-secret-key-32-chars-long!';
+    const jwt = new JwtService();
+    const guard = new AdminGuard(
+      jwt,
+      { connection: client } as any,
+      new ConfigService({ SUPABASE_JWT_SECRET: supabaseSecret }),
+    );
+    const context = (token?: string, table = 'services') =>
+      ({
+        switchToHttp: () => ({
+          getRequest: () => ({
+            headers: token ? { authorization: 'Bearer ' + token } : {},
+            params: { table },
+            method: 'GET',
+            route: { path: 'admin/:table' },
+          }),
+        }),
+      }) as any;
+
+    // 1. Valid Supabase GoTrue token
+    const validToken = jwt.sign(
+      { sub: actor.id, role: 'authenticated' },
+      { secret: supabaseSecret, audience: 'authenticated', expiresIn: '1h' },
+    );
+    expect(await guard.canActivate(context(validToken))).toBe(true);
+
+    // 2. Expired token
+    const expiredToken = jwt.sign(
+      { sub: actor.id, role: 'authenticated' },
+      { secret: supabaseSecret, audience: 'authenticated', expiresIn: '-1s' },
+    );
+    await expect(guard.canActivate(context(expiredToken))).rejects.toThrow();
+
+    // 3. Wrong audience
+    const wrongAudToken = jwt.sign(
+      { sub: actor.id, role: 'authenticated' },
+      { secret: supabaseSecret, audience: 'wrong-audience', expiresIn: '1h' },
+    );
+    await expect(guard.canActivate(context(wrongAudToken))).rejects.toThrow();
+
+    // 4. Tampered signature
+    const tamperedToken = jwt.sign(
+      { sub: actor.id, role: 'authenticated' },
+      { secret: 'wrong-fake-secret-that-does-not-match!!', audience: 'authenticated', expiresIn: '1h' },
+    );
+    await expect(guard.canActivate(context(tamperedToken))).rejects.toThrow();
+
+    // 5. Missing token
+    await expect(guard.canActivate(context())).rejects.toThrow();
+  });
 });

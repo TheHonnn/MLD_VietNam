@@ -80,6 +80,10 @@ interface ScheduleAppointment {
   durationHours: number; // e.g. 1.0 for 60 mins
   hasCleaningBuffer?: boolean;
   cleaningText?: string;
+  bookingSource?: 'AUTO_OPTIMIZED' | 'MANUAL' | 'TREATMENT_PACKAGE';
+  guestCount?: number;
+  bedCode?: string;
+  roomName?: string;
 }
 
 export const TIME_SLOT_OPTIONS = [
@@ -263,6 +267,7 @@ export const W05_StaffSchedule: React.FC = () => {
 
   const [selectedTechFilter, setSelectedTechFilter] = useState<string>('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedAppId, setSelectedAppId] = useState<string>('');
 
@@ -501,6 +506,10 @@ export const W05_StaffSchedule: React.FC = () => {
         durationHours,
         hasCleaningBuffer: true,
         cleaningText: `${(b.endTime || '').slice(0, 5)} · Vệ sinh / giữ phòng (15p)`,
+        bookingSource: (b.bookingSource as any) || (b.specialNotes?.includes('[Gói') ? 'TREATMENT_PACKAGE' : 'AUTO_OPTIMIZED'),
+        guestCount: b.guestCount || 1,
+        bedCode: b.assignedBedNumber || 'G01',
+        roomName: b.room?.name || 'Phòng Trị Liệu',
       };
     });
   }, [liveBookings, customers, branchTechnicians, services]);
@@ -541,6 +550,11 @@ export const W05_StaffSchedule: React.FC = () => {
         return false;
       }
 
+      // 4.1 Booking Group Filter
+      if (selectedGroupFilter !== 'ALL' && app.bookingSource !== selectedGroupFilter) {
+        return false;
+      }
+
       // 5. Search Filter
       if (searchTerm.trim()) {
         return matchSearch(
@@ -565,6 +579,7 @@ export const W05_StaffSchedule: React.FC = () => {
     selectedBranchId,
     selectedTechFilter,
     selectedStatusFilter,
+    selectedGroupFilter,
     searchTerm,
   ]);
 
@@ -1118,6 +1133,21 @@ export const W05_StaffSchedule: React.FC = () => {
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
+
+        {/* Booking Group dropdown */}
+        <div className="relative shrink-0">
+          <select
+            value={selectedGroupFilter}
+            onChange={(e) => setSelectedGroupFilter(e.target.value)}
+            className="h-9 pl-3 pr-8 rounded-xl border border-sky-200 bg-sky-50/50 text-xs font-bold text-sky-800 hover:bg-sky-50 transition-colors appearance-none focus:outline-none focus:border-sky-500 cursor-pointer"
+          >
+            <option value="ALL">📋 Tất cả nhóm đặt lịch</option>
+            <option value="AUTO_OPTIMIZED">⚡ Tự động tối ưu</option>
+            <option value="MANUAL">✍️ Xếp lịch thủ công</option>
+            <option value="TREATMENT_PACKAGE">💆 Gói liệu trình</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-sky-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
       </div>
 
       {/* Overdue Bookings Alert Banner */}
@@ -1480,6 +1510,16 @@ export const W05_StaffSchedule: React.FC = () => {
               {/* Details Table */}
               <div className="space-y-2 text-xs text-[#73675F] pt-1">
                 <div className="flex items-center justify-between">
+                  <span>Nhóm đặt lịch</span>
+                  <span className="font-semibold px-2 py-0.5 rounded text-[11px] bg-sky-50 text-sky-800 border border-sky-200">
+                    {selectedApp.bookingSource === 'MANUAL' ? '✍️ Xếp lịch thủ công' : selectedApp.bookingSource === 'TREATMENT_PACKAGE' ? '💆 Gói liệu trình' : '⚡ Tự động tối ưu'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Số lượng khách</span>
+                  <span className="font-bold text-slate-800">{selectedApp.guestCount || 1} người</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span>Thời gian</span>
                   <span className="font-semibold text-[#2C241E]">{selectedApp.timeRange}</span>
                 </div>
@@ -1493,7 +1533,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Nguồn lực phòng / giường</span>
-                  <span className="font-semibold text-[#2C241E]">{selectedApp.resource}</span>
+                  <span className="font-semibold text-sky-700">{selectedApp.resource}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>{selectedApp.durationText}</span>
@@ -1726,11 +1766,17 @@ export const W05_StaffSchedule: React.FC = () => {
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
-                          onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.COMPLETED)}
-                          className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          onClick={() => {
+                            handleUpdateBookingStatus(selectedApp.id, BookingStatus.COMPLETED);
+                            toast.success(
+                              'Kết ca trị liệu thành công!',
+                              `Ca của khách ${selectedApp.customer} đã hoàn tất. Giường và KTV ${selectedApp.technicianName} đã sẵn sàng tiếp nhận lượt tiếp theo.`
+                            );
+                          }}
+                          className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Hoàn thành dịch vụ'}</span>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Kết ca trị liệu (Giải phóng Giường & KTV)'}</span>
                         </button>
                       )}
 

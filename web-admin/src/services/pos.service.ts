@@ -3,6 +3,8 @@ import {
   PaymentStatus,
   PaymentMethod,
   ApiResponse,
+  CashierShift,
+  ShiftStatus,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
@@ -151,5 +153,131 @@ export const posService = {
     method?: PaymentMethod
   ): Promise<ApiResponse<Invoice>> {
     return legacyWrite<Invoice>('invoices',{paymentStatus:status,...(method?{paymentMethod:method}:{})},id);
+  },
+
+  async getActiveShift(branchId?: string): Promise<ApiResponse<CashierShift | null>> {
+    try {
+      const saved = localStorage.getItem('mld_current_shift');
+      if (saved) {
+        const parsed = JSON.parse(saved) as CashierShift;
+        if (parsed && parsed.status === ShiftStatus.OPEN) {
+          if (!branchId || parsed.branchId === branchId) {
+            return { success: true, statusCode: 200, message: 'Ca làm việc đang mở', data: parsed };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[posService] Error reading active shift:', e);
+    }
+    return { success: true, statusCode: 200, message: 'Chưa có ca làm việc nào đang mở', data: null };
+  },
+
+  async openShift(data: {
+    branchId: string;
+    cashierId?: string;
+    openingCash: number;
+    notes?: string;
+  }): Promise<ApiResponse<CashierShift>> {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const randNum = Math.floor(10 + Math.random() * 90);
+    const shiftCode = `CA-${dateStr}-${randNum}`;
+
+    const newShift: CashierShift = {
+      id: `shift-${Date.now()}`,
+      branchId: data.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+      cashierId: data.cashierId || 'bbbbbbbb-0001-0001-0001-000000000002',
+      shiftCode,
+      openingCash: Number(data.openingCash) || 0,
+      closingCash: 0,
+      systemCash: Number(data.openingCash) || 0,
+      cardSales: 0,
+      transferSales: 0,
+      totalSales: 0,
+      discrepancyAmount: 0,
+      status: ShiftStatus.OPEN,
+      openedAt: now.toISOString(),
+      notes: data.notes || '',
+    };
+
+    localStorage.setItem('mld_current_shift', JSON.stringify(newShift));
+    return {
+      success: true,
+      statusCode: 201,
+      message: `Đã mở ca làm việc ${shiftCode} thành công`,
+      data: newShift,
+    };
+  },
+
+  async closeShift(shiftId: string, data: {
+    closingCash: number;
+    systemCash: number;
+    cardSales: number;
+    transferSales: number;
+    totalSales: number;
+    notes?: string;
+  }): Promise<ApiResponse<CashierShift>> {
+    let baseShift: CashierShift;
+    try {
+      const saved = localStorage.getItem('mld_current_shift');
+      baseShift = saved ? JSON.parse(saved) : {
+        id: shiftId,
+        branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
+        cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
+        shiftCode: 'CA-DEFAULT',
+        openingCash: 0,
+        status: ShiftStatus.OPEN,
+        openedAt: new Date().toISOString(),
+      };
+    } catch {
+      baseShift = {
+        id: shiftId,
+        branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
+        cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
+        shiftCode: 'CA-DEFAULT',
+        openingCash: 0,
+        status: ShiftStatus.OPEN,
+        openedAt: new Date().toISOString(),
+      };
+    }
+
+    const discrepancy = Number(data.closingCash) - Number(data.systemCash);
+    const updatedShift: CashierShift = {
+      ...baseShift,
+      closingCash: Number(data.closingCash),
+      systemCash: Number(data.systemCash),
+      cardSales: Number(data.cardSales),
+      transferSales: Number(data.transferSales),
+      totalSales: Number(data.totalSales),
+      discrepancyAmount: discrepancy,
+      status: ShiftStatus.CLOSED,
+      closedAt: new Date().toISOString(),
+      notes: data.notes || baseShift.notes,
+    };
+
+    localStorage.removeItem('mld_current_shift');
+    try {
+      const history = JSON.parse(localStorage.getItem('mld_closed_shifts') || '[]');
+      history.unshift(updatedShift);
+      localStorage.setItem('mld_closed_shifts', JSON.stringify(history.slice(0, 50)));
+    } catch (e) {
+      console.warn('Error saving closed shift history:', e);
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: `Đã kết ca ${updatedShift.shiftCode} và đối soát hoàn tất`,
+      data: updatedShift,
+    };
+  },
+
+  async getClosedShifts(): Promise<ApiResponse<CashierShift[]>> {
+    try {
+      const history = JSON.parse(localStorage.getItem('mld_closed_shifts') || '[]');
+      return { success: true, statusCode: 200, message: 'Danh sách ca đã đóng', data: history };
+    } catch {
+      return { success: true, statusCode: 200, message: 'Danh sách ca đã đóng', data: [] };
+    }
   },
 };
