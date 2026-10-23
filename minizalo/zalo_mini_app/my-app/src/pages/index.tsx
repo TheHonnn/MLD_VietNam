@@ -67,12 +67,15 @@ function MasterHomePage() {
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking' | 'academy' | 'profile'>('home');
   const [academyMode, setAcademyMode] = useState<'catalog' | 'learning'>('catalog');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [academyVisit, setAcademyVisit] = useState(0);
+  const [navigationBusy,setNavigationBusy]=useState(false);
 
   // Application Data States (synced with Backend API)
   const [services, setServices] = useState<MedicalService[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [homeBranchId, setHomeBranchId] = useState('');
+  const [homeNow,setHomeNow]=useState(Date.now);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -89,7 +92,10 @@ function MasterHomePage() {
   const notificationMoreLock=useRef(false);
   const notificationPaged=useRef(false);
   const notificationReadRevision=useRef(0);
+  const notificationNavigation=useRef(0);
+  const relatedReadRevision=useRef(0);
   const resetInbox=()=>{
+    notificationNavigation.current++;relatedReadRevision.current++;
     notificationPageEpoch.current++;notificationMoreLock.current=false;
     notificationFilterRef.current='all';setNotificationFilter('all');
     setNotifications([]);setNotificationUnreadCount(0);setNotificationTotalCount(0);
@@ -119,6 +125,7 @@ function MasterHomePage() {
   const authBusy = useRef(false);
   useEffect(() => () => { authAttempt.current++; apiClient.cancelZaloLogin(); }, []);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  useEffect(()=>{if(!isNotificationsOpen)notificationNavigation.current++;},[isNotificationsOpen]);
   const [notificationError, setNotificationError] = useState('');
   const [notificationRefresh, setNotificationRefresh] = useState(0);
   const [bookingTarget, setBookingTarget] = useState<{id:string; bookingId:string} | undefined>();
@@ -170,10 +177,14 @@ function MasterHomePage() {
   const [bookingService, setBookingService] = useState<MedicalService | null>(null);
   const [bookingBranch, setBookingBranch] = useState<Branch | null>(null);
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null);
+  const [specialistBookingError,setSpecialistBookingError]=useState('');
+  const [bookingActionError,setBookingActionError]=useState('');
+  useEffect(()=>setSpecialistBookingError(''),[viewingDoctor?.id]);
   const [bookingPackage,setBookingPackage]=useState<{id:string;name:string}|null>(null);
   const [eTicketBooking, setETicketBooking] = useState<Booking | null>(null);
   const [isEMRModalOpen, setIsEMRModalOpen] = useState(false);
   const [isTreatmentOpen, setIsTreatmentOpen] = useState(false);
+  useEffect(()=>setBookingActionError(''),[activeTab,viewingService?.id,viewingBranch?.id,directionsBranch?.id,isTreatmentOpen]);
   const [treatmentInitialTab, setTreatmentInitialTab] = useState<'packages' | 'journal' | 'care_guide' | 'support' | 'notifications'>('packages');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -190,15 +201,30 @@ function MasterHomePage() {
 
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState('');
+  const [privateLoading, setPrivateLoading] = useState(true);
+  const [privateErrors, setPrivateErrors] = useState<{bookings?:string;records?:string;plans?:string}>({});
   const [loadVersion, setLoadVersion] = useState(0);
   const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
   useEffect(() => { if (!isTreatmentOpen) setTreatmentEntityId(undefined); }, [isTreatmentOpen]);
   const [appMetadata, setAppMetadata] = useState<any>({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
   const [guidelines, setGuidelines] = useState<any[]>([]);
-  const navigation = {activeTab,academyMode,selectedCourseId,isSearchOpen,isNotificationsOpen,viewingService,viewingDoctor,viewingBranch,directionsBranch,isBranchDirectoryOpen,isSpecialistDirectoryOpen,bookingService,bookingBranch,bookingDoctor,bookingPackage,eTicketBooking,isEMRModalOpen,isTreatmentOpen,treatmentInitialTab};
+  const navigateTab = (tab: typeof activeTab) => {
+    if(navigationBusy)return;
+    setIsSearchOpen(false);setIsSpecialistDirectoryOpen(false);setIsBranchDirectoryOpen(false);setIsTreatmentOpen(false);
+    if(tab==='academy') {
+      setSelectedCourseId(null);setCatalogSearch(undefined);setAcademyTarget(undefined);
+      setAcademyMode('catalog');setAcademyVisit(value=>value+1);
+    }
+    setActiveTab(tab);
+  };
+  const openInbox = () => {
+    if(user.id)setIsNotificationsOpen(true);
+    else {setCanCloseAuth(true);setIsAuthOpen(true);}
+  };
+  const navigation = {activeTab,academyMode,academyVisit,selectedCourseId,isSearchOpen,isNotificationsOpen,viewingService,viewingDoctor,viewingBranch,directionsBranch,isBranchDirectoryOpen,isSpecialistDirectoryOpen,bookingService,bookingBranch,bookingDoctor,bookingPackage,eTicketBooking,isEMRModalOpen,isTreatmentOpen,treatmentInitialTab};
   const navigationKey = JSON.stringify(Object.values(navigation).map(value => value && typeof value === 'object' ? value.id : value));
   useNavigationHistory(navigationKey,navigation,view => {
-    setActiveTab(view.activeTab);setAcademyMode(view.academyMode);setSelectedCourseId(view.selectedCourseId);
+    setActiveTab(view.activeTab);setAcademyMode(view.academyMode);setAcademyVisit(view.academyVisit);setSelectedCourseId(view.selectedCourseId);
     setIsSearchOpen(view.isSearchOpen);setIsNotificationsOpen(view.isNotificationsOpen);
     setViewingService(view.viewingService);setViewingDoctor(view.viewingDoctor);setViewingBranch(view.viewingBranch);setDirectionsBranch(view.directionsBranch);
     setIsBranchDirectoryOpen(view.isBranchDirectoryOpen);setIsSpecialistDirectoryOpen(view.isSpecialistDirectoryOpen);
@@ -212,11 +238,42 @@ function MasterHomePage() {
     if(service)setViewingService(service);else setDataError('Dịch vụ trong liên kết không còn khả dụng.');
   },[sharedServiceId,dataLoading,services,showLaunchScreen,showCareIntro,registration,zaloAuthState]);
   const refreshData = () => { apiClient.clearReadCache(); setLoadVersion(value => value + 1); };
+  const loadPrivateData = async (cancelled:()=>boolean=()=>false) => {
+    const request=++relatedReadRevision.current,epoch=apiClient.sessionVersion(),inboxEpoch=notificationPageEpoch.current,readRevision=notificationReadRevision.current,filter=notificationFilterRef.current;
+    setPrivateLoading(true);setPrivateErrors({});
+    const [recData,membData,bkData,notifData,treatmentData]=await Promise.all([
+      apiClient.getMedicalRecords(),apiClient.getMembership(),apiClient.getBookings(),apiClient.getNotifications(false,undefined,filter),apiClient.getTreatmentPlans(),
+    ]);
+    if(cancelled()||apiClient.sessionVersion()!==epoch||request!==relatedReadRevision.current)return;
+    setPrivateLoading(false);
+    setPrivateErrors({
+      bookings:Array.isArray(bkData?.bookings)?undefined:bkData?.error||'Không thể tải lịch hẹn.',
+      records:Array.isArray(recData?.records)?undefined:recData?.error||'Không thể tải nhật ký chăm sóc.',
+      plans:Array.isArray(treatmentData?.treatmentPlans)?undefined:treatmentData?.error||'Không thể tải gói liệu trình.',
+    });
+    if(Array.isArray(recData?.records))setRecords(recData.records);
+    if(Array.isArray(bkData?.bookings))setBookings(bkData.bookings);
+    if(Array.isArray(treatmentData?.treatmentPlans))setTreatmentPlans(treatmentData.treatmentPlans);
+    if(membData?.vouchers)setVouchers(membData.vouchers);
+    if(membData?.user)setUser(prev=>({...prev,...membData.user}));
+    if(membData?.summary)setMemberSummary(membData.summary);
+    setMembershipError(membData?.summary?'':membData?.error||'Không thể tải số liệu hội viên. Vui lòng thử lại.');
+    if(inboxEpoch===notificationPageEpoch.current) {
+      if(Array.isArray(notifData?.notifications))applyNotificationPage(notifData,false,readRevision,filter);
+      else setNotificationError(notifData?.error||'Không thể tải thông báo.');
+    }
+  };
+  const retryPrivateData = () => {
+    if(!user.id||privateLoading)return;
+    apiClient.invalidateReadPaths(['/bookings','/records','/treatment-plans','/membership']);
+    void loadPrivateData();
+  };
   useEffect(() => {
     const expire = () => {
       resetInbox();setBookingPackage(null);
       setUser({...guestUser}); setBookings([]); setRecords([]); setVouchers([]); setNotifications([]); setTreatmentPlans([]);
       setMemberSummary(null);setMembershipError('');
+      setPrivateLoading(false);setPrivateErrors({});
       setIsNotificationsOpen(false); setIsTreatmentOpen(false); setIsEMRModalOpen(false); setETicketBooking(null); setBookingService(null);
       setAcademyTarget(undefined); setProfileTarget(undefined); setBookingTarget(undefined); setActiveTab('home');
       setZaloAuthError('Phiên đăng nhập đã hết hạn. Vui lòng kết nối lại với Zalo.'); setZaloAuthState('required');
@@ -230,6 +287,7 @@ function MasterHomePage() {
     const images = new AbortController();
     async function loadBackendData() {
       resetInbox();setBookingPackage(null);
+      setPrivateLoading(true);setPrivateErrors({});
       setDataLoading(true);
       setDataError('');
       setServices([]);
@@ -255,7 +313,6 @@ function MasterHomePage() {
       };
       const metadataRequest = publish(apiClient.getAppMetadata(),setAppMetadata);
       const serviceRequest = publish(apiClient.getServices(),value => setServices(value.services || []));
-      void Promise.all([metadataRequest,serviceRequest]).finally(() => { if(!cancelled)setDataLoading(false); });
       const catalogRequest = Promise.all([
         serviceRequest, publish(apiClient.getDoctors(),value => setDoctors(value.doctors || [])), publish(apiClient.getBranches(),value => setBranches(value.branches || [])),
         publish(apiClient.getCourses(),value => setCourses(value.courses || [])), publish(apiClient.getCareGuidelines(),value => setGuidelines(value.guidelines || [])),
@@ -284,27 +341,14 @@ function MasterHomePage() {
         const session = await apiClient.getCurrentUser();
         if (cancelled || apiClient.sessionVersion() !== authRequestEpoch) return;
         if (session?.user) { setUser(session.user); authenticated = true; }
-        else { apiClient.logout(); setUser({ ...guestUser }); }
+        else {
+          setUser({ ...guestUser });
+          if(!session || (session.error && session.status!==401))setDataError('Không thể xác minh phiên đăng nhập. Kiểm tra kết nối và thử lại.');
+        }
       }
       if (authenticated) void apiClient.preloadPrivateData().catch(() => {});
-      const authEpoch=apiClient.sessionVersion(),inboxEpoch=notificationPageEpoch.current,inboxReadRevision=notificationReadRevision.current;
-      const [recData, membData, bkData, notifData, treatmentData] = await Promise.all([
-        authenticated ? apiClient.getMedicalRecords() : Promise.resolve({}),
-        authenticated ? apiClient.getMembership() : Promise.resolve({}),
-        authenticated ? apiClient.getBookings() : Promise.resolve({}),
-        authenticated ? apiClient.getNotifications() : Promise.resolve({}),
-        authenticated ? apiClient.getTreatmentPlans() : Promise.resolve({}),
-      ]);
-      if (cancelled) return;
-      if(apiClient.sessionVersion()!==authEpoch)return;
-      if (recData?.records) setRecords(recData.records);
-      if (membData?.vouchers) setVouchers(membData.vouchers);
-      if (membData?.user) setUser((prev) => ({ ...prev, ...membData.user }));
-      if (membData?.summary) setMemberSummary(membData.summary);
-      else if(authenticated)setMembershipError(membData?.error||'Không thể tải số liệu hội viên. Vui lòng thử lại.');
-      if (bkData?.bookings) setBookings(bkData.bookings);
-      if (notifData?.notifications&&inboxEpoch===notificationPageEpoch.current) applyNotificationPage(notifData,false,inboxReadRevision);
-      if (treatmentData?.treatmentPlans) setTreatmentPlans(treatmentData.treatmentPlans);
+      if(authenticated)await loadPrivateData(()=>cancelled);
+      else if(!cancelled)setPrivateLoading(false);
       await publicReady;
     }
 
@@ -343,47 +387,62 @@ function MasterHomePage() {
   };
 
   const refreshBookingRelatedData = () => {
-    const owner=currentUserId.current,epoch=notificationPageEpoch.current,filter=notificationFilterRef.current,revision=notificationReadRevision.current;
-    apiClient.getNotifications(true,undefined,filter).then(response => {
-      if(owner===currentUserId.current&&epoch===notificationPageEpoch.current)applyNotificationPage(response,false,revision,filter);
-    });
-    apiClient.getMembership().then(response => {
-      if(owner!==currentUserId.current)return;
-      if (response?.summary) {setMemberSummary(response.summary);setMembershipError('');}
-      else setMembershipError(response?.error||'Không thể cập nhật số liệu hội viên. Vui lòng thử lại.');
-      if (response?.vouchers) setVouchers(response.vouchers);
-    });
+    if(!currentUserId.current)return;
+    apiClient.invalidateReadPaths(['/membership','/treatment-plans','/records','/notifications']);
+    void loadPrivateData();
   };
+  useEffect(()=>{
+    if(!user.id)return;
+    const refresh=(event:Event)=>{
+      const path=(event as CustomEvent<{path:string}>).detail?.path;
+      if(['/course-enrollments','/vouchers/claim','/reviews'].includes(path))refreshBookingRelatedData();
+    };
+    window.addEventListener('mld:activity',refresh);
+    return()=>window.removeEventListener('mld:activity',refresh);
+  },[user.id]);
   const handleBookingSuccess = (newBooking: Booking) => {
     setBookingService(null);
     setBookingBranch(null);
     setBookingDoctor(null);
     setViewingService(null);
-    setBookings((prev) => [newBooking, ...prev]);
+    setBookings((prev) => [newBooking, ...prev.filter(booking=>booking.id!==newBooking.id)]);
     setETicketBooking(newBooking);
     refreshBookingRelatedData();
   };
 
   // Find latest upcoming confirmed booking
   const bookingStart = (booking: Booking) => Date.parse(`${booking.date.slice(0,10)}T${booking.timeSlot.split(' - ')[0]}+07:00`);
-  const upcomingBooking = bookings.filter(booking => ['confirmed','pending'].includes(booking.status) && bookingStart(booking) > Date.now())
+  const upcomingBooking = bookings.filter(booking => ['confirmed','pending'].includes(booking.status) && bookingStart(booking) > homeNow)
     .sort((a,b) => bookingStart(a)-bookingStart(b))[0] || null;
+  useEffect(()=>{
+    if(activeTab!=='home')return;
+    const update=()=>setHomeNow(Date.now());
+    update();const timer=window.setInterval(update,30000);
+    window.addEventListener('focus',update);document.addEventListener('visibilitychange',update);
+    return()=>{clearInterval(timer);window.removeEventListener('focus',update);document.removeEventListener('visibilitychange',update);};
+  },[activeTab,bookings]);
 
   const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null, ownedPackage?:{id:string;name:string}) => {
-    if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return; }
-    if (!services.length || !branches.length) return;
+    setBookingActionError('');
+    if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return false; }
+    if (!services.length || !branches.length) {setBookingActionError('Không thể mở đặt lịch. Vui lòng cập nhật dữ liệu và thử lại.');return false;}
     setBookingPackage(ownedPackage||null);
     setBookingBranch(branch || branches.find(item => item.id === homeBranchId) || branches[0] || null);
     setBookingDoctor(doctor || null);
     setBookingService(service || services[0] || null);
+    return true;
   };
 
   const openNotification = async (notification: AppNotification) => {
     const owner = user.id;
+    const request=++notificationNavigation.current,sessionEpoch=apiClient.sessionVersion();
     if (!owner) throw new Error('Vui lòng đăng nhập lại.');
     const target = notification.data?.target || (notification.type.toUpperCase() === 'BOOKING' && notification.entityId ? {screen:'booking' as const,entityId:notification.entityId} : undefined);
     if (!target) return;
-    const requireCurrent = () => { if (currentUserId.current !== owner) throw new Error('Phiên đăng nhập đã thay đổi.'); };
+    const requireCurrent = () => {
+      if(currentUserId.current!==owner||apiClient.sessionVersion()!==sessionEpoch)throw new Error('Phiên đăng nhập đã thay đổi.');
+      if(request!==notificationNavigation.current)throw new Error('Đã hủy mở nội dung thông báo.');
+    };
     const unavailable = () => new Error('Nội dung này không còn khả dụng hoặc bạn không có quyền truy cập.');
     if (target.screen === 'booking') {
       apiClient.invalidateReadPaths(['/bookings']);
@@ -463,7 +522,7 @@ function MasterHomePage() {
     });
 
   return (
-    <div className="min-h-screen bg-[#EDE7DE] flex justify-center items-start sm:items-center py-0 sm:py-4 text-stone-800 select-none">
+    <div className="app-viewport min-h-screen bg-[#EDE7DE] flex justify-center items-start sm:items-center py-0 sm:py-4 text-stone-800 select-none">
       <div className={`mini-app-shell ${activeTab === 'home' ? 'mini-app-shell--home' : ''} ${activeTab === 'booking' || eTicketBooking ? 'mini-app-shell--appointments' : ''} ${bookingService ? 'mini-app-shell--booking' : ''} ${isSpecialistDirectoryOpen || viewingDoctor ? 'mini-app-shell--specialists' : ''} ${isBranchDirectoryOpen || viewingBranch || directionsBranch ? 'mini-app-shell--branches' : ''} ${showLaunchScreen || showCareIntro || registration ? 'mini-app-shell--launch' : ''} w-full max-w-[390px] sm:h-[844px] sm:max-h-[96vh] bg-[#FAF6F0] sm:rounded-[36px] shadow-2xl relative overflow-hidden flex flex-col border sm:border-[#DCCFC0]`}>
         {showLaunchScreen && <LaunchScreen ready={!dataLoading} onComplete={() => setShowLaunchScreen(false)} />}
         {!showLaunchScreen && showCareIntro && <CareIntroScreen onContinue={() => setShowCareIntro(false)} onSkip={() => setShowCareIntro(false)} />}
@@ -496,7 +555,7 @@ function MasterHomePage() {
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
           <GroupBHome
-            carouselPaused={showLaunchScreen || showCareIntro || Boolean(registration) || zaloAuthState === 'checking' || zaloAuthState === 'required' || isAuthOpen || isNotificationsOpen || Boolean(viewingService)}
+            carouselPaused={showLaunchScreen || showCareIntro || Boolean(registration) || zaloAuthState === 'checking' || zaloAuthState === 'required' || isAuthOpen || isNotificationsOpen || isSearchOpen || Boolean(viewingService || viewingDoctor || viewingBranch || directionsBranch) || isBranchDirectoryOpen || isSpecialistDirectoryOpen || isTreatmentOpen || isEMRModalOpen}
             userName={user.name}
             userAvatar={user.avatar}
             selectedBranchId={homeBranchId}
@@ -512,14 +571,18 @@ function MasterHomePage() {
             doctors={doctors}
             branches={branches}
             upcomingBooking={upcomingBooking}
+            onOpenBooking={booking=>{setBookingTarget({id:`home:${booking.id}`,bookingId:booking.id});setActiveTab('booking');}}
             onSelectService={(service) => openBooking(service)}
             onViewServiceDetail={(s) => setViewingService(s)}
             onSelectDoctor={(doc) => setViewingDoctor(doc)}
             onSelectBranch={(br) => setViewingBranch(br)}
             onOpenDirections={(br) => setDirectionsBranch(br)}
-            onNavigateTab={(tabKey) => setActiveTab(tabKey as any)}
+            onNavigateTab={(tabKey) => {
+              if(tabKey==='profile'&&!user.id){setCanCloseAuth(true);setIsAuthOpen(true);return;}
+              navigateTab(tabKey as typeof activeTab);
+            }}
             onOpenSearch={() => setIsSearchOpen(true)}
-            onOpenNotifications={() => setIsNotificationsOpen(true)}
+            onOpenNotifications={openInbox}
             unreadNotifications={notificationUnreadCount}
             onOpenBranches={() => { setDirectoryQuery(''); setActiveTab('services'); setIsBranchDirectoryOpen(true); }}
             onOpenSpecialists={() => { setDirectoryQuery(''); setActiveTab('services'); setIsSpecialistDirectoryOpen(true); }}
@@ -682,13 +745,16 @@ function MasterHomePage() {
         {/* TAB 3: ĐẶT LỊCH & QUẢN LÝ LỊCH HẸN (FIGMA GROUP C: C01 -> C10) */}
         {activeTab === 'booking' && (
           <AppointmentsManager
+            onBusyChange={setNavigationBusy}
             key={`${user.id}:${bookingTarget?.id || ''}`}
             initialBookingId={bookingTarget?.bookingId}
             bookings={bookings}
             branches={branches}
-            loading={dataLoading}
-            error={dataError}
-            onRefresh={refreshData}
+            authenticated={Boolean(user.id)}
+            onRequireLogin={()=>{setCanCloseAuth(true);setIsAuthOpen(true);}}
+            loading={privateLoading}
+            error={privateErrors.bookings||bookingActionError}
+            onRefresh={bookingActionError?refreshData:retryPrivateData}
             onClose={() => setActiveTab('home')}
             onUpdateBookings={(updated) => { setBookings(updated); refreshBookingRelatedData(); }}
             onBookNewService={() => openBooking(services[0])}
@@ -701,10 +767,11 @@ function MasterHomePage() {
         )}
 
         {/* TAB 4: HỌC VIỆN & ĐÀO TẠO NGHỀ (FIGMA GROUP E) */}
-        {activeTab === 'academy' && <GroupEAcademy key={`${user.id}:${academyMode}:${academyTarget?.id || ''}`} courses={courses} userId={user.id} user={user} branches={branches}
+        {activeTab === 'academy' && <GroupEAcademy key={`${user.id}:${academyMode}:${academyVisit}:${academyTarget?.id || ''}`} courses={courses} userId={user.id} user={user} branches={branches}
+          onBusyChange={setNavigationBusy}
           notificationTarget={academyTarget}
           loading={dataLoading} error={dataError} onRefresh={refreshData}
-          onOpenNotifications={() => { if (user.id) setIsNotificationsOpen(true); else { setCanCloseAuth(true); setIsAuthOpen(true); } }}
+          onOpenNotifications={openInbox}
           onRequireLogin={() => { setCanCloseAuth(true); setIsAuthOpen(true); }}
           mode={academyMode} catalogSearch={catalogSearch} initialCourseId={academyMode === 'catalog' ? selectedCourseId || undefined : undefined} />}
 
@@ -731,7 +798,7 @@ function MasterHomePage() {
                   setActiveTab('services');
                 } catch { setDataError('Không thể giữ lựa chọn voucher trên thiết bị. Bạn có thể nhập mã khi đặt lịch.'); }
               }}
-              onUserUpdated={setUser}
+              onUserUpdated={account=>{setUser(account);refreshBookingRelatedData();}}
               onOpenAppointments={() => setActiveTab('booking')}
               onOpenPackages={() => {
                 setTreatmentInitialTab('packages');
@@ -742,9 +809,7 @@ function MasterHomePage() {
                 setActiveTab('academy');
               }}
               onOpenCourseCatalog={() => {
-                setSelectedCourseId(null);
-                setAcademyMode('catalog');
-                setActiveTab('academy');
+                navigateTab('academy');
               }}
               onOpenOnboarding={() => {
                 setCanCloseAuth(true);
@@ -792,7 +857,7 @@ function MasterHomePage() {
           onOpen={openNotification}
           loadError={notificationError}
           onRefresh={() => setNotificationRefresh(value => value + 1)}
-          onClose={() => setIsNotificationsOpen(false)}
+          onClose={() => {notificationNavigation.current++;setIsNotificationsOpen(false);}}
         />
       )}
 
@@ -812,13 +877,13 @@ function MasterHomePage() {
       {/* 4. GROUP B EXTENSIONS: SERVICE DETAIL MODAL (B03) */}
       {viewingService && (
         <ServiceDetailModal
+          bookingError={bookingActionError}
           userId={user.id}
           onRequireLogin={()=>{setCanCloseAuth(true);setIsAuthOpen(true);}}
           service={viewingService}
           onClose={() => setViewingService(null)}
           onBookNow={(s) => {
-            setViewingService(null);
-            openBooking(s);
+            if(openBooking(s))setViewingService(null);
           }}
         />
       )}
@@ -828,13 +893,15 @@ function MasterHomePage() {
         <SpecialistDetailModal
           doctor={viewingDoctor}
           branches={branches}
+          bookingError={specialistBookingError}
           onClose={() => setViewingDoctor(null)}
           onBookWithDoctor={(doctor) => {
-            setViewingDoctor(null);
-            setIsSpecialistDirectoryOpen(false);
             const service=services.find(item=>doctor.serviceIds?.includes(item.id));
-            if(service)openBooking(service, branches.find(branch => branch.id === doctor.branchId), doctor);
-            else setDataError('Chuyên viên này chưa có dịch vụ nhận đặt lịch.');
+            const branch=branches.find(item=>item.id===doctor.branchId);
+            if(!service||!branch){setSpecialistBookingError('Chuyên viên chưa có dịch vụ nhận đặt lịch tại chi nhánh này. Vui lòng chọn chuyên viên khác hoặc liên hệ chi nhánh.');return;}
+            if(openBooking(service,branch,doctor)){
+              setViewingDoctor(null);setIsSpecialistDirectoryOpen(false);
+            }
           }}
         />
       )}
@@ -843,12 +910,11 @@ function MasterHomePage() {
       {viewingBranch && (
         <BranchDetailModal
           branch={viewingBranch}
+          bookingError={bookingActionError}
           onClose={() => setViewingBranch(null)}
           onSelectBranch={(br) => {
-            setViewingBranch(null);
-            setIsBranchDirectoryOpen(false);
             setHomeBranchId(br.id);
-            openBooking(services[0], br);
+            if(openBooking(services[0], br)){setViewingBranch(null);setIsBranchDirectoryOpen(false);}
           }}
           onOpenDirections={(br) => {
             setViewingBranch(null);
@@ -861,12 +927,10 @@ function MasterHomePage() {
       {directionsBranch && (
         <LocationDirectionsModal
           branch={directionsBranch}
+          bookingError={bookingActionError}
           onClose={() => { setViewingBranch(directionsBranch); setDirectionsBranch(null); }}
           onBookAtBranch={(br) => {
-            setDirectionsBranch(null);
-            setViewingBranch(null);
-            setIsBranchDirectoryOpen(false);
-            openBooking(services[0], br);
+            if(openBooking(services[0], br)){setDirectionsBranch(null);setViewingBranch(null);setIsBranchDirectoryOpen(false);}
           }}
         />
       )}
@@ -951,7 +1015,8 @@ function MasterHomePage() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto pb-20">
-            <GroupDRecords records={records} />
+              <GroupDRecords records={records} loading={privateLoading} error={privateErrors.records} />
+              {privateErrors.records&&<button type="button" disabled={privateLoading} onClick={retryPrivateData}>Thử lại</button>}
           </div>
         </div>
       )}
@@ -1010,10 +1075,15 @@ function MasterHomePage() {
         <div className="absolute inset-x-0 top-0 bottom-[68px] z-20 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in">
           <div className="flex-1 overflow-y-auto">
             <GroupDTreatment
+              onBusyChange={setNavigationBusy}
               key={`${user.id}:${treatmentInitialTab}:${treatmentEntityId || ''}`}
               initialEntityId={treatmentEntityId}
               initialTab={treatmentInitialTab}
               treatmentPlans={treatmentPlans}
+              sourceLoading={privateLoading}
+              sourceErrors={privateErrors}
+              bookingError={bookingActionError}
+              onRetrySource={retryPrivateData}
               records={records}
               bookings={bookings}
               onNotificationsChange={setNotifications}
@@ -1021,15 +1091,14 @@ function MasterHomePage() {
               onOpenInbox={()=>setIsNotificationsOpen(true)}
               onOpenPlanBooking={(id,serviceId)=>{
                 const service=services.find(item=>item.id===serviceId),plan=treatmentPlans.find(item=>item.id===id);
-                if(!service||!plan) { setDataError('Dịch vụ của gói không còn khả dụng.'); return; }
-                setIsTreatmentOpen(false); openBooking(service,null,null,{id,name:plan.name||plan.package?.name||''});
+                if(!service||!plan) { setBookingActionError('Dịch vụ của gói không còn khả dụng.'); return; }
+                if(openBooking(service,null,null,{id,name:plan.name||plan.package?.name||''}))setIsTreatmentOpen(false);
               }}
               user={user}
               notifications={notifications}
               onClose={() => setIsTreatmentOpen(false)}
               onOpenBooking={() => {
-                setIsTreatmentOpen(false);
-                openBooking(services[0]);
+                if(openBooking(services[0]))setIsTreatmentOpen(false);
               }}
             />
           </div>
@@ -1053,13 +1122,10 @@ function MasterHomePage() {
                 key={tab.key}
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
+                disabled={navigationBusy}
+                title={navigationBusy?'Đang lưu dữ liệu':undefined}
                 onClick={() => {
-                  setIsSearchOpen(false);
-                  setIsSpecialistDirectoryOpen(false);
-                  setIsBranchDirectoryOpen(false);
-                  setIsTreatmentOpen(false);
-                  if (tab.key === 'academy') setAcademyMode('catalog');
-                  setActiveTab(tab.key as any);
+                  navigateTab(tab.key as typeof activeTab);
                 }}
                 className={`w-full h-[58px] flex flex-col items-center justify-center gap-1 transition-colors rounded-[10px] active:scale-[0.98] ${
                   isActive

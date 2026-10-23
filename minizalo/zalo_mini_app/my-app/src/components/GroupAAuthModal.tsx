@@ -22,6 +22,13 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
   const [registration, setRegistration] = useState<RegistrationChallenge | null>(null);
   const attempt = useRef(0);
   const loginLock = useRef(false);
+  const dialog=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    if(!isOpen)return;
+    const previous=document.activeElement as HTMLElement|null;
+    dialog.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus({preventScroll:true});
+    return()=>{if(previous?.isConnected)previous.focus({preventScroll:true});};
+  },[isOpen,registration]);
   useBackAction(isOpen && !registration, () => {
     if(registration) { setRegistration(null); return; }
     attempt.current++; loginLock.current=false;apiClient.cancelZaloLogin();setBusy(false);
@@ -37,8 +44,8 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
-  if (registration) return <NewCustomerOnboarding challenge={registration} onBack={() => setRegistration(null)}
-    onComplete={user => { onLoginSuccess(user); onClose(); }} />;
+  if (registration) return <div className="absolute inset-0 z-[110]"><NewCustomerOnboarding challenge={registration} onBack={() => setRegistration(null)}
+    onComplete={user => { onLoginSuccess(user); onClose(); }} /></div>;
 
   const login = async () => {
     if (loginLock.current) return;
@@ -63,8 +70,8 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="zalo-login-title"
-      className="absolute inset-0 z-50 flex flex-col overflow-y-auto bg-[#FAF6F0] p-6">
+    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="zalo-login-title"
+      className="absolute inset-0 z-[110] flex flex-col overflow-y-auto bg-[#FAF6F0] p-6">
       {canClose && (
         <button type="button" onClick={() => { attempt.current++; loginLock.current=false; apiClient.cancelZaloLogin(); onClose(); }} title="Đóng" aria-label="Đóng"
           className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center text-stone-600 disabled:opacity-50">

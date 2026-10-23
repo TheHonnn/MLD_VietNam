@@ -82,6 +82,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const [settingsStatus, setSettingsStatus] = useState<'loading' | 'missing' | 'loaded' | 'error'>(() => { const cached=apiClient.peek('/auth/settings'); return cached ? cached.settings ? 'loaded' : 'missing' : 'loading'; });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const settingsSaveLock=useRef(false);
+  const [settingsVersion,setSettingsVersion]=useState(0);
   const [membership, setMembership] = useState<{ membershipCard?:{cardCode:string;expiresAt:string|null}|null; membershipTiers?: NonNullable<GroupFProfileProps['metadata']>['tierRules']; loyaltySettings?: NonNullable<GroupFProfileProps['metadata']>['loyalty']; referrals?: { id: string; rewardPoints: number; isRewarded: boolean; createdAt: string }[]; referralCode?: string } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +101,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       if (!cancelled && result && !result.error) setMembership({ ...result, referralCode: result.user?.referralCode });
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [user.id]);
+  }, [user.id,settingsVersion]);
   const saveSetting = async (patch: Partial<Settings>) => {
     if (settingsSaveLock.current || (!settings && settingsStatus !== 'missing')) return;
     settingsSaveLock.current=true;
@@ -289,6 +290,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     return status === 'used' ? 'used' : status === 'expired' ? 'expired' : 'available';
   });
   const [voucherInput, setVoucherInput] = useState('');
+  const voucherClaimLock=useRef(false);
+  const [voucherClaiming,setVoucherClaiming]=useState(false);
   const [vouchersList, setVouchersList] = useState<Voucher[]>(vouchers);
   useEffect(() => setVouchersList(vouchers), [vouchers]);
 
@@ -334,21 +337,22 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
   const handleApplyNewVoucher = async () => {
     const clean = voucherInput.trim().toUpperCase();
-    if (!clean) return;
+    if (!clean || voucherClaimLock.current) return;
     if (vouchersList.some((v) => v.code === clean)) {
       showToast('Mã voucher này đã có trong ví của bạn!');
       return;
     }
-    const response = await apiClient.claimVoucher(clean);
-    if (!response?.voucher) {
-      showToast(response?.error || 'Không thể thêm mã ưu đãi.');
-      return;
-    }
-    const next = [response.voucher, ...vouchersList];
-    setVouchersList(next);
-    onVouchersUpdated(next);
-    setVoucherInput('');
-    showToast(response.message || `Đã thêm mã ${clean} vào ví ưu đãi!`);
+    voucherClaimLock.current=true;setVoucherClaiming(true);
+    const epoch=apiClient.sessionVersion();
+    try {
+      const response = await apiClient.claimVoucher(clean);
+      if(!mounted.current||apiClient.sessionVersion()!==epoch)return;
+      if (!response?.voucher || response.error) {showToast(response?.error || 'Không thể thêm mã ưu đãi.');return;}
+      const next = [response.voucher, ...vouchersList.filter(item=>item.id!==response.voucher.id)];
+      setVouchersList(next);onVouchersUpdated(next);setVoucherInput('');
+      showToast(response.message || `Đã thêm mã ${clean} vào ví ưu đãi!`);
+    } catch {showToast('Không thể thêm mã ưu đãi.');}
+    finally {voucherClaimLock.current=false;if(mounted.current)setVoucherClaiming(false);}
   };
 
   const money = (value: unknown) => value != null && Number.isFinite(Number(value)) ? `${Number(value).toLocaleString('vi-VN')} ₫` : '';
@@ -985,15 +989,19 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <input
               type="text"
               placeholder="Nhập mã voucher..."
+              disabled={voucherClaiming}
+              maxLength={60}
               value={voucherInput}
               onChange={(e) => setVoucherInput(e.target.value)}
               className="flex-1 p-2.5 rounded-xl border border-[#EADECF] bg-[#FAF6F0] text-xs font-mono uppercase font-bold outline-none focus:border-[#98501B]"
             />
             <button
               onClick={handleApplyNewVoucher}
+              disabled={voucherClaiming||!voucherInput.trim()}
+              aria-busy={voucherClaiming}
               className="px-4 py-2.5 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] active:scale-95 transition"
             >
-              Áp dụng
+              {voucherClaiming?'Đang thêm...':'Áp dụng'}
             </button>
           </div>
 
@@ -1309,6 +1317,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <div>
               <h3 className="mb-2 text-[13px] font-bold text-[#6F452C]">Thông báo</h3>
               {!settings && <p className="text-xs text-[#7A685D]">{settingsStatus === 'loading' ? 'Đang tải cài đặt...' : settingsStatus === 'missing' ? '' : 'Không thể tải cài đặt tài khoản.'}</p>}
+              {settingsStatus==='error'&&<button type="button" className="my-2 text-xs font-bold text-[#98501B]" onClick={()=>{apiClient.invalidateReadPaths(['/auth/settings']);setSettingsVersion(value=>value+1);}}>Thử lại</button>}
               {settingsStatus === 'missing' && <button disabled={settingsSaving} onClick={() => saveSetting({})} className="my-2 text-xs font-bold text-[#98501B]">{settingsSaving ? 'Đang lưu...' : 'Lưu cài đặt mặc định của hệ thống'}</button>}
               <div className="bg-white p-2 rounded-[10px] divide-y divide-[#EFEAE3] text-xs">
               {[

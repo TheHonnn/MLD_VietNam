@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { MedicalService, Doctor, Branch, Booking, Course } from '../../../../backend/src/data/database';
 import type { ServiceCategory } from '../../../../../database/shared_types';
 import { SearchIcon } from '@/components/Icons';
+import { searchText } from '@/utils/catalog';
 import { EntityImage, BranchHours } from './GroupBExtensions';
 import type { ServiceDetails, DoctorDetails, BranchDetails } from './GroupBExtensions';
 
@@ -15,6 +16,7 @@ export interface GroupBHomeProps {
   doctors: DoctorDetails[];
   branches: BranchDetails[];
   upcomingBooking?: Booking | null;
+  onOpenBooking?: (booking: Booking) => void;
   userName?: string;
   metadata?: HomeMetadata;
   courses?: Course[];
@@ -44,6 +46,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
   services, doctors, branches, upcomingBooking, userName, metadata, courses = [], guidelines = [],
   onSelectService, onViewServiceDetail, onSelectDoctor, onSelectBranch, onOpenDirections, onSelectCourse,
   onNavigateTab, onOpenSearch, onOpenNotifications, unreadNotifications = 0, onOpenBranches, onOpenSpecialists,
+  onOpenBooking,
 }) => {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
@@ -56,7 +59,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
   const visibleBranches = branches.filter(branch => !city || branch.city === city);
   const selectedCategory = categories.find(item => item.id === category);
   const visibleServices = services.filter(service => (!category || service.categoryId === category || service.category === selectedCategory?.name)
-    && (service.title + ' ' + service.description).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')))
+    && searchText(service.title + ' ' + service.description).includes(searchText(query)))
     .sort((a, b) => sort === 'priceAsc' ? a.price - b.price : sort === 'priceDesc' ? b.price - a.price : sort === 'duration' ? a.durationMinutes - b.durationMinutes : a.title.localeCompare(b.title, 'vi'));
   const faqs = metadata?.faqs?.filter(faq => faq.isActive !== false) || [];
 
@@ -71,8 +74,8 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold">Dịch vụ</h2><button onClick={() => onNavigateTab('services')} className={buttonClass}>Xem tất cả</button></div>
       <label className="block">Tìm dịch vụ<input value={query} onChange={event => setQuery(event.target.value)} className={inputClass + ' mt-1'} placeholder="Tên hoặc mô tả..." /></label>
       <div className="grid grid-cols-2 gap-2">
-        <label>Danh mục<select value={category} onChange={event => setCategory(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label>Sắp xếp<select value={sort} onChange={event => setSort(event.target.value)} className={inputClass + ' mt-1'}><option value="name">Tên dịch vụ</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option><option value="duration">Thời lượng</option></select></label>
+        <label>Danh mục<select aria-label="Danh mục" value={category} onChange={event => setCategory(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>Sắp xếp<select aria-label="Sắp xếp" value={sort} onChange={event => setSort(event.target.value)} className={inputClass + ' mt-1'}><option value="name">Tên dịch vụ</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option><option value="duration">Thời lượng</option></select></label>
       </div>
       {visibleServices.map(service => <article key={service.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
         <button onClick={() => onViewServiceDetail(service)} className="block w-full space-y-2 text-left"><h3 className="font-bold">{service.title}</h3><EntityImage src={service.image} alt={service.title} /><p>{service.description}</p></button>
@@ -88,7 +91,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
         <p>{upcomingBooking.date} · {upcomingBooking.timeSlot}</p><p>{upcomingBooking.branchName || branches.find(branch => branch.id === upcomingBooking.branchId)?.name || ''}</p>
         <p>{bookingStatuses[upcomingBooking.status.toLowerCase()] || upcomingBooking.status}</p>
       </div> : <p className="text-stone-500"></p>}
-      <button onClick={() => onNavigateTab('booking')} className={buttonClass}>Xem lịch hẹn</button>
+      <button onClick={() => upcomingBooking&&onOpenBooking?onOpenBooking(upcomingBooking):onNavigateTab('booking')} className={buttonClass}>Xem lịch hẹn</button>
     </section>
 
     <section className="space-y-3">
@@ -108,7 +111,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
 
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold">Chi nhánh</h2>{onOpenBranches && <button onClick={onOpenBranches} className={buttonClass}>Xem tất cả · {branches.length}</button>}</div>
-      <label className="block">Tỉnh / thành phố<select value={city} onChange={event => setCity(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{cities.map(item => <option key={item}>{item}</option>)}</select></label>
+      <label className="block">Tỉnh / thành phố<select aria-label="Tỉnh / thành phố" value={city} onChange={event => setCity(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{cities.map(item => <option key={item}>{item}</option>)}</select></label>
       {!visibleBranches.length && <p className="text-stone-500"></p>}
       {visibleBranches.map(branch => <article key={branch.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
         <EntityImage src={branch.imageUrl} alt={branch.name} /><h3 className="font-bold">{branch.name}</h3><p>{branch.address || ''}</p><BranchHours branch={branch} />

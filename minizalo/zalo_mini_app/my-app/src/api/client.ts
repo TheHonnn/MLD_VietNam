@@ -15,6 +15,7 @@ let authController: AbortController | null = null;
 type ReadResponse = { status: number; payload: Record<string, any>; cacheable?: boolean };
 const readCache = new ReadCache<ReadResponse>(60000, 256, value => value.status === 200 && !value.payload.error && value.cacheable === true);
 const publicReads = new Set(['/app-metadata','/services','/doctors','/branches','/courses','/care-guidelines','/support-faqs','/search/popular']);
+const isPublicRead = (path: string) => publicReads.has(path) || ['/health','/slots','/slots/dates'].includes(path) || /^\/(services|doctors|courses)\/[^/]+$/.test(path);
 const privateReads = new Set(['/auth/settings','/bookings','/records','/membership','/notifications','/treatment-plans','/transactions','/course-enrollments','/support-tickets','/consultation-surveys','/reviews/mine','/search/history']);
 const pagedCollections:Record<string,string>={'/bookings':'bookings','/support-tickets':'tickets','/consultation-surveys':'surveys','/treatment-plans':'treatmentPlans'};
 const validReadPayload = (path: string, payload: Record<string,any>) => {
@@ -59,8 +60,10 @@ const invalidateMutation = (path: string) => {
 const session = {
   get() {
     if (memoryToken !== null) return memoryToken;
-    try { return nativeStorage.getItem(SESSION_KEY) || ''; }
-    catch { return ''; }
+    // Resolve native storage once, including an empty or unavailable guest session.
+    try { const stored = nativeStorage.getItem(SESSION_KEY); memoryToken = typeof stored === 'string' ? stored : ''; }
+    catch { memoryToken = ''; }
+    return memoryToken;
   },
   set(token: string) {
     if (session.get() !== token) { sessionEpoch++; readCache.invalidate(key => key.startsWith('private:')); }
@@ -80,7 +83,7 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const epoch = sessionEpoch;
   const url = new URL(String(input));
   const method = (init.method || 'GET').toUpperCase();
-  const guardSession = !(['GET','HEAD'].includes(method) && publicReads.has(relativePath(url)));
+  const guardSession = !(['GET','HEAD'].includes(method) && isPublicRead(relativePath(url)));
   const sessionChanged = () => session.get() !== token || sessionEpoch !== epoch;
   const staleSession = (): ReadResponse => ({status:401,payload:{error:'Phiên đăng nhập đã thay đổi.',status:401}});
   const key = method === 'GET' && !init.signal ? cacheKey(url, token) : null;
@@ -120,7 +123,7 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const successful = response.ok && envelope.success === true;
   const payload = successful ? adaptPayload(envelope.data || {})
     : { error: apiErrorMessage(envelope.message,response.status), status: envelope.statusCode || response.status,code:envelope.code,pricing:envelope.pricing };
-  if (response.status === 401 && token && session.get() === token && sessionEpoch === epoch) { session.clear(); window.dispatchEvent(new Event('mld:session-expired')); }
+  if (guardSession && response.status === 401 && token && session.get() === token && sessionEpoch === epoch) { session.clear(); window.dispatchEvent(new Event('mld:session-expired')); }
   if (successful && method !== 'GET' && method !== 'HEAD') {
     const path = relativePath(url);
     invalidateMutation(path);
@@ -361,6 +364,16 @@ export const apiClient = {
     } catch {
       return { error: 'Không thể tải giờ hẹn. Vui lòng thử lại.' };
     }
+  },
+
+  async getSlotDates(branchId:string,date:string,throughDate:string,serviceId:string,technicianId?:string,signal?:AbortSignal){
+    try{
+      const params=new URLSearchParams({branchId,date,throughDate,serviceId});
+      if(technicianId)params.set('technicianId',technicianId);
+      const response = await fetch(`${API_BASE_URL}/slots/dates?${params}`,{cache:'no-store',signal});
+      if ([401,404].includes(response.status)) return {error:'Máy chủ chưa cập nhật tính năng tìm ngày trống. Bạn có thể chọn ngày trực tiếp trong lịch.',status:response.status};
+      return await responseJson(response);
+    }catch{return {error:'Không thể tải ngày có lịch trống. Vui lòng thử lại.'};}
   },
 
   async getBookingSlots(bookingId: string, date: string) {

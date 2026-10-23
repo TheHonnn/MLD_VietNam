@@ -5,6 +5,8 @@ import { EntityImage } from './GroupBExtensions';
 import '@/css/home-dashboard.scss';
 import { useCarousel } from '@/hooks/useCarousel';
 import { useBackAction } from '@/hooks/useNavigationHistory';
+import { BranchHours } from './GroupBExtensions';
+import { CalendarIcon, NavAcademyIcon, MapIcon, UserCheckIcon, ArrowRightIcon } from './Icons';
 
 interface HomeDashboardProps extends GroupBHomeProps {
   carouselPaused?: boolean;
@@ -22,14 +24,18 @@ export function GroupBHome(props: HomeDashboardProps) {
   const [catalogOpen, setCatalogOpen] = useState(false);
   useBackAction(catalogOpen,()=>setCatalogOpen(false));
   const [interacting, setInteracting] = useState(false);
+  const [touching,setTouching]=useState(false);
+  const suppressSwipeClick=useRef(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const featured = services.filter(service => service.isFeatured);
   const heroServices = (featured.length ? featured : services).slice(0, 3);
   const slideIds = heroServices.map(service => service.id);
-  const { index, select: setSlideId, move: changeSlide } = useCarousel(slideIds, Boolean(props.carouselPaused) || catalogOpen || interacting || loading);
+  const { index, select: setSlideId, move: changeSlide } = useCarousel(slideIds, Boolean(props.carouselPaused) || catalogOpen || interacting || touching || loading);
   const service = heroServices[index];
+  const selectedBranch=branches.find(branch=>branch.id===selectedBranchId)||branches[0];
+  const faqs=props.metadata?.faqs?.filter(item=>item.isActive!==false)||[];
 
   useEffect(() => { setAvatarFailed(false); }, [userAvatar]);
   useEffect(() => {
@@ -70,8 +76,8 @@ export function GroupBHome(props: HomeDashboardProps) {
       </div>
 
       <div className="home-search">
-        <button type="button" className="home-icon-button" title="Tìm kiếm" onClick={onOpenSearch}><SearchIcon size={21} /></button>
-        <button type="button" className="home-search-field" onClick={onOpenSearch}>Tìm dịch vụ, khóa học, chuyên viên...</button>
+        <button type="button" className="home-icon-button" title="Tìm kiếm" disabled={loading} onClick={onOpenSearch}><SearchIcon size={21} /></button>
+        <button type="button" className="home-search-field" disabled={loading} onClick={onOpenSearch}>Tìm dịch vụ, khóa học, chuyên viên...</button>
       </div>
 
       {(loading || error) && <div className="home-data-status" role={error ? 'alert' : 'status'}>
@@ -81,14 +87,20 @@ export function GroupBHome(props: HomeDashboardProps) {
 
       <section className="home-feature" aria-label="Chăm sóc và dịch vụ"
         onFocusCapture={event => setInteracting(event.target.matches(':focus-visible'))} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}
-        onTouchStart={event => { touchStart.current = { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY }; }}
+        onClickCapture={event=>{if(suppressSwipeClick.current){suppressSwipeClick.current=false;event.preventDefault();event.stopPropagation();}}}
+        onTouchStart={event => {
+          setTouching(true);suppressSwipeClick.current=false;
+          touchStart.current=event.touches.length===1?{x:event.changedTouches[0].clientX,y:event.changedTouches[0].clientY}:null;
+        }}
         onTouchEnd={event => {
+          if(event.touches.length){touchStart.current=null;return;}
+          setTouching(false);
           if (!touchStart.current) return;
           const dx = event.changedTouches[0].clientX - touchStart.current.x;
           const dy = event.changedTouches[0].clientY - touchStart.current.y;
-          if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) changeSlide(dx < 0 ? 1 : -1);
+          if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {suppressSwipeClick.current=true;changeSlide(dx < 0 ? 1 : -1);}
           touchStart.current = null;
-        }} onTouchCancel={() => { touchStart.current = null; }}>
+        }} onTouchCancel={() => { touchStart.current = null;setTouching(false);suppressSwipeClick.current=false; }}>
         <button type="button" className="home-feature-photo" disabled={!service} title={service ? `Xem ${service.title}` : undefined}
           onClick={() => service ? props.onViewServiceDetail(service) : onNavigateTab('services')}>
           <EntityImage key={service?.id} src={service?.image} alt={service?.title || ''} className="home-service-image carousel-enter" />
@@ -106,18 +118,33 @@ export function GroupBHome(props: HomeDashboardProps) {
               aria-pressed={index === i} title={heroServices[i].title} onClick={() => setSlideId(id)}><span /></button>)}
           </div>
           <div className="home-feature-tools">
-            <button className="home-icon-button home-refresh" type="button" title="Khám phá dịch vụ và tiện ích" onClick={() => setCatalogOpen(true)}><DashboardIcon size={16} /></button>
+            <button className="home-icon-button home-refresh" type="button" title="Khám phá dịch vụ và tiện ích" disabled={loading} onClick={() => setCatalogOpen(true)}><DashboardIcon size={16} /></button>
             <button className="home-icon-button home-refresh" type="button" title="Cập nhật dữ liệu" disabled={loading} onClick={onRefresh}><RefreshIcon size={16} /></button>
           </div>
         </div>
       </section>
     </section>
+    <div className="home-more">
+      <nav className="home-shortcuts" aria-label="Tiện ích nhanh">
+        <button type="button" onClick={()=>onNavigateTab('booking')}><CalendarIcon size={22}/><span>Lịch hẹn</span></button>
+        <button type="button" onClick={()=>onNavigateTab('academy')}><NavAcademyIcon size={22}/><span>Học viện</span></button>
+        <button type="button" disabled={loading} onClick={props.onOpenBranches}><MapIcon size={22}/><span>Chi nhánh</span></button>
+        <button type="button" disabled={loading} onClick={props.onOpenSpecialists}><UserCheckIcon size={22}/><span>Chuyên viên</span></button>
+      </nav>
+      {props.upcomingBooking&&<section className="home-information"><h2>Lịch hẹn sắp tới</h2><button className="home-upcoming" type="button" onClick={()=>props.onOpenBooking?props.onOpenBooking(props.upcomingBooking!):onNavigateTab('booking')}><span><strong>{props.upcomingBooking.serviceTitle}</strong><small>{props.upcomingBooking.date.slice(0,10).split('-').reverse().join('/')} · {props.upcomingBooking.timeSlot.split(' - ').map(time=>time.slice(0,5)).join(' - ')}</small><small>{props.upcomingBooking.branchName}</small></span><ArrowRightIcon size={20}/></button></section>}
+      <section className="home-information home-about"><h2>MLD Việt Nam</h2><p>Chăm sóc sức khỏe và đào tạo nghề Spa</p>{!loading&&!error&&<div><span>{services.length} dịch vụ</span><span>{branches.length} chi nhánh</span>{Boolean(props.courses?.length)&&<span>{props.courses?.length} khóa học</span>}</div>}</section>
+      {services.length>0&&<section className="home-information"><header><h2>Dịch vụ chăm sóc</h2><button type="button" onClick={()=>onNavigateTab('services')}>Xem tất cả</button></header><div className="home-preview-list">{services.slice(0,3).map(item=><button key={item.id} type="button" onClick={()=>props.onViewServiceDetail(item)}><EntityImage src={item.image} alt={item.title}/><span><strong>{item.title}</strong><small>{item.durationMinutes} phút · {item.price.toLocaleString('vi-VN')}đ</small></span><ArrowRightIcon size={18}/></button>)}</div></section>}
+      {Boolean(props.courses?.length)&&<section className="home-information"><header><h2>Đào tạo và phát triển nghề</h2><button type="button" onClick={()=>onNavigateTab('academy')}>Xem tất cả</button></header><div className="home-preview-list">{props.courses?.slice(0,3).map(item=><button key={item.id} type="button" onClick={()=>props.onSelectCourse?.(item)}><EntityImage src={item.image} alt={item.title}/><span><strong>{item.title}</strong><small>{item.duration} · {item.price.toLocaleString('vi-VN')}đ</small></span><ArrowRightIcon size={18}/></button>)}</div></section>}
+      {selectedBranch&&<section className="home-information"><header><h2>Chi nhánh của bạn</h2><button type="button" onClick={()=>props.onSelectBranch(selectedBranch)}>Chi tiết</button></header><h3>{selectedBranch.name}</h3><p>{selectedBranch.address}</p><BranchHours branch={selectedBranch}/>{selectedBranch.phone&&<a href={`tel:${selectedBranch.phone}`}>{selectedBranch.phone}</a>}<button className="home-direction-link" type="button" onClick={()=>props.onOpenDirections(selectedBranch)}><MapIcon size={18}/>Chỉ đường</button></section>}
+      {faqs.length>0&&<section className="home-information"><h2>Câu hỏi thường gặp</h2>{faqs.map(item=><details key={item.id}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</section>}
+    </div>
     <dialog ref={dialog} className="home-catalog-dialog" onClose={() => setCatalogOpen(false)} aria-label="Khám phá dịch vụ và tiện ích">
       {catalogOpen && <>
         <header className="home-catalog-header"><h2>Khám phá</h2><button type="button" className="home-icon-button" title="Đóng" onClick={() => setCatalogOpen(false)}><CloseIcon size={22} /></button></header>
         <HomeCatalog {...props} onSelectService={closeThen(props.onSelectService)} onViewServiceDetail={closeThen(props.onViewServiceDetail)}
           onSelectDoctor={closeThen(props.onSelectDoctor)} onSelectBranch={closeThen(props.onSelectBranch)} onOpenDirections={closeThen(props.onOpenDirections)}
           onSelectCourse={closeThen(props.onSelectCourse)} onNavigateTab={closeThen(props.onNavigateTab)}
+          onOpenBooking={closeThen(props.onOpenBooking)}
           onOpenSearch={closeThen(props.onOpenSearch)} onOpenNotifications={closeThen(props.onOpenNotifications)}
           onOpenBranches={closeThen(props.onOpenBranches)} onOpenSpecialists={closeThen(props.onOpenSpecialists)} />
       </>}

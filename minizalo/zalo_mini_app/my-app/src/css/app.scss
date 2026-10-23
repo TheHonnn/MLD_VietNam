@@ -3,12 +3,14 @@
 }
 
 .mini-app-shell {
-  --app-safe-top: max(env(safe-area-inset-top, 0px), 24px);
-  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+  --app-safe-top: max(env(safe-area-inset-top, 0px), var(--zaui-safe-area-inset-top, 0px), 24px);
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--zaui-safe-area-inset-bottom, 0px), 12px);
   --app-nav-height: calc(63px + var(--app-safe-bottom));
   height: calc(100vh - var(--app-safe-top));
   height: calc(100dvh - var(--app-safe-top));
   margin-top: var(--app-safe-top);
+  min-height: 0;
+  isolation: isolate;
 }
 
 /* The shell owns the status-bar inset; individual headers only add visual spacing. */
@@ -35,14 +37,17 @@
 .mini-app-shell .service-detail-body { padding-top: 16px; }
 .mini-app-shell > .profile-overlay { padding-bottom: var(--app-safe-bottom); }
 
-@media (max-width: 639px) {
+@media (max-width: 639px), (hover: none) and (pointer: coarse) and (max-height: 600px) {
+  .app-viewport { height: 100dvh; min-height: 0; padding: 0; overflow: hidden; align-items: flex-start; }
   .mini-app-shell[class] {
     height: calc(100vh - var(--app-safe-top));
     height: calc(100dvh - var(--app-safe-top));
     margin-top: var(--app-safe-top);
     max-width: none;
+    max-height: none;
     border: 0;
     box-shadow: none;
+    width: calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
   }
 }
 

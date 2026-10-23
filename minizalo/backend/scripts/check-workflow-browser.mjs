@@ -145,6 +145,22 @@ try {
       const reservation=(await db.query('SELECT p.state,b.final_price FROM miniapp_booking_packages p JOIN bookings b ON b.id=p.booking_id')).rows;
       assert.equal(reservation.length,1);assert.equal(reservation[0].state,'RESERVED');assert.equal(Number(reservation[0].final_price),0);
       assert.equal((await db.query('SELECT completed_sessions FROM user_packages WHERE id=$1',[id(10)])).rows[0].completed_sessions,1);
+      await page.getByRole('button',{name:'Xem lịch hẹn',exact:true}).click();
+      await nav('Cá nhân');await page.getByText('Gói liệu trình',{exact:true}).click();
+      await page.getByRole('button',{name:'Xem chi tiết gói',exact:true}).click();
+      await page.getByText('Đang giữ lịch: 1 buổi',{exact:true}).waitFor();
+      await page.getByRole('button',{name:'Quay lại',exact:true}).click();
+      await page.getByRole('button',{name:'Quay lại',exact:true}).click();
+      await nav('Đặt lịch');
+      await page.locator('.appointment-list-card').filter({hasText:'12/01/2099'}).click();
+      await page.getByRole('button',{name:'Hủy lịch',exact:true}).click();
+      await page.getByRole('button',{name:'Xác nhận hủy',exact:true}).click();
+      await page.getByText('Lịch hẹn đã được hủy.',{exact:true}).waitFor();
+      await page.getByTitle('Quay lại lịch hẹn của tôi',{exact:true}).click();
+      await nav('Cá nhân');await page.getByText('Gói liệu trình',{exact:true}).click();
+      await page.getByRole('button',{name:'Xem chi tiết gói',exact:true}).click();
+      await page.getByText('Đang giữ lịch: 0 buổi',{exact:true}).waitFor();
+      assert.equal((await db.query("SELECT count(*)::int AS n FROM miniapp_booking_packages WHERE state='RESERVED'")).rows[0].n,0);
       console.log(JSON.stringify({viewport,isolatedDatabase:true,rescheduleAndCancelPersist:true,treatmentStepsAndJournal:true,practiceNotesPersist:true,saveFailureKeepsNotes:true,quizSelectionsPersist:true,sevenStepBookingPersists:true,packageReservationZeroCharge:true}));
     } catch(failure){
       console.error(JSON.stringify({viewport,visibleText:(await page.locator('body').innerText()).slice(-6000)}));

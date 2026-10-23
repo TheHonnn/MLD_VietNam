@@ -92,7 +92,9 @@ test('Zalo phone permission preserves shared accounts without schema changes or 
   let accountId;
   let server;
   try {
-    await t.test('signup respects the switch and original NOT NULL phone schema',async()=>{
+    await t.test('signup stores verified phone and preserves canonical phone nullability',async()=>{
+      const phoneColumn=async()=>(await db.query("SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='phone'")).rows[0].is_nullable;
+      const nullableBefore=await phoneColumn();
       await assert.rejects(resolveZaloAccount(store,profile,options),e=>e.status===409);
       const result=await resolveZaloAccount(store,profile,{...options,zaloAllowSignup:true});
       accountId=result.userId;
@@ -103,7 +105,7 @@ test('Zalo phone permission preserves shared accounts without schema changes or 
       assert.equal(row.avatar_url,profile.avatar);
       assert.equal(row.membership_tier,'STANDARD');
       assert.equal(row.reward_points,0);
-      assert.equal((await db.query("SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='phone'")).rows[0].is_nullable,'NO');
+      assert.equal(await phoneColumn(),nullableBefore);
     });
     await t.test('repeated login and national/international aliases reuse UUID and retain rewards',async()=>{
       await db.query("UPDATE users SET membership_tier='GOLD',reward_points=350,full_name='Shared Name' WHERE id=$1",[accountId]);

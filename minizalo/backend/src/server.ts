@@ -81,22 +81,23 @@ async function booking(store: Store, id: string, customerId: string) {
   return record;
 }
 
-async function availableSlots(store: Store, branchId: string, day: unknown, duration: number, technicianId: string | null, customerId: string | null, excludedBookingId: string | null = null,serviceIds:string[] = []) {
+async function availableSlots(store: Store, branchId: string, day: unknown, duration: number, technicianId: string | null, customerId: string | null, excludedBookingId: string | null = null,serviceIds:string[] = [], throughDay:unknown=day) {
   if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day.startsWith('0000') || !Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0,10) !== day) throw new ApiError(400,'Slot date must be a valid YYYY-MM-DD date');
   if (!Number.isInteger(duration) || duration <= 0) return [];
+  if(typeof throughDay!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(throughDay)||throughDay.startsWith('0000')||!Number.isFinite(Date.parse(throughDay))||new Date(throughDay).toISOString().slice(0,10)!==throughDay||throughDay<day||Date.parse(throughDay)-Date.parse(day)>30*86400000)throw new ApiError(400,'Availability range must be within 31 days');
   return store.query(Prisma.sql`SELECT ts.id,ts.technician_id,ts.branch_id,to_char(ts.slot_date,'YYYY-MM-DD') AS slot_date,
     to_char(ts.start_time,'HH24:MI:SS') AS start_time,to_char(ts.start_time + ${duration} * INTERVAL '1 minute','HH24:MI:SS') AS end_time
     FROM technician_slots ts JOIN technicians t ON t.id=ts.technician_id JOIN branches br ON br.id=ts.branch_id
     WHERE ts.branch_id=${branchId}::uuid AND t.branch_id=ts.branch_id AND t.is_active AND br.is_active
       ${serviceIds.length?Prisma.sql`AND (SELECT count(*) FROM miniapp_technician_services ms WHERE ms.technician_id=t.id AND ms.is_active AND ms.service_id IN (${Prisma.join(serviceIds.map(id=>Prisma.sql`${id}::uuid`))}))=${serviceIds.length}`:Prisma.empty}
       AND (${technicianId}::uuid IS NULL OR ts.technician_id=${technicianId}::uuid)
-      AND ts.slot_date=${day}::date AND ts.end_time >= ts.start_time + ${duration} * INTERVAL '1 minute'
+      AND ts.slot_date BETWEEN ${day}::date AND ${throughDay}::date AND ts.end_time >= ts.start_time + ${duration} * INTERVAL '1 minute'
       AND ts.start_time >= br.opening_time AND ts.start_time + ${duration} * INTERVAL '1 minute' <= br.closing_time
       AND (ts.status='AVAILABLE' OR (ts.status='HOLD' AND (ts.held_by_user_id=${customerId}::uuid OR ts.hold_expires_at<CURRENT_TIMESTAMP)))
       AND (ts.slot_date + ts.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh' > CURRENT_TIMESTAMP
       AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.technician_id=ts.technician_id AND b.booking_date=ts.slot_date
         AND b.status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE') AND b.start_time<ts.start_time + ${duration} * INTERVAL '1 minute' AND b.end_time>ts.start_time
-        AND (${excludedBookingId}::uuid IS NULL OR b.id<>${excludedBookingId}::uuid)) ORDER BY ts.start_time`);
+        AND (${excludedBookingId}::uuid IS NULL OR b.id<>${excludedBookingId}::uuid)) ORDER BY ts.slot_date,ts.start_time`);
 }
 
 export function bookingTime(date: unknown, time: unknown, duration: number) {
@@ -309,16 +310,18 @@ export function createApp(store: Store, options: AppOptions) {
     return success(res,{doctor});
   }));
   app.get('/api/branches', route(async (_req,res) => success(res,{branches:await store.query(Prisma.sql`SELECT *,to_char(opening_time,'HH24:MI') AS opening_time,to_char(closing_time,'HH24:MI') AS closing_time FROM branches WHERE is_active ORDER BY name`)})));
-  app.get('/api/slots',route(async(req,res)=>{
+  const slotAvailability=(datesOnly=false)=>route(async(req,res)=>{
     const branchId = uuid(req.query.branchId), serviceId = uuid(req.query.serviceId);
     const technicianId = req.query.technicianId ? uuid(req.query.technicianId) : null;
     let customerId: string | null = null;
     try { const payload = jwt.verify(req.headers.authorization?.replace(/^Bearer\s+/i,'') ?? '',options.jwtSecret,{algorithms:['HS256']}) as jwt.JwtPayload; customerId = uuid(payload.sub); }
     catch { /* Public users see available slots, but not another user's hold. */ }
     const [service] = await store.query(Prisma.sql`SELECT s.duration_minutes FROM services s JOIN service_categories cat ON cat.id=s.category_id WHERE s.id=${serviceId}::uuid AND s.is_active AND cat.is_active`);
-    const slots = await availableSlots(store,branchId,req.query.date,service ? Number(service.duration_minutes) : 0,technicianId,customerId,null,[serviceId]);
-    return success(res,{slots});
-  }));
+    const slots = await availableSlots(store,branchId,req.query.date,service ? Number(service.duration_minutes) : 0,technicianId,customerId,null,[serviceId],datesOnly?req.query.throughDate:req.query.date);
+    return success(res,datesOnly?{dates:[...new Set(slots.map(slot=>String(slot.slot_date)))]}:{slots});
+  });
+  app.get('/api/slots',slotAvailability());
+  app.get('/api/slots/dates',slotAvailability(true));
   app.get('/api/courses', route(async (_req,res) => success(res,{courses:await courseList(store)})));
   app.get('/api/courses/:id', route(async (req,res) => {
     const [course] = await courseList(store,uuid(req.params.id));

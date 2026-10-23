@@ -87,8 +87,10 @@ try{
       await page.getByRole('button',{name:'Nộp bài',exact:true}).click();await waitHold(submission);
       assert.equal(await page.getByRole('button',{name:'Tiếp tục bài học',exact:true}).isDisabled(),true);
       assert.equal(await page.locator('.academy-header .academy-back').isDisabled(),true);
+      assert.equal(await page.locator('.app-bottom-nav').getByRole('button',{name:'Trang chủ',exact:true}).isDisabled(),true,'Quiz submission also locks global tab navigation');
       assert.equal(await page.getByRole('dialog').count(),0);
       submission.release();await page.getByText('Điểm: 100% · 2/2 câu đúng · Đạt',{exact:true}).waitFor();
+      assert.equal(await page.locator('.app-bottom-nav').getByRole('button',{name:'Trang chủ',exact:true}).isEnabled(),true);
       await page.getByRole('button',{name:'Tiếp tục bài học',exact:true}).click();await page.getByRole('dialog',{name:'Practice lesson',exact:true}).waitFor();
       assert.equal((await db.query('SELECT count(*)::int AS count FROM quiz_submissions')).rows[0].count,1);
       assert.deepEqual(errors,[]);

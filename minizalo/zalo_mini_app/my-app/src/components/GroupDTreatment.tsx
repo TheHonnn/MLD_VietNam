@@ -48,6 +48,11 @@ interface GroupDTreatmentProps {
   initialTab?: Tab;
   initialEntityId?: string;
   treatmentPlans?: Plan[] | null;
+  sourceLoading?: boolean;
+  sourceErrors?: {bookings?:string;records?:string;plans?:string};
+  bookingError?:string;
+  onRetrySource?: () => void;
+  onBusyChange?: (busy:boolean) => void;
   records?: CareRecord[] | null;
   bookings?: CareBooking[];
   onNotificationsChange?: (notifications: AppNotification[]) => void;
@@ -69,7 +74,7 @@ const cachedPaths: Record<string,string> = {surveys:'/consultation-surveys',revi
 
 export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   user, notifications: serverNotifications, onClose, initialTab = 'packages', initialEntityId,
-  treatmentPlans, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange, onOpenNotification,onOpenPlanBooking,onOpenInbox,
+  treatmentPlans, sourceLoading=false, sourceErrors={}, bookingError, onRetrySource, onBusyChange, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange, onOpenNotification,onOpenPlanBooking,onOpenInbox,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [packageTab, setPackageTab] = useState('active');
@@ -83,6 +88,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   const [savedSurveys, setSavedSurveys] = useState<SavedSurvey[] | null>(() => apiClient.peek('/consultation-surveys')?.surveys || null);
   const [myReviews, setMyReviews] = useState<SavedReview[] | null>(() => apiClient.peek('/reviews/mine')?.reviews || null);
   const [historyRetry, setHistoryRetry] = useState(0);
+  const [resourceRetry, setResourceRetry] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [localNotifications, setLocalNotifications] = useState(serverNotifications);
@@ -100,6 +106,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   const [notice, setNotice] = useState('');
   const busy = useRef(false);
   const saving=Boolean(loading.form||loading.send);
+  useEffect(()=>{onBusyChange?.(saving);return()=>onBusyChange?.(false);},[saving,onBusyChange]);
   useBackAction(Boolean(form || articleId || selectedId || loading.form || loading.send), () => {
     if (busy.current) return;
     if (form) setForm(null);
@@ -161,7 +168,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     if (activeTab === 'journal' && suppliedRecords === undefined) void load('records', () => apiClient.getMedicalRecords(), 'records', setRecords);
     if ((activeTab === 'packages' || activeTab === 'journal') && suppliedBookings === undefined && user.id) void load('bookings', () => apiClient.getBookings(), 'bookings', setLoadedBookings);
     return () => { cancelled = true; };
-  }, [activeTab, suppliedRecords, suppliedBookings, user.id]);
+  }, [activeTab, suppliedRecords, suppliedBookings, user.id, resourceRetry]);
 
   const mutate = async (key: string, request: () => Promise<any>, accept: (result: any) => boolean, success: (result: any) => void) => {
     if (busy.current) { error(key,'Đang gửi dữ liệu. Vui lòng chờ thao tác hiện tại hoàn tất.'); return; }
@@ -232,6 +239,9 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   const feedback = (key: string) => <>
     {loading[key] && <p role="status" className="text-xs">Đang tải...</p>}
     {errors[key] && <p role="alert" className="text-xs text-red-700">{errors[key]}</p>}
+    {errors[key] && ['guidelines','faqs','tickets','records','bookings'].includes(key) && <button type="button" className={button} onClick={()=>{apiClient.invalidateReadPaths([cachedPaths[key]]);setResourceRetry(value=>value+1);}}>Thử lại</button>}
+    {key==='bookings'&&suppliedBookings!==undefined&&sourceLoading&&<p role="status" className="text-xs">Đang tải lịch hẹn...</p>}
+    {key==='bookings'&&suppliedBookings!==undefined&&sourceErrors.bookings&&<p role="alert" className="text-xs text-red-700">{sourceErrors.bookings} <button type="button" disabled={sourceLoading} onClick={onRetrySource}>Thử lại</button></p>}
   </>;
   const surveyHistory = <section className="space-y-3" aria-label="Phiếu thông tin đã gửi">
     <h2 className="text-sm font-bold">Phiếu thông tin đã gửi</h2>{feedback('surveys')}
@@ -264,6 +274,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   </section>;
 
   return <div className="space-y-4 px-3 pt-3 pb-20 text-[#40352F] break-words">
+    {bookingError&&<p role="alert" className="text-xs text-red-700">{bookingError}</p>}
     <button disabled={loading.form||loading.send} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
     {!form && !selected && !article && <nav aria-label="Chăm sóc" className="flex gap-2 overflow-x-auto pb-1">
       {tabs.map(tab => <button key={tab.id} disabled={saving} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(busy.current)return; if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
@@ -355,6 +366,8 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
 
     {!form && !selected && !article && activeTab === 'packages' && <section className="space-y-4">
       <h1 className="text-lg font-bold">Gói liệu trình của tôi</h1>
+      {sourceLoading&&<p role="status" className="text-xs">Đang tải gói liệu trình...</p>}
+      {sourceErrors.plans&&<p role="alert" className="text-xs text-red-700">{sourceErrors.plans} <button type="button" disabled={sourceLoading} onClick={onRetrySource}>Thử lại</button></p>}
       {user.id && <p className="text-sm">{user.name}{user.tier ? ` · ${user.tier}` : ''}</p>}
       <label className="block text-xs">Trạng thái gói<select className={input} value={packageTab} onChange={event => setPackageTab(event.target.value)}>{['active', 'completed', 'expired', 'paused', 'cancelled'].map((status, index) => <option key={status} value={status}>{['Đang dùng', 'Hoàn thành', 'Hết hạn', 'Tạm dừng', 'Đã hủy'][index]}</option>)}</select></label>
       {!treatmentPlans && <p className="text-xs">Gói liệu trình chưa khả dụng.</p>}
@@ -369,7 +382,8 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     </section>}
 
     {!form && !selected && !article && activeTab === 'journal' && <>
-      <GroupDRecords records={suppliedRecords === undefined ? records : suppliedRecords} loading={suppliedRecords === undefined && loading.records} error={suppliedRecords === undefined ? errors.records : undefined} />
+      <GroupDRecords records={suppliedRecords === undefined ? records : suppliedRecords} loading={suppliedRecords === undefined ? loading.records : sourceLoading} error={suppliedRecords === undefined ? errors.records : sourceErrors.records} />
+      {(suppliedRecords===undefined?errors.records:sourceErrors.records)&&<button type="button" className={button} disabled={sourceLoading} onClick={suppliedRecords===undefined?()=>{apiClient.invalidateReadPaths(['/records']);setResourceRetry(value=>value+1);}:onRetrySource}>Thử lại</button>}
       {(suppliedRecords === undefined ? records : suppliedRecords)?.map(record => reviewable(record) && <button key={record.id} className={button} onClick={() => startReview(record)}>Đánh giá {record.serviceName || careDate(record.sessionDate || record.diagnosisDate)}</button>)}
       <section className="space-y-3" aria-label="Lịch hẹn đã hoàn thành">
         <h2 className="text-sm font-bold">Lịch hẹn đã hoàn thành</h2>{feedback('bookings')}

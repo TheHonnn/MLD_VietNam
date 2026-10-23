@@ -9,6 +9,8 @@ try{
     const f=await workflowFixture(),{db,id}=f,page=await browser.newPage({viewport});
     let releaseSupport,supportPending=false,blockedNoteWrites=0,releaseNotes,notesPending=false;
     const supportGate=new Promise(resolve=>releaseSupport=resolve),notesGate=new Promise(resolve=>releaseNotes=resolve),errors=[];
+    let queuedExitPending=false,releaseExit;
+    const exitGate=new Promise(resolve=>releaseExit=resolve);
     page.on('pageerror',error=>errors.push(error.message));
     try{
       await db.query("INSERT INTO course_lessons(id,chapter_id,title,lesson_type,video_url,duration_minutes) VALUES($1,$2,'Expiring video lesson','VIDEO','https://example.test/fixture.mp4',1)",[id(904),id(23)]);
@@ -30,6 +32,7 @@ try{
         const body=await response.text();
         if(url.pathname==='/api/support-tickets'&&req.method()==='POST'){supportPending=true;await supportGate;}
         if(url.pathname.endsWith('/progress')&&JSON.parse(req.postData()||'{}').studentNotes==='Delayed previous draft'){notesPending=true;await notesGate;}
+        if(url.pathname.endsWith('/progress')&&JSON.parse(req.postData()||'{}').studentNotes==='Queued recovery draft'){queuedExitPending=true;await exitGate;}
         await route.fulfill({status:response.status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body});
       });
       await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5178/',{waitUntil:'domcontentloaded'});
@@ -65,7 +68,12 @@ try{
       for(let n=0;n<100&&!supportPending;n++)await page.waitForTimeout(20);
       assert.equal(supportPending,true);
       const supportFieldsLocked=await page.getByRole('textbox',{name:'Nội dung',exact:true}).isDisabled();
+      const homeTab=page.locator('.app-bottom-nav').getByRole('button',{name:'Trang chủ',exact:true});
+      assert.equal(await homeTab.isDisabled(),true,'Pending care writes must also lock the shared bottom navigation');
+      await homeTab.evaluate(button=>button.click());
+      assert.equal(await page.getByRole('textbox',{name:'Nội dung',exact:true}).inputValue(),'Payload being sent');
       releaseSupport();await page.getByText('Đã gửi yêu cầu hỗ trợ.',{exact:true}).waitFor();
+      assert.equal(await homeTab.isEnabled(),true);
       await page.getByRole('button',{name:'Quay lại',exact:true}).click();
       await nav('Học viện');await page.getByRole('button',{name:'Khóa học của tôi',exact:true}).click();
       await page.getByRole('button',{name:'Tiếp tục học',exact:true}).first().click();
@@ -91,8 +99,19 @@ try{
       const canRecover=await dialog.getByRole('button',{name:'Đóng và giữ bản nháp',exact:true}).count()===1;
       if(canRecover){
         await dialog.getByRole('button',{name:'Đóng và giữ bản nháp',exact:true}).click();await dialog.waitFor({state:'hidden'});
+        const resumed=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/playback'));
         await page.locator('.academy-lesson-row').filter({hasText:'Expiring video lesson'}).click();
+        await(await resumed).finished();await page.waitForTimeout(650);
+        await db.query("UPDATE miniapp_lesson_playbacks SET expires_at='2000-01-01'");
         assert.equal(await dialog.getByRole('textbox',{name:'Ghi chú',exact:true}).inputValue(),'Draft survives expired video session');
+        await dialog.getByRole('button',{name:'Đóng bài học',exact:true}).click();
+        await dialog.getByRole('button',{name:'Đóng và giữ bản nháp',exact:true}).waitFor();
+        await dialog.getByRole('textbox',{name:'Ghi chú',exact:true}).fill('Queued recovery draft');
+        for(let n=0;n<100&&!queuedExitPending;n++)await page.waitForTimeout(20);
+        assert.equal(queuedExitPending,true);
+        await page.goBack();releaseExit();await dialog.waitFor({state:'hidden'});
+        await page.locator('.academy-lesson-row').filter({hasText:'Expiring video lesson'}).click();
+        assert.equal(await dialog.getByRole('textbox',{name:'Ghi chú',exact:true}).inputValue(),'Queued recovery draft');
       }
       const notesBounded=await dialog.getByRole('textbox',{name:'Ghi chú',exact:true}).getAttribute('maxLength')==='10000';
       await dialog.getByRole('textbox',{name:'Ghi chú',exact:true}).fill('Permanently rejected draft');
@@ -112,6 +131,6 @@ try{
       assert.equal(canRecover,true,'An expired playback must not trap the user in a lesson');assert.deepEqual(errors,[]);
       assert.equal(notesBounded,true);assert.equal(permanentErrorsStopRetry,true,'A permanent validation error must not trigger endless automatic writes');
     }catch(error){console.error(JSON.stringify({viewport,body:(await page.locator('body').innerText()).slice(-2200),errors}));throw error;}
-    finally{releaseSupport();releaseNotes();await page.close();await f.close();}
+    finally{releaseSupport();releaseNotes();releaseExit();await page.close();await f.close();}
   }
 }finally{await browser.close();}

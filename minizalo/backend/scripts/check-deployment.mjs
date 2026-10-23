@@ -14,6 +14,8 @@ const checks = [
   ['/doctors', 'doctors', ['id', 'fullName', 'branchId', 'specialties']],
   ['/branches', 'branches', ['id', 'name', 'address']],
   ['/courses', 'courses', ['id', 'title', 'tuitionFee', 'depositAmount']],
+  ['/slots', 'validation', []],
+  ['/slots/dates', 'validation', []],
   ['/auth/me', 'private', []],
   ['/bookings', 'private', []],
   ['/membership', 'private', []],
@@ -38,7 +40,9 @@ const results = await Promise.all(checks.map(async ([path, key, fields]) => {
       failures.push('Backend is not the phone-only registration version; deploy all backend changes first');
     }
     if (path === '/health' && body.data?.contentContract !== 'shared-admin-v1') failures.push('Deploy the shared-admin content backend before this frontend');
-    if (key === 'private') {
+    if (key === 'validation') {
+      if (response.status !== 400) failures.push('Availability route is missing or incorrectly protected; deploy the matching Mini App backend');
+    } else if (key === 'private') {
       if (response.status !== 401) failures.push('Private endpoint must reject anonymous requests with 401');
     } else {
       if (!response.ok || body.success !== true) failures.push('Expected successful canonical response');

@@ -13,6 +13,9 @@ interface AppointmentsManagerProps {
   branches?: Branch[];
   onClose?: () => void;
   loading?: boolean;
+  authenticated?: boolean;
+  onBusyChange?: (busy:boolean) => void;
+  onRequireLogin?: () => void;
   error?: string;
   onRefresh?: () => void;
   onUpdateBookings: (bookings: Booking[]) => void;
@@ -25,7 +28,7 @@ const todayInVietnam = () => new Date(Date.now() + 7 * 60 * 60 * 1000).toISOStri
 const addDays = (date: string, days: number) => { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); };
 const isFutureSlot = (date: string, time: string, now=Date.now()) => Date.parse(`${date}T${time.slice(0, 5)}:00+07:00`) > now;
 
-export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookings, branches = [], loading = false, error, onRefresh, onClose, onUpdateBookings, onBookNewService, onRebookService, initialBookingId }) => {
+export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookings, branches = [], loading = false, authenticated = true, onBusyChange, onRequireLogin, error, onRefresh, onClose, onUpdateBookings, onBookNewService, onRebookService, initialBookingId }) => {
   const [activeTab, setActiveTab] = useState<AppointmentTab>('upcoming');
   const [clockNow,setClockNow]=useState(Date.now);
   const [dateRange, setDateRange] = useState('all');
@@ -43,6 +46,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   const [newDate, setNewDate] = useState(todayInVietnam);
   const [newTime, setNewTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  useEffect(()=>{onBusyChange?.(submitting);return()=>onBusyChange?.(false);},[submitting,onBusyChange]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const detailBody = useRef<HTMLElement>(null);
@@ -56,7 +60,9 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   const refreshGeneration=useRef(0);
   const updateBookings=useRef(onUpdateBookings);updateBookings.current=onUpdateBookings;
   const [refreshError,setRefreshError]=useState('');
+  useEffect(()=>setRefreshError(''),[bookings]);
   useEffect(()=>{
+    if(!authenticated)return;
     let disposed=false,pending=false,repeat=false;
     const refresh=async()=>{
       if(disposed||document.visibilityState==='hidden')return;
@@ -76,7 +82,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
     const timer=window.setInterval(()=>void refresh(),30000);
     window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
     return()=>{disposed=true;refreshGeneration.current++;clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
-  },[]);
+  },[authenticated]);
   useBackAction(Boolean(selectedBooking || rescheduling || confirmCancel || submitting), () => {
     if (mutationLock.current) return;
     setMessage(null);
@@ -179,7 +185,9 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   }
 
   return <section className="appointments-list" aria-labelledby="appointments-heading">
+    {refreshError&&<p role="alert" className="appointment-feedback is-error">{refreshError} <button type="button" disabled={loading} onClick={onRefresh}>Thử lại</button></p>}
     <header className="appointments-filters"><div className="appointment-topbar">{onClose && <button type="button" title="Về trang chủ" className="appointment-back" onClick={onClose}><ArrowLeftIcon size={20} /></button>}<span>ĐẶT LỊCH</span></div><h1 id="appointments-heading">Lịch hẹn của tôi</h1><p className="appointments-subtitle">Quản lý các buổi chăm sóc đã đặt.</p>
+      {!authenticated&&onRequireLogin&&<button type="button" className="appointments-new" onClick={onRequireLogin}>Đăng nhập để xem lịch hẹn</button>}
       <div className="appointments-tabs" role="group" aria-label="Nhóm lịch hẹn">{([['upcoming', 'Sắp tới'], ['completed', 'Đã hoàn thành'], ['cancelled', 'Đã hủy'], ['all', 'Tất cả']] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => { setActiveTab(id); setStatusFilter(''); }}>{label}</button>)}</div>
       <label className="appointment-filter">Khoảng ngày<select aria-label="Khoảng ngày" value={dateRange} onChange={event => setDateRange(event.target.value)}><option value="all">Tất cả ngày hẹn</option><option value="week">7 ngày tới</option><option value="month">30 ngày tới</option><option value="custom">Chọn khoảng ngày</option></select></label>
       {dateRange === 'custom' && <div className="appointments-date-range"><label className="appointment-filter">Từ ngày<input aria-label="Từ ngày" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} /></label><label className="appointment-filter">Đến ngày<input aria-label="Đến ngày" type="date" value={toDate} onChange={event => setToDate(event.target.value)} /></label></div>}{invalidRange && <p role="alert" className="appointment-feedback is-error">Ngày kết thúc phải từ ngày bắt đầu.</p>}

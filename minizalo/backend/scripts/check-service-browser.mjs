@@ -57,7 +57,7 @@ try {
     await detail.locator('.service-detail-book').click();
     await page.getByRole('dialog', { name: '\u0110\u0103ng nh\u1eadp', exact: true }).waitFor();
     await page.getByRole('button', { name: '\u0110\u00f3ng', exact: true }).click();
-    await page.locator('.home-feature-photo').click();
+    assert.equal(await detail.isVisible(),true,'Closing login must retain the originating service detail');
     await page.keyboard.press('Escape');
     await detail.waitFor({ state: 'hidden' });
     console.log(JSON.stringify({ viewport, actualCatalog: true, overlayControls: true, fixedFooter: true, share: true, bookingRequiresLogin: true }));

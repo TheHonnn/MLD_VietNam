@@ -77,10 +77,8 @@ export const BranchMap: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
 };
 
 const MapLink: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
-  const latitude = branch.latitude == null ? NaN : Number(branch.latitude);
-  const longitude = branch.longitude == null ? NaN : Number(branch.longitude);
-  const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
-  const destination = hasCoordinates ? latitude + ',' + longitude : branch.address?.trim();
+  const coordinates=branchCoordinates(branch);
+  const destination = coordinates ? coordinates.latitude + ',' + coordinates.longitude : branch.address?.trim();
   return destination
     ? <a href={'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(destination)} target="_blank" rel="noopener noreferrer" className={buttonClass + ' inline-flex items-center gap-2'}><MapIcon size={14} />Mở bản đồ</a>
     : <p className="text-stone-500"></p>;
@@ -244,11 +242,12 @@ export const SpecialistDirectoryModal: React.FC<{
 
 export const ServiceDetailModal: React.FC<{
   userId?:string;
+  bookingError?:string;
   onRequireLogin?:()=>void;
   service: ServiceDetails | null;
   onClose: () => void;
   onBookNow: (service: MedicalService) => void;
-}> = ({ service, onClose, onBookNow,userId,onRequireLogin }) => {
+}> = ({ service, onClose, onBookNow,userId,onRequireLogin,bookingError }) => {
   const [shareStatus, setShareStatus] = React.useState('');
   const [sharing, setSharing] = React.useState(false);
   const [favorite,setFavorite]=React.useState(false);
@@ -305,6 +304,7 @@ export const ServiceDetailModal: React.FC<{
         </div>
       </div>
       {shareStatus && <p className="service-detail-share-status" role="status">{shareStatus}</p>}
+      {bookingError&&<p role="alert" className="service-detail-share-status">{bookingError}</p>}
       {service.category && <span className="service-detail-category">{service.category}</span>}
       <h1 id="service-detail-heading">{service.title}</h1>
       <div className="service-detail-price"><strong>{price}</strong><span>{duration}</span></div>
@@ -322,9 +322,10 @@ export const ServiceDetailModal: React.FC<{
 export const SpecialistDetailModal: React.FC<{
   doctor: DoctorDetails | null;
   branches?: BranchDetails[];
+  bookingError?:string;
   onClose: () => void;
   onBookWithDoctor: (doctor: Doctor) => void;
-}> = ({ doctor, branches = [], onClose, onBookWithDoctor }) => {
+}> = ({ doctor, branches = [], bookingError, onClose, onBookWithDoctor }) => {
   if (!doctor) return null;
   const branch = branches.find(item => item.id === doctor.branchId);
   return <section className="specialist-detail" aria-labelledby="specialist-detail-heading">
@@ -340,16 +341,17 @@ export const SpecialistDetailModal: React.FC<{
       {doctor.reviewsCount > 0 && Number.isFinite(doctor.rating) && <p className="specialist-rating">{doctor.rating}/5 · {doctor.reviewsCount} đánh giá</p>}
       <Reviews reviews={doctor.reviews} />
     </div>
-    <footer className="specialist-booking-footer"><button type="button" disabled={!branch} title={!branch ? '' : undefined} onClick={() => onBookWithDoctor(doctor)}>{branch ? 'Đặt lịch với chuyên viên' : 'Chưa thể đặt lịch'}</button></footer>
+    <footer className="specialist-booking-footer">{bookingError&&<p role="alert" className="mb-2 text-xs text-red-700">{bookingError}</p>}<button type="button" disabled={!branch} title={!branch ? '' : undefined} onClick={() => onBookWithDoctor(doctor)}>{branch ? 'Đặt lịch với chuyên viên' : 'Chưa thể đặt lịch'}</button></footer>
   </section>;
 };
 
 export const BranchDetailModal: React.FC<{
   branch: BranchDetails | null;
+  bookingError?: string;
   onClose: () => void;
   onSelectBranch: (branch: Branch) => void;
   onOpenDirections?: (branch: Branch) => void;
-}> = ({ branch, onClose, onSelectBranch, onOpenDirections }) => {
+}> = ({ branch, bookingError, onClose, onSelectBranch, onOpenDirections }) => {
   const [selectedPhoto, setSelectedPhoto] = React.useState<string | null>(null);
   React.useEffect(() => { setSelectedPhoto(null); }, [branch?.id]);
   if (!branch) return null;
@@ -365,15 +367,16 @@ export const BranchDetailModal: React.FC<{
       <div className="branch-directions">{onOpenDirections ? <button type="button" onClick={() => onOpenDirections(branch)}><MapIcon size={18} />Chỉ đường</button> : <MapLink branch={branch} />}</div>
       <section className="branch-amenities"><h2>Tiện nghi</h2>{branch.amenities?.length ? <ul>{branch.amenities.map((amenity, index) => <li key={index}>{contentText(amenity, 'name') || contentText(amenity, 'title')}</li>)}</ul> : <p></p>}</section>
     </div>
-    <footer className="branch-booking-footer"><button type="button" onClick={() => onSelectBranch(branch)}>Đặt lịch tại chi nhánh</button></footer>
+    <footer className="branch-booking-footer">{bookingError&&<p role="alert" className="mb-2 text-xs text-red-700">{bookingError}</p>}<button type="button" onClick={() => onSelectBranch(branch)}>Đặt lịch tại chi nhánh</button></footer>
   </section>;
 };
 
 export const LocationDirectionsModal: React.FC<{
   branch: BranchDetails | null;
+  bookingError?: string;
   onClose: () => void;
   onBookAtBranch?: (branch: Branch) => void;
-}> = ({ branch, onClose, onBookAtBranch }) => {
+}> = ({ branch, bookingError, onClose, onBookAtBranch }) => {
   const [copyStatus, setCopyStatus] = React.useState('');
   React.useEffect(() => { setCopyStatus(''); }, [branch?.id]);
   if (!branch) return null;
@@ -384,8 +387,9 @@ export const LocationDirectionsModal: React.FC<{
       setCopyStatus('Đã sao chép địa chỉ');
     } catch { setCopyStatus('Không thể sao chép địa chỉ.'); }
   };
-  return <DetailScreen className="branch-location-screen" title="Chỉ đường đến cơ sở" onClose={onClose} footer={onBookAtBranch && <button onClick={() => { onClose(); onBookAtBranch(branch); }} className={buttonClass}>Đặt lịch tại cơ sở này</button>}>
+  return <DetailScreen className="branch-location-screen" title="Chỉ đường đến cơ sở" onClose={onClose} footer={onBookAtBranch && <button onClick={() => onBookAtBranch(branch)} className={buttonClass}>Đặt lịch tại cơ sở này</button>}>
     <h2 className="text-sm font-bold">{branch.name}</h2><p>{branch.address || ''}</p>
+    {bookingError&&<p role="alert" className="text-xs text-red-700">{bookingError}</p>}
     {branch.phone && <a className="block" href={'tel:' + branch.phone}>Hotline: {branch.phone}</a>}
     <BranchHours branch={branch} /><MapLink branch={branch} />
     {branch.address && <button onClick={handleCopy} className={buttonClass}>Sao chép địa chỉ</button>}

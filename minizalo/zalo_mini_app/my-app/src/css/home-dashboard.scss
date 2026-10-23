@@ -6,7 +6,7 @@
 }
 
 .mini-app-shell--home > .app-main-content--home {
-  overflow: hidden;
+  overflow-y: auto;
   padding: 0 0 var(--home-nav-height);
 }
 
@@ -21,6 +21,10 @@
   color: #55483e;
   container: home-dashboard / size;
   letter-spacing: 0;
+}
+
+.home-dashboard, .home-more, .home-catalog-dialog {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 .home-greeting { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -67,7 +71,7 @@
 .mini-app-shell--home > .app-bottom-nav > .app-home-indicator { display: none; }
 .mini-app-shell--home .app-bottom-nav button { border-radius: 10px; }
 
-.home-catalog-dialog { position: fixed; inset: 0; width: min(390px, 100%); max-width: 100%; height: min(844px, 100vh); height: min(844px, 100dvh); max-height: 100vh; max-height: 100dvh; margin: auto; padding: 0; border: 0; background: #f8f1e7; color: #55483e; overflow-y: auto; }
+.home-catalog-dialog { position: fixed; inset: var(--app-safe-top, 24px) 0 0; width: min(390px, 100%); max-width: 100%; height: min(844px, calc(100dvh - var(--app-safe-top, 24px))); max-height: calc(100dvh - var(--app-safe-top, 24px)); margin: auto; padding: 0; border: 0; background: #f8f1e7; color: #55483e; overflow-y: auto; }
 .home-catalog-dialog::backdrop { background: #21170e80; }
 .home-catalog-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; background: #f8f1e7; padding: max(16px, env(safe-area-inset-top, 0px)) 16px 8px; border-bottom: 1px solid #e7d0bc; }
 .home-catalog-header h2 { font-size: 20px; font-weight: 700; }
@@ -113,4 +117,33 @@
 }
 @media (max-height: 590px) {
   .home-dashboard { gap: 10px; padding-left: 12px; padding-right: 12px; }
+}
+
+.home-more { padding: 20px 20px 28px; background: #f8f1e7; color: #55483e; }
+.home-shortcuts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; padding-bottom: 20px; }
+.home-shortcuts button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 74px; font-size: 12px; color: #98501b; overflow-wrap: anywhere; }
+.home-shortcuts svg { color: #98501b; }
+.home-information { padding: 20px 0; border-top: 1px solid #e5d6c8; }
+.home-information > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.home-information h2 { font-size: 18px; line-height: 25px; font-weight: 700; color: #78492f; }
+.home-information h3 { margin-top: 12px; font-size: 14px; font-weight: 600; }
+.home-information > p, .home-information details p { margin-top: 8px; font-size: 13px; line-height: 21px; white-space: pre-line; overflow-wrap: anywhere; }
+.home-information > header > button, .home-information a { color: #98501b; font-size: 12px; min-height: 40px; }
+.home-about > div { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; font-size: 12px; color: #6c655f; }
+.home-preview-list > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 0; border-bottom: 1px solid #eadfd5; text-align: left; }
+.home-preview-list img, .home-preview-list > button > div { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.home-preview-list > button > span, .home-upcoming > span { flex: 1; min-width: 0; }
+.home-preview-list strong, .home-upcoming strong { display: block; font-size: 14px; line-height: 21px; overflow-wrap: anywhere; }
+.home-preview-list small, .home-upcoming small { display: block; margin-top: 5px; font-size: 12px; line-height: 18px; }
+.home-upcoming { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px 0; }
+.home-direction-link { display: flex; align-items: center; gap: 8px; min-height: 44px; color: #98501b; font-size: 13px; }
+.home-information details { padding: 14px 0; border-bottom: 1px solid #eadfd5; font-size: 13px; }
+.home-information summary { cursor: pointer; font-weight: 600; line-height: 21px; }
+
+@media (max-height: 480px) {
+  .home-dashboard { height: auto; min-height: 0; container-type: inline-size; }
+  .home-feature { flex: none; min-height: 360px; }
+  .home-feature-photo { flex: 0 0 160px; height: 160px; max-height: none; aspect-ratio: auto; }
+  .home-feature-copy { padding-bottom: 12px; }
+  .home-feature-footer { flex-shrink: 0; }
 }

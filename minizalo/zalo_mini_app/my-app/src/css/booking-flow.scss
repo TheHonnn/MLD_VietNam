@@ -15,6 +15,19 @@
 .booking-progress .is-active { color: #a65317; }
 .booking-progress .is-active > span { background: #a65317; }
 .booking-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 20px; overflow-wrap: anywhere; scrollbar-width: thin; }
+.booking-empty { font-size: 13px; line-height: 21px; }
+.booking-empty a, .booking-empty button { display: block; color: #98501b; min-height: 44px; padding: 10px 0; text-align: left; }
+.booking-flow[data-step="4"] .booking-header { padding-bottom: 10px; }
+.booking-flow[data-step="4"] .booking-topbar { margin-bottom: 8px; }
+.booking-flow[data-step="4"] .booking-subtitle { margin-top: 4px; }
+.booking-flow[data-step="4"] .booking-progress { margin-top: 12px; }
+.booking-flow[data-step="4"] .booking-section { gap: 14px; }
+.booking-flow[data-step="4"] .booking-appointment-summary { padding: 12px; border-radius: 8px; }
+.booking-flow[data-step="4"] .booking-appointment-summary p { margin-top: 4px; }
+.booking-flow[data-step="4"] .booking-appointment-summary > div { margin-top: 6px; }
+.booking-flow[data-step="4"] .booking-calendar-heading { margin-bottom: 8px; }
+.booking-flow[data-step="4"] .booking-week button { height: 52px; }
+.booking-flow[data-step="4"] .booking-month-picker { margin: 4px 0; min-height: 40px; }
 .booking-section { display: flex; flex-direction: column; gap: 22px; }
 .booking-search { display: flex; align-items: center; gap: 8px; }
 .booking-search > span { display: grid; place-items: center; width: 42px; height: 46px; flex-shrink: 0; border-radius: 10px; background: #fff; color: #ad591c; }
@@ -138,4 +151,16 @@
 }
 @media (max-width: 639px) {
   .mini-app-shell--booking { height: 100dvh; margin-top: 0; max-width: none; border: 0; box-shadow: none; }
+}
+@media (max-height: 480px) and (min-width: 640px) {
+  .booking-flow { display: grid; grid-template-rows: auto minmax(0,1fr) auto; }
+  .booking-flow .booking-header { position: relative; padding: 8px 12px; }
+  .booking-flow .booking-header h1 { margin-left: 44px; font-size: 20px; line-height: 36px; }
+  .booking-flow .booking-topbar { position: absolute; top: 8px; left: 12px; margin: 0; }
+  .booking-flow .booking-subtitle, .booking-flow .booking-progress, .booking-flow .booking-topbar > span { display: none; }
+  .booking-flow .booking-body { padding: 0 12px 12px; }
+  .booking-flow .booking-footer { padding: 8px 12px max(8px,var(--app-safe-bottom)); }
+  .booking-flow .booking-footer-summary { display: none; }
+  .booking-flow .booking-service-photo { aspect-ratio: 4 / 1; max-height: 72px; }
+  .booking-flow .booking-choice-heading, .booking-flow .booking-price { padding: 8px 12px; }
 }

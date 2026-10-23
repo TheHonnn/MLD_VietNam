@@ -48,7 +48,8 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [step, setStep] = useState<BookingStep>(1);
   const body = useRef<HTMLElement>(null);
   useEffect(() => { if (body.current) body.current.scrollTop = 0; }, [step]);
-  const [selectedService, setSelectedService] = useState<MedicalService>(initialService || allServices[0]);
+  const assignedServices=initialDoctor?allServices.filter(service=>initialDoctor.serviceIds?.includes(service.id)):allServices;
+  const [selectedService, setSelectedService] = useState<MedicalService>(initialService || assignedServices[0]);
   const [selectedBranch, setSelectedBranch] = useState<Branch>(initialBranch || branches[0]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor>(initialDoctor || doctors[0]);
   const [autoAssign, setAutoAssign] = useState(!initialDoctor);
@@ -59,10 +60,16 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [branchMode, setBranchMode] = useState<'list' | 'map'>('list');
   const [doctorSpecialty, setDoctorSpecialty] = useState('');
   const categories = Array.from(new Set(allServices.map(service => service.category))).filter(Boolean);
-  const visibleServices = allServices.filter(service => (!userPackage||service.id===initialService?.id) && (!serviceCategory || service.category === serviceCategory) && searchText(`${service.title} ${service.description}`).includes(searchText(serviceSearch)));
-  const visibleBranches = branches.filter(branch => (!branchCity || branch.city === branchCity) && searchText(`${branch.name} ${branch.address}`).includes(searchText(branchSearch)));
+  const visibleServices = assignedServices.filter(service => (!userPackage||service.id===initialService?.id) && (!serviceCategory || service.category === serviceCategory) && searchText(`${service.title} ${service.description}`).includes(searchText(serviceSearch)));
+  const visibleBranches = branches.filter(branch => (!initialDoctor||branch.id===initialDoctor.branchId)&&(!branchCity || branch.city === branchCity) && searchText(`${branch.name} ${branch.address}`).includes(searchText(branchSearch)));
   const today = vietnamToday();
-  const [selectedDate, setSelectedDate] = useState(() => shiftDate(vietnamToday(), 1));
+  const [selectedDate, setSelectedDate] = useState(vietnamToday);
+  const [dateRangeStart,setDateRangeStart]=useState(vietnamToday);
+  const [openDates,setOpenDates]=useState<string[]>([]);
+  const [datesLoading,setDatesLoading]=useState(false);
+  const [datesError,setDatesError]=useState('');
+  const [datesVersion,setDatesVersion]=useState(0);
+  const dateChoice=useRef(false);
   const availableDates = useMemo(() => {
     const day = new Date(`${selectedDate}T12:00:00Z`).getUTCDay();
     const monday = shiftDate(selectedDate, -((day + 6) % 7));
@@ -110,6 +117,20 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const morningSlots = labelsFor(0, 12);
   const afternoonSlots = labelsFor(12, 18);
   const eveningSlots = labelsFor(18, 24);
+  useEffect(()=>{dateChoice.current=false;setDateRangeStart(vietnamToday());setSelectedDate(vietnamToday());},[selectedBranch?.id,selectedService?.id,autoAssign,selectedDoctor?.id]);
+  useEffect(()=>{
+    if(step!==4||!selectedBranch?.id||!selectedService?.id)return;
+    let cancelled=false;const controller=new AbortController();
+    setDatesLoading(true);setDatesError('');setOpenDates([]);
+    apiClient.getSlotDates(selectedBranch.id,dateRangeStart,shiftDate(dateRangeStart,30),selectedService.id,autoAssign?undefined:selectedDoctor?.id,controller.signal).then(result=>{
+      if(cancelled)return;
+      setDatesLoading(false);
+      if(result?.error||!Array.isArray(result?.dates)){setDatesError(result?.error||'Không thể tải ngày có lịch trống.');return;}
+      setOpenDates(result.dates);
+      if(!dateChoice.current&&result.dates.length){setSelectedDate(result.dates[0]);dateChoice.current=true;}
+    });
+    return()=>{cancelled=true;controller.abort();};
+  },[step,selectedBranch?.id,selectedService?.id,dateRangeStart,autoAssign,selectedDoctor?.id,datesVersion]);
 
   useEffect(() => {
     if (currentUser?.id) return;
@@ -130,27 +151,31 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
 
   useEffect(() => {
     let cancelled = false;
+    const controller=new AbortController();
+    if(step!==4)return;
     setSelectedTime('');
     setSlots([]);
     setSlotsError('');
     setSlotsFor('');
-    if (!selectedBranch?.id || !selectedService?.id) return;
+    if (!selectedBranch?.id || !selectedService?.id){setSlotsLoading(false);return;}
     setSlotsLoading(true);
-    apiClient.getSlots(selectedBranch.id, selectedDate, selectedService.id, autoAssign ? undefined : selectedDoctor?.id).then(result => {
+    apiClient.getSlots(selectedBranch.id, selectedDate, selectedService.id, autoAssign ? undefined : selectedDoctor?.id,controller.signal).then(result => {
       if (cancelled) return;
       setSlotsLoading(false);
       if (!result?.slots || result.error) { setSlotsError(result?.error || 'Không thể tải giờ hẹn.'); return; }
       setSlots(result.slots);
       setSlotsFor(slotRequestKey);
     });
-    return () => { cancelled = true; };
-  }, [selectedBranch?.id, selectedService?.id, selectedService?.durationMinutes, selectedDate, autoAssign, selectedDoctor?.id, slotsVersion]);
+    return () => { cancelled = true;controller.abort(); };
+  }, [step===4,selectedBranch?.id, selectedService?.id, selectedService?.durationMinutes, selectedDate, autoAssign, selectedDoctor?.id, slotsVersion]);
   const total = userPackage?0:selectedService?.price || 0;
   const discountedTotal = Math.max(0, total - voucherDiscount);
   const progressStage = step === 1 ? 1 : step <= 4 ? 2 : 3;
   const chooseDate = (date: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return;
     setSelectedDate(date); setSelectedTime(''); setSubmitError('');
+    dateChoice.current=true;
+    if(date<dateRangeStart||date>shiftDate(dateRangeStart,30))setDateRangeStart(date);
   };
   const summary = useMemo(() => ({
     doctor: autoAssign ? 'Trung tâm sắp xếp' : selectedDoctor?.name || '',
@@ -288,9 +313,12 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
         {step === 4 && <div className="booking-section booking-date-section">
           <div className="booking-appointment-summary"><strong>{selectedService.title}</strong><p>{selectedBranch.name} · {summary.doctor} · {selectedService.durationMinutes} phút</p><div><strong>Đang chọn</strong><strong>{selectedTime || 'Chưa chọn giờ'}</strong></div></div>
           <div className="booking-calendar"><div className="booking-calendar-heading"><button type="button" title="Tuần trước" disabled={availableDates[0] <= today} onClick={() => chooseDate(shiftDate(selectedDate, -7) < today ? today : shiftDate(selectedDate, -7))}><ArrowLeftIcon size={16} /></button><strong>{new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${selectedDate}T12:00:00Z`))}</strong><button type="button" title="Tuần sau" onClick={() => chooseDate(shiftDate(selectedDate, 7))}><ArrowRightIcon size={16} /></button></div><div className="booking-week">{availableDates.map(date => <button key={date} type="button" aria-label={date} aria-pressed={selectedDate === date} disabled={date < today} onClick={() => chooseDate(date)}><span>{dayLabels[new Date(`${date}T12:00:00Z`).getUTCDay()]}</span><strong>{date.slice(8)}</strong></button>)}</div><label className="booking-month-picker"><CalendarIcon size={17} />Mở lịch tháng<input type="date" aria-label="Chọn ngày trong lịch tháng" min={today} value={selectedDate} onChange={event => chooseDate(event.target.value)} /></label><p className="booking-date-caption">{availableDates[0].split('-').reverse().join('/')} – {availableDates[6].split('-').reverse().join('/')}</p></div>
+          {datesLoading&&<p role="status" className="text-xs">Đang tìm ngày có lịch trống...</p>}
+          {datesError&&<p role="alert" className="text-xs text-red-700">{datesError} <button type="button" onClick={()=>setDatesVersion(value=>value+1)}>Thử tải ngày trống</button></p>}
+          {!datesLoading&&openDates.length>0&&<label className="booking-filter">Ngày có lịch trống<select aria-label="Ngày có lịch trống" value={openDates.includes(selectedDate)?selectedDate:''} onChange={event=>chooseDate(event.target.value)}><option value="" disabled>Chọn ngày có lịch trống</option>{openDates.map(day=><option key={day} value={day}>{day.split('-').reverse().join('/')}</option>)}</select></label>}
           {slotsLoading && <p role="status" className="text-xs">Đang tải giờ hẹn...</p>}
           {slotsError && <p role="alert" className="text-xs text-red-700">{slotsError} <button onClick={() => setSlotsVersion(value => value + 1)}>Thử lại</button></p>}
-          {!slotsLoading && !slotsError && !availableSlots.length && <p className="booking-empty"></p>}
+          {!slotsLoading && !datesLoading && !slotsError && !availableSlots.length && <div className="booking-empty" role="status"><p>Ngày này chưa có giờ trống phù hợp. Bạn có thể chọn ngày khác hoặc liên hệ chi nhánh.</p>{selectedBranch.phone&&<a href={`tel:${selectedBranch.phone}`}>Gọi {selectedBranch.phone}</a>}<button type="button" onClick={()=>{dateChoice.current=false;setDateRangeStart(shiftDate(dateRangeStart,31));setDatesVersion(value=>value+1);}}>Tìm ngày trống tiếp theo</button></div>}
           <TimeSlots title="Buổi sáng" slots={morningSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi chiều" slots={afternoonSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi tối" slots={eveningSlots} selected={selectedTime} onSelect={setSelectedTime} />
         </div>}
 

@@ -26,6 +26,7 @@ interface GroupEAcademyProps {
   initialCourseId?: string;
   catalogSearch?: { query: string; id: number };
   notificationTarget?: {id:string; enrollmentId:string; tab:string; quizId?:string};
+  onBusyChange?: (busy:boolean) => void;
 }
 
 type Lesson = Course['lessons'][number] & {
@@ -74,7 +75,7 @@ const displayText = (value: unknown): string => {
 const buttonClass = 'min-h-10 rounded-[8px] border border-[#D5DAD7] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-50';
 const Empty = ({ children }: { children?: React.ReactNode }) => children ? <p className="py-4 text-xs text-[#66736C]">{children}</p> : null;
 
-export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, user, branches = [], onOpenNotifications, loading, error, onRefresh, onRequireLogin, mode = 'catalog', initialCourseId, catalogSearch, notificationTarget }) => {
+export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, user, branches = [], onOpenNotifications, loading, error, onRefresh, onRequireLogin, mode = 'catalog', initialCourseId, catalogSearch, notificationTarget,onBusyChange }) => {
   const [tab, setTab] = useState<Tab>(initialCourseId ? 'catalog' : mode === 'learning' ? 'my_courses' : 'catalog');
   const [selectedId, setSelectedId] = useState<string | null>(initialCourseId || null);
   const [catalogView, setCatalogView] = useState<'home'|'catalog'|'course'|'instructor'|'registration'|'payment'>(initialCourseId?'course':'home');
@@ -98,6 +99,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const [learningVersion, setLearningVersion] = useState(0);
   const [lessonId, setLessonId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const latestNotes=useRef(notes);latestNotes.current=notes;
+  const persistedNotes=useRef('');
   const noteKey = (courseId:string,enrollmentId:string,lessonId:string) => `mld_lesson_notes:${userId}:${courseId}:${enrollmentId}:${lessonId}`;
   const pendingNoteSave = useRef<() => Promise<ProgressSave>>(async () => 'saved');
   const [lessonExitBlocked,setLessonExitBlocked]=useState(false);
@@ -170,6 +173,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const registrationLock = useRef(false);
   const quizLock = useRef(false);
   const progressLock = useRef(false);
+  const progressCompletion=useRef<Promise<void>|null>(null);
   const watched = useRef(0);
   const lastPlaybackTime = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -248,6 +252,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   },[userId,activeCourseId,activeEnrollmentId,study?.quiz?.id]);
   const quizDraftError=tab==='exam'&&attemptActive&&!quizSubmitting&&draftFeedback?.scope===selectedQuizScope.current&&draftFeedback.attemptId===quizAttempt?.id?draftFeedback.message:'';
   const learningActionBusy=attemptBusy||quizSubmitting||progressSaving;
+  const navigationBusy=learningActionBusy||registering;
+  useEffect(()=>{onBusyChange?.(navigationBusy);return()=>onBusyChange?.(false);},[navigationBusy,onBusyChange]);
   useEffect(() => () => { quizRequest.current++; }, []);
   const beginQuiz=async()=>{
     if(!study?.quiz||attemptLock.current||quizLock.current) return;
@@ -328,6 +334,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     watched.current = Number(item.watchedSeconds) || 0;
     lastPlaybackTime.current = null;
     let savedNotes = item.studentNotes || '';
+    persistedNotes.current=savedNotes;
     if(ownedLesson && study && activeEnrollmentId)try {
       const draft=JSON.parse(localStorage.getItem(noteKey(study.id,activeEnrollmentId,item.id)) || 'null');
       if(typeof draft==='string')savedNotes=draft;
@@ -351,6 +358,9 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     if(studentNotes!==undefined&&studentNotes.length>10000){setActionError('Ghi chú tối đa 10.000 ký tự.');return 'blocked';}
     const courseId = study.id, savedLessonId = activeLesson.id;
     const scope = activeScope.current;
+    let finish!:()=>void;
+    const completion=new Promise<void>(resolve=>{finish=resolve;});
+    progressCompletion.current=completion;
     progressLock.current = true; setProgressSaving(true); setActionError('');
     try {
       const response = await apiClient.saveLessonProgress(courseId, savedLessonId, {
@@ -364,6 +374,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       }
       const progress = response.progress;
       if (activeScope.current !== scope) return 'blocked';
+      persistedNotes.current=progress.studentNotes||'';
       if(studentNotes!==undefined)try {
         const key=noteKey(courseId,activeEnrollmentId || '',savedLessonId);
         if(localStorage.getItem(key)===JSON.stringify(studentNotes))localStorage.removeItem(key);
@@ -376,7 +387,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       setNotice(completed && isReadingLesson(activeLesson) && progress.isCompleted ? 'Đã ghi nhận xác nhận đã đọc.' : 'Đã lưu tiến trình học.');
       return 'saved';
     } catch (error) { if (activeScope.current === scope) setActionError(error instanceof Error ? error.message : 'Không thể lưu tiến trình học.'); return 'retry'; }
-    finally { progressLock.current = false; setProgressSaving(false); }
+    finally { progressLock.current = false;if(progressCompletion.current===completion)progressCompletion.current=null;finish();setProgressSaving(false); }
   };
   pendingNoteSave.current=()=>saveProgress(false,notes);
   useEffect(() => {
@@ -401,15 +412,20 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       }else setLessonExitBlocked(true);
     } finally { closingLesson.current=false; }
   };
-  const leaveLessonWithDraft=(discard=false)=>{
-    if(progressLock.current||closingLesson.current)return;
-    if(discard&&study&&activeLesson&&activeEnrollmentId)try{localStorage.removeItem(noteKey(study.id,activeEnrollmentId,activeLesson.id));}catch{/* Restricted storage cannot supply this draft on reopen either. */}
-    if(!discard&&study&&activeLesson&&activeEnrollmentId&&notes!==(activeLesson.studentNotes||'')){
-      try{localStorage.setItem(noteKey(study.id,activeEnrollmentId,activeLesson.id),JSON.stringify(notes));}
-      catch{setDraftStorageFailed(true);setActionError('Thiết bị không giữ được bản nháp. Ghi chú chưa được lưu lên hệ thống.');return;}
-    }
-    closingLesson.current=true;videoRef.current?.pause();closingLesson.current=false;
-    playbackGeneration.current++;playback.current=null;setLessonId(null);setLessonExitBlocked(false);
+  const leaveLessonWithDraft=async(discard=false)=>{
+    if(closingLesson.current)return;
+    const scope=activeScope.current,generation=playbackGeneration.current;
+    closingLesson.current=true;
+    try {
+      await progressCompletion.current;
+      if(scope!==activeScope.current||generation!==playbackGeneration.current)return;
+      if(discard&&study&&activeLesson&&activeEnrollmentId)try{localStorage.removeItem(noteKey(study.id,activeEnrollmentId,activeLesson.id));}catch{/* Restricted storage cannot supply this draft on reopen either. */}
+      if(!discard&&study&&activeLesson&&activeEnrollmentId&&latestNotes.current!==persistedNotes.current){
+        try{localStorage.setItem(noteKey(study.id,activeEnrollmentId,activeLesson.id),JSON.stringify(latestNotes.current));}
+        catch{setDraftStorageFailed(true);setActionError('Thiết bị không giữ được bản nháp. Ghi chú chưa được lưu lên hệ thống.');return;}
+      }
+      videoRef.current?.pause();playbackGeneration.current++;playback.current=null;setLessonId(null);setLessonExitBlocked(false);
+    } finally {closingLesson.current=false;}
   };
   useBackAction(Boolean(lesson) || tab !== 'catalog' || catalogView !== 'home', () => {
     if (lesson) { if(lessonExitBlocked)leaveLessonWithDraft();else void closeLesson();return; }
