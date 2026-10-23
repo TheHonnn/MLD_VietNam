@@ -473,8 +473,6 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                 const SizedBox(height: 4),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                                  textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
                                       '${service.durationMinutes} phút',
@@ -484,47 +482,13 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                         color: BookingColors.textSecondary,
                                       ),
                                     ),
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                                      textBaseline: TextBaseline.alphabetic,
-                                      children: [
-                                        Text(
-                                          '${_formatPrice(service.displayPrice)}đ',
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: BookingColors.primary,
-                                          ),
-                                        ),
-                                        if (service.hasDiscount) ...[
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            '${_formatPrice(service.price)}đ',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w400,
-                                              decoration: TextDecoration.lineThrough,
-                                              color: BookingColors.textSecondary,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFD64545).withValues(alpha: 0.12),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              '-${service.discountPercent}%',
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFFD64545),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
+                                    Text(
+                                      '${_formatPrice(service.displayPrice)}đ',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: BookingColors.primary,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -548,14 +512,6 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                         MaterialPageRoute(
                                           builder: (_) => B03ServiceDetailScreen(
                                             serviceId: int.tryParse(service.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
-                                            title: service.name,
-                                            duration: '${service.durationMinutes} phút',
-                                            price: '${_formatPrice(service.displayPrice)}đ',
-                                            originalPrice: service.hasDiscount ? '${_formatPrice(service.price)}đ' : null,
-                                            category: service.categoryName,
-                                            image: service.imageUrl,
-                                            description: service.description,
-                                            service: service,
                                           ),
                                         ),
                                       );
