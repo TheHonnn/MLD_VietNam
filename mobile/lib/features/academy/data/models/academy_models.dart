@@ -17,6 +17,8 @@ class CourseModel {
   final String schedule;
   final String description;
   final String tag;
+  final int progressPercentage;
+  final String status; // 'IN_PROGRESS', 'UPCOMING', 'COMPLETED'
 
   const CourseModel({
     required this.id,
@@ -37,6 +39,8 @@ class CourseModel {
     required this.schedule,
     required this.description,
     this.tag = 'Thực hành chuyên nghiệp',
+    this.progressPercentage = 45,
+    this.status = 'IN_PROGRESS',
   });
 
   factory CourseModel.fromJson(Map<String, dynamic> json) {
@@ -59,6 +63,8 @@ class CourseModel {
       schedule: json['schedule']?.toString() ?? 'Thứ 6–7–Chủ nhật · 13:00–17:00',
       description: json['fullDescription']?.toString() ?? json['shortDescription']?.toString() ?? json['description']?.toString() ?? '',
       tag: json['tag']?.toString() ?? 'Thực hành chuyên nghiệp',
+      progressPercentage: (json['progressPercentage'] as num?)?.toInt() ?? (json['progress_percentage'] as num?)?.toInt() ?? 45,
+      status: json['status']?.toString() ?? 'IN_PROGRESS',
     );
   }
 
@@ -81,6 +87,8 @@ class CourseModel {
     'schedule': schedule,
     'description': description,
     'tag': tag,
+    'progressPercentage': progressPercentage,
+    'status': status,
   };
 }
 
@@ -185,6 +193,8 @@ class MockAcademyData {
       branch: 'Chi nhánh Quận 3',
       schedule: 'Thứ 2–4–6 · 09:00–12:00',
       description: 'Đào tạo kỹ năng phân tích da, ứng dụng công nghệ điện di, peel sinh học và phác đồ điều trị nám, mụn an toàn chuẩn y khoa.',
+      progressPercentage: 0,
+      status: 'UPCOMING',
     ),
     CourseModel(
       id: 'course_03',
@@ -204,6 +214,8 @@ class MockAcademyData {
       branch: 'Chi nhánh mẫu 02 — Quận 1',
       schedule: 'Thứ 3–5–7 · 18:00–21:00',
       description: 'Nền tảng các động tác xoa bóp, day miết, bấm huyệt thư giãn toàn thân, phù hợp cho người mới bắt đầu bước chân vào ngành Spa.',
+      progressPercentage: 100,
+      status: 'COMPLETED',
     ),
     CourseModel(
       id: 'course_04',

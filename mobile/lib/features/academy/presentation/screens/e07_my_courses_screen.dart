@@ -33,6 +33,20 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final allCourses = AcademyRepository.instance.enrolledCourses.isNotEmpty
+        ? AcademyRepository.instance.enrolledCourses
+        : MockAcademyData.courses;
+
+    final inProgressCourses = allCourses
+        .where((c) => (c.progressPercentage > 0 && c.progressPercentage < 100) || c.status == 'IN_PROGRESS')
+        .toList();
+    final upcomingCourses = allCourses
+        .where((c) => c.progressPercentage == 0 || c.status == 'UPCOMING')
+        .toList();
+    final completedCourses = allCourses
+        .where((c) => c.progressPercentage >= 100 || c.status == 'COMPLETED')
+        .toList();
+
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
@@ -76,7 +90,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 2. Thẻ thông tin tổng quan (3 chỉ số + 120 giờ) [8116:25877]
+            // 2. Thẻ thông tin tổng quan (3 chỉ số + giờ học) [8116:25877]
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -90,14 +104,14 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                 children: [
                   Row(
                     children: [
-                      _buildMetricColumn('${AcademyRepository.instance.enrolledCourses.length}', 'đã ghi danh'),
-                      _buildMetricColumn('${AcademyRepository.instance.enrolledCourses.length}', 'đang học'),
-                      _buildMetricColumn('0', 'hoàn thành'),
+                      _buildMetricColumn('${allCourses.length}', 'đã ghi danh'),
+                      _buildMetricColumn('${inProgressCourses.length}', 'đang học'),
+                      _buildMetricColumn('${completedCourses.length}', 'hoàn thành'),
                     ],
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '${AcademyRepository.instance.enrolledCourses.fold<int>(0, (acc, c) => acc + c.totalHours)} giờ học · ${AcademyRepository.instance.enrolledCourses.length} khóa đang tham gia',
+                    '${allCourses.fold<int>(0, (acc, c) => acc + c.totalHours)} giờ học · ${allCourses.length} khóa đang tham gia',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -128,9 +142,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               ),
               child: Row(
                 children: [
-                  _buildNavTab(0, 'Đang học'),
-                  _buildNavTab(1, 'Sắp học'),
-                  _buildNavTab(2, 'Đã hoàn thành'),
+                  _buildNavTab(0, 'Đang học (${inProgressCourses.length})'),
+                  _buildNavTab(1, 'Sắp học (${upcomingCourses.length})'),
+                  _buildNavTab(2, 'Đã hoàn thành (${completedCourses.length})'),
                 ],
               ),
             ),
@@ -138,17 +152,20 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
 
             // 4. Nội dung Tab
             if (_selectedTab == 0) ...[
-              if (AcademyRepository.instance.enrolledCourses.isNotEmpty)
-                ...AcademyRepository.instance.enrolledCourses.map((c) => _buildEnrolledCard(c))
+              if (inProgressCourses.isNotEmpty)
+                ...inProgressCourses.map((c) => _buildEnrolledCard(c))
               else
                 _buildEmptyCourseState('đang học'),
             ] else if (_selectedTab == 1) ...[
-              if (AcademyRepository.instance.enrolledCourses.isNotEmpty)
-                ...AcademyRepository.instance.enrolledCourses.map((c) => _buildEnrolledCard(c))
+              if (upcomingCourses.isNotEmpty)
+                ...upcomingCourses.map((c) => _buildEnrolledCard(c))
               else
                 _buildEmptyCourseState('sắp học'),
             ] else ...[
-              _buildEmptyCourseState('đã hoàn thành'),
+              if (completedCourses.isNotEmpty)
+                ...completedCourses.map((c) => _buildEnrolledCard(c))
+              else
+                _buildEmptyCourseState('đã hoàn thành'),
             ],
           ],
         ),

@@ -24,8 +24,17 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
   late int _selectedTab;
   final BookingRepository _repo = BookingRepository.instance;
 
-  final String _dateRangeText = 'Tất cả các ngày';
-  final String _statusFilterText = 'Tất cả · Tất cả · Đã xác nhận';
+  DateTimeRange? _selectedDateRange;
+  String _selectedBranch = 'Tất cả';
+
+  String get _dateRangeText {
+    if (_selectedDateRange == null) return 'Tất cả các ngày';
+    final s = _selectedDateRange!.start;
+    final e = _selectedDateRange!.end;
+    return '${s.day}/${s.month} - ${e.day}/${e.month}/${e.year}';
+  }
+
+  String get _branchFilterText => _selectedBranch == 'Tất cả' ? 'Tất cả chi nhánh' : _selectedBranch;
 
   @override
   void initState() {
@@ -40,13 +49,29 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
   }
 
   List<AppointmentItemModel> _getCurrentAppointments() {
+    List<AppointmentItemModel> list;
     if (_selectedTab == 0) {
-      return _repo.getUpcomingAppointments();
+      list = _repo.getUpcomingAppointments();
     } else if (_selectedTab == 1) {
-      return _repo.getCompletedAppointments();
+      list = _repo.getCompletedAppointments();
     } else {
-      return _repo.getCancelledAppointments();
+      list = _repo.getCancelledAppointments();
     }
+
+    if (_selectedDateRange != null) {
+      list = list.where((app) {
+        final d = DateTime(app.appointmentDate.year, app.appointmentDate.month, app.appointmentDate.day);
+        final start = DateTime(_selectedDateRange!.start.year, _selectedDateRange!.start.month, _selectedDateRange!.start.day);
+        final end = DateTime(_selectedDateRange!.end.year, _selectedDateRange!.end.month, _selectedDateRange!.end.day);
+        return !d.isBefore(start) && !d.isAfter(end);
+      }).toList();
+    }
+
+    if (_selectedBranch != 'Tất cả') {
+      list = list.where((app) => app.branchName.toLowerCase().contains(_selectedBranch.toLowerCase())).toList();
+    }
+
+    return list;
   }
 
   void _onReschedule(AppointmentItemModel appointment) {
@@ -165,30 +190,62 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: BookingColors.cardBorder),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _dateRangeText,
-                    style: const TextStyle(fontSize: 15, color: BookingColors.textPrimary),
-                  ),
-                  const Icon(Icons.keyboard_arrow_down, color: BookingColors.heading),
-                ],
+            InkWell(
+              onTap: () async {
+                final picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2025, 1, 1),
+                  lastDate: DateTime(2028, 12, 31),
+                  initialDateRange: _selectedDateRange,
+                  builder: (context, child) {
+                    return Theme(
+                      data: ThemeData.light().copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: BookingColors.primary,
+                          onPrimary: Colors.white,
+                          surface: Colors.white,
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  setState(() => _selectedDateRange = picked);
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: BookingColors.cardBorder),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _dateRangeText,
+                      style: const TextStyle(fontSize: 15, color: BookingColors.textPrimary),
+                    ),
+                    if (_selectedDateRange != null)
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedDateRange = null),
+                        child: const Icon(Icons.close, size: 18, color: BookingColors.textSecondary),
+                      )
+                    else
+                      const Icon(Icons.keyboard_arrow_down, color: BookingColors.heading),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 14),
 
-            // Chi nhánh / Dịch vụ / Trạng thái Dropdown
+            // Chi nhánh Dropdown
             const Text(
-              'Chi nhánh / Dịch vụ / Trạng thái',
+              'Chi nhánh',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -196,23 +253,62 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: BookingColors.cardBorder),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _statusFilterText,
-                    style: const TextStyle(fontSize: 15, color: BookingColors.textPrimary),
+            InkWell(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
-                  const Icon(Icons.keyboard_arrow_down, color: BookingColors.heading),
-                ],
+                  builder: (ctx) {
+                    final branches = ['Tất cả', 'Chi nhánh Quận 3', 'Chi nhánh Quận 1', 'Chi nhánh Thủ Đức'];
+                    return SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Chọn chi nhánh',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: BookingColors.heading),
+                            ),
+                            const SizedBox(height: 12),
+                            ...branches.map((b) => ListTile(
+                                  title: Text(b),
+                                  trailing: _selectedBranch == b ? const Icon(Icons.check, color: BookingColors.primary) : null,
+                                  onTap: () {
+                                    setState(() => _selectedBranch = b);
+                                    Navigator.pop(ctx);
+                                  },
+                                )),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: BookingColors.cardBorder),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _branchFilterText,
+                      style: const TextStyle(fontSize: 15, color: BookingColors.textPrimary),
+                    ),
+                    const Icon(Icons.keyboard_arrow_down, color: BookingColors.heading),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 18),

@@ -256,13 +256,13 @@ class BookingFlowState {
 
   int get totalDurationMinutes {
     final list = allSelectedServices;
-    if (list.isEmpty) return selectedService?.durationMinutes ?? 60;
+    if (list.isEmpty) return selectedService?.durationMinutes ?? 0;
     return list.fold(0, (sum, s) => sum + s.durationMinutes);
   }
 
   double get rawServicePrice {
     final list = allSelectedServices;
-    if (list.isEmpty) return selectedService?.displayPrice ?? 450000.0;
+    if (list.isEmpty) return selectedService?.displayPrice ?? 0.0;
     return list.fold(0.0, (sum, s) => sum + s.displayPrice);
   }
 
@@ -271,9 +271,9 @@ class BookingFlowState {
     return raw > 0 ? raw : 0.0;
   }
 
-  double get depositAmount => usePrepaidPackage ? 0.0 : (payFullAmount ? servicePrice : 150000.0);
-  double get payableNow => usePrepaidPackage ? 0.0 : (payFullAmount ? servicePrice : depositAmount);
-  double get remainingAmount => usePrepaidPackage ? 0.0 : (payFullAmount ? 0.0 : (servicePrice - depositAmount).clamp(0.0, double.infinity));
+  double get depositAmount => (usePrepaidPackage || servicePrice == 0) ? 0.0 : (payFullAmount ? servicePrice : 150000.0);
+  double get payableNow => (usePrepaidPackage || servicePrice == 0) ? 0.0 : (payFullAmount ? servicePrice : depositAmount);
+  double get remainingAmount => (usePrepaidPackage || servicePrice == 0) ? 0.0 : (payFullAmount ? 0.0 : (servicePrice - depositAmount).clamp(0.0, double.infinity));
 
   BookingFlowState copyWith({
     String? bookingCode,

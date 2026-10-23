@@ -61,7 +61,7 @@ class UserPackageModel {
     this.nextAppointmentText = 'Buổi 05 · Lịch hẹn sắp tới',
     this.nextAppointmentDate = '15/10/2026 · 09:00–10:00',
     this.nextAppointmentService = 'Massage thư giãn toàn thân',
-    required this.sessions,
+    this.sessions = const [],
   });
 
   int get remainingSessions => totalSessions - completedSessions;

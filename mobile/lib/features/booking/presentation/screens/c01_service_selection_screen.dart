@@ -51,12 +51,10 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
     _allServices = MockHomeRepository.getFeaturedServices();
 
-    // Đảm bảo có ít nhất 1 dịch vụ mặc định theo Figma
-    if (_flowState.allSelectedServices.isEmpty && _allServices.isNotEmpty) {
-      _flowState.selectedService = _allServices.first;
-      _flowState.selectedServices = [_allServices.first];
-    } else if (_flowState.selectedServices.isNotEmpty) {
+    if (_flowState.selectedServices.isNotEmpty) {
       _flowState.selectedService = _flowState.selectedServices.first;
+    } else if (_flowState.selectedService != null) {
+      _flowState.selectedServices = [_flowState.selectedService!];
     }
 
     _applyFilter(callSetState: false);
@@ -79,9 +77,8 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
           }
         }
         _isLoading = false;
-        if (_flowState.allSelectedServices.isEmpty && _allServices.isNotEmpty) {
-          _flowState.selectedService = _allServices.first;
-          _flowState.selectedServices = [_allServices.first];
+        if (_flowState.selectedServices.isNotEmpty) {
+          _flowState.selectedService = _flowState.selectedServices.first;
         }
         _applyFilter(callSetState: false);
       });
@@ -113,17 +110,8 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
     setState(() {
       final isCurrentlySelected = _flowState.selectedServices.any((s) => s.id == service.id);
       if (isCurrentlySelected) {
-        if (_flowState.selectedServices.length > 1) {
-          _flowState.selectedServices.removeWhere((s) => s.id == service.id);
-          _flowState.selectedService = _flowState.selectedServices.first;
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vui lòng chọn ít nhất 1 dịch vụ để tiếp tục'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
+        _flowState.selectedServices.removeWhere((s) => s.id == service.id);
+        _flowState.selectedService = _flowState.selectedServices.isNotEmpty ? _flowState.selectedServices.first : null;
       } else {
         _flowState.selectedServices.add(service);
         _flowState.selectedService = service;
@@ -552,7 +540,9 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$count dịch vụ · $totalMinutes phút · $totalPriceđ',
+                          count == 0
+                              ? 'Chưa chọn dịch vụ · 0 phút · 0đ'
+                              : '$count dịch vụ · $totalMinutes phút · $totalPriceđ',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -583,8 +573,11 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
-              summaryText: '$count dịch vụ · $totalMinutes phút · $totalPriceđ · Chi phí dịch vụ',
+              summaryText: count == 0
+                  ? 'Chưa chọn dịch vụ'
+                  : '$count dịch vụ · $totalMinutes phút · $totalPriceđ · Chi phí dịch vụ',
               buttonText: l10n?.continueButton ?? 'Tiếp tục',
+              isEnabled: count > 0,
               onPressed: () {
                 Navigator.push(
                   context,
