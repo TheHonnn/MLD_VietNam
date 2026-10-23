@@ -134,7 +134,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
               {section.title}
             </div>
             <div className="space-y-0.5">
-              {section.items.filter(item => !item.onlyWhenAllowed || resources.some(resource => menuResources[item.path]?.includes(resource.name))).map(item => <SidebarItem key={item.path} {...item} resources={resources} />)}
+              {section.items
+                .filter(
+                  item =>
+                    !item.onlyWhenAllowed ||
+                    resources.some(resource =>
+                      menuResources[item.path]?.includes(resource.name)
+                    )
+                )
+                .map(item => (
+                  <SidebarItem
+                    key={item.path}
+                    {...item}
+                    resources={resources}
+                    onNavigate={onCloseMobile}
+                  />
+                ))}
             </div>
           </div>
         ))}

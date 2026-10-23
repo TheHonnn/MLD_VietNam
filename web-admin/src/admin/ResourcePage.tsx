@@ -382,24 +382,9 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   }
   if (c.name === "price") {
     const p = Number(row.price || 0);
-    const dp = Number(row.discount_price || 0);
-    const hasDiscount = dp > 0 && dp < p;
     return (
-      <div>
-        {hasDiscount ? (
-          <>
-            <div className="font-extrabold text-[#985018] text-xs">
-              {dp.toLocaleString("vi-VN")} ₫
-            </div>
-            <div className="text-[10px] text-[#A69788] line-through">
-              {p.toLocaleString("vi-VN")} ₫
-            </div>
-          </>
-        ) : (
-          <div className="font-bold text-[#2C241E] text-xs">
-            {p > 0 ? `${p.toLocaleString("vi-VN")} ₫` : "—"}
-          </div>
-        )}
+      <div className="font-bold text-[#2C241E] text-xs">
+        {p > 0 ? `${p.toLocaleString("vi-VN")} ₫` : "—"}
       </div>
     );
   }
@@ -2520,6 +2505,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "category_id",
       "duration_minutes",
       "price",
+      "discount_price",
       "is_featured",
       "is_active",
     ],
@@ -2530,6 +2516,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "total_sessions",
       "validity_months",
       "price",
+      "discount_price",
       "is_active",
     ],
     service_categories: [
