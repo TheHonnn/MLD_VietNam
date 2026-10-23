@@ -99,6 +99,40 @@ export class EmailService {
     this.logger.log(`🔑 MÃ XÁC THỰC OTP 6 SỐ: [ ${otp} ] (Hiệu lực: 5 phút)`);
     this.logger.log(`======================================================\n`);
 
+    // 0. Ưu tiên gửi qua Brevo HTTP API (Cổng HTTPS 443 - Cho phép gửi tới MỌI email khách hàng mà KHÔNG cần mua tên miền riêng)
+    const brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
+    if (brevoApiKey) {
+      try {
+        const brevoSender = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'hbui73444@gmail.com';
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': brevoApiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: {
+              name: this.fromName || 'MLD Việt Nam',
+              email: brevoSender,
+            },
+            to: [{ email: to }],
+            subject,
+            htmlContent,
+          }),
+        });
+        if (res.ok) {
+          this.logger.log(`📨 [Brevo HTTP API 443] Đã gửi thành công email OTP tới: ${to}`);
+          return true;
+        } else {
+          const errText = await res.text();
+          this.logger.error(`❌ [Brevo HTTP API] Gửi email thất bại: ${errText}`);
+        }
+      } catch (brevoErr: any) {
+        this.logger.error(`❌ [Brevo HTTP API] Lỗi kết nối: ${brevoErr.message}`);
+      }
+    }
+
     // 1. Ưu tiên gửi qua Resend HTTP API (Cổng HTTPS 443 - Không bao giờ bị Cloud/Render chặn)
     const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
     if (resendApiKey) {
