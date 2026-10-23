@@ -6,10 +6,12 @@ import '../../../home/presentation/screens/b04_search_screen.dart';
 
 class B02ServiceListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
+  final String? initialQuery;
 
   const B02ServiceListingScreen({
     super.key,
     this.onBack,
+    this.initialQuery,
   });
 
   @override
@@ -20,7 +22,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = false;
   int _selectedCategoryIndex = 0;
-  String _selectedSort = 'Phổ biến ';
+  String _selectedSort = 'Phổ biến';
   final Set<int> _favoriteServices = {0}; // Service 0 is favorite by default per Figma
 
   List<String> _categories = [
@@ -37,6 +39,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
+      _searchController.text = widget.initialQuery!.trim();
+    }
     _loadServices();
   }
 
@@ -57,6 +62,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
             'serviceId': s.id,
             'title': s.name,
             'duration': '${s.durationMinutes} phút',
+            'durationMinutes': s.durationMinutes,
             'price': priceFormatted,
             'priceRaw': s.price,
             'description': s.description,
@@ -95,6 +101,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       list.sort((a, b) => ((a['priceRaw'] as num?) ?? 0).compareTo((b['priceRaw'] as num?) ?? 0));
     } else if (_selectedSort == 'Giá: Cao đến thấp') {
       list.sort((a, b) => ((b['priceRaw'] as num?) ?? 0).compareTo((a['priceRaw'] as num?) ?? 0));
+    } else if (_selectedSort == 'Thời lượng ngắn nhất') {
+      list.sort((a, b) => ((a['durationMinutes'] as num?) ?? 0).compareTo((b['durationMinutes'] as num?) ?? 0));
     }
     return list;
   }
@@ -108,7 +116,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       ),
       builder: (context) {
         final sortOptions = [
-          'Phổ biến ',
+          'Phổ biến',
           'Giá: Thấp đến cao',
           'Giá: Cao đến thấp',
           'Thời lượng ngắn nhất',

@@ -54,6 +54,8 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
       }
     });
 
+    TreatmentRepository.instance.sendChatMessage(text);
+
     // Tự động phản hồi
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;

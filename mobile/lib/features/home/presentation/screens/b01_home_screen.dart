@@ -16,6 +16,7 @@ import 'b04_search_screen.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
+import '../../../membership/presentation/screens/f05_my_vouchers_screen.dart';
 import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
 import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../../core/services/auth_service.dart';
@@ -971,13 +972,23 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     onTap: () {
                       if (item['title'] == 'Đặt lịch') {
                         _handleBooking();
-                      } else if (item['title'] == 'Liệu trình') {
+                      } else if (item['title'] == 'Liệu trình' || item['title'] == 'Gói liệu trình') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
                         );
                       } else if (item['title'] == 'Khóa học') {
                         widget.onNavigateToAcademy?.call();
+                      } else if (item['title'] == 'Ưu đãi') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
+                        );
+                      } else if (item['title'] == 'Chuyên viên') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()),
+                        );
                       } else {
                         Navigator.push(
                           context,
