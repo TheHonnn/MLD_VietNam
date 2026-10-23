@@ -160,16 +160,36 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         height: 200,
-                        child: Image.asset(
-                          widget.branchImage,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.surfaceSecondary,
-                            child: const Center(
-                              child: Icon(Icons.store, size: 56, color: AppColors.primary),
-                            ),
-                          ),
-                        ),
+                        child: widget.branchImage.startsWith('http')
+                            ? Image.network(
+                                widget.branchImage,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    color: AppColors.surfaceSecondary,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppColors.surfaceSecondary,
+                                  child: const Center(
+                                    child: Icon(Icons.store, size: 56, color: AppColors.primary),
+                                  ),
+                                ),
+                              )
+                            : Image.asset(
+                                widget.branchImage,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppColors.surfaceSecondary,
+                                  child: const Center(
+                                    child: Icon(Icons.store, size: 56, color: AppColors.primary),
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 10),
