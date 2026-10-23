@@ -199,45 +199,51 @@ class MockHomeRepository {
 
   static List<SpaServiceModel> getFeaturedServices() {
     return const [
-      // 1. Chăm sóc da chuyên sâu Hydro-Care (Khớp 100% Supabase)
+      // 1. Massage thư giãn
       SpaServiceModel(
-        id: 'eeeeeeee-0001-0001-0001-000000000001',
-        name: 'Chăm sóc Da Mặt Chuyên Sâu Hydro-Care',
-        categoryName: 'Chăm sóc da & Trị liệu',
-        shortDescription: 'Làm sạch sâu, cấp ẩm chuyên sâu với phác đồ Hydro-Care độc quyền.',
-        fullDescription: 'Quy trình chăm sóc da chuẩn y khoa giúp làm sạch sâu, cân bằng độ ẩm và nuôi dưỡng làn da khỏe mạnh từ sâu bên trong.',
-        durationMinutes: 75,
-        price: 650000,
-        discountPrice: 490000,
-        imageUrl: 'assets/images/gioithieu_2.png',
+        id: 'srv-001',
+        name: 'Massage thư giãn toàn thân',
+        categoryName: 'Massage thư giãn',
+        shortDescription: 'Thả lỏng cơ thể trong không gian yên tĩnh.',
+        fullDescription: 'Dịch vụ massage thư giãn toàn thân sử dụng tinh dầu tự nhiên kết hợp các kỹ thuật ấn huyệt nhẹ nhàng, giúp xua tan mệt mỏi và phục hồi năng lượng.',
+        durationMinutes: 60,
+        price: 450000,
+        imageUrl: 'assets/images/specialist_hero_1.png',
         isFeatured: true,
       ),
-
-      // 2. Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy (Khớp 100% Supabase)
       SpaServiceModel(
-        id: 'eeeeeeee-0001-0001-0001-000000000002',
-        name: 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy',
-        categoryName: 'Gội đầu Dưỡng sinh',
-        shortDescription: 'Thư giãn vùng đầu, đả thông kinh lạc cổ vai gáy với thảo mộc tự nhiên.',
-        fullDescription: 'Liệu trình gội đầu dưỡng sinh kết hợp bấm huyệt vùng đầu cổ vai gáy, sử dụng dầu gội thảo dược nấu tươi giúp giảm đau mỏi và ngủ ngon sâu giác.',
-        durationMinutes: 60,
-        price: 390000,
-        discountPrice: 299000,
+        id: 'srv-005',
+        name: 'Massage đá nóng Himalaya',
+        categoryName: 'Massage thư giãn',
+        shortDescription: 'Năng lượng nhiệt đá muối đào thải hàn khí cơ thể.',
+        fullDescription: 'Liệu pháp sử dụng đá muối khoáng tự nhiên từ dãy Himalaya giữ nhiệt lâu, tác động sâu vào các tầng cơ giúp lưu thông khí huyết và ngủ ngon.',
+        durationMinutes: 75,
+        price: 550000,
         imageUrl: 'assets/images/gioithieu_1.png',
         isFeatured: true,
       ),
-
-      // 3. Massage Trị Liệu Dưỡng Sinh Đông Y (Khớp 100% Supabase)
       SpaServiceModel(
-        id: 'eeeeeeee-0001-0001-0001-000000000003',
-        name: 'Massage Trị Liệu Dưỡng Sinh Đông Y',
-        categoryName: 'Massage Body & Thư giãn',
-        shortDescription: 'Khai thông huyệt đạo, xua tan căng thẳng mệt mỏi toàn thân.',
-        fullDescription: 'Kết hợp các kỹ thuật bấm huyệt Đông y cổ truyền và tinh dầu thảo dược ấm nóng giúp khai thông 12 đường kinh lạc, phục hồi sinh lực toàn diện.',
+        id: 'srv-006',
+        name: 'Massage tinh dầu thảo mộc dưỡng sinh',
+        categoryName: 'Massage thư giãn',
+        shortDescription: 'Hương thơm tự nhiên thư giãn tinh thần sâu.',
+        fullDescription: 'Kết hợp các loại tinh dầu thảo mộc quý độc quyền MLD như tràm gió, gừng già và oải hương giúp làm dịu hệ thần kinh căng thẳng.',
+        durationMinutes: 60,
+        price: 480000,
+        imageUrl: 'assets/images/branch_hero_1.png',
+        isFeatured: false,
+      ),
+
+      // 2. Chăm sóc da
+      SpaServiceModel(
+        id: 'srv-002',
+        name: 'Chăm sóc da chuyên sâu',
+        categoryName: 'Chăm sóc da',
+        shortDescription: 'Làm sạch và nuôi dưỡng làn da nhẹ nhàng.',
+        fullDescription: 'Quy trình chăm sóc da chuẩn y khoa giúp làm sạch sâu, cân bằng độ ẩm và nuôi dưỡng làn da khỏe mạnh từ sâu bên trong.',
         durationMinutes: 90,
-        price: 850000,
-        discountPrice: 680000,
-        imageUrl: 'assets/images/specialist_hero_1.png',
+        price: 650000,
+        imageUrl: 'assets/images/gioithieu_2.png',
         isFeatured: true,
       ),
       SpaServiceModel(
