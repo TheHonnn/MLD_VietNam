@@ -156,6 +156,32 @@ class BranchModel {
     this.totalRooms = 8,
     this.totalBeds = 16,
   });
+
+  factory BranchModel.fromJson(Map<String, dynamic> json) {
+    final opening = (json['opening_time'] != null && json['closing_time'] != null)
+        ? '${json['opening_time']} - ${json['closing_time']}'
+        : '08:30 - 21:00';
+    final district = json['district']?.toString() ?? 'Quận 3';
+    final city = json['city']?.toString() ?? 'TP. Hồ Chí Minh';
+    return BranchModel(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'MLD Spa',
+      phone: json['phone']?.toString() ?? '0901 234 567',
+      address: json['address']?.toString() ?? '',
+      city: city,
+      district: district,
+      distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 1.2,
+      openingHours: opening,
+      rating: (json['rating'] as num?)?.toDouble() ?? 4.9,
+      imageUrl: json['image_url']?.toString() ?? 'assets/images/gioithieu_1.png',
+      services: const ['Massage', 'Chăm sóc da', 'Chăm sóc cơ thể', 'Chăm sóc sức khỏe', 'Gói liệu trình'],
+      amenities: (json['amenities'] is List)
+          ? (json['amenities'] as List).map((e) => e.toString()).toList()
+          : const ['Phòng VIP', 'Máy soi da 3D', 'Trà thảo mộc'],
+      totalRooms: (json['total_rooms'] as num?)?.toInt() ?? 8,
+      totalBeds: (json['total_beds'] as num?)?.toInt() ?? 16,
+    );
+  }
 }
 
 /// 5. Dịch vụ Spa & Làm đẹp Chi tiết (Mới)

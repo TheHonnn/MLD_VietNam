@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/booking_models.dart';
+import '../../data/repositories/booking_repository.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c01_service_selection_screen.dart';
 import 'c02_branch_selection_screen.dart';
@@ -131,17 +132,33 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
 
                   // Thẻ VoucherInput / Mặc định (350x172)
                   VoucherInputCardWidget(
-                    onApply: (code) {
-                      setState(() {
-                        widget.flowState.voucherCode = code;
-                        widget.flowState.voucherDiscount = 50000.0;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Đã áp dụng mã ưu đãi $code (-50.000đ)!'),
-                          duration: const Duration(seconds: 1),
-                        ),
+                    onApply: (code) async {
+                      final result = await BookingRepository.validateCouponOnline(
+                        code,
+                        widget.flowState.rawServicePrice,
                       );
+                      if (!context.mounted) return;
+                      if (result['isValid'] == true) {
+                        setState(() {
+                          widget.flowState.voucherCode = code.trim().toUpperCase();
+                          widget.flowState.voucherDiscount = (result['discount'] as num).toDouble();
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(result['message'] as String),
+                            backgroundColor: const Color(0xFF236B42),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(result['message'] as String),
+                            backgroundColor: const Color(0xFFD64545),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
                     },
                   ),
                     const SizedBox(height: 16),

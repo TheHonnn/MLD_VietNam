@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/locale_cubit.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
+import '../../../auth/widgets/update_phone_modal.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
@@ -33,6 +35,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
   }
 
   void _showLanguageDialog(BuildContext context) {
+    final isEn = _settings.language == 'English' || Localizations.localeOf(context).languageCode == 'en';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -51,9 +54,9 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Chọn ngôn ngữ / Select Language',
-                    style: TextStyle(
+                  Text(
+                    isEn ? 'Select Language' : 'Chọn ngôn ngữ',
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textHeading,
@@ -109,8 +112,223 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
     );
   }
 
+  void _showBranchPicker(BuildContext context) {
+    final isEn = _settings.language == 'English' || Localizations.localeOf(context).languageCode == 'en';
+    final branches = [
+      {
+        'name': 'Chi nhánh Quận 3',
+        'address': '123 Võ Văn Tần, P. Võ Thị Sáu, Quận 3, TP.HCM',
+        'phone': '1900 6868',
+      },
+      {
+        'name': 'Chi nhánh Quận 1',
+        'address': '45 Lê Thánh Tôn, P. Bến Nghé, Quận 1, TP.HCM',
+        'phone': '1900 6868',
+      },
+      {
+        'name': 'Chi nhánh Bình Thạnh',
+        'address': '88 Điện Biên Phủ, Phường 15, Q. Bình Thạnh, TP.HCM',
+        'phone': '1900 6868',
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isEn ? 'Preferred Branch' : 'Chọn chi nhánh ưu tiên',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...branches.map((b) {
+                final isSelected = _settings.preferredBranch == b['name'];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFF8F1E8) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                      width: 1.0,
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Icon(
+                      Icons.storefront_rounded,
+                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                    ),
+                    title: Text(
+                      b['name']!,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      b['address']!,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                        : null,
+                    onTap: () {
+                      _updateSettings(_settings.copyWith(preferredBranch: b['name']!));
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(isEn ? 'Preferred branch updated: ${b['name']}' : 'Đã chọn chi nhánh: ${b['name']}'),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    },
+                  ),
+                );
+              }),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showThemePicker(BuildContext context) {
+    final isEn = _settings.language == 'English' || Localizations.localeOf(context).languageCode == 'en';
+    final themes = [
+      {'val': 'Sáng', 'en': 'Light', 'icon': Icons.wb_sunny_outlined},
+      {'val': 'Tối', 'en': 'Dark', 'icon': Icons.nightlight_round},
+      {'val': 'Hệ thống', 'en': 'System', 'icon': Icons.settings_suggest_outlined},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isEn ? 'Appearance Theme' : 'Giao diện ứng dụng',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textHeading,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...themes.map((t) {
+                final isSelected = _settings.theme == t['val'] || _settings.theme == t['en'];
+                return ListTile(
+                  leading: Icon(t['icon'] as IconData, color: isSelected ? AppColors.primary : AppColors.textSecondary),
+                  title: Text(isEn ? t['en'] as String : t['val'] as String),
+                  trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                  onTap: () {
+                    _updateSettings(_settings.copyWith(theme: isEn ? t['en'] as String : t['val'] as String));
+                    Navigator.pop(ctx);
+                  },
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showInfoModal(BuildContext context, String title, String body) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textHeading,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Text(
+                    body,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isEn = _settings.language == 'English' || Localizations.localeOf(context).languageCode == 'en';
+    final userPhone = _repo.profile.phone.trim();
+
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
       body: SafeArea(
@@ -148,18 +366,18 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
 
               const SizedBox(height: 16),
 
-              const Text(
-                'Cài đặt tài khoản',
-                style: TextStyle(
+              Text(
+                isEn ? 'Account Settings' : 'Cài đặt tài khoản',
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textHeading, // #693B20
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Quản lý trải nghiệm, bảo mật và các tùy chọn của bạn.',
-                style: TextStyle(
+              Text(
+                isEn ? 'Manage your experience, security, and preferences.' : 'Quản lý trải nghiệm, bảo mật và các tùy chọn của bạn.',
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: AppColors.textSecondary,
@@ -169,11 +387,11 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               const SizedBox(height: 24),
 
               // --- 2. NHÓM TÀI KHOẢN ---
-              _buildSectionTitle('Tài khoản'),
+              _buildSectionTitle(isEn ? 'Account' : 'Tài khoản'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.person_outline_rounded,
-                  title: 'Thông tin cá nhân',
+                  title: isEn ? 'Personal Profile' : 'Thông tin cá nhân',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -183,22 +401,28 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.shield_outlined,
-                  title: 'Bảo mật tài khoản',
+                  title: isEn ? 'Account Security' : 'Bảo mật tài khoản',
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Bảo mật tài khoản & mật khẩu PIN')),
+                      SnackBar(content: Text(isEn ? 'Account security & PIN protection' : 'Bảo mật tài khoản & mật khẩu PIN')),
                     );
                   },
                 ),
                 _buildMenuItem(
                   icon: Icons.smartphone_rounded,
-                  title: 'Số điện thoại liên kết',
-                  subtitle: '0912 345 678 · Đã xác thực',
+                  title: isEn ? 'Linked Phone Number' : 'Số điện thoại liên kết',
+                  subtitle: userPhone.isNotEmpty
+                      ? '$userPhone · ${isEn ? "Verified" : "Đã xác thực"}'
+                      : (isEn ? 'Not linked yet (Tap to link)' : 'Chưa liên kết (Bấm để liên kết)'),
                   isLast: true,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Số điện thoại chính đã xác thực')),
-                    );
+                    if (userPhone.isEmpty) {
+                      UpdatePhoneModal.show(context).then((res) { if (res == true && mounted) setState(() {}); });
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(isEn ? 'Phone number verified' : 'Số điện thoại chính đã xác thực')),
+                      );
+                    }
                   },
                 ),
               ]),
@@ -206,7 +430,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               const SizedBox(height: 20),
 
               // --- 3. NHÓM THÔNG BÁO (Toggles) ---
-              _buildSectionTitle('Thông báo'),
+              _buildSectionTitle(isEn ? 'Notifications' : 'Thông báo'),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -216,32 +440,36 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 child: Column(
                   children: [
                     _buildToggleRow(
-                      title: 'Thông báo lịch hẹn',
+                      title: isEn ? 'Appointment Reminders' : 'Thông báo lịch hẹn',
                       value: _settings.notifyAppointments,
+                      isEn: isEn,
                       onChanged: (val) {
                         _updateSettings(_settings.copyWith(notifyAppointments: val));
                       },
                     ),
                     const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF3E2CE)),
                     _buildToggleRow(
-                      title: 'Thông báo liệu trình',
+                      title: isEn ? 'Treatment Alerts' : 'Thông báo liệu trình',
                       value: _settings.notifyTreatments,
+                      isEn: isEn,
                       onChanged: (val) {
                         _updateSettings(_settings.copyWith(notifyTreatments: val));
                       },
                     ),
                     const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF3E2CE)),
                     _buildToggleRow(
-                      title: 'Thông báo khóa học',
+                      title: isEn ? 'Course Notifications' : 'Thông báo khóa học',
                       value: _settings.notifyCourses,
+                      isEn: isEn,
                       onChanged: (val) {
                         _updateSettings(_settings.copyWith(notifyCourses: val));
                       },
                     ),
                     const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF3E2CE)),
                     _buildToggleRow(
-                      title: 'Chương trình ưu đãi',
+                      title: isEn ? 'Promotions & Offers' : 'Chương trình ưu đãi',
                       value: _settings.notifyPromotions,
+                      isEn: isEn,
                       isLast: true,
                       onChanged: (val) {
                         _updateSettings(_settings.copyWith(notifyPromotions: val));
@@ -254,34 +482,34 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               const SizedBox(height: 20),
 
               // --- 4. NHÓM TÙY CHỌN ---
-              _buildSectionTitle('Tùy chọn'),
+              _buildSectionTitle(isEn ? 'Preferences' : 'Tùy chọn'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.language_rounded,
-                  title: 'Ngôn ngữ',
+                  title: isEn ? 'Language' : 'Ngôn ngữ',
                   subtitle: _settings.language,
                   onTap: () => _showLanguageDialog(context),
                 ),
                 _buildMenuItem(
                   icon: Icons.location_on_outlined,
-                  title: 'Chi nhánh ưu tiên',
+                  title: isEn ? 'Preferred Branch' : 'Chi nhánh ưu tiên',
                   subtitle: _settings.preferredBranch,
-                  onTap: () {},
+                  onTap: () => _showBranchPicker(context),
                 ),
                 _buildMenuItem(
                   icon: Icons.wb_sunny_outlined,
-                  title: 'Giao diện',
+                  title: isEn ? 'Theme' : 'Giao diện',
                   subtitle: _settings.theme,
                   isLast: true,
-                  onTap: () {},
+                  onTap: () => _showThemePicker(context),
                 ),
               ]),
               const SizedBox(height: 6),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.0),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: Text(
-                  'Một tài khoản dùng tại Chi nhánh Quận 3 và các cơ sở liên kết.',
-                  style: TextStyle(
+                  isEn ? 'One account across all official MLD Vietnam centers.' : 'Một tài khoản dùng tại các cơ sở liên kết của MLD Việt Nam.',
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textSecondary,
@@ -292,82 +520,105 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               const SizedBox(height: 20),
 
               // --- 5. NHÓM QUYỀN RIÊNG TƯ & BẢO MẬT ---
-              _buildSectionTitle('Quyền riêng tư & bảo mật'),
+              _buildSectionTitle(isEn ? 'Privacy & Security' : 'Quyền riêng tư & bảo mật'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.security_rounded,
-                  title: 'Chính sách bảo mật',
-                  onTap: () {},
+                  title: isEn ? 'Privacy Policy' : 'Chính sách bảo mật',
+                  onTap: () => _showInfoModal(
+                    context,
+                    isEn ? 'Privacy Policy' : 'Chính sách bảo mật',
+                    isEn
+                        ? 'MLD Vietnam commits to protecting all personal information and medical data of customers. Information is only used for booking, treatment journals, and loyalty programs under Vietnamese law.'
+                        : 'MLD Việt Nam cam kết bảo vệ dữ liệu cá nhân và hồ sơ trị liệu của khách hàng tuyệt đối an toàn. Mọi dữ liệu chỉ phục vụ đặt lịch, liệu trình và tích điểm theo quy chuẩn an toàn thông tin.',
+                  ),
                 ),
                 _buildMenuItem(
                   icon: Icons.description_outlined,
-                  title: 'Điều khoản dịch vụ',
-                  onTap: () {},
+                  title: isEn ? 'Terms of Service' : 'Điều khoản dịch vụ',
+                  onTap: () => _showInfoModal(
+                    context,
+                    isEn ? 'Terms of Service' : 'Điều khoản dịch vụ',
+                    isEn
+                        ? 'By using the MLD Vietnam application, you agree to our terms of booking, payment policies, cancellation guidelines, and customer code of conduct.'
+                        : 'Khi sử dụng ứng dụng MLD Việt Nam, quý khách đồng ý với các quy định đặt lịch, chính sách thanh toán, hướng dẫn đổi hủy và quy tắc ứng xử của viện thẩm mỹ.',
+                  ),
                 ),
                 _buildMenuItem(
                   icon: Icons.rule_folder_outlined,
-                  title: 'Quyền riêng tư dữ liệu',
-                  onTap: () {},
+                  title: isEn ? 'Data Privacy Rights' : 'Quyền riêng tư dữ liệu',
+                  onTap: () => _showInfoModal(
+                    context,
+                    isEn ? 'Data Privacy Rights' : 'Quyền riêng tư dữ liệu',
+                    isEn
+                        ? 'Customers have the right to request access, correction, export, or deletion of their personal data stored within MLD Vietnam systems.'
+                        : 'Khách hàng có toàn quyền yêu cầu xem, chỉnh sửa, trích xuất hoặc xóa dữ liệu cá nhân khỏi hệ thống máy chủ MLD Việt Nam bất cứ lúc nào.',
+                  ),
                 ),
                 _buildMenuItem(
                   icon: Icons.download_rounded,
-                  title: 'Yêu cầu xuất dữ liệu',
+                  title: isEn ? 'Request Data Export' : 'Yêu cầu xuất dữ liệu',
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Yêu cầu xuất bản sao dữ liệu đã gửi')),
+                      SnackBar(content: Text(isEn ? 'Data export request submitted' : 'Yêu cầu xuất bản sao dữ liệu đã gửi')),
                     );
                   },
                 ),
                 _buildMenuItem(
                   icon: Icons.person_remove_outlined,
-                  title: 'Yêu cầu xóa tài khoản',
+                  title: isEn ? 'Request Account Deletion' : 'Yêu cầu xóa tài khoản',
                   isLast: true,
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Yêu cầu xóa tài khoản đã được ghi nhận')),
+                      SnackBar(content: Text(isEn ? 'Account deletion request recorded' : 'Yêu cầu xóa tài khoản đã được ghi nhận')),
                     );
                   },
                 ),
               ]),
-              const SizedBox(height: 6),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.0),
-                child: Text(
-                  'Mọi yêu cầu hỗ trợ sẽ được bộ phận CSKH xử lý trong 24 giờ.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
 
               const SizedBox(height: 20),
 
               // --- 6. NHÓM HỖ TRỢ ---
-              _buildSectionTitle('Hỗ trợ'),
+              _buildSectionTitle(isEn ? 'Support' : 'Hỗ trợ'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.headset_mic_outlined,
-                  title: 'Hotline CSKH',
+                  title: isEn ? 'Customer Service Hotline' : 'Hotline CSKH',
                   subtitle: '1900 6868',
-                  onTap: () {},
+                  onTap: () => AppLauncherHelper.makePhoneCall(context, '19006868'),
                 ),
                 _buildMenuItem(
                   icon: Icons.help_outline_rounded,
-                  title: 'Câu hỏi thường gặp',
-                  onTap: () {},
+                  title: isEn ? 'FAQs' : 'Câu hỏi thường gặp',
+                  onTap: () => _showInfoModal(
+                    context,
+                    isEn ? 'Frequently Asked Questions' : 'Câu hỏi thường gặp',
+                    isEn
+                        ? '1. How do I book an appointment? Choose service -> Select branch & specialist -> Select time -> Confirm.\n2. Can I cancel a booking? Yes, at least 2 hours before the scheduled time.'
+                        : '1. Cách đặt lịch? Chọn dịch vụ -> Chọn chi nhánh & kỹ thuật viên -> Chọn giờ -> Xác nhận.\n2. Có thể đổi lịch không? Quý khách có thể đổi trước giờ hẹn tối thiểu 2 tiếng qua app.',
+                  ),
                 ),
                 _buildMenuItem(
                   icon: Icons.chat_bubble_outline_rounded,
-                  title: 'Góp ý ứng dụng',
-                  onTap: () {},
+                  title: isEn ? 'App Feedback' : 'Góp ý ứng dụng',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(isEn ? 'Thank you for your feedback!' : 'Cảm ơn bạn đã đóng góp ý kiến!')),
+                    );
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.info_outline_rounded,
-                  title: 'Về MLD Việt Nam',
+                  title: isEn ? 'About MLD Vietnam' : 'Về MLD Việt Nam',
+                  subtitle: 'Phiên bản 1.0.0',
                   isLast: true,
-                  onTap: () {},
+                  onTap: () => _showInfoModal(
+                    context,
+                    'MLD Việt Nam',
+                    isEn
+                        ? 'MLD Vietnam - Premier medical aesthetic, body healthcare, and international standard vocational beauty academy.'
+                        : 'MLD Việt Nam - Hệ thống chăm sóc thẩm mỹ, dưỡng sinh y khoa và học viện đào tạo nghề thẩm mỹ chuẩn quốc tế.',
+                  ),
                 ),
               ]),
 
@@ -381,12 +632,12 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                     builder: (ctx) => AlertDialog(
                       backgroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      title: const Text('Đăng xuất'),
-                      content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+                      title: Text(isEn ? 'Sign Out' : 'Đăng xuất'),
+                      content: Text(isEn ? 'Are you sure you want to sign out?' : 'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary)),
+                          child: Text(isEn ? 'Cancel' : 'Hủy', style: const TextStyle(color: AppColors.textSecondary)),
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
@@ -400,11 +651,11 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                                 (route) => false,
                               );
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Đã đăng xuất thành công')),
+                                SnackBar(content: Text(isEn ? 'Signed out successfully' : 'Đã đăng xuất thành công')),
                               );
                             }
                           },
-                          child: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
+                          child: Text(isEn ? 'Sign Out' : 'Đăng xuất', style: const TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -415,14 +666,14 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                   width: double.infinity,
                   height: 48,
                   alignment: Alignment.center,
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.logout_rounded, size: 20, color: AppColors.primary),
-                      SizedBox(width: 8),
+                      const Icon(Icons.logout_rounded, size: 20, color: AppColors.primary),
+                      const SizedBox(width: 8),
                       Text(
-                        'Đăng xuất',
-                        style: TextStyle(
+                        isEn ? 'Sign Out' : 'Đăng xuất',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary, // #985018
@@ -541,6 +792,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
+    required bool isEn,
     bool isLast = false,
   }) {
     return Padding(
@@ -561,7 +813,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                value ? 'Đang bật' : 'Đang tắt',
+                value ? (isEn ? 'Enabled' : 'Đang bật') : (isEn ? 'Disabled' : 'Đang tắt'),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,

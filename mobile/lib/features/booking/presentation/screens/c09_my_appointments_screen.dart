@@ -24,7 +24,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
   late int _selectedTab;
   final BookingRepository _repo = BookingRepository.instance;
 
-  final String _dateRangeText = '12/10/2026–31/10/2026';
+  final String _dateRangeText = 'Tất cả các ngày';
   final String _statusFilterText = 'Tất cả · Tất cả · Đã xác nhận';
 
   @override

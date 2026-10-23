@@ -1,3 +1,4 @@
+import '../../../treatment/data/repositories/treatment_repository.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -362,11 +363,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 );
   }
 
-  void _showNotificationSheet() {
-    Navigator.push(
+  Future<void> _showNotificationSheet() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const D08NotificationsScreen()),
     );
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _showAppointmentDetailSheet(AppointmentItemModel item) {
@@ -636,18 +640,19 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               size: 26,
                               color: AppColors.primary, // #985018
                             ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFD64545), // #D64545 đỏ
-                                  shape: BoxShape.circle,
+                            if (TreatmentRepository.instance.hasUnreadNotifications)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFD64545), // #D64545 đỏ
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
