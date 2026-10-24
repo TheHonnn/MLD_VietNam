@@ -1106,6 +1106,50 @@ class SupabaseService {
     }
   }
 
+  // Xóa lịch hẹn theo ID trên Supabase Cloud
+  async deleteBooking(bookingId: string): Promise<boolean> {
+    if (!isUuid(bookingId)) {
+      return false;
+    }
+    try {
+      try {
+        await this.query(`booking_items?booking_id=eq.${bookingId}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('[SupabaseService] delete booking_items warning:', e);
+      }
+
+      await this.query(`bookings?id=eq.${bookingId}`, {
+        method: 'DELETE',
+      });
+      return true;
+    } catch (err) {
+      console.warn('[SupabaseService] deleteBooking error:', err);
+      return false;
+    }
+  }
+
+  // Xóa toàn bộ lịch hẹn trên Supabase Cloud
+  async deleteAllBookings(): Promise<boolean> {
+    try {
+      try {
+        await this.query('booking_items?id=neq.00000000-0000-0000-0000-000000000000', {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('[SupabaseService] delete all booking_items warning:', e);
+      }
+      await this.query('bookings?id=neq.00000000-0000-0000-0000-000000000000', {
+        method: 'DELETE',
+      });
+      return true;
+    } catch (err) {
+      console.warn('[SupabaseService] deleteAllBookings error:', err);
+      return false;
+    }
+  }
+
   // 11. HÓA ĐƠN THU NGÂN (INVOICES)
   async getInvoices(branchId?: string, customerId?: string): Promise<Invoice[] | null> {
     let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city)&order=paid_at.desc`;

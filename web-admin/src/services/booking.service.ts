@@ -291,4 +291,59 @@ export const bookingService = {
       };
     }
   },
+
+  async deleteBooking(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      // 1. Xóa khỏi bộ nhớ cục bộ
+      const current = getLocalBookings();
+      const updated = current.filter((b) => b.id !== id && b.bookingCode !== id);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+
+      // 2. Xóa khỏi Supabase Cloud
+      if (isUuid(id)) {
+        await supabaseService.deleteBooking(id);
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Xóa lịch hẹn thành công',
+        data: true,
+      };
+    } catch (err) {
+      console.error('[bookingService] deleteBooking error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi xóa lịch hẹn',
+        data: false,
+      };
+    }
+  },
+
+  async deleteAllBookings(): Promise<ApiResponse<boolean>> {
+    try {
+      // 1. Xóa sạch bộ nhớ cục bộ
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      localStorage.removeItem('mld_staff_appointments');
+
+      // 2. Xóa sạch trên Supabase Cloud
+      await supabaseService.deleteAllBookings();
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã xóa toàn bộ lịch hẹn trong hệ thống',
+        data: true,
+      };
+    } catch (err) {
+      console.error('[bookingService] deleteAllBookings error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi xóa toàn bộ lịch hẹn',
+        data: false,
+      };
+    }
+  },
 };

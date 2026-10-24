@@ -262,7 +262,8 @@ export const W05_StaffSchedule: React.FC = () => {
   });
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return searchParams.get('date') || localStorage.getItem('mld_schedule_date') || '2026-10-16';
+    const today = new Date().toISOString().split('T')[0];
+    return searchParams.get('date') || localStorage.getItem('mld_schedule_date') || today;
   });
 
   const [selectedTechFilter, setSelectedTechFilter] = useState<string>('ALL');
@@ -359,9 +360,10 @@ export const W05_StaffSchedule: React.FC = () => {
       }
     });
 
-    // Make sure 2026-10-16 and 2026-10-17 are present as prime demos
-    if (!dateMap.has('2026-10-16')) dateMap.set('2026-10-16', 2);
-    if (!dateMap.has('2026-10-17')) dateMap.set('2026-10-17', 1);
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (!dateMap.has(todayStr)) {
+      dateMap.set(todayStr, 0);
+    }
 
     const sorted = Array.from(dateMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     return sorted.map(([dt, count]) => {
@@ -660,7 +662,7 @@ export const W05_StaffSchedule: React.FC = () => {
       const nextDateStr = cur.toISOString().split('T')[0];
       handleSelectDate(nextDateStr);
     } catch {
-      handleSelectDate('2026-10-16');
+      handleSelectDate(new Date().toISOString().split('T')[0]);
     }
   };
 
@@ -704,6 +706,58 @@ export const W05_StaffSchedule: React.FC = () => {
       console.error('Failed to update localStorage', err);
     }
     toast.success('Đã hủy lịch hẹn', 'Lịch hẹn đã được gỡ bỏ khỏi bảng phân công ca trực.');
+  };
+
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  // Xóa vĩnh viễn 1 lịch hẹn bất kỳ
+  const handleDeleteBooking = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn lịch hẹn này khỏi hệ thống?')) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await bookingService.deleteBooking(id);
+      setLiveBookings((prev) => prev.filter((b) => b.id !== id && b.bookingCode !== id));
+      const updatedCustom = customAppointments.filter((a) => a.id !== id);
+      setCustomAppointments(updatedCustom);
+      try {
+        localStorage.setItem('mld_staff_appointments', JSON.stringify(updatedCustom));
+      } catch (e) {
+        console.error(e);
+      }
+      setSelectedAppId('');
+      toast.success('Đã xóa lịch hẹn', 'Lịch hẹn đã được xóa hoàn toàn khỏi bảng phân công.');
+    } catch (err) {
+      console.error('Delete booking error:', err);
+      toast.error('Lỗi khi xóa', 'Không thể xóa lịch hẹn. Vui lòng thử lại.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Xóa toàn bộ tất cả lịch hẹn đã đặt của KTV
+  const handleDeleteAllBookings = async () => {
+    if (
+      !window.confirm(
+        'CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ lịch hẹn của kỹ thuật viên trong hệ thống không? Thao tác này sẽ xóa vĩnh viễn và không thể khôi phục.'
+      )
+    ) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await bookingService.deleteAllBookings();
+      setLiveBookings([]);
+      setCustomAppointments([]);
+      setSelectedAppId('');
+      toast.success('Đã dọn sạch', 'Đã xóa toàn bộ lịch hẹn kỹ thuật viên thành công.');
+    } catch (err) {
+      console.error('Delete all bookings error:', err);
+      toast.error('Lỗi dọn dẹp', 'Không thể xóa toàn bộ lịch hẹn. Vui lòng thử lại.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Validation status of currently selected appointment
@@ -989,16 +1043,31 @@ export const W05_StaffSchedule: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setAppDate(selectedDate);
-            setShowCreateModal(true);
-          }}
-          className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tạo lịch hẹn</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {allAppointments.length > 0 && (
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleDeleteAllBookings}
+              className="px-4 py-2.5 bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              title="Xóa tất cả các lịch hẹn đã đặt của kỹ thuật viên"
+            >
+              <Trash2 className="w-4 h-4 stroke-[2]" />
+              <span>{isDeleting ? 'Đang xóa...' : 'Xóa hết lịch đã đặt'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setAppDate(selectedDate);
+              setShowCreateModal(true);
+            }}
+            className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tạo lịch hẹn</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Interactive Filter Toolbar (All Controls Fully Functional) */}
@@ -1809,16 +1878,16 @@ export const W05_StaffSchedule: React.FC = () => {
                 <ArrowUpRight className="w-3.5 h-3.5" />
               </button>
 
-              {selectedApp.id.startsWith('app-custom-') && (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteCustomAppointment(selectedApp.id)}
-                  className="w-full py-2.5 bg-[#FDF2F2] hover:bg-[#FDE8E8] text-[#B02A37] border border-[#F5C2C7] rounded-xl text-xs font-bold transition-colors text-center cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Hủy lịch hẹn này
-                </button>
-              )}
+              {/* Permanent Delete Button for any appointment (real or custom) */}
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => handleDeleteBooking(selectedApp.id)}
+                className="w-full py-2.5 bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] rounded-xl text-xs font-bold transition-colors text-center cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Đang xóa...' : 'Xóa vĩnh viễn lịch hẹn này'}</span>
+              </button>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-6 text-center space-y-3">
@@ -2084,17 +2153,14 @@ export const W05_StaffSchedule: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setAppDate('2026-10-16')}
+                      onClick={() => {
+                        const tmr = new Date();
+                        tmr.setDate(tmr.getDate() + 1);
+                        setAppDate(tmr.toISOString().split('T')[0]);
+                      }}
                       className="px-2.5 py-1.5 bg-[#FAF0E4] text-[#985018] rounded-lg text-[11px] font-bold hover:bg-[#F3E2CE] transition-colors cursor-pointer"
                     >
-                      16/10
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAppDate('2026-10-17')}
-                      className="px-2.5 py-1.5 bg-[#FAF0E4] text-[#985018] rounded-lg text-[11px] font-bold hover:bg-[#F3E2CE] transition-colors cursor-pointer"
-                    >
-                      17/10
+                      Ngày mai
                     </button>
                   </div>
                 </div>
