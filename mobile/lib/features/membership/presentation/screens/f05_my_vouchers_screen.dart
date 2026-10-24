@@ -145,7 +145,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                               const Icon(
                                 Icons.card_giftcard_rounded,
                                 size: 28,
-                                color: Color(0xFFC58D59),
+                                color: Color(0xFF0284C7),
                               ),
                             ],
                           ),
@@ -359,7 +359,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                 const Icon(
                   Icons.auto_awesome_rounded,
                   size: 20,
-                  color: Color(0xFFC58D59),
+                  color: Color(0xFF0284C7),
                 ),
               ],
             ),

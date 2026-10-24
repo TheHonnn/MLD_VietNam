@@ -284,9 +284,9 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                       const SizedBox(width: 14),
                       _buildLegendDot(AcademyColors.primary, 'Tại lớp'),
                       const SizedBox(width: 14),
-                      _buildLegendDot(const Color(0xFFC58D59), 'Thực hành'),
+                      _buildLegendDot(const Color(0xFF0284C7), 'Thực hành'),
                       const SizedBox(width: 14),
-                      _buildLegendDot(const Color(0xFF40352F), 'Kiểm tra'),
+                      _buildLegendDot(const Color(0xFF1E293B), 'Kiểm tra'),
                     ],
                   ),
                 ],
@@ -620,8 +620,8 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                                     : dotType == 'class'
                                         ? AcademyColors.primary
                                         : dotType == 'practice'
-                                            ? const Color(0xFFC58D59)
-                                            : const Color(0xFF40352F),
+                                            ? const Color(0xFF0284C7)
+                                            : const Color(0xFF1E293B),
                           ),
                         )
                       else

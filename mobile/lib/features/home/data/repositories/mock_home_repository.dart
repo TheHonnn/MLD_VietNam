@@ -14,7 +14,7 @@ class MockHomeRepository {
       BannerPromoModel(
         id: 'promo-2',
         title: 'Khóa Đào Tạo Kỹ Thuật Viên Spa',
-        subtitle: 'Học viện MLD Academy cấp chứng chỉ thực hành quốc tế',
+        subtitle: 'Học viện MLD Academy cấp giấy chứng nhận thực hành quốc tế',
         tag: 'TUYỂN SINH K26',
         ctaText: 'Đăng ký tư vấn',
         imageUrl: 'assets/images/banner_promo_2.png',
@@ -107,7 +107,7 @@ class MockHomeRepository {
         sessionsCount: 24,
         rating: 5.0,
         imageUrl: 'assets/images/banner_promo_2.png',
-        badgeText: 'Cấp chứng chỉ',
+        badgeText: 'Cấp giấy chứng nhận',
       ),
     ];
   }

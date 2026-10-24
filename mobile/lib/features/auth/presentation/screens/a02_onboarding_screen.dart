@@ -30,7 +30,7 @@ class _A02OnboardingScreenState extends State<A02OnboardingScreen> {
     {
       'title': 'Đào tạo nghề y tế & Spa chuẩn mực',
       'description':
-          'Khám phá các khóa học chuyên môn, cấp chứng chỉ hành nghề và phát triển sự nghiệp.',
+          'Khám phá các khóa học chuyên môn, cấp giấy chứng nhận hành nghề và phát triển sự nghiệp.',
       'image': 'assets/images/gioithieu_3.png',
     },
   ];

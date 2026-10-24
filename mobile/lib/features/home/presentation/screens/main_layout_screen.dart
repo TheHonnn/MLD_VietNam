@@ -6,6 +6,7 @@ import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../../academy/presentation/screens/e01_academy_home_screen.dart';
 import '../../../membership/presentation/screens/f01_profile_dashboard_screen.dart';
+import '../../../treatment/presentation/screens/d09_documents_screen.dart';
 import 'b01_home_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
@@ -43,26 +44,35 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       // Tab 0: Trang chủ (B01_Home)
       B01HomeScreen(
         onNavigateToServices: () => _onTabTapped(1),
-        onNavigateToBooking: () => _onTabTapped(2),
-        onNavigateToAcademy: () => _onTabTapped(3),
+        onNavigateToBooking: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => C01ServiceSelectionScreen(
+                onBack: () => Navigator.pop(context),
+                onOpenAppointments: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+        onNavigateToAcademy: () => _onTabTapped(2),
         onNavigateToProfile: () => _onTabTapped(4),
       ),
       // Tab 1: Dịch vụ (B02 Service Listing)
       B02ServiceListingScreen(
         onBack: () => _onTabTapped(0),
       ),
-      // Tab 2: Đặt lịch (C01 Service Selection - Bắt đầu luồng đặt lịch Group C)
-      C01ServiceSelectionScreen(
-        onBack: () => _onTabTapped(0),
-        onOpenAppointments: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
-          );
-        },
-      ),
-      // Tab 3: Học viện đào tạo nghề (Group E — chuẩn 100% Figma)
+      // Tab 2: Đào tạo (Group E - Chuẩn MLD Academy)
       E01AcademyHomeScreen(
+        onBackToHome: () => _onTabTapped(0),
+      ),
+      // Tab 3: Tài liệu & Y khoa (D09 Documents Screen)
+      D09DocumentsScreen(
         onBackToHome: () => _onTabTapped(0),
       ),
       // Tab 4: Cá nhân (Group F — Membership & Profile chuẩn 100% Figma)
@@ -99,9 +109,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, l10n?.navHome ?? 'Trang chủ', Icons.home_rounded),
-                _buildNavItem(1, l10n?.navServices ?? 'Dịch vụ', Icons.spa_outlined),
-                _buildNavItem(2, l10n?.navBooking ?? 'Đặt lịch', Icons.calendar_month_outlined),
-                _buildNavItem(3, l10n?.navAcademy ?? 'Học viện', Icons.school_outlined),
+                _buildNavItem(1, l10n?.navServices ?? 'Dịch vụ', Icons.medical_services_outlined),
+                _buildNavItem(2, 'Đào tạo', Icons.school_outlined),
+                _buildNavItem(3, 'Tài liệu', Icons.menu_book_rounded),
                 _buildNavItem(4, l10n?.navProfile ?? 'Cá nhân', Icons.person_outline_rounded),
               ],
             ),

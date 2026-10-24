@@ -43,7 +43,6 @@ void main() {
     expect(find.text('Sửa dịch vụ'), findsOneWidget);
     expect(find.text('Sửa chi nhánh'), findsOneWidget);
     expect(find.text('Sửa ngày và giờ'), findsOneWidget);
-    expect(find.text('Sửa chuyên viên'), findsOneWidget);
     expect(find.text('Sửa thông tin khách hàng'), findsOneWidget);
   });
 
@@ -59,8 +58,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Xác nhận đặt lịch'), findsOneWidget);
-    expect(find.text('Tiếp tục thanh toán'), findsOneWidget);
+    expect(find.text('Xác nhận đặt lịch'), findsWidgets);
   });
 
   testWidgets('C07PaymentQrScreen renders properly with cardBorder and without crashing', (WidgetTester tester) async {

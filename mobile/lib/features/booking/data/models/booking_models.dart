@@ -218,6 +218,7 @@ class BookingFlowState {
   String otherNotes; // Ghi chú khác (tùy chọn)
   bool consentShareNeeds; // Đồng ý chia sẻ nhu cầu hỗ trợ
   bool agreeTerms; // Đồng ý với điều khoản dịch vụ
+  int guestCount; // Số lượng người trị liệu (mặc định 1)
 
   BookingFlowState({
     this.bookingCode,
@@ -245,6 +246,7 @@ class BookingFlowState {
     this.otherNotes = '',
     this.consentShareNeeds = false,
     this.agreeTerms = true,
+    this.guestCount = 1,
   })  : selectedServices = selectedServices ?? (selectedService != null ? [selectedService] : []),
         selectedDate = selectedDate ?? DateTime.now();
 
@@ -262,8 +264,11 @@ class BookingFlowState {
 
   double get rawServicePrice {
     final list = allSelectedServices;
-    if (list.isEmpty) return selectedService?.displayPrice ?? 0.0;
-    return list.fold(0.0, (sum, s) => sum + s.displayPrice);
+    final basePrice = list.isEmpty
+        ? (selectedService?.displayPrice ?? 0.0)
+        : list.fold(0.0, (sum, s) => sum + s.displayPrice);
+    final count = guestCount > 0 ? guestCount : 1;
+    return basePrice * count;
   }
 
   double get servicePrice {
@@ -271,9 +276,9 @@ class BookingFlowState {
     return raw > 0 ? raw : 0.0;
   }
 
-  double get depositAmount => (usePrepaidPackage || servicePrice == 0) ? 0.0 : (payFullAmount ? servicePrice : 150000.0);
-  double get payableNow => (usePrepaidPackage || servicePrice == 0) ? 0.0 : (payFullAmount ? servicePrice : depositAmount);
-  double get remainingAmount => (usePrepaidPackage || servicePrice == 0) ? 0.0 : (payFullAmount ? 0.0 : (servicePrice - depositAmount).clamp(0.0, double.infinity));
+  double get depositAmount => 0.0;
+  double get payableNow => 0.0;
+  double get remainingAmount => servicePrice;
 
   BookingFlowState copyWith({
     String? bookingCode,

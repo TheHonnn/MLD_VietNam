@@ -5,19 +5,19 @@ import 'booking_stepper.dart';
 
 /// Bảng màu & Quy chuẩn thiết kế chuẩn Figma Group C
 class BookingColors {
-  static const Color background = Color(0xFFF8F1E8);
-  static const Color primary = Color(0xFF985018);
-  static const Color heading = Color(0xFF693B20);
-  static const Color textPrimary = Color(0xFF40352F);
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color primary = Color(0xFF0066B2);
+  static const Color heading = Color(0xFF0F172A);
+  static const Color textPrimary = Color(0xFF1E293B);
   static const Color textSecondary = Color(0xFF6B6158);
-  static const Color cardWarm = Color(0xFFF3E2CE);
-  static const Color cardBorder = Color(0xFFE3D1BF);
+  static const Color cardWarm = Color(0xFFF0F7FF);
+  static const Color cardBorder = Color(0xFFE2E8F0);
   static const Color cardWhite = Colors.white;
   static const Color successText = Color(0xFF236B42);
   static const Color successBg = Color(0xFFEFF7F0);
   static const Color errorText = Color(0xFFB63131);
   static const Color errorBg = Color(0xFFFFF0ED);
-  static const Color qrBorder = Color(0xFFC58D59);
+  static const Color qrBorder = Color(0xFF0284C7);
   static const Color slotDisabledBg = Color(0xFFEBE3DA);
 }
 
@@ -629,8 +629,10 @@ class PriceBreakdownCardWidget extends StatelessWidget {
   Widget _buildRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
+          flex: 5,
           child: Text(
             label,
             style: const TextStyle(
@@ -641,12 +643,16 @@ class PriceBreakdownCardWidget extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: BookingColors.textPrimary,
+        Expanded(
+          flex: 4,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: BookingColors.textPrimary,
+            ),
           ),
         ),
       ],

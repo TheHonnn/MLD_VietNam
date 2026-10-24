@@ -269,7 +269,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'Giảng viên có chứng chỉ sư phạm và nhiều năm kinh nghiệm thực tế.',
+                    'Giảng viên có giấy chứng nhận sư phạm và nhiều năm kinh nghiệm thực tế.',
                     style: TextStyle(
                       fontSize: 12,
                       color: AcademyColors.textSecondary,

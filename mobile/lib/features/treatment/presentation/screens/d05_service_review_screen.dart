@@ -95,11 +95,11 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3E2CE),
+                color: const Color(0xFFF0F7FF),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF985018), width: 1.5),
+                border: Border.all(color: const Color(0xFF0066B2), width: 1.5),
               ),
-              child: const Icon(Icons.check, color: Color(0xFF985018), size: 36),
+              child: const Icon(Icons.check, color: Color(0xFF0066B2), size: 36),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -108,7 +108,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF693B20),
+                color: Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 8),
@@ -135,7 +135,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF985018),
+                  backgroundColor: const Color(0xFF0066B2),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -183,7 +183,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF40352F),
+            color: Color(0xFF1E293B),
           ),
         ),
         const SizedBox(height: 8),
@@ -204,7 +204,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                     child: Icon(
                       isFilled ? Icons.star : Icons.star_border,
                       size: 26,
-                      color: isFilled ? const Color(0xFF985018) : const Color(0xFFC58D59),
+                      color: isFilled ? const Color(0xFF0066B2) : const Color(0xFF0284C7),
                     ),
                   ),
                 );
@@ -215,7 +215,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF40352F),
+                color: Color(0xFF1E293B),
               ),
             ),
           ],
@@ -256,11 +256,11 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                             ),
                             child: const Icon(
                               Icons.arrow_back,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                               size: 20,
                             ),
                           ),
@@ -270,7 +270,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xFF985018),
+                            color: Color(0xFF0066B2),
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -284,7 +284,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF693B20),
+                        color: Color(0xFF0F172A),
                         height: 1.25,
                       ),
                     ),
@@ -307,7 +307,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,10 +325,10 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                                     width: 80,
                                     height: 96,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF3E2CE),
+                                      color: const Color(0xFFF0F7FF),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: const Icon(Icons.spa, color: Color(0xFF985018), size: 36),
+                                    child: const Icon(Icons.spa, color: Color(0xFF0066B2), size: 36),
                                   ),
                                 ),
                               ),
@@ -342,7 +342,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF40352F),
+                                        color: Color(0xFF1E293B),
                                       ),
                                     ),
                                     const SizedBox(height: 6),
@@ -351,7 +351,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w400,
-                                        color: Color(0xFF40352F),
+                                        color: Color(0xFF1E293B),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -369,14 +369,14 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          const Divider(height: 1, color: Color(0xFFE3D1BF)),
+                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
                           const SizedBox(height: 10),
                           Text(
                             widget.sessionInfo,
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF985018),
+                              color: Color(0xFF0066B2),
                             ),
                           ),
                         ],
@@ -390,7 +390,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF693B20),
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -398,7 +398,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3E2CE),
+                        color: const Color(0xFFF0F7FF),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Column(
@@ -420,7 +420,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                                   child: Icon(
                                     isSelected ? Icons.star : Icons.star_border,
                                     size: 36,
-                                    color: const Color(0xFF985018),
+                                    color: const Color(0xFF0066B2),
                                   ),
                                 ),
                               );
@@ -432,7 +432,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                         ],
@@ -447,7 +447,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,7 +459,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                           ),
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12.0),
-                            child: Divider(height: 1, color: Color(0xFFE3D1BF)),
+                            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                           ),
                           _buildCategoryRatingRow(
                             title: 'Thái độ chuyên viên.',
@@ -468,7 +468,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                           ),
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12.0),
-                            child: Divider(height: 1, color: Color(0xFFE3D1BF)),
+                            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                           ),
                           _buildCategoryRatingRow(
                             title: 'Không gian trải nghiệm.',
@@ -477,7 +477,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                           ),
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12.0),
-                            child: Divider(height: 1, color: Color(0xFFE3D1BF)),
+                            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                           ),
                           _buildCategoryRatingRow(
                             title: 'Quy trình phục vụ.',
@@ -495,7 +495,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF40352F),
+                        color: Color(0xFF1E293B),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -506,7 +506,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                       ),
                       child: TextField(
                         controller: _commentCtrl,
@@ -514,7 +514,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xFF40352F),
+                          color: Color(0xFF1E293B),
                           height: 1.4,
                         ),
                         decoration: const InputDecoration(
@@ -538,7 +538,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF693B20),
+                        color: Color(0xFF0F172A),
                         height: 1.3,
                       ),
                     ),
@@ -574,7 +574,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  top: BorderSide(color: Color(0xFFE3D1BF), width: 1.0),
+                  top: BorderSide(color: Color(0xFFE2E8F0), width: 1.0),
                 ),
               ),
               child: SizedBox(
@@ -583,7 +583,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _handleSubmit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF985018),
+                    backgroundColor: const Color(0xFF0066B2),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -630,10 +630,10 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
         height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF985018) : Colors.white,
+          color: isSelected ? const Color(0xFF0066B2) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF985018) : const Color(0xFFE3D1BF),
+            color: isSelected ? const Color(0xFF0066B2) : const Color(0xFFE2E8F0),
             width: 1.0,
           ),
         ),
@@ -642,7 +642,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: isSelected ? Colors.white : const Color(0xFF40352F),
+            color: isSelected ? Colors.white : const Color(0xFF1E293B),
           ),
         ),
       ),

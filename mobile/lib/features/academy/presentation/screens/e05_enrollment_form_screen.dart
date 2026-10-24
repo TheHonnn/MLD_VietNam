@@ -421,7 +421,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             _buildExperienceOption(
               index: 2,
               title: 'Đang làm việc tại Spa',
-              desc: 'Muốn bổ sung kiến thức chuẩn y khoa và chứng chỉ.',
+              desc: 'Muốn bổ sung kiến thức chuẩn y khoa và giấy chứng nhận.',
             ),
             const SizedBox(height: 24),
 

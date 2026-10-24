@@ -292,7 +292,7 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
               // Chú thích chân trang [8116:25143] (350x18)
               const Center(
                 child: Text(
-                  'Chương trình đào tạo thực hành và cấp chứng chỉ nghề chuyên nghiệp.',
+                  'Chương trình đào tạo thực hành và cấp giấy chứng nhận nghề chuyên nghiệp.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,

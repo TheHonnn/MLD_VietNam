@@ -124,7 +124,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                     'assets/images/academy_hero_classroom.png',
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFF40352F),
+                      color: const Color(0xFF1E293B),
                       child: const Center(
                         child: Icon(Icons.play_circle_fill, size: 60, color: Colors.white70),
                       ),
@@ -158,7 +158,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                     left: 0,
                     right: 0,
                     child: Container(
-                      color: const Color(0xFF40352F).withValues(alpha: 0.9),
+                      color: const Color(0xFF1E293B).withValues(alpha: 0.9),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,

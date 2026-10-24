@@ -91,7 +91,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3D1BF),
+                  color: const Color(0xFFE2E8F0),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -102,13 +102,13 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF693B20),
+                color: Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 12),
             const Text(
               'Hotline đào tạo & hợp tác: 096.7786.399\nGiờ phục vụ: 09:00 – 20:00 hàng ngày',
-              style: TextStyle(fontSize: 14, color: Color(0xFF40352F), height: 1.5),
+              style: TextStyle(fontSize: 14, color: Color(0xFF1E293B), height: 1.5),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -130,7 +130,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF985018),
+                  backgroundColor: const Color(0xFF0066B2),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
@@ -158,11 +158,11 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
           ),
           child: Row(
             children: [
-              Icon(icon, color: const Color(0xFF985018), size: 20),
+              Icon(icon, color: const Color(0xFF0066B2), size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -170,7 +170,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF40352F),
+                    color: Color(0xFF1E293B),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -215,11 +215,11 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                             ),
                             child: const Icon(
                               Icons.arrow_back,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                               size: 20,
                             ),
                           ),
@@ -229,7 +229,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xFF985018),
+                            color: Color(0xFF0066B2),
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -243,7 +243,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF693B20),
+                        color: Color(0xFF0F172A),
                         height: 1.25,
                       ),
                     ),
@@ -266,9 +266,9 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF3E2CE),
+                            color: const Color(0xFFF0F7FF),
                             shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF985018), width: 1.0),
+                            border: Border.all(color: const Color(0xFF0066B2), width: 1.0),
                           ),
                           child: ClipOval(
                             child: Image.asset(
@@ -276,7 +276,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => const Icon(
                                 Icons.headset_mic,
-                                color: Color(0xFF985018),
+                                color: Color(0xFF0066B2),
                                 size: 28,
                               ),
                             ),
@@ -289,7 +289,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                         ),
@@ -338,7 +338,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,7 +364,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                   margin: const EdgeInsets.only(bottom: 12, left: 40),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF985018),
+                                    color: const Color(0xFF0066B2),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Column(
@@ -403,11 +403,11 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFFE3D1BF)),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
                                     ),
                                     child: const Icon(
                                       Icons.headset_mic,
-                                      color: Color(0xFF985018),
+                                      color: Color(0xFF0066B2),
                                       size: 16,
                                     ),
                                   ),
@@ -416,7 +416,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                       margin: const EdgeInsets.only(bottom: 12, right: 30),
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF3E2CE),
+                                        color: const Color(0xFFF0F7FF),
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Column(
@@ -427,7 +427,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                             style: const TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w400,
-                                              color: Color(0xFF40352F),
+                                              color: Color(0xFF1E293B),
                                               height: 1.4,
                                             ),
                                           ),
@@ -437,7 +437,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                             style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w400,
-                                              color: Color(0xFF40352F),
+                                              color: Color(0xFF1E293B),
                                             ),
                                           ),
                                         ],
@@ -467,11 +467,11 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                                   ),
                                   child: const Icon(
                                     Icons.attach_file,
-                                    color: Color(0xFF985018),
+                                    color: Color(0xFF0066B2),
                                     size: 20,
                                   ),
                                 ),
@@ -484,14 +484,14 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                                   ),
                                   child: TextField(
                                     controller: _msgController,
                                     onSubmitted: (_) => _sendMessage(),
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      color: Color(0xFF40352F),
+                                      color: Color(0xFF1E293B),
                                     ),
                                     decoration: const InputDecoration(
                                       hintText: 'Tin nhắn...',
@@ -512,12 +512,12 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                                   width: 44,
                                   height: 52,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF3E2CE),
+                                    color: const Color(0xFFF0F7FF),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
                                     Icons.send,
-                                    color: Color(0xFF985018),
+                                    color: Color(0xFF0066B2),
                                     size: 20,
                                   ),
                                 ),
@@ -536,7 +536,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                       ),
                       child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,7 +546,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF693B20),
+                              color: Color(0xFF0F172A),
                             ),
                           ),
                           SizedBox(height: 12),
@@ -555,7 +555,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                           SizedBox(height: 6),
@@ -564,18 +564,18 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                           SizedBox(height: 12),
-                          Divider(height: 1, color: Color(0xFFE3D1BF)),
+                          Divider(height: 1, color: Color(0xFFE2E8F0)),
                           SizedBox(height: 12),
                           Text(
                             'Chi nhánh Quận 3',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                           SizedBox(height: 6),
@@ -584,7 +584,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                           SizedBox(height: 12),
@@ -613,7 +613,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  top: BorderSide(color: Color(0xFFE3D1BF), width: 1.0),
+                  top: BorderSide(color: Color(0xFFE2E8F0), width: 1.0),
                 ),
               ),
               child: SizedBox(
@@ -622,7 +622,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                 child: ElevatedButton(
                   onPressed: _showBranchContactModal,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF985018),
+                    backgroundColor: const Color(0xFF0066B2),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),

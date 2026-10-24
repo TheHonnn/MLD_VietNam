@@ -317,10 +317,10 @@ class E12LearningResultsScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFC58D59), width: 1.5),
+                border: Border.all(color: const Color(0xFF0284C7), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFC58D59).withValues(alpha: 0.15),
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.15),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -330,7 +330,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFC58D59).withValues(alpha: 0.4), width: 1.0),
+                  border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.4), width: 1.0),
                 ),
                 child: Column(
                   children: [
@@ -338,7 +338,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.workspace_premium, color: Color(0xFFC58D59), size: 32),
+                        Icon(Icons.workspace_premium, color: Color(0xFF0284C7), size: 32),
                         SizedBox(width: 8),
                         Text(
                           'MLD ACADEMY',
@@ -368,7 +368,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                       height: 2,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFFC58D59), Color(0xFF985018)],
+                          colors: [Color(0xFF0284C7), Color(0xFF0066B2)],
                         ),
                       ),
                     ),
@@ -472,7 +472,7 @@ class E12LearningResultsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           const Text(
-            'Chưa có kết quả học tập & chứng chỉ',
+            'Chưa có kết quả học tập & giấy chứng nhận',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 18,
@@ -605,7 +605,7 @@ class E12LearningResultsScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              const Icon(Icons.workspace_premium, color: Color(0xFFC58D59), size: 48),
+              const Icon(Icons.workspace_premium, color: Color(0xFF0284C7), size: 48),
               const SizedBox(height: 12),
               const Text(
                 'Chứng Nhận Hoàn Thành',

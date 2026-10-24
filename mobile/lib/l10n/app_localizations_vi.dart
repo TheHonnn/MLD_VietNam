@@ -282,7 +282,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get learningResults => 'Kết quả học tập';
 
   @override
-  String get noLearningResults => 'Chưa có kết quả học tập & chứng chỉ';
+  String get noLearningResults => 'Chưa có kết quả học tập & giấy chứng nhận';
 
   @override
   String get noLearningResultsDesc =>

@@ -300,7 +300,7 @@ class AcademyCourseModel {
     required this.totalSessions,
     required this.tuitionFee,
     this.discountFee,
-    this.certificateTitle = 'Chứng chỉ MLD Academy',
+    this.certificateTitle = 'Giấy chứng nhận MLD Academy',
     required this.imageUrl,
     this.isHot = false,
   });

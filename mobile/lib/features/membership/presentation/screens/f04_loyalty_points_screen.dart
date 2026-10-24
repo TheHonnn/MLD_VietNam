@@ -341,7 +341,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                             children: [
                               const Row(
                                 children: [
-                                  Icon(Icons.diamond_outlined, size: 22, color: Color(0xFFC58D59)),
+                                  Icon(Icons.diamond_outlined, size: 22, color: Color(0xFF0284C7)),
                                   SizedBox(width: 8),
                                   Text(
                                     'Hướng tới hạng Bạc',
@@ -513,7 +513,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                                     thickness: 1,
                                     indent: 16,
                                     endIndent: 16,
-                                    color: Color(0xFFF3E2CE),
+                                    color: Color(0xFFF0F7FF),
                                   ),
                               ],
                             );

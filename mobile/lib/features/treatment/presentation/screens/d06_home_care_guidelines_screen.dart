@@ -52,7 +52,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE3D1BF),
+                      color: const Color(0xFFE2E8F0),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -63,7 +63,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF985018),
+                    color: Color(0xFF0066B2),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -73,7 +73,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF693B20),
+                    color: Color(0xFF0F172A),
                     height: 1.3,
                   ),
                 ),
@@ -96,8 +96,8 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                       height: 200,
-                      color: const Color(0xFFF3E2CE),
-                      child: const Icon(Icons.spa, color: Color(0xFF985018), size: 48),
+                      color: const Color(0xFFF0F7FF),
+                      child: const Icon(Icons.spa, color: Color(0xFF0066B2), size: 48),
                     ),
                   ),
                 ),
@@ -107,7 +107,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF40352F),
+                    color: Color(0xFF1E293B),
                     height: 1.5,
                   ),
                 ),
@@ -119,7 +119,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF40352F),
+                    color: Color(0xFF1E293B),
                     height: 1.6,
                   ),
                 ),
@@ -127,9 +127,9 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8F1E8),
+                    color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE3D1BF)),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: const Text(
                     'Lưu ý: Hướng dẫn chăm sóc mang tính hỗ trợ phục hồi sức khỏe tổng quát, không thay thế cho chỉ định y khoa điều trị bệnh lý chuyên khoa.',
@@ -185,11 +185,11 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                             ),
                             child: const Icon(
                               Icons.arrow_back,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                               size: 20,
                             ),
                           ),
@@ -199,7 +199,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xFF985018),
+                            color: Color(0xFF0066B2),
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -213,7 +213,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF693B20),
+                        color: Color(0xFF0F172A),
                         height: 1.25,
                       ),
                     ),
@@ -240,7 +240,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3E2CE),
+                          color: const Color(0xFFF0F7FF),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         clipBehavior: Clip.antiAlias,
@@ -255,8 +255,8 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                               errorBuilder: (_, __, ___) => Container(
                                 width: double.infinity,
                                 height: 192,
-                                color: const Color(0xFFE3D1BF),
-                                child: const Icon(Icons.spa, color: Color(0xFF985018), size: 48),
+                                color: const Color(0xFFE2E8F0),
+                                child: const Icon(Icons.spa, color: Color(0xFF0066B2), size: 48),
                               ),
                             ),
                             const Padding(
@@ -269,7 +269,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
-                                      color: Color(0xFF985018),
+                                      color: Color(0xFF0066B2),
                                     ),
                                   ),
                                   SizedBox(height: 8),
@@ -278,7 +278,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                     style: TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF693B20),
+                                      color: Color(0xFF0F172A),
                                     ),
                                   ),
                                   SizedBox(height: 8),
@@ -287,7 +287,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w400,
-                                      color: Color(0xFF40352F),
+                                      color: Color(0xFF1E293B),
                                       height: 1.4,
                                     ),
                                   ),
@@ -340,10 +340,10 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                 padding: const EdgeInsets.symmetric(horizontal: 18),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: isSelected ? const Color(0xFF985018) : Colors.white,
+                                  color: isSelected ? const Color(0xFF0066B2) : Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: isSelected ? const Color(0xFF985018) : const Color(0xFFE3D1BF),
+                                    color: isSelected ? const Color(0xFF0066B2) : const Color(0xFFE2E8F0),
                                     width: 1.0,
                                   ),
                                 ),
@@ -352,7 +352,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w400,
-                                    color: isSelected ? Colors.white : const Color(0xFF40352F),
+                                    color: isSelected ? Colors.white : const Color(0xFF1E293B),
                                   ),
                                 ),
                               ),
@@ -369,7 +369,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF693B20),
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -386,7 +386,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFE3D1BF), width: 1.0),
+                              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,8 +406,8 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                             errorBuilder: (_, __, ___) => Container(
                                               width: 88,
                                               height: 104,
-                                              color: const Color(0xFFF3E2CE),
-                                              child: const Icon(Icons.article, color: Color(0xFF985018)),
+                                              color: const Color(0xFFF0F7FF),
+                                              child: const Icon(Icons.article, color: Color(0xFF0066B2)),
                                             ),
                                           ),
                                           if (art.isVideo)
@@ -434,7 +434,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                             style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w400,
-                                              color: Color(0xFF985018),
+                                              color: Color(0xFF0066B2),
                                             ),
                                           ),
                                           const SizedBox(height: 6),
@@ -443,7 +443,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
-                                              color: Color(0xFF40352F),
+                                              color: Color(0xFF1E293B),
                                               height: 1.3,
                                             ),
                                           ),
@@ -458,7 +458,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w400,
-                                    color: Color(0xFF40352F),
+                                    color: Color(0xFF1E293B),
                                     height: 1.4,
                                   ),
                                 ),
@@ -486,7 +486,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF693B20),
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -494,7 +494,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3E2CE),
+                        color: const Color(0xFFF0F7FF),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
@@ -505,7 +505,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF985018),
+                              color: Color(0xFF0066B2),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -514,7 +514,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -523,7 +523,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF40352F),
+                              color: Color(0xFF1E293B),
                               height: 1.4,
                             ),
                           ),
@@ -548,7 +548,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF985018),
+                                  color: Color(0xFF0066B2),
                                 ),
                               ),
                             ),
@@ -569,7 +569,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  top: BorderSide(color: Color(0xFFE3D1BF), width: 1.0),
+                  top: BorderSide(color: Color(0xFFE2E8F0), width: 1.0),
                 ),
               ),
               child: SizedBox(
@@ -582,7 +582,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF985018),
+                    backgroundColor: const Color(0xFF0066B2),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),

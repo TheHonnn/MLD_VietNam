@@ -163,7 +163,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFF8F1E8) : Colors.transparent,
+                    color: isSelected ? const Color(0xFFF8FAFC) : Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isSelected ? AppColors.primary : AppColors.border,
@@ -442,7 +442,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                         _updateSettings(_settings.copyWith(notifyAppointments: val));
                       },
                     ),
-                    const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF3E2CE)),
+                    const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF0F7FF)),
                     _buildToggleRow(
                       title: isEn ? 'Treatment Alerts' : 'Thông báo liệu trình',
                       value: _settings.notifyTreatments,
@@ -451,7 +451,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                         _updateSettings(_settings.copyWith(notifyTreatments: val));
                       },
                     ),
-                    const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF3E2CE)),
+                    const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF0F7FF)),
                     _buildToggleRow(
                       title: isEn ? 'Course Notifications' : 'Thông báo khóa học',
                       value: _settings.notifyCourses,
@@ -460,7 +460,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                         _updateSettings(_settings.copyWith(notifyCourses: val));
                       },
                     ),
-                    const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF3E2CE)),
+                    const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFF0F7FF)),
                     _buildToggleRow(
                       title: isEn ? 'Promotions & Offers' : 'Chương trình ưu đãi',
                       value: _settings.notifyPromotions,
@@ -777,7 +777,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
             thickness: 1,
             indent: 16,
             endIndent: 16,
-            color: Color(0xFFF3E2CE),
+            color: Color(0xFFF0F7FF),
           ),
       ],
     );

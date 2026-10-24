@@ -252,13 +252,13 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     stops: [0.0, 0.55, 1.0],
                     colors: [
                       Color(0xFF7E4213),
-                      Color(0xFF985018),
-                      Color(0xFF693B20),
+                      Color(0xFF0066B2),
+                      Color(0xFF0F172A),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF693B20).withValues(alpha: 0.25),
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.25),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -276,13 +276,13 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFC58D59), // #C58D59
+                            color: Color(0xFF0284C7), // #C58D59
                           ),
                         ),
                         const Icon(
                           Icons.workspace_premium_rounded,
                           size: 24,
-                          color: Color(0xFFC58D59),
+                          color: Color(0xFF0284C7),
                         ),
                       ],
                     ),
@@ -325,7 +325,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: const Color(0xFFC58D59),
+                            color: const Color(0xFF0284C7),
                             width: 1.0,
                           ),
                           color: Colors.black.withValues(alpha: 0.12),
@@ -335,7 +335,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                             const Icon(
                               Icons.qr_code_2_rounded,
                               size: 20,
-                              color: Color(0xFFC58D59),
+                              color: Color(0xFF0284C7),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -567,7 +567,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.workspace_premium_outlined,
-                  title: isEn ? 'Certificates & Grades' : 'Chứng chỉ & điểm',
+                  title: isEn ? 'Certificates & Grades' : 'Giấy chứng nhận & điểm',
                   isLast: true,
                   onTap: () {
                     Navigator.push(
@@ -758,7 +758,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             thickness: 1,
             indent: 16,
             endIndent: 16,
-            color: Color(0xFFF3E2CE),
+            color: Color(0xFFF0F7FF),
           ),
       ],
     );

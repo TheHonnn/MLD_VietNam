@@ -164,7 +164,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.workspace_premium_rounded, color: Color(0xFFC58D59), size: 24),
+                            const Icon(Icons.workspace_premium_rounded, color: Color(0xFF0284C7), size: 24),
                           ],
                         ),
                         const SizedBox(height: 12),

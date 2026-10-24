@@ -26,10 +26,8 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
 
   final List<String> _categories = [
     'Tất cả',
-    'Massage',
-    'Chăm sóc da',
-    'Kỹ thuật chuyên sâu',
-    'Quản lý Spa',
+    'Người mới bắt đầu làm nghề',
+    'Người đang làm nghề',
   ];
 
   @override
