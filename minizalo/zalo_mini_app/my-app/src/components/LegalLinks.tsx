@@ -16,13 +16,13 @@ export function LegalLinks() {
   const privacy = publicUrl(import.meta.env.VITE_PRIVACY_POLICY_URL);
   const terms = publicUrl(import.meta.env.VITE_TERMS_URL);
   return <>
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 py-3 text-xs text-[#98501B]">
+    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 py-3 text-xs text-[#087e9c]">
       {privacy ? <a href={privacy} target="_blank" rel="noopener noreferrer" className="underline">Chính sách bảo mật</a>
         : <button type="button" className="min-h-10 underline" onClick={()=>setDraft('privacy')}>Chính sách bảo mật</button>}
       {terms ? <a href={terms} target="_blank" rel="noopener noreferrer" className="underline">Điều khoản sử dụng</a>
         : <button type="button" className="min-h-10 underline" onClick={()=>setDraft('terms')}>Điều khoản sử dụng</button>}
     </div>
-    {draft && createPortal(<section role="dialog" aria-modal="true" aria-labelledby={headingId} className="absolute inset-0 z-[250] flex min-h-0 flex-col bg-[#FAF6F0] text-left text-[#40352F]">
+    {draft && createPortal(<section role="dialog" aria-modal="true" aria-labelledby={headingId} className="absolute inset-0 z-[250] flex min-h-0 flex-col bg-[#ffffff] text-left text-[#183b47]">
       <header className="flex shrink-0 items-center gap-3 border-b p-4">
         <button type="button" aria-label="Đóng chính sách" title="Đóng chính sách" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-white" onClick={()=>setDraft(null)} autoFocus><ArrowLeftIcon size={20}/></button>
         <h1 id={headingId} className="min-w-0 break-words text-lg font-bold">{draft==='privacy'?'Chính sách bảo mật':'Điều khoản sử dụng'}</h1>

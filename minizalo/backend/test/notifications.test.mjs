@@ -86,6 +86,10 @@ test('notification inbox observes canonical changes, isolates customers and pers
       let items=await inbox();
       assert.equal(source(items,`results:${id(41)}`).data.target.tab,'results');
       assert.match(source(items,`certificate:${id(42)}`).title,/Đã cấp/);
+      assert.equal(source(items,`certificate:${id(42)}`).data.target.tab,'certificates');
+      assert.equal(source(items,`certificate:${id(42)}`).data.target.entityId,id(42));
+      assert.match(source(items,`certificate:${id(42)}`).title,/^Giấy chứng nhận:/);
+      assert.equal((await db.query("SELECT data->'target'->>'tab' AS tab FROM notifications WHERE user_id=$1 AND data->>'sourceKey'=$2 ORDER BY created_at DESC LIMIT 1",[id(1),`certificate:${id(42)}`])).rows[0].tab,'results');
       assert.match(source(items,`attendance:${id(43)}`).title,/Có mặt/);
       assert.match(source(items,`tuition:${id(44)}`).message,/200.000đ/);
       assert.match(source(items,`invoice:${id(45)}`).title,/Chưa thanh toán/);

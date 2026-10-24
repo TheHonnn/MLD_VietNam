@@ -4,7 +4,7 @@ import type { Branch, Course, Doctor, MedicalService } from '../../../../backend
 import { ArrowLeftIcon, ClockIcon, CloseIcon, SearchIcon } from './Icons';
 import { EntityImage } from './GroupBExtensions';
 import '@/css/search.scss';
-import { searchText as fold } from '@/utils/catalog';
+import { searchText as fold,serviceSearchText } from '@/utils/catalog';
 
 interface GroupBSearchProps {
   services: MedicalService[];
@@ -109,7 +109,7 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
   };
 
   const items = useMemo(() => [
-    ...services.map(record => ({id:record.id,type:'service' as Category,title:record.title,image:record.image,detail:money(record.price),text:record.description,select:()=>onSelectService(record)})),
+    ...services.map(record => ({id:record.id,type:'service' as Category,title:record.title,image:record.image,detail:money(record.price),text:serviceSearchText(record),select:()=>onSelectService(record)})),
     ...courses.map(record => ({id:record.id,type:'course' as Category,title:record.title,image:record.image,detail:money(record.price),text:`${record.description || ''} ${record.instructor || ''}`,select:()=>onSelectCourse(record)})),
     ...branches.map(record => ({id:record.id,type:'branch' as Category,title:record.name,image:record.imageUrl,detail:record.address,text:record.address,select:()=>onSelectBranch(record)})),
     ...doctors.map(record => ({id:record.id,type:'specialist' as Category,title:record.name,image:record.avatar,detail:record.title || record.specialty,text:`${record.specialty || ''} ${record.hospital || ''}`,select:()=>onSelectSpecialist(record)})),

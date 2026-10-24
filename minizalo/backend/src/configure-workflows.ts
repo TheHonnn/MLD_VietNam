@@ -6,8 +6,8 @@ const uuid=(value:unknown)=>{if(typeof value!=='string'||!/^[0-9a-f]{8}-(?:[0-9a
 export async function configureWorkflows(store:Store,input:unknown,apply=false){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new ApiError(400,'Configuration must be an object');
   const config=input as Record<string,unknown>;
-  if(Object.keys(config).some(key=>!['technicianServices','lessonQuizzes','quizLimits','courseDelivery','membershipCards'].includes(key)))throw new ApiError(400,'Unknown configuration section');
-  const counts={technicianServices:0,lessonQuizzes:0,quizLimits:0,courseDelivery:0,membershipCards:0};
+  if(Object.keys(config).some(key=>!['technicianServices','lessonQuizzes','quizLimits','courseDelivery','membershipCards','courseAccess','courseAudiences'].includes(key)))throw new ApiError(400,'Unknown configuration section');
+  const counts={technicianServices:0,lessonQuizzes:0,quizLimits:0,courseDelivery:0,membershipCards:0,courseAccess:0,courseAudiences:0};
   for(const section of Object.keys(counts) as (keyof typeof counts)[]){
     const rows=config[section]??[];
     if(!Array.isArray(rows)||rows.length>1000)throw new ApiError(400,'Invalid configuration list');
@@ -30,6 +30,18 @@ export async function configureWorkflows(store:Store,input:unknown,apply=false){
         const [valid]=await store.query(Prisma.sql`SELECT id FROM courses WHERE id=${courseId}::uuid`);
         if(!valid)throw new ApiError(400,'Course does not exist');
         if(apply)await store.query(Prisma.sql`INSERT INTO miniapp_course_delivery(course_id,delivery_format) VALUES(${courseId}::uuid,${format}) ON CONFLICT(course_id) DO UPDATE SET delivery_format=EXCLUDED.delivery_format,updated_at=clock_timestamp() RETURNING course_id`);
+      }else if(section==='courseAudiences'){
+        const courseId=uuid(row.courseId),audience=row.audience,reason=row.reason;
+        if(!['BEGINNER','PRACTITIONER'].includes(audience)||typeof reason!=='string'||!reason.trim()||reason.length>1000)throw new ApiError(400,'Invalid course audience configuration');
+        const [valid]=await store.query(Prisma.sql`SELECT id FROM courses WHERE id=${courseId}::uuid`);
+        if(!valid)throw new ApiError(400,'Course does not exist');
+        if(apply)await store.query(Prisma.sql`INSERT INTO miniapp_course_audiences(course_id,audience,reason) VALUES(${courseId}::uuid,${audience},${reason.trim()}) ON CONFLICT(course_id) DO UPDATE SET audience=EXCLUDED.audience,reason=EXCLUDED.reason,updated_at=clock_timestamp() RETURNING course_id`);
+      }else if(section==='courseAccess'){
+        const enrollmentId=uuid(row.enrollmentId),expires=row.expiresAt??null,suspended=row.isSuspended??false,reason=row.reason;
+        if(typeof suspended!=='boolean'||typeof reason!=='string'||!reason.trim()||reason.length>1000||(expires!==null&&(typeof expires!=='string'||!Number.isFinite(Date.parse(expires))||new Date(expires).toISOString()!==expires)))throw new ApiError(400,'Invalid course access configuration');
+        const [valid]=await store.query(Prisma.sql`SELECT id FROM course_enrollments WHERE id=${enrollmentId}::uuid`);
+        if(!valid)throw new ApiError(400,'Enrollment does not exist');
+        if(apply)await store.query(Prisma.sql`INSERT INTO miniapp_course_access(enrollment_id,expires_at,is_suspended,reason) VALUES(${enrollmentId}::uuid,${expires}::timestamptz,${suspended},${reason.trim()}) ON CONFLICT(enrollment_id) DO UPDATE SET expires_at=EXCLUDED.expires_at,is_suspended=EXCLUDED.is_suspended,reason=EXCLUDED.reason,updated_at=clock_timestamp() RETURNING enrollment_id`);
       }else if(section==='membershipCards'){
         const userId=uuid(row.userId),code=row.cardCode,expires=row.expiresAt??null,active=row.isActive??true;
         if(typeof code!=='string'||!code.trim()||code.length>100||/[\x00-\x1f\x7f]/.test(code)||typeof active!=='boolean'||(expires!==null&&(typeof expires!=='string'||!Number.isFinite(Date.parse(expires))||new Date(expires).toISOString()!==expires)))throw new ApiError(400,'Invalid membership card configuration');

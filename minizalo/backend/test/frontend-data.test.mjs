@@ -22,10 +22,14 @@ test('profile adapters preserve explicit clearing and never coerce mistyped opti
 test('catalog text filtering supports Vietnamese accents, case and whitespace without inventing matches', async () => {
   const source = await readFile(new URL('../../zalo_mini_app/my-app/src/utils/catalog.ts', import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
-  const { searchText, vietnamToday } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+  const { searchText,serviceSearchText, vietnamToday } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
   assert.equal(searchText('  CHĂM  SÓC ĐẦU  '), 'cham soc dau');
   assert.ok(searchText('Chi nhánh Quận 3').includes(searchText('quan 3')));
   assert.equal(searchText('Massage').includes(searchText('khóa học')), false);
+  const needs=serviceSearchText({title:'Actual service',benefits:['Giảm căng cơ',{title:'Thư giãn',description:'Chăm sóc vai gáy',id:'not-a-search-term'}],steps:null});
+  assert.ok(needs.includes(searchText('vai gay')));
+  assert.ok(needs.includes(searchText('giam cang co')));
+  assert.equal(needs.includes('not-a-search-term'),false);
   assert.match(vietnamToday(), /^\d{4}-\d{2}-\d{2}$/);
 });
 
@@ -56,6 +60,16 @@ test('course adapter counts real lessons instead of a stored default and does no
   assert.equal(course.price,5000000);
   assert.equal(course.lessons[0].title,'Actual lesson');
   assert.equal('rating' in course,false);
+});
+
+test('course audiences support real legacy levels without overriding explicit server classification',()=>{
+  for(const level of ['BEGINNER','INTERMEDIATE','ADVANCED','MASTER']){
+    assert.equal(adapters.adaptCourse({level}).trainingAudience,level==='BEGINNER'?'BEGINNER':'PRACTITIONER');
+  }
+  assert.equal(adapters.adaptCourse({level:'UNKNOWN'}).trainingAudience,null);
+  assert.equal(adapters.adaptCourse({}).trainingAudience,null);
+  assert.equal(adapters.adaptCourse({level:'BEGINNER',trainingAudience:'PRACTITIONER'}).trainingAudience,'PRACTITIONER');
+  assert.equal(adapters.adaptCourse({level:'BEGINNER',trainingAudience:null}).trainingAudience,null);
 });
 
 test('missing gender stays unspecified and explicit Other remains distinct', () => {

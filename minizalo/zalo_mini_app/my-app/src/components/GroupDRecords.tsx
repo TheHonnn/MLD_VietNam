@@ -33,7 +33,7 @@ export const GroupDRecords: React.FC<{
     {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
     {!loading && !error && records?.length === 0 && <Text className="text-xs"></Text>}
     {records?.map(record => (
-      <Box key={record.id} id={`care-${record.id}`} className="space-y-2 border-b border-[#EADECF] py-3">
+      <Box key={record.id} id={`care-${record.id}`} className="space-y-2 border-b border-[#c8dde3] py-3">
         <Text className="text-xs font-bold">{careDate(record.sessionDate || record.diagnosisDate)}</Text>
         {record.sessionNumber != null && <Text className="text-xs">Buổi {record.sessionNumber}</Text>}
         {record.serviceName && <Text className="text-xs font-bold">{record.serviceName}</Text>}

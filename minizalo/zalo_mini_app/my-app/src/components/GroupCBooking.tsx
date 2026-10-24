@@ -102,6 +102,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
   const [slots, setSlots] = useState<{ id: string; technicianId: string; startTime: string; endTime: string }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState('');
+  const [availabilityReason,setAvailabilityReason]=useState('');
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [slotsFor, setSlotsFor] = useState('');
   const slotRequestKey = JSON.stringify([selectedBranch?.id, selectedService?.id, selectedService?.durationMinutes, selectedDate, autoAssign ? null : selectedDoctor?.id, slotsVersion]);
@@ -156,6 +157,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
     setSelectedTime('');
     setSlots([]);
     setSlotsError('');
+    setAvailabilityReason('');
     setSlotsFor('');
     if (!selectedBranch?.id || !selectedService?.id){setSlotsLoading(false);return;}
     setSlotsLoading(true);
@@ -164,6 +166,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
       setSlotsLoading(false);
       if (!result?.slots || result.error) { setSlotsError(result?.error || 'Không thể tải giờ hẹn.'); return; }
       setSlots(result.slots);
+      setAvailabilityReason(result.availabilityReason||'');
       setSlotsFor(slotRequestKey);
     });
     return () => { cancelled = true;controller.abort(); };
@@ -318,7 +321,7 @@ export const GroupCBooking: React.FC<GroupCBookingProps> = ({
           {!datesLoading&&openDates.length>0&&<label className="booking-filter">Ngày có lịch trống<select aria-label="Ngày có lịch trống" value={openDates.includes(selectedDate)?selectedDate:''} onChange={event=>chooseDate(event.target.value)}><option value="" disabled>Chọn ngày có lịch trống</option>{openDates.map(day=><option key={day} value={day}>{day.split('-').reverse().join('/')}</option>)}</select></label>}
           {slotsLoading && <p role="status" className="text-xs">Đang tải giờ hẹn...</p>}
           {slotsError && <p role="alert" className="text-xs text-red-700">{slotsError} <button onClick={() => setSlotsVersion(value => value + 1)}>Thử lại</button></p>}
-          {!slotsLoading && !datesLoading && !slotsError && !availableSlots.length && <div className="booking-empty" role="status"><p>Ngày này chưa có giờ trống phù hợp. Bạn có thể chọn ngày khác hoặc liên hệ chi nhánh.</p>{selectedBranch.phone&&<a href={`tel:${selectedBranch.phone}`}>Gọi {selectedBranch.phone}</a>}<button type="button" onClick={()=>{dateChoice.current=false;setDateRangeStart(shiftDate(dateRangeStart,31));setDatesVersion(value=>value+1);}}>Tìm ngày trống tiếp theo</button></div>}
+          {!slotsLoading && !datesLoading && !slotsError && !availableSlots.length && <div className="booking-empty" role="status"><p>{availabilityReason==='NO_SERVICE_ASSIGNMENT'?'Chi nhánh chưa mở nhận dịch vụ này với chuyên viên đã chọn. Bạn có thể đổi chuyên viên hoặc chi nhánh.':availabilityReason==='NO_PUBLISHED_SLOTS'?'Chi nhánh chưa công bố lịch nhận khách cho dịch vụ này. Vui lòng liên hệ chi nhánh.':'Ngày này chưa có giờ trống phù hợp. Bạn có thể chọn ngày khác hoặc liên hệ chi nhánh.'}</p>{selectedBranch.phone&&<a href={`tel:${selectedBranch.phone}`}>Gọi {selectedBranch.phone}</a>}{availabilityReason!=='NO_SERVICE_ASSIGNMENT'&&availabilityReason!=='NO_PUBLISHED_SLOTS'&&<button type="button" onClick={()=>{dateChoice.current=false;setDateRangeStart(shiftDate(dateRangeStart,31));setDatesVersion(value=>value+1);}}>Tìm ngày trống tiếp theo</button>}{!initialDoctor&&<button type="button" onClick={()=>setStep(2)}>Đổi chi nhánh</button>}<button type="button" onClick={()=>setStep(3)}>Đổi chuyên viên</button></div>}
           <TimeSlots title="Buổi sáng" slots={morningSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi chiều" slots={afternoonSlots} selected={selectedTime} onSelect={setSelectedTime} /><TimeSlots title="Buổi tối" slots={eveningSlots} selected={selectedTime} onSelect={setSelectedTime} />
         </div>}
 

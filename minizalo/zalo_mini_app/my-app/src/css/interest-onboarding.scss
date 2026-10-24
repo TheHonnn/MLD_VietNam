@@ -6,7 +6,7 @@
   padding: 0;
   overflow: hidden;
   container: interest-onboarding / size;
-  background: #f8f1e7;
+  background: #ffffff;
   --interest-safe-top: max(24px, env(safe-area-inset-top, 0px));
   --interest-safe-bottom: max(24px, env(safe-area-inset-bottom, 0px));
 }
@@ -40,7 +40,7 @@
   font-size: 28px;
   font-weight: 700;
   line-height: 34px;
-  color: #784729;
+  color: #164e63;
   letter-spacing: 0;
 }
 
@@ -49,7 +49,7 @@
   margin: 10px 0 18px;
   font-size: 14px;
   line-height: 22px;
-  color: #857c71;
+  color: #526a73;
 }
 
 .interest-choices {
@@ -77,9 +77,9 @@
 }
 
 .interest-choice.is-selected {
-  border-color: #a4551e;
-  background: #f3e2cd;
-  box-shadow: inset 0 0 0 1px #a4551e;
+  border-color: #087e9c;
+  background: #e8f4f7;
+  box-shadow: inset 0 0 0 1px #087e9c;
 }
 
 .interest-choice-icon {
@@ -88,8 +88,8 @@
   height: 42px;
   place-items: center;
   border-radius: 12px;
-  background: #f3e2cd;
-  color: #a4551e;
+  background: #e8f4f7;
+  color: #087e9c;
 }
 
 .interest-choice.is-selected .interest-choice-icon { background: #fff; }
@@ -108,7 +108,7 @@
   margin-top: 6px;
   font-size: 14px;
   line-height: 21px;
-  color: #857c71;
+  color: #526a73;
 }
 
 .interest-choice input {
@@ -124,7 +124,7 @@
   background: #fff;
   cursor: pointer;
 }
-.interest-choice input:checked { border-color: #a4551e; background: #a4551e; }
+.interest-choice input:checked { border-color: #087e9c; background: #087e9c; }
 .interest-choice-check {
   position: absolute;
   top: 19px;
@@ -136,9 +136,9 @@
 .interest-choices:disabled .interest-choice { cursor: default; }
 
 .interest-actions { flex-shrink: 0; margin-top: auto; padding-top: 20px; }
-.interest-hint, .interest-error { margin: 0 0 16px; font-size: 11px; line-height: 16px; text-align: center; color: #857c71; }
+.interest-hint, .interest-error { margin: 0 0 16px; font-size: 11px; line-height: 16px; text-align: center; color: #526a73; }
 .interest-error { max-height: 64px; overflow-y: auto; color: #ad3030; overflow-wrap: anywhere; }
-.interest-actions .onboarding-primary { height: 52px; min-height: 52px; border-radius: 12px; background: #9d501c; }
+.interest-actions .onboarding-primary { height: 52px; min-height: 52px; border-radius: 12px; background: #087e9c; }
 
 @container interest-onboarding (max-height: 700px) {
   .interest-page-content { padding-right: 16px; padding-left: 16px; }

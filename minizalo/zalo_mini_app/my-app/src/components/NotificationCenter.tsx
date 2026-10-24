@@ -72,19 +72,19 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
     finally { lock.current = false; if(mounted.current)setBusy(false); }
   };
 
-  return <div className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#FAF6F0] text-[#40352F]">
-    <header className="shrink-0 border-b border-[#E8DDD2] bg-white px-4 pb-3 pt-4">
-      <div className="flex items-center justify-between"><button type="button" title="Quay lại" aria-label="Quay lại" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DED2C5] bg-white"><ArrowLeftIcon size={18} color="#40352F" /></button><button onClick={readAll} disabled={!unreadCount || busy} className="text-[10px] font-bold text-[#A65317] disabled:text-[#A79C95]">{busy ? 'Đang cập nhật...' : 'Đọc tất cả'}</button></div>
-      <h1 className="mt-3 text-[21px] font-bold text-[#6F452C]">Thông báo</h1>
-      <p className="mt-1 text-[10px] text-[#6F625B]">{unreadCount ? `${unreadCount} thông báo chưa đọc` : ''}</p>
-      <div className="mt-3 grid grid-cols-2 gap-2">{([['all', `Tất cả (${totalCount})`], ['unread', `Chưa đọc (${unreadCount})`]] as const).map(([id, label]) => <button key={id} onClick={() => setFilter(id)} className={`h-9 rounded-[8px] border text-[10px] font-semibold ${filter === id ? 'border-[#A65317] bg-[#A65317] text-white' : 'border-[#DED2C5] bg-white'}`}>{label}</button>)}</div>
+  return <div className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#ffffff] text-[#183b47]">
+    <header className="shrink-0 border-b border-[#dbe8eb] bg-white px-4 pb-3 pt-4">
+      <div className="flex items-center justify-between"><button type="button" title="Quay lại" aria-label="Quay lại" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#c8dde3] bg-white"><ArrowLeftIcon size={18} color="#183b47" /></button><button onClick={readAll} disabled={!unreadCount || busy} className="text-[10px] font-bold text-[#087e9c] disabled:text-[#A79C95]">{busy ? 'Đang cập nhật...' : 'Đọc tất cả'}</button></div>
+      <h1 className="mt-3 text-[21px] font-bold text-[#164e63]">Thông báo</h1>
+      <p className="mt-1 text-[10px] text-[#526a73]">{unreadCount ? `${unreadCount} thông báo chưa đọc` : ''}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">{([['all', `Tất cả (${totalCount})`], ['unread', `Chưa đọc (${unreadCount})`]] as const).map(([id, label]) => <button key={id} onClick={() => setFilter(id)} className={`h-9 rounded-[8px] border text-[10px] font-semibold ${filter === id ? 'border-[#087e9c] bg-[#087e9c] text-white' : 'border-[#c8dde3] bg-white'}`}>{label}</button>)}</div>
     </header>
     <main className="flex-1 space-y-2 overflow-y-auto px-3 py-3 pb-20">
       {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
       {loadError && <div role="alert" className="text-xs text-red-700">{loadError}<button className="ml-2 underline" onClick={onRefresh}>Thử lại</button></div>}
       {visible.map((item) => {
         const Icon = item.type.toUpperCase() === 'COURSE' ? NavAcademyIcon : CalendarIcon;
-        return <button key={item.id} disabled={busy} onClick={() => void readOne(item)} className={`flex w-full gap-3 rounded-[8px] border p-3 text-left disabled:opacity-60 ${item.isRead ? 'border-[#E8DDD2] bg-white' : 'border-[#E4C6AA] bg-[#FFF8F1]'}`}><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] ${item.isRead ? 'bg-[#F4F0EB]' : 'bg-[#F3E2CE]'}`}><Icon size={17} color="#A65317" /></span><span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-2"><strong className="text-[11px]">{item.title}</strong>{!item.isRead && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#C65420]" />}</span><span className="mt-1 block text-[10px] leading-relaxed text-[#6F625B]">{item.message}</span><span className="mt-2 block text-[8px] text-[#9A8D84]">{relativeTime(item.createdAt)}</span></span></button>;
+        return <button key={item.id} disabled={busy} onClick={() => void readOne(item)} className={`flex w-full gap-3 rounded-[8px] border p-3 text-left disabled:opacity-60 ${item.isRead ? 'border-[#dbe8eb] bg-white' : 'border-[#E4C6AA] bg-[#FFF8F1]'}`}><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] ${item.isRead ? 'bg-[#F4F0EB]' : 'bg-[#e8f4f7]'}`}><Icon size={17} color="#087e9c" /></span><span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-2"><strong className="text-[11px]">{item.title}</strong>{!item.isRead && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#C65420]" />}</span><span className="mt-1 block text-[10px] leading-relaxed text-[#526a73]">{item.message}</span><span className="mt-2 block text-[8px] text-[#9A8D84]">{relativeTime(item.createdAt)}</span></span></button>;
       })}
       {hasMore&&<button className="min-h-10 w-full rounded-[8px] border bg-white text-xs" disabled={loadingMore||busy} onClick={onLoadMore}>{loadingMore?'Đang tải...':'Xem thông báo cũ hơn'}</button>}
     </main>

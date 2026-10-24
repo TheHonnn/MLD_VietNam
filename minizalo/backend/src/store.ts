@@ -19,6 +19,16 @@ export const createStore = (client: PrismaClient | Prisma.TransactionClient): St
 
 // This is a read/write contract, not a second schema or a migration source.
 export const requiredColumns: Record<string, string[]> = {
+  miniapp_account_sessions:['id','user_id','token_hash','device_label','created_at','last_seen_at','expires_at','revoked_at'],
+  miniapp_account_revocations:['user_id','revoked_before'],
+  miniapp_shared_content:['id','kind','title','summary','content_text','image_url','attachments','status','author_id','updated_by','revision','payload_hash','published_at','created_at','updated_at'],
+  miniapp_course_audiences:['course_id','audience','reason','updated_at'],
+  miniapp_course_access:['enrollment_id','expires_at','is_suspended','reason','updated_at'],
+  miniapp_booking_beds:['booking_id','room_id','bed_number'],
+  miniapp_booking_group_members:['booking_id','group_id','member_number'],
+  branch_rooms:['id','branch_id','room_type','bed_capacity','is_available'],
+  audit_logs:['id','actor_id','action','table_name','record_id','old_data','new_data'],
+  miniapp_staff_bookings:['booking_id','staff_id','branch_id','created_at'],
   miniapp_customer_requests:['user_id','scope','request_key','payload_hash','resource_id','created_at'],
   miniapp_course_delivery:['course_id','delivery_format','updated_at'],
   miniapp_membership_cards:['user_id','card_code','expires_at','is_active','updated_at'],
@@ -36,9 +46,12 @@ export const requiredColumns: Record<string, string[]> = {
   branches: ['id', 'name', 'opening_time', 'closing_time', 'is_active'],
   services: ['id', 'category_id', 'name', 'price', 'discount_price', 'duration_minutes'],
   service_categories: ['id', 'name'],
-  technicians: ['id', 'full_name', 'branch_id', 'specialties'],
+  technicians: ['id', 'full_name', 'branch_id', 'specialties','staff_profile_id','user_id'],
+  technician_shifts:['id','technician_id','branch_id','shift_date','start_time','end_time','is_cancelled'],
+  staff_profiles:['id','user_id','branch_id','is_active','resignation_date'],
+  staff_leaves:['id','staff_id','start_date','end_date','status'],
   technician_slots: ['id', 'technician_id', 'branch_id', 'slot_date', 'start_time', 'end_time', 'status', 'held_by_user_id', 'hold_expires_at'],
-  bookings: ['id', 'customer_id', 'booking_code', 'booking_date', 'start_time', 'end_time', 'base_total', 'final_price', 'status', 'qr_code_hash'],
+  bookings: ['id', 'customer_id', 'booking_code', 'booking_date', 'start_time', 'end_time', 'base_total', 'final_price', 'status', 'qr_code_hash','assigned_room_id','assigned_bed_number'],
   booking_items: ['id', 'booking_id', 'service_id', 'price', 'duration_minutes'],
   coupons: ['id', 'code', 'discount_amount', 'discount_percent', 'valid_from', 'valid_to', 'used_count', 'usage_limit'],
   user_vouchers: ['id', 'user_id', 'coupon_id', 'status', 'expires_at', 'used_in_booking_id'],
@@ -107,6 +120,13 @@ export async function validateSharedSchema(store: Store) {
   const enumMismatch = Object.entries(expected).flatMap(([name, labels]) =>
     labels.filter(label => !values.some(row => row.name === name && row.value === label)).map(label=>`${name}.${label}`));
   if (enumMismatch.length) throw new Error(`Database does not match database/schema.sql: ${enumMismatch.join(', ')}`);
+  const [resources]=await store.query(Prisma.sql`SELECT
+    EXISTS(SELECT 1 FROM miniapp_schema_versions WHERE version='010_booking_resources_v3') AS ready,
+    (SELECT count(*)::int FROM pg_trigger WHERE
+      ((tgname='trg_miniapp_booking_resources' AND tgrelid='public.bookings'::regclass)
+        OR (tgname='trg_miniapp_bed_resources' AND tgrelid='public.miniapp_booking_beds'::regclass))
+      AND tgenabled IN ('O','A') AND tgdeferrable AND tginitdeferred AND NOT tgisinternal) AS triggers`);
+  if(!resources?.ready||resources.triggers!==2)throw new Error('Database does not match database/schema.sql: miniapp_booking_resources_v3 required');
 }
 
 export function camel(value: any): any {

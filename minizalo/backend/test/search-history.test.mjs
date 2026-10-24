@@ -6,11 +6,13 @@ import { PGlite } from '@electric-sql/pglite';
 import { Prisma } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../dist/server.js';
+import {statements as sessionStatements} from '../migrations/014_account_sessions.mjs';
 
 test('search history persists in the shared schema, isolates customers and never invents popular terms', async t => {
   const db = new PGlite();
   const schema = await readFile(new URL('../../../database/schema.sql',import.meta.url),'utf8');
   await db.exec(schema.split(/\r?\n/).filter(line=>!line.startsWith('CREATE EXTENSION')&&!line.includes('gin_trgm_ops')).join('\n'));
+  await db.exec(sessionStatements.join(';\n'));
   const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
   await db.exec(`INSERT INTO users(id,phone,full_name,referral_code) VALUES('${id(1)}','0900000001','Test one','SEARCH1'),('${id(2)}','0900000002','Test two','SEARCH2');
     INSERT INTO service_categories(id,name,code,icon_url) VALUES('${id(3)}','Actual category','SEARCH','/category.png');

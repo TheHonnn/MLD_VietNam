@@ -65,8 +65,8 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'care_guide', label: 'Chăm sóc tại nhà' }, { id: 'support', label: 'Hỗ trợ' },
   { id: 'notifications', label: 'Thông báo' },
 ];
-const button = 'min-h-10 rounded-[8px] border border-[#DED2C5] bg-white px-3 py-2 text-xs font-semibold text-[#6F452C] disabled:opacity-50';
-const input = 'w-full min-w-0 rounded-[8px] border border-[#DED2C5] bg-white p-2 text-sm';
+const button = 'min-h-10 rounded-[8px] border border-[#c8dde3] bg-white px-3 py-2 text-xs font-semibold text-[#164e63] disabled:opacity-50';
+const input = 'w-full min-w-0 rounded-[8px] border border-[#c8dde3] bg-white p-2 text-sm';
 const list = (value: string) => value.split('\n').map(item => item.trim()).filter(Boolean);
 const count = (value?: number) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 const emptySurvey = { bookingId: '', focusAreas: '', pressurePref: '', hasSensitiveSkin: '', hasOilAllergy: '', allergyDetails: '', medicalConditions: '', specialRequests: '' };
@@ -228,7 +228,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     const total = count(plan.totalSessions), used = count(plan.completedSessions ?? plan.usedSessions);
     return <div className="space-y-2 text-xs">
       <p>Tổng buổi: {total ?? ''} · Đã dùng: {used ?? ''} · Còn lại: {total != null && used != null ? Math.max(0, total - used) : ''}</p>
-      {total != null && total > 0 && used != null && <progress aria-label="Tiến độ liệu trình" value={Math.min(used, total)} max={total} className="h-2 w-full accent-[#98501B]" />}
+      {total != null && total > 0 && used != null && <progress aria-label="Tiến độ liệu trình" value={Math.min(used, total)} max={total} className="h-2 w-full accent-[#087e9c]" />}
       <p>Ngày mua: {careDate(plan.purchasedAt || plan.purchaseDate)}</p><p>Hạn sử dụng: {careDate(plan.expiresAt || plan.expiryDate)}</p>
     </div>;
   };
@@ -247,7 +247,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     <h2 className="text-sm font-bold">Phiếu thông tin đã gửi</h2>{feedback('surveys')}
     {errors.surveys && <button className={button} onClick={() => setHistoryRetry(prev => prev + 1)}>Thử lại</button>}
     {!loading.surveys && !errors.surveys && <p className="text-xs">{savedSurveys ? savedSurveys.length ? '' : '' : ''}</p>}
-    {savedSurveys?.map(saved => <article key={saved.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+    {savedSurveys?.map(saved => <article key={saved.id} className="space-y-2 border-b border-[#c8dde3] py-3 text-xs">
       <h3 className="font-semibold">{saved.bookingId ? bookings.find(booking => booking.id === saved.bookingId)?.serviceTitle || 'Phiếu theo lịch hẹn' : 'Sở thích chung'}</h3>
       <p>Ngày gửi: {careDate(saved.createdAt)}</p>
       {saved.focusAreas?.length ? <p>Vùng cần chăm sóc: {saved.focusAreas.join(', ')}</p> : null}
@@ -263,7 +263,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     <h2 className="text-sm font-bold">Lịch sử đánh giá</h2>{feedback('reviews')}
     {errors.reviews && <button className={button} onClick={() => setHistoryRetry(prev => prev + 1)}>Thử lại</button>}
     {!loading.reviews && !errors.reviews && <p className="text-xs">{myReviews ? myReviews.length ? '' : '' : ''}</p>}
-    {myReviews?.map(review => <article key={review.id} id={`care-${review.id}`} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+    {myReviews?.map(review => <article key={review.id} id={`care-${review.id}`} className="space-y-2 border-b border-[#c8dde3] py-3 text-xs">
       <h3 className="font-semibold">{reviewName(review)}</h3><p>Ngày đánh giá: {careDate(review.createdAt)}</p>
       <p>{Number.isInteger(review.rating) && review.rating! >= 1 && review.rating! <= 5 ? `${review.rating}/5` : 'Mức đánh giá chưa khả dụng'}</p>
       {review.comment && <p className="whitespace-pre-wrap">{review.comment}</p>}
@@ -273,11 +273,11 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     </article>)}
   </section>;
 
-  return <div className="space-y-4 px-3 pt-3 pb-20 text-[#40352F] break-words">
+  return <div className="space-y-4 px-3 pt-3 pb-20 text-[#183b47] break-words">
     {bookingError&&<p role="alert" className="text-xs text-red-700">{bookingError}</p>}
-    <button disabled={loading.form||loading.send} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#40352F" /></button>
+    <button disabled={loading.form||loading.send} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#183b47" /></button>
     {!form && !selected && !article && <nav aria-label="Chăm sóc" className="flex gap-2 overflow-x-auto pb-1">
-      {tabs.map(tab => <button key={tab.id} disabled={saving} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(busy.current)return; if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#F3E2CE]' : ''}`}>{tab.label}</button>)}
+      {tabs.map(tab => <button key={tab.id} disabled={saving} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(busy.current)return; if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#e8f4f7]' : ''}`}>{tab.label}</button>)}
     </nav>}
     {notice && <p role="status" className="text-sm">{notice}</p>}
 
@@ -326,7 +326,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <p className="text-xs">{reviewSession.bookingDate ? 'Ngày hẹn' : 'Ngày chăm sóc'}: {careDate(reviewSession.bookingDate || reviewSession.sessionDate || reviewSession.diagnosisDate)}</p>
       {reviewSession.branchName && <p className="text-xs">{reviewSession.branchName}</p>}
       {reviewSession.technicianName && <p className="text-xs">{reviewSession.technicianName}</p>}
-      <div role="group" aria-label="Mức độ hài lòng" className="flex gap-2">{[1, 2, 3, 4, 5].map(value => <button key={value} type="button" aria-label={`${value} sao`} aria-pressed={rating === value} onClick={() => setRating(value)} className={`${button} flex h-10 w-10 items-center justify-center p-0`}><StarIcon size={24} color={value <= rating ? '#A65317' : '#aaa'} /></button>)}</div>
+      <div role="group" aria-label="Mức độ hài lòng" className="flex gap-2">{[1, 2, 3, 4, 5].map(value => <button key={value} type="button" aria-label={`${value} sao`} aria-pressed={rating === value} onClick={() => setRating(value)} className={`${button} flex h-10 w-10 items-center justify-center p-0`}><StarIcon size={24} color={value <= rating ? '#087e9c' : '#aaa'} /></button>)}</div>
       <p className="text-xs">{rating ? `${rating}/5` : 'Chưa chọn mức đánh giá'}</p>
       {(['comment', 'tags', 'photos'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{['Nhận xét', 'Nhãn đánh giá', 'Đường dẫn ảnh'][index]}<textarea className={input} rows={3} maxLength={field === 'comment' ? 10000 : undefined} value={field === 'comment' ? comment : field === 'tags' ? tags : photos} onChange={e => (field === 'comment' ? setComment : field === 'tags' ? setTags : setPhotos)(e.target.value)} /></label>)}
       {feedback('form')}<button type="submit" disabled={loading.form || !rating || !reviewable(reviewSession)} className={button}>Gửi đánh giá</button>
@@ -348,7 +348,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
         onClick={()=>selected.serviceId&&onOpenPlanBooking?.(selected.id,selected.serviceId)}>Đặt lịch buổi tiếp theo</button>
       {feedback('reviews')}
       <GroupDRecords records={sessions} />
-      {sessions?.map(session => <div key={session.id} className="space-y-2 border-b border-[#EADECF] py-2">
+      {sessions?.map(session => <div key={session.id} className="space-y-2 border-b border-[#c8dde3] py-2">
         <p className="text-xs">{session.serviceName || 'Dịch vụ chưa khả dụng'} · {careDate(session.sessionDate)}</p>
         <button className={button} disabled={!reviewable(session)} onClick={() => startReview(session)}>{session.reviewId || alreadyReviewed(session.bookingId) ? 'Đã đánh giá' : 'Đánh giá trải nghiệm'}</button>
         {!reviewable(session) && !session.reviewId && !alreadyReviewed(session.bookingId) && <p className="text-xs">Đánh giá chưa khả dụng cho buổi này.</p>}
@@ -372,7 +372,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <label className="block text-xs">Trạng thái gói<select className={input} value={packageTab} onChange={event => setPackageTab(event.target.value)}>{['active', 'completed', 'expired', 'paused', 'cancelled'].map((status, index) => <option key={status} value={status}>{['Đang dùng', 'Hoàn thành', 'Hết hạn', 'Tạm dừng', 'Đã hủy'][index]}</option>)}</select></label>
       {!treatmentPlans && <p className="text-xs">Gói liệu trình chưa khả dụng.</p>}
       {treatmentPlans && !visiblePlans.length && <p className="text-xs"></p>}
-      {visiblePlans.map(plan => <article key={plan.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
+      {visiblePlans.map(plan => <article key={plan.id} className="space-y-3 rounded-[8px] border border-[#c8dde3] bg-white p-3">
         {(plan.package?.imageUrl || plan.image || plan.serviceImage) && <img src={plan.package?.imageUrl || plan.image || plan.serviceImage} alt={title(plan)} className="w-full rounded-[8px]" />}
         <h2 className="text-sm font-bold">{title(plan)}</h2>{plan.serviceName && <p className="text-xs">{plan.serviceName}</p>}{stats(plan)}
         <button className={button} onClick={() => setSelectedId(plan.id)}>Xem chi tiết gói</button>
@@ -388,7 +388,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <section className="space-y-3" aria-label="Lịch hẹn đã hoàn thành">
         <h2 className="text-sm font-bold">Lịch hẹn đã hoàn thành</h2>{feedback('bookings')}
         {!loading.bookings && !errors.bookings && !completedBookings.length && <p className="text-xs"></p>}
-        {completedBookings.map(booking => <article key={booking.id} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+        {completedBookings.map(booking => <article key={booking.id} className="space-y-2 border-b border-[#c8dde3] py-3 text-xs">
           <h3 className="font-semibold">{booking.code || 'Lịch hẹn đã hoàn thành'}</h3>
           <p>Ngày hẹn: {careDate(booking.date)}</p>{booking.branchName && <p>{booking.branchName}</p>}
           {!bookingServices(booking).length && <p>Dịch vụ chưa khả dụng.</p>}
@@ -407,7 +407,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     {!form && !selected && !article && activeTab === 'care_guide' && <section className="space-y-3">
       <h1 className="text-lg font-bold">Hướng dẫn chăm sóc tại nhà</h1>{feedback('guidelines')}
       {!loading.guidelines && !errors.guidelines && !guidelines.length && <p className="text-xs"></p>}
-      {guidelines.map(guide => <article key={guide.id} className="space-y-2 border-b border-[#EADECF] py-3">
+      {guidelines.map(guide => <article key={guide.id} className="space-y-2 border-b border-[#c8dde3] py-3">
         {guide.imageUrl && <img src={guide.imageUrl} alt={guide.title || ''} loading="lazy" className="w-full rounded-[8px]" />}
         <h2 className="text-sm font-bold">{guide.title || 'Tiêu đề chưa khả dụng'}</h2>{guide.summary && <p className="text-xs whitespace-pre-wrap">{guide.summary}</p>}
         <button className={button} onClick={() => setArticleId(guide.id)}>Xem hướng dẫn</button>
@@ -417,10 +417,10 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     {!form && !selected && !article && activeTab === 'support' && <section className="space-y-4">
       <h1 className="text-lg font-bold">Tư vấn & hỗ trợ</h1>{feedback('faqs')}
       {!loading.faqs && !errors.faqs && !faqs.length && <p className="text-xs"></p>}
-      {faqs.map(faq => <details key={faq.id} className="border-b border-[#EADECF] py-2 text-sm"><summary>{faq.question}</summary><p className="mt-2 whitespace-pre-wrap">{faq.answer}</p></details>)}
+      {faqs.map(faq => <details key={faq.id} className="border-b border-[#c8dde3] py-2 text-sm"><summary>{faq.question}</summary><p className="mt-2 whitespace-pre-wrap">{faq.answer}</p></details>)}
       {feedback('tickets')}
       {!loading.tickets && !errors.tickets && !tickets.length && <p className="text-xs"></p>}
-      {tickets.map(ticket => <article key={ticket.id} id={`care-${ticket.id}`} className="space-y-2 border-b border-[#EADECF] py-3 text-xs">
+      {tickets.map(ticket => <article key={ticket.id} id={`care-${ticket.id}`} className="space-y-2 border-b border-[#c8dde3] py-3 text-xs">
         <h2 className="font-bold">{ticket.subject}</h2><p>{careDate(ticket.createdAt)}{ticket.status ? ` · ${ticket.status}` : ''}</p><p className="whitespace-pre-wrap">{ticket.message}</p>
         {ticket.adminReply && <div><h3 className="font-semibold">Phản hồi hỗ trợ</h3><p className="whitespace-pre-wrap">{ticket.adminReply}</p>{ticket.resolvedAt && <p>Ngày giải quyết: {careDate(ticket.resolvedAt)}</p>}</div>}
       </article>)}
@@ -443,7 +443,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <label className="block text-xs">Loại thông báo<select className={input} value={notifFilter} onChange={e => setNotifFilter(e.target.value)}><option value="">Tất cả</option>{Array.from(new Set(localNotifications?.map(item => item.type).filter(Boolean))).map(type => <option key={type} value={type}>{type}</option>)}</select></label>
       {!localNotifications && <p className="text-xs">Thông báo chưa khả dụng.</p>}
       {localNotifications && !localNotifications.filter(item => !notifFilter || item.type === notifFilter).length && <p className="text-xs"></p>}
-      {localNotifications?.filter(item => !notifFilter || item.type === notifFilter).map(item => <article key={item.id} className={`space-y-2 rounded-[8px] border p-3 text-xs ${item.isRead ? 'border-[#EADECF]' : 'border-[#98501B]'}`}>
+      {localNotifications?.filter(item => !notifFilter || item.type === notifFilter).map(item => <article key={item.id} className={`space-y-2 rounded-[8px] border p-3 text-xs ${item.isRead ? 'border-[#c8dde3]' : 'border-[#087e9c]'}`}>
         <h2 className="font-bold">{item.title}</h2><p>{careDate(item.createdAt)}</p><p className="whitespace-pre-wrap">{item.message}</p>
         {!item.isRead && <button className={button} disabled={loading.notifications} onClick={() => void markRead(item.id)}>Đánh dấu đã đọc</button>}
         {onOpenNotification && (item.data?.target || item.type.toUpperCase() === 'BOOKING') && <button className={button} disabled={loading.notifications} onClick={() => {

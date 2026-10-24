@@ -14,6 +14,7 @@ type Quiz = { id: string; title: string; passingScore: number; questions: {
   id: string; questionText: string; options: string[] | Record<string, string>;
 }[] };
 type CourseResponse = Course & DisplayFields & {
+  trainingAudience?:View.CourseAudience|null;
   studentsCount?: number; instructorName?: string; instructorAvatar?: string; lessons?: Lesson[]; quiz?: Quiz | null; quizzes?: Quiz[];
 };
 type UserVoucher = {
@@ -90,6 +91,7 @@ const adaptQuiz = (quiz: Quiz): NonNullable<View.Course['quiz']> => ({
 
 export const adaptCourse = (c: CourseResponse): View.Course => ({
   ...c, category: c.categoryName || '', price: Number(c.tuitionFee),
+  trainingAudience:c.trainingAudience!==undefined?c.trainingAudience:c.level==='BEGINNER'?'BEGINNER':['INTERMEDIATE','ADVANCED','MASTER'].includes(c.level)?'PRACTITIONER':null,
   duration: c.totalHours + ' giờ', instructor: c.instructorName || '',
   instructorAvatar: c.instructorAvatar || '', instructorProfile: (c as any).instructor || null, studentsCount: Number(c.studentsCount || 0),
   image: c.imageUrl, description: c.fullDescription || c.shortDescription || '',

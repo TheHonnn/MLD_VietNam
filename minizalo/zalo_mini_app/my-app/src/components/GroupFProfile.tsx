@@ -38,6 +38,7 @@ interface GroupFProfileProps {
   onRefreshData?:()=>void;
   notificationTarget?: {id:string; tab:'payments'|'points'|'vouchers'; entityId?:string};
   onLogout?: () => Promise<void>;
+  onManageSessions?:()=>void;
   onSelectVoucher?: (voucher: Voucher) => void;
   metadata?: {
     brandName?: string;
@@ -66,6 +67,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   onRefreshData,
   metadata,
   onLogout,
+  onManageSessions,
   onSelectVoucher,
   user,
   onUserUpdated,
@@ -368,7 +370,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     <div className="space-y-3 px-3 pt-3 pb-20 animate-fade-in relative">
       {/* Toast Notification */}
       {toastMessage && (
-        <ProfileLayer role="status" className="pointer-events-none fixed top-14 left-1/2 -translate-x-1/2 z-[200] bg-[#40352F] text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-xl flex items-center space-x-2 animate-bounce">
+        <ProfileLayer role="status" className="pointer-events-none fixed top-14 left-1/2 -translate-x-1/2 z-[200] bg-[#183b47] text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-xl flex items-center space-x-2 animate-bounce">
           <span>{toastMessage}</span>
         </ProfileLayer>
       )}
@@ -382,19 +384,19 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           {user.avatar ? <img
             src={user.avatar}
             alt="Avatar"
-            className="w-12 h-12 rounded-full object-cover border border-[#EADECF]"
-          /> : <div className="w-12 h-12 rounded-full bg-white border border-[#EADECF] flex items-center justify-center"><UserCheckIcon size={24} /></div>}
+            className="w-12 h-12 rounded-full object-cover border border-[#c8dde3]"
+          /> : <div className="w-12 h-12 rounded-full bg-white border border-[#c8dde3] flex items-center justify-center"><UserCheckIcon size={24} /></div>}
           <div>
-            <h2 className="text-sm font-bold text-[#40352F]">{user.name}</h2>
-            <p className="text-[11px] text-[#7A685D] mt-0.5">{user.phone}{metadata?.phoneVerified === true ? ' · Đã xác thực' : ''}</p>
-            <span className="inline-block px-2 py-0.5 rounded-full bg-[#FAF1E6] text-[#98501B] text-[10px] font-semibold mt-1">
+            <h2 className="text-sm font-bold text-[#183b47]">{user.name}</h2>
+            <p className="text-[11px] text-[#526a73] mt-0.5">{user.phone}{metadata?.phoneVerified === true ? ' · Đã xác thực' : ''}</p>
+            <span className="inline-block px-2 py-0.5 rounded-full bg-[#f1f8fa] text-[#087e9c] text-[10px] font-semibold mt-1">
               {userProfile.tier}
             </span>
           </div>
         </div>
         <button
           onClick={() => setActiveModal('edit_profile')}
-          className="w-8 h-8 rounded-full bg-white border border-[#EADECF] flex items-center justify-center text-[#7A685D] hover:text-[#40352F] shadow-xs transition active:scale-95"
+          className="w-8 h-8 rounded-full bg-white border border-[#c8dde3] flex items-center justify-center text-[#526a73] hover:text-[#183b47] shadow-xs transition active:scale-95"
           title="Chỉnh sửa thông tin"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -435,113 +437,102 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           { value: summary?String(summary.activeCourses):'', label: 'Khóa học', sub: 'đang học', action: onOpenAcademy },
         ].map((item) => (
           <button key={item.label} onClick={item.action} className="min-h-[78px] rounded-[10px] bg-white p-3 text-left shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-            <span className="text-[17px] font-bold text-[#A65317]">{item.value}</span>
-            <span className="mt-1 block text-[9px] font-medium text-[#40352F]">{item.label}</span>
-            <span className="block text-[8px] text-[#8A7D74]">{item.sub}</span>
+            <span className="text-[17px] font-bold text-[#087e9c]">{item.value}</span>
+            <span className="mt-1 block text-[9px] font-medium text-[#183b47]">{item.label}</span>
+            <span className="block text-[8px] text-[#526a73]">{item.sub}</span>
           </button>
         ))}
       </div>
 
       {/* Menu Group 1: Dịch vụ của bạn (Figma F01) */}
       <div className="space-y-1.5">
-        <div className="text-xs font-bold text-[#40352F]">
+        <div className="text-xs font-bold text-[#183b47]">
           Dịch vụ của tôi
         </div>
-        <div className="bg-white rounded-[10px] border border-[#EFEAE3] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-[#FAF6F0]">
+        <div className="bg-white rounded-[10px] border border-[#f1f8fa] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-[#ffffff]">
           <button type="button"
             onClick={onOpenAppointments}
-            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
+            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <CalendarIcon size={16} className="text-[#98501B]" />
-              <span className="font-semibold text-[#40352F]">Lịch hẹn của tôi</span>
+              <CalendarIcon size={16} className="text-[#087e9c]" />
+              <span className="font-semibold text-[#183b47]">Lịch hẹn của tôi</span>
             </div>
-            <span className="text-[#A09085]">&gt;</span>
+            <span className="text-[#607780]">&gt;</span>
           </button>
 
           <button type="button"
             onClick={onOpenPackages}
-            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
+            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <HeartIcon size={16} className="text-[#98501B]" />
-              <span className="font-semibold text-[#40352F]">Gói liệu trình</span>
+              <HeartIcon size={16} className="text-[#087e9c]" />
+              <span className="font-semibold text-[#183b47]">Gói liệu trình</span>
             </div>
-            <span className="text-[#A09085]">&gt;</span>
+            <span className="text-[#607780]">&gt;</span>
           </button>
 
           <button type="button"
             onClick={onOpenAcademy}
-            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
+            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <NavAcademyIcon size={16} className="text-[#98501B]" />
-              <span className="font-semibold text-[#40352F]">Khóa học & Chứng nhận của tôi</span>
+              <NavAcademyIcon size={16} className="text-[#087e9c]" />
+              <span className="font-semibold text-[#183b47]">Khóa học & Chứng nhận của tôi</span>
             </div>
-            <span className="text-[#A09085]">&gt;</span>
+            <span className="text-[#607780]">&gt;</span>
           </button>
         </div>
       </div>
 
       {/* Menu Group 2: Tài khoản & Quyền lợi (Figma F01) */}
       <div className="space-y-1.5">
-        <div className="text-xs font-bold text-[#40352F]">
+        <div className="text-xs font-bold text-[#183b47]">
           Tài khoản & Quyền lợi hội viên
         </div>
-        <div className="bg-white rounded-[10px] border border-[#EFEAE3] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-[#FAF6F0]">
+        <div className="bg-white rounded-[10px] border border-[#f1f8fa] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-[#ffffff]">
           <button type="button"
             onClick={() => setActiveModal('vouchers')}
-            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
+            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#98501B]"><TagIcon size={17} /></span>
-              <span className="font-semibold text-[#40352F]">Ưu đãi của tôi{summary?` (${vouchersList.filter(v => v.status === 'available').length} voucher)`:''}</span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><TagIcon size={17} /></span>
+              <span className="font-semibold text-[#183b47]">Ưu đãi của tôi{summary?` (${vouchersList.filter(v => v.status === 'available').length} voucher)`:''}</span>
             </div>
-            <span className="text-[#A09085]">&gt;</span>
+            <span className="text-[#607780]">&gt;</span>
           </button>
 
           <button type="button"
             onClick={() => setActiveModal('points')}
-            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
+            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#98501B]"><StarIcon size={17} filled={false} /></span>
-              <span className="font-semibold text-[#40352F]">Điểm tích lũy & Hạng hội viên</span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><StarIcon size={17} filled={false} /></span>
+              <span className="font-semibold text-[#183b47]">Điểm tích lũy & Hạng hội viên</span>
             </div>
-            <span className="text-[#A09085]">&gt;</span>
+            <span className="text-[#607780]">&gt;</span>
           </button>
-
-          <div
-            onClick={() => setActiveModal('payments')}
-            className="flex items-center justify-between p-3.5 hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
-          >
-            <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#98501B]"><FileTextIcon size={17} /></span>
-              <span className="font-semibold text-[#40352F]">Lịch sử thanh toán & Hóa đơn điện tử</span>
-            </div>
-            <span className="text-[#A09085]">&gt;</span>
-          </div>
 
           <button type="button"
             onClick={() => setActiveModal('referral')}
-            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
+            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#98501B]"><UserCheckIcon size={17} /></span>
-              <span className="font-semibold text-[#40352F]">Giới thiệu bạn bè</span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><UserCheckIcon size={17} /></span>
+              <span className="font-semibold text-[#183b47]">Giới thiệu bạn bè</span>
             </div>
-            <span className="text-[#A09085]">&gt;</span>
+            <span className="text-[#607780]">&gt;</span>
           </button>
 
           <button type="button"
             onClick={() => setActiveModal('settings')}
-            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#FAF6F0] cursor-pointer text-xs transition"
+            className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#98501B]"><ShieldIcon size={17} /></span>
-              <span className="font-semibold text-[#40352F]">Cài đặt tài khoản & Bảo mật</span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><ShieldIcon size={17} /></span>
+              <span className="font-semibold text-[#183b47]">Cài đặt tài khoản & Bảo mật</span>
             </div>
-            <span className="text-[#A09085]">&gt;</span>
+            <span className="text-[#607780]">&gt;</span>
           </button>
         </div>
       </div>
@@ -550,18 +541,18 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           SCREEN F02: CHUYÊN TRANG THÔNG TIN CÁ NHÂN & EMR PROFILE
       ========================================================================= */}
       {activeModal === 'edit_profile' && (
-        <ProfileLayer role="dialog" aria-modal="true" aria-label="Hồ sơ cá nhân" className="profile-overlay absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="bg-white border-b border-[#EADECF] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
+        <ProfileLayer role="dialog" aria-modal="true" aria-label="Hồ sơ cá nhân" className="profile-overlay absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+          <div className="bg-white border-b border-[#c8dde3] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
             <div className="flex items-center space-x-2.5">
               <button
                 disabled={savingProfile}
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] border border-[#EADECF] flex items-center justify-center text-[#40352F] hover:bg-[#EADECF] transition active:scale-95"
+                className="w-8 h-8 rounded-full bg-[#ffffff] border border-[#c8dde3] flex items-center justify-center text-[#183b47] hover:bg-[#c8dde3] transition active:scale-95"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
               <div>
-                <h2 className="text-sm font-bold text-[#40352F]">Hồ sơ cá nhân & Y tế</h2>
+                <h2 className="text-sm font-bold text-[#183b47]">Hồ sơ cá nhân & Y tế</h2>
                 {metadata?.phoneVerified&&<span className="text-[10px] text-emerald-600 font-bold">Đã xác minh qua Zalo</span>}
               </div>
             </div>
@@ -569,20 +560,20 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               onClick={saveProfile}
               disabled={savingProfile||avatarReading}
               aria-busy={savingProfile||avatarReading}
-              className="text-xs font-bold text-[#98501B] px-2.5 py-1 rounded-lg bg-[#FAF1E6] hover:bg-[#F3E2CE]"
+              className="text-xs font-bold text-[#087e9c] px-2.5 py-1 rounded-lg bg-[#f1f8fa] hover:bg-[#e8f4f7]"
             >
               {savingProfile ? 'Đang lưu...' : 'Lưu'}
             </button>
           </div>
 
           {/* Sub tabs */}
-          <div className="flex border-b border-[#EADECF] bg-white px-4 shrink-0">
+          <div className="flex border-b border-[#c8dde3] bg-white px-4 shrink-0">
             <button
               onClick={() => setProfileSubTab('personal')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
                 profileSubTab === 'personal'
-                  ? 'border-[#98501B] text-[#98501B]'
-                  : 'border-transparent text-[#7A685D]'
+                  ? 'border-[#087e9c] text-[#087e9c]'
+                  : 'border-transparent text-[#526a73]'
               }`}
             >
               Thông tin liên hệ
@@ -591,8 +582,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               onClick={() => setProfileSubTab('health')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
                 profileSubTab === 'health'
-                  ? 'border-[#98501B] text-[#98501B]'
-                  : 'border-transparent text-[#7A685D]'
+                  ? 'border-[#087e9c] text-[#087e9c]'
+                  : 'border-transparent text-[#526a73]'
               }`}
             >
               Thể trạng & EMR Notes
@@ -603,15 +594,15 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             {profileSubTab === 'personal' ? (
               <>
                 {/* Avatar Picker */}
-                <div className="bg-white p-4 rounded-2xl border border-[#EADECF] shadow-xs text-center space-y-2.5">
+                <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs text-center space-y-2.5">
                   {userProfile.avatar ? <img
                     src={userProfile.avatar}
                     alt="Avatar"
-                    className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-[#98501B] shadow-sm"
+                    className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-[#087e9c] shadow-sm"
                   /> : <div className="w-20 h-20 mx-auto rounded-full bg-stone-100 flex items-center justify-center"><UserCheckIcon size={32} /></div>}
                   <div>
-                    <p className="text-xs font-bold text-[#40352F]">Ảnh đại diện</p>
-                    <label htmlFor="profile-avatar-file" className="mx-auto mt-3 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[#98501B] bg-white text-xs font-bold text-[#98501B]">
+                    <p className="text-xs font-bold text-[#183b47]">Ảnh đại diện</p>
+                    <label htmlFor="profile-avatar-file" className="mx-auto mt-3 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[#087e9c] bg-white text-xs font-bold text-[#087e9c]">
                       <CameraIcon size={17} /> {avatarReading?'Đang xử lý ảnh...':'Chọn ảnh từ thiết bị'}
                     </label>
                     <input id="profile-avatar-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectAvatarFile} className="hidden" />
@@ -619,19 +610,19 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 </div>
 
                 {/* Form Fields */}
-                <div className="bg-white p-4 rounded-2xl border border-[#EADECF] shadow-xs space-y-3">
+                <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs space-y-3">
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Họ và tên *</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Họ và tên *</label>
                     <input
                       type="text"
                       value={userProfile.name}
                       onChange={(e) => setUserProfile({ ...userProfile, name: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#EADECF] text-xs font-medium focus:border-[#98501B] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Giới tính</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Giới tính</label>
                     <div className="flex space-x-2">
                       {(['Nữ', 'Nam', 'Khác'] as const).map((g) => (
                         <button
@@ -639,8 +630,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                           onClick={() => setUserProfile({ ...userProfile, gender: g })}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
                             userProfile.gender === g
-                              ? 'bg-[#98501B] text-white border-[#98501B]'
-                              : 'bg-white text-stone-700 border-[#EADECF]'
+                              ? 'bg-[#087e9c] text-white border-[#087e9c]'
+                              : 'bg-white text-stone-700 border-[#c8dde3]'
                           }`}
                         >
                           {g}
@@ -650,55 +641,55 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Số điện thoại liên kết</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Số điện thoại liên kết</label>
                     <div className="flex items-center space-x-2">
                       <input
                         type="text"
                         disabled
                         value={userProfile.phone}
-                        className="flex-1 p-2.5 rounded-xl border border-[#EADECF] bg-[#FAF6F0] text-xs font-medium text-[#7A685D]"
+                        className="flex-1 p-2.5 rounded-xl border border-[#c8dde3] bg-[#ffffff] text-xs font-medium text-[#526a73]"
                       />
                       {metadata?.phoneVerified === true && <span className="text-[10px] text-emerald-600 font-bold px-2 py-1 bg-emerald-50 rounded-lg">Đã xác thực</span>}
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Email liên hệ</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Email liên hệ</label>
                     <input
                       type="email"
                       value={userProfile.email}
                       onChange={(e) => setUserProfile({ ...userProfile, email: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#EADECF] text-xs font-medium focus:border-[#98501B] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Ngày sinh</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Ngày sinh</label>
                     <input
                       type="date"
                       value={userProfile.dob?.slice(0, 10) || ''}
                       onChange={(e) => setUserProfile({ ...userProfile, dob: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#EADECF] text-xs font-medium focus:border-[#98501B] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Địa chỉ sinh sống</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Địa chỉ sinh sống</label>
                     <input
                       type="text"
                       value={userProfile.address}
                       onChange={(e) => setUserProfile({ ...userProfile, address: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#EADECF] text-xs font-medium focus:border-[#98501B] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Chi nhánh yêu thích</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Chi nhánh yêu thích</label>
                     <select
                       aria-label="Chi nhánh yêu thích"
                       value={userProfile.preferredBranch}
                       onChange={event=>setUserProfile(current=>({...current,preferredBranch:event.target.value}))}
-                      className="w-full p-2.5 rounded-xl border border-[#EADECF] text-xs font-medium focus:border-[#98501B] outline-none bg-white cursor-pointer"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none bg-white cursor-pointer"
                     >
                       <option value=""></option>
                       {branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}
@@ -709,22 +700,22 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             ) : (
               <>
                 {/* Health & EMR Notes */}
-                <div className="bg-white p-4 rounded-2xl border border-[#EADECF] shadow-xs space-y-3.5">
+                <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs space-y-3.5">
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">Đặc điểm làn da</label>
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Đặc điểm làn da</label>
                     <input
                       type="text"
                       value={userProfile.skinType}
                       aria-label="Đặc điểm làn da"
                       maxLength={150}
                       onChange={event=>setUserProfile(current=>({...current,skinType:event.target.value}))}
-                      className="w-full p-2.5 rounded-xl border border-[#EADECF] text-xs font-medium focus:border-[#98501B] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#7A685D] block mb-1">
+                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">
                       Lưu ý thể trạng & Vùng cơ cần chăm sóc đặc biệt
                     </label>
                     <textarea
@@ -733,33 +724,33 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       maxLength={10000}
                       onChange={event=>setUserProfile(current=>({...current,healthNotes:event.target.value}))}
                       rows={3}
-                      className="w-full p-2.5 rounded-xl border border-[#EADECF] text-xs font-medium focus:border-[#98501B] outline-none resize-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none resize-none"
                     />
                   </div>
 
-                  <div className="border-t border-[#EADECF] pt-3">
-                    <h4 className="text-xs font-bold text-[#40352F] mb-2">Người thân liên hệ khẩn cấp:</h4>
+                  <div className="border-t border-[#c8dde3] pt-3">
+                    <h4 className="text-xs font-bold text-[#183b47] mb-2">Người thân liên hệ khẩn cấp:</h4>
                     <div className="space-y-2">
                       <div>
-                        <label className="text-[10px] text-[#7A685D] block mb-0.5">Họ tên người thân</label>
+                        <label className="text-[10px] text-[#526a73] block mb-0.5">Họ tên người thân</label>
                         <input
                           type="text"
                           value={userProfile.emergencyContactName}
                           aria-label="Họ tên liên hệ khẩn cấp"
                           maxLength={150}
                           onChange={(e) => setUserProfile({ ...userProfile, emergencyContactName: e.target.value })}
-                          className="w-full p-2 rounded-xl border border-[#EADECF] text-xs"
+                          className="w-full p-2 rounded-xl border border-[#c8dde3] text-xs"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-[#7A685D] block mb-0.5">Số điện thoại khẩn cấp</label>
+                        <label className="text-[10px] text-[#526a73] block mb-0.5">Số điện thoại khẩn cấp</label>
                         <input
                           value={userProfile.emergencyContactPhone}
                           aria-label="Số điện thoại khẩn cấp"
                           type="tel"
                           maxLength={20}
                           onChange={(e) => setUserProfile({ ...userProfile, emergencyContactPhone: e.target.value })}
-                          className="w-full p-2 rounded-xl border border-[#EADECF] text-xs"
+                          className="w-full p-2 rounded-xl border border-[#c8dde3] text-xs"
                         />
                       </div>
                     </div>
@@ -771,7 +762,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <button
               onClick={saveProfile}
               disabled={savingProfile||avatarReading}
-              className="w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] shadow-md transition active:scale-95"
+              className="w-full py-3 rounded-xl bg-[#087e9c] text-white text-xs font-bold hover:bg-[#076985] shadow-md transition active:scale-95"
             >
               {savingProfile ? 'Đang lưu...' : 'Lưu thay đổi hồ sơ'}
             </button>
@@ -783,23 +774,23 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           SCREEN F03: CHUYÊN TRANG THẺ HỘI VIÊN ĐIỆN TỬ VIP
       ========================================================================= */}
       {activeModal === 'digital_card' && (
-        <ProfileLayer role="dialog" aria-modal="true" aria-label="Thẻ hội viên" className="profile-overlay absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="bg-white border-b border-[#EADECF] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
+        <ProfileLayer role="dialog" aria-modal="true" aria-label="Thẻ hội viên" className="profile-overlay absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+          <div className="bg-white border-b border-[#c8dde3] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
             <div className="flex items-center space-x-2.5">
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] border border-[#EADECF] flex items-center justify-center text-[#40352F] hover:bg-[#EADECF] transition active:scale-95"
+                className="w-8 h-8 rounded-full bg-[#ffffff] border border-[#c8dde3] flex items-center justify-center text-[#183b47] hover:bg-[#c8dde3] transition active:scale-95"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
-              <h2 className="text-sm font-bold text-[#40352F]">Thẻ hội viên điện tử</h2>
+              <h2 className="text-sm font-bold text-[#183b47]">Thẻ hội viên điện tử</h2>
             </div>
             <button
               type="button"
               disabled={!membershipCardCode||sharingCard}
               onClick={shareCard}
               title="Chia sẻ thẻ"
-              className="text-xs font-bold text-[#98501B] px-2 py-1"
+              className="text-xs font-bold text-[#087e9c] px-2 py-1"
             >
               Chia sẻ
             </button>
@@ -832,21 +823,21 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
 
             {/* Code switcher */}
-            <div className="p-4 rounded-2xl bg-white border border-[#EADECF] text-center space-y-3 shadow-xs">
-              <div className="flex justify-center space-x-2 border-b border-[#EADECF] pb-2">
-                <span className="px-3 py-1 text-xs font-bold text-[#98501B]">Mã QR thẻ hội viên</span>
+            <div className="p-4 rounded-2xl bg-white border border-[#c8dde3] text-center space-y-3 shadow-xs">
+              <div className="flex justify-center space-x-2 border-b border-[#c8dde3] pb-2">
+                <span className="px-3 py-1 text-xs font-bold text-[#087e9c]">Mã QR thẻ hội viên</span>
               </div>
 
-              <div className="w-44 h-44 mx-auto bg-white p-2 rounded-2xl border border-[#EADECF] flex items-center justify-center text-xs text-[#7A685D]">
+              <div className="w-44 h-44 mx-auto bg-white p-2 rounded-2xl border border-[#c8dde3] flex items-center justify-center text-xs text-[#526a73]">
                 {membershipCardCode&&<QRCode value={membershipCardCode} size={160}/>}
               </div>
-              <p className="font-mono text-sm font-bold text-[#98501B]">{membershipCardCode || ''}</p>
+              <p className="font-mono text-sm font-bold text-[#087e9c]">{membershipCardCode || ''}</p>
 
               <div className="flex space-x-2 pt-1">
                 <button
                   disabled
                   title="Chưa hỗ trợ ví điện tử"
-                  className="flex-1 py-2 rounded-xl bg-[#FAF1E6] text-[#98501B] text-xs font-bold hover:bg-[#F3E2CE]"
+                  className="flex-1 py-2 rounded-xl bg-[#f1f8fa] text-[#087e9c] text-xs font-bold hover:bg-[#e8f4f7]"
                 >
                   Lưu vào Ví điện tử
                 </button>
@@ -861,8 +852,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
 
             {/* VIP Benefits */}
-            <div className="bg-white p-4 rounded-2xl border border-[#EADECF] space-y-2.5 text-xs">
-              <h4 className="font-bold text-[#40352F] flex items-center space-x-1.5">
+            <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] space-y-2.5 text-xs">
+              <h4 className="font-bold text-[#183b47] flex items-center space-x-1.5">
                 <CreditCardIcon size={14} />
                 <span>Quyền lợi hội viên:</span>
               </h4>
@@ -883,30 +874,30 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           SCREEN F04: CHUYÊN TRANG ĐIỂM TÍCH LŨY & TIẾN TRÌNH LÊN HẠNG
       ========================================================================= */}
       {activeModal === 'points' && (
-        <ProfileLayer role="dialog" aria-modal="true" aria-label="Điểm tích lũy" className="profile-overlay absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="bg-white border-b border-[#EADECF] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
+        <ProfileLayer role="dialog" aria-modal="true" aria-label="Điểm tích lũy" className="profile-overlay absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+          <div className="bg-white border-b border-[#c8dde3] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
             <div className="flex items-center space-x-2.5">
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] border border-[#EADECF] flex items-center justify-center text-[#40352F] hover:bg-[#EADECF] transition active:scale-95"
+                className="w-8 h-8 rounded-full bg-[#ffffff] border border-[#c8dde3] flex items-center justify-center text-[#183b47] hover:bg-[#c8dde3] transition active:scale-95"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
-              <h2 className="text-sm font-bold text-[#40352F]">Điểm tích lũy & Hạng hội viên</h2>
+              <h2 className="text-sm font-bold text-[#183b47]">Điểm tích lũy & Hạng hội viên</h2>
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="text-xs font-bold text-[#7A685D] hover:text-[#98501B] px-2 py-1"
+              className="text-xs font-bold text-[#526a73] hover:text-[#087e9c] px-2 py-1"
             >
               Đóng
             </button>
           </div>
 
-          <div className="flex border-b border-[#EADECF] bg-white px-4 shrink-0">
+          <div className="flex border-b border-[#c8dde3] bg-white px-4 shrink-0">
             <button
               onClick={() => setPointsTab('rewards')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
-                pointsTab === 'rewards' ? 'border-[#98501B] text-[#98501B]' : 'border-transparent text-[#7A685D]'
+                pointsTab === 'rewards' ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
               }`}
             >
               Đổi quà từ điểm
@@ -914,7 +905,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <button
               onClick={() => setPointsTab('tiers')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
-                pointsTab === 'tiers' ? 'border-[#98501B] text-[#98501B]' : 'border-transparent text-[#7A685D]'
+                pointsTab === 'tiers' ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
               }`}
             >
               Bảng hạng hội viên
@@ -922,7 +913,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <button
               onClick={() => setPointsTab('history')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
-                pointsTab === 'history' ? 'border-[#98501B] text-[#98501B]' : 'border-transparent text-[#7A685D]'
+                pointsTab === 'history' ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
               }`}
             >
               Lịch sử điểm
@@ -931,30 +922,30 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
             {/* Points Summary Card */}
-            <div className="bg-white p-5 rounded-3xl border border-[#EADECF] shadow-xs text-center space-y-1">
-              <span className="text-[11px] font-semibold text-[#7A685D]">Điểm thưởng khả dụng</span>
-              <div className="text-3xl font-black text-[#98501B]">{userProfile.points.toLocaleString()} điểm</div>
+            <div className="bg-white p-5 rounded-3xl border border-[#c8dde3] shadow-xs text-center space-y-1">
+              <span className="text-[11px] font-semibold text-[#526a73]">Điểm thưởng khả dụng</span>
+              <div className="text-3xl font-black text-[#087e9c]">{userProfile.points.toLocaleString()} điểm</div>
               <p className="text-xs">{userProfile.tier}</p>
             </div>
             {pointsTab === 'rewards' && <div className="space-y-2 text-xs"><p></p>{loyalty && <><p>Tích 1 điểm / {money(loyalty.earnAmountPerPoint)}</p><p>Giá trị 1 điểm: {money(loyalty.redeemValuePerPoint)}</p><p>Giới hạn sử dụng: {loyalty.maxRedeemPercentPerOrder}% mỗi đơn</p><p>Thời hạn điểm: {loyalty.pointExpiryMonths} tháng</p></>}</div>}
-            {pointsTab === 'tiers' && <div className="space-y-2 text-xs">{tierRules ? tierRules.map(rule => <div key={rule.tier} className="p-3 bg-white rounded-xl border border-[#EADECF]"><p className="font-bold">{rule.tier}</p><p>Chi tiêu tối thiểu: {money(rule.minAccumulatedSpent)}</p><p>Tỷ lệ tích điểm: {rule.pointEarningRate}%</p><p>{rule.description}</p></div>) : <p></p>}</div>}
+            {pointsTab === 'tiers' && <div className="space-y-2 text-xs">{tierRules ? tierRules.map(rule => <div key={rule.tier} className="p-3 bg-white rounded-xl border border-[#c8dde3]"><p className="font-bold">{rule.tier}</p><p>Chi tiêu tối thiểu: {money(rule.minAccumulatedSpent)}</p><p>Tỷ lệ tích điểm: {rule.pointEarningRate}%</p><p>{rule.description}</p></div>) : <p></p>}</div>}
 
             {pointsTab === 'history' && (
               <div className="space-y-2.5">
-                <h4 className="text-xs font-bold text-[#40352F]">Lịch sử giao dịch điểm:</h4>
+                <h4 className="text-xs font-bold text-[#183b47]">Lịch sử giao dịch điểm:</h4>
                 {transactionMessage && <p className="text-xs">{transactionMessage}</p>}
                 {transactions?.pointTransactions.map((h) => (
-                  <div key={h.id} id={`profile-entry-${h.id}`} className="p-3 bg-white rounded-xl border border-[#EADECF] flex justify-between items-center text-xs">
+                  <div key={h.id} id={`profile-entry-${h.id}`} className="p-3 bg-white rounded-xl border border-[#c8dde3] flex justify-between items-center text-xs">
                     <div>
-                      <p className="font-bold text-[#40352F]">{h.description}</p>
-                      <p className="text-[10px] text-[#7A685D] mt-0.5">{new Date(h.createdAt).toLocaleDateString('vi-VN')}</p>
+                      <p className="font-bold text-[#183b47]">{h.description}</p>
+                      <p className="text-[10px] text-[#526a73] mt-0.5">{new Date(h.createdAt).toLocaleDateString('vi-VN')}</p>
                     </div>
                     <span className={`font-black ${h.points >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {h.points >= 0 ? '+' : ''}{h.points.toLocaleString('vi-VN')} điểm
                     </span>
                   </div>
                 ))}
-                {transactions && !transactions.pointTransactions.length && <p className="py-8 text-center text-xs text-[#7A685D]"></p>}
+                {transactions && !transactions.pointTransactions.length && <p className="py-8 text-center text-xs text-[#526a73]"></p>}
               </div>
             )}
           </div>
@@ -965,27 +956,27 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           SCREEN F05: CHUYÊN TRANG ƯU ĐÃI & KHO VOUCHER
       ========================================================================= */}
       {activeModal === 'vouchers' && (
-        <ProfileLayer role="dialog" aria-modal="true" aria-label="Ưu đãi của tôi" className="profile-overlay absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="bg-white border-b border-[#EADECF] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
+        <ProfileLayer role="dialog" aria-modal="true" aria-label="Ưu đãi của tôi" className="profile-overlay absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+          <div className="bg-white border-b border-[#c8dde3] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
             <div className="flex items-center space-x-2.5">
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] border border-[#EADECF] flex items-center justify-center text-[#40352F] hover:bg-[#EADECF] transition active:scale-95"
+                className="w-8 h-8 rounded-full bg-[#ffffff] border border-[#c8dde3] flex items-center justify-center text-[#183b47] hover:bg-[#c8dde3] transition active:scale-95"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
-              <h2 className="text-sm font-bold text-[#40352F]">Kho ưu đãi & Mã giảm giá</h2>
+              <h2 className="text-sm font-bold text-[#183b47]">Kho ưu đãi & Mã giảm giá</h2>
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="text-xs font-bold text-[#7A685D] hover:text-[#98501B] px-2 py-1"
+              className="text-xs font-bold text-[#526a73] hover:text-[#087e9c] px-2 py-1"
             >
               Đóng
             </button>
           </div>
 
           {/* Add voucher input bar */}
-          <div className="p-3.5 bg-white border-b border-[#EADECF] flex items-center space-x-2 shrink-0">
+          <div className="p-3.5 bg-white border-b border-[#c8dde3] flex items-center space-x-2 shrink-0">
             <input
               type="text"
               placeholder="Nhập mã voucher..."
@@ -993,20 +984,20 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               maxLength={60}
               value={voucherInput}
               onChange={(e) => setVoucherInput(e.target.value)}
-              className="flex-1 p-2.5 rounded-xl border border-[#EADECF] bg-[#FAF6F0] text-xs font-mono uppercase font-bold outline-none focus:border-[#98501B]"
+              className="flex-1 p-2.5 rounded-xl border border-[#c8dde3] bg-[#ffffff] text-xs font-mono uppercase font-bold outline-none focus:border-[#087e9c]"
             />
             <button
               onClick={handleApplyNewVoucher}
               disabled={voucherClaiming||!voucherInput.trim()}
               aria-busy={voucherClaiming}
-              className="px-4 py-2.5 rounded-xl bg-[#98501B] text-white text-xs font-bold hover:bg-[#804215] active:scale-95 transition"
+              className="px-4 py-2.5 rounded-xl bg-[#087e9c] text-white text-xs font-bold hover:bg-[#076985] active:scale-95 transition"
             >
               {voucherClaiming?'Đang thêm...':'Áp dụng'}
             </button>
           </div>
 
           {/* Voucher Tabs */}
-          <div className="flex border-b border-[#EADECF] bg-white px-4 shrink-0">
+          <div className="flex border-b border-[#c8dde3] bg-white px-4 shrink-0">
             {[
               { id: 'available', label: `Khả dụng (${vouchersList.filter(v => v.status === 'available').length})` },
               { id: 'used', label: `Đã dùng (${vouchersList.filter(v => v.status === 'used').length})` },
@@ -1016,7 +1007,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 key={tab.id}
                 onClick={() => setVoucherTab(tab.id as any)}
                 className={`flex-1 py-2 text-xs font-bold border-b-2 text-center transition ${
-                  voucherTab === tab.id ? 'border-[#98501B] text-[#98501B]' : 'border-transparent text-[#7A685D]'
+                  voucherTab === tab.id ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
                 }`}
               >
                 {tab.label}
@@ -1028,21 +1019,21 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             {vouchersList
               .filter((v) => v.status === voucherTab)
               .map((vc, idx) => (
-                <div key={idx} id={`profile-entry-${vc.id}`} className="bg-white p-4 rounded-2xl border border-[#EADECF] shadow-xs space-y-2">
+                <div key={idx} id={`profile-entry-${vc.id}`} className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs space-y-2">
                   <div className="flex justify-between items-start">
-                    <span className="text-xs font-extrabold text-[#98501B] bg-[#FAF6F0] px-2.5 py-1 rounded-md border border-[#EADECF]">
+                    <span className="text-xs font-extrabold text-[#087e9c] bg-[#ffffff] px-2.5 py-1 rounded-md border border-[#c8dde3]">
                       {voucherLabel(vc)}
                     </span>
-                    <span className="text-[11px] text-[#7A685D]">HSD: {voucherExpiry(vc.expiryDate)}</span>
+                    <span className="text-[11px] text-[#526a73]">HSD: {voucherExpiry(vc.expiryDate)}</span>
                   </div>
-                  <h4 className="text-xs font-bold text-[#40352F]">{vc.title}</h4>
-                  <p className="text-[11px] text-[#7A685D] leading-relaxed">{vc.description}</p>
-                  <div className="flex justify-between items-center pt-2 border-t border-[#EADECF]">
-                    <span className="font-mono text-xs font-black text-[#98501B]">{vc.code}</span>
+                  <h4 className="text-xs font-bold text-[#183b47]">{vc.title}</h4>
+                  <p className="text-[11px] text-[#526a73] leading-relaxed">{vc.description}</p>
+                  <div className="flex justify-between items-center pt-2 border-t border-[#c8dde3]">
+                    <span className="font-mono text-xs font-black text-[#087e9c]">{vc.code}</span>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleCopy(vc.code)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#FAF6F0] text-stone-700 text-[11px] font-bold border border-[#EADECF]"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#ffffff] text-stone-700 text-[11px] font-bold border border-[#c8dde3]"
                       >
                         {copiedVoucher === vc.code ? 'Đã chép ✓' : 'Sao chép'}
                       </button>
@@ -1051,7 +1042,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                           onClick={() => useVoucher(vc)}
                           disabled={!onSelectVoucher}
                           title={!onSelectVoucher ? 'Chưa hỗ trợ chuyển voucher sang đơn hàng' : 'Chọn voucher cho đơn hàng'}
-                          className="px-3.5 py-1.5 rounded-lg bg-[#98501B] text-white text-[11px] font-bold hover:bg-[#804215]"
+                          className="px-3.5 py-1.5 rounded-lg bg-[#087e9c] text-white text-[11px] font-bold hover:bg-[#076985]"
                         >
                           {onSelectVoucher ? 'Chọn voucher' : 'Chưa hỗ trợ'}
                         </button>
@@ -1068,20 +1059,20 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           SCREEN F06: CHUYÊN TRANG LỊCH SỬ GIAO DỊCH & HÓA ĐƠN ĐIỆN TỬ
       ========================================================================= */}
       {activeModal === 'payments' && (
-        <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="bg-white border-b border-[#EADECF] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
+        <div className="absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+          <div className="bg-white border-b border-[#c8dde3] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
             <div className="flex items-center space-x-2.5">
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] border border-[#EADECF] flex items-center justify-center text-[#40352F] hover:bg-[#EADECF] transition active:scale-95"
+                className="w-8 h-8 rounded-full bg-[#ffffff] border border-[#c8dde3] flex items-center justify-center text-[#183b47] hover:bg-[#c8dde3] transition active:scale-95"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
-              <h2 className="text-sm font-bold text-[#40352F]">Lịch sử giao dịch & Hóa đơn</h2>
+              <h2 className="text-sm font-bold text-[#183b47]">Lịch sử giao dịch & Hóa đơn</h2>
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="text-xs font-bold text-[#7A685D] hover:text-[#98501B] px-2 py-1"
+              className="text-xs font-bold text-[#526a73] hover:text-[#087e9c] px-2 py-1"
             >
               Đóng
             </button>
@@ -1089,38 +1080,38 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
             {/* Total Expense Card */}
-            <div className="bg-white p-5 rounded-3xl border border-[#EADECF] shadow-xs text-center space-y-1">
-              <span className="text-[11px] font-semibold text-[#7A685D]">Tổng chi tiêu tích lũy</span>
-              <div className="text-2xl font-black text-[#98501B]">{transactions ? money(transactions.totalSpent) : transactionMessage}</div>
-              {transactions && <p className="text-[11px] text-[#A09085]">{transactions.invoices.filter((item) => item.paymentStatus === 'PAID').length} giao dịch hoàn tất</p>}
+            <div className="bg-white p-5 rounded-3xl border border-[#c8dde3] shadow-xs text-center space-y-1">
+              <span className="text-[11px] font-semibold text-[#526a73]">Tổng chi tiêu tích lũy</span>
+              <div className="text-2xl font-black text-[#087e9c]">{transactions ? money(transactions.totalSpent) : transactionMessage}</div>
+              {transactions && <p className="text-[11px] text-[#607780]">{transactions.invoices.filter((item) => item.paymentStatus === 'PAID').length} giao dịch hoàn tất</p>}
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-[#40352F]">Danh sách hóa đơn:</h4>
+              <h4 className="text-xs font-bold text-[#183b47]">Danh sách hóa đơn:</h4>
               {transactions?.invoices.map((item) => {
                 const inv = { id: item.invoiceCode, service: item.items?.map(line => line.itemName).join(', ') || '', branch: item.branchName || item.branch?.name || '', date: dateLabel(item.paidAt), method: item.paymentMethod, price: money(item.totalAmount), status: item.paymentStatus };
-                return <div key={item.id} className="p-4 rounded-2xl border border-[#EADECF] bg-white shadow-xs space-y-2 text-xs">
+                return <div key={item.id} className="p-4 rounded-2xl border border-[#c8dde3] bg-white shadow-xs space-y-2 text-xs">
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="font-mono text-[10px] text-stone-400 font-bold block">{inv.id}</span>
-                      <p className="font-bold text-[#40352F] text-xs mt-0.5">{inv.service}</p>
+                      <p className="font-bold text-[#183b47] text-xs mt-0.5">{inv.service}</p>
                     </div>
-                    <span className="font-black text-[#98501B] text-sm">{inv.price}</span>
+                    <span className="font-black text-[#087e9c] text-sm">{inv.price}</span>
                   </div>
 
-                  <div className="text-[11px] text-[#7A685D] space-y-0.5">
+                  <div className="text-[11px] text-[#526a73] space-y-0.5">
                     <p>📍 {inv.branch}</p>
                     <p>⏱ {inv.date} · {inv.method}</p>
                   </div>
 
-                  <div className="flex justify-between items-center pt-2 border-t border-[#FAF6F0]">
+                  <div className="flex justify-between items-center pt-2 border-t border-[#ffffff]">
                     <span className="text-[10px] text-stone-700 bg-stone-100 px-2 py-0.5 rounded font-bold">
                       ● {inv.status}
                     </span>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setSelectedInvoice(item)}
-                        className="px-2.5 py-1 rounded-lg bg-[#FAF6F0] text-[#98501B] text-[11px] font-bold border border-[#EADECF]"
+                        className="px-2.5 py-1 rounded-lg bg-[#ffffff] text-[#087e9c] text-[11px] font-bold border border-[#c8dde3]"
                       >
                         Chi tiết hóa đơn
                       </button>
@@ -1129,7 +1120,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                           setActiveModal(null);
                           onOpenAppointments();
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-[#98501B] text-white text-[11px] font-bold"
+                        className="px-2.5 py-1 rounded-lg bg-[#087e9c] text-white text-[11px] font-bold"
                       >
                         Đặt lịch
                       </button>
@@ -1137,7 +1128,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   </div>
                 </div>;
               })}
-              {transactions && !transactions.invoices.length && <p className="py-8 text-center text-xs text-[#7A685D]"></p>}
+              {transactions && !transactions.invoices.length && <p className="py-8 text-center text-xs text-[#526a73]"></p>}
             </div>
           </div>
         </div>
@@ -1145,31 +1136,31 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
 
       {/* Invoice Detail Modal Overlay */}
       {selectedInvoice && (
-        <div className="absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
-          <div className="bg-white border-b border-[#EADECF] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
+        <div className="absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+          <div className="bg-white border-b border-[#c8dde3] px-4 py-3 flex items-center justify-between shadow-xs shrink-0">
             <div className="flex items-center space-x-2.5">
               <button
                 onClick={() => setSelectedInvoice(null)}
-                className="w-8 h-8 rounded-full bg-[#FAF6F0] border border-[#EADECF] flex items-center justify-center text-[#40352F]"
+                className="w-8 h-8 rounded-full bg-[#ffffff] border border-[#c8dde3] flex items-center justify-center text-[#183b47]"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
-              <h3 className="text-sm font-bold text-[#40352F]">Chi tiết hóa đơn</h3>
+              <h3 className="text-sm font-bold text-[#183b47]">Chi tiết hóa đơn</h3>
             </div>
             <button
               onClick={() => setSelectedInvoice(null)}
-              className="text-xs text-[#98501B] font-bold"
+              className="text-xs text-[#087e9c] font-bold"
             >
               Đóng
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
-            <div className="bg-white p-5 rounded-2xl border border-[#EADECF] shadow-sm space-y-3 text-xs">
-              <div className="border-b border-[#FAF6F0] pb-2 text-center">
-                <h4 className="font-black text-sm text-[#40352F]">{selectedInvoice.branchName || selectedInvoice.branch?.name || ''}</h4>
+            <div className="bg-white p-5 rounded-2xl border border-[#c8dde3] shadow-sm space-y-3 text-xs">
+              <div className="border-b border-[#ffffff] pb-2 text-center">
+                <h4 className="font-black text-sm text-[#183b47]">{selectedInvoice.branchName || selectedInvoice.branch?.name || ''}</h4>
                 <p className="text-[10px] text-stone-500 mt-0.5"></p>
-                <p className="font-mono text-xs font-bold text-[#98501B] mt-1">Số: {selectedInvoice.invoiceCode}</p>
+                <p className="font-mono text-xs font-bold text-[#087e9c] mt-1">Số: {selectedInvoice.invoiceCode}</p>
               </div>
 
               <div className="space-y-1.5 text-stone-600">
@@ -1183,7 +1174,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span>Dịch vụ thực hiện:</span>
-                  <span className="font-bold text-[#40352F]">{selectedInvoice.items?.map(line => `${line.itemName} × ${line.quantity}: ${money(line.amount)}`).join('; ') || ''}</span>
+                  <span className="font-bold text-[#183b47]">{selectedInvoice.items?.map(line => `${line.itemName} × ${line.quantity}: ${money(line.amount)}`).join('; ') || ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Thời gian ghi nhận:</span>
@@ -1195,7 +1186,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 </div>
               </div>
 
-              <div className="border-t border-[#FAF6F0] pt-2 space-y-1">
+              <div className="border-t border-[#ffffff] pt-2 space-y-1">
                 <div className="flex justify-between">
                   <span>Tiền dịch vụ:</span>
                   <span className="font-bold">{money(selectedInvoice.subtotal)}</span>
@@ -1212,14 +1203,14 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   <span>Thuế GTGT:</span>
                   <span>{money(selectedInvoice.vatAmount)}</span>
                 </div>
-                <div className="flex justify-between text-[#98501B] font-black text-sm pt-1 border-t border-dashed border-stone-200">
+                <div className="flex justify-between text-[#087e9c] font-black text-sm pt-1 border-t border-dashed border-stone-200">
                   <span>TỔNG THANH TOÁN:</span>
                   <span>{money(selectedInvoice.totalAmount)}</span>
                 </div>
               </div>
             </div>
 
-            {receiptUrl(selectedInvoice.receiptPdfUrl) ? <a href={receiptUrl(selectedInvoice.receiptPdfUrl)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="block text-center w-full py-3 rounded-xl bg-[#98501B] text-white text-xs font-bold">Mở hóa đơn điện tử PDF</a> : <p className="text-center text-xs text-[#7A685D]"></p>}
+            {receiptUrl(selectedInvoice.receiptPdfUrl) ? <a href={receiptUrl(selectedInvoice.receiptPdfUrl)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="block text-center w-full py-3 rounded-xl bg-[#087e9c] text-white text-xs font-bold">Mở hóa đơn điện tử PDF</a> : <p className="text-center text-xs text-[#526a73]"></p>}
           </div>
         </div>
       )}
@@ -1228,47 +1219,47 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           SCREEN F07: CHUYÊN TRANG GIỚI THIỆU BẠN BÈ
       ========================================================================= */}
       {activeModal === 'referral' && (
-        <ProfileLayer role="dialog" aria-modal="true" aria-label="Giới thiệu bạn bè" className="profile-overlay absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+        <ProfileLayer role="dialog" aria-modal="true" aria-label="Giới thiệu bạn bè" className="profile-overlay absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
           <div className="shrink-0 px-3 pb-2 pt-3">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-[8px] bg-white border border-[#EADECF] flex items-center justify-center text-[#40352F] active:scale-95"
+                className="w-8 h-8 rounded-[8px] bg-white border border-[#c8dde3] flex items-center justify-center text-[#183b47] active:scale-95"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
             </div>
-            <h2 className="mt-2 text-[21px] font-bold text-[#6F452C]">Giới thiệu bạn bè</h2>
-            <p className="mt-1 text-[10px] text-[#7A685D]">{metadata?.referral?.terms || ''}</p>
+            <h2 className="mt-2 text-[21px] font-bold text-[#164e63]">Giới thiệu bạn bè</h2>
+            <p className="mt-1 text-[10px] text-[#526a73]">{metadata?.referral?.terms || ''}</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-24">
             <div className="overflow-hidden rounded-[10px] bg-white">
               <div className="p-3">
-                <h4 className="text-[13px] font-bold text-[#6F452C]">Mời bạn cùng trải nghiệm</h4>
-                <p className="mt-2 text-[9px] leading-relaxed text-[#7A685D]"></p>
+                <h4 className="text-[13px] font-bold text-[#164e63]">Mời bạn cùng trải nghiệm</h4>
+                <p className="mt-2 text-[9px] leading-relaxed text-[#526a73]"></p>
               </div>
             </div>
 
-            <div className="p-3 rounded-[10px] bg-[#F3E2CE] space-y-3">
-              <span className="text-[9px] text-[#7A685D]">Mã giới thiệu của bạn</span>
-              <p className="text-[13px] font-bold text-[#A65317]">{referralCode || ''}</p>
+            <div className="p-3 rounded-[10px] bg-[#e8f4f7] space-y-3">
+              <span className="text-[9px] text-[#526a73]">Mã giới thiệu của bạn</span>
+              <p className="text-[13px] font-bold text-[#087e9c]">{referralCode || ''}</p>
               <div className="flex space-x-2">
                 <button
                   disabled={!referralCode}
                   onClick={() => referralCode && handleCopy(referralCode)}
-                  className="flex-1 h-10 rounded-[8px] bg-white text-[#A65317] text-[10px] font-bold border border-[#A65317]"
+                  className="flex-1 h-10 rounded-[8px] bg-white text-[#087e9c] text-[10px] font-bold border border-[#087e9c]"
                 >
                   {referralCode && copiedVoucher === referralCode ? 'Đã sao chép ✓' : 'Sao chép mã'}
                 </button>
               </div>
             </div>
 
-            <div className="bg-white p-3 rounded-[10px] border border-[#EADECF] space-y-2.5 text-xs">
-              <h5 className="font-bold text-[#6F452C]">Lịch sử giới thiệu</h5>
+            <div className="bg-white p-3 rounded-[10px] border border-[#c8dde3] space-y-2.5 text-xs">
+              <h5 className="font-bold text-[#164e63]">Lịch sử giới thiệu</h5>
               <div className="space-y-2">
                 {membership?.referrals?.map((f) => (
-                  <div key={f.id} className="flex justify-between items-center p-2 rounded-xl bg-[#FAF6F0] text-[11px]">
+                  <div key={f.id} className="flex justify-between items-center p-2 rounded-xl bg-[#ffffff] text-[11px]">
                     <span className="font-semibold text-stone-900">{dateLabel(f.createdAt)}</span>
                     <span className={f.isRewarded ? 'text-emerald-700 font-bold' : 'text-amber-700 font-semibold'}>
                       {f.isRewarded ? `Đã thưởng ${f.rewardPoints} điểm` : 'Chưa nhận thưởng'}
@@ -1287,67 +1278,67 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           SCREEN F08: CHUYÊN TRANG CÀI ĐẶT & THÔNG BÁO & BẢO MẬT
       ========================================================================= */}
       {activeModal === 'settings' && (
-        <ProfileLayer role="dialog" aria-modal="true" aria-label="Cài đặt tài khoản" className="profile-overlay absolute inset-0 z-50 bg-[#FAF6F0] flex flex-col overflow-hidden animate-fade-in text-stone-800">
+        <ProfileLayer role="dialog" aria-modal="true" aria-label="Cài đặt tài khoản" className="profile-overlay absolute inset-0 z-50 bg-[#ffffff] flex flex-col overflow-hidden animate-fade-in text-stone-800">
           <div className="shrink-0 px-3 pb-2 pt-3">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-[8px] bg-white border border-[#EADECF] flex items-center justify-center text-[#40352F] active:scale-95"
+                className="w-8 h-8 rounded-[8px] bg-white border border-[#c8dde3] flex items-center justify-center text-[#183b47] active:scale-95"
               >
-                <ArrowLeftIcon size={16} color="#40352F" />
+                <ArrowLeftIcon size={16} color="#183b47" />
               </button>
             </div>
-            <h2 className="mt-2 text-[21px] font-bold text-[#6F452C]">Cài đặt tài khoản</h2>
+            <h2 className="mt-2 text-[21px] font-bold text-[#164e63]">Cài đặt tài khoản</h2>
             <LegalLinks />
-            <p className="mt-1 text-[10px] text-[#7A685D]">Quản lý trải nghiệm, bảo mật và các tùy chọn của bạn.</p>
+            <p className="mt-1 text-[10px] text-[#526a73]">Quản lý trải nghiệm, bảo mật và các tùy chọn của bạn.</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-24">
             <div>
-              <h3 className="mb-2 text-[13px] font-bold text-[#6F452C]">Tài khoản</h3>
-              <div className="overflow-hidden rounded-[10px] bg-white divide-y divide-[#EFEAE3]">
+              <h3 className="mb-2 text-[13px] font-bold text-[#164e63]">Tài khoản</h3>
+              <div className="overflow-hidden rounded-[10px] bg-white divide-y divide-[#f1f8fa]">
                 {['Thông tin cá nhân', 'Số điện thoại liên kết'].map((label, index) => (
                   <button key={label} onClick={() => setActiveModal('edit_profile')} className="flex min-h-11 w-full items-center justify-between px-3 text-left">
-                    <span className="text-[10px] text-[#40352F]">{label}{index === 1 && <small className="block text-[8px] text-[#8A7D74]">{user.phone || ''}</small>}</span><span className="text-[#A09085]">›</span>
+                    <span className="text-[10px] text-[#183b47]">{label}{index === 1 && <small className="block text-[8px] text-[#526a73]">{user.phone || ''}</small>}</span><span className="text-[#607780]">›</span>
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <h3 className="mb-2 text-[13px] font-bold text-[#6F452C]">Thông báo</h3>
-              {!settings && <p className="text-xs text-[#7A685D]">{settingsStatus === 'loading' ? 'Đang tải cài đặt...' : settingsStatus === 'missing' ? '' : 'Không thể tải cài đặt tài khoản.'}</p>}
-              {settingsStatus==='error'&&<button type="button" className="my-2 text-xs font-bold text-[#98501B]" onClick={()=>{apiClient.invalidateReadPaths(['/auth/settings']);setSettingsVersion(value=>value+1);}}>Thử lại</button>}
-              {settingsStatus === 'missing' && <button disabled={settingsSaving} onClick={() => saveSetting({})} className="my-2 text-xs font-bold text-[#98501B]">{settingsSaving ? 'Đang lưu...' : 'Lưu cài đặt mặc định của hệ thống'}</button>}
-              <div className="bg-white p-2 rounded-[10px] divide-y divide-[#EFEAE3] text-xs">
+              <h3 className="mb-2 text-[13px] font-bold text-[#164e63]">Thông báo</h3>
+              {!settings && <p className="text-xs text-[#526a73]">{settingsStatus === 'loading' ? 'Đang tải cài đặt...' : settingsStatus === 'missing' ? '' : 'Không thể tải cài đặt tài khoản.'}</p>}
+              {settingsStatus==='error'&&<button type="button" className="my-2 text-xs font-bold text-[#087e9c]" onClick={()=>{apiClient.invalidateReadPaths(['/auth/settings']);setSettingsVersion(value=>value+1);}}>Thử lại</button>}
+              {settingsStatus === 'missing' && <button disabled={settingsSaving} onClick={() => saveSetting({})} className="my-2 text-xs font-bold text-[#087e9c]">{settingsSaving ? 'Đang lưu...' : 'Lưu cài đặt mặc định của hệ thống'}</button>}
+              <div className="bg-white p-2 rounded-[10px] divide-y divide-[#f1f8fa] text-xs">
               {[
                 { key: 'appointmentReminder' as const, label: 'Thông báo lịch hẹn' },
                 { key: 'systemNotify' as const, label: 'Hiển thị thông báo hệ thống' },
                 { key: 'promotionNotify' as const, label: 'Hiển thị thông báo ưu đãi' },
               ].map((st) => (
                 <label key={st.key} className="flex justify-between items-center p-2 cursor-pointer">
-                  <span className="text-[10px] text-[#40352F]">{st.label}<small className="block text-[8px] text-[#8A7D74]">{settings ? settings[st.key] ? 'Đang bật' : 'Đang tắt' : ''}</small></span>
+                  <span className="text-[10px] text-[#183b47]">{st.label}<small className="block text-[8px] text-[#526a73]">{settings ? settings[st.key] ? 'Đang bật' : 'Đang tắt' : ''}</small></span>
                   <input
                     type="checkbox"
                     checked={settings?.[st.key] === true}
                     disabled={!settings || settingsSaving}
                     onChange={(e) => saveSetting({ [st.key]: e.target.checked })}
-                    className="h-5 w-9 appearance-none rounded-full bg-[#DDC8B7] checked:bg-[#A65317] relative cursor-pointer after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition checked:after:translate-x-4"
+                    className="h-5 w-9 appearance-none rounded-full bg-[#DDC8B7] checked:bg-[#087e9c] relative cursor-pointer after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition checked:after:translate-x-4"
                   />
                 </label>
               ))}
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-[#EADECF] shadow-xs space-y-3 text-xs">
-              <h4 className="font-bold text-[#40352F]">Bảo mật & Hệ thống:</h4>
+            <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs space-y-3 text-xs">
+              <h4 className="font-bold text-[#183b47]">Bảo mật & Hệ thống:</h4>
               <label className="flex items-center justify-between gap-2">
                 <span>Ngôn ngữ giao diện</span><span>Tiếng Việt</span>
               </label>
 
               <button
                 onClick={()=>{apiClient.clearReadCache();showToast('Đã xóa dữ liệu tải tạm.');onRefreshData?.();}}
-                className="w-full py-2.5 rounded-xl border border-[#EADECF] text-xs font-bold text-stone-700 hover:bg-stone-50 text-left px-3 flex justify-between items-center"
+                className="w-full py-2.5 rounded-xl border border-[#c8dde3] text-xs font-bold text-stone-700 hover:bg-stone-50 text-left px-3 flex justify-between items-center"
               >
                 <span>Xóa dữ liệu tải tạm</span>
               </button>
@@ -1363,6 +1354,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               >
                 {onLogout ? 'Đăng xuất tài khoản' : 'Đăng xuất chưa khả dụng'}
               </button>
+              {onManageSessions&&<button type="button" className="flex w-full min-h-11 items-center gap-2 rounded-[8px] border border-[#c8dde3] px-3 py-2 text-left text-xs font-semibold text-[#076985]" onClick={onManageSessions}><ShieldIcon size={18}/>Tài khoản & thiết bị</button>}
             </div>
           </div>
         </ProfileLayer>

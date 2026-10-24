@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import type { Store, Row } from './store.js';
 import {inboxPage} from './notification-inbox.js';
+import {isStaffRole,staffScope} from './staff-booking.js';
 
 const labels: Record<string, string> = {
   PENDING: 'Chờ xử lý', CONFIRMED: 'Đã xác nhận', CHECKED_IN: 'Đã check-in', IN_SERVICE: 'Đang thực hiện',
@@ -22,17 +23,28 @@ const day = (value: unknown) => value ? new Intl.DateTimeFormat('vi-VN', {timeZo
 export async function syncNotifications(store: Store, userId: string) {
   const [schema]=await store.query(Prisma.sql`SELECT to_regclass('public.miniapp_schema_versions') IS NOT NULL AS ready`);
   if(schema.ready) {
-    const reminders=await store.query(Prisma.sql`SELECT b.id,b.booking_code,to_char(b.booking_date,'YYYY-MM-DD') AS day,to_char(b.start_time,'HH24:MI:SS') AS time,
+    const [actor]=await store.query(Prisma.sql`SELECT role FROM users WHERE id=${userId}::uuid AND is_active`);
+    const scope=isStaffRole(actor?.role)?await staffScope(store,userId):null;
+    const reminders=await store.query(Prisma.sql`SELECT b.id,b.branch_id,b.booking_code,to_char(b.booking_date,'YYYY-MM-DD') AS day,to_char(b.start_time,'HH24:MI:SS') AS time,
       EXTRACT(EPOCH FROM ((b.booking_date+b.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'-clock_timestamp())) AS seconds
-      FROM bookings b WHERE b.customer_id=${userId}::uuid AND b.status IN ('PENDING','CONFIRMED')
+      FROM bookings b WHERE (b.customer_id=${userId}::uuid OR (${Boolean(scope)} AND (${scope?.branchId??null}::uuid IS NULL OR b.branch_id=${scope?.branchId??null}::uuid)
+        AND EXISTS(SELECT 1 FROM miniapp_staff_bookings sb WHERE sb.booking_id=b.id AND sb.staff_id=${userId}::uuid))) AND b.status IN ('PENDING','CONFIRMED')
       AND (b.booking_date+b.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'>clock_timestamp()
       AND (b.booking_date+b.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'<=clock_timestamp()+interval '24 hours'
       AND COALESCE((SELECT appointment_reminder FROM user_settings WHERE user_id=${userId}::uuid),true)`);
     await store.query(Prisma.sql`SELECT id FROM users WHERE id=${userId}::uuid FOR UPDATE`);
+    if(scope)await store.query(Prisma.sql`INSERT INTO notifications(user_id,title,message,type,data,created_at)
+      SELECT ${userId}::uuid,n.title,n.message,'BOOKING',jsonb_build_object('sourceKey','staff-booking-event:'||n.id::text,'channel','activity',
+        'staffBranchId',b.branch_id,'target',jsonb_build_object('screen','booking','entityId',b.id)),n.created_at
+      FROM notifications n JOIN bookings b ON n.user_id=b.customer_id AND n.data->'target'->>'entityId'=b.id::text
+        JOIN miniapp_staff_bookings sb ON sb.booking_id=b.id AND sb.staff_id=${userId}::uuid
+      WHERE n.type='BOOKING' AND n.data->'target'->>'screen'='booking' AND COALESCE(n.data->>'channel','')<>'reminder'
+        AND (${scope.branchId}::uuid IS NULL OR b.branch_id=${scope.branchId}::uuid)
+        AND NOT EXISTS(SELECT 1 FROM notifications existing WHERE existing.user_id=${userId}::uuid AND existing.data->>'sourceKey'='staff-booking-event:'||n.id::text) RETURNING id`);
     for(const reminder of reminders) {
       const sourceKey=`reminder:${reminder.id}:${reminder.day}:${reminder.time}:${Number(reminder.seconds)<=7200?'2h':'24h'}`;
       await store.query(Prisma.sql`INSERT INTO notifications(user_id,title,message,type,data)
-        SELECT ${userId}::uuid,'Nhắc lịch hẹn sắp tới',${`${reminder.booking_code} · ${reminder.day} ${reminder.time}`},'BOOKING',${JSON.stringify({sourceKey,channel:'reminder',target:{screen:'booking',entityId:reminder.id}})}::jsonb
+        SELECT ${userId}::uuid,'Nhắc lịch hẹn sắp tới',${`${reminder.booking_code} · ${reminder.day} ${reminder.time}`},'BOOKING',${JSON.stringify({sourceKey,channel:'reminder',...(scope?{staffBranchId:reminder.branch_id}:{}),target:{screen:'booking',entityId:reminder.id}})}::jsonb
         WHERE NOT EXISTS(SELECT 1 FROM notifications WHERE user_id=${userId}::uuid AND data->>'sourceKey'=${sourceKey}) RETURNING id`);
     }
     const expired=await store.query(Prisma.sql`SELECT p.id,p.expires_at,t.name FROM user_packages p JOIN treatment_packages t ON t.id=p.package_id WHERE p.customer_id=${userId}::uuid AND p.status='ACTIVE' AND p.expires_at<=CURRENT_TIMESTAMP`);
@@ -113,7 +125,7 @@ export async function syncNotifications(store: Store, userId: string) {
       case 'content': title = known.has(key) ? 'Nội dung khóa học đã cập nhật' : 'Nội dung khóa học của bạn'; message = d.name; type = 'COURSE'; target.screen = 'academy'; target.tab = 'content'; break;
       case 'quiz': title = 'Kết quả bài trắc nghiệm'; message = `${d.name} · ${d.score}/10 · ${d.passed ? 'Đạt' : 'Chưa đạt'}${d.feedback ? ` · ${d.feedback}` : ''}`; type = 'COURSE'; target.screen = 'academy'; target.tab = 'exam'; target.quizId = d.quizId; break;
       case 'results': title = 'Kết quả và đánh giá học tập'; message = `${d.name} · Lý thuyết ${d.theory_score}/10 · Thực hành ${d.practical_score}/10${d.is_graduated ? ' · Đã tốt nghiệp' : ''}`; type = 'COURSE'; target.screen = 'academy'; target.tab = 'results'; break;
-      case 'certificate': title = `Chứng chỉ: ${label(d.status)}`; message = `${d.name} · ${d.code}${d.reason ? ` · ${d.reason}` : ''}`; type = 'COURSE'; target.screen = 'academy'; target.tab = 'results'; break;
+      case 'certificate': title = `Giấy chứng nhận: ${label(d.status)}`; message = `${d.name} · ${d.code}${d.reason ? ` · ${d.reason}` : ''}`; type = 'COURSE'; target.screen = 'academy'; target.tab = 'certificates'; break;
       case 'schedule': title = 'Lịch học của bạn'; message = `${d.name} · ${day(d.session_date)} ${d.start_time} · ${d.topic}`; type = 'COURSE'; target.screen = 'academy'; target.tab = 'schedule'; break;
       case 'attendance': title = `Điểm danh: ${label(d.status)}`; message = `${d.name} · ${day(d.date)} · ${d.topic}`; type = 'COURSE'; target.screen = 'academy'; target.tab = 'schedule'; break;
       case 'package': title = `Liệu trình: ${label(d.status)}`; message = `${d.name} · ${d.completed}/${d.total} buổi · Hạn ${day(d.expires)}`; type = 'TREATMENT'; target.tab = 'packages'; break;

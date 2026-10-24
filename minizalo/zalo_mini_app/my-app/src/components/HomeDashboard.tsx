@@ -56,7 +56,7 @@ export function GroupBHome(props: HomeDashboardProps) {
         </button>
         <div className="home-greeting-copy">
           <h1>{userName?.trim() ? `Xin chào, ${userName.trim()}!` : 'Xin chào!'}</h1>
-          <p>Hôm nay bạn muốn chăm sóc bản thân như thế nào?</p>
+          <p>Hôm nay bạn hỗ trợ khách hàng nào?</p>
         </div>
         <button className="home-icon-button home-bell" type="button" title={unreadNotifications ? `Thông báo: ${unreadNotifications} chưa đọc` : 'Thông báo'} onClick={onOpenNotifications}>
           <BellIcon size={22} />{unreadNotifications > 0 && <span className="home-unread" />}
@@ -130,6 +130,11 @@ export function GroupBHome(props: HomeDashboardProps) {
         <button type="button" onClick={()=>onNavigateTab('academy')}><NavAcademyIcon size={22}/><span>Học viện</span></button>
         <button type="button" disabled={loading} onClick={props.onOpenBranches}><MapIcon size={22}/><span>Chi nhánh</span></button>
         <button type="button" disabled={loading} onClick={props.onOpenSpecialists}><UserCheckIcon size={22}/><span>Chuyên viên</span></button>
+      </nav>
+      <nav className="home-shortcuts" aria-label="Quản lý khách và tài liệu">
+        <button type="button" onClick={()=>onNavigateTab('customers')}><UserCheckIcon size={22}/><span>Hồ sơ khách</span></button>
+        <button type="button" onClick={()=>onNavigateTab('documents')}><NavAcademyIcon size={22}/><span>Tài liệu</span></button>
+        <button type="button" onClick={()=>onNavigateTab('community')}><UserCheckIcon size={22}/><span>Cộng đồng</span></button>
       </nav>
       {props.upcomingBooking&&<section className="home-information"><h2>Lịch hẹn sắp tới</h2><button className="home-upcoming" type="button" onClick={()=>props.onOpenBooking?props.onOpenBooking(props.upcomingBooking!):onNavigateTab('booking')}><span><strong>{props.upcomingBooking.serviceTitle}</strong><small>{props.upcomingBooking.date.slice(0,10).split('-').reverse().join('/')} · {props.upcomingBooking.timeSlot.split(' - ').map(time=>time.slice(0,5)).join(' - ')}</small><small>{props.upcomingBooking.branchName}</small></span><ArrowRightIcon size={20}/></button></section>}
       <section className="home-information home-about"><h2>MLD Việt Nam</h2><p>Chăm sóc sức khỏe và đào tạo nghề Spa</p>{!loading&&!error&&<div><span>{services.length} dịch vụ</span><span>{branches.length} chi nhánh</span>{Boolean(props.courses?.length)&&<span>{props.courses?.length} khóa học</span>}</div>}</section>

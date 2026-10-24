@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { ApiError } from './errors.js';
 import { Store } from './store.js';
+import {staffScope} from './staff-booking.js';
 
 export interface ZaloAuthOptions {
   zaloAppId?: string;
@@ -114,7 +115,7 @@ export async function verifyZaloPhone(accessToken: unknown, phoneToken: unknown,
   return `0${international.slice(2)}`;
 }
 
-export async function findZaloAccount(store: Store, phone: string) {
+export async function findZaloAccount(store: Store, phone: string, audience:'customer'|'staff'='customer') {
   if (!/^0[1-9]\d{8,9}$/.test(phone)) throw new ApiError(400, 'A verified local phone number is required');
   const international = `84${phone.slice(1)}`;
   const accounts = await store.query(Prisma.sql`SELECT id,is_active,role FROM public.users
@@ -123,6 +124,7 @@ export async function findZaloAccount(store: Store, phone: string) {
   const account = accounts[0];
   if (!account) return null;
   if (!account.is_active) throw new ApiError(401, 'Shared account is missing or inactive');
+  if(audience==='staff'){await staffScope(store,String(account.id));return {userId:String(account.id),isNewUser:false};}
   if (!['CUSTOMER','STUDENT'].includes(account.role)) throw new ApiError(403, 'This account is not a customer account');
   return { userId: String(account.id), isNewUser: false };
 }

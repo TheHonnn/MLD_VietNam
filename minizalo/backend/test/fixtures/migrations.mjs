@@ -5,6 +5,12 @@ import {readFile} from 'node:fs/promises';
 import {statements as profileStatements} from '../../migrations/006_customer_profile.mjs';
 import {statements as auditStatements} from '../../migrations/007_audit_integrity.mjs';
 import {statements as scheduleStatements} from '../../migrations/008_schedule_deletion_notifications.mjs';
+import {statements as staffStatements} from '../../migrations/009_staff_booking.mjs';
+import {statements as resourceStatements} from '../../migrations/010_booking_resources.mjs';
+import {statements as accessStatements} from '../../migrations/011_learning_access.mjs';
+import {statements as audienceStatements} from '../../migrations/012_course_audiences.mjs';
+import {statements as sharedContentStatements} from '../../migrations/013_shared_content.mjs';
+import {statements as sessionStatements} from '../../migrations/014_account_sessions.mjs';
 export async function migrateFixture(db) {
   const search=JSON.parse(await readFile(new URL('../../../docs/sql/003_search_history.json',import.meta.url),'utf8'));
   await db.exec(search.statements.join(';\n'));
@@ -14,5 +20,11 @@ export async function migrateFixture(db) {
   await db.exec(profileStatements.join(';\n'));
   await db.exec(auditStatements.join(';\n'));
   await db.exec(scheduleStatements.join(';\n'));
+  await db.exec(staffStatements.join(';\n'));
+  await db.exec(resourceStatements.join(';\n'));
+  await db.exec(accessStatements.join(';\n'));
+  await db.exec(audienceStatements.join(';\n'));
+  await db.exec(sharedContentStatements.join(';\n'));
+  await db.exec(sessionStatements.join(';\n'));
   await db.query('INSERT INTO miniapp_schema_versions(version) VALUES($1) ON CONFLICT(version) DO NOTHING',[customerVersion]);
 }

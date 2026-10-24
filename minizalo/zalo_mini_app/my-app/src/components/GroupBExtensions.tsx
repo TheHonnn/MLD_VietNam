@@ -30,8 +30,8 @@ export type BranchDetails = Omit<Branch, 'amenities'> & Partial<Pick<CanonicalBr
 
 const contentText = (item: ContentItem, field: string) => typeof item === 'string' ? item : typeof item[field] === 'string' ? item[field] as string : '';
 
-const buttonClass = 'rounded-[8px] border border-[#DED2C5] bg-white px-3 py-2 text-xs font-semibold text-[#98501B] disabled:opacity-50';
-const inputClass = 'mt-1 h-10 w-full min-w-0 rounded-[8px] border border-[#DED2C5] bg-white px-3 text-xs text-[#40352F]';
+const buttonClass = 'rounded-[8px] border border-[#c8dde3] bg-white px-3 py-2 text-xs font-semibold text-[#087e9c] disabled:opacity-50';
+const inputClass = 'mt-1 h-10 w-full min-w-0 rounded-[8px] border border-[#c8dde3] bg-white px-3 text-xs text-[#183b47]';
 
 export const EntityImage: React.FC<{ src?: string | null; alt: string; className?: string }> = ({ src, alt, className = 'h-44 w-full' }) => {
   const [failedSource, setFailedSource] = React.useState<string | null>(null);
@@ -85,13 +85,13 @@ const MapLink: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
 };
 
 const DetailScreen: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; className?: string }> = ({ title, onClose, children, footer, className = '' }) => (
-  <div className={`absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#FAF6F0] text-[#40352F] ${className}`}>
-    <header className="flex shrink-0 items-center gap-3 border-b border-[#EADECF] bg-white p-4">
+  <div className={`absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#ffffff] text-[#183b47] ${className}`}>
+    <header className="flex shrink-0 items-center gap-3 border-b border-[#c8dde3] bg-white p-4">
       <button onClick={onClose} aria-label="Quay lại" title="Quay lại" className={buttonClass}><ArrowLeftIcon size={18} /></button>
       <h1 className="min-w-0 break-words text-base font-bold">{title}</h1>
     </header>
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-xs [overflow-wrap:anywhere]">{children}</div>
-    {footer && <footer className="flex shrink-0 flex-wrap items-center gap-3 border-t border-[#EADECF] bg-white p-4">{footer}</footer>}
+    {footer && <footer className="flex shrink-0 flex-wrap items-center gap-3 border-t border-[#c8dde3] bg-white p-4">{footer}</footer>}
   </div>
 );
 
@@ -102,7 +102,7 @@ const Gallery: React.FC<{ urls?: string[]; name: string }> = ({ urls = [], name 
 const Reviews: React.FC<{ reviews?: (PublicReview | Record<string, unknown>)[] }> = ({ reviews }) => (
   <section className="space-y-2"><h2 className="font-bold">Đánh giá</h2>
     {!reviews?.length ? <p className="text-stone-500"></p> : reviews.map((review, index) => (
-      <article key={typeof review.id === 'string' ? review.id : index} className="space-y-2 border-b border-[#EADECF] py-3">
+      <article key={typeof review.id === 'string' ? review.id : index} className="space-y-2 border-b border-[#c8dde3] py-3">
         {review.rating != null && Number.isFinite(Number(review.rating)) && <p className="font-semibold">{Number(review.rating)}/5</p>}
         {typeof review.comment === 'string' && <p className="whitespace-pre-line">{review.comment}</p>}
         {typeof review.branchReply === 'string' && <p className="text-stone-600">Phản hồi chi nhánh: {review.branchReply}</p>}
@@ -341,7 +341,7 @@ export const SpecialistDetailModal: React.FC<{
       {doctor.reviewsCount > 0 && Number.isFinite(doctor.rating) && <p className="specialist-rating">{doctor.rating}/5 · {doctor.reviewsCount} đánh giá</p>}
       <Reviews reviews={doctor.reviews} />
     </div>
-    <footer className="specialist-booking-footer">{bookingError&&<p role="alert" className="mb-2 text-xs text-red-700">{bookingError}</p>}<button type="button" disabled={!branch} title={!branch ? '' : undefined} onClick={() => onBookWithDoctor(doctor)}>{branch ? 'Đặt lịch với chuyên viên' : 'Chưa thể đặt lịch'}</button></footer>
+    <footer className="specialist-booking-footer">{bookingError&&<p role="alert" className="mb-2 text-xs text-red-700">{bookingError}</p>}<button type="button" disabled={!branch} title={!branch ? '' : undefined} onClick={() => onBookWithDoctor(doctor)}>{branch ? 'Đặt lịch tại cơ sở' : 'Chưa thể đặt lịch'}</button></footer>
   </section>;
 };
 

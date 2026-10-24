@@ -7,8 +7,8 @@
   --intro-safe-top: max(24px, env(safe-area-inset-top, 0px));
   --intro-safe-bottom: max(16px, env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
-  background: #f8f1e7;
-  color: #784729;
+  background: #ffffff;
+  color: #164e63;
   letter-spacing: 0;
 }
 
@@ -32,7 +32,7 @@
 }
 
 .care-intro-header span {
-  color: #756e65;
+  color: #526a73;
   font-size: 12px;
   line-height: 18px;
 }
@@ -42,7 +42,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #a4551e;
+  color: #087e9c;
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -91,13 +91,13 @@
 
 .care-intro-progress .is-active {
   width: 22px;
-  background: #a4551e;
+  background: #087e9c;
 }
 
 .care-intro-page h1 {
   margin: 0;
   flex-shrink: 0;
-  color: #784729;
+  color: #164e63;
   font-size: 26px;
   font-weight: 700;
   line-height: 34px;
@@ -109,7 +109,7 @@
 .care-intro-description {
   margin: 10px 0 0;
   flex-shrink: 0;
-  color: #857c71;
+  color: #526a73;
   font-size: 14px;
   line-height: 22px;
   min-height: 66px;
@@ -128,7 +128,7 @@
   padding: 12px 20px;
   border: 0;
   border-radius: 12px;
-  background: #9d501c;
+  background: #087e9c;
   color: #fff;
   font-family: inherit;
   font-size: 16px;

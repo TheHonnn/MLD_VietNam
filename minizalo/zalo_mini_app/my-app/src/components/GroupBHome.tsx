@@ -35,8 +35,8 @@ export interface GroupBHomeProps {
   onOpenSpecialists?: () => void;
 }
 
-const buttonClass = 'rounded-[8px] border border-[#DED2C5] bg-white px-3 py-2 text-xs font-semibold text-[#98501B]';
-const inputClass = 'h-10 w-full min-w-0 rounded-[8px] border border-[#DED2C5] bg-white px-2 text-xs';
+const buttonClass = 'rounded-[8px] border border-[#c8dde3] bg-white px-3 py-2 text-xs font-semibold text-[#087e9c]';
+const inputClass = 'h-10 w-full min-w-0 rounded-[8px] border border-[#c8dde3] bg-white px-2 text-xs';
 const bookingStatuses: Record<string, string> = {
   pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', checked_in: 'Đã đến',
   in_service: 'Đang thực hiện', completed: 'Hoàn thành', cancelled: 'Đã hủy', no_show: 'Không đến',
@@ -63,7 +63,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
     .sort((a, b) => sort === 'priceAsc' ? a.price - b.price : sort === 'priceDesc' ? b.price - a.price : sort === 'duration' ? a.durationMinutes - b.durationMinutes : a.title.localeCompare(b.title, 'vi'));
   const faqs = metadata?.faqs?.filter(faq => faq.isActive !== false) || [];
 
-  return <div className="space-y-5 px-3 pb-16 pt-3 text-xs text-[#40352F] [overflow-wrap:anywhere]">
+  return <div className="space-y-5 px-3 pb-16 pt-3 text-xs text-[#183b47] [overflow-wrap:anywhere]">
     <header className="flex flex-wrap items-center justify-between gap-2">
       <h1 className="text-base font-bold">{userName?.trim() ? 'Xin chào, ' + userName.trim() + '!' : 'Xin chào!'}</h1>
       {onOpenNotifications && <button onClick={onOpenNotifications} className={buttonClass}>Thông báo{unreadNotifications > 0 ? ' (' + unreadNotifications + ')' : ''}</button>}
@@ -77,7 +77,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
         <label>Danh mục<select aria-label="Danh mục" value={category} onChange={event => setCategory(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <label>Sắp xếp<select aria-label="Sắp xếp" value={sort} onChange={event => setSort(event.target.value)} className={inputClass + ' mt-1'}><option value="name">Tên dịch vụ</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option><option value="duration">Thời lượng</option></select></label>
       </div>
-      {visibleServices.map(service => <article key={service.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
+      {visibleServices.map(service => <article key={service.id} className="space-y-3 rounded-[8px] border border-[#c8dde3] bg-white p-3">
         <button onClick={() => onViewServiceDetail(service)} className="block w-full space-y-2 text-left"><h3 className="font-bold">{service.title}</h3><EntityImage src={service.image} alt={service.title} /><p>{service.description}</p></button>
         <p>{service.durationMinutes} phút · {service.price.toLocaleString('vi-VN')} ₫</p>
         <div className="flex flex-wrap justify-between gap-2"><button onClick={() => onViewServiceDetail(service)} className={buttonClass}>Xem chi tiết</button><button onClick={() => onSelectService(service)} className={buttonClass}>Đặt lịch</button></div>
@@ -97,7 +97,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold">Chuyên viên</h2>{onOpenSpecialists && <button onClick={onOpenSpecialists} className={buttonClass}>Xem tất cả</button>}</div>
       {!doctors.length && <p className="text-stone-500"></p>}
-      {doctors.slice(0, 2).map(doctor => <button key={doctor.id} onClick={() => onSelectDoctor(doctor)} className="flex w-full items-center gap-3 rounded-[8px] border border-[#EADECF] bg-white p-3 text-left">
+      {doctors.slice(0, 2).map(doctor => <button key={doctor.id} onClick={() => onSelectDoctor(doctor)} className="flex w-full items-center gap-3 rounded-[8px] border border-[#c8dde3] bg-white p-3 text-left">
         <EntityImage src={doctor.avatar} alt={doctor.name} className="h-16 w-16 shrink-0" /><div className="min-w-0 space-y-1"><h3 className="font-bold">{doctor.name}</h3><p>{doctor.title}</p><p>{doctor.specialty}</p><p>{doctor.hospital}</p></div>
       </button>)}
     </section>
@@ -105,7 +105,7 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
     <section className="space-y-3">
       <h2 className="text-sm font-bold">Khóa học</h2>
       {!courses.length && <p className="text-stone-500"></p>}
-      {courses.slice(0, 2).map(course => <article key={course.id} className="space-y-2 rounded-[8px] border border-[#EADECF] bg-white p-3"><EntityImage src={course.image} alt={course.title} /><h3 className="font-bold">{course.title}</h3><p>{course.description}</p><p>{course.duration} · {course.price.toLocaleString('vi-VN')} ₫</p>{onSelectCourse && <button onClick={() => onSelectCourse(course)} className={buttonClass}>Xem chi tiết</button>}</article>)}
+      {courses.slice(0, 2).map(course => <article key={course.id} className="space-y-2 rounded-[8px] border border-[#c8dde3] bg-white p-3"><EntityImage src={course.image} alt={course.title} /><h3 className="font-bold">{course.title}</h3><p>{course.description}</p><p>{course.duration} · {course.price.toLocaleString('vi-VN')} ₫</p>{onSelectCourse && <button onClick={() => onSelectCourse(course)} className={buttonClass}>Xem chi tiết</button>}</article>)}
       <button onClick={() => onNavigateTab('academy')} className={buttonClass}>Xem khóa học</button>
     </section>
 
@@ -113,14 +113,14 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold">Chi nhánh</h2>{onOpenBranches && <button onClick={onOpenBranches} className={buttonClass}>Xem tất cả · {branches.length}</button>}</div>
       <label className="block">Tỉnh / thành phố<select aria-label="Tỉnh / thành phố" value={city} onChange={event => setCity(event.target.value)} className={inputClass + ' mt-1'}><option value="">Tất cả</option>{cities.map(item => <option key={item}>{item}</option>)}</select></label>
       {!visibleBranches.length && <p className="text-stone-500"></p>}
-      {visibleBranches.map(branch => <article key={branch.id} className="space-y-3 rounded-[8px] border border-[#EADECF] bg-white p-3">
+      {visibleBranches.map(branch => <article key={branch.id} className="space-y-3 rounded-[8px] border border-[#c8dde3] bg-white p-3">
         <EntityImage src={branch.imageUrl} alt={branch.name} /><h3 className="font-bold">{branch.name}</h3><p>{branch.address || ''}</p><BranchHours branch={branch} />
         <div className="flex flex-wrap gap-2"><button onClick={() => onSelectBranch(branch)} className={buttonClass}>Xem chi tiết</button><button onClick={() => onOpenDirections(branch)} className={buttonClass}>Chỉ đường</button></div>
         {!!branch.galleryUrls?.length && <div className="grid grid-cols-2 gap-2">{branch.galleryUrls.filter(Boolean).map((url, index) => <EntityImage key={url + index} src={url} alt={branch.name} className="h-28 w-full" />)}</div>}
       </article>)}
     </section>
 
-    {!!guidelines.length && <section className="space-y-2"><h2 className="text-sm font-bold">Cẩm nang chăm sóc</h2>{guidelines.filter(item => item.isPublished !== false).map(item => <details key={item.id} className="border-b border-[#EADECF] py-2"><summary className="cursor-pointer font-semibold">{item.title}</summary><div className="space-y-2 pt-2">{item.imageUrl && <EntityImage src={item.imageUrl} alt={item.title} />}<p>{item.summary}</p>{item.content && <p className="whitespace-pre-line">{item.content}</p>}</div></details>)}</section>}
-    {!!faqs.length && <section className="space-y-2"><h2 className="text-sm font-bold">Câu hỏi thường gặp</h2>{faqs.map(faq => <details key={faq.id} className="border-b border-[#EADECF] py-2"><summary className="cursor-pointer font-semibold">{faq.question}</summary><p className="whitespace-pre-line pt-2">{faq.answer}</p></details>)}</section>}
+    {!!guidelines.length && <section className="space-y-2"><h2 className="text-sm font-bold">Cẩm nang chăm sóc</h2>{guidelines.filter(item => item.isPublished !== false).map(item => <details key={item.id} className="border-b border-[#c8dde3] py-2"><summary className="cursor-pointer font-semibold">{item.title}</summary><div className="space-y-2 pt-2">{item.imageUrl && <EntityImage src={item.imageUrl} alt={item.title} />}<p>{item.summary}</p>{item.content && <p className="whitespace-pre-line">{item.content}</p>}</div></details>)}</section>}
+    {!!faqs.length && <section className="space-y-2"><h2 className="text-sm font-bold">Câu hỏi thường gặp</h2>{faqs.map(faq => <details key={faq.id} className="border-b border-[#c8dde3] py-2"><summary className="cursor-pointer font-semibold">{faq.question}</summary><p className="whitespace-pre-line pt-2">{faq.answer}</p></details>)}</section>}
   </div>;
 };

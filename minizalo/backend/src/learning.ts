@@ -7,8 +7,11 @@ export async function ownedEnrollment(store:Store,userId:string,courseId:string,
   const [available]=await store.query(Prisma.sql`SELECT c.id FROM courses c JOIN course_categories cat ON cat.id=c.category_id WHERE c.id=${courseId}::uuid AND c.is_active AND cat.is_active`);
   if(!available) throw new ApiError(404,'Course is unavailable');
   const [entry]=await store.query(Prisma.sql`SELECT * FROM course_enrollments WHERE student_id=${userId}::uuid AND course_id=${courseId}::uuid
-    AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC LIMIT 1 ${lock?Prisma.sql`FOR UPDATE`:Prisma.empty}`);
+    AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC,id DESC LIMIT 1 ${lock?Prisma.sql`FOR UPDATE`:Prisma.empty}`);
   if(!entry) throw new ApiError(403,'Enrollment is required');
+  const [access]=await store.query(Prisma.sql`SELECT expires_at,is_suspended,(expires_at IS NOT NULL AND expires_at<=clock_timestamp()) AS expired FROM miniapp_course_access WHERE enrollment_id=${entry.id}::uuid`);
+  if(access?.is_suspended||access?.expired)throw new ApiError(403,'Course access has expired or is suspended',{code:'COURSE_ACCESS_EXPIRED'});
+  entry.access_expires_at=access?.expires_at??null;
   return entry;
 }
 export const lessonQuizLinks = Prisma.sql`SELECT l.id AS lesson_id,COALESCE(link.quiz_id,
@@ -126,19 +129,26 @@ function mergeRanges(ranges:number[][],duration:number) {
   return merged;
 }
 export async function startPlayback(store:Store,userId:string,courseId:string,lessonId:string,enrollmentId:string|null) {
-  const enrollment=await ownedEnrollment(store,userId,courseId,enrollmentId);
-  const [lesson]=await store.query(Prisma.sql`SELECT l.* FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE l.id=${lessonId}::uuid AND ch.course_id=${courseId}::uuid AND l.lesson_type='VIDEO'`);
-  if(!lesson||!lesson.video_url||lesson.duration_minutes<=0) throw new ApiError(409,'Video duration or media is not configured');
-  const [playback]=await store.query(Prisma.sql`INSERT INTO miniapp_lesson_playbacks(enrollment_id,lesson_id,media_url,duration_seconds) VALUES(${enrollment.id}::uuid,${lessonId}::uuid,${lesson.video_url},${lesson.duration_minutes*60}) RETURNING id,duration_seconds`);
-  return {playback};
+  return store.transaction(async tx=>{
+    await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`learning-player:${userId}`}))::text AS locked`);
+    const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
+    const [lesson]=await tx.query(Prisma.sql`SELECT l.* FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE l.id=${lessonId}::uuid AND ch.course_id=${courseId}::uuid AND l.lesson_type='VIDEO'`);
+    if(!lesson||!lesson.video_url||lesson.duration_minutes<=0) throw new ApiError(409,'Video duration or media is not configured');
+    // Keep the watched ranges; revoke only the old playback lease, not learning history.
+    await tx.query(Prisma.sql`UPDATE miniapp_lesson_playbacks p SET expires_at=clock_timestamp() FROM course_enrollments ce
+      WHERE ce.id=p.enrollment_id AND ce.student_id=${userId}::uuid AND p.expires_at>clock_timestamp() RETURNING p.id`);
+    const [playback]=await tx.query(Prisma.sql`INSERT INTO miniapp_lesson_playbacks(enrollment_id,lesson_id,media_url,duration_seconds) VALUES(${enrollment.id}::uuid,${lessonId}::uuid,${lesson.video_url},${lesson.duration_minutes*60}) RETURNING id,duration_seconds`);
+    return {playback};
+  });
 }
 export async function heartbeat(store:Store,userId:string,courseId:string,lessonId:string,playbackId:string,enrollmentId:string|null,position:unknown) {
   if(typeof position!=='number'||!Number.isFinite(position)||position<0) throw new ApiError(400,'Invalid video position');
   return store.transaction(async tx=>{
+    await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`learning-player:${userId}`}))::text AS locked`);
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
     const [playback]=await tx.query(Prisma.sql`SELECT p.*,l.video_url,l.duration_minutes FROM miniapp_lesson_playbacks p JOIN course_lessons l ON l.id=p.lesson_id
       WHERE p.id=${playbackId}::uuid AND p.lesson_id=${lessonId}::uuid AND p.enrollment_id=${enrollment.id}::uuid AND p.expires_at>clock_timestamp() FOR UPDATE OF p`);
-    if(!playback||playback.media_url!==playback.video_url||playback.duration_seconds!==playback.duration_minutes*60) throw new ApiError(409,'Video session expired or media changed');
+    if(!playback||playback.media_url!==playback.video_url||playback.duration_seconds!==playback.duration_minutes*60) throw new ApiError(409,'Video session expired, replaced on another device or media changed',{code:'VIDEO_SESSION_EXPIRED'});
     const elapsed=Math.max(0,(Date.now()-new Date(playback.last_seen_at).getTime())/1000);
     if(elapsed<.5) throw new ApiError(429,'Video heartbeat is too frequent');
     const delta=position-playback.last_position;

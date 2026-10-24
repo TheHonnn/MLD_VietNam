@@ -6,7 +6,7 @@
   padding: 0;
   overflow: hidden;
   container: profile-onboarding / size;
-  background: #f8f1e7;
+  background: #ffffff;
   --profile-safe-top: max(24px, env(safe-area-inset-top, 0px));
   --profile-safe-bottom: max(24px, env(safe-area-inset-bottom, 0px));
 }
@@ -29,7 +29,7 @@
 .profile-page .onboarding-topbar > span {
   font-size: 11px;
   line-height: 16px;
-  color: #756e65;
+  color: #526a73;
 }
 
 .profile-page .onboarding-back {
@@ -45,7 +45,7 @@
   margin: 0 0 8px;
   font-size: 28px;
   line-height: 34px;
-  color: #784729;
+  color: #164e63;
   letter-spacing: 0;
 }
 
@@ -54,7 +54,7 @@
   margin: 0 0 clamp(10px, 1.8cqh, 16px);
   font-size: 14px;
   line-height: 22px;
-  color: #857c71;
+  color: #526a73;
 }
 
 .profile-form {
@@ -75,7 +75,7 @@
   width: 72px;
   height: 72px;
   padding: 0;
-  background: #f3e2cd;
+  background: #e8f4f7;
   border: 3px solid white;
   color: #aa5a25;
 }
@@ -85,12 +85,12 @@
   height: 28px;
   right: -3px;
   bottom: -3px;
-  border-color: #f8f1e7;
+  border-color: #ffffff;
 }
 
 .profile-page .profile-photo-label {
   padding: 6px 0;
-  color: #a4551e;
+  color: #087e9c;
   font-size: 13px !important;
   font-weight: 600;
   line-height: 18px;
@@ -99,7 +99,7 @@
 .profile-page .profile-avatar-row p {
   font-size: 11px;
   line-height: 16px;
-  color: #857c71;
+  color: #526a73;
 }
 
 .profile-page .profile-avatar-row .profile-upload-error {
@@ -117,7 +117,7 @@
   margin: 0;
   font-size: 12px;
   line-height: 16px;
-  color: #62594e;
+  color: #334f5b;
 }
 
 .profile-page .profile-field > input,
@@ -138,13 +138,13 @@
 }
 
 .profile-page .profile-verified {
-  background: #f3e2cd;
+  background: #e8f4f7;
 }
 
 .profile-page .profile-verified input {
   padding: 0;
   height: 100%;
-  color: #62594e;
+  color: #334f5b;
   font-size: 14px;
 }
 
@@ -172,14 +172,14 @@
   margin: 0 0 16px;
   font-size: 11px;
   line-height: 16px;
-  color: #857c71;
+  color: #526a73;
 }
 
 .profile-page .onboarding-primary {
   height: 52px;
   min-height: 52px;
   border-radius: 12px;
-  background: #9d501c;
+  background: #087e9c;
 }
 
 @container profile-onboarding (max-height: 700px) {

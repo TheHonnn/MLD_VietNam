@@ -7,6 +7,7 @@ import { PGlite } from '@electric-sql/pglite';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../dist/server.js';
 import { resolveZaloAccount, verifyZaloAccount, verifyZaloPhone } from '../dist/zalo-auth.js';
+import {statements as sessionStatements} from '../migrations/014_account_sessions.mjs';
 
 const options = { zaloAppId:'123456',zaloAppSecret:'private-zalo-test-secret' };
 const profile = {id:'90071992547409930001',name:'Actual Zalo Name',avatar:'https://example.test/avatar.png',phone:'0912345678'};
@@ -88,6 +89,7 @@ test('Zalo phone permission preserves shared accounts without schema changes or 
   const db=new PGlite();
   const canonical=await readFile(new URL('../../../database/schema.sql',import.meta.url),'utf8');
   await db.exec(canonical.split(/\r?\n/).filter(l=>!l.startsWith('CREATE EXTENSION')&&!l.includes('gin_trgm_ops')).join('\n'));
+  await db.exec(sessionStatements.join(';\n'));
   const store=sqlStore(db);
   let accountId;
   let server;

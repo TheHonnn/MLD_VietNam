@@ -5,11 +5,13 @@ import { once } from 'node:events';
 import { PGlite } from '@electric-sql/pglite';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../dist/server.js';
+import {statements as sessionStatements} from '../migrations/014_account_sessions.mjs';
 
 test('phone-only Zalo registration needs verified phone plus a real name, never Social profile permission',async t=>{
   const db=new PGlite();
   const schema=await readFile(new URL('../../../database/schema.sql',import.meta.url),'utf8');
   await db.exec(schema.split(/\r?\n/).filter(l=>!l.startsWith('CREATE EXTENSION')&&!l.includes('gin_trgm_ops')).join('\n'));
+  await db.exec(sessionStatements.join(';\n'));
   const sqlStore=client=>({query:async q=>(await client.query(q.text,q.values)).rows,transaction:run=>client.transaction(tx=>run(sqlStore(tx)))});
   const secret='private-miniapp-registration-test-key';
   let providerError=false;

@@ -17,6 +17,11 @@ const checks = [
   ['/slots', 'validation', []],
   ['/slots/dates', 'validation', []],
   ['/auth/me', 'private', []],
+  ['/auth/sessions','private',[]],
+  ['/certificates', 'private', []],
+  ['/documents', 'private', []],
+  ['/shared-content?kind=COMMUNITY', 'private', []],
+  ['/staff/context', 'private', []],
   ['/bookings', 'private', []],
   ['/membership', 'private', []],
   ['/auth/settings', 'private', []],
@@ -40,6 +45,15 @@ const results = await Promise.all(checks.map(async ([path, key, fields]) => {
       failures.push('Backend is not the phone-only registration version; deploy all backend changes first');
     }
     if (path === '/health' && body.data?.contentContract !== 'shared-admin-v1') failures.push('Deploy the shared-admin content backend before this frontend');
+    if(path==='/health'&&!body.data?.features?.includes('staff-booking-v1'))failures.push('Deploy the staff-booking migration and backend before the employee frontend');
+    if(path==='/health'&&!body.data?.features?.includes('staff-booking-resources-v1'))failures.push('Deploy migration 010 and the resource-aware staff backend before this frontend');
+    if(path==='/health'&&!body.data?.features?.includes('learning-access-v1'))failures.push('Deploy migration 011 and the access-aware learning backend before this frontend');
+    if(path==='/health'&&!body.data?.features?.includes('academy-records-v1'))failures.push('Deploy migration 012 and the standalone certificate/audience backend before this frontend');
+    if(path==='/health'&&!body.data?.features?.includes('shared-records-v1'))failures.push('Deploy the shared documents/customer records backend before this frontend');
+    if(path==='/health'&&!body.data?.features?.includes('shared-content-v1'))failures.push('Apply migration 013 and deploy the shared community/document publishing backend before this frontend');
+    if(path==='/health'&&!body.data?.features?.includes('account-sessions-v1'))failures.push('Apply migration 014 and deploy revocable account sessions before the account-switching frontend');
+    if(path==='/health'&&!body.data?.features?.includes('booking-group-actions-v1'))failures.push('Deploy complete booking-group reads/cancellation before the group-management frontend');
+    if(path==='/health'&&!body.data?.features?.includes('single-learning-player-v1'))failures.push('Deploy the single active learning-player policy and terminal playback errors before this frontend');
     if (key === 'validation') {
       if (response.status !== 400) failures.push('Availability route is missing or incorrectly protected; deploy the matching Mini App backend');
     } else if (key === 'private') {

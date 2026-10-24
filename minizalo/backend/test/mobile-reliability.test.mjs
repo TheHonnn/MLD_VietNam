@@ -91,6 +91,22 @@ test('mobile reliability regressions use an isolated database only',async t=>{
       assert.equal((await beat(60)).watchedSeconds,60);
       await beat(0);assert.equal((await beat(10)).watchedSeconds,60);
       assert.equal((await row('SELECT is_completed FROM user_lesson_progress WHERE enrollment_id=$1 AND lesson_id=$2',[id(29),id(70)])).is_completed,true);
+      const replacement=await request(`${course}/lessons/${id(70)}/playback`,{method:'POST',body:{enrollmentId:id(29)}});
+      assert.equal(replacement.status,200,JSON.stringify(replacement));assert.notEqual(replacement.data.playback.id,body.playbackId);
+      const old=await request(heartbeat,{method:'POST',body:{...body,position:20}});
+      assert.equal(old.status,409);assert.equal(old.code,'VIDEO_SESSION_EXPIRED');
+      assert.equal((await row('SELECT watched_seconds FROM user_lesson_progress WHERE enrollment_id=$1 AND lesson_id=$2',[id(29),id(70)])).watched_seconds,60);
+      const invalid=await request(`${course}/lessons/${id(999)}/playback`,{method:'POST',body:{enrollmentId:id(29)}});
+      assert.equal(invalid.status,409);
+      assert.equal((await row('SELECT expires_at>clock_timestamp() AS active FROM miniapp_lesson_playbacks WHERE id=$1',[replacement.data.playback.id])).active,true);
+      await db.query("INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status) VALUES($1,$2,$3,$4,'STUDYING')",[id(71),id(2),id(22),id(30)]);
+      const otherStudent=await request(`${course}/lessons/${id(70)}/playback`,{method:'POST',owner:2,body:{enrollmentId:id(71)}});
+      assert.equal(otherStudent.status,200,JSON.stringify(otherStudent));
+      assert.equal((await row('SELECT expires_at>clock_timestamp() AS active FROM miniapp_lesson_playbacks WHERE id=$1',[replacement.data.playback.id])).active,true);
+      const otherEnrollment=await request(`${course}/lessons/${id(70)}/playback`,{method:'POST',body:{enrollmentId:id(32)}});
+      assert.equal(otherEnrollment.status,200,JSON.stringify(otherEnrollment));
+      assert.equal((await row('SELECT expires_at>clock_timestamp() AS active FROM miniapp_lesson_playbacks WHERE id=$1',[replacement.data.playback.id])).active,false);
+      assert.equal((await row('SELECT expires_at>clock_timestamp() AS active FROM miniapp_lesson_playbacks WHERE id=$1',[otherStudent.data.playback.id])).active,true);
     });
     await t.test('package reservations charge zero, release on cancellation and consume only an actual journal',async()=>{
       await db.query('UPDATE user_packages SET total_sessions=2 WHERE id=$1',[id(10)]);

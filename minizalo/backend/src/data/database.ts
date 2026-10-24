@@ -41,7 +41,7 @@ export interface AppNotification {
   message: string;
   type: string;
   entityId?: string;
-  data?: { target?: { screen: 'booking' | 'academy' | 'treatment' | 'profile'; entityId?: string; courseId?: string; enrollmentId?: string; quizId?: string; bookingId?: string; tab?: string } };
+  data?: { sourceKey?:string; target?: { screen: 'booking' | 'academy' | 'treatment' | 'profile'; entityId?: string; courseId?: string; enrollmentId?: string; quizId?: string; bookingId?: string; tab?: string } };
   isRead: boolean;
   createdAt: string;
 }
@@ -98,6 +98,14 @@ export interface Branch {
 }
 
 export interface Booking {
+  customerName?: string;
+  customerPhone?: string|null;
+  roomId?: string;
+  roomName?: string;
+  bedNumber?: number;
+  groupId?: string;
+  groupSize?: number;
+  memberNumber?: number;
   userPackageId?: string;
   packageName?: string;
   packageReservationState?: 'RESERVED'|'CONSUMED'|'RELEASED';
@@ -128,7 +136,9 @@ export interface Booking {
   createdAt: string;
 }
 
+export type CourseAudience='BEGINNER'|'PRACTITIONER';
 export interface Course {
+  trainingAudience?: CourseAudience|null;
   deliveryFormat?: 'ONLINE'|'ONSITE'|'HYBRID'|null;
   id: string;
   title: string;

@@ -40,7 +40,21 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   const [visibleCount,setVisibleCount]=useState(50);
   useEffect(()=>setVisibleCount(50),[activeTab,dateRange,fromDate,toDate,branchFilter,serviceFilter,statusFilter]);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(initialBookingId || null);
-  const selectedBooking = bookings.find(item => item.id === selectedBookingId) || null;
+  const [groupBookings,setGroupBookings]=useState<Booking[]>([]),[groupLoading,setGroupLoading]=useState(false),[groupError,setGroupError]=useState(''),[groupVersion,setGroupVersion]=useState(0),[cancelWholeGroup,setCancelWholeGroup]=useState(false);
+  const selectedBooking = groupBookings.find(item=>item.id===selectedBookingId)||bookings.find(item => item.id === selectedBookingId) || null;
+  const groupId=selectedBooking?.groupId;
+  const groupAnchor=bookings.find(item=>item.groupId===groupId)?.id;
+  useEffect(()=>{
+    setGroupBookings(current=>current.filter(item=>item.groupId===groupId));setGroupError('');setGroupLoading(false);setCancelWholeGroup(false);
+    if(!groupId||!groupAnchor||!authenticated)return;
+    let active=true;const controller=new AbortController();setGroupLoading(true);
+    apiClient.getBookingGroup(groupAnchor,controller.signal).then(result=>{
+      if(!active)return;
+      if(!Array.isArray(result?.bookings)||result.bookings.some((item:Booking)=>item.groupId!==groupId)){setGroupError(result?.error||'Không thể tải nhóm đặt lịch.');return;}
+      setGroupBookings(result.bookings);
+    }).finally(()=>{if(active)setGroupLoading(false);});
+    return()=>{active=false;controller.abort();};
+  },[groupId,groupAnchor,groupVersion,authenticated,bookings]);
   const setSelectedBooking = (booking: Booking | null) => setSelectedBookingId(booking?.id || null);
   const [rescheduling, setRescheduling] = useState(false);
   const [newDate, setNewDate] = useState(todayInVietnam);
@@ -49,6 +63,8 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   useEffect(()=>{onBusyChange?.(submitting);return()=>onBusyChange?.(false);},[submitting,onBusyChange]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [treatmentNotes,setTreatmentNotes]=useState('');
+  useEffect(()=>setTreatmentNotes(''),[selectedBookingId]);
   const detailBody = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!detailBody.current) return;
@@ -86,7 +102,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   useBackAction(Boolean(selectedBooking || rescheduling || confirmCancel || submitting), () => {
     if (mutationLock.current) return;
     setMessage(null);
-    if (confirmCancel) setConfirmCancel(false);
+    if (confirmCancel) {setConfirmCancel(false);setCancelWholeGroup(false);}
     else if (rescheduling) setRescheduling(false);
     else setSelectedBooking(null);
   });
@@ -131,7 +147,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   const rangeTo = dateRange === 'custom' ? toDate : dateRange === 'all' ? '' : addDays(today, dateRange === 'week' ? 6 : 29);
   const invalidRange = Boolean(rangeFrom && rangeTo && rangeFrom > rangeTo);
   const filteredBookings = useMemo(() => bookings.filter(booking => {
-    const matchesTab = activeTab === 'all' || (activeTab === 'upcoming' ? !['completed', 'cancelled', 'no_show'].includes(booking.status) && isFutureSlot(toInputDate(booking.date), booking.timeSlot,clockNow) : booking.status === activeTab);
+    const matchesTab = activeTab === 'all' || (activeTab === 'upcoming' ? !['completed', 'cancelled', 'no_show'].includes(booking.status) && (isFutureSlot(toInputDate(booking.date), booking.timeSlot,clockNow)||toInputDate(booking.date)===todayInVietnam()||['checked_in','in_service'].includes(booking.status)) : booking.status === activeTab);
     const date = toInputDate(booking.date);
     return matchesTab && !invalidRange && (!rangeFrom || date >= rangeFrom) && (!rangeTo || date <= rangeTo)
       && (!branchFilter || booking.branchId === branchFilter) && (!statusFilter || booking.status === statusFilter)
@@ -139,7 +155,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
   }).sort((a, b) => `${toInputDate(a.date)} ${a.timeSlot}`.localeCompare(`${toInputDate(b.date)} ${b.timeSlot}`)), [bookings, activeTab, rangeFrom, rangeTo, invalidRange, branchFilter, statusFilter, serviceFilter,clockNow]);
   const branchOptions = Array.from(new Map(bookings.map(booking => [booking.branchId, booking.branchName || branches.find(branch => branch.id === booking.branchId)?.name || ''])));
   const serviceOptions = Array.from(new Map(bookings.flatMap(booking => booking.items?.length ? booking.items.map(item => [item.serviceId, item.serviceTitle || booking.serviceTitle] as const) : [[booking.serviceId, booking.serviceTitle] as const])));
-  const replaceBooking = (updated: Booking) => { onUpdateBookings(bookingsRef.current.map(item => item.id === updated.id ? updated : item)); setSelectedBooking(updated); };
+  const replaceBooking = (updated: Booking) => { setGroupBookings(current=>current.map(item=>item.id===updated.id?updated:item));onUpdateBookings(bookingsRef.current.map(item => item.id === updated.id ? updated : item)); setSelectedBooking(updated); };
   const openReschedule = () => { if (!selectedBooking) return; const date = toInputDate(selectedBooking.date); setNewDate(date >= today ? date : today); setNewTime(''); setMessage(null); setConfirmCancel(false); setRescheduling(true); };
   const submitReschedule = async () => {
     if (!selectedBooking || mutationLock.current) return;
@@ -156,11 +172,26 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
     if (!selectedBooking || mutationLock.current) return;
     mutationLock.current = true;refreshGeneration.current++;setSubmitting(true);setMessage(null);
     try {
-      const response = await apiClient.cancelBooking(selectedBooking.id, 'Khách hàng hủy trên Mini App');
+      if(cancelWholeGroup){
+        const response=await apiClient.cancelBookingGroup(selectedBooking.id);
+        if(response?.error||!Array.isArray(response?.bookings)||!response.bookings.length||response.bookings.some((item:Booking)=>item.groupId!==selectedBooking.groupId||item.status!=='cancelled')){setMessage({type:'error',text:response?.error||'Không thể hủy nhóm. Vui lòng cập nhật lại lịch.'});setGroupVersion(value=>value+1);return;}
+        const changed=new Map<string,Booking>(response.bookings.map((item:Booking)=>[item.id,item]));
+        setGroupBookings(response.bookings);onUpdateBookings(bookingsRef.current.map(item=>changed.get(item.id)||item));setConfirmCancel(false);setCancelWholeGroup(false);setMessage({type:'success',text:'Đã hủy toàn bộ nhóm đặt lịch.'});return;
+      }
+      const response = await apiClient.cancelBooking(selectedBooking.id, 'Nhân viên hủy lịch trên Mini App');
       if (!response?.error && response?.booking?.id === selectedBooking.id && response.booking.status === 'cancelled') { replaceBooking(response.booking); setConfirmCancel(false); setMessage({ type: 'success', text: 'Lịch hẹn đã được hủy.' }); }
       else setMessage({ type: 'error', text: response?.error || 'Không thể hủy lịch. Vui lòng thử lại.' });
     } catch { setMessage({ type: 'error', text: 'Không thể hủy lịch. Vui lòng thử lại.' }); }
     finally { mutationLock.current = false; setSubmitting(false); }
+  };
+  const updateSession=async(status:string)=>{
+    if(!selectedBooking||mutationLock.current)return;
+    mutationLock.current=true;refreshGeneration.current++;setSubmitting(true);setMessage(null);
+    try{
+      const result=await apiClient.updateStaffSession(selectedBooking.id,status,status==='COMPLETED'?treatmentNotes.trim():undefined);
+      if(result?.booking?.id===selectedBooking.id){replaceBooking(result.booking);setMessage({type:'success',text:'Đã cập nhật ca trị liệu.'});}
+      else setMessage({type:'error',text:result?.error||'Không thể cập nhật ca trị liệu.'});
+    }finally{mutationLock.current=false;setSubmitting(false);}
   };
   const feedback = <>{refreshError&&<p role="alert" className="appointment-feedback is-error">{refreshError}</p>}{message&&<p role={message.type === 'error' ? 'alert' : 'status'} className={`appointment-feedback is-${message.type}`}>{message.text}</p>}</>;
 
@@ -176,23 +207,26 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
     const canEdit = ['confirmed', 'pending'].includes(selectedBooking.status) && isFutureSlot(toInputDate(selectedBooking.date),selectedBooking.timeSlot,clockNow);
     const canCancel = canEdit && !['paid', 'partial'].includes(selectedBooking.paymentStatus || '');
     const duration = bookingDuration(selectedBooking);
+    const sessionAction=selectedBooking.status==='confirmed'&&toInputDate(selectedBooking.date)===todayInVietnam()?{status:'CHECKED_IN',label:'Xác nhận khách đã đến'}:selectedBooking.status==='checked_in'&&!isFutureSlot(toInputDate(selectedBooking.date),selectedBooking.timeSlot,clockNow)?{status:'IN_SERVICE',label:'Bắt đầu trị liệu'}:selectedBooking.status==='in_service'?{status:'COMPLETED',label:'Kết ca trị liệu'}:null;
     return <section className="appointment-screen appointment-detail" aria-labelledby="appointment-detail-heading">
       <header className="appointment-header"><div className="appointment-topbar"><button type="button" title="Quay lại lịch hẹn của tôi" disabled={submitting} className="appointment-back" onClick={() => { setSelectedBooking(null); setMessage(null); setConfirmCancel(false); }}><ArrowLeftIcon size={20} /></button><span>ĐẶT LỊCH</span></div><h1 id="appointment-detail-heading">Chi tiết lịch hẹn</h1></header>
       <main ref={detailBody} className="appointment-body" tabIndex={0} aria-label="Chi tiết lịch hẹn">{!confirmCancel && feedback}<BookingStatus booking={selectedBooking} /><p className="appointment-code">{selectedBooking.code}</p><article className="appointment-card"><EntityImage src={selectedBooking.serviceImage} alt={selectedBooking.serviceTitle} className="appointment-photo" /><h2>{selectedBooking.serviceTitle}</h2>{duration != null && <p className="appointment-duration">Thời lượng chăm sóc <strong>{duration} phút</strong></p>}<BookingRows booking={selectedBooking} branches={branches} />{selectedBooking.notes && <p className="appointment-notes">{selectedBooking.notes}</p>}</article>
-        {confirmCancel && <section className="appointment-cancel-confirm"><h2>Bạn chắc chắn muốn hủy lịch này?</h2>{feedback}<div><button type="button" disabled={submitting} onClick={() => setConfirmCancel(false)}>Giữ lịch</button><button type="button" disabled={submitting} onClick={cancelBooking}>{submitting ? 'Đang hủy...' : 'Xác nhận hủy'}</button></div></section>}
-      </main><footer className="appointment-footer">{canEdit ? <div className="appointment-detail-actions">{canCancel && <button type="button" className="appointment-cancel-button" disabled={submitting} onClick={() => { setMessage(null); setConfirmCancel(true); }}>Hủy lịch</button>}<button type="button" disabled={submitting} onClick={openReschedule}>Đổi lịch</button></div> : <button type="button" disabled={!selectedBooking.serviceId || !onRebookService} onClick={() => onRebookService?.(selectedBooking.serviceId)}>Đặt lại dịch vụ</button>}</footer>
+        {selectedBooking.groupId&&selectedBooking.groupSize&&selectedBooking.groupSize>1&&<section className="appointment-card appointment-group"><h2>Nhóm {selectedBooking.groupSize} người</h2>{groupLoading&&<p role="status">Đang tải nhóm...</p>}{groupError&&<p role="alert">{groupError}<button type="button" disabled={submitting||groupLoading} onClick={()=>setGroupVersion(value=>value+1)}>Thử lại</button></p>}{!groupLoading&&!groupError&&groupBookings.slice().sort((a,b)=>(a.memberNumber||0)-(b.memberNumber||0)).map(item=><button type="button" key={item.id} disabled={submitting||item.id===selectedBooking.id} onClick={()=>{setSelectedBooking(item);setMessage(null);setConfirmCancel(false);setCancelWholeGroup(false);}}>{item.userName} · Người {item.memberNumber}<br/>{item.code}<BookingStatus booking={item}/></button>)}{!groupLoading&&!groupError&&groupBookings.length===selectedBooking.groupSize&&groupBookings.every(item=>['pending','confirmed','cancelled'].includes(item.status)&&(['cancelled'].includes(item.status)||(!['paid','partial'].includes(item.paymentStatus||'')&&isFutureSlot(toInputDate(item.date),item.timeSlot,clockNow))))&&groupBookings.some(item=>item.status!=='cancelled')&&<button type="button" className="appointment-cancel-button" disabled={submitting} onClick={()=>{setCancelWholeGroup(true);setConfirmCancel(true);setMessage(null);}}>Hủy cả nhóm</button>}</section>}
+        {sessionAction&&<section className="appointment-card">{sessionAction.status==='COMPLETED'&&<label className="appointment-filter">Ghi nhận ca trị liệu<textarea aria-label="Ghi nhận ca trị liệu" value={treatmentNotes} maxLength={10000} disabled={submitting} onChange={event=>setTreatmentNotes(event.target.value)}/></label>}<button type="button" className="appointments-new" disabled={submitting||(sessionAction.status==='COMPLETED'&&!treatmentNotes.trim())} onClick={()=>void updateSession(sessionAction.status)}>{submitting?'Đang lưu...':sessionAction.label}</button></section>}
+        {confirmCancel && <section className="appointment-cancel-confirm"><h2>{cancelWholeGroup?'Hủy toàn bộ lịch trong nhóm này?':'Bạn chắc chắn muốn hủy lịch này?'}</h2>{feedback}<div><button type="button" disabled={submitting} onClick={() => {setConfirmCancel(false);setCancelWholeGroup(false);}}>Giữ lịch</button><button type="button" disabled={submitting} onClick={cancelBooking}>{submitting ? 'Đang hủy...' : 'Xác nhận hủy'}</button></div></section>}
+      </main><footer className="appointment-footer">{canEdit ? <div className="appointment-detail-actions">{canCancel && <button type="button" className="appointment-cancel-button" disabled={submitting} onClick={() => { setMessage(null);setCancelWholeGroup(false); setConfirmCancel(true); }}>Hủy lịch</button>}<button type="button" disabled={submitting} onClick={openReschedule}>Đổi lịch</button></div> : <button type="button" disabled={!selectedBooking.serviceId || !onRebookService} onClick={() => onRebookService?.(selectedBooking.serviceId)}>Đặt lại dịch vụ</button>}</footer>
     </section>;
   }
 
   return <section className="appointments-list" aria-labelledby="appointments-heading">
     {refreshError&&<p role="alert" className="appointment-feedback is-error">{refreshError} <button type="button" disabled={loading} onClick={onRefresh}>Thử lại</button></p>}
-    <header className="appointments-filters"><div className="appointment-topbar">{onClose && <button type="button" title="Về trang chủ" className="appointment-back" onClick={onClose}><ArrowLeftIcon size={20} /></button>}<span>ĐẶT LỊCH</span></div><h1 id="appointments-heading">Lịch hẹn của tôi</h1><p className="appointments-subtitle">Quản lý các buổi chăm sóc đã đặt.</p>
+    <header className="appointments-filters"><div className="appointment-topbar">{onClose && <button type="button" title="Về trang chủ" className="appointment-back" onClick={onClose}><ArrowLeftIcon size={20} /></button>}<span>ĐẶT LỊCH</span></div><h1 id="appointments-heading">Lịch hẹn khách hàng</h1><p className="appointments-subtitle">Quản lý các buổi chăm sóc tại cơ sở.</p>
       {!authenticated&&onRequireLogin&&<button type="button" className="appointments-new" onClick={onRequireLogin}>Đăng nhập để xem lịch hẹn</button>}
       <div className="appointments-tabs" role="group" aria-label="Nhóm lịch hẹn">{([['upcoming', 'Sắp tới'], ['completed', 'Đã hoàn thành'], ['cancelled', 'Đã hủy'], ['all', 'Tất cả']] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => { setActiveTab(id); setStatusFilter(''); }}>{label}</button>)}</div>
       <label className="appointment-filter">Khoảng ngày<select aria-label="Khoảng ngày" value={dateRange} onChange={event => setDateRange(event.target.value)}><option value="all">Tất cả ngày hẹn</option><option value="week">7 ngày tới</option><option value="month">30 ngày tới</option><option value="custom">Chọn khoảng ngày</option></select></label>
       {dateRange === 'custom' && <div className="appointments-date-range"><label className="appointment-filter">Từ ngày<input aria-label="Từ ngày" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} /></label><label className="appointment-filter">Đến ngày<input aria-label="Đến ngày" type="date" value={toDate} onChange={event => setToDate(event.target.value)} /></label></div>}{invalidRange && <p role="alert" className="appointment-feedback is-error">Ngày kết thúc phải từ ngày bắt đầu.</p>}
       <details className="appointments-filter-menu"><summary>Chi nhánh / Dịch vụ / Trạng thái</summary><div><label className="appointment-filter">Chi nhánh<select aria-label="Lọc chi nhánh lịch hẹn" value={branchFilter} onChange={event => setBranchFilter(event.target.value)}><option value="">Tất cả</option>{branchOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label><label className="appointment-filter">Dịch vụ<select aria-label="Lọc dịch vụ lịch hẹn" value={serviceFilter} onChange={event => setServiceFilter(event.target.value)}><option value="">Tất cả</option>{serviceOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label><label className="appointment-filter">Trạng thái<select aria-label="Lọc trạng thái lịch hẹn" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">Tất cả</option>{[['pending', 'Chờ xác nhận'], ['confirmed', 'Đã xác nhận'], ['checked_in', 'Đã đến'], ['in_service', 'Đang thực hiện'], ['completed', 'Đã hoàn thành'], ['cancelled', 'Đã hủy'], ['no_show', 'Không đến']].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div></details>
     </header>
-    <main className="appointments-results" tabIndex={0} aria-label="Danh sách lịch hẹn">{loading && <p role="status">Đang tải lịch hẹn...</p>}{error && <p role="alert" className="appointment-feedback is-error">{error} <button type="button" onClick={onRefresh}>Thử lại</button></p>}{!loading && !error && !filteredBookings.length && <p className="appointment-empty" role="status"></p>}{filteredBookings.slice(0,visibleCount).map(booking => <button key={booking.id} type="button" className="appointment-list-card" onClick={() => { setSelectedBooking(booking); setConfirmCancel(false); setMessage(null); }}><EntityImage src={booking.serviceImage} alt={booking.serviceTitle} className="appointment-photo" /><BookingStatus booking={booking} /><h2>{booking.serviceTitle}</h2><div className="appointment-list-row"><span>Ngày hẹn</span><strong>{bookingDate(booking.date)}</strong></div><div className="appointment-list-row"><span>Giờ hẹn</span><strong>{booking.timeSlot}</strong></div><p>{booking.branchName}</p></button>)}{visibleCount<filteredBookings.length&&<button type="button" className="appointments-new" onClick={()=>setVisibleCount(value=>value+50)}>Xem thêm lịch hẹn</button>}<button type="button" className="appointments-new" disabled={loading} onClick={onBookNewService}><CalendarIcon size={18} />Đặt lịch mới</button></main>
+    <main className="appointments-results" tabIndex={0} aria-label="Danh sách lịch hẹn">{loading && <p role="status">Đang tải lịch hẹn...</p>}{error && <p role="alert" className="appointment-feedback is-error">{error} <button type="button" onClick={onRefresh}>Thử lại</button></p>}{!loading && !error && !filteredBookings.length && <p className="appointment-empty" role="status"></p>}{filteredBookings.slice(0,visibleCount).map(booking => <button key={booking.id} type="button" className="appointment-list-card" onClick={() => { setSelectedBooking(booking); setConfirmCancel(false); setMessage(null); }}><EntityImage src={booking.serviceImage} alt={booking.serviceTitle} className="appointment-photo" /><BookingStatus booking={booking} /><h2>{booking.serviceTitle}</h2><p>{booking.userName}</p>{booking.groupSize&&booking.groupSize>1&&<p>Nhóm {booking.groupSize} người · lượt {booking.memberNumber}</p>}<div className="appointment-list-row"><span>Ngày hẹn</span><strong>{bookingDate(booking.date)}</strong></div><div className="appointment-list-row"><span>Giờ hẹn</span><strong>{booking.timeSlot}</strong></div><p>{booking.branchName}</p></button>)}{visibleCount<filteredBookings.length&&<button type="button" className="appointments-new" onClick={()=>setVisibleCount(value=>value+50)}>Xem thêm lịch hẹn</button>}<button type="button" className="appointments-new" disabled={loading} onClick={onBookNewService}><CalendarIcon size={18} />Đặt lịch mới</button></main>
   </section>;
 };

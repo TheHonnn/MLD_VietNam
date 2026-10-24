@@ -11,11 +11,20 @@ import { authenticateZalo, RelayAuthOptions } from './zalo-relay-client.js';
 import { searchHistory, saveSearch, deleteSearch, popularSearches } from './search-history.js';
 import { listNotifications, syncNotifications } from './notifications.js';
 import {ownedEnrollment,recomputeProgress,lessonQuizLinks,startQuiz,submitAttempt,startPlayback,heartbeat,saveQuizDraft} from './learning.js';
-import {inboxFilter,unreadCount} from './notification-inbox.js';
+import {inboxFilter,notificationAccess,unreadCount,notificationView} from './notification-inbox.js';
 import {reservePackage} from './package-booking.js';
 import {collectionPage} from './collection-page.js';
 import {customerRequest} from './customer-request.js';
 import {profileAvatar,profileBirthDate} from './profile-input.js';
+import {isStaffRole,staffScope,staffCustomers,staffCustomer,bookingAccess,staffSessionStatus,bookingGuests} from './staff-booking.js';
+import {bookingGroup,cancelBookingGroup} from './booking-groups.js';
+import {bookingPeople,reserveBed,filterResourceSlots} from './booking-resources.js';
+import {certificateSelect} from './certificates.js';
+import {courseAudienceSql} from './course-audiences.js';
+import {documentLibrary,libraryDocument} from './document-library.js';
+import {staffRecords} from './staff-records.js';
+import {sharedContent,sharedContentDetail,sharedContentEdit,manageSharedContent,saveSharedContent} from './shared-content.js';
+import {accountSession,accountSessions,revokeSession,revokeOtherSessions} from './account-sessions.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -46,12 +55,16 @@ const bookingSelect = Prisma.sql`
     to_char(b.start_time, 'HH24:MI:SS') AS start_time, to_char(b.end_time, 'HH24:MI:SS') AS end_time,
     u.full_name AS customer_name, u.phone AS customer_phone, br.name AS branch_name,
     t.full_name AS technician_name,pb.user_package_id,pb.state AS package_reservation_state,pack.name AS package_name,
+    COALESCE(bb.room_id,b.assigned_room_id) AS room_id,COALESCE(bb.bed_number::text,b.assigned_bed_number) AS bed_number,room.name AS room_name,gm.group_id,gm.member_number,
+    (SELECT count(*)::int FROM miniapp_booking_group_members members WHERE members.group_id=gm.group_id) AS group_size,
     COALESCE((SELECT json_agg(json_build_object('id', bi.id, 'service_id', bi.service_id,
       'service_title', s.name, 'image_url',s.image_url,'price', bi.price, 'duration_minutes', bi.duration_minutes,
       'technician_id', bi.technician_id)) FROM booking_items bi
       JOIN services s ON s.id = bi.service_id WHERE bi.booking_id = b.id), '[]'::json) AS items
   FROM bookings b JOIN users u ON u.id = b.customer_id JOIN branches br ON br.id = b.branch_id
   LEFT JOIN technicians t ON t.id = b.technician_id
+  LEFT JOIN miniapp_booking_beds bb ON bb.booking_id=b.id LEFT JOIN branch_rooms room ON room.id=COALESCE(bb.room_id,b.assigned_room_id)
+  LEFT JOIN miniapp_booking_group_members gm ON gm.booking_id=b.id
   LEFT JOIN miniapp_booking_packages pb ON pb.booking_id=b.id LEFT JOIN user_packages owned_pack ON owned_pack.id=pb.user_package_id LEFT JOIN treatment_packages pack ON pack.id=owned_pack.package_id`;
 
 const journalSelect = Prisma.sql`SELECT j.*,t.full_name AS technician_name,br.name AS branch_name,room.name AS room_name,b.status AS booking_status,
@@ -76,10 +89,18 @@ const technicianSelect = Prisma.sql`SELECT t.id,t.branch_id,t.full_name,t.title,
   FROM technicians t JOIN branches b ON b.id=t.branch_id`;
 
 async function booking(store: Store, id: string, customerId: string) {
-  const [record] = await store.query(Prisma.sql`${bookingSelect} WHERE b.id = ${id}::uuid AND b.customer_id = ${customerId}::uuid`);
+  const access=await bookingAccess(store,customerId);
+  const [record] = await store.query(Prisma.sql`${bookingSelect} WHERE b.id = ${id}::uuid AND ${access}`);
   if (!record) throw new ApiError(404, 'Booking not found');
   return record;
 }
+
+const staffCalendarAllows=(end:Prisma.Sql)=>Prisma.sql`
+  AND NOT EXISTS(SELECT 1 FROM staff_leaves l JOIN staff_profiles p ON p.id=l.staff_id
+    WHERE (p.id=t.staff_profile_id OR p.user_id=t.user_id) AND l.status='APPROVED' AND ts.slot_date BETWEEN l.start_date AND l.end_date)
+  AND (NOT EXISTS(SELECT 1 FROM technician_shifts sh WHERE sh.technician_id=t.id AND sh.shift_date=ts.slot_date)
+    OR EXISTS(SELECT 1 FROM technician_shifts sh WHERE sh.technician_id=t.id AND sh.shift_date=ts.slot_date
+      AND sh.branch_id=ts.branch_id AND NOT sh.is_cancelled AND sh.start_time<=ts.start_time AND sh.end_time>=${end}))`;
 
 async function availableSlots(store: Store, branchId: string, day: unknown, duration: number, technicianId: string | null, customerId: string | null, excludedBookingId: string | null = null,serviceIds:string[] = [], throughDay:unknown=day) {
   if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day.startsWith('0000') || !Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0,10) !== day) throw new ApiError(400,'Slot date must be a valid YYYY-MM-DD date');
@@ -95,9 +116,23 @@ async function availableSlots(store: Store, branchId: string, day: unknown, dura
       AND ts.start_time >= br.opening_time AND ts.start_time + ${duration} * INTERVAL '1 minute' <= br.closing_time
       AND (ts.status='AVAILABLE' OR (ts.status='HOLD' AND (ts.held_by_user_id=${customerId}::uuid OR ts.hold_expires_at<CURRENT_TIMESTAMP)))
       AND (ts.slot_date + ts.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh' > CURRENT_TIMESTAMP
+      ${staffCalendarAllows(Prisma.sql`ts.start_time + ${duration} * INTERVAL '1 minute'`)}
       AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.technician_id=ts.technician_id AND b.booking_date=ts.slot_date
         AND b.status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE') AND b.start_time<ts.start_time + ${duration} * INTERVAL '1 minute' AND b.end_time>ts.start_time
         AND (${excludedBookingId}::uuid IS NULL OR b.id<>${excludedBookingId}::uuid)) ORDER BY ts.slot_date,ts.start_time`);
+}
+
+async function emptyAvailabilityReason(store:Store,branchId:string,serviceId:string,technicianId:string|null){
+  const [state]=await store.query(Prisma.sql`WITH qualified AS (
+    SELECT t.id FROM technicians t JOIN branches b ON b.id=t.branch_id
+    JOIN miniapp_technician_services ms ON ms.technician_id=t.id AND ms.is_active
+    JOIN services s ON s.id=ms.service_id JOIN service_categories c ON c.id=s.category_id
+    WHERE t.branch_id=${branchId}::uuid AND t.is_active AND b.is_active AND s.is_active AND c.is_active
+      AND s.id=${serviceId}::uuid AND (${technicianId}::uuid IS NULL OR t.id=${technicianId}::uuid)
+  ) SELECT EXISTS(SELECT 1 FROM qualified) AS assigned,
+    EXISTS(SELECT 1 FROM technician_slots ts JOIN qualified q ON q.id=ts.technician_id
+      WHERE ts.branch_id=${branchId}::uuid AND (ts.slot_date+ts.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'>CURRENT_TIMESTAMP) AS published`);
+  return !state.assigned?'NO_SERVICE_ASSIGNMENT':!state.published?'NO_PUBLISHED_SLOTS':'NO_MATCHING_TIMES';
 }
 
 export function bookingTime(date: unknown, time: unknown, duration: number) {
@@ -125,6 +160,7 @@ async function reserveSlot(store: Store, customerId: string, branchId: string, t
       AND ts.slot_date = ${time.day}::date AND ts.start_time = ${time.start}::time AND ts.end_time >= ${time.end}::time
       AND ${time.start}::time >= br.opening_time AND ${time.end}::time <= br.closing_time
       AND (ts.status = 'AVAILABLE' OR (ts.status = 'HOLD' AND (ts.held_by_user_id = ${customerId}::uuid OR ts.hold_expires_at < CURRENT_TIMESTAMP)))
+      ${staffCalendarAllows(Prisma.sql`${time.end}::time`)}
       AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.technician_id=ts.technician_id AND b.booking_date=ts.slot_date
         AND b.status IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE') AND b.start_time<${time.end}::time AND b.end_time>${time.start}::time
         AND (${excludedId}::uuid IS NULL OR b.id<>${excludedId}::uuid))
@@ -156,14 +192,16 @@ async function voucherForOrder(store: Store, customerId: string, code: string, a
   return { record, discount };
 }
 
-async function courseList(store: Store, courseId: string | null = null) {
+async function courseList(store: Store, courseId: string | null = null,audience:string|null=null) {
   const courses = await store.query(Prisma.sql`SELECT c.*, cat.name AS category_name, i.full_name AS instructor_name,
     (SELECT delivery_format FROM miniapp_course_delivery WHERE course_id=c.id) AS delivery_format,
+    ${courseAudienceSql} AS training_audience,
     i.avatar_url AS instructor_avatar,CASE WHEN i.is_active THEN row_to_json(i) ELSE NULL END AS instructor,
     (SELECT count(*) FROM course_chapters ch WHERE ch.course_id=c.id) AS modules_count,
     (SELECT count(*) FROM course_enrollments ce WHERE ce.course_id = c.id AND ce.status IN ('ENROLLED','STUDYING','GRADUATED')) AS students_count
     FROM courses c JOIN course_categories cat ON cat.id = c.category_id LEFT JOIN instructors i ON i.id = c.primary_instructor_id AND i.is_active
-    WHERE c.is_active AND cat.is_active AND (${courseId}::uuid IS NULL OR c.id = ${courseId}::uuid) ORDER BY c.created_at`);
+    WHERE c.is_active AND cat.is_active AND (${courseId}::uuid IS NULL OR c.id = ${courseId}::uuid)
+      AND (${audience}::text IS NULL OR ${courseAudienceSql}=${audience}) ORDER BY c.created_at`);
   if (!courses.length) return courses;
   const ids=Prisma.join(courses.map(course=>Prisma.sql`${course.id}::uuid`));
   const chapters = await store.query(Prisma.sql`SELECT id,course_id,title,description,chapter_order FROM course_chapters WHERE course_id IN (${ids}) ORDER BY chapter_order,id`);
@@ -191,6 +229,8 @@ async function courseList(store: Store, courseId: string | null = null) {
 
 async function enrollments(store: Store, customerId: string) {
   return store.query(Prisma.sql`SELECT ce.*, c.title AS course_title, c.image_url AS course_image,
+    (SELECT expires_at FROM miniapp_course_access WHERE enrollment_id=ce.id) AS access_expires_at,
+    EXISTS(SELECT 1 FROM miniapp_course_access a WHERE a.enrollment_id=ce.id AND (a.is_suspended OR a.expires_at<=clock_timestamp())) AS access_expired,
     cb.batch_code,cb.start_date,cb.end_date,cb.schedule_text,br.name AS branch_name,i.full_name AS instructor_name,
     (SELECT count(*)::int FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE ch.course_id=ce.course_id) AS total_lessons,
     (SELECT COALESCE(sum(l.duration_minutes),0)::int FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id
@@ -233,7 +273,7 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1' });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1'] });
   }));
 
   app.get('/api/app-metadata', route(async (_req,res) => {
@@ -250,7 +290,9 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.post('/api/auth/zalo', route(async (req, res) => {
     const profile = await authenticateZalo(req.body?.accessToken, req.body?.phoneToken, options);
-    const identity = await findZaloAccount(store, profile.phone);
+    const staffLogin=req.body?.audience==='staff';
+    const identity = await findZaloAccount(store, profile.phone,staffLogin?'staff':'customer');
+    if(staffLogin&&!identity)throw new ApiError(403,'Staff booking access is required');
     if (!identity) {
       if (!options.zaloAllowSignup) throw new ApiError(409, 'New customer signup is disabled; contact support');
       const registrationToken = jwt.sign({ purpose: 'zalo-registration', phone: profile.phone }, options.jwtSecret,
@@ -258,7 +300,8 @@ export function createApp(store: Store, options: AppOptions) {
       return success(res, { registrationRequired: true, registrationToken, phone: profile.phone });
     }
     const record = await user(store, uuid(identity.userId));
-    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
+    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, jwtid:randomUUID(),expiresIn: '8h' });
+    await accountSession(store,identity.userId,token,jwt.decode(token) as jwt.JwtPayload,req.get('User-Agent')||'',true);
     return success(res, { token, user: record, isNewUser: identity.isNewUser });
   }));
 
@@ -286,7 +329,8 @@ export function createApp(store: Store, options: AppOptions) {
     const identity = await resolveZaloAccount(store, { phone: proof.phone, name, avatar,
       email: email || null, dateOfBirth: dob, gender, purpose }, options);
     const record = await user(store, uuid(identity.userId));
-    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId, expiresIn: '8h' });
+    const token = jwt.sign({}, options.jwtSecret, { algorithm: 'HS256', subject: identity.userId,jwtid:randomUUID(), expiresIn: '8h' });
+    await accountSession(store,identity.userId,token,jwt.decode(token) as jwt.JwtPayload,req.get('User-Agent')||'',true);
     return success(res, { token, user: record, isNewUser: identity.isNewUser });
   }));
 
@@ -310,19 +354,31 @@ export function createApp(store: Store, options: AppOptions) {
     return success(res,{doctor});
   }));
   app.get('/api/branches', route(async (_req,res) => success(res,{branches:await store.query(Prisma.sql`SELECT *,to_char(opening_time,'HH24:MI') AS opening_time,to_char(closing_time,'HH24:MI') AS closing_time FROM branches WHERE is_active ORDER BY name`)})));
-  const slotAvailability=(datesOnly=false)=>route(async(req,res)=>{
+  const slotAvailability=(datesOnly=false,staffOnly=false)=>route(async(req,res)=>{
     const branchId = uuid(req.query.branchId), serviceId = uuid(req.query.serviceId);
     const technicianId = req.query.technicianId ? uuid(req.query.technicianId) : null;
     let customerId: string | null = null;
-    try { const payload = jwt.verify(req.headers.authorization?.replace(/^Bearer\s+/i,'') ?? '',options.jwtSecret,{algorithms:['HS256']}) as jwt.JwtPayload; customerId = uuid(payload.sub); }
+    try { const token=req.headers.authorization?.replace(/^Bearer\s+/i,'')??'';const payload = jwt.verify(token,options.jwtSecret,{algorithms:['HS256'],maxAge:'8h'}) as jwt.JwtPayload; const viewer=uuid(payload.sub);await accountSession(store,viewer,token,payload,req.get('User-Agent')||'');customerId=viewer; }
     catch { /* Public users see available slots, but not another user's hold. */ }
     const [service] = await store.query(Prisma.sql`SELECT s.duration_minutes FROM services s JOIN service_categories cat ON cat.id=s.category_id WHERE s.id=${serviceId}::uuid AND s.is_active AND cat.is_active`);
-    const slots = await availableSlots(store,branchId,req.query.date,service ? Number(service.duration_minutes) : 0,technicianId,customerId,null,[serviceId],datesOnly?req.query.throughDate:req.query.date);
-    return success(res,datesOnly?{dates:[...new Set(slots.map(slot=>String(slot.slot_date)))]}:{slots});
+    const people=staffOnly?bookingPeople(req.query.people===undefined?undefined:Number(req.query.people)):1;
+    if(staffOnly){
+      const scope=await staffScope(store,res.locals.userId);
+      if(scope.branchId&&scope.branchId!==branchId)throw new ApiError(403,'Staff cannot book another branch');
+      if(technicianId)throw new ApiError(400,'Staff bookings assign specialists automatically');
+    }
+    let slots = await availableSlots(store,branchId,req.query.date,service ? Number(service.duration_minutes) : 0,technicianId,customerId,null,[serviceId],datesOnly?req.query.throughDate:req.query.date);
+    if(staffOnly)slots=await filterResourceSlots(store,slots,branchId,people);
+    const availabilityReason=slots.length?'AVAILABLE':await emptyAvailabilityReason(store,branchId,serviceId,technicianId);
+    return success(res,datesOnly?{dates:[...new Set(slots.map(slot=>String(slot.slot_date)))],availabilityReason}:{slots,availabilityReason});
   });
   app.get('/api/slots',slotAvailability());
   app.get('/api/slots/dates',slotAvailability(true));
-  app.get('/api/courses', route(async (_req,res) => success(res,{courses:await courseList(store)})));
+  app.get('/api/courses', route(async (req,res) => {
+    const audience=req.query.audience??null;
+    if(audience!==null&&audience!=='BEGINNER'&&audience!=='PRACTITIONER')throw new ApiError(400,'Invalid course audience');
+    return success(res,{courses:await courseList(store,null,audience)});
+  }));
   app.get('/api/courses/:id', route(async (req,res) => {
     const [course] = await courseList(store,uuid(req.params.id));
     if (!course) throw new ApiError(404,'Course not found');
@@ -335,13 +391,54 @@ export function createApp(store: Store, options: AppOptions) {
   app.use('/api', (req,res,next) => { Promise.resolve().then(async () => {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i,'');
     let payload: jwt.JwtPayload;
-    try { payload = jwt.verify(token ?? '', options.jwtSecret, { algorithms: ['HS256'] }) as jwt.JwtPayload; }
+    try { payload = jwt.verify(token ?? '', options.jwtSecret, { algorithms: ['HS256'],maxAge:'8h' }) as jwt.JwtPayload; }
     catch { throw new ApiError(401,'Shared account authentication is required'); }
     res.locals.userId = uuid(payload.sub);
-    res.locals.user = await user(store,res.locals.userId);
+    // Signing out must also revoke a token while its account is temporarily inactive.
+    if(req.method!=='POST'||req.path!=='/auth/logout')res.locals.user = await user(store,res.locals.userId);
+    res.locals.sessionId=await accountSession(store,res.locals.userId,token!,payload,req.get('User-Agent')||'');
   }).then(()=>next()).catch(next); });
   const writeLimit=createRateLimiter(180,60000,(_req,res)=>res.locals.userId);
   app.use('/api',(req,res,next)=>['GET','HEAD','OPTIONS'].includes(req.method)?next():writeLimit(req,res,next));
+  app.get('/api/auth/sessions',route(async(_req,res)=>success(res,await accountSessions(store,res.locals.userId,res.locals.sessionId))));
+  app.post('/api/auth/logout',route(async(_req,res)=>success(res,await revokeSession(store,res.locals.userId,res.locals.sessionId,res.locals.sessionId))));
+  app.post('/api/auth/sessions/revoke-others',route(async(_req,res)=>success(res,await revokeOtherSessions(store,res.locals.userId,res.locals.sessionId))));
+  app.post('/api/auth/sessions/:id/revoke',route(async(req,res)=>success(res,await revokeSession(store,res.locals.userId,uuid(req.params.id),res.locals.sessionId))));
+  const staffReadLimit=createRateLimiter(60,60000,(_req,res)=>res.locals.userId);
+  app.use('/api/staff',staffReadLimit);
+  app.get('/api/staff/context',route(async(_req,res)=>success(res,{scope:await staffScope(store,res.locals.userId)})));
+  app.get('/api/staff/customers',route(async(req,res)=>success(res,{customers:await staffCustomers(store,res.locals.userId,req.query.search)})));
+  app.get('/api/staff/customers/:id/records',route(async(req,res)=>success(res,await staffRecords(store,res.locals.userId,uuid(req.params.id),req.query))));
+  app.get('/api/staff/customers/:id/packages',route(async(req,res)=>{
+    await staffScope(store,res.locals.userId);
+    const customerId=uuid(req.params.id);
+    const [customer]=await store.query(Prisma.sql`SELECT id FROM users WHERE id=${customerId}::uuid AND is_active AND role IN ('CUSTOMER','STUDENT')`);
+    if(!customer)throw new ApiError(404,'Customer is unavailable or contact details changed');
+    const packages=await store.query(Prisma.sql`SELECT up.id,tp.name,tp.service_id,up.total_sessions,up.expires_at,
+      GREATEST(up.completed_sessions,(SELECT count(*)::int FROM treatment_journal j WHERE j.user_package_id=up.id)) AS completed_sessions,
+      (SELECT count(*)::int FROM miniapp_booking_packages p WHERE p.user_package_id=up.id AND p.state='RESERVED') AS reserved_sessions
+      FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.customer_id=${customerId}::uuid AND up.status='ACTIVE' AND up.expires_at>clock_timestamp() ORDER BY up.expires_at,up.id`);
+    return success(res,{packages:packages.map(item=>({...item,remaining_sessions:Math.max(0,Number(item.total_sessions)-Number(item.completed_sessions)-Number(item.reserved_sessions))}))});
+  }));
+  app.get('/api/staff/slots',slotAvailability(false,true));
+  app.get('/api/staff/slots/dates',slotAvailability(true,true));
+
+  app.get('/api/documents',route(async(req,res)=>{
+    const page=await documentLibrary(store,res.locals.userId,req.query);
+    return success(res,{documents:page.rows,nextCursor:page.nextCursor});
+  }));
+  app.get('/api/documents/:id',route(async(req,res)=>success(res,{document:await libraryDocument(store,res.locals.userId,uuid(req.params.id))})));
+  app.get('/api/shared-content',route(async(req,res)=>{
+    const page=await sharedContent(store,res.locals.userId,req.query);
+    return success(res,{items:page.rows,nextCursor:page.nextCursor});
+  }));
+  app.get('/api/shared-content/manage',route(async(req,res)=>{
+    const page=await manageSharedContent(store,res.locals.userId,req.query);
+    return success(res,{items:page.rows,nextCursor:page.nextCursor});
+  }));
+  app.get('/api/shared-content/:id/edit',route(async(req,res)=>success(res,{item:await sharedContentEdit(store,res.locals.userId,uuid(req.params.id))})));
+  app.get('/api/shared-content/:id',route(async(req,res)=>success(res,{item:await sharedContentDetail(store,res.locals.userId,uuid(req.params.id))})));
+  app.put('/api/shared-content/:id',route(async(req,res)=>success(res,{item:await saveSharedContent(store,res.locals.userId,uuid(req.params.id),req.body)})));
 
   app.get('/api/search/history', route(async (_req,res) => success(res,{history:await searchHistory(store,res.locals.userId)})));
   app.post('/api/search/history', route(async (req,res) => success(res,{entry:await saveSearch(store,res.locals.userId,req.body.query)})));
@@ -427,15 +524,52 @@ export function createApp(store: Store, options: AppOptions) {
     return success(res,{user:updated});
   }));
 
-  app.get('/api/bookings', route(async (req,res) => {const page=await collectionPage(store,Prisma.sql`${bookingSelect} WHERE b.customer_id = ${res.locals.userId}::uuid`,req.query);return success(res,{bookings:page.rows,nextCursor:page.nextCursor});}));
+  app.get('/api/bookings', route(async (req,res) => {const access=await bookingAccess(store,res.locals.userId);const page=await collectionPage(store,Prisma.sql`${bookingSelect} WHERE ${access}`,req.query);return success(res,{bookings:page.rows,nextCursor:page.nextCursor});}));
   app.get('/api/bookings/:id', route(async (req,res) => success(res,{booking:await booking(store,uuid(req.params.id),res.locals.userId)})));
+  app.get('/api/staff/bookings/:id/group',route(async(req,res)=>{
+    const rows=await bookingGroup(store,res.locals.userId,uuid(req.params.id));
+    const bookings=[];
+    for(const row of rows)bookings.push(await booking(store,row.id,res.locals.userId));
+    return success(res,{bookings});
+  }));
+  app.patch('/api/staff/bookings/:id/group/cancel',route(async(req,res)=>{
+    const bookings=await store.transaction(async tx=>{
+      const rows=await cancelBookingGroup(tx,res.locals.userId,uuid(req.params.id),req.body.reason);
+      for(const customerId of new Set(rows.map(row=>String(row.customer_id))))await syncNotifications(tx,customerId);
+      const result=[];
+      for(const row of rows)result.push(await booking(tx,row.id,res.locals.userId));
+      return result;
+    });
+    return success(res,{bookings});
+  }));
+  app.patch('/api/staff/bookings/:id/status',route(async(req,res)=>{
+    const id=uuid(req.params.id),actorId=res.locals.userId;
+    const result=await store.transaction(async tx=>{
+      await staffSessionStatus(tx,actorId,id,req.body);
+      const saved=await booking(tx,id,actorId);
+      await syncNotifications(tx,String(saved.customer_id));
+      return saved;
+    });
+    return success(res,{booking:result});
+  }));
   app.get('/api/bookings/:id/slots', route(async (req,res) => {
     const current = await booking(store,uuid(req.params.id),res.locals.userId);
     if (!['PENDING','CONFIRMED'].includes(current.status)) throw new ApiError(409,'This booking cannot be rescheduled');
     const [snapshot] = await store.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes,array_agg(DISTINCT service_id) AS service_ids FROM booking_items WHERE booking_id=${current.id}::uuid`);
-    return success(res,{slots:await availableSlots(store,String(current.branch_id),req.query.date,Number(snapshot.minutes),current.technician_id?String(current.technician_id):null,res.locals.userId,String(current.id),snapshot.service_ids||[])});
+    let slots=await availableSlots(store,String(current.branch_id),req.query.date,Number(snapshot.minutes),isStaffRole(res.locals.user.role)?null:current.technician_id?String(current.technician_id):null,String(current.customer_id),String(current.id),snapshot.service_ids||[]);
+    if(isStaffRole(res.locals.user.role))slots=await filterResourceSlots(store,slots,current.branch_id,1,current.id);
+    return success(res,{slots});
   }));
-  app.post('/api/bookings', route(async (req,res) => {
+  app.post(['/api/bookings','/api/staff/bookings'], route(async (req,res) => {
+    const actorId=res.locals.userId,staffMode=isStaffRole(res.locals.user.role)||req.path.startsWith('/api/staff/');
+    if(staffMode)await staffScope(store,actorId);
+    else if(req.body.customerId||req.body.customer)throw new ApiError(403,'Staff booking access is required');
+    if(staffMode&&(req.body.doctorId||req.body.technicianId))throw new ApiError(400,'Staff bookings assign specialists automatically');
+    const people=bookingPeople(req.body.people);
+    const guests=bookingGuests(req.body.guests,people);
+    if(guests&&!staffMode)throw new ApiError(403,'Staff booking access is required');
+    if(!staffMode&&people!==1)throw new ApiError(403,'Staff booking access is required');
+    if(people>1&&(req.body.userPackageId||req.body.couponCode||req.body.voucherCode))throw new ApiError(400,'Group bookings cannot share a personal package or voucher');
     const requestKey=req.get('Idempotency-Key')?uuid(req.get('Idempotency-Key')):null;
     const canonical=(value:any):any=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
     const requestHash=createHash('sha256').update(JSON.stringify(canonical(req.body))).digest('hex');
@@ -447,7 +581,6 @@ export function createApp(store: Store, options: AppOptions) {
     ids.forEach(uuid);
     const branchId = uuid(req.body.branchId);
     const technicianId = req.body.technicianId || req.body.doctorId ? uuid(req.body.technicianId || req.body.doctorId) : null;
-    const customerId = res.locals.userId;
     const recipientName=req.body.bookedForName??req.body.userName;
     const recipientPhone=req.body.bookedForPhone??req.body.userPhone;
     const notes=req.body.specialNotes??req.body.notes;
@@ -456,13 +589,15 @@ export function createApp(store: Store, options: AppOptions) {
       ||(notes!=null&&(typeof notes!=='string'||notes.length>10000))) throw new ApiError(400,'Invalid booking recipient or notes');
     const result = await store.transaction(async tx => {
       if(requestKey){
-        await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${customerId+':'+requestKey}))::text AS locked`);
-        const [previous]=await tx.query(Prisma.sql`SELECT * FROM miniapp_booking_requests WHERE user_id=${customerId}::uuid AND request_key=${requestKey}::uuid`);
+        await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${actorId+':'+requestKey}))::text AS locked`);
+        const [previous]=await tx.query(Prisma.sql`SELECT * FROM miniapp_booking_requests WHERE user_id=${actorId}::uuid AND request_key=${requestKey}::uuid`);
         if(previous){
           if(previous.request_hash!==requestHash)throw new ApiError(409,'Yêu cầu này đã được dùng cho thông tin đặt lịch khác.',{code:'REQUEST_CHANGED'});
-          return booking(tx,previous.booking_id,customerId);
+          return booking(tx,previous.booking_id,actorId);
         }
       }
+      const customer=staffMode?await staffCustomer(tx,actorId,branchId,req.body):null;
+      const customerId=customer?String(customer.id):actorId;
       const services = await tx.query(Prisma.sql`SELECT s.* FROM services s JOIN service_categories cat ON cat.id=s.category_id WHERE s.id IN (${Prisma.join(ids.map(id=>Prisma.sql`${id}::uuid`))}) AND s.is_active AND cat.is_active FOR SHARE OF s`);
       if (services.length !== ids.length) throw new ApiError(404,'A service is missing or inactive');
       const [branch] = await tx.query(Prisma.sql`SELECT * FROM branches WHERE id = ${branchId}::uuid AND is_active`);
@@ -472,7 +607,8 @@ export function createApp(store: Store, options: AppOptions) {
         if(ids.length!==1||req.body.couponCode||req.body.voucherCode||req.body.pointsToUse) throw new ApiError(400,'Mỗi lượt đặt bằng gói chỉ dùng một dịch vụ, không áp thêm ưu đãi.');
         await reservePackage(tx,customerId,userPackageId,ids[0],time.day,time.end);
       }
-      const total = userPackageId?new Prisma.Decimal(0):services.reduce<Prisma.Decimal>((sum,s)=>sum.add(s.discount_price ?? s.price),new Prisma.Decimal(0));
+      const unitTotal = userPackageId?new Prisma.Decimal(0):services.reduce<Prisma.Decimal>((sum,s)=>sum.add(s.discount_price ?? s.price),new Prisma.Decimal(0));
+      const total=unitTotal.mul(people);
       const coupon = req.body.couponCode ?? req.body.voucherCode;
       const applied = coupon ? await voucherForOrder(tx,customerId,String(coupon),total) : null;
       const finalPrice = total.sub(applied?.discount ?? 0);
@@ -480,23 +616,33 @@ export function createApp(store: Store, options: AppOptions) {
         throw new ApiError(409,'Giá đã thay đổi hoặc chưa được xác nhận. Vui lòng kiểm tra lại trước khi đặt lịch.',{code:'PRICE_CHANGED',pricing:{total:total.toNumber(),discount:Number(applied?.discount??0),finalPrice:finalPrice.toNumber()}});
       }
       if (req.body.pointsToUse) throw new ApiError(400,'Point redemption must use the shared payment workflow');
+      let firstId='';const groupId=randomUUID();
+      for(let member=1;member<=people;member++){
+      const bed=staffMode?await reserveBed(tx,branchId,time.day,time.start,time.end):null;
       const assigned = await reserveSlot(tx,customerId,branchId,technicianId,time,null,ids);
       const [saved] = await tx.query(Prisma.sql`INSERT INTO bookings
-        (booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,base_total,coupon_id,discount_amount,final_price,
-        booked_for_name,booked_for_phone,special_notes,qr_code_hash)
-        VALUES (${`SPA-${randomUUID()}`.slice(0,30)},${customerId}::uuid,${branchId}::uuid,${assigned}::uuid,${time.day}::date,${time.start}::time,${time.end}::time,
-        'CONFIRMED',${total},${applied?.record.id ?? null}::uuid,${applied?.discount ?? new Prisma.Decimal(0)},${total.sub(applied?.discount ?? 0)},
-        ${req.body.bookedForName ?? req.body.userName ?? null},${req.body.bookedForPhone ?? req.body.userPhone ?? null},${req.body.specialNotes ?? req.body.notes ?? null},${randomUUID()}) RETURNING id`);
+        (booking_code,customer_id,branch_id,technician_id,assigned_room_id,booking_date,start_time,end_time,status,base_total,coupon_id,discount_amount,final_price,
+        booked_for_name,booked_for_phone,special_notes,qr_code_hash,assigned_bed_number)
+        VALUES (${`SPA-${randomUUID()}`.slice(0,30)},${customerId}::uuid,${branchId}::uuid,${assigned}::uuid,${bed?.room_id??null}::uuid,${time.day}::date,${time.start}::time,${time.end}::time,
+        'CONFIRMED',${unitTotal},${applied?.record.id ?? null}::uuid,${applied?.discount ?? new Prisma.Decimal(0)},${unitTotal.sub(applied?.discount ?? 0)},
+        ${guests?.[member-1].name ?? customer?.full_name ?? req.body.bookedForName ?? req.body.userName ?? null},${guests?.[member-1].phone ?? customer?.phone ?? req.body.bookedForPhone ?? req.body.userPhone ?? null},${req.body.specialNotes ?? req.body.notes ?? null},${randomUUID()},${bed?String(bed.bed_number):null}) RETURNING id`);
+      if(!firstId)firstId=String(saved.id);
+      if(staffMode){
+        await tx.query(Prisma.sql`INSERT INTO miniapp_staff_bookings(booking_id,staff_id,branch_id) VALUES(${saved.id}::uuid,${actorId}::uuid,${branchId}::uuid) RETURNING booking_id`);
+        await tx.query(Prisma.sql`INSERT INTO miniapp_booking_beds(booking_id,room_id,bed_number) VALUES(${saved.id}::uuid,${bed!.room_id}::uuid,${bed!.bed_number}) RETURNING booking_id`);
+        await tx.query(Prisma.sql`INSERT INTO miniapp_booking_group_members(booking_id,group_id,member_number) VALUES(${saved.id}::uuid,${groupId}::uuid,${member}) RETURNING booking_id`);
+      }
       for (const service of services) await tx.query(Prisma.sql`INSERT INTO booking_items (booking_id,service_id,technician_id,duration_minutes,price)
         VALUES (${saved.id}::uuid,${service.id}::uuid,${assigned}::uuid,${service.duration_minutes},${userPackageId?0:(service.discount_price ?? service.price)}) RETURNING id`);
       if(userPackageId) await tx.query(Prisma.sql`INSERT INTO miniapp_booking_packages(booking_id,user_package_id) VALUES(${saved.id}::uuid,${userPackageId}::uuid) RETURNING booking_id`);
-      if(requestKey)await tx.query(Prisma.sql`INSERT INTO miniapp_booking_requests(user_id,request_key,request_hash,booking_id) VALUES(${customerId}::uuid,${requestKey}::uuid,${requestHash},${saved.id}::uuid) RETURNING booking_id`);
       if (applied) {
         await tx.query(Prisma.sql`UPDATE user_vouchers SET status = 'USED',used_at = CURRENT_TIMESTAMP,used_in_booking_id = ${saved.id}::uuid WHERE id = ${applied.record.wallet_id}::uuid RETURNING id`);
         await tx.query(Prisma.sql`UPDATE coupons SET used_count = used_count + 1 WHERE id = ${applied.record.id}::uuid RETURNING id`);
       }
+      }
+      if(requestKey)await tx.query(Prisma.sql`INSERT INTO miniapp_booking_requests(user_id,request_key,request_hash,booking_id) VALUES(${actorId}::uuid,${requestKey}::uuid,${requestHash},${firstId}::uuid) RETURNING booking_id`);
       await syncNotifications(tx,customerId);
-      return booking(tx,saved.id,customerId);
+      return booking(tx,firstId,actorId);
     });
     return success(res,{booking:result},201);
   }));
@@ -504,20 +650,23 @@ export function createApp(store: Store, options: AppOptions) {
   app.patch('/api/bookings/:id/reschedule', route(async (req,res) => {
     const id = uuid(req.params.id), customerId = res.locals.userId;
     const result = await store.transaction(async tx => {
-      const [current] = await tx.query(Prisma.sql`SELECT *,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time,to_char(end_time,'HH24:MI:SS') AS end_time FROM bookings WHERE id = ${id}::uuid AND customer_id = ${customerId}::uuid FOR UPDATE`);
+      const access=await bookingAccess(tx,customerId);
+      const [current] = await tx.query(Prisma.sql`SELECT b.*,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time,to_char(end_time,'HH24:MI:SS') AS end_time FROM bookings b WHERE b.id = ${id}::uuid AND ${access} FOR UPDATE`);
       if (!current) throw new ApiError(404,'Booking not found');
       if (!['PENDING','CONFIRMED'].includes(current.status)) throw new ApiError(409,'This booking cannot be rescheduled');
       if (Date.parse(`${current.booking_date}T${current.start_time}+07:00`) <= Date.now()) throw new ApiError(409,'Lịch hẹn đã qua giờ, vui lòng liên hệ chi nhánh.');
       const [duration] = await tx.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes,array_agg(DISTINCT service_id) AS service_ids FROM booking_items WHERE booking_id = ${id}::uuid`);
       const time = bookingTime(req.body.bookingDate ?? req.body.date,req.body.startTime ?? req.body.timeSlot,Number(duration.minutes));
       const [packageLink]=await tx.query(Prisma.sql`SELECT p.user_package_id,i.service_id FROM miniapp_booking_packages p JOIN booking_items i ON i.booking_id=p.booking_id WHERE p.booking_id=${id}::uuid`);
-      if(packageLink) await reservePackage(tx,customerId,packageLink.user_package_id,packageLink.service_id,time.day,time.end,id);
+      if(packageLink) await reservePackage(tx,String(current.customer_id),packageLink.user_package_id,packageLink.service_id,time.day,time.end,id);
       if (time.day === current.booking_date && time.start === current.start_time) return booking(tx,id,customerId);
-      const assigned = await reserveSlot(tx,customerId,current.branch_id,current.technician_id,time,id,duration.service_ids||[]);
+      const bed=isStaffRole(res.locals.user.role)?await reserveBed(tx,current.branch_id,time.day,time.start,time.end,id):null;
+      const assigned = await reserveSlot(tx,String(current.customer_id),current.branch_id,isStaffRole(res.locals.user.role)?null:current.technician_id,time,id,duration.service_ids||[]);
       await tx.query(Prisma.sql`UPDATE technician_slots SET status = 'AVAILABLE' WHERE technician_id = ${current.technician_id}::uuid AND slot_date = ${current.booking_date}::date AND start_time = ${current.start_time}::time AND status = 'BOOKED' RETURNING id`);
-      await tx.query(Prisma.sql`UPDATE bookings SET booking_date = ${time.day}::date,start_time = ${time.start}::time,end_time = ${time.end}::time,technician_id=${assigned}::uuid WHERE id = ${id}::uuid RETURNING id`);
+      await tx.query(Prisma.sql`UPDATE bookings SET booking_date = ${time.day}::date,start_time = ${time.start}::time,end_time = ${time.end}::time,technician_id=${assigned}::uuid,assigned_room_id=COALESCE(${bed?.room_id??null}::uuid,assigned_room_id),assigned_bed_number=COALESCE(${bed?String(bed.bed_number):null},assigned_bed_number) WHERE id = ${id}::uuid RETURNING id`);
+      if(bed)await tx.query(Prisma.sql`INSERT INTO miniapp_booking_beds(booking_id,room_id,bed_number) VALUES(${id}::uuid,${bed.room_id}::uuid,${bed.bed_number}) ON CONFLICT(booking_id) DO UPDATE SET room_id=EXCLUDED.room_id,bed_number=EXCLUDED.bed_number RETURNING booking_id`);
       await tx.query(Prisma.sql`UPDATE booking_items SET technician_id=${assigned}::uuid WHERE booking_id=${id}::uuid RETURNING id`);
-      await syncNotifications(tx,customerId);
+      await syncNotifications(tx,String(current.customer_id));
       return booking(tx,id,customerId);
     });
     return success(res,{booking:result});
@@ -526,22 +675,32 @@ export function createApp(store: Store, options: AppOptions) {
     if (req.body.reason != null && (typeof req.body.reason !== 'string' || req.body.reason.length > 10000)) throw new ApiError(400,'Invalid cancellation reason');
     const id = uuid(req.params.id), customerId = res.locals.userId;
     const result = await store.transaction(async tx => {
-      const [current] = await tx.query(Prisma.sql`SELECT *,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time FROM bookings WHERE id = ${id}::uuid AND customer_id = ${customerId}::uuid FOR UPDATE`);
+      const access=await bookingAccess(tx,customerId);
+      const [current] = await tx.query(Prisma.sql`SELECT b.*,to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI:SS') AS start_time FROM bookings b WHERE b.id = ${id}::uuid AND ${access} FOR UPDATE`);
       if (!current) throw new ApiError(404,'Booking not found');
       if (!['PENDING','CONFIRMED'].includes(current.status) || current.payment_status === 'PAID' || current.payment_status === 'PARTIAL') throw new ApiError(409,'Use the shared refund workflow for a paid or started booking');
       if (Date.parse(`${current.booking_date}T${current.start_time}+07:00`) <= Date.now()) throw new ApiError(409,'Lịch hẹn đã qua giờ, vui lòng liên hệ chi nhánh.');
       await tx.query(Prisma.sql`UPDATE bookings SET status = 'CANCELLED',cancellation_reason = ${req.body.reason ?? null},cancelled_by_id = ${customerId}::uuid WHERE id = ${id}::uuid RETURNING id`);
       await tx.query(Prisma.sql`UPDATE technician_slots SET status = 'AVAILABLE' WHERE technician_id = ${current.technician_id}::uuid AND slot_date = ${current.booking_date}::date AND start_time = ${current.start_time}::time AND status = 'BOOKED' RETURNING id`);
       const vouchers = await tx.query(Prisma.sql`UPDATE user_vouchers SET status = 'AVAILABLE',used_at = NULL,used_in_booking_id = NULL
-        WHERE user_id = ${customerId}::uuid AND used_in_booking_id = ${id}::uuid AND used_in_invoice_id IS NULL RETURNING coupon_id`);
+        WHERE user_id = ${current.customer_id}::uuid AND used_in_booking_id = ${id}::uuid AND used_in_invoice_id IS NULL RETURNING coupon_id`);
       for (const voucher of vouchers) await tx.query(Prisma.sql`UPDATE coupons SET used_count = GREATEST(0,used_count - 1) WHERE id = ${voucher.coupon_id}::uuid RETURNING id`);
-      await syncNotifications(tx,customerId);
+      await syncNotifications(tx,String(current.customer_id));
       return booking(tx,id,customerId);
     });
     return success(res,{booking:result});
   }));
 
   app.get('/api/course-enrollments',route(async (_req,res)=>success(res,{enrollments:await enrollments(store,res.locals.userId)})));
+  app.get('/api/certificates',route(async(req,res)=>{
+    const page=await collectionPage(store,Prisma.sql`${certificateSelect} WHERE cert.student_id=${res.locals.userId}::uuid AND cert.status IN ('ISSUED','REVOKED')`,req.query);
+    return success(res,{certificates:page.rows,nextCursor:page.nextCursor});
+  }));
+  app.get('/api/certificates/:id',route(async(req,res)=>{
+    const [certificate]=await store.query(Prisma.sql`${certificateSelect} WHERE cert.id=${uuid(req.params.id)}::uuid AND cert.student_id=${res.locals.userId}::uuid AND cert.status IN ('ISSUED','REVOKED')`);
+    if(!certificate)throw new ApiError(404,'Certificate is unavailable');
+    return success(res,{certificate});
+  }));
   app.post('/api/course-enrollments',route(async (req,res)=>{
     const courseId = uuid(req.body.courseId), customerId = res.locals.userId;
     const batchId = req.body.batchId ? uuid(req.body.batchId) : null;
@@ -571,6 +730,7 @@ export function createApp(store: Store, options: AppOptions) {
     const enrollment = await ownedEnrollment(store,customerId,courseId,enrollmentId);
     const [course] = await courseList(store,courseId);
     if (!course) throw new ApiError(404,'Course is unavailable');
+    course.access_expires_at=enrollment.access_expires_at;
     const quizLimits=await store.query(Prisma.sql`SELECT q.id,COALESCE(l.max_attempts,3) AS max_attempts,(SELECT count(*)::int FROM miniapp_quiz_attempts a WHERE a.enrollment_id=${enrollment.id}::uuid AND a.quiz_id=q.id) AS attempts_used
       FROM course_quizzes q LEFT JOIN miniapp_quiz_limits l ON l.quiz_id=q.id AND l.enrollment_id=${enrollment.id}::uuid WHERE q.course_id=${courseId}::uuid`);
     course.quizzes=course.quizzes.map((q:Row)=>({...q,...quizLimits.find(limit=>limit.id===q.id)}));
@@ -584,7 +744,7 @@ export function createApp(store: Store, options: AppOptions) {
       LEFT JOIN branch_rooms r ON r.id=bs.assigned_room_id LEFT JOIN instructors i ON i.id=cb.instructor_id
       WHERE bs.batch_id=${enrollment.batch_id}::uuid ORDER BY bs.session_date,bs.start_time`);
     [course.academicRecord] = await store.query(Prisma.sql`SELECT * FROM student_academic_records WHERE enrollment_id=${enrollment.id}::uuid`);
-    [course.certificate] = await store.query(Prisma.sql`SELECT * FROM student_certificates WHERE student_id=${customerId}::uuid AND enrollment_id=${enrollment.id}::uuid AND status='ISSUED' ORDER BY issue_date DESC LIMIT 1`);
+    [course.certificate] = await store.query(Prisma.sql`SELECT cert.*,to_char(u.date_of_birth,'YYYY-MM-DD') AS student_date_of_birth FROM student_certificates cert JOIN users u ON u.id=cert.student_id WHERE cert.student_id=${customerId}::uuid AND cert.enrollment_id=${enrollment.id}::uuid AND cert.status='ISSUED' ORDER BY cert.issue_date DESC LIMIT 1`);
     course.quizSubmissions = await store.query(Prisma.sql`SELECT s.id,s.quiz_id,s.score,s.correct_count,s.passed,s.submitted_at,s.submitted_answers,s.instructor_feedback,
       (SELECT jsonb_agg(jsonb_build_object('id',q->'id','questionText',q->'question_text','options',q->'options')) FROM miniapp_quiz_attempts a CROSS JOIN jsonb_array_elements(a.questions) q WHERE a.submission_id=s.id) AS questions
       FROM quiz_submissions s WHERE s.enrollment_id=${enrollment.id}::uuid ORDER BY s.submitted_at DESC`);
@@ -721,9 +881,9 @@ export function createApp(store: Store, options: AppOptions) {
     return success(res,{updated:true,unreadCount:await unreadCount(store,res.locals.userId)});
   }));
   app.patch('/api/notifications/:id/read',route(async(req,res)=>{
-    const [notification] = await store.query(Prisma.sql`UPDATE notifications SET is_read = true WHERE id = ${uuid(req.params.id)}::uuid AND user_id = ${res.locals.userId}::uuid RETURNING *`);
+    const [notification] = await store.query(Prisma.sql`UPDATE notifications n SET is_read = true WHERE n.id = ${uuid(req.params.id)}::uuid AND ${notificationAccess(res.locals.userId)} RETURNING n.*`);
     if (!notification) throw new ApiError(404,'Notification not found');
-    return success(res,{notification,unreadCount:await unreadCount(store,res.locals.userId)});
+    return success(res,{notification:notificationView(notification),unreadCount:await unreadCount(store,res.locals.userId)});
   }));
 
   app.post('/api/vouchers/claim',route(async(req,res)=>{
@@ -753,7 +913,8 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.use((_req,res)=>res.status(404).json({success:false,statusCode:404,message:'Endpoint not available',error:'Endpoint not available'}));
   app.use((error: unknown,_req:Request,res:Response,_next:NextFunction)=>{
-    const retryable = error instanceof Prisma.PrismaClientKnownRequestError && (['P2034','P2002'].includes(error.code) || ['23505','40001','40P01'].includes(String(error.meta?.code)));
+    const dbCode=error&&typeof error==='object'?String((error as any).meta?.code||(error as any).code||''):'';
+    const retryable = ['23P01','23505','40001','40P01'].includes(dbCode)||(error instanceof Prisma.PrismaClientKnownRequestError&&['P2034','P2002'].includes(error.code));
     const parserType = error && typeof error==='object' && 'type' in error ? error.type : null;
     const parserStatus=parserType==='entity.too.large'?413:['encoding.unsupported','charset.unsupported'].includes(String(parserType))?415:['entity.parse.failed','request.aborted','request.size.invalid'].includes(String(parserType))?400:null;
     const status = error instanceof ApiError ? error.status : parserStatus ?? (retryable ? 409 : error instanceof SyntaxError ? 400 : 500);

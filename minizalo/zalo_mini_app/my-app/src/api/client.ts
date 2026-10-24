@@ -6,6 +6,7 @@ import {bookingRequest,completeBookingRequest} from './booking-request';
 import {apiErrorMessage} from './error-message';
 import { abortable } from '../utils/async-control';
 import { OwnerWriteQueue } from '../utils/owner-write-queue';
+import {isStaffRole} from '../utils/staff';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SESSION_KEY = 'mld_miniapp_session_v2';
@@ -47,7 +48,7 @@ const invalidateMutation = (path: string) => {
   if (path.startsWith('/notifications')) return invalidatePaths(['/notifications']);
   if (path === '/auth/settings') return invalidatePaths(['/auth/settings','/notifications']);
   if (path === '/auth/profile') return invalidatePaths(['/membership']);
-  if (path.startsWith('/bookings')) return invalidatePaths(['/bookings','/membership','/notifications','/records','/treatment-plans']);
+  if (path.startsWith('/bookings')||path.startsWith('/staff/bookings')) return invalidatePaths(['/bookings','/membership','/notifications','/records','/treatment-plans']);
   if (path === '/course-enrollments') return invalidatePaths(['/course-enrollments','/courses','/membership','/notifications']);
   const course = path.match(/^\/courses\/([^/]+)\//);
   if (course) return invalidatePaths([`/courses/${course[1]}/learning`,'/course-enrollments']);
@@ -168,6 +169,7 @@ export const apiClient = {
     try{return await responseJson(await fetch(`${API_BASE_URL}/services/${encodeURIComponent(id)}/favorite`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({isFavorite})}));}catch{return {error:'Không thể lưu mục yêu thích.'};}
   },
   sessionVersion:()=>sessionEpoch,
+  hasSession:()=>Boolean(session.get()),
   peek<T = any>(path: string): T | null {
     if (!API_BASE_URL) return null;
     const key = cacheKey(new URL(API_BASE_URL + path));
@@ -260,7 +262,7 @@ export const apiClient = {
       if (!requestConsent) {
         if (memoryToken) {
           const current = await apiClient.getCurrentUser();
-          if (current?.user) return { ...current, token: session.get() };
+          if (current?.user&&isStaffRole(current.user.role)) return { ...current, token: session.get() };
         }
         return { needsConsent: true, error: 'Tiếp tục với Zalo và cho phép chia sẻ số điện thoại để kết nối hồ sơ.' };
       }
@@ -274,10 +276,11 @@ export const apiClient = {
       const res = await fetch(`${API_BASE_URL}/auth/zalo`, {
         signal: controller.signal,
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, phoneToken }),
+        body: JSON.stringify({ accessToken, phoneToken, audience:'staff' }),
       });
       const data = await responseJson(res);
       if (controller.signal.aborted || authController !== controller) return { error: 'Kết nối đã hủy. Vui lòng thử lại.' };
+      if(data.registrationRequired||data.user&&!isStaffRole(data.user.role))return {error:'Tài khoản cần được quản trị viên cấp quyền nhân viên trước khi sử dụng ứng dụng.'};
       if (data.token) session.set(data.token);
       return data;
     } catch (error) {
@@ -306,8 +309,25 @@ export const apiClient = {
     } finally { clearTimeout(timer); }
   },
   logout() {
+    const token=session.get();
     apiClient.cancelZaloLogin();
     session.clear();
+    try{localStorage.removeItem('mld_pending_voucher');}catch{/* Restricted storage cannot supply this selection. */}
+    window.dispatchEvent(new Event('mld:session-cleared'));
+    if(!token)return Promise.resolve({revoked:true});
+    const controller=new AbortController(),timer=window.setTimeout(()=>controller.abort(),8000);
+    // Revoke the captured token, never a newer account's session established meanwhile.
+    return window.fetch(`${API_BASE_URL}/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${token}`},cache:'no-store',signal:controller.signal})
+      .then(response=>response.ok||response.status===401?{revoked:true}:{error:'Đã đăng xuất trên máy nhưng chưa thu hồi được phiên trên máy chủ. Khi có mạng, hãy đăng nhập lại và đăng xuất các phiên khác.'})
+      .catch(()=>({error:'Đã đăng xuất trên máy nhưng chưa thu hồi được phiên trên máy chủ. Khi có mạng, hãy đăng nhập lại và đăng xuất các phiên khác.'})).finally(()=>clearTimeout(timer));
+  },
+  async getAccountSessions(signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/auth/sessions`,{signal,cache:'no-store'}));}
+    catch{return {error:'Không thể tải phiên đăng nhập. Vui lòng thử lại.'};}
+  },
+  async revokeAccountSession(id?:string){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/auth/sessions/${id?encodeURIComponent(id)+'/revoke':'revoke-others'}`,{method:'POST'}));}
+    catch{return {error:'Chưa xác định được kết quả đăng xuất. Vui lòng cập nhật lại danh sách.'};}
   },
   async registerZaloProfile(registrationToken: string, profile: { fullName: string; email?: string; dateOfBirth?: string; gender?: string; avatarUrl?: string; purpose?: string }, signal?: AbortSignal) {
     const epoch=sessionEpoch;
@@ -407,6 +427,61 @@ export const apiClient = {
     }
   },
 
+  async getStaffContext(signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/context`,{signal}));}
+    catch{return {error:'Không thể kiểm tra quyền nhân viên. Vui lòng thử lại.'};}
+  },
+  async getStaffCustomers(search:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/customers?${new URLSearchParams({search})}`,{signal}));}
+    catch{return {error:'Không thể tìm khách hàng. Vui lòng thử lại.'};}
+  },
+  async getStaffSlots(branchId:string,date:string,serviceId:string,people:number,signal?:AbortSignal,throughDate?:string){
+    try{
+      const params=new URLSearchParams({branchId,date,serviceId,people:String(people),...(throughDate?{throughDate}:{})});
+      return await responseJson(await fetch(`${API_BASE_URL}/staff/slots${throughDate?'/dates':''}?${params}`,{cache:'no-store',signal}));
+    }catch{return {error:'Không thể tải lịch còn đủ giường và kỹ thuật viên. Vui lòng thử lại.'};}
+  },
+  async getStaffCustomerPackages(customerId:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/customers/${encodeURIComponent(customerId)}/packages`,{cache:'no-store',signal}));}
+    catch{return {error:'Không thể tải liệu trình của khách hàng. Vui lòng thử lại.'};}
+  },
+  async getStaffCustomerRecords(customerId:string,section:string,cursor?:string,signal?:AbortSignal){
+    const params=new URLSearchParams({section,limit:'20',...(cursor?{cursor}:{})});
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/customers/${encodeURIComponent(customerId)}/records?${params}`,{cache:'no-store',signal}));}
+    catch{return {error:'Không thể tải hồ sơ khách hàng. Vui lòng thử lại.'};}
+  },
+  async getDocuments(search:string,cursor?:string,signal?:AbortSignal){
+    const params=new URLSearchParams({search,limit:'20',...(cursor?{cursor}:{})});
+    try{return await responseJson(await fetch(`${API_BASE_URL}/documents?${params}`,{cache:'no-store',signal}));}
+    catch{return {error:'Không thể tải tài liệu. Vui lòng thử lại.'};}
+  },
+  async getDocument(id:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(id)}`,{cache:'no-store',signal}));}
+    catch{return {error:'Không thể mở tài liệu. Vui lòng thử lại.'};}
+  },
+  async getSharedContent(kind:'COMMUNITY'|'DOCUMENT',search:string,cursor?:string,signal?:AbortSignal){
+    const params=new URLSearchParams({kind,search,limit:'20',...(cursor?{cursor}:{})});
+    try{return await responseJson(await fetch(`${API_BASE_URL}/shared-content?${params}`,{cache:'no-store',signal}));}
+    catch{return {error:'Không thể tải nội dung chia sẻ. Vui lòng thử lại.'};}
+  },
+  async getSharedContentItem(id:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/shared-content/${encodeURIComponent(id)}`,{cache:'no-store',signal}));}
+    catch{return {error:'Không thể mở nội dung chia sẻ. Vui lòng thử lại.'};}
+  },
+  async createStaffBooking(data:Record<string,unknown>,ownerId:string){
+    const owner='staff:'+ownerId;
+    try{
+      const key=await bookingRequest(owner,data);
+      const result=await responseJson(await fetch(`${API_BASE_URL}/staff/bookings`,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify(data)}));
+      if(result?.booking?.id)completeBookingRequest(owner,key);
+      return result;
+    }catch{return {error:'Không thể gửi lịch hẹn. Vui lòng thử lại để kiểm tra kết quả.'};}
+  },
+  async updateStaffSession(id:string,status:string,treatmentNotes?:string){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/bookings/${encodeURIComponent(id)}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,treatmentNotes})}));}
+    catch{return {error:'Không thể cập nhật ca trị liệu. Vui lòng thử lại.'};}
+  },
+
   async getBookings() {
     try {
       const res = await fetch(`${API_BASE_URL}/bookings`);
@@ -431,6 +506,14 @@ export const apiClient = {
     }
   },
 
+  async getBookingGroup(id:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/bookings/${encodeURIComponent(id)}/group`,{signal,cache:'no-store'}));}
+    catch{return {error:'Không thể tải nhóm đặt lịch. Vui lòng thử lại.'};}
+  },
+  async cancelBookingGroup(id:string){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/bookings/${encodeURIComponent(id)}/group/cancel`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:'Nhân viên hủy cả nhóm trên Mini App'})}));}
+    catch{return {error:'Không thể hủy nhóm đặt lịch. Vui lòng thử lại.'};}
+  },
   async cancelBooking(id: string, reason?: string) {
     try {
       const res = await fetch(`${API_BASE_URL}/bookings/${id}/cancel`, {
@@ -601,6 +684,16 @@ export const apiClient = {
     } catch {
       return null;
     }
+  },
+  async getCertificates(cursor?:string,signal?:AbortSignal){
+    try{
+      const query=new URLSearchParams({limit:'20',...(cursor?{cursor}:{})});
+      return await responseJson(await fetch(`${API_BASE_URL}/certificates?${query}`,{cache:'no-store',signal}));
+    }catch{return {error:'Không thể tải giấy chứng nhận. Vui lòng thử lại.'};}
+  },
+  async getCertificate(id:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/certificates/${encodeURIComponent(id)}`,{cache:'no-store',signal}));}
+    catch{return {error:'Không thể tải giấy chứng nhận. Vui lòng thử lại.'};}
   },
 
   async enrollCourse(data: any) {
