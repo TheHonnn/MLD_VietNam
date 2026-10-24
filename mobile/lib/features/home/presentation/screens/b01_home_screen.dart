@@ -1,5 +1,7 @@
 import '../../../treatment/data/repositories/treatment_repository.dart';
 import 'dart:async';
+import 'dart:ui';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
@@ -421,6 +423,239 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Future<void> _openExternalUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      final canLaunch = await canLaunchUrl(uri);
+      if (canLaunch) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đang mở liên kết: $urlString'),
+            backgroundColor: const Color(0xFF0066B2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showBannerLinkOptions(BuildContext context, [String? bannerTitle]) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Dialog(
+          backgroundColor: Colors.white.withValues(alpha: 0.94),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.9), width: 1.5),
+          ),
+          elevation: 12,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/images/logo_mld.png',
+                      height: 24,
+                      errorBuilder: (_, __, ___) => const Icon(Icons.spa, size: 22, color: Color(0xFF0066B2)),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'MLD VIỆT NAM',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: Color(0xFF0066B2),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  bannerTitle ?? 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                    height: 1.35,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Chọn phương thức để xem thông tin chi tiết và cẩm nang trị liệu:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Lựa chọn 1: Truy cập Website
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openExternalUrl('https://mldvietnam.vn');
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.language_rounded, size: 20, color: Color(0xFF0066B2)),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Truy cập Website',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'www.mldvietnam.vn · Cổng thông tin chính thức',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.open_in_new_rounded, size: 16, color: Color(0xFF0066B2)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Lựa chọn 2: Truy cập Facebook
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openExternalUrl('https://facebook.com/mldvietnam');
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.facebook_rounded, size: 20, color: Color(0xFF1877F2)),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Truy cập Facebook',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'facebook.com/mldvietnam · Fanpage MLD Vietnam',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.open_in_new_rounded, size: 16, color: Color(0xFF1877F2)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Nút Đóng
+                SizedBox(
+                  width: double.infinity,
+                  height: 36,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF64748B),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Đóng', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showAppointmentDetailSheet(AppointmentItemModel item) {
@@ -914,15 +1149,55 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           },
                           itemBuilder: (context, index) {
                             final banner = _heroBanners[index];
-                            return Image.asset(
-                              banner['image']!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: AppColors.surfaceDisabled,
-                                child: const Center(
-                                  child: Icon(Icons.spa_rounded, size: 48, color: AppColors.primary),
-                                ),
+                            return InkWell(
+                              onTap: () => _showBannerLinkOptions(context, banner['title']),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.asset(
+                                    banner['image']!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: AppColors.surfaceDisabled,
+                                      child: const Center(
+                                        child: Icon(Icons.spa_rounded, size: 48, color: AppColors.primary),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 10,
+                                    right: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        borderRadius: BorderRadius.circular(6),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.08),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.open_in_new, size: 11, color: Color(0xFF0066B2)),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Website · Facebook',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF0066B2),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           },
@@ -948,25 +1223,33 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           const SizedBox(height: 12),
 
                           // Tiêu đề banner (20px, w600, #693B20)
-                          Text(
-                            _heroBanners[_heroBannerIndex]['title']!,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              height: 1.3,
-                              color: AppColors.textHeading, // #693B20
-                            ),
-                          ),
-                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () => _showBannerLinkOptions(context, _heroBanners[_heroBannerIndex]['title']),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _heroBanners[_heroBannerIndex]['title']!,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.3,
+                                    color: AppColors.textHeading, // #693B20
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
 
-                          // Mô tả banner (14px, w400, #40352F)
-                          Text(
-                            _heroBanners[_heroBannerIndex]['description']!,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              height: 1.4,
-                              color: AppColors.textPrimary, // #40352F
+                                // Mô tả banner (14px, w400, #40352F)
+                                Text(
+                                  _heroBanners[_heroBannerIndex]['description']!,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.4,
+                                    color: AppColors.textPrimary, // #40352F
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -1002,6 +1285,28 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Center(
+                            child: InkWell(
+                              onTap: () => _showBannerLinkOptions(context, _heroBanners[_heroBannerIndex]['title']),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.public, size: 13, color: Color(0xFF0066B2)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Truy cập Website & Facebook MLD Vietnam',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF0066B2),
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
