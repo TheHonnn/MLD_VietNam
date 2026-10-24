@@ -745,9 +745,6 @@ function ReferenceInput({
           >
             {recordLabel(r)}
             {r.phone ? " · " + r.phone : ""}
-            {r.full_name || r.name || r.title
-              ? " · " + String(r[column.reference!.column]).slice(0, 8)
-              : ""}
           </option>
         ))}
       </select>
