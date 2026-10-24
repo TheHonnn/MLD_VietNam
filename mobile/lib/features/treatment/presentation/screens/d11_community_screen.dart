@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'd10_lymph_examination_screen.dart';
+import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 
 /// Screen D11: Trang Cộng đồng MLD Việt Nam (Điểm 118, 154 trong Website Trang chủ, dịch vụ, đặt lịch.txt)
-/// Nơi chia sẻ case phục hồi thực tế, trao đổi kinh nghiệm nghề và hỏi đáp chuyên gia Y khoa Vodder
+/// Chuẩn 100% theo giao diện bài viết chuyên môn do Admin/Trung tâm đăng tải:
+/// - Thẻ bài viết chuyên đề y khoa, hình ảnh trực quan, tiêu đề và tóm tắt
+/// - Không có nút like, không có bình luận, không có nút người dùng đăng bài
+/// - Nhấn vào thẻ mở toàn văn bài viết hướng dẫn lâm sàng của Trung tâm
 class D11CommunityScreen extends StatefulWidget {
   final VoidCallback? onBack;
 
@@ -13,515 +18,373 @@ class D11CommunityScreen extends StatefulWidget {
 
 class _D11CommunityScreenState extends State<D11CommunityScreen> {
   int _selectedCategoryIndex = 0;
+  final TextEditingController _searchController = TextEditingController();
+
   final List<String> _categories = [
     'Tất cả',
-    'Phù nề hậu phẫu',
-    'Trị liệu lâm sàng',
-    'Hỏi đáp chuyên gia',
-    'Góc học viên nghề',
+    'Xương khớp & Phục hồi',
+    'Kỹ thuật MLD Vodder',
+    'Giảm phù nề hậu phẫu',
+    'Chăm sóc tại nhà',
   ];
 
-  final List<Map<String, dynamic>> _posts = [
+  final List<Map<String, dynamic>> _articles = [
     {
-      'id': 'post-01',
-      'category': 'Phù nề hậu phẫu',
-      'authorName': 'Chị Minh Thư (Hà Nội)',
-      'authorRole': 'Khách hàng hậu phẫu tạo hình',
-      'authorAvatar': 'assets/images/specialist_hero_1.png',
-      'time': 'Hôm nay · 08:30',
-      'title': 'Kinh nghiệm giảm 85% phù nề và bầm tím vùng đùi sau hút mỡ nhờ dẫn lưu bạch huyết Vodder',
-      'content':
-          'Sau phẫu thuật ngày thứ 3 mình bị căng tức dịch và bầm tím rất nhiều. May mắn được bác sĩ phẫu thuật hướng dẫn đi dẫn lưu MLD chuẩn Vodder tại cơ sở MLD Việt Nam. Sau liệu trình 5 buổi nhẹ nhàng, chân mình nhẹ nhõm hẳn, chu vi vòng đùi giảm rõ rệt và bầm tan 90%.',
-      'likes': 128,
-      'comments': 24,
-      'tags': ['#HậuPhẫu', '#GiảmPhùNề', '#VodderMLD'],
-      'isLiked': true,
-      'commentItems': [
-        {
-          'author': 'Bác sĩ Lan Anh',
-          'avatar': 'assets/images/specialist_hero_2.png',
-          'content': 'Chúc mừng bạn đã phục hồi tốt! Sau hút mỡ, dẫn lưu MLD sớm giúp ngừa xơ hóa mô mỡ rất hiệu quả.',
-          'time': '1 giờ trước',
-        },
-        {
-          'author': 'Ngọc Mai',
-          'avatar': 'assets/images/specialist_hero_3.png',
-          'content': 'Cho mình hỏi liệu trình 5 buổi này mỗi buổi cách nhau mấy ngày vậy chị?',
-          'time': '30 phút trước',
-        },
-      ],
+      'id': 'art-01',
+      'category': 'Xương khớp & Phục hồi',
+      'title': 'Dẫn lưu bạch huyết có hỗ trợ giảm đau mỏi xương khớp không?',
+      'excerpt':
+          'Đau mỏi xương khớp là tình trạng thường gặp, đặc biệt ở người trung niên và lớn tuổi. Nhiều người không chỉ đau khi vận động mà còn cảm thấy nhức mỏi, căng cứng do dịch ứ đọng quanh bao khớp và các mô mềm lân cận...',
+      'image': 'assets/images/clinic_1.png',
+      'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
+      'publishDate': '24/10/2026',
+      'readTime': '5 phút đọc',
+      'fullContent': '''
+Đau mỏi xương khớp là tình trạng thường gặp, đặc biệt ở người trung niên và lớn tuổi. Nhiều người không chỉ đau khi vận động mà còn cảm thấy nhức mỏi, nặng nề tại các khớp gối, khớp háng và vùng cột sống thắt lưng.
+
+1. Nguyên nhân sâu xa từ hệ bạch huyết:
+Ít ai biết rằng, hiện tượng viêm sưng khớp thường đi kèm với sự ứ trệ dịch bạch huyết cục bộ. Khi các mạch bạch huyết bị tắc nghẽn, các chất trung gian gây viêm và protein thừa không được thu dọn kịp thời, tạo áp lực lên các đầu mút dây thần kinh cảm giác, gây đau nhức kéo dài.
+
+2. Cơ chế hỗ trợ của Dẫn lưu bạch huyết Vodder (MLD):
+- Giảm áp lực nội khớp: Kỹ thuật miết nhẹ nhàng theo cung hạch bạch huyết giúp tiêu thoát dịch viêm ứ đọng quanh bao hoạt dịch khớp.
+- Tăng cường tuần hoàn nuôi dưỡng mô sụn: Khi dịch ứ được giải phóng, tuần hoàn máu tươi giàu oxy và dưỡng chất dễ dàng tiếp cận nuôi dưỡng mô sụn khớp.
+- Thư giãn cơ co thắt: Giúp các dải cơ quanh khớp được thả lỏng tự nhiên mà không gây đau đớn hay tổn thương thêm cho sụn khớp.
+
+3. Khuyến nghị từ Chuyên gia MLD:
+Người bệnh nên kết hợp liệu trình MLD định kỳ 1–2 lần/tuần cùng chế độ vận động nhẹ nhàng để duy trì sự dẻo dai của hệ cơ xương khớp.
+''',
     },
     {
-      'id': 'post-02',
-      'category': 'Trị liệu lâm sàng',
-      'authorName': 'ThS. Bác sĩ Trịnh Lan Anh',
-      'authorRole': 'Cố vấn Y khoa MLD Academy',
-      'authorAvatar': 'assets/images/specialist_hero_2.png',
-      'time': 'Hôm qua · 15:45',
-      'title': 'Nguyên tắc "Áp lực lông vũ" trong kỹ thuật MLD – Đừng làm khách hàng đau!',
-      'content':
-          'Rất nhiều bạn KTV mới nhầm lẫn MLD với massage bấm huyệt hay massage mô sâu. Mao mạch bạch huyết nằm ngay dưới biểu bì, chỉ cần áp lực 30–40 mmHg (nhẹ như vuốt ve lông vũ). Dùng lực quá mạnh sẽ làm dập tắc mao mạch và khiến tình trạng ứ dịch trầm trọng hơn.',
-      'likes': 312,
-      'comments': 45,
-      'tags': ['#YKhoaVodder', '#ÁpLựcLôngVũ', '#ChuyênMôn'],
-      'isLiked': false,
-      'commentItems': [
-        {
-          'author': 'Hải Yến (KTV)',
-          'avatar': 'assets/images/academy_hero_classroom.png',
-          'content': 'Bài học quý giá ạ. Lúc mới học em cũng bị thói quen tì lực mạnh, sau khi được chỉnh tay nghề thì khách êm ru ngủ luôn.',
-          'time': 'Hôm qua',
-        },
-      ],
+      'id': 'art-02',
+      'category': 'Kỹ thuật MLD Vodder',
+      'title': 'Tại sao dẫn lưu bạch huyết thủ công lại không gây đau?',
+      'excerpt':
+          '“Nhẹ như vậy thì có tác dụng không?” là thắc mắc của nhiều người khi lần đầu trải nghiệm MLD. Bởi vì kỹ thuật Vodder chuẩn chỉ tác động rất nhẹ lên lớp mao mạch bạch huyết nông ngay dưới bề mặt biểu bì...',
+      'image': 'assets/images/clinic_2.png',
+      'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
+      'publishDate': '23/10/2026',
+      'readTime': '4 phút đọc',
+      'fullContent': '''
+"Nhẹ như vậy thì có tác dụng không?" là câu hỏi phổ biến nhất của khách hàng khi lần đầu tiên trải nghiệm liệu pháp Dẫn lưu bạch huyết thủ công (Manual Lymphatic Drainage - MLD) theo phương pháp Vodder.
+
+1. Giải phẫu hệ bạch huyết nông:
+Hơn 70% mạng lưới mao mạch bạch huyết của cơ thể nằm ngay dưới lớp biểu bì da (độ sâu chỉ từ 0.3mm đến 1.5mm). Đây là các mạch cực kỳ mỏng manh với các van vi mô một chiều.
+
+2. Nguyên tắc "Áp lực lông vũ" (Feather-light pressure):
+- Áp lực tối ưu của MLD chỉ dao động từ 30 đến 40 mmHg — nhẹ như động tác vuốt ve lông vũ trên da.
+- Nếu tác động lực quá mạnh (như massage mô sâu hay bấm huyệt), các mao mạch bạch huyết sẽ lập tức co thắt và xẹp lại, làm dòng chảy dịch bị chặn đứng hoàn toàn.
+
+3. Cảm giác êm dịu, phục hồi sâu:
+MLD tác động trực tiếp lên hệ thần kinh phó giao cảm (Parasympathetic nervous system), giúp cơ thể giảm tiết cortisol, giải phóng căng thẳng và đưa khách hàng vào trạng thái thư giãn sâu, hoàn toàn không gây đau rát hay bầm tím.
+''',
     },
     {
-      'id': 'post-03',
-      'category': 'Góc học viên nghề',
-      'authorName': 'Đặng Hải Yến',
-      'authorRole': 'Học viên Khóa MLD K08',
-      'authorAvatar': 'assets/images/academy_hero_classroom.png',
-      'time': '3 ngày trước',
-      'title': 'Góc tâm sự: Từ KTV Spa thông thường đến Chuyên viên Trị liệu MLD Y khoa',
-      'content':
-          'Trước đây mình chỉ làm gội đầu dưỡng sinh và massage body thư giãn, thu nhập bấp bênh. Sau khóa học bài bản tại MLD Academy và nhận Giấy chứng nhận, mình được phân công phụ trách phòng trị liệu phục hồi hậu phẫu, thu nhập và tay nghề tăng gấp đôi.',
-      'likes': 95,
-      'comments': 18,
-      'tags': ['#HọcViênMLD', '#ĐàoTạoNghề', '#GiấyChứngNhận'],
-      'isLiked': true,
-      'commentItems': [
-        {
-          'author': 'Thanh Hằng',
-          'avatar': 'assets/images/specialist_hero_1.png',
-          'content': 'Tự hào về em! Khóa K08 ai cũng vững tay nghề sau khi tốt nghiệp.',
-          'time': '2 ngày trước',
-        },
-      ],
+      'id': 'art-03',
+      'category': 'Giảm phù nề hậu phẫu',
+      'title': 'Dẫn lưu bạch huyết MLD – Giải pháp vàng tiêu dịch và giảm phù nề sau phẫu thuật',
+      'excerpt':
+          'Sau phẫu thuật tạo hình (hút mỡ, nâng ngực, tạo hình thành bụng, nâng mũi), tổn thương mao mạch gây ứ đọng dịch kẽ và bầm tím kéo dài. Dẫn lưu MLD kích thích mở các van bạch huyết để hút dịch thừa...',
+      'image': 'assets/images/gioithieu_1.png',
+      'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
+      'publishDate': '22/10/2026',
+      'readTime': '6 phút đọc',
+      'fullContent': '''
+Sau các ca phẫu thuật thẩm mỹ hoặc phẫu thuật tạo hình (hút mỡ bụng/đùi, nâng ngực, tạo hình thành bụng, căng da mặt, nâng mũi), cơ thể phản ứng bằng việc tiết ra một lượng lớn dịch viêm để bảo vệ mô, gây phù nề, bầm tím và cảm giác căng tức khó chịu.
+
+1. Nguy cơ khi để dịch ứ đọng kéo dài:
+Nếu dịch kẽ không được tiêu thoát kịp thời trong 2–4 tuần đầu sau phẫu thuật, nguy cơ cao hình thành các tổ chức xơ cứng (fibrosis), da gồ ghề lồi lõm hoặc tụ dịch dưới da cần can thiệp chọc hút.
+
+2. Vai trò của Dẫn lưu MLD Vodder trong giai đoạn vàng:
+- Đẩy nhanh tốc độ tiêu sưng gấp 3–4 lần so với để cơ thể tự phục hồi.
+- Làm mềm các mô sẹo, ngăn ngừa hiện tượng xơ hóa mô mỡ sau hút mỡ.
+- Giảm rõ rệt các vết bầm tím nhờ hỗ trợ dọn dẹp xác hồng cầu ứ đọng.
+
+3. Lộ trình điều trị khuyến nghị:
+Nên bắt đầu buổi MLD đầu tiên từ ngày thứ 3 đến ngày thứ 5 sau phẫu thuật (theo chỉ định của bác sĩ điều trị) với liệu trình từ 5 đến 10 buổi liên tục.
+''',
+    },
+    {
+      'id': 'art-04',
+      'category': 'Chăm sóc tại nhà',
+      'title': 'Nguyên tắc 4 KHÔNG trong chăm sóc hệ bạch huyết tại nhà theo chuẩn Vodder',
+      'excerpt':
+          'Không bóp mạnh, không chườm nóng trực tiếp lên vùng phù dịch, không mặc quần áo quá bó chèn ép hạch bạch huyết và không tự ý dùng thuốc chống viêm khi chưa có chỉ định từ bác sĩ chuyên khoa...',
+      'image': 'assets/images/gioithieu_2.png',
+      'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
+      'publishDate': '20/10/2026',
+      'readTime': '4 phút đọc',
+      'fullContent': '''
+Để duy trì hiệu quả sau các ca trị liệu tại cơ sở, khách hàng cần nắm vững các nguyên tắc chăm sóc hệ bạch huyết tại nhà:
+
+1. KHÔNG xoa bóp thô bạo: Tuyệt đối không dùng lực bóp nắn mạnh vào vùng đang phù nề hoặc mới phẫu thuật.
+2. KHÔNG chườm nóng trực tiếp: Nhiệt độ cao làm giãn mao mạch máu, khiến huyết tương thoát mạch nhiều hơn và làm sưng phù nặng hơn.
+3. KHÔNG mặc đồ quá chật chèn ép hạch: Tránh các loại trang phục có đai thắt lưng hoặc chun quá siết tại các vùng trạm hạch (bẹn, nách, cổ).
+4. KHÔNG nằm bất động kéo dài: Cần vận động nhẹ nhàng (đi bộ chậm, hít thở cơ hoành) để kích hoạt bơm cơ đẩy dịch bạch huyết lưu thông.
+''',
+    },
+    {
+      'id': 'art-05',
+      'category': 'Kỹ thuật MLD Vodder',
+      'title': 'Sự khác biệt căn bản giữa Massage thông thường và Dẫn lưu bạch huyết y khoa MLD',
+      'excerpt':
+          'Massage thư giãn truyền thống tập trung miết cơ và kích thích tuần hoàn máu động mạch. Trong khi đó, MLD Vodder là liệu pháp y khoa chuyên sâu định hướng dòng dịch bạch huyết về các hạch trung tâm...',
+      'image': 'assets/images/gioithieu_3.png',
+      'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
+      'publishDate': '18/10/2026',
+      'readTime': '5 phút đọc',
+      'fullContent': '''
+Rất nhiều người thường đánh đồng Dẫn lưu bạch huyết với các hình thức Massage Body thông thường. Dưới đây là các khác biệt mang tính cốt lõi:
+
+1. Đối tượng tác động:
+- Massage thông thường: Tác động vào các bó cơ sâu, gân và khớp nhằm giải phóng co thắt cơ học.
+- MLD Vodder: Tác động vi mô vào hệ mao mạch bạch huyết nằm ngay sát bề mặt biểu bì.
+
+2. Hướng lực và nhịp điệu:
+- Massage thông thường: Lực mạnh, nhịp nhanh, miết sâu.
+- MLD Vodder: Chuyển động xoay vòng chậm rãi (khoảng 1 chuyển động mỗi giây) chính xác theo hướng dòng chảy về các hạch bạch huyết chính (hạch cổ, hạch nách, hạch bẹn).
+
+3. Mục tiêu trị liệu:
+MLD được coi là phương pháp y khoa phục hồi chức năng và giảm phù nề, có chỉ định lâm sàng rõ ràng và được bảo hiểm y tế tại nhiều quốc gia châu Âu chi trả.
+''',
     },
   ];
 
-  void _toggleLike(Map<String, dynamic> post) {
-    setState(() {
-      final currentLiked = post['isLiked'] as bool? ?? false;
-      post['isLiked'] = !currentLiked;
-      final currentLikes = (post['likes'] as num?)?.toInt() ?? 0;
-      post['likes'] = !currentLiked ? (currentLikes + 1) : (currentLikes > 0 ? currentLikes - 1 : 0);
-    });
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  void _showCommentsBottomSheet(BuildContext context, Map<String, dynamic> post) {
-    final commentController = TextEditingController();
-    final List<Map<String, String>> comments = List<Map<String, String>>.from(
-      (post['commentItems'] as List?)?.map((e) => Map<String, String>.from(e as Map)) ?? [],
-    );
+  List<Map<String, dynamic>> get _filteredArticles {
+    final query = _searchController.text.trim().toLowerCase();
+    return _articles.where((art) {
+      final matchesCategory = _selectedCategoryIndex == 0 ||
+          art['category'] == _categories[_selectedCategoryIndex];
+      final matchesQuery = query.isEmpty ||
+          (art['title'] as String).toLowerCase().contains(query) ||
+          (art['excerpt'] as String).toLowerCase().contains(query);
+      return matchesCategory && matchesQuery;
+    }).toList();
+  }
 
+  void _showArticleDetail(Map<String, dynamic> article) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Thanh kéo trên modal
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.75,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Handle bar
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Bình luận (${comments.length})',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-                  // Comments List
-                  Expanded(
-                    child: comments.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Chưa có bình luận nào. Hãy là người đầu tiên!',
-                              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: comments.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 14),
-                            itemBuilder: (context, index) {
-                              final item = comments[index];
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: const Color(0xFFEFF6FF),
-                                    backgroundImage: AssetImage(item['avatar'] ?? 'assets/images/specialist_hero_1.png'),
-                                    onBackgroundImageError: (_, __) {},
-                                    child: const Icon(Icons.person, size: 16, color: Color(0xFF0066B2)),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                item['author'] ?? 'Người dùng',
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF0F172A),
-                                                ),
-                                              ),
-                                              Text(
-                                                item['time'] ?? 'Vừa xong',
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: Color(0xFF94A3B8),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            item['content'] ?? '',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color: Color(0xFF334155),
-                                              height: 1.35,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                  ),
-
-                  // Input row
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: commentController,
-                            decoration: InputDecoration(
-                              hintText: 'Viết bình luận của bạn...',
-                              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: const BorderSide(color: Color(0xFF0066B2)),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.send_rounded, color: Color(0xFF0066B2)),
-                          onPressed: () {
-                            final text = commentController.text.trim();
-                            if (text.isNotEmpty) {
-                              final newComment = {
-                                'author': 'Bạn',
-                                'avatar': 'assets/images/specialist_hero_1.png',
-                                'content': text,
-                                'time': 'Vừa xong',
-                              };
-                              setModalState(() {
-                                comments.add(newComment);
-                              });
-                              setState(() {
-                                post['commentItems'] = comments;
-                                post['comments'] = comments.length;
-                              });
-                              commentController.clear();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showCreatePostBottomSheet(BuildContext context) {
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
-    String selectedCategory = _categories[1]; // 'Phù nề hậu phẫu'
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 20,
-                right: 20,
-                top: 16,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Header đóng modal
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        article['category'] as String,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0066B2),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Đặt câu hỏi / Chia sẻ',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(ctx),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Tiêu đề
-                    const Text(
-                      'Tiêu đề bài viết *',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        hintText: 'Tóm tắt câu hỏi hoặc câu chuyện của bạn...',
-                        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Chuyên mục
-                    const Text(
-                      'Chuyên mục *',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: _categories.skip(1).map((cat) {
-                        final isSelected = selectedCategory == cat;
-                        return ChoiceChip(
-                          label: Text(
-                            cat,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isSelected ? Colors.white : const Color(0xFF334155),
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                            ),
-                          ),
-                          selected: isSelected,
-                          selectedColor: const Color(0xFF0066B2),
-                          backgroundColor: const Color(0xFFF1F5F9),
-                          onSelected: (val) {
-                            if (val) {
-                              setModalState(() {
-                                selectedCategory = cat;
-                              });
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Nội dung
-                    const Text(
-                      'Nội dung chi tiết *',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: contentController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: 'Mô tả chi tiết câu hỏi, triệu chứng hoặc quá trình phục hồi...',
-                        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                        ),
-                        contentPadding: const EdgeInsets.all(12),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Nút Đăng bài
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066B2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          elevation: 0,
-                        ),
-                        onPressed: () {
-                          final title = titleController.text.trim();
-                          final content = contentController.text.trim();
-                          if (title.isEmpty || content.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Vui lòng nhập đầy đủ tiêu đề và nội dung bài viết.'),
-                                backgroundColor: Color(0xFFD64545),
-                              ),
-                            );
-                            return;
-                          }
-
-                          final newPost = {
-                            'id': 'post-${DateTime.now().millisecondsSinceEpoch}',
-                            'category': selectedCategory,
-                            'authorName': 'Bạn (Thành viên MLD)',
-                            'authorRole': 'Thành viên cộng đồng',
-                            'authorAvatar': 'assets/images/specialist_hero_1.png',
-                            'time': 'Vừa xong',
-                            'title': title,
-                            'content': content,
-                            'likes': 0,
-                            'comments': 0,
-                            'tags': ['#MLDCommunity', '#ChiaSẻ'],
-                            'isLiked': false,
-                            'commentItems': <Map<String, String>>[],
-                          };
-
-                          setState(() {
-                            _posts.insert(0, newPost);
-                          });
-
-                          Navigator.pop(ctx);
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Đã đăng bài viết thành công lên Cộng đồng MLD!'),
-                              backgroundColor: Color(0xFF236B42),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Đăng bài ngay',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
+
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+              // Nội dung chi tiết bài viết
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tiêu đề bài viết
+                      Text(
+                        article['title'] as String,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Thông tin tác giả & ngày đăng
+                      Row(
+                        children: [
+                          const Icon(Icons.verified, size: 16, color: Color(0xFF0066B2)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${article['author']} · ${article['publishDate']}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            article['readTime'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Ảnh minh họa lớn
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.asset(
+                          article['image'] as String,
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 200,
+                            color: const Color(0xFFF1F5F9),
+                            child: const Center(
+                              child: Icon(Icons.image, size: 48, color: Color(0xFFCBD5E1)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Toàn văn nội dung bài viết
+                      Text(
+                        article['fullContent'] as String,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: Color(0xFF334155),
+                          height: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Khối hành động chuyên khoa
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Bạn đang cần tư vấn hoặc gặp tình trạng phù nề?',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Liên hệ chuyên gia hoặc đăng ký kiểm tra phù nề y khoa trực tiếp tại cơ sở MLD Việt Nam.',
+                              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0066B2),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
+                                      );
+                                    },
+                                    child: const Text('Khám phù MLD', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0066B2),
+                                      side: const BorderSide(color: Color(0xFF0066B2)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
+                                      );
+                                    },
+                                    child: const Text('Đặt trị liệu', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredPosts = _selectedCategoryIndex == 0
-        ? _posts
-        : _posts.where((p) => p['category'] == _categories[_selectedCategoryIndex]).toList();
+    final filtered = _filteredArticles;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -539,85 +402,72 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
             }
           },
         ),
-        title: const Text(
-          'Cộng đồng MLD Việt Nam',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
-          ),
+        title: const Column(
+          children: [
+            Text(
+              'Cộng đồng MLD Việt Nam',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'Góc chia sẻ bài viết & tài liệu trị liệu MLD',
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Color(0xFF0066B2)),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1.0)),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.edit_note, color: Colors.white),
-            label: const Text(
-              'Đặt câu hỏi hoặc chia sẻ câu chuyện',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066B2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
-            onPressed: () => _showCreatePostBottomSheet(context),
-          ),
-        ),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Banner giới thiệu Cộng đồng MLD
+            // Ô tìm kiếm bài viết y khoa
             Container(
-              padding: const EdgeInsets.all(16),
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0066B2), Color(0xFF0284C7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
               ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.forum_outlined, color: Colors.white, size: 22),
-                      SizedBox(width: 8),
-                      Text(
-                        'Diễn đàn Y khoa & Khách hàng MLD',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                  const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Tìm bài viết trị liệu, tài liệu MLD...',
+                        hintStyle: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
+                        border: InputBorder.none,
+                        isDense: true,
                       ),
-                    ],
+                    ),
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Chia sẻ kinh nghiệm phục hồi phù nề hậu phẫu thực tế, hỏi đáp cùng các Bác sĩ & Giảng viên dẫn lưu bạch huyết Vodder chuẩn quốc tế.',
-                    style: TextStyle(fontSize: 13, color: Colors.white70, height: 1.4),
-                  ),
+                  if (_searchController.text.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 18, color: Color(0xFF64748B)),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                      },
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Thanh lọc danh mục ngang
             SizedBox(
@@ -657,173 +507,101 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Danh sách bài viết
-            ...filteredPosts.map((post) => _buildPostCard(post)),
+            // Danh sách các thẻ bài viết tài liệu trị liệu chuẩn theo hình ảnh ví dụ của khách hàng
+            if (filtered.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                alignment: Alignment.center,
+                child: const Text(
+                  'Không tìm thấy bài viết phù hợp',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                ),
+              )
+            else
+              ...filtered.map((article) => _buildArticleCard(article)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPostCard(Map<String, dynamic> post) {
-    final isLiked = post['isLiked'] == true;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Author Header
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: const Color(0xFFEFF6FF),
-                backgroundImage: AssetImage(post['authorAvatar'] as String),
-                onBackgroundImageError: (_, __) {},
-                child: const Icon(Icons.person, size: 20, color: Color(0xFF0066B2)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      post['authorName'] as String,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      '${post['authorRole']} · ${post['time']}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  post['category'] as String,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0066B2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Title & Content
-          Text(
-            post['title'] as String,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0F172A),
-              height: 1.35,
+  /// Card bài viết tài liệu trị liệu chuẩn 100% theo mẫu thiết kế từ ảnh của người dùng:
+  /// - Thẻ trắng, góc bo tròn, viền tinh tế
+  /// - Ảnh minh họa chuyên đề bo góc ở phía trên
+  /// - Tiêu đề in đậm (Bold)
+  /// - Đoạn trích dẫn mô tả y khoa ngắn gọn
+  /// - Không có nút Like, không có bình luận, không có nút đăng bài người dùng
+  Widget _buildArticleCard(Map<String, dynamic> article) {
+    return InkWell(
+      onTap: () => _showArticleDetail(article),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            post['content'] as String,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF334155),
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Tags
-          Wrap(
-            spacing: 8,
-            children: (post['tags'] as List<String>)
-                .map((tag) => Text(
-                      tag,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF0284C7),
-                      ),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 8),
-
-          // Footer Actions: Like, Comment, Share
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Ảnh minh họa chuyên đề (Bo tròn r=12)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
                 children: [
-                  // Nút Thích (Like) tương tác động - BUG-037
-                  InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => _toggleLike(post),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isLiked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
-                            size: 16,
-                            color: isLiked ? const Color(0xFF0066B2) : const Color(0xFF64748B),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${post['likes']}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isLiked ? FontWeight.w600 : FontWeight.w400,
-                              color: isLiked ? const Color(0xFF0066B2) : const Color(0xFF64748B),
-                            ),
+                  Image.asset(
+                    article['image'] as String,
+                    height: 185,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 185,
+                      width: double.infinity,
+                      color: const Color(0xFFF1F5F9),
+                      child: const Center(
+                        child: Icon(Icons.image, size: 48, color: Color(0xFFCBD5E1)),
+                      ),
+                    ),
+                  ),
+                  // Huy hiệu MLD VIETNAM ở góc trên bên trái
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 4,
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Nút Bình luận mở BottomSheet - BUG-037
-                  InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => _showCommentsBottomSheet(context, post),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      child: Row(
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.chat_bubble_outline, size: 16, color: Color(0xFF64748B)),
-                          const SizedBox(width: 4),
+                          Icon(Icons.verified, size: 12, color: Color(0xFF0066B2)),
+                          SizedBox(width: 4),
                           Text(
-                            '${post['comments']} bình luận',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            'MLD VIETNAM · TÀI LIỆU TRỊ LIỆU',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0066B2),
+                              letterSpacing: 0.3,
+                            ),
                           ),
                         ],
                       ),
@@ -831,22 +609,34 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                   ),
                 ],
               ),
-              IconButton(
-                icon: const Icon(Icons.share_outlined, size: 18, color: Color(0xFF64748B)),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã sao chép liên kết chia sẻ bài viết'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+            const SizedBox(height: 14),
+
+            // 2. Tiêu đề bài viết
+            Text(
+              article['title'] as String,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+                height: 1.35,
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 8),
+
+            // 3. Tóm tắt nội dung trích đoạn
+            Text(
+              article['excerpt'] as String,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF475569),
+                height: 1.45,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
