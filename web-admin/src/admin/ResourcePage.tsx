@@ -238,12 +238,6 @@ function ServiceImageInput({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const PRESET_SPA_IMAGES = [
-    { label: "Chăm sóc da (16:9)", url: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&h=675&q=80" },
-    { label: "Gội đầu (16:9)", url: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=1200&h=675&q=80" },
-    { label: "Massage body (16:9)", url: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&h=675&q=80" },
-    { label: "Thẩm mỹ CNC (16:9)", url: "https://images.unsplash.com/photo-1512290903671-17adc820948b?auto=format&fit=crop&w=1200&h=675&q=80" },
-  ];
 
   const uploadImageBlob = async (blob: Blob, nameHint = "service_img.png") => {
     const ext = nameHint.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
@@ -504,26 +498,7 @@ function ServiceImageInput({
             </button>
           </div>
 
-          {/* Helper text tip */}
-          <div className="text-[11px] text-[#8C7A6B] bg-white/70 px-2.5 py-1.5 rounded-lg border border-[#F0E6DC]">
-            💡 <b>Tỷ lệ chuẩn 16:9:</b> Phù hợp kích thước banner như 1024×576 hoặc 1200×675. Có thể chụp màn hình rồi bấm <b>Ctrl+V</b> hoặc kéo thả ảnh vào khung.
-          </div>
         </div>
-      </div>
-
-      {/* Preset spa images */}
-      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-        <span className="text-[11px] text-[#8C7A6B] font-medium">Ảnh mẫu gợi ý:</span>
-        {PRESET_SPA_IMAGES.map((preset) => (
-          <button
-            key={preset.label}
-            type="button"
-            onClick={() => onChange(preset.url)}
-            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-[#73675F] border border-[#E8DFD8] hover:border-[#BA7E4C] hover:text-[#985018] hover:bg-[#FAF8F5] cursor-pointer transition-colors"
-          >
-            {preset.label}
-          </button>
-        ))}
       </div>
     </div>
   );
