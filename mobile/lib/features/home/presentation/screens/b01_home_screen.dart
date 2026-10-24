@@ -17,9 +17,9 @@ import '../../data/repositories/service_repository.dart';
 import 'b04_search_screen.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
-import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
-import '../../../membership/presentation/screens/f05_my_vouchers_screen.dart';
 import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
+import '../../../treatment/presentation/screens/d09_documents_screen.dart';
+import '../../../treatment/presentation/screens/d10_lymph_examination_screen.dart';
 import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
@@ -51,21 +51,21 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   final List<Map<String, String>> _heroBanners = [
     {
       'image': 'assets/images/gioithieu_1.png',
-      'title': 'Chăm sóc sức khỏe – Nâng tầm chất lượng sống',
-      'description': 'Đặt lịch dễ dàng, tận hưởng dịch vụ chuyên nghiệp.',
-      'btnText': 'Đặt lịch ngay',
+      'title': 'Dẫn lưu bạch huyết MLD – Phục hồi hậu phẫu chuyên sâu',
+      'description': 'Tầm soát và điều trị giảm phù nề, tiêu dịch ứ đọng chuẩn y khoa Vodder.',
+      'btnText': 'Đăng ký kiểm tra phù nề',
     },
     {
       'image': 'assets/images/gioithieu_2.png',
-      'title': 'Chăm sóc da & Trị liệu chuyên sâu',
-      'description': 'Quy trình phục hồi làn da dịu nhẹ, chu đáo cùng chuyên viên.',
-      'btnText': 'Đặt lịch chăm sóc da',
+      'title': 'Trị liệu Y khoa & Chăm sóc sức khỏe toàn diện',
+      'description': 'Quy trình phục hồi hệ bạch huyết và giảm đau nhức cùng chuyên viên chuyên môn.',
+      'btnText': 'Đặt lịch trị liệu ngay',
     },
     {
       'image': 'assets/images/gioithieu_3.png',
-      'title': 'Học nghề Spa & Đào tạo chuyên môn chuyên nghiệp',
-      'description': 'Khởi đầu sự nghiệp với các khóa đào tạo thực hành bài bản.',
-      'btnText': 'Khám phá khóa học',
+      'title': 'Học viện Đào tạo Nghề MLD & Trị liệu Chuẩn Y Khoa',
+      'description': 'Đào tạo thực hành cho người mới bắt đầu và nâng cao chuyên môn cho người làm nghề.',
+      'btnText': 'Khám phá khóa đào tạo',
     },
   ];
 
@@ -75,16 +75,16 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       'icon': Icons.calendar_month_outlined,
     },
     {
+      'title': 'Khám phù MLD',
+      'icon': Icons.medical_services_outlined,
+    },
+    {
       'title': 'Liệu trình',
-      'icon': Icons.spa_outlined,
+      'icon': Icons.healing_outlined,
     },
     {
-      'title': 'Khóa học',
-      'icon': Icons.school_outlined,
-    },
-    {
-      'title': 'Ưu đãi',
-      'icon': Icons.local_offer_outlined,
+      'title': 'Tài liệu',
+      'icon': Icons.menu_book_outlined,
     },
   ];
 
@@ -984,7 +984,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                 elevation: 0,
                               ),
                               onPressed: () {
-                                if (_heroBannerIndex == 2) {
+                                if (_heroBannerIndex == 0) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
+                                  );
+                                } else if (_heroBannerIndex == 2) {
                                   widget.onNavigateToAcademy?.call();
                                 } else {
                                   _handleBooking(_heroBanners[_heroBannerIndex]['title']);
@@ -1036,27 +1041,27 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     onTap: () {
                       if (item['title'] == 'Đặt lịch') {
                         _handleBooking();
+                      } else if (item['title'] == 'Khám phù MLD') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
+                        );
                       } else if (item['title'] == 'Liệu trình' || item['title'] == 'Gói liệu trình') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
                         );
+                      } else if (item['title'] == 'Tài liệu') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const D09DocumentsScreen()),
+                        );
                       } else if (item['title'] == 'Khóa học') {
                         widget.onNavigateToAcademy?.call();
-                      } else if (item['title'] == 'Ưu đãi') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
-                        );
-                      } else if (item['title'] == 'Chuyên viên') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()),
-                        );
                       } else {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()),
+                          MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
                         );
                       }
                     },

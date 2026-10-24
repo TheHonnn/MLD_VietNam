@@ -1,34 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// Bảng màu chuẩn TRẮNG VÀ XANH Y TẾ (Medical Blue & White)
-/// Định vị trung tâm y tế, phòng khám trị liệu chuyên sâu MLD Việt Nam
+/// Bảng mã màu trích xuất 100% từ Figma Design System (Node 8107:5498 & Figma Styles)
 class AppColors {
-  // Brand Primary & Secondary - Xanh Y Tế Quốc Tế
-  static const Color primary = Color(0xFF0066B2); // Medical Cerulean Blue
-  static const Color primaryDark = Color(0xFF004C87); // Deep Medical Navy
-  static const Color secondary = Color(0xFF0284C7); // Cyan / Sky Blue
-  static const Color primaryLight = Color(0xFFE6F0FA); // Soft Medical Blue Tint
-  static const Color accent = Color(0xFF0284C7);
+  // Brand Primary & Secondary
+  static const Color primary = Color(0xFF985018); // --color-primary
+  static const Color primaryDark = Color(0xFF693B20); // --color-textHeading
+  static const Color secondary = Color(0xFFC58D59); // --color-secondary
+  static const Color primaryLight = Color(0xFFC58D59);
+  static const Color accent = Color(0xFFC58D59);
 
-  // Backgrounds & Surface - Trắng Sáng & Slate Siêu Sạch
-  static const Color background = Color(0xFFF8FAFC); // Clean Medical White / Slate 50
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceSecondary = Color(0xFFF0F7FF); // Soft Medical Tint Box
-  static const Color backgroundCard = Color(0xFFF0F7FF);
-  static const Color surfaceDisabled = Color(0xFFE2E8F0);
-  static const Color surfaceMuted = Color(0xFFF1F5F9);
-  static const Color border = Color(0xFFE2E8F0); // Slate 200
+  // Backgrounds & Surface
+  static const Color background = Color(0xFFF8F1E8); // Screen canvas #F8F1E8
+  static const Color surface = Color(0xFFFFFFFF); // --color-surface
+  static const Color surfaceSecondary = Color(0xFFF3E2CE); // --color-surfaceSecondary (Soft Amber Warm Box)
+  static const Color backgroundCard = Color(0xFFF3E2CE);
+  static const Color surfaceDisabled = Color(0xFFEBE3DA); // --color-surfaceDisabled
+  static const Color surfaceMuted = Color(0xFFEBE3DA);
+  static const Color border = Color(0xFFE3D1BF); // --color-border
 
-  // Text & Typography - Chuẩn Y Khoa Hiện Đại
-  static const Color textHeading = Color(0xFF0F172A); // Slate 900
-  static const Color textPrimary = Color(0xFF1E293B); // Slate 800
-  static const Color textSecondary = Color(0xFF64748B); // Slate 500
-  static const Color textPlaceholder = Color(0xFF94A3B8); // Slate 400
-  static const Color textInverse = Color(0xFFFFFFFF);
+  // Text & Typography
+  static const Color textHeading = Color(0xFF693B20); // --color-textHeading
+  static const Color textPrimary = Color(0xFF40352F); // --color-textPrimary
+  static const Color textSecondary = Color(0xFF6B6158); // --color-textSecondaryAccessible
+  static const Color textPlaceholder = Color(0xFFA1978E);
+  static const Color textInverse = Color(0xFFFFFFFF); // --color-textInverse
 
   // Status & Utility Accents
-  static const Color accentTeal = Color(0xFF0EA5E9);
-  static const Color success = Color(0xFF16A34A);
-  static const Color error = Color(0xFFDC2626);
-  static const Color errorDark = Color(0xFFB91C1C);
+  static const Color accentTeal = Color(0xFF213C43);
+  static const Color success = Color(0xFF2E8B57);
+  static const Color error = Color(0xFFD64545);
+  static const Color errorDark = Color(0xFFB63131);
 }

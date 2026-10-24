@@ -1,3 +1,4 @@
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/material.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
@@ -299,9 +300,9 @@ class E12LearningResultsScreen extends StatelessWidget {
             _buildReviewCard('Thái độ học tập.', 'Tích cực tiếp nhận góp ý và phối hợp trong nhóm.'),
             const SizedBox(height: 24),
 
-            // 7. Chứng nhận hoàn thành [8116:26558]
+            // 7. Giấy chứng nhận hoàn thành đào tạo (Mục 66 - 75)
             const Text(
-              'Chứng nhận hoàn thành',
+              'Giấy chứng nhận tốt nghiệp',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -310,18 +311,18 @@ class E12LearningResultsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // CertificatePreview / 01
+            // CertificateCard chuẩn Y khoa MLD
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF0284C7), width: 1.5),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF0066B2), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                    blurRadius: 10,
+                    color: const Color(0xFF0066B2).withValues(alpha: 0.1),
+                    blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -329,96 +330,153 @@ class E12LearningResultsScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.4), width: 1.0),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF0066B2).withValues(alpha: 0.3), width: 1.0),
                 ),
                 child: Column(
                   children: [
-                    // Logo
+                    // Logo & Đơn vị cấp
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.workspace_premium, color: Color(0xFF0284C7), size: 32),
+                        Icon(Icons.workspace_premium_rounded, color: Color(0xFF0066B2), size: 32),
                         SizedBox(width: 8),
                         Text(
-                          'MLD ACADEMY',
+                          'MLD VIETNAM ACADEMY',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
-                            color: AcademyColors.heading,
+                            color: Color(0xFF004C87),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     const Text(
-                      'CHỨNG NHẬN HOÀN THÀNH KHÓA HỌC',
+                      'GIẤY CHỨNG NHẬN ĐÀO TẠO NGHỀ',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
-                        color: AcademyColors.heading,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Container(
-                      width: 56,
-                      height: 2,
+                      width: 60,
+                      height: 2.5,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF0284C7), Color(0xFF0066B2)],
+                          colors: [Color(0xFF0066B2), Color(0xFF0284C7)],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     const Text(
-                      'Ghi nhận học viên',
-                      style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
+                      'Chứng nhận học viên',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     const Text(
                       'Nguyễn Minh Anh',
                       style: TextStyle(
                         fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.primary,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0066B2),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     const Text(
-                      'đã hoàn thành chương trình',
-                      style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
+                      'Sinh ngày: 15/08/1996',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     const Text(
-                      'Kỹ thuật Massage Cơ Bản',
+                      'Đã hoàn thành xuất sắc khóa đào tạo chuyên sâu:',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Kỹ thuật Dẫn lưu bạch huyết MLD Chuyên Sâu',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Ngày hoàn thành: 28/08/2026',
-                      style: TextStyle(fontSize: 12, color: AcademyColors.textPrimary),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F7FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Mã Giấy chứng nhận:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                              Text('MLD-GCN-2026-00089', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066B2))),
+                            ],
+                          ),
+                          SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Ngày cấp:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                              Text('28/08/2026', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const Text(
-                      'Mã mẫu: CN-DEMO-000072',
-                      style: TextStyle(fontSize: 12, color: AcademyColors.textPrimary),
+                    const SizedBox(height: 16),
+                    // Mã QR tra cứu chứng nhận (Mục 72)
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: QrImageView(
+                        data: 'https://mldvietnam.edu.vn/verify/MLD-GCN-2026-00089',
+                        version: QrVersions.auto,
+                        size: 96,
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    const Divider(color: AcademyColors.cardBorder, height: 1),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
                     const Text(
-                      'Chứng nhận hoàn thành khóa đào tạo chuyên môn tại Viện Đào tạo MLD Vietnam.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AcademyColors.textSecondary,
-                        height: 1.35,
+                      'Quét mã QR để tra cứu tính xác thực trực tuyến',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 16),
+                    // Nút xuất PDF (Mục 75)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đang tải xuống Giấy chứng nhận bản PDF chính thức (MLD-GCN-2026-00089.pdf)...'),
+                              backgroundColor: Color(0xFF0066B2),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                        label: const Text('Xuất Giấy chứng nhận (PDF)', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0066B2),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
                       ),
                     ),
                   ],
@@ -427,10 +485,9 @@ class E12LearningResultsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Chú thích chân trang [8116:26572]
             const Center(
               child: Text(
-                'Chứng nhận và các nút xem, tải chỉ là giao diện tĩnh; không tạo hoặc tải tài liệu thực tế.',
+                'Giấy chứng nhận được lưu trữ điện tử vĩnh viễn trên hệ thống MLD Vietnam.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AcademyColors {
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color primary = Color(0xFF0066B2);
-  static const Color heading = Color(0xFF0F172A);
-  static const Color textPrimary = Color(0xFF1E293B);
-  static const Color textSecondary = Color(0xFF64748B);
-  static const Color cardWarm = Color(0xFFF0F7FF);
-  static const Color cardBorder = Color(0xFFE2E8F0);
+  static const Color background = Color(0xFFF8F1E8);
+  static const Color primary = Color(0xFF985018);
+  static const Color heading = Color(0xFF693B20);
+  static const Color textPrimary = Color(0xFF40352F);
+  static const Color textSecondary = Color(0xFF6B6158);
+  static const Color cardWarm = Color(0xFFF3E2CE);
+  static const Color cardBorder = Color(0xFFE3D1BF);
   static const Color cardWhite = Colors.white;
-  static const Color success = Color(0xFF16A34A);
+  static const Color success = Color(0xFF2E8B57);
 }
 
 class AcademyAppBar extends StatelessWidget implements PreferredSizeWidget {

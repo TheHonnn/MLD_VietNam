@@ -4,6 +4,8 @@ import '../../../home/data/repositories/service_repository.dart';
 import '../../../home/data/models/home_models.dart';
 import 'b03_service_detail_screen.dart';
 import '../../../home/presentation/screens/b04_search_screen.dart';
+import '../../../booking/data/models/booking_models.dart';
+import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
 
 class B02ServiceListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -28,11 +30,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
   List<String> _categories = [
     'Tất cả',
-    'Massage thư giãn',
-    'Chăm sóc da',
-    'Chăm sóc cơ thể',
-    'Chăm sóc sức khỏe',
-    'Gói liệu trình',
+    'Dẫn lưu bạch huyết MLD',
+    'Phù nề sau phẫu thuật',
+    'Đau mỏi cổ vai gáy',
+    'Liệu trình phục hồi',
+    'Chăm sóc da y khoa',
   ];
 
   List<Map<String, dynamic>> _allServices = [];
@@ -94,13 +96,32 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     final selectedCategory = _selectedCategoryIndex < _categories.length ? _categories[_selectedCategoryIndex] : 'Tất cả';
 
     var list = _allServices.where((service) {
-      final matchesQuery = query.isEmpty ||
-          (service['title'] as String).toLowerCase().contains(query) ||
-          (service['description'] as String).toLowerCase().contains(query);
+      final sTitle = (service['title'] as String).toLowerCase();
+      final sDesc = (service['description'] as String).toLowerCase();
+      final sCat = (service['category'] as String).toLowerCase();
 
-      final matchesCategory = _selectedCategoryIndex == 0 ||
-          service['category'] == selectedCategory ||
-          service['category'].toString().toLowerCase().contains(selectedCategory.toLowerCase());
+      final matchesQuery = query.isEmpty ||
+          sTitle.contains(query) ||
+          sDesc.contains(query) ||
+          sCat.contains(query);
+
+      bool matchesCategory = _selectedCategoryIndex == 0;
+      if (!matchesCategory) {
+        final catLower = selectedCategory.toLowerCase();
+        if (catLower.contains('dẫn lưu') || catLower.contains('mld')) {
+          matchesCategory = sTitle.contains('dẫn lưu') || sTitle.contains('mld') || sDesc.contains('bạch huyết') || sCat.contains('massage') || sCat.contains('dẫn lưu');
+        } else if (catLower.contains('phù nề') || catLower.contains('phẫu thuật')) {
+          matchesCategory = sTitle.contains('phù') || sDesc.contains('phẫu thuật') || sDesc.contains('phù') || sDesc.contains('hồi phục');
+        } else if (catLower.contains('cổ vai gáy') || catLower.contains('đau mỏi')) {
+          matchesCategory = sTitle.contains('vai') || sTitle.contains('gáy') || sDesc.contains('vai') || sDesc.contains('cơ');
+        } else if (catLower.contains('liệu trình')) {
+          matchesCategory = sTitle.contains('gói') || sTitle.contains('liệu trình') || sCat.contains('liệu trình');
+        } else if (catLower.contains('da')) {
+          matchesCategory = sTitle.contains('da') || sDesc.contains('da') || sCat.contains('da');
+        } else {
+          matchesCategory = sCat.contains(catLower) || sTitle.contains(catLower);
+        }
+      }
 
       return matchesQuery && matchesCategory;
     }).toList();
@@ -720,46 +741,89 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             ),
                             const SizedBox(height: 14),
 
-                            // Button "Xem chi tiết"
-                            SizedBox(
-                              width: double.infinity,
-                              height: 44,
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: AppColors.primary, width: 1.2),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  foregroundColor: AppColors.primary,
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => B03ServiceDetailScreen(
-                                        serviceId: id,
-                                        serviceCode: service['serviceId'] as String?,
-                                        serviceModel: service['model'] as SpaServiceModel?,
-                                        title: service['title'] as String,
-                                        duration: service['duration'] as String,
-                                        price: service['price'] as String,
-                                        originalPrice: service['originalPrice'] as String?,
-                                        category: service['category'] as String,
-                                        image: service['image'] as String,
-                                        description: service['description'] as String,
+                            // Hàng 2 nút tác vụ: [Xem chi tiết] và [Đặt lịch ngay] (Mục 27 & 28)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 44,
+                                    child: OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(color: AppColors.primary, width: 1.2),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        foregroundColor: AppColors.primary,
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => B03ServiceDetailScreen(
+                                              serviceId: id,
+                                              serviceCode: service['serviceId'] as String?,
+                                              serviceModel: service['model'] as SpaServiceModel?,
+                                              title: service['title'] as String,
+                                              duration: service['duration'] as String,
+                                              price: service['price'] as String,
+                                              originalPrice: service['originalPrice'] as String?,
+                                              category: service['category'] as String,
+                                              image: service['image'] as String,
+                                              description: service['description'] as String,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: const Text(
+                                        'Xem chi tiết',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
                                     ),
-                                  );
-                                },
-                                child: const Text(
-                                  'Xem chi tiết',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary,
                                   ),
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 44,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        elevation: 0,
+                                      ),
+                                      onPressed: () {
+                                        final model = service['model'] as SpaServiceModel?;
+                                        final flow = BookingFlowState(
+                                          selectedService: model,
+                                          selectedServices: model != null ? [model] : [],
+                                          autoAssignSpecialist: true,
+                                        );
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => C02BranchSelectionScreen(flowState: flow),
+                                          ),
+                                        );
+                                      },
+                                      child: const Text(
+                                        'Đặt lịch ngay',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

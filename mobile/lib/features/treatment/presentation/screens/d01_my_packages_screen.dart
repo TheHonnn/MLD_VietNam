@@ -6,6 +6,8 @@ import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
 
 import 'd02_package_details_screen.dart';
+import '../../../booking/data/models/booking_models.dart';
+import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 
 class D01MyPackagesScreen extends StatefulWidget {
@@ -550,25 +552,66 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 ),
 
                 const SizedBox(height: 14),
-                // Nút Xem chi tiết (r=14)
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: onTap,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 1.0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text(
-                      'Xem chi tiết',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary, // #985018
+                // Nút xem chi tiết & Nút đặt lịch buổi tiếp theo trong liệu trình (Mục 22, 23)
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: OutlinedButton(
+                          onPressed: onTap,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.primary, width: 1.2),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text(
+                            'Xem chi tiết',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    if (package.remainingSessions > 0) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final flow = BookingFlowState(
+                                usePrepaidPackage: true,
+                                prepaidPackageName: package.packageName,
+                                autoAssignSpecialist: true,
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => C02BranchSelectionScreen(flowState: flow),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              'Đặt buổi tiếp',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
