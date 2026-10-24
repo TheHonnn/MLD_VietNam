@@ -81,3 +81,19 @@ CREATE POLICY "Staff manage treatment_packages" ON public.treatment_packages
   FOR ALL TO authenticated, anon
   USING (true)
   WITH CHECK (true);
+
+-- 5. Cấu hình khóa ngoại hỗ trợ Xóa vĩnh viễn (Hard Delete) dịch vụ
+-- Đảm bảo khi xóa hẳn dịch vụ không bị chặn bởi khóa ngoại
+ALTER TABLE public.booking_items ALTER COLUMN service_id DROP NOT NULL;
+ALTER TABLE public.booking_items DROP CONSTRAINT IF EXISTS booking_items_service_id_fkey;
+ALTER TABLE public.booking_items ADD CONSTRAINT booking_items_service_id_fkey 
+  FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE SET NULL;
+
+ALTER TABLE public.miniapp_favorite_services DROP CONSTRAINT IF EXISTS miniapp_favorite_services_service_id_fkey;
+ALTER TABLE public.miniapp_favorite_services ADD CONSTRAINT miniapp_favorite_services_service_id_fkey 
+  FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+
+ALTER TABLE public.miniapp_technician_services DROP CONSTRAINT IF EXISTS miniapp_technician_services_service_id_fkey;
+ALTER TABLE public.miniapp_technician_services ADD CONSTRAINT miniapp_technician_services_service_id_fkey 
+  FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+
