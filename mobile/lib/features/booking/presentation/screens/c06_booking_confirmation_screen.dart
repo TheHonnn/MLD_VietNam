@@ -7,7 +7,7 @@ import 'c02_branch_selection_screen.dart';
 import 'c03_specialist_selection_screen.dart';
 import 'c04_datetime_selection_screen.dart';
 import 'c05_booking_info_screen.dart';
-import 'c07_payment_qr_screen.dart';
+import 'c08_booking_success_screen.dart';
 
 /// Screen C06: Xác nhận đặt lịch [8111:27118]
 class C06BookingConfirmationScreen extends StatefulWidget {
@@ -44,8 +44,8 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
     final discount = widget.flowState.voucherDiscount;
     final packageUsed = widget.flowState.usePrepaidPackage ? widget.flowState.servicePrice : 0.0;
     final total = widget.flowState.usePrepaidPackage ? 0.0 : widget.flowState.servicePrice;
-    final deposit = widget.flowState.usePrepaidPackage ? 0.0 : 150000.0;
-    final remaining = widget.flowState.usePrepaidPackage ? 0.0 : (total - deposit).clamp(0.0, double.infinity);
+    const deposit = 0.0;
+    final remaining = total;
 
     return Scaffold(
       backgroundColor: BookingColors.background,
@@ -259,14 +259,17 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
 
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
-              summaryText: 'Tổng ${_formatPrice(total)}đ · Tiền cọc ${_formatPrice(deposit)}đ',
-              buttonText: 'Tiếp tục thanh toán',
+              summaryText: 'Chi phí: ${_formatPrice(total)}đ · Thanh toán tại cơ sở',
+              buttonText: 'Xác nhận đặt lịch',
               isEnabled: _agreeTerms,
               onPressed: () {
+                widget.flowState.paymentMethod = 'AT_BRANCH';
+                widget.flowState.bookingCode ??=
+                    'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => C07PaymentQrScreen(flowState: widget.flowState),
+                    builder: (_) => C08BookingSuccessScreen(flowState: widget.flowState),
                   ),
                 );
               },

@@ -4,7 +4,7 @@ import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../data/models/booking_models.dart';
 import '../widgets/group_c_widgets.dart';
-import 'c03_specialist_selection_screen.dart';
+import 'c04_datetime_selection_screen.dart';
 
 /// Screen C02: Chọn chi nhánh [8111:26619]
 class C02BranchSelectionScreen extends StatefulWidget {
@@ -359,12 +359,14 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
               summaryText: 'Đang chọn: ${selectedBranch?.name ?? "Chi nhánh Quận 3"}',
-              buttonText: 'Tiếp tục chọn chuyên viên',
+              buttonText: 'Tiếp tục chọn ngày & giờ',
               onPressed: () {
+                widget.flowState.autoAssignSpecialist = true;
+                widget.flowState.selectedSpecialist = null;
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => C03SpecialistSelectionScreen(flowState: widget.flowState),
+                    builder: (_) => C04DateTimeSelectionScreen(flowState: widget.flowState),
                   ),
                 );
               },

@@ -5,7 +5,7 @@ import '../../../../core/widgets/vietnamese_dob_picker.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
 import '../widgets/academy_widgets.dart';
-import 'e06_tuition_payment_screen.dart';
+
 
 /// Screen E05: Đăng ký khóa học [8116:25606]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -87,6 +87,35 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     super.dispose();
   }
 
+  void _submitConsultation(String phone) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Color(0xFF236B42), size: 28),
+            SizedBox(width: 10),
+            Text('Đăng ký thành công', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Yêu cầu tư vấn & giữ chỗ khóa học của bạn đã được ghi nhận thành công.\n\nĐội ngũ đào tạo MLD Vietnam sẽ liên hệ trực tiếp qua số điện thoại để tư vấn lộ trình và hướng dẫn thủ tục nhập học cho bạn.',
+          style: TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Đồng ý', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final course = widget.course;
@@ -97,8 +126,8 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
-        summaryText: 'Đặt cọc · 2.000.000đ',
-        buttonText: 'Tiếp tục thanh toán',
+        summaryText: 'Tư vấn & Giữ chỗ miễn phí',
+        buttonText: 'Xác nhận đăng ký tư vấn',
         onPressed: () async {
           if (_formKey.currentState?.validate() ?? false) {
             final phone = _phoneController.text.trim().replaceAll(' ', '');
@@ -108,18 +137,18 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               repo.updateProfile(repo.profile.copyWith(phone: phone, isPhoneVerified: true));
             }
             if (context.mounted) {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => E06TuitionPaymentScreen(
-                    course: course,
-                    studentName: _nameController.text.trim(),
-                    studentPhone: phone,
-                    studentEmail: _emailController.text.trim(),
-                    selectedBranch: _selectedBranch,
-                    selectedShift: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
+              _submitConsultation(phone);
+                // MaterialPageRoute(
+                  // builder: (_) => E06TuitionPaymentScreen(
+                    // course: course,
+                    // studentName: _nameController.text.trim(),
+                    // studentPhone: phone,
+                    // studentEmail: _emailController.text.trim(),
+                    // selectedBranch: _selectedBranch,
+                    /* selectedShift: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
                   ),
                 ),
-              );
+              // ); */
             }
           }
         },

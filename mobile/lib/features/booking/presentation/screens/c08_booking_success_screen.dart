@@ -41,7 +41,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
           '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
       branchPhone: widget.flowState.selectedBranch?.phone ?? '0901 234 567',
       specialistName: widget.flowState.autoAssignSpecialist
-          ? 'Hệ thống tự động sắp xếp'
+          ? 'Hệ thống tự động phân bổ KTV & Giường'
           : (widget.flowState.selectedSpecialist?.name ?? 'Kỹ thuật viên chỉ định'),
       specialistTitle: widget.flowState.selectedSpecialist?.title ?? 'Kỹ thuật viên',
       specialistAvatar: widget.flowState.selectedSpecialist?.avatarUrl ??
@@ -57,10 +57,10 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
       customerEmail: widget.flowState.customerEmail,
       specialNotes: widget.flowState.specialNotes,
       totalAmount: widget.flowState.servicePrice,
-      depositAmount: widget.flowState.depositAmount,
-      remainingAmount: widget.flowState.remainingAmount,
+      depositAmount: 0.0,
+      remainingAmount: widget.flowState.servicePrice,
       paymentMethod: widget.flowState.paymentMethod == 'BANK_TRANSFER_QR'
-          ? 'Chuyển khoản ngân hàng / QR'
+          ? 'Thanh toán tại cơ sở'
           : widget.flowState.paymentMethod,
       status: AppointmentStatus.confirmed,
       createdAt: DateTime.now(),
@@ -105,15 +105,15 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
         : 'Massage thư giãn toàn thân';
     final branchName = widget.flowState.selectedBranch?.name ?? 'Chi nhánh Quận 3';
     final specialistName = widget.flowState.autoAssignSpecialist
-        ? 'Hệ thống tự động sắp xếp'
+        ? 'Hệ thống tự động phân bổ KTV & Giường'
         : (widget.flowState.selectedSpecialist?.name ?? 'Kỹ thuật viên chỉ định');
     final customerName = widget.flowState.customerName.isNotEmpty
         ? widget.flowState.customerName
         : 'Nguyễn Minh Anh';
     final duration = widget.flowState.totalDurationMinutes;
     final total = widget.flowState.servicePrice;
-    final deposit = widget.flowState.depositAmount;
-    final remaining = widget.flowState.remainingAmount;
+
+
 
     final date = widget.flowState.selectedDate;
     final dateStr =
@@ -222,7 +222,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Chuyên viên: $specialistName',
+                          'Kỹ thuật viên & Giường: $specialistName',
                           style: const TextStyle(
                             fontSize: 14,
                             color: BookingColors.textPrimary,
@@ -246,7 +246,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Đã thanh toán cọc ${_formatCurrency(deposit)}đ',
+                          'Thanh toán tại cơ sở: ${_formatCurrency(total)}đ',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -254,7 +254,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        _buildRow('Còn thanh toán', '${_formatCurrency(remaining)}đ'),
+                        _buildRow('Hình thức thanh toán', 'Thanh toán tại quầy khi đến'),
                         const SizedBox(height: 14),
 
                         // CheckInQRCode (318x224, fill=#F3E2CE, r=20)

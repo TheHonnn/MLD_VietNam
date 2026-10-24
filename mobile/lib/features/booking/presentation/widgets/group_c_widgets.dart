@@ -323,8 +323,8 @@ class BookingSummaryCardWidget extends StatelessWidget {
         '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh';
     final specialistName = appointment?.specialistName ??
         (flowState?.autoAssignSpecialist == true
-            ? 'Để trung tâm sắp xếp'
-            : (flowState?.selectedSpecialist?.name ?? 'Để trung tâm sắp xếp'));
+            ? 'Hệ thống tự động phân bổ'
+            : (flowState?.selectedSpecialist?.name ?? 'Hệ thống tự động phân bổ'));
     final customerName = appointment?.customerName ??
         (flowState?.customerName.isNotEmpty == true
             ? flowState!.customerName
@@ -497,14 +497,14 @@ class BookingSummaryCardWidget extends StatelessWidget {
 
           // 4. CHUYÊN VIÊN
           Text(
-            'Chuyên viên: $specialistName',
+            'Kỹ thuật viên & Giường: $specialistName',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: BookingColors.textPrimary,
             ),
           ),
-          _buildEditLink('Sửa chuyên viên', onEditSpecialist),
+          // Khách không tự chọn KTV, hệ thống tự động phân bổ KTV & Giường
 
           const SizedBox(height: 16),
 
@@ -616,11 +616,11 @@ class PriceBreakdownCardWidget extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _buildRow(
-            isDepositPaid ? 'Tiền cọc đã thanh toán' : 'Tiền đặt cọc',
-            '${_formatCurrency(deposit)}đ',
+            'Tiền đặt cọc',
+            deposit > 0 ? '${_formatCurrency(deposit)}đ' : '0đ (Không yêu cầu cọc)',
           ),
           const SizedBox(height: 8),
-          _buildRow('Thanh toán tại cơ sở', '${_formatCurrency(remaining)}đ'),
+          _buildRow('Hình thức thanh toán', 'Thanh toán tại cơ sở khi đến'),
         ],
       ),
     );
