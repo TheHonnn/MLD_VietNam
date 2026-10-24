@@ -290,23 +290,23 @@ function ServicePricingTiersEditor({
     const template: PricingTier[] = [
       {
         id: "tier_1",
-        name: "Chăm sóc dự phòng 1 vùng ngực",
-        description: "Dành cho khách hàng chưa phù hoặc phòng ngừa tái phát",
+        name: "Cấp độ 1 - Chăm sóc cơ bản / Tiêu chuẩn",
+        description: "Dành cho tình trạng nhẹ, thư giãn phục hồi hoặc duy trì",
         price: 350000,
         unit: "VNĐ/buổi",
       },
       {
         id: "tier_2",
-        name: "Khi tay đã phù giai đoạn 1 (Phù mềm ấn lõm)",
-        description: "Giai đoạn sớm, mô còn mềm, đáp ứng tốt với dẫn lưu bạch huyết",
-        price: 700000,
+        name: "Cấp độ 2 - Trị liệu chuyên sâu / Phục hồi",
+        description: "Áp dụng kỹ thuật chuyên sâu giải quyết tắc nghẽn, đau nhức",
+        price: 500000,
         unit: "VNĐ/buổi",
       },
       {
         id: "tier_3",
-        name: "Khi tay đã phù giai đoạn 2 (Phù cứng)",
-        description: "Phù cứng xơ hóa, cần liệu trình chuyên sâu kết hợp băng ép",
-        price: 890000,
+        name: "Cấp độ 3 - Trị liệu nâng cao / Toàn diện",
+        description: "Liệu trình chuyên biệt kết hợp công nghệ và kỹ thuật nâng cao",
+        price: 750000,
         unit: "VNĐ/buổi",
       },
     ];
@@ -325,7 +325,7 @@ function ServicePricingTiersEditor({
             </span>
           </span>
           <p className="text-[11px] text-[#8A7968] mt-0.5">
-            Dành cho dịch vụ có nhiều mức giá theo giai đoạn bệnh (như Phù tay: Dự phòng 350k, GĐ1 700k, GĐ2 890k)
+            Dành cho dịch vụ có nhiều mức giá theo cấp độ, thời lượng hoặc giai đoạn (VD: Cấp độ 1: 350k, Cấp độ 2: 500k, Cấp độ 3: 750k...)
           </p>
         </div>
 
@@ -335,9 +335,9 @@ function ServicePricingTiersEditor({
               type="button"
               onClick={applyPhuTayTemplate}
               className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#8A4F23] bg-white border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer shadow-2xs transition-colors"
-              title="Điền mẫu dịch vụ giảm phù tay 3 giai đoạn"
+              title="Điền mẫu dịch vụ 3 cấp độ / giai đoạn"
             >
-              ⚡ Mẫu gợi ý (Phù tay)
+              ⚡ Mẫu gợi ý (3 cấp độ)
             </button>
           )}
           <button
@@ -355,7 +355,7 @@ function ServicePricingTiersEditor({
         <div className="py-4 text-center border border-dashed border-[#D5C7B8] rounded-lg bg-white/50 text-[#8C7A6B]">
           <p className="text-xs font-medium">Chưa có phân loại giá theo giai đoạn.</p>
           <p className="text-[11px] mt-0.5">
-            Nếu dịch vụ này có giá đồng nhất, chỉ cần điền ô <b>Giá niêm yết</b> ở trên. Nếu có nhiều mức giá theo giai đoạn bệnh, hãy bấm <b>"+ Thêm mức giá / giai đoạn"</b> hoặc <b>"⚡ Mẫu gợi ý"</b>.
+            Nếu dịch vụ này có giá đồng nhất, chỉ cần điền ô <b>Giá niêm yết</b> ở trên. Nếu có nhiều mức giá theo cấp độ/giai đoạn, hãy bấm <b>"+ Thêm mức giá / giai đoạn"</b> hoặc <b>"⚡ Mẫu gợi ý"</b>.
           </p>
         </div>
       ) : (
@@ -392,7 +392,15 @@ function ServicePricingTiersEditor({
                   <input
                     type="text"
                     value={tier.name}
-                    placeholder="VD: Khi tay đã phù giai đoạn 1 (Phù mềm ấn lõm)..."
+                    placeholder={
+                      idx === 0
+                        ? "VD: Cấp độ 1 - Chăm sóc cơ bản / Khởi đầu..."
+                        : idx === 1
+                        ? "VD: Cấp độ 2 - Trị liệu chuyên sâu / Phục hồi..."
+                        : idx === 2
+                        ? "VD: Cấp độ 3 - Liệu trình nâng cao / Tăng cường..."
+                        : `VD: Cấp độ ${idx + 1} - Liệu trình chuyên biệt / Toàn diện...`
+                    }
                     onChange={(e) => updateTier(idx, { name: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -405,7 +413,7 @@ function ServicePricingTiersEditor({
                   <input
                     type="number"
                     value={tier.price || ""}
-                    placeholder="700000"
+                    placeholder="VD: 500000"
                     onChange={(e) => updateTier(idx, { price: Number(e.target.value) || 0 })}
                     className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -418,7 +426,7 @@ function ServicePricingTiersEditor({
                   <input
                     type="text"
                     value={tier.unit || "VNĐ/buổi"}
-                    placeholder="VNĐ/buổi"
+                    placeholder="VD: VNĐ/buổi, VNĐ/lần, VNĐ/gói..."
                     onChange={(e) => updateTier(idx, { unit: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -428,7 +436,7 @@ function ServicePricingTiersEditor({
                   <input
                     type="text"
                     value={tier.description || ""}
-                    placeholder="Mô tả tình trạng lâm sàng hoặc lưu ý cho giai đoạn này..."
+                    placeholder="Mô tả chi tiết tình trạng, đối tượng áp dụng hoặc ghi chú liệu trình..."
                     onChange={(e) => updateTier(idx, { description: e.target.value })}
                     className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
                   />
@@ -486,11 +494,11 @@ function ServiceAddonsEditor({
   const applyPhuTayAddon = () => {
     const template: ServiceAddon[] = [
       {
-        id: "addon_bang_ep",
-        name: "Giá băng ép cho giai đoạn phù cứng",
-        price: 1000000,
-        unit: "VNĐ/tháng",
-        note: "Vật tư chuyên dụng bắt buộc cho giai đoạn phù cứng xơ hóa",
+        id: "addon_1",
+        name: "Tinh dầu trị liệu & Dụng cụ chuyên dụng",
+        price: 150000,
+        unit: "VNĐ/lần",
+        note: "Vật tư và sản phẩm chăm sóc chuyên sâu kèm theo liệu trình",
       },
     ];
     onChange(template);
@@ -507,7 +515,7 @@ function ServiceAddonsEditor({
             </span>
           </span>
           <p className="text-[11px] text-[#8A7968] mt-0.5">
-            Dành cho vật tư trị liệu, băng ép hoặc phụ phí theo chu kỳ (như: Băng ép phù cứng 1.000.000đ/tháng)
+            Dành cho vật tư trị liệu, sản phẩm chuyên dụng hoặc phụ phí kèm theo (VD: Tinh dầu đặc trị, Dụng cụ chuyên biệt 150.000đ/lần...)
           </p>
         </div>
 
@@ -517,9 +525,9 @@ function ServiceAddonsEditor({
               type="button"
               onClick={applyPhuTayAddon}
               className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#8A4F23] bg-white border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer shadow-2xs transition-colors"
-              title="Điền mẫu băng ép cho phù tay"
+              title="Điền mẫu phụ phí / vật tư kèm theo"
             >
-              ⚡ Mẫu băng ép (1.000k/tháng)
+              ⚡ Mẫu phụ phí gợi ý
             </button>
           )}
           <button
@@ -537,7 +545,7 @@ function ServiceAddonsEditor({
         <div className="py-3 text-center border border-dashed border-[#D5C7B8] rounded-lg bg-white/50 text-[#8C7A6B]">
           <p className="text-xs font-medium">Chưa có vật tư hoặc phụ phí kèm theo.</p>
           <p className="text-[11px] mt-0.5">
-            Nếu dịch vụ có phát sinh chi phí băng ép, vật tư định kỳ, bấm <b>"+ Thêm vật tư / phụ phí"</b>.
+            Nếu dịch vụ có phát sinh chi phí vật tư hoặc sản phẩm bổ sung, bấm <b>"+ Thêm vật tư / phụ phí"</b>.
           </p>
         </div>
       ) : (
@@ -569,7 +577,7 @@ function ServiceAddonsEditor({
                   <input
                     type="text"
                     value={addon.name}
-                    placeholder="VD: Giá băng ép cho giai đoạn phù cứng..."
+                    placeholder="VD: Tinh dầu trị liệu chuyên sâu, Dụng cụ chuyên dụng, Kem dưỡng..."
                     onChange={(e) => updateAddon(idx, { name: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -582,7 +590,7 @@ function ServiceAddonsEditor({
                   <input
                     type="number"
                     value={addon.price || ""}
-                    placeholder="1000000"
+                    placeholder="VD: 150000"
                     onChange={(e) => updateAddon(idx, { price: Number(e.target.value) || 0 })}
                     className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -594,8 +602,8 @@ function ServiceAddonsEditor({
                   </label>
                   <input
                     type="text"
-                    value={addon.unit || "VNĐ/tháng"}
-                    placeholder="VNĐ/tháng"
+                    value={addon.unit || "VNĐ/lần"}
+                    placeholder="VD: VNĐ/lần, VNĐ/buổi, VNĐ/bộ..."
                     onChange={(e) => updateAddon(idx, { unit: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -605,7 +613,7 @@ function ServiceAddonsEditor({
                   <input
                     type="text"
                     value={addon.note || ""}
-                    placeholder="Ghi chú sử dụng (VD: Áp dụng cho bệnh nhân bước vào giai đoạn phù cứng xơ hóa)..."
+                    placeholder="Ghi chú sử dụng (VD: Áp dụng khi khách yêu cầu sản phẩm/vật tư bổ sung)..."
                     onChange={(e) => updateAddon(idx, { note: e.target.value })}
                     className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
                   />
