@@ -9,3 +9,7 @@ export * from './pos.service';
 export * from './academy.service';
 export * from './notification.service';
 export * from './realtime.service';
+export * from './commission.service';
+export * from './zns.service';
+export * from './inventory.service';
+

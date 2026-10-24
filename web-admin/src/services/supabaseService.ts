@@ -47,7 +47,7 @@ class SupabaseService {
     });
   }
 
-  private async query<T>(path: string, options: RequestInit = {}): Promise<T | null> {
+  public async query<T>(path: string, options: RequestInit = {}): Promise<T | null> {
     // 1. Direct Supabase Cloud REST API (Primary for live production on Vercel & mobile sync)
     if (this.url && this.key) {
       try {

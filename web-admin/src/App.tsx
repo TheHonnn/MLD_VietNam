@@ -19,7 +19,11 @@ const W09_Instructors = lazy(() => import('./pages/W09_Instructors').then((m) =>
 const W10_Attendance = lazy(() => import('./pages/W10_Attendance').then((m) => ({ default: m.W10_Attendance })));
 const W11_Curriculum = lazy(() => import('./pages/W11_Curriculum').then((m) => ({ default: m.W11_Curriculum })));
 const W12_FinancialReports = lazy(() => import('./pages/W12_FinancialReports').then((m) => ({ default: m.W12_FinancialReports })));
+const W13_StaffCommissions = lazy(() => import('./pages/W13_StaffCommissions').then((m) => ({ default: m.W13_StaffCommissions })));
+const W14_ZaloZNS = lazy(() => import('./pages/W14_ZaloZNS').then((m) => ({ default: m.W14_ZaloZNS })));
+const W15_InventoryBOM = lazy(() => import('./pages/W15_InventoryBOM').then((m) => ({ default: m.W15_InventoryBOM })));
 const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ default: m.ResourcePage })));
+
 
 const PageLoadingFallback: React.FC = () => (
   <div className="min-h-[400px] w-full flex flex-col items-center justify-center p-8 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -193,7 +197,64 @@ const AppContent: React.FC = () => {
                 </RoleRoute>
               }
             />
+            <Route
+              path="commissions"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
+                  <W13_StaffCommissions />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="staff-commissions"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
+                  <W13_StaffCommissions />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="hoa-hong"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
+                  <W13_StaffCommissions />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="zalo-zns"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST']}>
+                  <W14_ZaloZNS />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="crm-zns"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST']}>
+                  <W14_ZaloZNS />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="inventory-bom"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
+                  <W15_InventoryBOM />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="dinh-muc-vat-tu"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
+                  <W15_InventoryBOM />
+                </RoleRoute>
+              }
+            />
             <Route path="manage/branches" element={<Navigate to="/branches" replace />} />
+
             <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
