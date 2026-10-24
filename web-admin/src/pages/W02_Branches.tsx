@@ -33,6 +33,8 @@ import {
   Pencil,
   Filter,
   ArrowUpDown,
+  Upload,
+  Clipboard,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
@@ -88,6 +90,281 @@ const getRoomTypeBadgeStyle = (type: string) => {
     default:
       return 'bg-[#FAF0E4] text-[#8A4F23] border-[#E8DACB]';
   }
+};
+
+interface BranchImageUploadInputProps {
+  value: string;
+  onChange: (url: string) => void;
+}
+
+const BranchImageUploadInput: React.FC<BranchImageUploadInputProps> = ({ value, onChange }) => {
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const uploadImageBlob = async (blob: Blob, nameHint = 'branch_img.png') => {
+    const ext = nameHint.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'png';
+    const cleanFileName = `branch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const SUPABASE_URL = 'https://wstvwushpwcdsmhpunvh.supabase.co';
+    const KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
+
+    // Try 'services' bucket first, then fallback to 'avatars'
+    let targetBucket = 'services';
+    let res = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          'Content-Type': blob.type || 'image/png',
+        },
+        body: blob,
+      }
+    );
+
+    if (!res.ok) {
+      targetBucket = 'avatars';
+      res = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${KEY}`,
+            'Content-Type': blob.type || 'image/png',
+          },
+          body: blob,
+        }
+      );
+    }
+
+    if (!res.ok) {
+      throw new Error('Không thể tải ảnh lên kho lưu trữ Supabase.');
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+  };
+
+  const handleProcessFile = async (file: File | Blob, nameHint?: string) => {
+    setUploading(true);
+    try {
+      const publicUrl = await uploadImageBlob(file, nameHint || (file as File).name);
+      onChange(publicUrl);
+      toast.success('Tải ảnh thành công', 'Ảnh cơ sở đã được tải lên máy chủ.');
+    } catch (err: any) {
+      toast.error('Lỗi tải ảnh', err.message || 'Không thể tải ảnh lên máy chủ.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await handleProcessFile(file, `pasted_${Date.now()}.${item.type.split('/')[1] || 'png'}`);
+          return;
+        }
+      }
+    }
+  };
+
+  const handlePasteButtonClick = async () => {
+    if (!navigator.clipboard) {
+      toast.warning('Bộ nhớ tạm', 'Vui lòng nhấn phím tắt Ctrl+V trực tiếp vào ô nhập để dán ảnh!');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      if (navigator.clipboard.read) {
+        try {
+          const clipboardItems = await navigator.clipboard.read();
+          for (const item of clipboardItems) {
+            const imgType = item.types.find((t) => t.startsWith('image/'));
+            if (imgType) {
+              const blob = await item.getType(imgType);
+              const url = await uploadImageBlob(blob, `pasted_${Date.now()}.${imgType.split('/')[1] || 'png'}`);
+              onChange(url);
+              setUploading(false);
+              toast.success('Dán ảnh thành công', 'Đã tải ảnh cơ sở từ bộ nhớ tạm.');
+              return;
+            }
+          }
+        } catch (readErr) {
+          console.warn('clipboard.read() not allowed or no blob, trying readText()', readErr);
+        }
+      }
+
+      const text = await navigator.clipboard.readText();
+      const trimmed = text ? text.trim() : '';
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+        onChange(trimmed);
+        setUploading(false);
+        toast.success('Dán link thành công', 'Đã dán đường dẫn ảnh cơ sở.');
+        return;
+      }
+
+      toast.warning(
+        'Không tìm thấy ảnh',
+        'Hãy sao chép (Copy) ảnh hoặc chụp màn hình rồi bấm lại nút này hoặc nhấn phím Ctrl+V!'
+      );
+    } catch (err: any) {
+      toast.warning('Bộ nhớ tạm', 'Không thể đọc trực tiếp. Vui lòng nhấn phím tắt Ctrl+V vào ô nhập!');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        await handleProcessFile(file);
+      } else {
+        toast.warning('Tập tin không hợp lệ', 'Vui lòng thả tập tin hình ảnh (JPG, PNG, WebP...)');
+      }
+    }
+  };
+
+  return (
+    <div
+      onPaste={handlePaste}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`space-y-2.5 p-3.5 rounded-xl font-['Plus_Jakarta_Sans',sans-serif] transition-all border ${
+        isDragging
+          ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/20'
+          : 'bg-[#FAF8F5] border-[#E8DFD8]'
+      }`}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleProcessFile(file);
+        }}
+      />
+
+      <div className="flex flex-col md:flex-row items-start gap-4">
+        {/* Preview box 16:9 Banner */}
+        <div className="relative w-full md:w-56 aspect-[16/9] rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center group">
+          {uploading ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#FAF0E4] text-[#985018] gap-1.5 p-2">
+              <Loader2 className="w-6 h-6 animate-spin text-[#985018]" />
+              <span className="text-[11px] font-bold">Đang tải ảnh 16:9...</span>
+            </div>
+          ) : value ? (
+            <>
+              <img
+                src={value}
+                alt="Branch Preview"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-xs text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider shadow-xs">
+                16:9 BANNER
+              </div>
+              <button
+                type="button"
+                onClick={() => onChange('')}
+                title="Gỡ ảnh này"
+                className="absolute inset-0 bg-black/55 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <Trash2 size={16} className="stroke-[2.2]" />
+                <span className="text-[10px] font-semibold mt-1">Gỡ ảnh</span>
+              </button>
+            </>
+          ) : (
+            <div className="w-full h-full bg-[#FAF0E4]/60 text-[#985018] flex flex-col items-center justify-center border border-dashed border-[#BA7E4C]/40 p-3 text-center">
+              <Building2 className="w-7 h-7 stroke-[1.8] text-[#985018]" />
+              <span className="text-[11px] font-bold text-[#8A4F23] mt-1">Chưa có ảnh cơ sở</span>
+              <span className="text-[10px] text-[#8C7A6B]">Tỷ lệ chuẩn 16:9 (ngang)</span>
+            </div>
+          )}
+        </div>
+
+        {/* Input & Action buttons */}
+        <div className="flex-1 w-full min-w-0 space-y-2.5">
+          <div className="flex items-center gap-1.5">
+            <input
+              type="url"
+              value={value || ''}
+              placeholder="Dán link ảnh (URL) hoặc nhấn Ctrl+V để dán ảnh cơ sở 16:9..."
+              onChange={(e) => onChange(e.target.value)}
+              onPaste={handlePaste}
+              className="flex-1 text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/30 transition-all placeholder:text-[#A69788]"
+            />
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange('')}
+                title="Xóa link"
+                className="p-2 rounded-lg text-[#8C7A6B] hover:text-[#DC2626] hover:bg-white border border-[#E8DFD8] cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick upload & paste actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#985018] text-white hover:bg-[#804213] disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+            >
+              <Upload size={13} className="stroke-[2.2]" />
+              <span>Tải ảnh từ máy</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={handlePasteButtonClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-[#985018] border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+              title="Dán ảnh trực tiếp từ bộ nhớ tạm hoặc nhấn phím Ctrl+V"
+            >
+              <Clipboard size={13} className="stroke-[2.2]" />
+              <span>Dán từ bộ nhớ tạm (Ctrl+V)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export const W02_Branches: React.FC = () => {
@@ -3552,6 +3829,17 @@ export const W02_Branches: React.FC = () => {
                   </div>
 
                   <div className="sm:col-span-2 pt-2 border-t border-[#EFE4D9]">
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5 flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-[#8A4F23]" />
+                      <span>Ảnh đại diện cơ sở (Tỷ lệ 16:9)</span>
+                    </label>
+                    <BranchImageUploadInput
+                      value={editForm.imageUrl}
+                      onChange={(url) => setEditForm({ ...editForm, imageUrl: url })}
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 pt-2 border-t border-[#EFE4D9]">
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-bold text-[#2C241E]">
                         Tiện ích & Dịch vụ đi kèm
@@ -4501,14 +4789,11 @@ export const W02_Branches: React.FC = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                      Đường dẫn hình ảnh cơ sở
+                      Ảnh đại diện cơ sở (Tỷ lệ 16:9)
                     </label>
-                    <input
-                      type="url"
+                    <BranchImageUploadInput
                       value={formData.imageUrl}
-                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                      placeholder="https://..."
-                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018]"
+                      onChange={(url) => setFormData({ ...formData, imageUrl: url })}
                     />
                   </div>
 
