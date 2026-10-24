@@ -109,6 +109,27 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
 
     clean[k] = v;
   }
+
+  // Auto-generate slug for services if omitted
+  if (table === "services") {
+    if (!clean.slug && clean.name) {
+      clean.slug = String(clean.name)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[đĐ]/g, "d")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 120);
+    }
+    if (!clean.short_description) {
+      clean.short_description = clean.full_description || clean.name || "Dịch vụ spa MLD";
+    }
+    if (!clean.full_description) {
+      clean.full_description = clean.short_description || clean.name || "Dịch vụ spa MLD";
+    }
+  }
+
   return clean;
 }
 

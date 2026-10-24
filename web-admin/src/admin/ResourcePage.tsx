@@ -1045,6 +1045,17 @@ function toCategoryCode(name: string): string {
     .slice(0, 32);
 }
 
+function toServiceSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+}
+
 function CategoryIconPicker({
   value,
   onChange,
@@ -1629,9 +1640,11 @@ function RecordDialog({
           "fcm_device_token",
           ...(mode === "create" ? ["reward_points", "total_spent", "membership_tier"] : []),
         ]
-      : resource.name === "student_certificates"
-        ? ["qr_verification_code"]
-        : [];
+      : resource.name === "services"
+        ? ["slug"]
+        : resource.name === "student_certificates"
+          ? ["qr_verification_code"]
+          : [];
   const fields = columns.filter(
     (c) =>
       !generated.includes(c.name) &&
@@ -1648,6 +1661,9 @@ function RecordDialog({
         } else if (name === "name" && !codeManuallyEdited) {
           next.code = toCategoryCode(String(value || ""));
         }
+      }
+      if (resource.name === "services" && name === "name") {
+        next.slug = toServiceSlug(String(value || ""));
       }
       return next;
     });
@@ -1752,6 +1768,9 @@ function RecordDialog({
         } else {
           payload[name] = value;
         }
+      }
+      if (resource.name === "services" && !payload.slug) {
+        payload.slug = toServiceSlug(String(payload.name || values.name || row.name || "dich-vu"));
       }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
