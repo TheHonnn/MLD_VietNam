@@ -205,7 +205,7 @@ function ServiceBenefitsEditor({
         <input
           type="text"
           value={inputVal}
-          placeholder="Nhập lợi ích mới (e.g. Giảm đau nhức mỏi, Cải thiện giấc ngủ...)"
+          placeholder="Nhập lợi ích mới..."
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -325,7 +325,7 @@ function ServicePricingTiersEditor({
             </span>
           </span>
           <p className="text-[11px] text-[#8A7968] mt-0.5">
-            Dành cho dịch vụ có nhiều mức giá theo cấp độ, thời lượng hoặc giai đoạn (VD: Cấp độ 1: 350k, Cấp độ 2: 500k, Cấp độ 3: 750k...)
+            Dành cho dịch vụ có nhiều mức giá theo cấp độ, thời lượng hoặc giai đoạn
           </p>
         </div>
 
@@ -392,15 +392,7 @@ function ServicePricingTiersEditor({
                   <input
                     type="text"
                     value={tier.name}
-                    placeholder={
-                      idx === 0
-                        ? "VD: Cấp độ 1 - Chăm sóc cơ bản / Khởi đầu..."
-                        : idx === 1
-                        ? "VD: Cấp độ 2 - Trị liệu chuyên sâu / Phục hồi..."
-                        : idx === 2
-                        ? "VD: Cấp độ 3 - Liệu trình nâng cao / Tăng cường..."
-                        : `VD: Cấp độ ${idx + 1} - Liệu trình chuyên biệt / Toàn diện...`
-                    }
+                    placeholder="Nhập tên giai đoạn / phân loại..."
                     onChange={(e) => updateTier(idx, { name: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -413,7 +405,7 @@ function ServicePricingTiersEditor({
                   <input
                     type="number"
                     value={tier.price || ""}
-                    placeholder="VD: 500000"
+                    placeholder="Nhập giá tiền..."
                     onChange={(e) => updateTier(idx, { price: Number(e.target.value) || 0 })}
                     className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -426,7 +418,7 @@ function ServicePricingTiersEditor({
                   <input
                     type="text"
                     value={tier.unit || "VNĐ/buổi"}
-                    placeholder="VD: VNĐ/buổi, VNĐ/lần, VNĐ/gói..."
+                    placeholder="Nhập đơn vị tính..."
                     onChange={(e) => updateTier(idx, { unit: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -436,7 +428,7 @@ function ServicePricingTiersEditor({
                   <input
                     type="text"
                     value={tier.description || ""}
-                    placeholder="Mô tả chi tiết tình trạng, đối tượng áp dụng hoặc ghi chú liệu trình..."
+                    placeholder="Nhập mô tả chi tiết hoặc lưu ý..."
                     onChange={(e) => updateTier(idx, { description: e.target.value })}
                     className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
                   />
@@ -515,7 +507,7 @@ function ServiceAddonsEditor({
             </span>
           </span>
           <p className="text-[11px] text-[#8A7968] mt-0.5">
-            Dành cho vật tư trị liệu, sản phẩm chuyên dụng hoặc phụ phí kèm theo (VD: Tinh dầu đặc trị, Dụng cụ chuyên biệt 150.000đ/lần...)
+            Dành cho vật tư trị liệu, sản phẩm chuyên dụng hoặc phụ phí kèm theo
           </p>
         </div>
 
@@ -577,7 +569,7 @@ function ServiceAddonsEditor({
                   <input
                     type="text"
                     value={addon.name}
-                    placeholder="VD: Tinh dầu trị liệu chuyên sâu, Dụng cụ chuyên dụng, Kem dưỡng..."
+                    placeholder="Nhập tên vật tư / phụ phí..."
                     onChange={(e) => updateAddon(idx, { name: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -590,7 +582,7 @@ function ServiceAddonsEditor({
                   <input
                     type="number"
                     value={addon.price || ""}
-                    placeholder="VD: 150000"
+                    placeholder="Nhập giá tiền..."
                     onChange={(e) => updateAddon(idx, { price: Number(e.target.value) || 0 })}
                     className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -603,7 +595,7 @@ function ServiceAddonsEditor({
                   <input
                     type="text"
                     value={addon.unit || "VNĐ/lần"}
-                    placeholder="VD: VNĐ/lần, VNĐ/buổi, VNĐ/bộ..."
+                    placeholder="Nhập đơn vị tính..."
                     onChange={(e) => updateAddon(idx, { unit: e.target.value })}
                     className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
                   />
@@ -613,7 +605,7 @@ function ServiceAddonsEditor({
                   <input
                     type="text"
                     value={addon.note || ""}
-                    placeholder="Ghi chú sử dụng (VD: Áp dụng khi khách yêu cầu sản phẩm/vật tư bổ sung)..."
+                    placeholder="Nhập ghi chú sử dụng..."
                     onChange={(e) => updateAddon(idx, { note: e.target.value })}
                     className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
                   />
@@ -2257,7 +2249,7 @@ function AddressInput({
           type="text"
           value={street}
           onChange={(e) => handleStreetChange(e.target.value)}
-          placeholder="Ví dụ: Số 123 Nguyễn Huệ, Phường Bến Nghé..."
+          placeholder="Nhập số nhà, tên đường, tòa nhà, phường/xã..."
           style={{
             width: "100%",
             padding: "8px 12px",
