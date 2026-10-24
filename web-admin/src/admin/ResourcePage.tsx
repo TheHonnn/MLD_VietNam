@@ -36,6 +36,7 @@ import {
   Clock,
   Layers,
   CreditCard,
+  Clipboard,
 } from "lucide-react";
 import {
   adminApi,
@@ -204,7 +205,7 @@ function ServiceBenefitsEditor({
         <input
           type="text"
           value={inputVal}
-          placeholder="Nhập lợi ích mới (e.g. Giảm đau nhức mỏi, Cải thiện giấc ngủ...)"
+          placeholder="Nhập lợi ích mới..."
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -226,6 +227,398 @@ function ServiceBenefitsEditor({
   );
 }
 
+export interface PricingTier {
+  id?: string;
+  name: string;
+  description?: string;
+  price: number;
+  unit?: string;
+}
+
+export interface ServiceAddon {
+  id?: string;
+  name: string;
+  price: number;
+  unit?: string;
+  note?: string;
+}
+
+function ServicePricingTiersEditor({
+  value,
+  onChange,
+  onSuggestBasePrice,
+}: {
+  value: any;
+  onChange: (tiers: PricingTier[]) => void;
+  onSuggestBasePrice?: (price: number) => void;
+}) {
+  const tiers: PricingTier[] = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? (() => {
+          try {
+            const p = JSON.parse(value);
+            return Array.isArray(p) ? p : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
+  const addTier = () => {
+    const newTier: PricingTier = {
+      id: `tier_${Date.now()}`,
+      name: "",
+      description: "",
+      price: 0,
+      unit: "VNĐ/buổi",
+    };
+    onChange([...tiers, newTier]);
+  };
+
+  const updateTier = (idx: number, patch: Partial<PricingTier>) => {
+    const updated = [...tiers];
+    updated[idx] = { ...updated[idx], ...patch };
+    onChange(updated);
+  };
+
+  const removeTier = (idx: number) => {
+    onChange(tiers.filter((_, i) => i !== idx));
+  };
+
+  const applyPhuTayTemplate = () => {
+    const template: PricingTier[] = [
+      {
+        id: "tier_1",
+        name: "Cấp độ 1 - Chăm sóc cơ bản / Tiêu chuẩn",
+        description: "Dành cho tình trạng nhẹ, thư giãn phục hồi hoặc duy trì",
+        price: 350000,
+        unit: "VNĐ/buổi",
+      },
+      {
+        id: "tier_2",
+        name: "Cấp độ 2 - Trị liệu chuyên sâu / Phục hồi",
+        description: "Áp dụng kỹ thuật chuyên sâu giải quyết tắc nghẽn, đau nhức",
+        price: 500000,
+        unit: "VNĐ/buổi",
+      },
+      {
+        id: "tier_3",
+        name: "Cấp độ 3 - Trị liệu nâng cao / Toàn diện",
+        description: "Liệu trình chuyên biệt kết hợp công nghệ và kỹ thuật nâng cao",
+        price: 750000,
+        unit: "VNĐ/buổi",
+      },
+    ];
+    onChange(template);
+    if (onSuggestBasePrice) onSuggestBasePrice(350000);
+  };
+
+  return (
+    <div className="space-y-3 p-4 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl font-['Plus_Jakarta_Sans',sans-serif]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8DFD8] pb-2.5">
+        <div>
+          <span className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+            <span>Phân loại giá theo giai đoạn / mức độ</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
+              {tiers.length} mức giá
+            </span>
+          </span>
+          <p className="text-[11px] text-[#8A7968] mt-0.5">
+            Dành cho dịch vụ có nhiều mức giá theo cấp độ, thời lượng hoặc giai đoạn
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {tiers.length === 0 && (
+            <button
+              type="button"
+              onClick={applyPhuTayTemplate}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#8A4F23] bg-white border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer shadow-2xs transition-colors"
+              title="Điền mẫu dịch vụ 3 cấp độ / giai đoạn"
+            >
+              ⚡ Mẫu gợi ý (3 cấp độ)
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={addTier}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#985018] text-white hover:bg-[#804213] cursor-pointer shadow-xs flex items-center gap-1 transition-colors"
+          >
+            <Plus size={13} className="stroke-[2.5]" />
+            <span>Thêm mức giá / giai đoạn</span>
+          </button>
+        </div>
+      </div>
+
+      {tiers.length === 0 ? (
+        <div className="py-4 text-center border border-dashed border-[#D5C7B8] rounded-lg bg-white/50 text-[#8C7A6B]">
+          <p className="text-xs font-medium">Chưa có phân loại giá theo giai đoạn.</p>
+          <p className="text-[11px] mt-0.5">
+            Nếu dịch vụ này có giá đồng nhất, chỉ cần điền ô <b>Giá niêm yết</b> ở trên. Nếu có nhiều mức giá theo cấp độ/giai đoạn, hãy bấm <b>"+ Thêm mức giá / giai đoạn"</b> hoặc <b>"⚡ Mẫu gợi ý"</b>.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {tiers.map((tier, idx) => (
+            <div
+              key={tier.id || idx}
+              className="p-3 bg-white rounded-xl border border-[#E8DFD8] shadow-xs space-y-2 relative group hover:border-[#BA7E4C] transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8] text-[11px] font-extrabold flex items-center justify-center shrink-0">
+                    {idx + 1}
+                  </span>
+                  <span className="text-xs font-bold text-[#8A4F23]">
+                    Giai đoạn / Mức {idx + 1}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeTier(idx)}
+                  className="p-1 rounded-md text-[#A69788] hover:text-[#DC2626] hover:bg-[#FEE2E2] cursor-pointer transition-colors"
+                  title="Xóa mức giá này"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-6">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Tên giai đoạn / phân loại
+                  </label>
+                  <input
+                    type="text"
+                    value={tier.name}
+                    placeholder="Nhập tên giai đoạn / phân loại..."
+                    onChange={(e) => updateTier(idx, { name: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Giá tiền (VNĐ)
+                  </label>
+                  <input
+                    type="number"
+                    value={tier.price || ""}
+                    placeholder="Nhập giá tiền..."
+                    onChange={(e) => updateTier(idx, { price: Number(e.target.value) || 0 })}
+                    className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Đơn vị tính
+                  </label>
+                  <input
+                    type="text"
+                    value={tier.unit || "VNĐ/buổi"}
+                    placeholder="Nhập đơn vị tính..."
+                    onChange={(e) => updateTier(idx, { unit: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-12">
+                  <input
+                    type="text"
+                    value={tier.description || ""}
+                    placeholder="Nhập mô tả chi tiết hoặc lưu ý..."
+                    onChange={(e) => updateTier(idx, { description: e.target.value })}
+                    className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServiceAddonsEditor({
+  value,
+  onChange,
+}: {
+  value: any;
+  onChange: (addons: ServiceAddon[]) => void;
+}) {
+  const addons: ServiceAddon[] = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? (() => {
+          try {
+            const p = JSON.parse(value);
+            return Array.isArray(p) ? p : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
+  const addAddon = () => {
+    const newAddon: ServiceAddon = {
+      id: `addon_${Date.now()}`,
+      name: "",
+      price: 0,
+      unit: "VNĐ/tháng",
+      note: "",
+    };
+    onChange([...addons, newAddon]);
+  };
+
+  const updateAddon = (idx: number, patch: Partial<ServiceAddon>) => {
+    const updated = [...addons];
+    updated[idx] = { ...updated[idx], ...patch };
+    onChange(updated);
+  };
+
+  const removeAddon = (idx: number) => {
+    onChange(addons.filter((_, i) => i !== idx));
+  };
+
+  const applyPhuTayAddon = () => {
+    const template: ServiceAddon[] = [
+      {
+        id: "addon_1",
+        name: "Tinh dầu trị liệu & Dụng cụ chuyên dụng",
+        price: 150000,
+        unit: "VNĐ/lần",
+        note: "Vật tư và sản phẩm chăm sóc chuyên sâu kèm theo liệu trình",
+      },
+    ];
+    onChange(template);
+  };
+
+  return (
+    <div className="space-y-3 p-4 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl font-['Plus_Jakarta_Sans',sans-serif]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8DFD8] pb-2.5">
+        <div>
+          <span className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+            <span>Vật tư y tế & Phụ phí kèm theo</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
+              {addons.length} phụ phí
+            </span>
+          </span>
+          <p className="text-[11px] text-[#8A7968] mt-0.5">
+            Dành cho vật tư trị liệu, sản phẩm chuyên dụng hoặc phụ phí kèm theo
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {addons.length === 0 && (
+            <button
+              type="button"
+              onClick={applyPhuTayAddon}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#8A4F23] bg-white border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer shadow-2xs transition-colors"
+              title="Điền mẫu phụ phí / vật tư kèm theo"
+            >
+              ⚡ Mẫu phụ phí gợi ý
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={addAddon}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#FAF0E4] text-[#985018] border border-[#BA7E4C]/40 hover:bg-[#F3E2CE] cursor-pointer shadow-xs flex items-center gap-1 transition-colors"
+          >
+            <Plus size={13} className="stroke-[2.5]" />
+            <span>Thêm vật tư / phụ phí</span>
+          </button>
+        </div>
+      </div>
+
+      {addons.length === 0 ? (
+        <div className="py-3 text-center border border-dashed border-[#D5C7B8] rounded-lg bg-white/50 text-[#8C7A6B]">
+          <p className="text-xs font-medium">Chưa có vật tư hoặc phụ phí kèm theo.</p>
+          <p className="text-[11px] mt-0.5">
+            Nếu dịch vụ có phát sinh chi phí vật tư hoặc sản phẩm bổ sung, bấm <b>"+ Thêm vật tư / phụ phí"</b>.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {addons.map((addon, idx) => (
+            <div
+              key={addon.id || idx}
+              className="p-3 bg-white rounded-xl border border-[#E8DFD8] shadow-xs space-y-2 relative group hover:border-[#BA7E4C] transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[#8A4F23]">
+                  Vật tư / Phụ phí #{idx + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeAddon(idx)}
+                  className="p-1 rounded-md text-[#A69788] hover:text-[#DC2626] hover:bg-[#FEE2E2] cursor-pointer transition-colors"
+                  title="Xóa phụ phí này"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-6">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Tên vật tư / phụ phí
+                  </label>
+                  <input
+                    type="text"
+                    value={addon.name}
+                    placeholder="Nhập tên vật tư / phụ phí..."
+                    onChange={(e) => updateAddon(idx, { name: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Giá tiền (VNĐ)
+                  </label>
+                  <input
+                    type="number"
+                    value={addon.price || ""}
+                    placeholder="Nhập giá tiền..."
+                    onChange={(e) => updateAddon(idx, { price: Number(e.target.value) || 0 })}
+                    className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Chu kỳ / Đơn vị
+                  </label>
+                  <input
+                    type="text"
+                    value={addon.unit || "VNĐ/lần"}
+                    placeholder="Nhập đơn vị tính..."
+                    onChange={(e) => updateAddon(idx, { unit: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-12">
+                  <input
+                    type="text"
+                    value={addon.note || ""}
+                    placeholder="Nhập ghi chú sử dụng..."
+                    onChange={(e) => updateAddon(idx, { note: e.target.value })}
+                    className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ServiceImageInput({
   value,
   onChange,
@@ -233,54 +626,271 @@ function ServiceImageInput({
   value: string;
   onChange: (url: string) => void;
 }) {
-  const PRESET_SPA_IMAGES = [
-    { label: "Chăm sóc da", url: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881" },
-    { label: "Gội đầu", url: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1" },
-    { label: "Massage body", url: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874" },
-    { label: "Thẩm mỹ CNC", url: "https://images.unsplash.com/photo-1512290903671-17adc820948b" },
-  ];
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+
+  const uploadImageBlob = async (blob: Blob, nameHint = "service_img.png") => {
+    const ext = nameHint.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
+    const cleanFileName = `service_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
+    const KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
+
+    // Try 'services' bucket first, then fallback to 'avatars'
+    let targetBucket = "services";
+    let res = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          "Content-Type": blob.type || "image/png",
+        },
+        body: blob,
+      }
+    );
+
+    if (!res.ok) {
+      targetBucket = "avatars";
+      res = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+        {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${KEY}`,
+            "Content-Type": blob.type || "image/png",
+          },
+          body: blob,
+        }
+      );
+    }
+
+    if (!res.ok) {
+      throw new Error("Không thể tải ảnh lên kho lưu trữ Supabase.");
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+  };
+
+  const handleProcessFile = async (file: File | Blob, nameHint?: string) => {
+    setUploading(true);
+    try {
+      const publicUrl = await uploadImageBlob(file, nameHint || (file as File).name);
+      onChange(publicUrl);
+    } catch (err: any) {
+      alert(err.message || "Tải ảnh thất bại");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle Ctrl+V / Paste event anywhere on the input or wrapper
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await handleProcessFile(file, `pasted_${Date.now()}.${item.type.split("/")[1] || "png"}`);
+          return;
+        }
+      }
+    }
+  };
+
+  // Handle Paste Button Click (navigator.clipboard)
+  const handlePasteButtonClick = async () => {
+    if (!navigator.clipboard) {
+      alert("Trình duyệt không hỗ trợ đọc bộ nhớ tạm qua nút bấm. Bạn có thể nhấn phím tắt Ctrl+V trực tiếp vào ô nhập!");
+      return;
+    }
+
+    try {
+      setUploading(true);
+      // Try clipboard.read() for image blobs
+      if (navigator.clipboard.read) {
+        try {
+          const clipboardItems = await navigator.clipboard.read();
+          for (const item of clipboardItems) {
+            const imgType = item.types.find((t) => t.startsWith("image/"));
+            if (imgType) {
+              const blob = await item.getType(imgType);
+              const url = await uploadImageBlob(blob, `pasted_${Date.now()}.${imgType.split("/")[1] || "png"}`);
+              onChange(url);
+              setUploading(false);
+              return;
+            }
+          }
+        } catch (readErr) {
+          console.warn("clipboard.read() not allowed or no blob, trying readText()", readErr);
+        }
+      }
+
+      // Fallback: check clipboard text for URL
+      const text = await navigator.clipboard.readText();
+      const trimmed = text ? text.trim() : "";
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:image/")) {
+        onChange(trimmed);
+        setUploading(false);
+        return;
+      }
+
+      alert("Không tìm thấy hình ảnh hoặc đường link ảnh trong bộ nhớ tạm. Hãy sao chép (Copy) ảnh hoặc chụp màn hình rồi thử lại!");
+    } catch (err: any) {
+      alert("Không thể đọc bộ nhớ tạm. Bạn vui lòng bấm phím Ctrl+V trực tiếp vào ô nhập URL!");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        await handleProcessFile(file);
+      } else {
+        alert("Vui lòng thả tập tin hình ảnh (JPG, PNG, WebP...)");
+      }
+    }
+  };
 
   return (
-    <div className="space-y-2 p-3 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl font-['Plus_Jakarta_Sans',sans-serif]">
-      <div className="flex items-center gap-3">
-        {value ? (
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs">
-            <img
-              src={value}
-              alt="Preview"
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = "none";
-              }}
-            />
-          </div>
-        ) : (
-          <div className="w-14 h-14 rounded-xl bg-[#F0E6DC] text-[#985018] flex items-center justify-center shrink-0 border border-[#E8DFD8]">
-            <Leaf className="w-6 h-6 stroke-[1.8]" />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <input
-            type="url"
-            value={value || ""}
-            placeholder="Nhập đường dẫn ảnh (URL) hoặc chọn ảnh mẫu bên dưới..."
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full text-xs px-2.5 py-2 rounded-lg border border-[#E8DFD8] bg-white focus:outline-none focus:border-[#985018]"
-          />
+    <div
+      onPaste={handlePaste}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`space-y-2.5 p-3.5 rounded-xl font-['Plus_Jakarta_Sans',sans-serif] transition-all border ${
+        isDragging
+          ? "bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/20"
+          : "bg-[#FAF8F5] border-[#E8DFD8]"
+      }`}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleProcessFile(file);
+        }}
+      />
+
+      <div className="flex flex-col md:flex-row items-start gap-4">
+        {/* Preview box 16:9 Banner */}
+        <div className="relative w-full md:w-64 aspect-[16/9] rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center group">
+          {uploading ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#FAF0E4] text-[#985018] gap-1.5 p-2">
+              <LoaderCircle className="w-6 h-6 animate-spin" />
+              <span className="text-[11px] font-bold">Đang tải banner 16:9...</span>
+            </div>
+          ) : value ? (
+            <>
+              <img
+                src={value}
+                alt="Service Banner Preview"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
+              />
+              <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-xs text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider shadow-xs">
+                16:9 BANNER
+              </div>
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                title="Gỡ ảnh này"
+                className="absolute inset-0 bg-black/55 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <Trash2 size={16} className="stroke-[2.2]" />
+                <span className="text-[10px] font-semibold mt-1">Gỡ ảnh</span>
+              </button>
+            </>
+          ) : (
+            <div className="w-full h-full bg-[#FAF0E4]/60 text-[#985018] flex flex-col items-center justify-center border border-dashed border-[#BA7E4C]/40 p-3 text-center">
+              <Leaf className="w-7 h-7 stroke-[1.8] text-[#985018]" />
+              <span className="text-[11px] font-bold text-[#8A4F23] mt-1">Chưa có banner</span>
+              <span className="text-[10px] text-[#8C7A6B]">Tỷ lệ chuẩn 16:9 (ngang)</span>
+            </div>
+          )}
         </div>
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap pt-1">
-        <span className="text-[11px] text-[#8C7A6B]">Ảnh mẫu gợi ý:</span>
-        {PRESET_SPA_IMAGES.map((preset) => (
-          <button
-            key={preset.label}
-            type="button"
-            onClick={() => onChange(preset.url)}
-            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-[#73675F] border border-[#E8DFD8] hover:border-[#BA7E4C] hover:text-[#985018] cursor-pointer"
-          >
-            {preset.label}
-          </button>
-        ))}
+
+        {/* Input & Action buttons */}
+        <div className="flex-1 w-full min-w-0 space-y-2.5">
+          <div className="flex items-center gap-1.5">
+            <input
+              type="url"
+              value={value || ""}
+              placeholder="Dán link ảnh (URL) hoặc nhấn Ctrl+V để dán ảnh banner 16:9..."
+              onChange={(e) => onChange(e.target.value)}
+              onPaste={handlePaste}
+              className="flex-1 text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/30 transition-all placeholder:text-[#A69788]"
+            />
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                title="Xóa link"
+                className="p-2 rounded-lg text-[#8C7A6B] hover:text-[#DC2626] hover:bg-white border border-[#E8DFD8] cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick upload & paste actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#985018] text-white hover:bg-[#804213] disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+            >
+              <Upload size={13} className="stroke-[2.2]" />
+              <span>Tải ảnh từ máy</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={handlePasteButtonClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-[#985018] border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+              title="Dán ảnh trực tiếp từ bộ nhớ tạm hoặc nhấn phím Ctrl+V"
+            >
+              <Clipboard size={13} className="stroke-[2.2]" />
+              <span>Dán từ bộ nhớ tạm (Ctrl+V)</span>
+            </button>
+          </div>
+
+        </div>
       </div>
     </div>
   );
@@ -340,8 +950,9 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   }
   if (c.name === "image_url" || c.name === "icon_url") {
     const url = row[c.name];
+    const isIcon = c.name === "icon_url";
     return (
-      <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center">
+      <div className={`${isIcon ? "w-10 h-10 rounded-xl" : "w-16 h-9 aspect-[16/9] rounded-lg"} overflow-hidden bg-[#FAF8F5] border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center`}>
         {url ? (
           <img
             src={url}
@@ -383,10 +994,60 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   }
   if (c.name === "price") {
     const p = Number(row.price || 0);
+    const hasTiers = Array.isArray(row.pricing_tiers) && row.pricing_tiers.length > 0;
     return (
-      <div className="font-bold text-[#2C241E] text-xs">
-        {p > 0 ? `${p.toLocaleString("vi-VN")} ₫` : "—"}
+      <div className="font-bold text-[#2C241E] text-xs flex items-center gap-1">
+        {hasTiers && <span className="text-[10px] font-normal text-[#8A7968]">Từ</span>}
+        <span>{p > 0 ? `${p.toLocaleString("vi-VN")} ₫` : "—"}</span>
       </div>
+    );
+  }
+  if (c.name === "pricing_tiers") {
+    const tiers = Array.isArray(row[c.name])
+      ? row[c.name]
+      : typeof row[c.name] === "string"
+        ? (() => {
+            try {
+              const p = JSON.parse(row[c.name]);
+              return Array.isArray(p) ? p : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+    if (!tiers || tiers.length === 0) return "—";
+    const prices = tiers.map((t: any) => Number(t.price) || 0).filter((pr: number) => pr > 0);
+    const minP = prices.length ? Math.min(...prices) : 0;
+    const maxP = prices.length ? Math.max(...prices) : 0;
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+        <span>{tiers.length} giai đoạn</span>
+        {minP > 0 && (
+          <span className="text-[11px] font-bold text-[#985018]">
+            ({(minP / 1000).toLocaleString("vi-VN")}k{maxP > minP ? ` ~ ${(maxP / 1000).toLocaleString("vi-VN")}k` : ""})
+          </span>
+        )}
+      </span>
+    );
+  }
+  if (c.name === "add_on_items") {
+    const addons = Array.isArray(row[c.name])
+      ? row[c.name]
+      : typeof row[c.name] === "string"
+        ? (() => {
+            try {
+              const p = JSON.parse(row[c.name]);
+              return Array.isArray(p) ? p : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+    if (!addons || addons.length === 0) return "—";
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-[#EAF2FA] text-[#1E5D9B] border border-[#C5DCF2]">
+        <span>{addons.length} phụ phí</span>
+      </span>
     );
   }
   if (c.name === "discount_price") {
@@ -745,9 +1406,6 @@ function ReferenceInput({
           >
             {recordLabel(r)}
             {r.phone ? " · " + r.phone : ""}
-            {r.full_name || r.name || r.title
-              ? " · " + String(r[column.reference!.column]).slice(0, 8)
-              : ""}
           </option>
         ))}
       </select>
@@ -1046,6 +1704,17 @@ function toCategoryCode(name: string): string {
     .replace(/[^A-Z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 32);
+}
+
+function toServiceSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
 }
 
 function CategoryIconPicker({
@@ -1580,7 +2249,7 @@ function AddressInput({
           type="text"
           value={street}
           onChange={(e) => handleStreetChange(e.target.value)}
-          placeholder="Ví dụ: Số 123 Nguyễn Huệ, Phường Bến Nghé..."
+          placeholder="Nhập số nhà, tên đường, tòa nhà, phường/xã..."
           style={{
             width: "100%",
             padding: "8px 12px",
@@ -1632,9 +2301,13 @@ function RecordDialog({
           "fcm_device_token",
           ...(mode === "create" ? ["reward_points", "total_spent", "membership_tier"] : []),
         ]
-      : resource.name === "student_certificates"
-        ? ["qr_verification_code"]
-        : [];
+      : resource.name === "services"
+        ? ["slug", "discount_price"]
+        : resource.name === "treatment_packages"
+          ? ["discount_price"]
+          : resource.name === "student_certificates"
+            ? ["qr_verification_code"]
+            : [];
   const fields = columns.filter(
     (c) =>
       !generated.includes(c.name) &&
@@ -1651,6 +2324,9 @@ function RecordDialog({
         } else if (name === "name" && !codeManuallyEdited) {
           next.code = toCategoryCode(String(value || ""));
         }
+      }
+      if (resource.name === "services" && name === "name") {
+        next.slug = toServiceSlug(String(value || ""));
       }
       return next;
     });
@@ -1755,6 +2431,9 @@ function RecordDialog({
         } else {
           payload[name] = value;
         }
+      }
+      if (resource.name === "services" && !payload.slug) {
+        payload.slug = toServiceSlug(String(payload.name || values.name || row.name || "dich-vu"));
       }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
@@ -1965,13 +2644,49 @@ function RecordDialog({
 
               if (
                 resource.name === "services" &&
+                c.name === "pricing_tiers" &&
+                mode !== "view"
+              )
+                return (
+                  <div key={c.name} className="admin-field-wide">
+                    <ServicePricingTiersEditor
+                      value={value}
+                      onChange={(tiers) => set("pricing_tiers", tiers)}
+                      onSuggestBasePrice={(p) => {
+                        const priceCol = fields.find((f) => f.name === "price");
+                        const currentP = priceCol ? current(priceCol) : null;
+                        if (!currentP || Number(currentP) === 0) {
+                          set("price", p);
+                        }
+                      }}
+                    />
+                  </div>
+                );
+
+              if (
+                resource.name === "services" &&
+                c.name === "add_on_items" &&
+                mode !== "view"
+              )
+                return (
+                  <div key={c.name} className="admin-field-wide">
+                    <ServiceAddonsEditor
+                      value={value}
+                      onChange={(addons) => set("add_on_items", addons)}
+                    />
+                  </div>
+                );
+
+              if (
+                (resource.name === "services" || resource.name === "treatment_packages") &&
                 c.name === "image_url" &&
                 mode !== "view"
               )
                 return (
                   <div key={c.name} className="admin-field-wide">
-                    <span className="text-xs font-bold text-[#2C241E] mb-1.5 block">
-                      Ảnh đại diện dịch vụ (URL)
+                    <span className="text-xs font-bold text-[#2C241E] mb-1.5 flex items-center justify-between">
+                      <span>{resource.name === "treatment_packages" ? "Ảnh đại diện gói liệu trình (Banner 16:9)" : "Ảnh đại diện dịch vụ (Banner 16:9)"}</span>
+                      <span className="text-[11px] font-normal text-[#8A7968]">Tỷ lệ chuẩn 16:9 (ví dụ: 1024×576, 1200×675)</span>
                     </span>
                     <ServiceImageInput
                       value={String(value || "")}
@@ -2506,7 +3221,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "category_id",
       "duration_minutes",
       "price",
-      "discount_price",
       "is_featured",
       "is_active",
     ],
@@ -2517,7 +3231,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "total_sessions",
       "validity_months",
       "price",
-      "discount_price",
       "is_active",
     ],
     service_categories: [
@@ -2641,7 +3354,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { user } = useAdmin();
   const isSuperAdminOrAdmin = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
   const isManagerOrAdmin = isSuperAdminOrAdmin || user?.role === "BRANCH_MANAGER";
-  const isRestrictedAdminOnly = ["roles", "permissions", "audit_logs"].includes(table);
+  const isRestrictedAdminOnly = [
+    "roles",
+    "permissions",
+    "role_permissions",
+    "user_roles",
+    "audit_logs",
+    "loyalty_point_settings",
+    "voucher_distribution_rules",
+    "membership_tier_rules",
+  ].includes(table);
   const isRestrictedManagerOnly = ["staff_commissions"].includes(table);
 
   if (isRestrictedAdminOnly && !isSuperAdminOrAdmin) {
@@ -3119,15 +3841,36 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     return;
                   }
 
+                  const targetRow = confirmation.row;
+                  const isDeleteAction = confirmation.action === "delete";
+
                   await adminApi(
-                    `${table}/${confirmation.action === "delete" ? "delete" : "action"}`,
+                    `${table}/${isDeleteAction ? "delete" : "action"}`,
                     {
-                      key: rowKey(listing.columns, confirmation.row),
+                      key: {
+                        ...rowKey(listing.columns, targetRow),
+                        ...(targetRow?.id ? { id: targetRow.id } : {}),
+                      },
+                      id: targetRow?.id,
                       action: confirmation.action,
                       reason,
-                      expectedUpdatedAt: confirmation.row.updated_at,
+                      expectedUpdatedAt: targetRow?.updated_at,
                     },
                   );
+
+                  if (isDeleteAction) {
+                    setListing((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            rows: prev.rows.filter((r) => r.id !== targetRow.id),
+                            total: Math.max(0, prev.total - 1),
+                          }
+                        : null,
+                    );
+                    setNotice(`Đã xóa "${targetRow?.name || targetRow?.title || "bản ghi"}" thành công.`);
+                  }
+
                   setConfirmation(null);
                   setVersion((v) => v + 1);
                 } catch (err) {

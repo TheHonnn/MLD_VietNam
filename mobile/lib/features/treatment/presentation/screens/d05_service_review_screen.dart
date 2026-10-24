@@ -9,6 +9,9 @@ class D05ServiceReviewScreen extends StatefulWidget {
   final String specialistName;
   final String branchName;
   final String sessionInfo;
+  final String? bookingId;
+  final String? serviceId;
+  final String? technicianId;
 
   const D05ServiceReviewScreen({
     super.key,
@@ -17,6 +20,9 @@ class D05ServiceReviewScreen extends StatefulWidget {
     this.specialistName = 'Trần Minh Phương',
     this.branchName = 'Chi nhánh Quận 3',
     this.sessionInfo = 'Buổi 04 · Hoàn thành 08/10/2026',
+    this.bookingId,
+    this.serviceId,
+    this.technicianId,
   });
 
   @override
@@ -31,6 +37,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
   int _staffAttitudeRating = 5;
   int _spaceAmbianceRating = 4;
   int _procedureRating = 5;
+  bool _isSubmitting = false;
 
   late final TextEditingController _commentCtrl;
   String _willingnessToRefer = 'Có';
@@ -49,20 +56,31 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
     super.dispose();
   }
 
-  void _handleSubmit() {
-    _repo.submitReviewData(
-      ServiceReviewDataModel(
-        overallRating: _overallRating,
-        serviceQualityRating: _serviceQualityRating,
-        staffAttitudeRating: _staffAttitudeRating,
-        spaceAmbianceRating: _spaceAmbianceRating,
-        procedureRating: _procedureRating,
-        comment: _commentCtrl.text,
-        willingnessToRefer: _willingnessToRefer,
-      ),
-    );
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+    setState(() {
+      _isSubmitting = true;
+    });
 
-    showDialog(
+    try {
+      await _repo.saveReview(
+        ServiceReviewDataModel(
+          bookingId: widget.bookingId,
+          serviceId: widget.serviceId,
+          technicianId: widget.technicianId,
+          overallRating: _overallRating,
+          serviceQualityRating: _serviceQualityRating,
+          staffAttitudeRating: _staffAttitudeRating,
+          spaceAmbianceRating: _spaceAmbianceRating,
+          procedureRating: _procedureRating,
+          comment: _commentCtrl.text,
+          willingnessToRefer: _willingnessToRefer,
+        ),
+      );
+
+      if (!mounted) return;
+
+      showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
@@ -135,6 +153,21 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
         ),
       ),
     );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể gửi đánh giá: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   Widget _buildCategoryRatingRow({
@@ -548,7 +581,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _handleSubmit,
+                  onPressed: _isSubmitting ? null : _handleSubmit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF985018),
                     foregroundColor: Colors.white,
@@ -557,14 +590,23 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Gửi đánh giá',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Gửi đánh giá',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ),

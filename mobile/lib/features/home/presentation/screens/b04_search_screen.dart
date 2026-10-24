@@ -3,6 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
+import '../../../academy/presentation/screens/e02_course_catalog_screen.dart';
 
 class B04SearchScreen extends StatefulWidget {
   const B04SearchScreen({super.key});
@@ -47,6 +48,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => B02ServiceListingScreen(
+          initialQuery: query.trim(),
           onBack: () => Navigator.pop(context),
         ),
       ),
@@ -183,6 +185,16 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                       setState(() {
                         _selectedChipIndex = index;
                       });
+                      final chip = _typeChips[index];
+                      if (chip == 'Chi nhánh') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const B05BranchListingScreen()));
+                      } else if (chip == 'Chuyên viên') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()));
+                      } else if (chip == 'Khóa học') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()));
+                      } else if (chip == 'Dịch vụ') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const B02ServiceListingScreen()));
+                      }
                     },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(

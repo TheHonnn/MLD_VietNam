@@ -142,6 +142,11 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             avatarUrl: userAvatar,
           );
 
+          await AuthService.instance.saveLastLogin(
+            email: widget.email?.trim(),
+            method: 'email',
+          );
+
           MembershipRepository.instance.syncUserSession(
             fullName: registeredName,
             phone: userPhone,
@@ -193,11 +198,19 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             phone: widget.phoneNumber,
             userId: user?['id'],
           );
+          await AuthService.instance.saveLastLogin(
+            phone: widget.phoneNumber,
+            method: 'phone',
+          );
         } catch (_) {
           // Fallback an toàn nếu backend OTP server đang chạy test
           await AuthService.instance.saveSession(
             accessToken: 'mld_session_${DateTime.now().millisecondsSinceEpoch}',
             phone: widget.phoneNumber,
+          );
+          await AuthService.instance.saveLastLogin(
+            phone: widget.phoneNumber,
+            method: 'phone',
           );
         }
 

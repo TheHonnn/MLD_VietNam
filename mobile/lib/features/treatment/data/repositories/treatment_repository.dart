@@ -26,6 +26,80 @@ class TreatmentRepository {
   ServiceReviewDataModel _latestReview = const ServiceReviewDataModel();
 
   void _initData() {
+    _packages.addAll([
+      const UserPackageModel(
+        id: 'pkg-user-001',
+        packageName: 'Liệu trình Trị liệu Cổ Vai Gáy Chuyên sâu (10 buổi)',
+        description: 'Giải phóng co thắt cơ, khai thông kinh lạc và phục hồi sức sống tự nhiên.',
+        imageUrl: 'assets/images/specialist_hero_1.png',
+        totalSessions: 10,
+        completedSessions: 4,
+        status: PackageStatus.active,
+        expiryDate: '31/12/2026',
+        specialistName: 'Trần Minh Phương',
+        branchName: 'Chi nhánh Quận 3',
+        price: 3500000,
+        sessions: [
+          TreatmentSessionModel(
+            sessionNumber: 1,
+            title: 'Khai thông kinh mạch vùng vai',
+            status: 'COMPLETED',
+            date: '01/10/2026',
+            note: 'Cơ thang bên phải co cứng mạnh, đã giải phóng sơ bộ.',
+          ),
+          TreatmentSessionModel(
+            sessionNumber: 2,
+            title: 'Đả thông kinh lạc & bấm huyệt Phong Trì',
+            status: 'COMPLETED',
+            date: '04/10/2026',
+            note: 'Biên độ xoay cổ cải thiện 40%, giảm nhức đầu.',
+          ),
+          TreatmentSessionModel(
+            sessionNumber: 3,
+            title: 'Liệu pháp nhiệt ấm ngải cứu dưỡng sinh',
+            status: 'COMPLETED',
+            date: '08/10/2026',
+            note: 'Kinh lạc lưu thông tốt, da ấm hồng hào.',
+          ),
+          TreatmentSessionModel(
+            sessionNumber: 4,
+            title: 'Cân bằng trục cổ và kéo giãn đốt sống',
+            status: 'COMPLETED',
+            date: '11/10/2026',
+            note: 'Độ mềm cơ đạt 75%, khách không còn tê bì cánh tay.',
+          ),
+        ],
+      ),
+      const UserPackageModel(
+        id: 'pkg-user-002',
+        packageName: 'Gói Chăm Sóc Da Chuyên Sâu Tái Tạo (5 buổi)',
+        description: 'Chăm sóc và phục hồi da tổn thương, làm dịu và cấp ẩm sâu.',
+        imageUrl: 'assets/images/gioithieu_2.png',
+        totalSessions: 5,
+        completedSessions: 5,
+        status: PackageStatus.completed,
+        expiryDate: '01/08/2026',
+        specialistName: 'Nguyễn Thu Hà',
+        branchName: 'Chi nhánh Quận 3',
+        price: 2800000,
+        sessions: [],
+      ),
+      const UserPackageModel(
+        id: 'pkg-user-003',
+        packageName: 'Gói Thư Giãn Dưỡng Sinh Toàn Thân (3 buổi)',
+        description: 'Gói trải nghiệm ngắn hạn massage dưỡng sinh phục hồi năng lượng.',
+        imageUrl: 'assets/images/gioithieu_3.png',
+        totalSessions: 3,
+        completedSessions: 1,
+        status: PackageStatus.expired,
+        expiryDate: '15/06/2026',
+        specialistName: 'Lê Hoài An',
+        branchName: 'Chi nhánh mẫu 02 — Quận 1',
+        price: 1500000,
+        sessions: [],
+      ),
+    ]);
+
     _suggestedPackages.addAll([
       SuggestedPackageModel(
         id: 'sug-01',
@@ -270,24 +344,37 @@ class TreatmentRepository {
   Future<void> saveReview(ServiceReviewDataModel model) async {
     _latestReview = model;
     try {
+      final payload = <String, dynamic>{
+        'rating': model.overallRating,
+        'overallRating': model.overallRating,
+        'serviceQualityRating': model.serviceQualityRating,
+        'staffAttitudeRating': model.staffAttitudeRating,
+        'spaceAmbianceRating': model.spaceAmbianceRating,
+        'procedureRating': model.procedureRating,
+        'comment': model.comment,
+        'willingnessToRefer': model.willingnessToRefer,
+      };
+      if (model.bookingId != null && model.bookingId!.isNotEmpty) {
+        payload['bookingId'] = model.bookingId;
+      }
+      if (model.serviceId != null && model.serviceId!.isNotEmpty) {
+        payload['serviceId'] = model.serviceId;
+      }
+      if (model.technicianId != null && model.technicianId!.isNotEmpty) {
+        payload['technicianId'] = model.technicianId;
+      }
+
       await _apiClient.dio.post(
         ApiEndpoints.treatmentReviews,
-        data: {
-          'overallRating': model.overallRating,
-          'serviceQualityRating': model.serviceQualityRating,
-          'staffAttitudeRating': model.staffAttitudeRating,
-          'spaceAmbianceRating': model.spaceAmbianceRating,
-          'procedureRating': model.procedureRating,
-          'comment': model.comment,
-          'willingnessToRefer': model.willingnessToRefer,
-        },
+        data: payload,
       );
     } catch (e) {
       debugPrint('>>> [TreatmentRepository] Error submitting review: $e');
+      rethrow;
     }
   }
 
-  void submitReviewData(ServiceReviewDataModel model) => saveReview(model);
+  Future<void> submitReviewData(ServiceReviewDataModel model) => saveReview(model);
 
   /// D07: Gửi tin nhắn hỗ trợ khách hàng
   Future<void> sendChatMessage(String text) async {

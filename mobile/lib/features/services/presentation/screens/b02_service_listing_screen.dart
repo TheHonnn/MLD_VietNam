@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../home/data/repositories/service_repository.dart';
+import '../../../home/data/models/home_models.dart';
 import 'b03_service_detail_screen.dart';
 import '../../../home/presentation/screens/b04_search_screen.dart';
 
 class B02ServiceListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
+  final String? initialQuery;
 
   const B02ServiceListingScreen({
     super.key,
     this.onBack,
+    this.initialQuery,
   });
 
   @override
@@ -20,7 +23,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = false;
   int _selectedCategoryIndex = 0;
-  String _selectedSort = 'Phổ biến ';
+  String _selectedSort = 'Phổ biến';
   final Set<int> _favoriteServices = {0}; // Service 0 is favorite by default per Figma
 
   List<String> _categories = [
@@ -37,6 +40,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
+      _searchController.text = widget.initialQuery!.trim();
+    }
     _loadServices();
   }
 
@@ -50,15 +56,23 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           _categories = ['Tất cả', ...categories];
         }
         _allServices = services.map((s) {
+          final hasDiscount = s.discountPrice != null && s.discountPrice! < s.price;
           final priceFormatted =
-              '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+              '${s.displayPrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
+          final originalPriceFormatted = hasDiscount
+              ? '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ'
+              : null;
           return {
             'id': s.id.hashCode,
             'serviceId': s.id,
             'title': s.name,
             'duration': '${s.durationMinutes} phút',
+            'durationMinutes': s.durationMinutes,
             'price': priceFormatted,
-            'priceRaw': s.price,
+            'originalPrice': originalPriceFormatted,
+            'hasDiscount': hasDiscount,
+            'priceRaw': s.displayPrice,
+            'model': s,
             'description': s.description,
             'image': s.imageUrl,
             'category': s.category,
@@ -95,6 +109,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       list.sort((a, b) => ((a['priceRaw'] as num?) ?? 0).compareTo((b['priceRaw'] as num?) ?? 0));
     } else if (_selectedSort == 'Giá: Cao đến thấp') {
       list.sort((a, b) => ((b['priceRaw'] as num?) ?? 0).compareTo((a['priceRaw'] as num?) ?? 0));
+    } else if (_selectedSort == 'Thời lượng ngắn nhất') {
+      list.sort((a, b) => ((a['durationMinutes'] as num?) ?? 0).compareTo((b['durationMinutes'] as num?) ?? 0));
     }
     return list;
   }
@@ -108,7 +124,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       ),
       builder: (context) {
         final sortOptions = [
-          'Phổ biến ',
+          'Phổ biến',
           'Giá: Thấp đến cao',
           'Giá: Cao đến thấp',
           'Thời lượng ngắn nhất',
@@ -668,6 +684,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
+                                if (service['hasDiscount'] == true && service['originalPrice'] != null) ...[
+                                  Text(
+                                    service['originalPrice'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.textSecondary,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
                                 Text(
                                   service['price'] as String,
                                   style: const TextStyle(
@@ -710,9 +738,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                     MaterialPageRoute(
                                       builder: (_) => B03ServiceDetailScreen(
                                         serviceId: id,
+                                        serviceCode: service['serviceId'] as String?,
+                                        serviceModel: service['model'] as SpaServiceModel?,
                                         title: service['title'] as String,
                                         duration: service['duration'] as String,
                                         price: service['price'] as String,
+                                        originalPrice: service['originalPrice'] as String?,
                                         category: service['category'] as String,
                                         image: service['image'] as String,
                                         description: service['description'] as String,

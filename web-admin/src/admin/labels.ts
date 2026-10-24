@@ -60,6 +60,8 @@ export const labels: Record<string, string> = {
   gallery_urls: "Bộ ảnh",
   steps: "Các bước",
   benefits: "Lợi ích",
+  pricing_tiers: "Phân loại giá theo giai đoạn",
+  add_on_items: "Vật tư & Phụ phí kèm theo",
   display_order: "Thứ tự hiển thị",
   slug: "Đường dẫn tĩnh",
   employee_code: "Mã nhân viên",

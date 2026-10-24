@@ -24,7 +24,8 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
   @override
   void initState() {
     super.initState();
-    _bookingCode = 'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
+    _bookingCode = widget.flowState.bookingCode ??
+        'MLD-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
 
     // Lưu vào mock repository để đồng bộ với C09 và C10
     final newAppointment = AppointmentItemModel(
@@ -87,7 +88,7 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
       ],
     );
 
-    BookingRepository.instance.createAppointment(newAppointment);
+    BookingRepository.instance.createAppointment(newAppointment, widget.flowState);
   }
 
   String _formatCurrency(double amount) {
@@ -104,8 +105,8 @@ class _C08BookingSuccessScreenState extends State<C08BookingSuccessScreen> {
         : 'Massage thư giãn toàn thân';
     final branchName = widget.flowState.selectedBranch?.name ?? 'Chi nhánh Quận 3';
     final specialistName = widget.flowState.autoAssignSpecialist
-        ? 'Trần Minh Phương (Hệ thống sắp xếp)'
-        : (widget.flowState.selectedSpecialist?.name ?? 'Trần Minh Phương');
+        ? 'Hệ thống tự động sắp xếp'
+        : (widget.flowState.selectedSpecialist?.name ?? 'Kỹ thuật viên chỉ định');
     final customerName = widget.flowState.customerName.isNotEmpty
         ? widget.flowState.customerName
         : 'Nguyễn Minh Anh';

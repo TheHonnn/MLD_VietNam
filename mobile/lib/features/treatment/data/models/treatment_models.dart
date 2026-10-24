@@ -61,7 +61,7 @@ class UserPackageModel {
     this.nextAppointmentText = 'Buổi 05 · Lịch hẹn sắp tới',
     this.nextAppointmentDate = '15/10/2026 · 09:00–10:00',
     this.nextAppointmentService = 'Massage thư giãn toàn thân',
-    required this.sessions,
+    this.sessions = const [],
   });
 
   int get remainingSessions => totalSessions - completedSessions;
@@ -100,6 +100,9 @@ class CareJournalEntryModel {
   final String branchName;
   final String sessionNote;
   final String postCareSuggestion;
+  final String? bookingId;
+  final String? serviceId;
+  final String? technicianId;
 
   const CareJournalEntryModel({
     required this.id,
@@ -110,6 +113,9 @@ class CareJournalEntryModel {
     required this.branchName,
     required this.sessionNote,
     required this.postCareSuggestion,
+    this.bookingId,
+    this.serviceId,
+    this.technicianId,
   });
 }
 
@@ -149,6 +155,9 @@ class ServiceReviewDataModel {
   final int procedureRating; // 1 - 5
   final String comment;
   final String willingnessToRefer; // 'Có', 'Có thể', 'Chưa'
+  final String? bookingId;
+  final String? serviceId;
+  final String? technicianId;
 
   const ServiceReviewDataModel({
     this.overallRating = 5,
@@ -158,6 +167,9 @@ class ServiceReviewDataModel {
     this.procedureRating = 5,
     this.comment = 'Chuyên viên chu đáo, mức lực vừa phải và không gian yên tĩnh. Tôi rất hài lòng.',
     this.willingnessToRefer = 'Có',
+    this.bookingId,
+    this.serviceId,
+    this.technicianId,
   });
 }
 

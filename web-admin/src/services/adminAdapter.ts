@@ -1,12 +1,14 @@
 import { adminApi, Listing } from "../admin/api";
 import { ApiResponse } from "../types/shared_types";
-export const camelRow = (row: Record<string, any>) =>
-  Object.fromEntries(
+export const camelRow = (row?: Record<string, any> | null) => {
+  if (!row || typeof row !== 'object') return (row || {}) as any;
+  return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [
       key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()),
       value,
     ]),
   );
+};
 export const snakeRow = (row: Record<string, any>) =>
   Object.fromEntries(
     Object.entries(row)
@@ -39,8 +41,9 @@ export async function legacyWrite<T>(
     const data = await adminApi<Listing>(
       `${table}?filter=${encodeURIComponent(JSON.stringify({ id }))}`,
     );
-    if (!data.rows.length) throw new Error("Không tìm thấy bản ghi.");
-    expectedUpdatedAt = data.rows[0].updated_at;
+    if (data?.rows?.length) {
+      expectedUpdatedAt = data.rows[0].updated_at;
+    }
   }
   const saved = await adminApi<Record<string, any>>(
     `${table}/${id ? "update" : "create"}`,
@@ -49,10 +52,11 @@ export async function legacyWrite<T>(
       ...(id ? { key: { id }, expectedUpdatedAt } : {}),
     },
   );
+  const data = saved ? (camelRow(saved) as T) : (camelRow({ id, ...values }) as T);
   return {
     success: true,
     statusCode: id ? 200 : 201,
     message: "Đã lưu vào database chung",
-    data: camelRow(saved) as T,
+    data,
   };
 }

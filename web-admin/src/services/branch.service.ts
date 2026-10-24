@@ -253,14 +253,14 @@ export const branchService = {
     };
   },
 
-  async deleteBranch(id: string): Promise<ApiResponse<boolean>> {
+  async deleteBranch(id: string, permanent = true): Promise<ApiResponse<boolean>> {
     try {
-      const ok = await supabaseService.deleteBranch(id);
+      const ok = await supabaseService.deleteBranch(id, permanent);
       return {
         success: ok,
         statusCode: ok ? 200 : 400,
         message: ok
-          ? 'Đã xóa chi nhánh khỏi hệ thống vận hành và bảo toàn dữ liệu trong cơ sở dữ liệu'
+          ? 'Đã xóa chi nhánh thành công'
           : 'Lỗi khi xóa chi nhánh',
         data: ok,
       };

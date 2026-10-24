@@ -45,6 +45,19 @@ export enum RoomType {
   PRACTICE_LAB = 'PRACTICE_LAB',
 }
 
+export enum BedStatus {
+  AVAILABLE = 'AVAILABLE',
+  OCCUPIED = 'OCCUPIED',
+  CLEANING = 'CLEANING',
+  MAINTENANCE = 'MAINTENANCE',
+}
+
+export enum ShiftStatus {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+  RECONCILED = 'RECONCILED',
+}
+
 export enum SlotStatus {
   AVAILABLE = 'AVAILABLE',
   HOLD = 'HOLD',
@@ -269,6 +282,21 @@ export interface BranchRoom {
   createdAt?: string;
 }
 
+export interface BranchBed {
+  id: string;
+  branchId: string;
+  roomId: string;
+  bedCode: string;
+  name: string;
+  status: BedStatus;
+  isActive: boolean;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  room?: BranchRoom;
+  branch?: Branch;
+}
+
 export interface StaffProfile {
   id: string;
   userId: string;
@@ -396,6 +424,12 @@ export interface Booking {
   customer?: User;
   branch?: Branch;
   room?: BranchRoom;
+  bedId?: string | null;
+  bed?: BranchBed;
+  parentBookingId?: string | null;
+  guestCount?: number;
+  bookingSource?: 'AUTO_OPTIMIZED' | 'MANUAL' | 'TREATMENT_PACKAGE';
+  sessionStatus?: 'NOT_STARTED' | 'IN_SERVICE' | 'COMPLETED';
   technician?: Technician;
   items?: BookingItem[];
 }
@@ -554,6 +588,28 @@ export interface TuitionTransaction {
   paidAt: string;
 }
 
+export interface CashierShift {
+  id: string;
+  branchId: string;
+  cashierId: string;
+  shiftCode: string;
+  openingCash: number;
+  closingCash?: number;
+  systemCash?: number;
+  cardSales?: number;
+  transferSales?: number;
+  totalSales?: number;
+  discrepancyAmount?: number;
+  status: ShiftStatus;
+  openedAt: string;
+  closedAt?: string | null;
+  notes?: string | null;
+  cashier?: User;
+  branch?: Branch;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Invoice {
   id: string;
   invoiceCode: string;
@@ -563,11 +619,15 @@ export interface Invoice {
   bookingId?: string | null;
   userPackageId?: string | null;
   enrollmentId?: string | null;
+  shiftId?: string | null;
   subtotal: number;
   discountAmount: number;
   pointsRedeemedAmount: number;
+  preTaxAmount?: number;
+  vatRate?: number;
   vatAmount: number;
   totalAmount: number;
+  printedCount?: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   gatewayTransactionId?: string | null;
@@ -578,6 +638,7 @@ export interface Invoice {
   paidAt: string;
   customer?: User;
   branch?: Branch;
+  shift?: CashierShift;
   serviceTitle?: string;
   serviceCategory?: 'SERVICE' | 'PACKAGE' | 'ACADEMY' | 'OTHER';
 }

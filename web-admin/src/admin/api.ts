@@ -109,6 +109,27 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
 
     clean[k] = v;
   }
+
+  // Auto-generate slug for services if omitted
+  if (table === "services") {
+    if (!clean.slug && clean.name) {
+      clean.slug = String(clean.name)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[đĐ]/g, "d")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 120);
+    }
+    if (!clean.short_description) {
+      clean.short_description = clean.full_description || clean.name || "Dịch vụ spa MLD";
+    }
+    if (!clean.full_description) {
+      clean.full_description = clean.short_description || clean.name || "Dịch vụ spa MLD";
+    }
+  }
+
   return clean;
 }
 
@@ -803,12 +824,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
     }
     const updated = await res.json();
+    if (Array.isArray(updated) && updated.length === 0) {
+      return updateLocalRecord(table, id || key, cleanValues) as T;
+    }
     return (Array.isArray(updated) ? updated[0] : updated) as T;
   }
 
-  if (action === "delete" && payload?.key) {
+  if (action === "delete" && (payload?.key || payload?.id)) {
     const key = payload.key || {};
-    const id = key.id;
+    const id = key.id || payload.id;
     const match = id
       ? `id=eq.${encodeURIComponent(id)}`
       : Object.entries(key)
@@ -817,7 +841,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
       method: "DELETE",
-      headers: getSupabaseHeaders(),
+      headers: getSupabaseHeaders({
+        Prefer: "return=representation",
+      }),
       signal,
     });
     if (!res.ok) {
@@ -831,6 +857,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       throw new Error(err?.message || "Không thể xóa bản ghi trên Supabase.");
     }
+
+    deleteLocalRecord(table, id || key);
     return true as unknown as T;
   }
 
@@ -958,8 +986,12 @@ export async function adminApi<T>(
 }
 
 export function rowKey(columns: Column[], row: Row) {
+  const primaryCols = columns.filter((c) => c.primary);
+  if (primaryCols.length === 0 && row?.id !== undefined) {
+    return { id: row.id };
+  }
   return Object.fromEntries(
-    columns.filter((c) => c.primary).map((c) => [c.name, row[c.name]]),
+    primaryCols.map((c) => [c.name, row[c.name]]),
   );
 }
 

@@ -36,6 +36,26 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    final lastPhone = AuthService.instance.lastLoginPhone;
+    final lastEmail = AuthService.instance.lastLoginEmail;
+    final lastMethod = AuthService.instance.lastLoginMethod;
+
+    if (lastPhone != null && lastPhone.isNotEmpty) {
+      _phoneController.text = lastPhone;
+    }
+    if (lastEmail != null && lastEmail.isNotEmpty) {
+      _emailController.text = lastEmail;
+    }
+    if (lastMethod == 'email') {
+      _selectedTabIndex = 1;
+    } else if (lastMethod == 'phone') {
+      _selectedTabIndex = 0;
+    }
+  }
+
+  @override
   void dispose() {
     _phoneController.dispose();
     _emailController.dispose();
@@ -46,6 +66,8 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
   // Luồng đăng nhập SĐT
   void _handlePhoneContinue() {
     if (_phoneFormKey.currentState?.validate() ?? false) {
+      final phone = _phoneController.text.trim();
+      AuthService.instance.saveLastLogin(phone: phone, method: 'phone');
       setState(() {
         _isLoading = true;
         _errorMessage = null;
@@ -111,6 +133,11 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
           phone: loggedInPhone,
           displayName: loggedInName,
           avatarUrl: loggedInAvatar,
+        );
+
+        await AuthService.instance.saveLastLogin(
+          email: loggedInEmail,
+          method: 'email',
         );
 
         MembershipRepository.instance.syncUserSession(

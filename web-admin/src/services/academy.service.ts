@@ -168,10 +168,11 @@ export const academyService = {
 
   async updateEnrollmentStatus(
     id: string,
-    status: EnrollmentStatus
+    status: EnrollmentStatus,
+    extraUpdates?: { amountPaid?: number; batchId?: string | null }
   ): Promise<ApiResponse<CourseEnrollment>> {
     try {
-      const ok = await supabaseService.updateEnrollment(id, { status });
+      const ok = await supabaseService.updateEnrollment(id, { status, ...extraUpdates });
       if (ok) {
         const live = await supabaseService.getEnrollments();
         const updated = live?.find((e) => e.id === id);
@@ -187,7 +188,7 @@ export const academyService = {
     } catch (err) {
       console.error('[academyService] updateEnrollmentStatus error:', err);
     }
-    return legacyWrite<CourseEnrollment>('course_enrollments', { status }, id);
+    return legacyWrite<CourseEnrollment>('course_enrollments', { status, ...extraUpdates }, id);
   },
 
   // --- Giao dịch học phí ---

@@ -20,8 +20,17 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
     final payments = _repo.payments;
 
     final filtered = payments.where((p) {
-      if (_selectedCategory == 'Tất cả') return true;
-      return p.type == _selectedCategory;
+      final matchesCategory = _selectedCategory == 'Tất cả' || p.type == _selectedCategory;
+      if (!matchesCategory) return false;
+
+      if (_selectedMonth != 'Tất cả') {
+        final monthStr = _selectedMonth.replaceAll('Tháng ', '').trim();
+        final matchesMonth = p.date.contains(monthStr) ||
+            p.date.contains(monthStr.startsWith('0') ? monthStr.substring(1) : monthStr);
+        if (!matchesMonth) return false;
+      }
+
+      return true;
     }).toList();
 
     return Scaffold(
@@ -85,9 +94,9 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
               // --- 2. TỔNG QUAN THANH TOÁN (350x216, r=20, #F3E2CE) ---
               Builder(
                 builder: (context) {
-                  final totalPaid = payments.fold<int>(0, (acc, p) => acc + p.amount.toInt());
+                  final totalPaid = filtered.fold<int>(0, (acc, p) => acc + p.amount.toInt());
                   final formattedTotal = '${totalPaid.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
-                  final count = payments.length;
+                  final count = filtered.length;
 
                   return Container(
                     width: double.infinity,
@@ -128,8 +137,8 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          payments.isNotEmpty
-                              ? 'Gần nhất: ${payments.first.date} · ${payments.first.amountFormatted}'
+                          filtered.isNotEmpty
+                              ? 'Gần nhất: ${filtered.first.date} · ${filtered.first.amountFormatted}'
                               : 'Chưa có giao dịch phát sinh',
                           style: const TextStyle(
                             fontSize: 12,
@@ -170,6 +179,7 @@ class _F06PaymentHistoryScreenState extends State<F06PaymentHistoryScreen> {
                     isExpanded: true,
                     icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
                     items: const [
+                      DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả thời gian')),
                       DropdownMenuItem(value: 'Tháng 10/2026', child: Text('Tháng 10/2026')),
                       DropdownMenuItem(value: 'Tháng 09/2026', child: Text('Tháng 09/2026')),
                       DropdownMenuItem(value: 'Tháng 08/2026', child: Text('Tháng 08/2026')),

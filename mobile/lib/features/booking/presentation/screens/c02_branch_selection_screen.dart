@@ -43,13 +43,36 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
         : MockHomeRepository.getBranches();
     _filteredBranches = _allBranches;
 
-    // Mặc định chọn chi nhánh đầu tiên nếu chưa có
-    if (widget.flowState.selectedBranch == null && _allBranches.isNotEmpty) {
-      widget.flowState.selectedBranch = _allBranches.first;
-    }
+    _resolveSelectedBranch();
 
     _applyFilter();
     _loadBranches();
+  }
+
+  void _resolveSelectedBranch() {
+    // 1. widget.flowState.selectedBranch nếu đã có
+    final current = widget.flowState.selectedBranch;
+    if (current != null && _allBranches.any((b) => b.id == current.id)) {
+      widget.flowState.selectedBranch = _allBranches.firstWhere((b) => b.id == current.id);
+      return;
+    } else if (current != null) {
+      return;
+    }
+
+    // 2. BranchRepository.instance.activeBranch nếu có
+    final active = BranchRepository.instance.activeBranch;
+    if (active != null && _allBranches.any((b) => b.id == active.id)) {
+      widget.flowState.selectedBranch = _allBranches.firstWhere((b) => b.id == active.id);
+      return;
+    } else if (active != null) {
+      widget.flowState.selectedBranch = active;
+      return;
+    }
+
+    // 3. _allBranches.first
+    if (_allBranches.isNotEmpty) {
+      widget.flowState.selectedBranch = _allBranches.first;
+    }
   }
 
   Future<void> _loadBranches() async {
@@ -59,9 +82,7 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
       setState(() {
         _allBranches = liveBranches;
         _isLoading = false;
-        if (widget.flowState.selectedBranch == null && _allBranches.isNotEmpty) {
-          widget.flowState.selectedBranch = _allBranches.first;
-        }
+        _resolveSelectedBranch();
         _applyFilter();
       });
     }
@@ -289,6 +310,7 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
                             setState(() {
                               widget.flowState.selectedBranch = branch;
                             });
+                            BranchRepository.instance.setActiveBranch(branch);
                           },
                         ),
                       );
@@ -422,19 +444,43 @@ class _C02BranchSelectionScreenState extends State<C02BranchSelectionScreen> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    branch.imageUrl,
-                    height: 168,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 168,
-                      color: BookingColors.cardWarm,
-                      child: const Center(
-                        child: Icon(Icons.storefront, color: BookingColors.primary, size: 48),
-                      ),
-                    ),
-                  ),
+                  child: branch.imageUrl.startsWith('http')
+                      ? Image.network(
+                          branch.imageUrl,
+                          height: 168,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 168,
+                              color: BookingColors.cardWarm,
+                              child: const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2, color: BookingColors.primary),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 168,
+                            color: BookingColors.cardWarm,
+                            child: const Center(
+                              child: Icon(Icons.storefront, color: BookingColors.primary, size: 48),
+                            ),
+                          ),
+                        )
+                      : Image.asset(
+                          branch.imageUrl,
+                          height: 168,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 168,
+                            color: BookingColors.cardWarm,
+                            child: const Center(
+                              child: Icon(Icons.storefront, color: BookingColors.primary, size: 48),
+                            ),
+                          ),
+                        ),
                 ),
                 const SizedBox(height: 12),
                 const SizedBox(height: 2),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/academy_widgets.dart';
+import 'e12_learning_results_screen.dart';
 
 /// Screen E10: Kiểm tra kiến thức (Quiz Assessment) [8116:26228]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -399,8 +400,9 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Đã nộp bài kiểm tra thành công! Điểm số: 9.0/10')),
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const E12LearningResultsScreen()),
                       );
                     },
                     style: ElevatedButton.styleFrom(

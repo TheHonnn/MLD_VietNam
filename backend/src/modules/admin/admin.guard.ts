@@ -35,19 +35,47 @@ export class AdminGuard implements CanActivate {
       return true;
     }
     const token = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
-    const secret = this.config.get<string>('JWT_SECRET');
+    if (!token) {
+      throw new UnauthorizedException('Vui lòng đăng nhập quản trị.');
+    }
+
+    const supabaseSecret = this.config.get<string>('SUPABASE_JWT_SECRET');
+    const backendSecret = this.config.get<string>('JWT_SECRET');
+
     if (
-      !secret ||
-      secret.length < 32 ||
-      secret === 'super-secret-jwt-key-medical-healthcare-2026'
-    )
+      (!supabaseSecret || supabaseSecret.length < 32) &&
+      (!backendSecret ||
+        backendSecret.length < 32 ||
+        backendSecret === 'super-secret-jwt-key-medical-healthcare-2026')
+    ) {
       throw new UnauthorizedException(
-        'Backend cần JWT_SECRET riêng, ít nhất 32 ký tự.',
+        'Backend cần cấu hình JWT_SECRET hoặc SUPABASE_JWT_SECRET hợp lệ.',
       );
-    let payload: { sub: string; audience?: string };
-    try {
-      payload = this.jwt.verify(token || '', { secret, audience: 'mld-admin' });
-    } catch {
+    }
+
+    let payload: { sub: string; audience?: string } | null = null;
+
+    // 1. Xác thực Supabase Auth JWT (nếu có cấu hình SUPABASE_JWT_SECRET)
+    if (supabaseSecret && supabaseSecret.length >= 32) {
+      try {
+        payload = this.jwt.verify(token, {
+          secret: supabaseSecret,
+          audience: 'authenticated',
+        });
+      } catch {}
+    }
+
+    // 2. Xác thực JWT nội bộ của backend (audience: 'mld-admin')
+    if (!payload && backendSecret && backendSecret !== 'super-secret-jwt-key-medical-healthcare-2026') {
+      try {
+        payload = this.jwt.verify(token, {
+          secret: backendSecret,
+          audience: 'mld-admin',
+        });
+      } catch {}
+    }
+
+    if (!payload || !payload.sub) {
       throw new UnauthorizedException('Vui lòng đăng nhập quản trị.');
     }
     const { rows } = await this.db.connection.query(

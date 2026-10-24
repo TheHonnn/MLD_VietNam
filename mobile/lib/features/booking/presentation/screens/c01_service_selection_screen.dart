@@ -51,12 +51,24 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
     _allServices = MockHomeRepository.getFeaturedServices();
 
-    // Đảm bảo có ít nhất 1 dịch vụ mặc định theo Figma
-    if (_flowState.allSelectedServices.isEmpty && _allServices.isNotEmpty) {
-      _flowState.selectedService = _allServices.first;
-      _flowState.selectedServices = [_allServices.first];
-    } else if (_flowState.selectedServices.isNotEmpty) {
+    if (_flowState.selectedServices.isNotEmpty) {
+      final updatedSelected = <SpaServiceModel>[];
+      for (final sel in _flowState.selectedServices) {
+        final match = _allServices.firstWhere(
+          (s) => s.id == sel.id || s.name.toLowerCase().trim() == sel.name.toLowerCase().trim(),
+          orElse: () => sel,
+        );
+        updatedSelected.add(match);
+      }
+      _flowState.selectedServices = updatedSelected;
       _flowState.selectedService = _flowState.selectedServices.first;
+    } else if (_flowState.selectedService != null) {
+      final match = _allServices.firstWhere(
+        (s) => s.id == _flowState.selectedService!.id || s.name.toLowerCase().trim() == _flowState.selectedService!.name.toLowerCase().trim(),
+        orElse: () => _flowState.selectedService!,
+      );
+      _flowState.selectedServices = [match];
+      _flowState.selectedService = match;
     }
 
     _applyFilter(callSetState: false);
@@ -79,9 +91,17 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
           }
         }
         _isLoading = false;
-        if (_flowState.allSelectedServices.isEmpty && _allServices.isNotEmpty) {
-          _flowState.selectedService = _allServices.first;
-          _flowState.selectedServices = [_allServices.first];
+        if (_flowState.selectedServices.isNotEmpty) {
+          final updatedSelected = <SpaServiceModel>[];
+          for (final sel in _flowState.selectedServices) {
+            final match = _allServices.firstWhere(
+              (s) => s.id == sel.id || s.name.toLowerCase().trim() == sel.name.toLowerCase().trim(),
+              orElse: () => sel,
+            );
+            updatedSelected.add(match);
+          }
+          _flowState.selectedServices = updatedSelected;
+          _flowState.selectedService = _flowState.selectedServices.first;
         }
         _applyFilter(callSetState: false);
       });
@@ -111,19 +131,14 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
   void _toggleServiceSelection(SpaServiceModel service) {
     setState(() {
-      final isCurrentlySelected = _flowState.selectedServices.any((s) => s.id == service.id);
+      final isCurrentlySelected = _flowState.selectedServices.any(
+        (s) => s.id == service.id || s.name.toLowerCase().trim() == service.name.toLowerCase().trim(),
+      );
       if (isCurrentlySelected) {
-        if (_flowState.selectedServices.length > 1) {
-          _flowState.selectedServices.removeWhere((s) => s.id == service.id);
-          _flowState.selectedService = _flowState.selectedServices.first;
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vui lòng chọn ít nhất 1 dịch vụ để tiếp tục'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
+        _flowState.selectedServices.removeWhere(
+          (s) => s.id == service.id || s.name.toLowerCase().trim() == service.name.toLowerCase().trim(),
+        );
+        _flowState.selectedService = _flowState.selectedServices.isNotEmpty ? _flowState.selectedServices.first : null;
       } else {
         _flowState.selectedServices.add(service);
         _flowState.selectedService = service;
@@ -322,7 +337,9 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                     )
                   else
                     ..._filteredServices.map((service) {
-                      final isSelected = _flowState.selectedServices.any((s) => s.id == service.id);
+                      final isSelected = _flowState.selectedServices.any(
+                        (s) => s.id == service.id || s.name.toLowerCase().trim() == service.name.toLowerCase().trim(),
+                      );
                       final isFav = _favoriteServiceIds.contains(service.id);
 
                       return Container(
@@ -482,13 +499,54 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                         color: BookingColors.textSecondary,
                                       ),
                                     ),
-                                    Text(
-                                      '${_formatPrice(service.displayPrice)}đ',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: BookingColors.primary,
-                                      ),
+                                    Row(
+
+                                      mainAxisSize: MainAxisSize.min,
+
+                                      children: [
+
+                                        if (service.discountPrice != null && service.discountPrice! < service.price) ...[
+
+                                          Text(
+
+                                            '${_formatPrice(service.price)}đ',
+
+                                            style: const TextStyle(
+
+                                              fontSize: 13,
+
+                                              fontWeight: FontWeight.w400,
+
+                                              color: BookingColors.textSecondary,
+
+                                              decoration: TextDecoration.lineThrough,
+
+                                            ),
+
+                                          ),
+
+                                          const SizedBox(width: 6),
+
+                                        ],
+
+                                        Text(
+
+                                          '${_formatPrice(service.displayPrice)}đ',
+
+                                          style: const TextStyle(
+
+                                            fontSize: 16,
+
+                                            fontWeight: FontWeight.w600,
+
+                                            color: BookingColors.primary,
+
+                                          ),
+
+                                        ),
+
+                                      ],
+
                                     ),
                                   ],
                                 ),
@@ -507,14 +565,24 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                                   height: 44,
                                   child: TextButton(
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => B03ServiceDetailScreen(
-                                            serviceId: int.tryParse(service.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
-                                          ),
-                                        ),
-                                      );
+                                          final hasDiscount = service.discountPrice != null && service.discountPrice! < service.price;
+                                          final priceFormatted = '${_formatPrice(service.displayPrice)}đ';
+                                          final originalPriceFormatted = hasDiscount ? '${_formatPrice(service.price)}đ' : null;
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => B03ServiceDetailScreen(
+                                                serviceId: int.tryParse(service.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
+                                                title: service.name,
+                                                duration: '${service.durationMinutes} phút',
+                                                price: priceFormatted,
+                                                originalPrice: originalPriceFormatted,
+                                                category: service.categoryName,
+                                                image: service.imageUrl,
+                                                description: service.shortDescription,
+                                              ),
+                                            ),
+                                          );
                                     },
                                     style: TextButton.styleFrom(
                                       shape: RoundedRectangleBorder(
@@ -552,7 +620,9 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$count dịch vụ · $totalMinutes phút · $totalPriceđ',
+                          count == 0
+                              ? 'Chưa chọn dịch vụ · 0 phút · 0đ'
+                              : '$count dịch vụ · $totalMinutes phút · $totalPriceđ',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -583,8 +653,11 @@ class _C01ServiceSelectionScreenState extends State<C01ServiceSelectionScreen> {
 
             // Fixed Bottom Bar chuẩn Figma
             BookingFixedBottomBar(
-              summaryText: '$count dịch vụ · $totalMinutes phút · $totalPriceđ · Chi phí dịch vụ',
+              summaryText: count == 0
+                  ? 'Chưa chọn dịch vụ'
+                  : '$count dịch vụ · $totalMinutes phút · $totalPriceđ · Chi phí dịch vụ',
               buttonText: l10n?.continueButton ?? 'Tiếp tục',
+              isEnabled: count > 0,
               onPressed: () {
                 Navigator.push(
                   context,

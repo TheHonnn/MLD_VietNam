@@ -5,6 +5,7 @@ import 'core/localization/locale_cubit.dart';
 import 'core/services/auth_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/a01_splash_screen.dart';
+import 'features/home/data/repositories/branch_repository.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -12,6 +13,9 @@ void main() async {
   
   // Initialize Session & Authentication Service
   await AuthService.instance.init();
+
+  // Initialize Global Branch Repository
+  await BranchRepository.instance.init();
   
   // Guard against Android/Samsung Accessibility semantics desynchronization
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -55,4 +59,3 @@ class MedicalHealthcareApp extends StatelessWidget {
     );
   }
 }
-

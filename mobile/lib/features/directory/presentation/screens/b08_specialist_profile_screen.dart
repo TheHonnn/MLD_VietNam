@@ -4,6 +4,7 @@ import '../../../booking/data/models/booking_models.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
+import '../../../home/data/repositories/technician_repository.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
 import 'b06_branch_detail_screen.dart';
 
@@ -613,11 +614,24 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     elevation: 0,
                   ),
                   onPressed: () {
-                    TechnicianModel? matchedSpec;
-                    final topSpecs = MockHomeRepository.getTopTechnicians();
-                    try {
-                      matchedSpec = topSpecs.firstWhere((s) => s.name == widget.name);
-                    } catch (_) {}
+                    TechnicianModel? matchedSpec = TechnicianRepository.instance.cachedTechnicians
+                        .where((s) => s.name == widget.name)
+                        .firstOrNull;
+                    if (matchedSpec == null) {
+                      final topSpecs = MockHomeRepository.getTopTechnicians();
+                      try {
+                        matchedSpec = topSpecs.firstWhere((s) => s.name == widget.name);
+                      } catch (_) {}
+                    }
+                    matchedSpec ??= TechnicianModel(
+                      id: 'live-${widget.name.hashCode}',
+                      name: widget.name,
+                      title: widget.role,
+                      avatarUrl: widget.avatar,
+                      experienceYears: 5,
+                      rating: 4.9,
+                      reviewCount: 150,
+                    );
 
                     Navigator.push(
                       context,

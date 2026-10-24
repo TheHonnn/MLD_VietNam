@@ -126,6 +126,7 @@ class TechnicianModel {
 /// 4. Chi nhánh Cơ sở Spa MLD (Branch)
 class BranchModel {
   final String id;
+  final String code;
   final String name;
   final String phone;
   final String address;
@@ -134,14 +135,18 @@ class BranchModel {
   final String openingHours;
   final double rating;
   final String imageUrl;
+  final List<String> galleryUrls;
   final List<String> services;
   final String district;
   final List<String> amenities;
   final int totalRooms;
   final int totalBeds;
+  final double? latitude;
+  final double? longitude;
 
   const BranchModel({
     required this.id,
+    this.code = '',
     required this.name,
     required this.phone,
     required this.address,
@@ -150,11 +155,14 @@ class BranchModel {
     required this.openingHours,
     required this.rating,
     required this.imageUrl,
+    this.galleryUrls = const [],
     required this.services,
     this.district = 'Quận 3',
     this.amenities = const ['Phòng VIP', 'Máy soi da 3D', 'Trà thảo mộc'],
     this.totalRooms = 8,
     this.totalBeds = 16,
+    this.latitude,
+    this.longitude,
   });
 
   factory BranchModel.fromJson(Map<String, dynamic> json) {
@@ -163,8 +171,17 @@ class BranchModel {
         : '08:30 - 21:00';
     final district = json['district']?.toString() ?? 'Quận 3';
     final city = json['city']?.toString() ?? 'TP. Hồ Chí Minh';
+
+    List<String> gallery = const [];
+    if (json['gallery_urls'] is List) {
+      gallery = (json['gallery_urls'] as List).map((e) => e.toString()).toList();
+    } else if (json['galleryUrls'] is List) {
+      gallery = (json['galleryUrls'] as List).map((e) => e.toString()).toList();
+    }
+
     return BranchModel(
       id: json['id']?.toString() ?? '',
+      code: json['code']?.toString() ?? '',
       name: json['name']?.toString() ?? 'MLD Spa',
       phone: json['phone']?.toString() ?? '0901 234 567',
       address: json['address']?.toString() ?? '',
@@ -174,12 +191,15 @@ class BranchModel {
       openingHours: opening,
       rating: (json['rating'] as num?)?.toDouble() ?? 4.9,
       imageUrl: json['image_url']?.toString() ?? 'assets/images/gioithieu_1.png',
+      galleryUrls: gallery,
       services: const ['Massage', 'Chăm sóc da', 'Chăm sóc cơ thể', 'Chăm sóc sức khỏe', 'Gói liệu trình'],
       amenities: (json['amenities'] is List)
           ? (json['amenities'] as List).map((e) => e.toString()).toList()
           : const ['Phòng VIP', 'Máy soi da 3D', 'Trà thảo mộc'],
       totalRooms: (json['total_rooms'] as num?)?.toInt() ?? 8,
       totalBeds: (json['total_beds'] as num?)?.toInt() ?? 16,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 }
@@ -246,7 +266,7 @@ class SpaServiceModel {
       fullDescription: json['full_description'] as String? ?? json['description'] as String? ?? '',
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 60,
       price: (json['price'] as num?)?.toDouble() ?? (json['priceRaw'] as num?)?.toDouble() ?? 450000.0,
-      discountPrice: (json['discount_price'] as num?)?.toDouble(),
+      discountPrice: (json['discount_price'] as num?)?.toDouble() ?? (json['discountPrice'] as num?)?.toDouble(),
       imageUrl: json['image_url'] as String? ?? json['image'] as String? ?? 'assets/images/gioithieu_1.png',
       steps: stepsList,
       benefits: benefitsList,

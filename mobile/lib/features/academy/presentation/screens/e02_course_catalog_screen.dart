@@ -19,10 +19,10 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   String _selectedLevel = 'Tất cả';
-  String _selectedDuration = '6–12 tuần';
-  String _selectedFeeRange = '4–9 triệu đồng';
+  String _selectedDuration = 'Tất cả';
+  String _selectedFeeRange = 'Tất cả';
   String _selectedFormat = 'Tất cả';
-  final String _selectedBranch = 'Chi nhánh Quận 3';
+  String _selectedBranch = 'Tất cả';
 
   final List<String> _categories = [
     'Tất cả',
@@ -50,6 +50,28 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
         return false;
       }
       if (_selectedLevel != 'Tất cả' && course.level != _selectedLevel) {
+        return false;
+      }
+      if (_selectedDuration != 'Tất cả') {
+        if (_selectedDuration == 'Dưới 8 tuần' && course.durationWeeks >= 8) {
+          return false;
+        } else if (_selectedDuration == '6–12 tuần' && (course.durationWeeks < 6 || course.durationWeeks > 12)) {
+          return false;
+        } else if (_selectedDuration == 'Trên 12 tuần' && course.durationWeeks <= 12) {
+          return false;
+        }
+      }
+      if (_selectedFeeRange != 'Tất cả') {
+        if (_selectedFeeRange == 'Dưới 4 triệu' && course.tuitionFee >= 4000000) {
+          return false;
+        } else if ((_selectedFeeRange == '4–9 triệu đồng' || _selectedFeeRange == '4–9 triệu') &&
+            (course.tuitionFee < 4000000 || course.tuitionFee > 9000000)) {
+          return false;
+        } else if (_selectedFeeRange == 'Trên 9 triệu' && course.tuitionFee <= 9000000) {
+          return false;
+        }
+      }
+      if (_selectedBranch != 'Tất cả' && course.branch != _selectedBranch) {
         return false;
       }
       if (_searchController.text.trim().isNotEmpty) {
@@ -252,8 +274,8 @@ class _E02CourseCatalogScreenState extends State<E02CourseCatalogScreen> {
             _buildFilterDropdown(
               label: 'Chi nhánh đào tạo',
               value: _selectedBranch,
-              items: const ['Chi nhánh Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
-              onChanged: (_) {},
+              items: const ['Tất cả', 'Chi nhánh Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
+              onChanged: (val) => setState(() => _selectedBranch = val!),
             ),
             const SizedBox(height: 28),
 

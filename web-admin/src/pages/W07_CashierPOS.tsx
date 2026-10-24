@@ -22,10 +22,13 @@ import {
   Wallet,
   ArrowRight,
   ExternalLink,
+  AlertCircle,
+  Plus,
+  FileText,
 } from 'lucide-react';
 import { posService, bookingService, customerService, notificationService, supabaseService, branchService, treatmentService } from '../services';
 import { toast } from '../components/common';
-import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus, Branch } from '../types/shared_types';
+import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus, Branch, CashierShift } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 
 export const W07_CashierPOS: React.FC = () => {
@@ -121,6 +124,18 @@ export const W07_CashierPOS: React.FC = () => {
   const [invoiceMethodFilter, setInvoiceMethodFilter] = useState('ALL');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
 
+  // VAT and Regimen session states
+  const [vatRate, setVatRate] = useState<number>(8); // Mặc định VAT 8%
+  const [isPackageRedemption, setIsPackageRedemption] = useState(false);
+
+  // Cashier Shift states
+  const [currentShift, setCurrentShift] = useState<CashierShift | null>(null);
+  const [showOpenShiftModal, setShowOpenShiftModal] = useState(false);
+  const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
+  const [shiftOpeningCash, setShiftOpeningCash] = useState<number>(1000000);
+  const [shiftClosingCash, setShiftClosingCash] = useState<number>(0);
+  const [shiftNotes, setShiftNotes] = useState('');
+
   const [selectedReceiptData, setSelectedReceiptData] = useState<{
     id: string;
     customerName: string;
@@ -134,6 +149,10 @@ export const W07_CashierPOS: React.FC = () => {
     amount: string;
     subtotal?: string;
     discount?: string;
+    preTaxAmount?: string;
+    vatRateText?: string;
+    vatAmountText?: string;
+    shiftCode?: string;
     date: string;
     status?: string;
     commissionText?: string;
@@ -175,17 +194,19 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
-      const [invRes, bkRes, custRes, brRes, pkgRes] = await Promise.all([
+      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes] = await Promise.all([
         posService.getInvoices(),
         bookingService.getBookings(),
         customerService.getCustomers(),
         branchService.getAllBranches(),
         treatmentService.getTreatmentPackages(),
+        posService.getActiveShift(selectedBranchId !== 'ALL' ? selectedBranchId : undefined),
       ]);
       if (invRes.success) setInvoices(invRes.data);
       if (brRes.success && brRes.data) setBranches(brRes.data);
       if (custRes.success && custRes.data) setAllCustomers(custRes.data);
       if (pkgRes.success && pkgRes.data) setTreatmentPackages(pkgRes.data);
+      if (shiftRes.success && shiftRes.data) setCurrentShift(shiftRes.data);
       
       const bks = bkRes.success ? bkRes.data : [];
       setAllBookings(bks);
@@ -468,7 +489,12 @@ export const W07_CashierPOS: React.FC = () => {
           : PaymentMethod.BANK_TRANSFER;
 
       const bookingCode = booking.bookingCode || 'BK-20261016-003';
-      const amount = booking.finalPrice || 390000;
+      const baseSubtotal = booking.baseTotal || (booking.finalPrice || 390000);
+      const discountVal = booking.discountAmount || 0;
+      const pointsVal = booking.pointsDiscount || 0;
+      const preTax = isPackageRedemption ? 0 : Math.max(0, baseSubtotal - discountVal - pointsVal);
+      const vatVal = isPackageRedemption ? 0 : Math.round(preTax * (vatRate / 100));
+      const amount = isPackageRedemption ? 0 : (preTax + vatVal);
       const formattedAmount = `${amount.toLocaleString('vi-VN')}đ`;
       const datePart = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       const randPart = Math.floor(1000 + Math.random() * 9000);
@@ -486,15 +512,34 @@ export const W07_CashierPOS: React.FC = () => {
         cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
         bookingId: validBookingId,
         userPackageId: validPackageId,
-        subtotal: booking.baseTotal || amount,
-        discountAmount: booking.discountAmount || 0,
-        pointsRedeemedAmount: booking.pointsDiscount || 0,
-        vatAmount: 0,
+        shiftId: currentShift?.id || null,
+        subtotal: baseSubtotal,
+        discountAmount: discountVal,
+        pointsRedeemedAmount: pointsVal,
+        preTaxAmount: preTax,
+        vatRate: vatRate,
+        vatAmount: vatVal,
         totalAmount: amount,
         paymentMethod: paymentMethodEnum,
         paymentStatus: PaymentStatus.PAID,
         paidAt: new Date().toISOString(),
       });
+
+      // Cập nhật doanh thu ca thu ngân hiện tại
+      if (currentShift) {
+        const isCash = selectedMethod === 'onsite';
+        const isCard = false;
+        const isTransfer = selectedMethod === 'transfer' || selectedMethod === 'online';
+        const updatedShift = {
+          ...currentShift,
+          totalSales: (currentShift.totalSales || 0) + amount,
+          systemCash: (currentShift.systemCash || currentShift.openingCash) + (isCash ? amount : 0),
+          cardSales: (currentShift.cardSales || 0) + (isCard ? amount : 0),
+          transferSales: (currentShift.transferSales || 0) + (isTransfer ? amount : 0),
+        };
+        setCurrentShift(updatedShift);
+        localStorage.setItem('mld_current_shift', JSON.stringify(updatedShift));
+      }
 
       // 2. Cập nhật trạng thái Booking trên Supabase Cloud (bảng bookings)
       if (validBookingId) {
@@ -658,11 +703,15 @@ export const W07_CashierPOS: React.FC = () => {
         branchName,
         branchAddress,
         serviceName,
-        category: 'SERVICE',
+        category: isPackageRedemption ? 'PACKAGE' : 'SERVICE',
         method: methodLabel,
         amount: formattedAmount,
-        subtotal: `${(booking.baseTotal || amount).toLocaleString('vi-VN')}đ`,
-        discount: booking.discountAmount ? `${booking.discountAmount.toLocaleString('vi-VN')}đ` : '0đ',
+        subtotal: `${baseSubtotal.toLocaleString('vi-VN')}đ`,
+        discount: discountVal ? `${discountVal.toLocaleString('vi-VN')}đ` : '0đ',
+        preTaxAmount: `${preTax.toLocaleString('vi-VN')}đ`,
+        vatRateText: `${vatRate}%`,
+        vatAmountText: `${vatVal.toLocaleString('vi-VN')}đ`,
+        shiftCode: currentShift?.shiftCode,
         date: new Intl.DateTimeFormat('vi-VN', {
           hour: '2-digit',
           minute: '2-digit',
@@ -897,6 +946,14 @@ export const W07_CashierPOS: React.FC = () => {
   const kpiCashOrMomo = kpiPaid.filter((r) => r.methodCode === PaymentMethod.CASH_AT_SPA || r.methodCode === PaymentMethod.MOMO);
   const kpiCashOrMomoAmount = kpiCashOrMomo.reduce((sum, r) => sum + r.rawAmount, 0);
 
+  // Tính toán chi phí, VAT và tổng thanh toán theo chuẩn Y tế
+  const rawSubtotal = booking ? (booking.baseTotal || (booking.finalPrice || 390000)) : 0;
+  const rawDiscount = booking ? (booking.discountAmount || 0) : 0;
+  const rawPoints = booking ? (booking.pointsDiscount || 0) : 0;
+  const preTaxAmount = isPackageRedemption ? 0 : Math.max(0, rawSubtotal - rawDiscount - rawPoints);
+  const calculatedVat = isPackageRedemption ? 0 : Math.round(preTaxAmount * (vatRate / 100));
+  const finalTotalAmount = isPackageRedemption ? 0 : (preTaxAmount + calculatedVat);
+
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
       {/* 1. Page Header Title & Action Button */}
@@ -984,8 +1041,8 @@ export const W07_CashierPOS: React.FC = () => {
           }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'pos'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-[#73675F] hover:bg-[#FAF4EE] hover:text-[#985018] border border-[#E8DFD8]'
+              ? 'bg-sky-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-700 border border-slate-200'
           }`}
         >
           <CreditCard className="w-4 h-4" />
@@ -1004,14 +1061,14 @@ export const W07_CashierPOS: React.FC = () => {
           }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'receipts'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-[#73675F] hover:bg-[#FAF4EE] hover:text-[#985018] border border-[#E8DFD8]'
+              ? 'bg-sky-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-700 border border-slate-200'
           }`}
         >
           <Receipt className="w-4 h-4" />
           <span>Sổ hóa đơn & Biên lai</span>
           <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
-            activeTab === 'receipts' ? 'bg-white/20 text-white' : 'bg-[#F3E2CE] text-[#8A4F23]'
+            activeTab === 'receipts' ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-800'
           }`}>
             {pastReceipts.length}
           </span>
@@ -1023,6 +1080,71 @@ export const W07_CashierPOS: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'pos' && (
         <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Thanh trạng thái Ca Thu Ngân (Cashier Shift Status Bar) */}
+          <div className="bg-white rounded-2xl border border-sky-100 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            {currentShift ? (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+                  <Clock className="w-5 h-5 text-sky-600" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800">Ca thu ngân:</span>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                      {currentShift.shiftCode}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      ĐANG MỞ
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Tiền mặt đầu ca: <strong className="text-slate-700">{currentShift.openingCash.toLocaleString('vi-VN')}đ</strong> · 
+                    Doanh thu ca hiện tại: <strong className="text-emerald-700">{(currentShift.totalSales || 0).toLocaleString('vi-VN')}đ</strong> · 
+                    Mở lúc: {new Date(currentShift.openedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Chưa mở ca thu ngân</div>
+                  <p className="text-[11px] text-slate-500">
+                    Vui lòng mở ca làm việc để ghi nhận tiền mặt ban đầu và đối soát doanh thu cuối ngày.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              {currentShift ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShiftClosingCash(currentShift.systemCash || currentShift.openingCash);
+                    setShowCloseShiftModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Kết ca & Đối soát</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowOpenShiftModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Mở ca thu ngân mới</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* 2. Filter Toolbar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Customer / Booking code input */}
@@ -1234,34 +1356,83 @@ export const W07_CashierPOS: React.FC = () => {
 
           {/* Pricing breakdown box */}
           <div className="border border-[#EFE4D9] rounded-2xl p-4 sm:p-5 space-y-2.5 text-xs">
-            <div className="font-bold text-xs text-[#2C241E] mb-2">
-              Chi phí dịch vụ
+            <div className="font-bold text-xs text-[#2C241E] mb-2 flex items-center justify-between">
+              <span>Chi phí dịch vụ & Thuế GTGT</span>
+              <span className="text-[11px] text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 font-semibold">
+                Chuẩn Y tế 2026
+              </span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Tạm tính</span>
-              <span className="font-semibold text-[#2C241E]">{booking ? `${(booking.baseTotal || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
+              <span>Tạm tính (Đơn giá)</span>
+              <span className="font-semibold text-[#2C241E]">{booking ? `${rawSubtotal.toLocaleString('vi-VN')}đ` : '0đ'}</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Ưu đãi</span>
-              <span className="font-semibold text-[#2C241E]">{booking ? `${(booking.discountAmount || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
+              <span>Ưu đãi / Giảm trừ</span>
+              <span className="font-semibold text-emerald-700">{booking && rawDiscount > 0 ? `-${rawDiscount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
             </div>
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Đã sử dụng gói liệu trình</span>
-              <span className="font-semibold text-[#2C241E]">0đ</span>
+
+            {/* Tùy chọn trừ buổi liệu trình */}
+            <div className="py-2 px-3 rounded-xl bg-slate-50 border border-slate-200">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isPackageRedemption}
+                  onChange={(e) => setIsPackageRedemption(e.target.checked)}
+                  className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300"
+                />
+                <span className="text-xs font-semibold text-slate-800">
+                  Trừ vào Gói Liệu Trình (Khách đã thanh toán trước)
+                </span>
+              </label>
+              {isPackageRedemption && (
+                <p className="text-[11px] text-emerald-700 font-medium mt-1 ml-6">
+                  ✓ Số tiền phát sinh: 0đ. Hệ thống sẽ ghi nhận lịch sử trừ 1 buổi vào hồ sơ liệu trình của khách.
+                </p>
+              )}
             </div>
+
+            {/* Lựa chọn VAT 0%, 8%, 10% */}
+            {!isPackageRedemption && (
+              <div className="pt-2 border-t border-dashed border-[#EFE4D9] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">Mức thuế VAT</span>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 8, 10].map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => setVatRate(rate)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          vatRate === rate
+                            ? 'bg-sky-600 text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {rate === 0 ? '0% (Miễn)' : `${rate}%`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[#73675F]">
+                  <span>Tiền trước thuế</span>
+                  <span className="font-semibold text-[#2C241E]">{booking ? `${preTaxAmount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
+                </div>
+                <div className="flex items-center justify-between text-[#73675F]">
+                  <span>Tiền thuế VAT ({vatRate}%)</span>
+                  <span className="font-semibold text-sky-700">+{booking ? `${calculatedVat.toLocaleString('vi-VN')}đ` : '0đ'}</span>
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-[#EFE4D9] pt-2.5 space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-bold text-[#2C241E]">Tổng thanh toán</span>
-                <span className="font-extrabold text-[#2C241E]">{booking ? `${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
+                <span className="font-extrabold text-base text-sky-700">{booking ? `${finalTotalAmount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-[#73675F]">
-                <span>Cọc cần thu ngay</span>
-                <span className="font-semibold text-[#2C241E]">{booking ? `${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : '0đ'}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-[#73675F]">
-                <span>Còn lại trả sau</span>
-                <span className="font-semibold text-[#2C241E]">0đ</span>
+                <span>Trạng thái thuế</span>
+                <span className="font-medium text-slate-600">{vatRate > 0 && !isPackageRedemption ? `Đã gồm VAT ${vatRate}%` : 'Không tính thuế VAT'}</span>
               </div>
             </div>
           </div>
@@ -2201,6 +2372,29 @@ export const W07_CashierPOS: React.FC = () => {
                   </div>
                 )}
 
+                {selectedReceiptData?.preTaxAmount && (
+                  <div className="flex items-center justify-between text-[#73675F]">
+                    <span>Tiền trước thuế:</span>
+                    <span className="font-semibold text-[#2C241E]">{selectedReceiptData.preTaxAmount}</span>
+                  </div>
+                )}
+
+                {selectedReceiptData?.vatAmountText && (
+                  <div className="flex items-center justify-between text-[#73675F]">
+                    <span>Thuế GTGT ({selectedReceiptData.vatRateText || '8%'}):</span>
+                    <span className="font-semibold text-sky-700">+{selectedReceiptData.vatAmountText}</span>
+                  </div>
+                )}
+
+                {selectedReceiptData?.shiftCode && (
+                  <div className="flex items-center justify-between text-[#73675F]">
+                    <span>Ca thu ngân:</span>
+                    <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                      {selectedReceiptData.shiftCode}
+                    </span>
+                  </div>
+                )}
+
                 <div className="pt-2.5 border-t border-dashed border-[#E0D4C7] flex items-center justify-between">
                   <span className="font-bold text-sm text-[#2C241E]">Tổng đã quyết toán:</span>
                   <span className="text-base font-extrabold text-[#0D6832]">
@@ -2338,6 +2532,266 @@ export const W07_CashierPOS: React.FC = () => {
               >
                 Đóng
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Mở ca thu ngân mới */}
+      {showOpenShiftModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif]"
+          onClick={() => setShowOpenShiftModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full border border-sky-100 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-sky-50 to-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Mở ca làm việc thu ngân</h3>
+                  <p className="text-[11px] text-slate-500">Ghi nhận tiền két ban đầu và kích hoạt ca</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOpenShiftModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Cơ sở / Chi nhánh làm việc
+                </label>
+                <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
+                  {branches.find((b) => b.id === selectedBranchId)?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa'}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Tiền mặt đầu ca trong két (VNĐ) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={shiftOpeningCash}
+                  onChange={(e) => setShiftOpeningCash(Number(e.target.value) || 0)}
+                  placeholder="Nhập số tiền mặt đầu ca..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Số tiền bàn giao thực tế trong ngăn kéo trước giờ đón khách.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Ghi chú bàn giao ca
+                </label>
+                <textarea
+                  value={shiftNotes}
+                  onChange={(e) => setShiftNotes(e.target.value)}
+                  placeholder="Nhập ghi chú ca trực (nếu có)..."
+                  rows={2}
+                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowOpenShiftModal(false)}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await posService.openShift({
+                      branchId: selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+                      openingCash: shiftOpeningCash,
+                      notes: shiftNotes,
+                    });
+                    if (res.success && res.data) {
+                      setCurrentShift(res.data);
+                      setShowOpenShiftModal(false);
+                      toast.success('Mở ca thành công', `Đã kích hoạt ca ${res.data.shiftCode}`);
+                    }
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Xác nhận mở ca</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kết ca & Đối soát doanh thu */}
+      {showCloseShiftModal && currentShift && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif]"
+          onClick={() => setShowCloseShiftModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full border border-sky-100 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-sky-50 to-white sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Biên bản Kết ca & Đối soát</h3>
+                  <p className="text-[11px] text-slate-500">Mã ca: {currentShift.shiftCode}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCloseShiftModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Bảng tổng kết số liệu hệ thống ghi nhận */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
+                <div className="font-bold text-slate-800 pb-1 border-b border-slate-200 flex items-center justify-between">
+                  <span>Số liệu hệ thống ghi nhận trong ca</span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    {new Date(currentShift.openedAt).toLocaleTimeString('vi-VN')} – Hiện tại
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>1. Tiền mặt đầu ca:</span>
+                  <span className="font-semibold text-slate-800">{currentShift.openingCash.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>2. Doanh thu tiền mặt phát sinh:</span>
+                  <span className="font-semibold text-slate-800">
+                    {((currentShift.systemCash || currentShift.openingCash) - currentShift.openingCash).toLocaleString('vi-VN')}đ
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>3. Doanh thu Chuyển khoản VietQR:</span>
+                  <span className="font-semibold text-slate-800">{(currentShift.transferSales || 0).toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>4. Doanh thu Quẹt thẻ POS:</span>
+                  <span className="font-semibold text-slate-800">{(currentShift.cardSales || 0).toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="pt-2 border-t border-dashed border-slate-200 flex items-center justify-between font-bold text-slate-800">
+                  <span>Tổng tiền mặt hệ thống kỳ vọng trong két:</span>
+                  <span className="text-sm font-extrabold text-sky-700">
+                    {(currentShift.systemCash || currentShift.openingCash).toLocaleString('vi-VN')}đ
+                  </span>
+                </div>
+              </div>
+
+              {/* Nhập số tiền thực tế đếm được */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Số tiền mặt thực tế đếm trong két (VNĐ) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={shiftClosingCash}
+                  onChange={(e) => setShiftClosingCash(Number(e.target.value) || 0)}
+                  placeholder="Nhập số tiền mặt thực tế kiểm đếm..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-base font-extrabold text-slate-800 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              {/* Hiển thị chênh lệch */}
+              {(() => {
+                const sysCash = currentShift.systemCash || currentShift.openingCash;
+                const diff = shiftClosingCash - sysCash;
+                return (
+                  <div className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
+                    diff === 0
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : diff > 0
+                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                  }`}>
+                    <span className="font-bold">
+                      {diff === 0 ? '✓ Khớp 100% (Không chênh lệch)' : diff > 0 ? 'Thừa tiền mặt thực tế:' : 'Thiếu hụt tiền mặt thực tế:'}
+                    </span>
+                    <span className="font-extrabold text-sm font-mono">
+                      {diff > 0 ? `+${diff.toLocaleString('vi-VN')}đ` : diff < 0 ? `${diff.toLocaleString('vi-VN')}đ` : '0đ'}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Ghi chú kết ca & bàn giao
+                </label>
+                <textarea
+                  value={shiftNotes}
+                  onChange={(e) => setShiftNotes(e.target.value)}
+                  placeholder="Nhập ghi chú giải trình chênh lệch hoặc bàn giao két..."
+                  rows={2}
+                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.info('In biên bản', 'Đang kết nối máy in nhiệt K80...');
+                    window.print();
+                  }}
+                  className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>In biên bản K80</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const sysCash = currentShift.systemCash || currentShift.openingCash;
+                    const res = await posService.closeShift(currentShift.id, {
+                      closingCash: shiftClosingCash,
+                      systemCash: sysCash,
+                      cardSales: currentShift.cardSales || 0,
+                      transferSales: currentShift.transferSales || 0,
+                      totalSales: currentShift.totalSales || 0,
+                      notes: shiftNotes,
+                    });
+                    if (res.success) {
+                      setCurrentShift(null);
+                      setShowCloseShiftModal(false);
+                      toast.success('Kết ca thành công', res.message);
+                      fetchPosData();
+                    }
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Xác nhận đóng ca</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

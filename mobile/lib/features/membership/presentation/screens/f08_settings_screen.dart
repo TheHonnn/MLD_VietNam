@@ -6,6 +6,8 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/launcher_helper.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
+import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
@@ -25,6 +27,9 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
   void initState() {
     super.initState();
     _settings = _repo.settings;
+    if (BranchRepository.instance.activeBranch != null) {
+      _settings = _settings.copyWith(preferredBranch: BranchRepository.instance.activeBranch!.name);
+    }
   }
 
   void _updateSettings(UserSettings updated) {
@@ -112,25 +117,13 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
     );
   }
 
-  void _showBranchPicker(BuildContext context) {
+  void _showBranchPicker(BuildContext context) async {
     final isEn = _settings.language == 'English' || Localizations.localeOf(context).languageCode == 'en';
-    final branches = [
-      {
-        'name': 'Chi nhánh Quận 3',
-        'address': '123 Võ Văn Tần, P. Võ Thị Sáu, Quận 3, TP.HCM',
-        'phone': '1900 6868',
-      },
-      {
-        'name': 'Chi nhánh Quận 1',
-        'address': '45 Lê Thánh Tôn, P. Bến Nghé, Quận 1, TP.HCM',
-        'phone': '1900 6868',
-      },
-      {
-        'name': 'Chi nhánh Bình Thạnh',
-        'address': '88 Điện Biên Phủ, Phường 15, Q. Bình Thạnh, TP.HCM',
-        'phone': '1900 6868',
-      },
-    ];
+    List<BranchModel> branches = BranchRepository.instance.cachedBranches;
+    if (branches.isEmpty) {
+      branches = await BranchRepository.instance.getBranches();
+    }
+    if (!context.mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -165,7 +158,8 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               ),
               const SizedBox(height: 12),
               ...branches.map((b) {
-                final isSelected = _settings.preferredBranch == b['name'];
+                final isSelected = _settings.preferredBranch == b.name ||
+                    BranchRepository.instance.activeBranch?.id == b.id;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
@@ -183,7 +177,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                       color: isSelected ? AppColors.primary : AppColors.textSecondary,
                     ),
                     title: Text(
-                      b['name']!,
+                      b.name,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -191,18 +185,19 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                       ),
                     ),
                     subtitle: Text(
-                      b['address']!,
+                      b.address,
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     trailing: isSelected
                         ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
                         : null,
                     onTap: () {
-                      _updateSettings(_settings.copyWith(preferredBranch: b['name']!));
+                      BranchRepository.instance.setActiveBranch(b);
+                      _updateSettings(_settings.copyWith(preferredBranch: b.name));
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(isEn ? 'Preferred branch updated: ${b['name']}' : 'Đã chọn chi nhánh: ${b['name']}'),
+                          content: Text(isEn ? 'Preferred branch updated: ${b.name}' : 'Đã chọn chi nhánh: ${b.name}'),
                           backgroundColor: AppColors.primary,
                         ),
                       );

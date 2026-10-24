@@ -3,7 +3,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
+
 import 'd02_package_details_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 
@@ -271,37 +272,73 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                     ),
                   ),
               ] else if (_selectedStatusIndex == 1) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'Bạn chưa có gói liệu trình nào đã hoàn thành.',
-                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                if (_repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Bạn chưa có gói liệu trình nào đã hoàn thành.',
+                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  )
+                else
+                  ..._repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).map(
+                    (pkg) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: _buildPackageCard(
+                        package: pkg,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => D02PackageDetailsScreen(package: pkg),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
               ] else ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'Không có gói liệu trình nào hết hạn.',
-                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                if (_repo.packages.where((p) => p.status == PackageStatus.expired).isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Không có gói liệu trình nào hết hạn.',
+                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  )
+                else
+                  ..._repo.packages.where((p) => p.status == PackageStatus.expired).map(
+                    (pkg) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: _buildPackageCard(
+                        package: pkg,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => D02PackageDetailsScreen(package: pkg),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
               ],
 
               const SizedBox(height: 28),

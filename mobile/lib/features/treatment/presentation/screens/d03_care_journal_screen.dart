@@ -618,6 +618,9 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                                 specialistName: item.specialistName,
                                 branchName: item.branchName,
                                 sessionInfo: 'Buổi 04 · Hoàn thành 08/10/2026',
+                                bookingId: item.bookingId,
+                                serviceId: item.serviceId,
+                                technicianId: item.technicianId,
                               ),
                             ),
                           );

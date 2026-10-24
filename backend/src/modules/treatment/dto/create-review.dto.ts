@@ -11,7 +11,25 @@ export class CreateReviewDto {
   technicianId?: string;
 
   @ApiProperty({ description: 'Chấm điểm số sao (1-5)', example: 5 })
-  rating: number;
+  rating?: number;
+
+  @ApiProperty({ description: 'Chấm điểm số sao tổng thể từ app (1-5)', example: 5, required: false })
+  overallRating?: number;
+
+  @ApiProperty({ description: 'Chấm điểm chất lượng dịch vụ (1-5)', example: 5, required: false })
+  serviceQualityRating?: number;
+
+  @ApiProperty({ description: 'Chấm điểm thái độ nhân viên (1-5)', example: 5, required: false })
+  staffAttitudeRating?: number;
+
+  @ApiProperty({ description: 'Chấm điểm không gian cơ sở (1-5)', example: 5, required: false })
+  spaceAmbianceRating?: number;
+
+  @ApiProperty({ description: 'Chấm điểm quy trình dịch vụ (1-5)', example: 5, required: false })
+  procedureRating?: number;
+
+  @ApiProperty({ description: 'Sẵn sàng giới thiệu bạn bè', example: 'Có', required: false })
+  willingnessToRefer?: string;
 
   @ApiProperty({ description: 'Các thẻ nhận xét nhanh', example: ['Chuyên môn cao', 'Lực ấn vừa vặn', 'Phòng sạch sẽ'] })
   quickTags?: string[];

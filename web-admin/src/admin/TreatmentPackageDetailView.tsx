@@ -278,8 +278,8 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
       {/* 1. Header Banner & Identity */}
       <div className="bg-[#FAF8F5] border border-[#EFE4D9] rounded-3xl p-5 sm:p-6 shadow-xs relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
-          {/* Package Image */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-[#D7BBA6] shadow-sm shrink-0 bg-white relative">
+          {/* Package Image 16:9 */}
+          <div className="w-full sm:w-56 md:w-64 aspect-[16/9] rounded-2xl overflow-hidden border border-[#D7BBA6] shadow-sm shrink-0 bg-white relative">
             <img
               src={imageUrl}
               alt={packageName}
@@ -288,8 +288,11 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
                 (e.target as HTMLImageElement).src = '/spa_massage_banner.png';
               }}
             />
-            <div className="absolute top-1.5 left-1.5 bg-[#8A4F23] text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md shadow-2xs">
-              VIP
+            <div className="absolute top-2 left-2 bg-[#8A4F23] text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-2xs">
+              GÓI LIỆU TRÌNH
+            </div>
+            <div className="absolute bottom-1.5 left-1.5 bg-black/50 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider">
+              16:9
             </div>
           </div>
 
