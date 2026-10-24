@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/academy_widgets.dart';
 import 'e10_quiz_screen.dart';
 
 /// Screen E09: Bài học (Video Lesson) [8116:26134]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
+/// Tích hợp cơ chế bảo mật video, Watermark động chống quay/chụp màn hình (Điểm 52 - 65)
 class E09LessonScreen extends StatefulWidget {
   const E09LessonScreen({super.key});
 
@@ -15,6 +17,38 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
   int _selectedTab = 0; // 0: Nội dung, 1: Tài liệu, 2: Ghi chú
   bool _isPlaying = false;
   bool _isCompleted = false;
+
+  Timer? _watermarkTimer;
+  int _watermarkPositionIndex = 0;
+  final List<Alignment> _watermarkAlignments = [
+    Alignment.topRight,
+    Alignment.centerLeft,
+    Alignment.bottomCenter,
+    Alignment.topLeft,
+    Alignment.centerRight,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _startWatermarkAnimation();
+  }
+
+  @override
+  void dispose() {
+    _watermarkTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startWatermarkAnimation() {
+    _watermarkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) {
+        setState(() {
+          _watermarkPositionIndex = (_watermarkPositionIndex + 1) % _watermarkAlignments.length;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,6 +233,59 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                             ],
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+
+                  // Watermark động di chuyển bảo mật bản quyền (Điểm 55, 56, 57, 60)
+                  IgnorePointer(
+                    child: AnimatedAlign(
+                      duration: const Duration(seconds: 1),
+                      curve: Curves.easeInOut,
+                      alignment: _watermarkAlignments[_watermarkPositionIndex],
+                      child: Container(
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Nguyễn Minh Anh · 0912***678 · MLD Vodder DRM',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Huy hiệu bảo mật video MLD DRM (Điểm 52, 53, 58, 59, 64)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF0066B2)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Bảo vệ bản quyền MLD Academy · Khóa tải xuống & Watermark chống ghi hình',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF1E3A8A),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),

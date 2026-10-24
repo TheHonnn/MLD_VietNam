@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import 'd11_community_screen.dart';
 
 /// Screen D09: Trang Tài liệu & Cẩm nang Y khoa MLD
 /// Đáp ứng các yêu cầu:
@@ -309,6 +310,16 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.forum_outlined, color: AppColors.primary),
+            tooltip: 'Cộng đồng MLD',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
             onPressed: () {},

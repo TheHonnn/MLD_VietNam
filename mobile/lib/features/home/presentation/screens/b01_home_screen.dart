@@ -20,6 +20,7 @@ import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
 import '../../../treatment/presentation/screens/d09_documents_screen.dart';
 import '../../../treatment/presentation/screens/d10_lymph_examination_screen.dart';
+import '../../../treatment/presentation/screens/d11_community_screen.dart';
 import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
@@ -1642,47 +1643,186 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'HỌC VIỆN ĐÀO TẠO NGHỀ',
+                            'HỌC VIỆN ĐÀO TẠO MLD VIỆT NAM',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.primary, // #985018
+                              color: AppColors.primary,
                               letterSpacing: 0.6,
                             ),
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Khởi đầu nghề nghiệp trong lĩnh vực chăm sóc sức khỏe và spa.',
+                            'Chương trình đào tạo chuẩn Y khoa Vodder Quốc tế',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                               height: 1.35,
-                              color: AppColors.textHeading, // #693B20
+                              color: AppColors.textHeading,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceSecondary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.check_circle, size: 16, color: AppColors.primary),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Nhóm 1: Người mới bắt đầu làm nghề (Cấp Giấy chứng nhận)',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(Icons.check_circle, size: 16, color: AppColors.primary),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Nhóm 2: Người đang làm nghề nâng cao tay nghề & điều trị',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
                           SizedBox(
                             width: double.infinity,
-                            height: 56,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                side: const BorderSide(color: AppColors.primary, width: 1.2),
+                            height: 52,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
+                                elevation: 0,
                               ),
                               onPressed: widget.onNavigateToAcademy,
                               child: const Text(
-                                'Khám phá khóa học',
+                                'Khám phá 2 nhóm khóa đào tạo',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ==========================================
+              // 10. CỘNG ĐỒNG MLD VIỆT NAM (Điểm 118, 154)
+              // ==========================================
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0066B2), Color(0xFF0284C7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0066B2).withValues(alpha: 0.25),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.people_alt_outlined, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'CỘNG ĐỒNG MLD VIỆT NAM',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Chia sẻ trải nghiệm phục hồi & thảo luận cùng chuyên gia Vodder',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Hàng trăm ca lâm sàng phục hồi phù nề sau phẫu thuật, chia sẻ kinh nghiệm hành nghề thực tế từ học viên và bác sĩ.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF0066B2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
+                          );
+                        },
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Vào diễn đàn cộng đồng',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(Icons.arrow_forward, size: 16),
+                          ],
+                        ),
                       ),
                     ),
                   ],

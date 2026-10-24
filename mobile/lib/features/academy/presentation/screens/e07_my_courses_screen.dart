@@ -376,6 +376,23 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          const Row(
+            children: [
+              Icon(Icons.timer_outlined, size: 14, color: Color(0xFF0066B2)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Thời hạn học: Đến 31/12/2026 (Còn 68 ngày)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF0066B2),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,

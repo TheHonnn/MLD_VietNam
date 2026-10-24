@@ -533,6 +533,7 @@ class BookingSummaryCardWidget extends StatelessWidget {
 }
 
 /// 6. ComponentFamily / PriceBreakdown [8111:28362]
+/// Hỗ trợ bóc tách VAT 8% / 10% và hiển thị chi tiết giá trước thuế theo tiêu chuẩn Y tế MLD
 class PriceBreakdownCardWidget extends StatelessWidget {
   final double subtotal;
   final double discount;
@@ -541,6 +542,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
   final double deposit;
   final double remaining;
   final bool isDepositPaid;
+  final double vatRate; // Mặc định 0.08 (8%) theo chính sách VAT y tế
 
   const PriceBreakdownCardWidget({
     super.key,
@@ -551,6 +553,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
     required this.deposit,
     required this.remaining,
     this.isDepositPaid = false,
+    this.vatRate = 0.08,
   });
 
   String _formatCurrency(double amount) {
@@ -562,6 +565,10 @@ class PriceBreakdownCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preTaxSubtotal = subtotal > 0 ? (subtotal / (1.0 + vatRate)) : 0.0;
+    final vatAmount = subtotal > 0 ? (subtotal - preTaxSubtotal) : 0.0;
+    final vatPercentStr = (vatRate * 100).toInt();
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -582,11 +589,19 @@ class PriceBreakdownCardWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          _buildRow('Giá dịch vụ (trước VAT)', '${_formatCurrency(preTaxSubtotal)}đ'),
+          const SizedBox(height: 8),
+          _buildRow('Thuế GTGT (VAT $vatPercentStr%)', '${_formatCurrency(vatAmount)}đ'),
+          const SizedBox(height: 8),
           _buildRow('Tạm tính', '${_formatCurrency(subtotal)}đ'),
-          const SizedBox(height: 8),
-          _buildRow('Ưu đãi', '-${_formatCurrency(discount)}đ'),
-          const SizedBox(height: 8),
-          _buildRow('Đã sử dụng gói liệu trình', '${_formatCurrency(packageUsed)}đ'),
+          if (discount > 0) ...[
+            const SizedBox(height: 8),
+            _buildRow('Ưu đãi', '-${_formatCurrency(discount)}đ'),
+          ],
+          if (packageUsed > 0) ...[
+            const SizedBox(height: 8),
+            _buildRow('Đã sử dụng gói liệu trình', '${_formatCurrency(packageUsed)}đ'),
+          ],
           const SizedBox(height: 10),
           const Divider(height: 1, color: BookingColors.cardBorder),
           const SizedBox(height: 10),
@@ -620,7 +635,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
             deposit > 0 ? '${_formatCurrency(deposit)}đ' : '0đ (Không yêu cầu cọc)',
           ),
           const SizedBox(height: 8),
-          _buildRow('Hình thức thanh toán', 'Thanh toán tại cơ sở khi đến'),
+          _buildRow('Hình thức thanh toán', 'Thanh toán tại cơ sở khi đến / POS'),
         ],
       ),
     );

@@ -104,6 +104,29 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     'Thứ 6–7–Chủ nhật · 13:00–17:00',
                     style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
                   ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.schedule, size: 14, color: Color(0xFF0066B2)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Thời hạn truy cập: Còn 45 ngày (Hạn đến: 31/12/2026)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0066B2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
