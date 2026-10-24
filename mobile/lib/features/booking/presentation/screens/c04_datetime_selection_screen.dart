@@ -693,6 +693,129 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
                   ),
                   const SizedBox(height: 16),
 
+                  // Bộ chọn số lượng khách trị liệu (1 đến 5 khách) - BUG-036
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: BookingColors.cardBorder, width: 1.0),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Số lượng khách trị liệu',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: BookingColors.textPrimary,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Tối đa 5 khách cùng khung giờ',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: BookingColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Stepper (-) [Số người] (+)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: BookingColors.cardWarm,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: BookingColors.cardBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.remove, size: 18),
+                                    color: widget.flowState.guestCount > 1
+                                        ? BookingColors.primary
+                                        : Colors.grey.shade400,
+                                    onPressed: widget.flowState.guestCount > 1
+                                        ? () {
+                                            setState(() {
+                                              widget.flowState.guestCount--;
+                                            });
+                                          }
+                                        : null,
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    child: Text(
+                                      '${widget.flowState.guestCount} người',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: BookingColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add, size: 18),
+                                    color: widget.flowState.guestCount < 5
+                                        ? BookingColors.primary
+                                        : Colors.grey.shade400,
+                                    onPressed: widget.flowState.guestCount < 5
+                                        ? () {
+                                            setState(() {
+                                              widget.flowState.guestCount++;
+                                            });
+                                          }
+                                        : null,
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // Thông báo điều phối tự động kỹ thuật viên và giường
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: BookingColors.cardWarm.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: BookingColors.cardBorder.withValues(alpha: 0.6)),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline_rounded, size: 16, color: BookingColors.primary),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Hệ thống tự động sắp xếp kỹ thuật viên và bố trí giường trị liệu tương ứng cho số lượng khách đã chọn.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: BookingColors.textPrimary,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Khung Tháng và điều hướng
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1035,8 +1158,8 @@ class _C04DateTimeSelectionScreenState extends State<C04DateTimeSelectionScreen>
             // Fixed Bottom Bar chuẩn
             BookingFixedBottomBar(
               summaryText: _selectedTimeSlot.isNotEmpty
-                  ? '$dateStr · $_selectedTimeSlot · $durationMinutes phút'
-                  : '$dateStr · Chưa chọn giờ · $durationMinutes phút',
+                  ? '$dateStr · $_selectedTimeSlot · ${widget.flowState.guestCount} khách · $durationMinutes phút'
+                  : '$dateStr · Chưa chọn giờ · ${widget.flowState.guestCount} khách · $durationMinutes phút',
               buttonText: 'Tiếp tục',
               onPressed: () {
                 if (_selectedTimeSlot.isEmpty || widget.flowState.selectedSlot == null) {

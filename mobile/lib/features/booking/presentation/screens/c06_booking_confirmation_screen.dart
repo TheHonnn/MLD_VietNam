@@ -4,7 +4,6 @@ import '../../data/repositories/booking_repository.dart';
 import '../widgets/group_c_widgets.dart';
 import 'c01_service_selection_screen.dart';
 import 'c02_branch_selection_screen.dart';
-import 'c03_specialist_selection_screen.dart';
 import 'c04_datetime_selection_screen.dart';
 import 'c05_booking_info_screen.dart';
 import 'c08_booking_success_screen.dart';
@@ -100,14 +99,7 @@ class _C06BookingConfirmationScreenState extends State<C06BookingConfirmationScr
                         ),
                       );
                     },
-                    onEditSpecialist: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => C03SpecialistSelectionScreen(flowState: widget.flowState),
-                        ),
-                      );
-                    },
+
                     onEditCustomer: () {
                       Navigator.push(
                         context,

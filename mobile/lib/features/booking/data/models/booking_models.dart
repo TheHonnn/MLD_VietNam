@@ -295,6 +295,7 @@ class BookingFlowState {
     String? specialNotes,
     bool? payFullAmount,
     String? paymentMethod,
+    int? guestCount,
   }) {
     return BookingFlowState(
       bookingCode: bookingCode ?? this.bookingCode,
@@ -311,6 +312,7 @@ class BookingFlowState {
       specialNotes: specialNotes ?? this.specialNotes,
       payFullAmount: payFullAmount ?? this.payFullAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      guestCount: guestCount ?? this.guestCount,
     );
   }
 }

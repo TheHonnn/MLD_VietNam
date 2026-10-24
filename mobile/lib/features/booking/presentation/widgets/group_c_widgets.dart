@@ -495,16 +495,26 @@ class BookingSummaryCardWidget extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // 4. CHUYÊN VIÊN
-          Text(
-            'Kỹ thuật viên & Giường: $specialistName',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: BookingColors.textPrimary,
-            ),
+          // 4. KỸ THUẬT VIÊN & GIƯỜNG ĐIỀU PHỐI TỰ ĐỘNG (BUG-036)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.auto_awesome_rounded, size: 16, color: BookingColors.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  flowState?.guestCount != null && flowState!.guestCount > 1
+                      ? 'Kỹ thuật viên ($specialistName) & Giường (${flowState!.guestCount} khách): Được điều phối tự động bởi trung tâm y tế'
+                      : 'Kỹ thuật viên & Giường ($specialistName): Được điều phối tự động bởi trung tâm y tế',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: BookingColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
           ),
-          // Khách không tự chọn KTV, hệ thống tự động phân bổ KTV & Giường
 
           const SizedBox(height: 16),
 
