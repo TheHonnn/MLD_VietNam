@@ -262,25 +262,11 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
 
             <div className="flex flex-wrap items-baseline gap-4 pt-1">
               <div>
-                <span className="text-[11px] font-bold text-[#8C7A6B] block">Giá niêm yết (Đồng bộ App & POS)</span>
+                <span className="text-[11px] font-bold text-[#8C7A6B] block">Giá dịch vụ (Đồng bộ App & POS)</span>
                 <span className="text-xl sm:text-2xl font-extrabold text-[#2C241E]">
                   {price.toLocaleString('vi-VN')} ₫
                 </span>
               </div>
-
-              {hasDiscount && (
-                <div>
-                  <span className="text-[11px] font-bold text-[#BA7E4C] block">Giá ưu đãi</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl sm:text-2xl font-extrabold text-[#985018]">
-                      {discountPrice.toLocaleString('vi-VN')} ₫
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]">
-                      Tiết kiệm {discountPercent}% ({ (price - discountPrice).toLocaleString('vi-VN') } ₫)
-                    </span>
-                  </div>
-                </div>
-              )}
 
               <div className="self-end pb-0.5">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-white text-[#73675F] border border-[#E8DFD8]">
@@ -450,15 +436,9 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
                         Hạn dùng: <strong>{pkg.validity_months} tháng</strong>
                       </span>
                       <div className="text-right">
-                        {pkg.discount_price ? (
-                          <div className="font-extrabold text-[#985018]">
-                            {pkg.discount_price.toLocaleString('vi-VN')} ₫
-                          </div>
-                        ) : (
-                          <div className="font-extrabold text-[#2C241E]">
-                            {pkg.price.toLocaleString('vi-VN')} ₫
-                          </div>
-                        )}
+                        <div className="font-extrabold text-[#2C241E]">
+                          {pkg.price.toLocaleString('vi-VN')} ₫
+                        </div>
                       </div>
                     </div>
                   </div>

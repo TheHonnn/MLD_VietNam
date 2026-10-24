@@ -1641,10 +1641,12 @@ function RecordDialog({
           ...(mode === "create" ? ["reward_points", "total_spent", "membership_tier"] : []),
         ]
       : resource.name === "services"
-        ? ["slug"]
-        : resource.name === "student_certificates"
-          ? ["qr_verification_code"]
-          : [];
+        ? ["slug", "discount_price"]
+        : resource.name === "treatment_packages"
+          ? ["discount_price"]
+          : resource.name === "student_certificates"
+            ? ["qr_verification_code"]
+            : [];
   const fields = columns.filter(
     (c) =>
       !generated.includes(c.name) &&
@@ -2522,7 +2524,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "category_id",
       "duration_minutes",
       "price",
-      "discount_price",
       "is_featured",
       "is_active",
     ],
@@ -2533,7 +2534,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "total_sessions",
       "validity_months",
       "price",
-      "discount_price",
       "is_active",
     ],
     service_categories: [
