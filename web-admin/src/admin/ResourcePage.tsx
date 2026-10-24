@@ -36,6 +36,7 @@ import {
   Clock,
   Layers,
   CreditCard,
+  Clipboard,
 } from "lucide-react";
 import {
   adminApi,
@@ -233,6 +234,10 @@ function ServiceImageInput({
   value: string;
   onChange: (url: string) => void;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const PRESET_SPA_IMAGES = [
     { label: "Chăm sóc da", url: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881" },
     { label: "Gội đầu", url: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1" },
@@ -240,43 +245,277 @@ function ServiceImageInput({
     { label: "Thẩm mỹ CNC", url: "https://images.unsplash.com/photo-1512290903671-17adc820948b" },
   ];
 
+  const uploadImageBlob = async (blob: Blob, nameHint = "service_img.png") => {
+    const ext = nameHint.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
+    const cleanFileName = `service_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
+    const KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
+
+    // Try 'services' bucket first, then fallback to 'avatars'
+    let targetBucket = "services";
+    let res = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          "Content-Type": blob.type || "image/png",
+        },
+        body: blob,
+      }
+    );
+
+    if (!res.ok) {
+      targetBucket = "avatars";
+      res = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+        {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${KEY}`,
+            "Content-Type": blob.type || "image/png",
+          },
+          body: blob,
+        }
+      );
+    }
+
+    if (!res.ok) {
+      throw new Error("Không thể tải ảnh lên kho lưu trữ Supabase.");
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+  };
+
+  const handleProcessFile = async (file: File | Blob, nameHint?: string) => {
+    setUploading(true);
+    try {
+      const publicUrl = await uploadImageBlob(file, nameHint || (file as File).name);
+      onChange(publicUrl);
+    } catch (err: any) {
+      alert(err.message || "Tải ảnh thất bại");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle Ctrl+V / Paste event anywhere on the input or wrapper
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await handleProcessFile(file, `pasted_${Date.now()}.${item.type.split("/")[1] || "png"}`);
+          return;
+        }
+      }
+    }
+  };
+
+  // Handle Paste Button Click (navigator.clipboard)
+  const handlePasteButtonClick = async () => {
+    if (!navigator.clipboard) {
+      alert("Trình duyệt không hỗ trợ đọc bộ nhớ tạm qua nút bấm. Bạn có thể nhấn phím tắt Ctrl+V trực tiếp vào ô nhập!");
+      return;
+    }
+
+    try {
+      setUploading(true);
+      // Try clipboard.read() for image blobs
+      if (navigator.clipboard.read) {
+        try {
+          const clipboardItems = await navigator.clipboard.read();
+          for (const item of clipboardItems) {
+            const imgType = item.types.find((t) => t.startsWith("image/"));
+            if (imgType) {
+              const blob = await item.getType(imgType);
+              const url = await uploadImageBlob(blob, `pasted_${Date.now()}.${imgType.split("/")[1] || "png"}`);
+              onChange(url);
+              setUploading(false);
+              return;
+            }
+          }
+        } catch (readErr) {
+          console.warn("clipboard.read() not allowed or no blob, trying readText()", readErr);
+        }
+      }
+
+      // Fallback: check clipboard text for URL
+      const text = await navigator.clipboard.readText();
+      const trimmed = text ? text.trim() : "";
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:image/")) {
+        onChange(trimmed);
+        setUploading(false);
+        return;
+      }
+
+      alert("Không tìm thấy hình ảnh hoặc đường link ảnh trong bộ nhớ tạm. Hãy sao chép (Copy) ảnh hoặc chụp màn hình rồi thử lại!");
+    } catch (err: any) {
+      alert("Không thể đọc bộ nhớ tạm. Bạn vui lòng bấm phím Ctrl+V trực tiếp vào ô nhập URL!");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        await handleProcessFile(file);
+      } else {
+        alert("Vui lòng thả tập tin hình ảnh (JPG, PNG, WebP...)");
+      }
+    }
+  };
+
   return (
-    <div className="space-y-2 p-3 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl font-['Plus_Jakarta_Sans',sans-serif]">
-      <div className="flex items-center gap-3">
-        {value ? (
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs">
-            <img
-              src={value}
-              alt="Preview"
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = "none";
-              }}
+    <div
+      onPaste={handlePaste}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`space-y-2.5 p-3.5 rounded-xl font-['Plus_Jakarta_Sans',sans-serif] transition-all border ${
+        isDragging
+          ? "bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/20"
+          : "bg-[#FAF8F5] border-[#E8DFD8]"
+      }`}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleProcessFile(file);
+        }}
+      />
+
+      <div className="flex items-start gap-3">
+        {/* Preview box */}
+        <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center group">
+          {uploading ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#FAF0E4] text-[#985018]">
+              <LoaderCircle className="w-5 h-5 animate-spin" />
+              <span className="text-[9px] font-bold mt-1">Đang tải...</span>
+            </div>
+          ) : value ? (
+            <>
+              <img
+                src={value}
+                alt="Service Preview"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                title="Gỡ ảnh này"
+                className="absolute inset-0 bg-black/55 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <Trash2 size={14} className="stroke-[2.2]" />
+                <span className="text-[9px] font-semibold mt-0.5">Gỡ ảnh</span>
+              </button>
+            </>
+          ) : (
+            <div className="w-full h-full bg-[#F0E6DC] text-[#985018] flex flex-col items-center justify-center border border-[#E8DFD8]">
+              <Leaf className="w-6 h-6 stroke-[1.8]" />
+              <span className="text-[9px] text-[#8C7A6B] mt-0.5 font-medium">Chưa có ảnh</span>
+            </div>
+          )}
+        </div>
+
+        {/* Input & Action buttons */}
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <input
+              type="url"
+              value={value || ""}
+              placeholder="Dán link ảnh (URL) hoặc nhấn Ctrl+V để dán ảnh trực tiếp..."
+              onChange={(e) => onChange(e.target.value)}
+              onPaste={handlePaste}
+              className="flex-1 text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/30 transition-all placeholder:text-[#A69788]"
             />
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                title="Xóa link"
+                className="p-2 rounded-lg text-[#8C7A6B] hover:text-[#DC2626] hover:bg-white border border-[#E8DFD8] cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-        ) : (
-          <div className="w-14 h-14 rounded-xl bg-[#F0E6DC] text-[#985018] flex items-center justify-center shrink-0 border border-[#E8DFD8]">
-            <Leaf className="w-6 h-6 stroke-[1.8]" />
+
+          {/* Quick upload & paste actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#985018] text-white hover:bg-[#804213] disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+            >
+              <Upload size={13} className="stroke-[2.2]" />
+              <span>Tải ảnh từ máy</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={handlePasteButtonClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-[#985018] border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+              title="Dán ảnh trực tiếp từ bộ nhớ tạm hoặc nhấn phím Ctrl+V"
+            >
+              <Clipboard size={13} className="stroke-[2.2]" />
+              <span>Dán từ bộ nhớ tạm (Ctrl+V)</span>
+            </button>
           </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <input
-            type="url"
-            value={value || ""}
-            placeholder="Nhập đường dẫn ảnh (URL) hoặc chọn ảnh mẫu bên dưới..."
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full text-xs px-2.5 py-2 rounded-lg border border-[#E8DFD8] bg-white focus:outline-none focus:border-[#985018]"
-          />
         </div>
       </div>
-      <div className="flex items-center gap-1.5 flex-wrap pt-1">
-        <span className="text-[11px] text-[#8C7A6B]">Ảnh mẫu gợi ý:</span>
+
+      {/* Helper text tip */}
+      <div className="flex items-center justify-between text-[11px] text-[#8C7A6B] bg-white/70 px-2.5 py-1.5 rounded-lg border border-[#F0E6DC]">
+        <span>💡 <b>Mẹo nhanh:</b> Chụp ảnh màn hình rồi bấm <b>Ctrl+V</b> hoặc kéo thả file ảnh vào khung này để tải lên tức thì.</span>
+      </div>
+
+      {/* Preset spa images */}
+      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+        <span className="text-[11px] text-[#8C7A6B] font-medium">Ảnh mẫu gợi ý:</span>
         {PRESET_SPA_IMAGES.map((preset) => (
           <button
             key={preset.label}
             type="button"
             onClick={() => onChange(preset.url)}
-            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-[#73675F] border border-[#E8DFD8] hover:border-[#BA7E4C] hover:text-[#985018] cursor-pointer"
+            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-[#73675F] border border-[#E8DFD8] hover:border-[#BA7E4C] hover:text-[#985018] hover:bg-[#FAF8F5] cursor-pointer transition-colors"
           >
             {preset.label}
           </button>
