@@ -95,6 +95,34 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
         })()
       : [];
 
+  // Parse pricing tiers
+  const pricingTiers: any[] = Array.isArray(row.pricing_tiers)
+    ? row.pricing_tiers
+    : typeof row.pricing_tiers === 'string'
+      ? (() => {
+          try {
+            const parsed = JSON.parse(row.pricing_tiers);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
+  // Parse add-on items
+  const addOnItems: any[] = Array.isArray(row.add_on_items)
+    ? row.add_on_items
+    : typeof row.add_on_items === 'string'
+      ? (() => {
+          try {
+            const parsed = JSON.parse(row.add_on_items);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
   // Fetch related packages from Supabase
   useEffect(() => {
     let isMounted = true;
@@ -288,6 +316,104 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
           </div>
         )}
       </div>
+
+      {/* Phân loại giá theo giai đoạn & Phụ phí vật tư (Multi-tier Pricing) */}
+      {(pricingTiers.length > 0 || addOnItems.length > 0) && (
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#F0E6DC]">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#FAF0E4] text-[#985018] flex items-center justify-center font-bold">
+                💰
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#2C241E]">
+                  Bảng Phân Loại Giá Theo Giai Đoạn & Vật Tư Kèm Theo
+                </h3>
+                <p className="text-[11px] text-[#8C7A6B]">
+                  Chi phí chi tiết theo mức độ lâm sàng của khách hàng
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {pricingTiers.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold text-[#73675F] uppercase tracking-wider block">
+                Các mức giá theo giai đoạn ({pricingTiers.length} mức)
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {pricingTiers.map((tier: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E8DFD8] flex flex-col justify-between hover:border-[#BA7E4C] transition-colors shadow-2xs"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[#FAF0E4] text-[#8A4F23]">
+                          Giai đoạn {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-[#985018]">
+                          {Number(tier.price || 0).toLocaleString("vi-VN")} ₫
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-bold text-[#2C241E] leading-snug">
+                        {tier.name}
+                      </h4>
+                      {tier.description && (
+                        <p className="text-[11px] text-[#73675F] mt-1 leading-relaxed">
+                          {tier.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="mt-2.5 pt-2 border-t border-[#F0E6DC] text-[10px] text-[#8C7A6B] flex items-center justify-between">
+                      <span>Đơn vị tính:</span>
+                      <strong className="text-[#2C241E]">{tier.unit || "VNĐ/buổi"}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {addOnItems.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <span className="text-[11px] font-bold text-[#73675F] uppercase tracking-wider block">
+                Vật tư y tế & Phụ phí định kỳ ({addOnItems.length} phụ phí)
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {addOnItems.map((addon: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl bg-[#FFFDFB] border border-[#E8DFD8] flex items-start gap-3 shadow-2xs"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#985018] flex items-center justify-center text-lg shrink-0 border border-[#E8DFD8]">
+                      🩹
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h4 className="text-xs font-bold text-[#2C241E]">
+                          {addon.name}
+                        </h4>
+                        <span className="text-xs font-bold text-[#985018] shrink-0">
+                          {Number(addon.price || 0).toLocaleString("vi-VN")} ₫
+                        </span>
+                      </div>
+                      {addon.note && (
+                        <p className="text-[11px] text-[#73675F] mt-0.5 leading-relaxed">
+                          {addon.note}
+                        </p>
+                      )}
+                      <span className="text-[10px] text-[#8C7A6B] font-semibold mt-1 block">
+                        Chu kỳ tính: {addon.unit || "VNĐ/tháng"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Grid: Clinical Protocol & Benefits */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">

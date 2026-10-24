@@ -1877,6 +1877,28 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       "reference": null
     },
     {
+      "name": "pricing_tiers",
+      "type": "jsonb",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "add_on_items",
+      "type": "jsonb",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
       "name": "is_featured",
       "type": "bool",
       "required": false,

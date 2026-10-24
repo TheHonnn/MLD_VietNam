@@ -227,6 +227,398 @@ function ServiceBenefitsEditor({
   );
 }
 
+export interface PricingTier {
+  id?: string;
+  name: string;
+  description?: string;
+  price: number;
+  unit?: string;
+}
+
+export interface ServiceAddon {
+  id?: string;
+  name: string;
+  price: number;
+  unit?: string;
+  note?: string;
+}
+
+function ServicePricingTiersEditor({
+  value,
+  onChange,
+  onSuggestBasePrice,
+}: {
+  value: any;
+  onChange: (tiers: PricingTier[]) => void;
+  onSuggestBasePrice?: (price: number) => void;
+}) {
+  const tiers: PricingTier[] = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? (() => {
+          try {
+            const p = JSON.parse(value);
+            return Array.isArray(p) ? p : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
+  const addTier = () => {
+    const newTier: PricingTier = {
+      id: `tier_${Date.now()}`,
+      name: "",
+      description: "",
+      price: 0,
+      unit: "VNĐ/buổi",
+    };
+    onChange([...tiers, newTier]);
+  };
+
+  const updateTier = (idx: number, patch: Partial<PricingTier>) => {
+    const updated = [...tiers];
+    updated[idx] = { ...updated[idx], ...patch };
+    onChange(updated);
+  };
+
+  const removeTier = (idx: number) => {
+    onChange(tiers.filter((_, i) => i !== idx));
+  };
+
+  const applyPhuTayTemplate = () => {
+    const template: PricingTier[] = [
+      {
+        id: "tier_1",
+        name: "Chăm sóc dự phòng 1 vùng ngực",
+        description: "Dành cho khách hàng chưa phù hoặc phòng ngừa tái phát",
+        price: 350000,
+        unit: "VNĐ/buổi",
+      },
+      {
+        id: "tier_2",
+        name: "Khi tay đã phù giai đoạn 1 (Phù mềm ấn lõm)",
+        description: "Giai đoạn sớm, mô còn mềm, đáp ứng tốt với dẫn lưu bạch huyết",
+        price: 700000,
+        unit: "VNĐ/buổi",
+      },
+      {
+        id: "tier_3",
+        name: "Khi tay đã phù giai đoạn 2 (Phù cứng)",
+        description: "Phù cứng xơ hóa, cần liệu trình chuyên sâu kết hợp băng ép",
+        price: 890000,
+        unit: "VNĐ/buổi",
+      },
+    ];
+    onChange(template);
+    if (onSuggestBasePrice) onSuggestBasePrice(350000);
+  };
+
+  return (
+    <div className="space-y-3 p-4 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl font-['Plus_Jakarta_Sans',sans-serif]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8DFD8] pb-2.5">
+        <div>
+          <span className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+            <span>Phân loại giá theo giai đoạn / mức độ</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
+              {tiers.length} mức giá
+            </span>
+          </span>
+          <p className="text-[11px] text-[#8A7968] mt-0.5">
+            Dành cho dịch vụ có nhiều mức giá theo giai đoạn bệnh (như Phù tay: Dự phòng 350k, GĐ1 700k, GĐ2 890k)
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {tiers.length === 0 && (
+            <button
+              type="button"
+              onClick={applyPhuTayTemplate}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#8A4F23] bg-white border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer shadow-2xs transition-colors"
+              title="Điền mẫu dịch vụ giảm phù tay 3 giai đoạn"
+            >
+              ⚡ Mẫu gợi ý (Phù tay)
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={addTier}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#985018] text-white hover:bg-[#804213] cursor-pointer shadow-xs flex items-center gap-1 transition-colors"
+          >
+            <Plus size={13} className="stroke-[2.5]" />
+            <span>Thêm mức giá / giai đoạn</span>
+          </button>
+        </div>
+      </div>
+
+      {tiers.length === 0 ? (
+        <div className="py-4 text-center border border-dashed border-[#D5C7B8] rounded-lg bg-white/50 text-[#8C7A6B]">
+          <p className="text-xs font-medium">Chưa có phân loại giá theo giai đoạn.</p>
+          <p className="text-[11px] mt-0.5">
+            Nếu dịch vụ này có giá đồng nhất, chỉ cần điền ô <b>Giá niêm yết</b> ở trên. Nếu có nhiều mức giá theo giai đoạn bệnh, hãy bấm <b>"+ Thêm mức giá / giai đoạn"</b> hoặc <b>"⚡ Mẫu gợi ý"</b>.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {tiers.map((tier, idx) => (
+            <div
+              key={tier.id || idx}
+              className="p-3 bg-white rounded-xl border border-[#E8DFD8] shadow-xs space-y-2 relative group hover:border-[#BA7E4C] transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8] text-[11px] font-extrabold flex items-center justify-center shrink-0">
+                    {idx + 1}
+                  </span>
+                  <span className="text-xs font-bold text-[#8A4F23]">
+                    Giai đoạn / Mức {idx + 1}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeTier(idx)}
+                  className="p-1 rounded-md text-[#A69788] hover:text-[#DC2626] hover:bg-[#FEE2E2] cursor-pointer transition-colors"
+                  title="Xóa mức giá này"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-6">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Tên giai đoạn / phân loại
+                  </label>
+                  <input
+                    type="text"
+                    value={tier.name}
+                    placeholder="VD: Khi tay đã phù giai đoạn 1 (Phù mềm ấn lõm)..."
+                    onChange={(e) => updateTier(idx, { name: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Giá tiền (VNĐ)
+                  </label>
+                  <input
+                    type="number"
+                    value={tier.price || ""}
+                    placeholder="700000"
+                    onChange={(e) => updateTier(idx, { price: Number(e.target.value) || 0 })}
+                    className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Đơn vị tính
+                  </label>
+                  <input
+                    type="text"
+                    value={tier.unit || "VNĐ/buổi"}
+                    placeholder="VNĐ/buổi"
+                    onChange={(e) => updateTier(idx, { unit: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-12">
+                  <input
+                    type="text"
+                    value={tier.description || ""}
+                    placeholder="Mô tả tình trạng lâm sàng hoặc lưu ý cho giai đoạn này..."
+                    onChange={(e) => updateTier(idx, { description: e.target.value })}
+                    className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServiceAddonsEditor({
+  value,
+  onChange,
+}: {
+  value: any;
+  onChange: (addons: ServiceAddon[]) => void;
+}) {
+  const addons: ServiceAddon[] = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? (() => {
+          try {
+            const p = JSON.parse(value);
+            return Array.isArray(p) ? p : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
+  const addAddon = () => {
+    const newAddon: ServiceAddon = {
+      id: `addon_${Date.now()}`,
+      name: "",
+      price: 0,
+      unit: "VNĐ/tháng",
+      note: "",
+    };
+    onChange([...addons, newAddon]);
+  };
+
+  const updateAddon = (idx: number, patch: Partial<ServiceAddon>) => {
+    const updated = [...addons];
+    updated[idx] = { ...updated[idx], ...patch };
+    onChange(updated);
+  };
+
+  const removeAddon = (idx: number) => {
+    onChange(addons.filter((_, i) => i !== idx));
+  };
+
+  const applyPhuTayAddon = () => {
+    const template: ServiceAddon[] = [
+      {
+        id: "addon_bang_ep",
+        name: "Giá băng ép cho giai đoạn phù cứng",
+        price: 1000000,
+        unit: "VNĐ/tháng",
+        note: "Vật tư chuyên dụng bắt buộc cho giai đoạn phù cứng xơ hóa",
+      },
+    ];
+    onChange(template);
+  };
+
+  return (
+    <div className="space-y-3 p-4 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl font-['Plus_Jakarta_Sans',sans-serif]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8DFD8] pb-2.5">
+        <div>
+          <span className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+            <span>Vật tư y tế & Phụ phí kèm theo</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
+              {addons.length} phụ phí
+            </span>
+          </span>
+          <p className="text-[11px] text-[#8A7968] mt-0.5">
+            Dành cho vật tư trị liệu, băng ép hoặc phụ phí theo chu kỳ (như: Băng ép phù cứng 1.000.000đ/tháng)
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {addons.length === 0 && (
+            <button
+              type="button"
+              onClick={applyPhuTayAddon}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#8A4F23] bg-white border border-[#BA7E4C]/40 hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer shadow-2xs transition-colors"
+              title="Điền mẫu băng ép cho phù tay"
+            >
+              ⚡ Mẫu băng ép (1.000k/tháng)
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={addAddon}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#FAF0E4] text-[#985018] border border-[#BA7E4C]/40 hover:bg-[#F3E2CE] cursor-pointer shadow-xs flex items-center gap-1 transition-colors"
+          >
+            <Plus size={13} className="stroke-[2.5]" />
+            <span>Thêm vật tư / phụ phí</span>
+          </button>
+        </div>
+      </div>
+
+      {addons.length === 0 ? (
+        <div className="py-3 text-center border border-dashed border-[#D5C7B8] rounded-lg bg-white/50 text-[#8C7A6B]">
+          <p className="text-xs font-medium">Chưa có vật tư hoặc phụ phí kèm theo.</p>
+          <p className="text-[11px] mt-0.5">
+            Nếu dịch vụ có phát sinh chi phí băng ép, vật tư định kỳ, bấm <b>"+ Thêm vật tư / phụ phí"</b>.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {addons.map((addon, idx) => (
+            <div
+              key={addon.id || idx}
+              className="p-3 bg-white rounded-xl border border-[#E8DFD8] shadow-xs space-y-2 relative group hover:border-[#BA7E4C] transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[#8A4F23]">
+                  Vật tư / Phụ phí #{idx + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeAddon(idx)}
+                  className="p-1 rounded-md text-[#A69788] hover:text-[#DC2626] hover:bg-[#FEE2E2] cursor-pointer transition-colors"
+                  title="Xóa phụ phí này"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-6">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Tên vật tư / phụ phí
+                  </label>
+                  <input
+                    type="text"
+                    value={addon.name}
+                    placeholder="VD: Giá băng ép cho giai đoạn phù cứng..."
+                    onChange={(e) => updateAddon(idx, { name: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Giá tiền (VNĐ)
+                  </label>
+                  <input
+                    type="number"
+                    value={addon.price || ""}
+                    placeholder="1000000"
+                    onChange={(e) => updateAddon(idx, { price: Number(e.target.value) || 0 })}
+                    className="w-full text-xs font-bold text-[#985018] px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-[10px] font-bold text-[#73675F] uppercase tracking-wider block mb-1">
+                    Chu kỳ / Đơn vị
+                  </label>
+                  <input
+                    type="text"
+                    value={addon.unit || "VNĐ/tháng"}
+                    placeholder="VNĐ/tháng"
+                    onChange={(e) => updateAddon(idx, { unit: e.target.value })}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+
+                <div className="sm:col-span-12">
+                  <input
+                    type="text"
+                    value={addon.note || ""}
+                    placeholder="Ghi chú sử dụng (VD: Áp dụng cho bệnh nhân bước vào giai đoạn phù cứng xơ hóa)..."
+                    onChange={(e) => updateAddon(idx, { note: e.target.value })}
+                    className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-[#E8DFD8] bg-white text-[#554B42] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ServiceImageInput({
   value,
   onChange,
@@ -602,10 +994,60 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   }
   if (c.name === "price") {
     const p = Number(row.price || 0);
+    const hasTiers = Array.isArray(row.pricing_tiers) && row.pricing_tiers.length > 0;
     return (
-      <div className="font-bold text-[#2C241E] text-xs">
-        {p > 0 ? `${p.toLocaleString("vi-VN")} ₫` : "—"}
+      <div className="font-bold text-[#2C241E] text-xs flex items-center gap-1">
+        {hasTiers && <span className="text-[10px] font-normal text-[#8A7968]">Từ</span>}
+        <span>{p > 0 ? `${p.toLocaleString("vi-VN")} ₫` : "—"}</span>
       </div>
+    );
+  }
+  if (c.name === "pricing_tiers") {
+    const tiers = Array.isArray(row[c.name])
+      ? row[c.name]
+      : typeof row[c.name] === "string"
+        ? (() => {
+            try {
+              const p = JSON.parse(row[c.name]);
+              return Array.isArray(p) ? p : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+    if (!tiers || tiers.length === 0) return "—";
+    const prices = tiers.map((t: any) => Number(t.price) || 0).filter((pr: number) => pr > 0);
+    const minP = prices.length ? Math.min(...prices) : 0;
+    const maxP = prices.length ? Math.max(...prices) : 0;
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+        <span>{tiers.length} giai đoạn</span>
+        {minP > 0 && (
+          <span className="text-[11px] font-bold text-[#985018]">
+            ({(minP / 1000).toLocaleString("vi-VN")}k{maxP > minP ? ` ~ ${(maxP / 1000).toLocaleString("vi-VN")}k` : ""})
+          </span>
+        )}
+      </span>
+    );
+  }
+  if (c.name === "add_on_items") {
+    const addons = Array.isArray(row[c.name])
+      ? row[c.name]
+      : typeof row[c.name] === "string"
+        ? (() => {
+            try {
+              const p = JSON.parse(row[c.name]);
+              return Array.isArray(p) ? p : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+    if (!addons || addons.length === 0) return "—";
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-[#EAF2FA] text-[#1E5D9B] border border-[#C5DCF2]">
+        <span>{addons.length} phụ phí</span>
+      </span>
     );
   }
   if (c.name === "discount_price") {
@@ -2196,6 +2638,41 @@ function RecordDialog({
                     <ServiceBenefitsEditor
                       value={value}
                       onChange={(benefits) => set("benefits", benefits)}
+                    />
+                  </div>
+                );
+
+              if (
+                resource.name === "services" &&
+                c.name === "pricing_tiers" &&
+                mode !== "view"
+              )
+                return (
+                  <div key={c.name} className="admin-field-wide">
+                    <ServicePricingTiersEditor
+                      value={value}
+                      onChange={(tiers) => set("pricing_tiers", tiers)}
+                      onSuggestBasePrice={(p) => {
+                        const priceCol = fields.find((f) => f.name === "price");
+                        const currentP = priceCol ? current(priceCol) : null;
+                        if (!currentP || Number(currentP) === 0) {
+                          set("price", p);
+                        }
+                      }}
+                    />
+                  </div>
+                );
+
+              if (
+                resource.name === "services" &&
+                c.name === "add_on_items" &&
+                mode !== "view"
+              )
+                return (
+                  <div key={c.name} className="admin-field-wide">
+                    <ServiceAddonsEditor
+                      value={value}
+                      onChange={(addons) => set("add_on_items", addons)}
                     />
                   </div>
                 );
