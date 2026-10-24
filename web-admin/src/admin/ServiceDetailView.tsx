@@ -203,8 +203,8 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
       {/* Hero Header Card */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#FAF7F2] via-white to-[#F5ECE3] border border-[#EFE4D9] p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-          {/* Service Thumbnail / Image */}
-          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-[#FAF0E4] border border-[#E8DFD8] shrink-0 shadow-sm">
+          {/* Service Thumbnail / Image 16:9 */}
+          <div className="relative w-full sm:w-56 md:w-64 aspect-[16/9] rounded-2xl overflow-hidden bg-[#FAF0E4] border border-[#E8DFD8] shrink-0 shadow-sm">
             {imageUrl ? (
               <img
                 src={imageUrl}
@@ -221,10 +221,13 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
               </div>
             )}
             {isFeatured && (
-              <div className="absolute top-1.5 right-1.5 bg-[#FEF9C3] text-[#854D0E] text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shadow-xs border border-[#FEF08A] flex items-center gap-0.5">
-                <span>⭐</span>
+              <div className="absolute top-2 right-2 bg-[#FEF9C3] text-[#854D0E] text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-xs border border-[#FEF08A] flex items-center gap-1">
+                <span>⭐ Nổi bật</span>
               </div>
             )}
+            <div className="absolute bottom-1.5 left-1.5 bg-black/50 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider">
+              16:9
+            </div>
           </div>
 
           {/* Service Basic Info */}

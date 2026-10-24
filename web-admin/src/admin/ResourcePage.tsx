@@ -239,10 +239,10 @@ function ServiceImageInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const PRESET_SPA_IMAGES = [
-    { label: "Chăm sóc da", url: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881" },
-    { label: "Gội đầu", url: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1" },
-    { label: "Massage body", url: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874" },
-    { label: "Thẩm mỹ CNC", url: "https://images.unsplash.com/photo-1512290903671-17adc820948b" },
+    { label: "Chăm sóc da (16:9)", url: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&h=675&q=80" },
+    { label: "Gội đầu (16:9)", url: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=1200&h=675&q=80" },
+    { label: "Massage body (16:9)", url: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&h=675&q=80" },
+    { label: "Thẩm mỹ CNC (16:9)", url: "https://images.unsplash.com/photo-1512290903671-17adc820948b?auto=format&fit=crop&w=1200&h=675&q=80" },
   ];
 
   const uploadImageBlob = async (blob: Blob, nameHint = "service_img.png") => {
@@ -417,49 +417,53 @@ function ServiceImageInput({
         }}
       />
 
-      <div className="flex items-start gap-3">
-        {/* Preview box */}
-        <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center group">
+      <div className="flex flex-col md:flex-row items-start gap-4">
+        {/* Preview box 16:9 Banner */}
+        <div className="relative w-full md:w-64 aspect-[16/9] rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center group">
           {uploading ? (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-[#FAF0E4] text-[#985018]">
-              <LoaderCircle className="w-5 h-5 animate-spin" />
-              <span className="text-[9px] font-bold mt-1">Đang tải...</span>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#FAF0E4] text-[#985018] gap-1.5 p-2">
+              <LoaderCircle className="w-6 h-6 animate-spin" />
+              <span className="text-[11px] font-bold">Đang tải banner 16:9...</span>
             </div>
           ) : value ? (
             <>
               <img
                 src={value}
-                alt="Service Preview"
+                alt="Service Banner Preview"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = "none";
                 }}
               />
+              <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-xs text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider shadow-xs">
+                16:9 BANNER
+              </div>
               <button
                 type="button"
                 onClick={() => onChange("")}
                 title="Gỡ ảnh này"
                 className="absolute inset-0 bg-black/55 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               >
-                <Trash2 size={14} className="stroke-[2.2]" />
-                <span className="text-[9px] font-semibold mt-0.5">Gỡ ảnh</span>
+                <Trash2 size={16} className="stroke-[2.2]" />
+                <span className="text-[10px] font-semibold mt-1">Gỡ ảnh</span>
               </button>
             </>
           ) : (
-            <div className="w-full h-full bg-[#F0E6DC] text-[#985018] flex flex-col items-center justify-center border border-[#E8DFD8]">
-              <Leaf className="w-6 h-6 stroke-[1.8]" />
-              <span className="text-[9px] text-[#8C7A6B] mt-0.5 font-medium">Chưa có ảnh</span>
+            <div className="w-full h-full bg-[#FAF0E4]/60 text-[#985018] flex flex-col items-center justify-center border border-dashed border-[#BA7E4C]/40 p-3 text-center">
+              <Leaf className="w-7 h-7 stroke-[1.8] text-[#985018]" />
+              <span className="text-[11px] font-bold text-[#8A4F23] mt-1">Chưa có banner</span>
+              <span className="text-[10px] text-[#8C7A6B]">Tỷ lệ chuẩn 16:9 (ngang)</span>
             </div>
           )}
         </div>
 
         {/* Input & Action buttons */}
-        <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex-1 w-full min-w-0 space-y-2.5">
           <div className="flex items-center gap-1.5">
             <input
               type="url"
               value={value || ""}
-              placeholder="Dán link ảnh (URL) hoặc nhấn Ctrl+V để dán ảnh trực tiếp..."
+              placeholder="Dán link ảnh (URL) hoặc nhấn Ctrl+V để dán ảnh banner 16:9..."
               onChange={(e) => onChange(e.target.value)}
               onPaste={handlePaste}
               className="flex-1 text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/30 transition-all placeholder:text-[#A69788]"
@@ -499,12 +503,12 @@ function ServiceImageInput({
               <span>Dán từ bộ nhớ tạm (Ctrl+V)</span>
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* Helper text tip */}
-      <div className="flex items-center justify-between text-[11px] text-[#8C7A6B] bg-white/70 px-2.5 py-1.5 rounded-lg border border-[#F0E6DC]">
-        <span>💡 <b>Mẹo nhanh:</b> Chụp ảnh màn hình rồi bấm <b>Ctrl+V</b> hoặc kéo thả file ảnh vào khung này để tải lên tức thì.</span>
+          {/* Helper text tip */}
+          <div className="text-[11px] text-[#8C7A6B] bg-white/70 px-2.5 py-1.5 rounded-lg border border-[#F0E6DC]">
+            💡 <b>Tỷ lệ chuẩn 16:9:</b> Phù hợp kích thước banner như 1024×576 hoặc 1200×675. Có thể chụp màn hình rồi bấm <b>Ctrl+V</b> hoặc kéo thả ảnh vào khung.
+          </div>
+        </div>
       </div>
 
       {/* Preset spa images */}
@@ -579,8 +583,9 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   }
   if (c.name === "image_url" || c.name === "icon_url") {
     const url = row[c.name];
+    const isIcon = c.name === "icon_url";
     return (
-      <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center">
+      <div className={`${isIcon ? "w-10 h-10 rounded-xl" : "w-16 h-9 aspect-[16/9] rounded-lg"} overflow-hidden bg-[#FAF8F5] border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center`}>
         {url ? (
           <img
             src={url}
@@ -2221,14 +2226,15 @@ function RecordDialog({
                 );
 
               if (
-                resource.name === "services" &&
+                (resource.name === "services" || resource.name === "treatment_packages") &&
                 c.name === "image_url" &&
                 mode !== "view"
               )
                 return (
                   <div key={c.name} className="admin-field-wide">
-                    <span className="text-xs font-bold text-[#2C241E] mb-1.5 block">
-                      Ảnh đại diện dịch vụ (URL)
+                    <span className="text-xs font-bold text-[#2C241E] mb-1.5 flex items-center justify-between">
+                      <span>{resource.name === "treatment_packages" ? "Ảnh đại diện gói liệu trình (Banner 16:9)" : "Ảnh đại diện dịch vụ (Banner 16:9)"}</span>
+                      <span className="text-[11px] font-normal text-[#8A7968]">Tỷ lệ chuẩn 16:9 (ví dụ: 1024×576, 1200×675)</span>
                     </span>
                     <ServiceImageInput
                       value={String(value || "")}
