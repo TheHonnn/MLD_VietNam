@@ -242,8 +242,26 @@ class SupabaseService {
    * Bản ghi KHÔNG bị xóa cứng (DELETE) để giữ nguyên vẹn liên kết khóa ngoại với lịch hẹn,
    * nhân sự, phòng dịch vụ và báo cáo tài chính.
    */
-  async deleteBranch(branchId: string): Promise<boolean> {
+  async deleteBranch(branchId: string, permanent = true): Promise<boolean> {
     try {
+      if (permanent) {
+        // First delete dependent rooms to avoid foreign key conflicts
+        try {
+          await this.query(`branch_rooms?branch_id=eq.${branchId}`, {
+            method: 'DELETE',
+          });
+        } catch {}
+
+        // Perform hard delete from branches table
+        const delRes = await this.query(`branches?id=eq.${branchId}`, {
+          method: 'DELETE',
+        });
+        if (delRes !== null) {
+          return true;
+        }
+      }
+
+      // Fallback: soft delete if permanent delete fails due to existing bookings/invoices
       const existing = await this.query<any[]>(`branches?id=eq.${branchId}&select=*`);
       if (existing && existing.length > 0) {
         const br = existing[0];
@@ -280,7 +298,7 @@ class SupabaseService {
       }
       return true;
     } catch (err) {
-      console.warn('[SupabaseService] deleteBranch (soft delete) error:', err);
+      console.warn('[SupabaseService] deleteBranch error:', err);
       return false;
     }
   }

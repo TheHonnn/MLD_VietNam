@@ -1356,7 +1356,7 @@ export const W02_Branches: React.FC = () => {
     setIsDeleteBranchModalOpen(true);
   };
 
-  // Confirm delete branch (Soft Delete - preserve in CSDL)
+  // Confirm delete branch (Xóa hoàn toàn chi nhánh khỏi hệ thống)
   const handleConfirmDeleteBranch = async () => {
     if (!branchToDelete) return;
 
@@ -1378,38 +1378,21 @@ export const W02_Branches: React.FC = () => {
       const remainingBranches = branches.filter((b) => b.id !== target.id);
       setBranches(remainingBranches);
 
-      // 2. Add to allArchivedBranches state
-      const archivedItem: Branch = {
-        ...target,
-        isActive: false,
-        isArchived: true,
-        archivedAt: new Date().toISOString(),
-      };
-      setAllArchivedBranches((prev) => [archivedItem, ...prev.filter((b) => b.id !== target.id)]);
+      // 2. Remove from archived branches state as well
+      setAllArchivedBranches((prev) => prev.filter((b) => b.id !== target.id));
 
-      // Move all rooms of this branch to allArchivedRooms
-      const branchRooms = allRooms.filter((r) => r.branchId === target.id);
-      if (branchRooms.length > 0) {
-        setAllRooms((prev) => prev.filter((r) => r.branchId !== target.id));
-        const archivedBranchRooms = branchRooms.map((r) => ({
-          ...r,
-          isAvailable: false,
-          isArchived: true,
-          archivedAt: new Date().toISOString(),
-        }));
-        setAllArchivedRooms((prev) => [
-          ...archivedBranchRooms,
-          ...prev.filter((r) => r.branchId !== target.id),
-        ]);
-      }
+      // 3. Remove all rooms of this branch from active & archived rooms
+      setAllRooms((prev) => prev.filter((r) => r.branchId !== target.id));
+      setAllArchivedRooms((prev) => prev.filter((r) => r.branchId !== target.id));
+      localStorage.removeItem(`mld_rooms_${target.id}`);
 
-      // 3. Switch selected branch if it was deleted (BUG-11: Fallback gracefully when remaining branches is empty)
+      // 4. Switch selected branch if it was deleted
       if (selectedBranchId === target.id) {
         const nextBranch = remainingBranches[0];
         setSelectedBranchId(nextBranch ? nextBranch.id : '');
       }
 
-      // 4. Switch global working branch if it was deleted (BUG-11: Fallback to 'ALL' if no branches left)
+      // 5. Switch global working branch if it was deleted
       if (globalWorkingBranchId === target.id) {
         const nextBranch = remainingBranches[0];
         const nextId = nextBranch ? nextBranch.id : 'ALL';
@@ -1422,7 +1405,7 @@ export const W02_Branches: React.FC = () => {
         );
       }
 
-      // 5. Update localStorage
+      // 6. Update localStorage
       try {
         const stored = localStorage.getItem('mld_custom_branches');
         if (stored) {
@@ -1433,30 +1416,77 @@ export const W02_Branches: React.FC = () => {
           );
         }
         const storedArchived = localStorage.getItem('mld_archived_custom_branches');
-        const parsedArchived: Branch[] = storedArchived ? JSON.parse(storedArchived) : [];
-        localStorage.setItem(
-          'mld_archived_custom_branches',
-          JSON.stringify([archivedItem, ...parsedArchived.filter((b) => b.id !== target.id)])
-        );
+        if (storedArchived) {
+          const parsedArchived: Branch[] = JSON.parse(storedArchived);
+          localStorage.setItem(
+            'mld_archived_custom_branches',
+            JSON.stringify(parsedArchived.filter((b) => b.id !== target.id))
+          );
+        }
       } catch {}
 
+      // 7. Delete on Supabase Cloud
+      await branchService.deleteBranch(target.id, true);
+
       toast.success(
-        'Đã xóa chi nhánh khỏi hệ thống',
-        `Cơ sở "${target.name}" đã được ẩn khỏi hệ thống vận hành. Bản ghi cơ sở và dữ liệu giao dịch vẫn được bảo toàn nguyên vẹn trong CSDL.`
+        'Đã xóa chi nhánh thành công',
+        `Cơ sở "${target.name}" đã được xóa hoàn toàn khỏi hệ thống.`
       );
 
       setIsDeleteBranchModalOpen(false);
       setBranchToDelete(null);
 
       window.dispatchEvent(new CustomEvent('mld_branches_updated'));
-
-      // 6. Update Supabase Cloud (PATCH [ARCHIVED])
-      await branchService.deleteBranch(target.id);
     } catch (err) {
       console.error('Lỗi khi xóa chi nhánh:', err);
       toast.error('Có lỗi xảy ra', 'Không thể xóa chi nhánh vào lúc này.');
     } finally {
       setIsDeletingBranch(false);
+    }
+  };
+
+  // Permanent delete archived branch
+  const handlePermanentDeleteArchivedBranch = async (branch: Branch) => {
+    try {
+      // 1. Remove from allArchivedBranches
+      setAllArchivedBranches((prev) => prev.filter((b) => b.id !== branch.id));
+
+      // 2. Remove all archived rooms of this branch
+      setAllArchivedRooms((prev) => prev.filter((r) => r.branchId !== branch.id));
+      localStorage.removeItem(`mld_rooms_${branch.id}`);
+
+      // 3. Update localStorage
+      try {
+        const storedArchived = localStorage.getItem('mld_archived_custom_branches');
+        if (storedArchived) {
+          const parsedArchived: Branch[] = JSON.parse(storedArchived);
+          localStorage.setItem(
+            'mld_archived_custom_branches',
+            JSON.stringify(parsedArchived.filter((b) => b.id !== branch.id))
+          );
+        }
+        const stored = localStorage.getItem('mld_custom_branches');
+        if (stored) {
+          const parsed: Branch[] = JSON.parse(stored);
+          localStorage.setItem(
+            'mld_custom_branches',
+            JSON.stringify(parsed.filter((b) => b.id !== branch.id))
+          );
+        }
+      } catch {}
+
+      // 4. Delete on Supabase Cloud
+      await branchService.deleteBranch(branch.id, true);
+
+      toast.success(
+        'Đã xóa vĩnh viễn chi nhánh',
+        `Cơ sở "${branch.name}" đã được xóa hoàn toàn khỏi cơ sở dữ liệu.`
+      );
+
+      window.dispatchEvent(new CustomEvent('mld_branches_updated'));
+    } catch (err) {
+      console.error('Lỗi khi xóa vĩnh viễn chi nhánh:', err);
+      toast.error('Có lỗi xảy ra', 'Không thể xóa vĩnh viễn chi nhánh.');
     }
   };
 
@@ -2959,14 +2989,26 @@ export const W02_Branches: React.FC = () => {
                         {ab.address}, {ab.district}, {ab.city}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRestoreBranch(ab)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF0E4] rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs shrink-0"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Khôi phục</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreBranch(ab)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF0E4] rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                        title="Khôi phục cơ sở vào hệ thống"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Khôi phục</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePermanentDeleteArchivedBranch(ab)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#FECACA] text-[#DC2626] hover:bg-[#FEF2F2] rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                        title="Xóa vĩnh viễn chi nhánh khỏi cơ sở dữ liệu"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Xóa vĩnh viễn</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -5461,7 +5503,7 @@ export const W02_Branches: React.FC = () => {
                     Xác nhận xóa chi nhánh
                   </h3>
                   <p className="text-xs text-[#73675F]">
-                    Ẩn cơ sở khỏi hệ thống và bảo toàn dữ liệu trong CSDL
+                    Xóa cơ sở khỏi hệ thống và cơ sở dữ liệu
                   </p>
                 </div>
               </div>
@@ -5495,10 +5537,10 @@ export const W02_Branches: React.FC = () => {
               </div>
 
               {/* Policy alert */}
-              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-amber-900 leading-relaxed">
-                  <strong>Chính sách lưu trữ cơ sở dữ liệu:</strong> Khi xóa, cơ sở sẽ được ẩn khỏi danh sách vận hành, phân ca KTV và màn hình thu ngân POS. Bản ghi cơ sở cùng toàn bộ lịch sử hóa đơn, phiếu liệu trình và lịch hẹn <strong>vẫn được bảo toàn nguyên vẹn 100% trong CSDL</strong> và có thể khôi phục lại bất kỳ lúc nào.
+              <div className="p-3.5 bg-rose-50/80 border border-rose-200 rounded-2xl flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-rose-900 leading-relaxed">
+                  <strong>Cảnh báo:</strong> Cơ sở này sẽ được xóa hoàn toàn khỏi danh mục chi nhánh, phân ca KTV và màn hình thu ngân POS. Bản ghi sẽ được xóa khỏi cơ sở dữ liệu.
                 </div>
               </div>
             </div>
@@ -5530,7 +5572,7 @@ export const W02_Branches: React.FC = () => {
                 ) : (
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Xác nhận xóa chi nhánh</span>
+                    <span>Xóa chi nhánh</span>
                   </>
                 )}
               </button>
