@@ -93,11 +93,17 @@ class E04InstructorProfileScreen extends StatelessWidget {
                     height: 264,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Image.asset(
-                      'assets/images/nguyen_thu_ha.png',
+                    errorBuilder: (_, __, ___) => Container(
                       height: 264,
                       width: double.infinity,
-                      fit: BoxFit.cover,
+                      color: AcademyColors.cardWarm,
+                      child: const Center(
+                        child: Icon(
+                          Icons.person,
+                          size: 64,
+                          color: AcademyColors.primary,
+                        ),
+                      ),
                     ),
                   ),
                   Padding(

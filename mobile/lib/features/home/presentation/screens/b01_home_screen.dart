@@ -1939,6 +1939,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         child: Image.asset(
                           'assets/images/gioithieu_3.png',
                           fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.surfaceSecondary,
+                            child: const Center(
+                              child: Icon(Icons.school_outlined, size: 48, color: AppColors.primary),
+                            ),
+                          ),
                         ),
                       ),
                     ),

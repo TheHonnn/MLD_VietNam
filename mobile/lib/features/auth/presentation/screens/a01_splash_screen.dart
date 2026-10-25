@@ -56,34 +56,6 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Decorative botanical leaf 1
-          Positioned(
-            top: 20,
-            right: 0,
-            width: 135,
-            child: IgnorePointer(
-              child: Image.asset(
-                'assets/images/splash_leaf_1.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-
-          // Decorative botanical leaf 2
-          Positioned(
-            bottom: 60,
-            left: -10,
-            width: 145,
-            child: IgnorePointer(
-              child: Image.asset(
-                'assets/images/splash_leaf_2.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-
           // Perfectly Centered Brand Area
           Center(
             child: Padding(

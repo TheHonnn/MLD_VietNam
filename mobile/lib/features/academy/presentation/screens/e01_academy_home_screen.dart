@@ -216,11 +216,17 @@ class _E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                         height: 180,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Image.asset(
-                          'assets/images/specialist_hero_1.png',
+                        errorBuilder: (_, __, ___) => Container(
                           height: 180,
                           width: double.infinity,
-                          fit: BoxFit.cover,
+                          color: AcademyColors.cardWarm,
+                          child: const Center(
+                            child: Icon(
+                              Icons.school_outlined,
+                              size: 48,
+                              color: AcademyColors.primary,
+                            ),
+                          ),
                         ),
                       ),
                     ),
