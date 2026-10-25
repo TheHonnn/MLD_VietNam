@@ -5,6 +5,7 @@ import {chromium,webkit} from '../.relay-local/browser-check/node_modules/playwr
 const useWebKit=process.env.BROWSER_ENGINE==='webkit';
 const browser=await(useWebKit?webkit:chromium).launch({...(useWebKit?{}:{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),headless:true});
 const f=await staffFixture(),{db,id}=f,page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+let releasePlayback;const playbackGate=new Promise(resolve=>{releasePlayback=resolve;});
 page.on('pageerror',error=>errors.push(error.message));
 try{
   await db.query("UPDATE users SET date_of_birth='1998-05-15' WHERE id=$1",[id(90)]);
@@ -19,6 +20,7 @@ try{
   await page.route('**/api/**',async route=>{
     const req=route.request(),url=new URL(req.url());if(req.resourceType()==='script')return route.fallback();
     const response=await fetch(f.base+url.pathname+url.search,{method:req.method(),headers:f.headers(90),body:req.postData()||undefined});
+    if(req.method()==='POST'&&url.pathname.endsWith('/playback'))await playbackGate;
     await route.fulfill({status:response.status,contentType:'application/json',body:await response.text()});
   });
   await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5180/',{waitUntil:'domcontentloaded'});
@@ -41,11 +43,16 @@ try{
   await page.getByRole('button',{name:'Nội dung học',exact:true}).click();
   await page.getByRole('button').filter({hasText:'Video fixture lesson'}).first().click();
   await page.locator('.academy-video-wrap video').waitFor();
+  assert.equal(await page.locator('.academy-video-wrap video').getAttribute('src'),null);
+  releasePlayback();
+  await page.locator('.academy-video-wrap video[src]').waitFor();
   assert.equal(await page.locator('.academy-video-wrap video').getAttribute('controlslist'),'nodownload noremoteplayback nofullscreen');
   await page.locator('.academy-video-watermark').filter({hasText:'Fixture receptionist'}).waitFor();
   await page.screenshot({path:fileURLToPath(new URL(`../.relay-local/academy-watermark-${useWebKit?'webkit':'chrome'}.png`,import.meta.url))});
   const replacement=await f.request(`/courses/${id(22)}/lessons/${id(97)}/playback`,{owner:90,method:'POST',body:{enrollmentId:id(94)}});
   assert.equal(replacement.status,200,JSON.stringify(replacement));
+  // Match the app's intentional 600ms heartbeat throttle; no decoded media is simulated.
+  await page.waitForTimeout(650);
   await page.locator('.academy-video-wrap video').evaluate(video=>video.dispatchEvent(new Event('pause')));
   await page.getByText('Phiên xem đã hết hạn hoặc đã mở video trên thiết bị khác. Vui lòng mở lại bài học.',{exact:true}).waitFor();
   assert.equal(await page.locator('.academy-lesson-dialog').count(),0);
@@ -60,5 +67,5 @@ try{
   assert.equal((await db.query('SELECT count(*)::int AS total FROM invoices')).rows[0].total,0);
   assert.equal(await page.getByRole('heading',{name:'Thanh toán học phí',exact:true}).count(),0);
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',sessionNotesPersisted:true,certificateBirthDate:true,watermarkAndControls:true,replacedPlayerCloses:true,consultationWithoutPayment:true,noPageErrors:true,actualMediaPlaybackTested:false}));
-}finally{await page.close();await f.close();await browser.close();}
+  console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',sessionNotesPersisted:true,certificateBirthDate:true,watermarkAndControls:true,waitsForPlaybackLease:true,replacedPlayerCloses:true,consultationWithoutPayment:true,noPageErrors:true,actualMediaPlaybackTested:false}));
+}finally{releasePlayback();await page.close();await f.close();await browser.close();}

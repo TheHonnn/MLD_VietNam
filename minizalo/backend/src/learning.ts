@@ -1,6 +1,7 @@
 import {Prisma} from '@prisma/client';
 import type {Store,Row} from './store.js';
 import {ApiError} from './errors.js';
+import {assertLessonMedia} from './lesson-media.js';
 
 export const MAX_QUIZ_ATTEMPTS = 3;
 export async function ownedEnrollment(store:Store,userId:string,courseId:string,enrollmentId:string|null,lock=false) {
@@ -132,8 +133,9 @@ export async function startPlayback(store:Store,userId:string,courseId:string,le
   return store.transaction(async tx=>{
     await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`learning-player:${userId}`}))::text AS locked`);
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
-    const [lesson]=await tx.query(Prisma.sql`SELECT l.* FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE l.id=${lessonId}::uuid AND ch.course_id=${courseId}::uuid AND l.lesson_type='VIDEO'`);
+    const [lesson]=await tx.query(Prisma.sql`SELECT l.*,policy.allow_public_embed,policy.media_url AS policy_media_url FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id LEFT JOIN miniapp_lesson_media_policy policy ON policy.lesson_id=l.id WHERE l.id=${lessonId}::uuid AND ch.course_id=${courseId}::uuid AND l.lesson_type='VIDEO'`);
     if(!lesson||!lesson.video_url||lesson.duration_minutes<=0) throw new ApiError(409,'Video duration or media is not configured');
+    assertLessonMedia(lesson);
     // Keep the watched ranges; revoke only the old playback lease, not learning history.
     await tx.query(Prisma.sql`UPDATE miniapp_lesson_playbacks p SET expires_at=clock_timestamp() FROM course_enrollments ce
       WHERE ce.id=p.enrollment_id AND ce.student_id=${userId}::uuid AND p.expires_at>clock_timestamp() RETURNING p.id`);
@@ -146,9 +148,10 @@ export async function heartbeat(store:Store,userId:string,courseId:string,lesson
   return store.transaction(async tx=>{
     await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`learning-player:${userId}`}))::text AS locked`);
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
-    const [playback]=await tx.query(Prisma.sql`SELECT p.*,l.video_url,l.duration_minutes FROM miniapp_lesson_playbacks p JOIN course_lessons l ON l.id=p.lesson_id
+    const [playback]=await tx.query(Prisma.sql`SELECT p.*,l.video_url,l.duration_minutes,l.is_free_preview,policy.allow_public_embed,policy.media_url AS policy_media_url FROM miniapp_lesson_playbacks p JOIN course_lessons l ON l.id=p.lesson_id LEFT JOIN miniapp_lesson_media_policy policy ON policy.lesson_id=l.id
       WHERE p.id=${playbackId}::uuid AND p.lesson_id=${lessonId}::uuid AND p.enrollment_id=${enrollment.id}::uuid AND p.expires_at>clock_timestamp() FOR UPDATE OF p`);
     if(!playback||playback.media_url!==playback.video_url||playback.duration_seconds!==playback.duration_minutes*60) throw new ApiError(409,'Video session expired, replaced on another device or media changed',{code:'VIDEO_SESSION_EXPIRED'});
+    assertLessonMedia(playback);
     const elapsed=Math.max(0,(Date.now()-new Date(playback.last_seen_at).getTime())/1000);
     if(elapsed<.5) throw new ApiError(429,'Video heartbeat is too frequent');
     const delta=position-playback.last_position;

@@ -4,13 +4,14 @@ import {useBackAction} from '@/hooks/useNavigationHistory';
 import {AcademyHeader,academyDate} from './AcademyViews';
 import {QRCode} from './QRCode';
 
-export type IssuedCertificate={id:string;enrollmentId:string;courseId:string;status:string;certificateCode:string;studentName:string;studentDateOfBirth?:string|null;courseTitle:string;issueDate:string;finalGrade?:string;certificatePdfUrl?:string|null;qrVerificationCode?:string|null;revocationReason?:string|null};
+export type IssuedCertificate={id:string;enrollmentId:string;courseId:string;status:string;certificateCode:string;studentName:string;studentDateOfBirth?:string|null;courseTitle:string;issueDate:string;finalGrade?:string;certificatePdfUrl?:string|null;qrVerificationCode?:string|null;verificationPath?:string|null;revocationReason?:string|null};
 const pdfLink=(value?:string|null)=>{
   try{const url=new URL(value||'');return url.protocol==='https:'&&!url.username&&!url.password?url.href:undefined;}
   catch{return undefined;}
 };
 export function CertificateDetails({certificate}:{certificate:IssuedCertificate}){
   const issued=certificate.status==='ISSUED',pdf=issued?pdfLink(certificate.certificatePdfUrl):undefined;
+  const verificationUrl=issued?apiClient.certificateVerificationUrl(certificate.verificationPath):undefined;
   return <section className="academy-certificate-details" aria-label="Thông tin giấy chứng nhận">
     <span className="academy-status">{issued?'Đã cấp':'Đã thu hồi'}</span>
     <h2>{certificate.courseTitle}</h2><p>{certificate.studentName}</p>
@@ -19,7 +20,7 @@ export function CertificateDetails({certificate}:{certificate:IssuedCertificate}
     {certificate.finalGrade&&<p>{certificate.finalGrade}</p>}
     {!issued&&certificate.revocationReason&&<p>{certificate.revocationReason}</p>}
     {pdf&&<a href={pdf} target="_blank" rel="noopener noreferrer" className="academy-outline">Mở giấy chứng nhận PDF</a>}
-    {issued&&certificate.qrVerificationCode?.trim()&&<div className="academy-certificate-qr"><QRCode value={certificate.qrVerificationCode}/><p>{certificate.qrVerificationCode}</p></div>}
+    {verificationUrl&&<div className="academy-certificate-qr"><QRCode value={verificationUrl}/><a href={verificationUrl} target="_blank" rel="noopener noreferrer" className="academy-outline">Tra cứu giấy chứng nhận</a></div>}
   </section>;
 }
 

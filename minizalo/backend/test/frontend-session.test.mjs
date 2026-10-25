@@ -6,6 +6,7 @@ import ts from 'typescript';
 const source=await readFile(new URL('../../zalo_mini_app/my-app/src/api/client.ts',import.meta.url),'utf8');
 const cacheSource=await readFile(new URL('../../zalo_mini_app/my-app/src/api/read-cache.ts',import.meta.url),'utf8');
 const asyncSource=await readFile(new URL('../../zalo_mini_app/my-app/src/utils/async-control.ts',import.meta.url),'utf8');
+const verificationSource=await readFile(new URL('../../zalo_mini_app/my-app/src/utils/certificate-verification.ts',import.meta.url),'utf8');
 const moduleUrl=code=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
 const parsed=ts.createSourceFile('client.ts',source,ts.ScriptTarget.Latest,true);
 let isolated=source;
@@ -20,6 +21,7 @@ const adaptPayload=value=>value, profileToCanonical=value=>value;
 const apiErrorMessage=value=>value;
 const preloadCatalogImages=()=>{},bookingRequest=()=>{},completeBookingRequest=()=>{};
 import {abortable} from ${JSON.stringify(moduleUrl(asyncSource))};
+import {certificateVerificationUrl as verificationLink} from ${JSON.stringify(moduleUrl(verificationSource))};
 class OwnerWriteQueue {run(_key,operation){return operation();}}
 const getAccessToken=()=>Promise.resolve('fixture-access'),getPhoneNumber=()=>globalThis.__zaloAuthFixture?.()??Promise.resolve({token:'fixture-phone'}),getUserInfo=()=>{};
 const isStaffRole=role=>['ADMIN','RECEPTIONIST'].includes(role);

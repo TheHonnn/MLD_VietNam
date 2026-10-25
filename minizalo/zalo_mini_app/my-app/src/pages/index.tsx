@@ -23,6 +23,7 @@ import { searchText,serviceSearchText } from '@/utils/catalog';
 import {isStaffRole} from '@/utils/staff';
 import type {StaffRecordCustomer} from '@/components/SharedRecords';
 import {AccountSessions,ZaloAccountOptions} from '@/components/AccountControls';
+import {ZaloAuthFeedback} from '@/components/ZaloAuthFeedback';
 import {launchServiceId} from '@/utils/service-links';
 import { useNavigationHistory } from '@/hooks/useNavigationHistory';
 import { LegalLinks } from '@/components/LegalLinks';
@@ -129,6 +130,7 @@ function MasterHomePage() {
   const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
   const [zaloAuthState, setZaloAuthState] = useState<'checking' | 'required' | 'connected' | 'web'>('checking');
   const [zaloAuthError, setZaloAuthError] = useState('');
+  const [zaloAuthIssue,setZaloAuthIssue]=useState<string|undefined>();
   const authAttempt = useRef(0);
   const authBusy = useRef(false);
   useEffect(() => () => { authAttempt.current++; apiClient.cancelZaloLogin(); }, []);
@@ -289,9 +291,9 @@ function MasterHomePage() {
       setAcademyTarget(undefined); setProfileTarget(undefined); setBookingTarget(undefined); setActiveTab('home');
       setAccountSessionsOpen(false);setRegistration(null);setIsAuthOpen(false);setBookingBranch(null);setBookingDoctor(null);
       setViewingService(null);setViewingDoctor(null);setViewingBranch(null);setDirectionsBranch(null);
-      setZaloAuthError(event.type==='mld:session-expired'?'Phiên đăng nhập đã hết hạn hoặc đã được đăng xuất. Vui lòng kết nối lại với Zalo.':''); setZaloAuthState('required');
+      setZaloAuthIssue(undefined);setZaloAuthError(event.type==='mld:session-expired'?'Phiên đăng nhập đã hết hạn hoặc đã được đăng xuất. Vui lòng kết nối lại với Zalo.':''); setZaloAuthState('required');
     };
-    const notice=(event:Event)=>{const message=(event as CustomEvent).detail?.message;if(typeof message==='string')setZaloAuthError(message);};
+    const notice=(event:Event)=>{const message=(event as CustomEvent).detail?.message;if(typeof message==='string'){setZaloAuthIssue(undefined);setZaloAuthError(message);}};
     window.addEventListener('mld:session-expired',expire);
     window.addEventListener('mld:session-cleared',expire);window.addEventListener('mld:auth-notice',notice);
     return () => {window.removeEventListener('mld:session-expired',expire);window.removeEventListener('mld:session-cleared',expire);window.removeEventListener('mld:auth-notice',notice);};
@@ -349,6 +351,7 @@ function MasterHomePage() {
           setZaloAuthState('connected');
         } else {
           setZaloAuthError(zaloSession?.error || 'Không thể xác thực với Zalo.');
+          setZaloAuthIssue(zaloSession?.authIssue);
           setZaloAuthState('required');
         }
       } else {
@@ -377,6 +380,7 @@ function MasterHomePage() {
     authBusy.current = true;
     const attempt = ++authAttempt.current;
     setZaloAuthError('');
+    setZaloAuthIssue(undefined);
     setZaloAuthState('checking');
     const result = await apiClient.loginWithZalo(true);
     if (attempt !== authAttempt.current) return;
@@ -400,6 +404,7 @@ function MasterHomePage() {
       return;
     }
     setZaloAuthError(result?.error || 'Bạn chưa cấp quyền thông tin tài khoản Zalo.');
+    setZaloAuthIssue(result?.authIssue);
     setZaloAuthState('required');
   };
 
@@ -565,11 +570,11 @@ function MasterHomePage() {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5EBE1] text-xl font-black text-[#087e9c]">Z</div>
               <h1 className="mt-4 text-lg font-bold text-[#183b47]">Kết nối tài khoản Zalo</h1>
               <p className="mt-2 text-xs leading-relaxed text-[#526a73]">Kết nối bằng số điện thoại Zalo. Tên và ảnh đại diện chỉ được sử dụng khi bạn đồng ý chia sẻ.</p>
-              {zaloAuthError && <p role="alert" className="mt-3 rounded-[8px] bg-red-50 p-2.5 text-left text-[11px] text-red-700">{zaloAuthError}</p>}
+              <ZaloAuthFeedback error={zaloAuthError} issue={zaloAuthIssue} className="mt-3 rounded-[8px] bg-red-50 p-2.5 text-left text-[11px] text-red-700"/>
               <button disabled={zaloAuthState === 'checking'} onClick={()=>void connectZaloProfile()} className="mt-5 h-11 w-full rounded-[8px] bg-[#087e9c] text-sm font-bold text-white disabled:opacity-60">
                 {zaloAuthState === 'checking' ? 'Đang kết nối...' : 'Tiếp tục với Zalo'}
               </button>
-              <ZaloAccountOptions busy={zaloAuthState==='checking'} onLogin={manage=>void connectZaloProfile(manage)} onCancel={()=>{authAttempt.current++;authBusy.current=false;apiClient.cancelZaloLogin();setZaloAuthError('');setZaloAuthState('required');}}/>
+              <ZaloAccountOptions busy={zaloAuthState==='checking'} onLogin={manage=>void connectZaloProfile(manage)} onCancel={()=>{authAttempt.current++;authBusy.current=false;apiClient.cancelZaloLogin();setZaloAuthIssue(undefined);setZaloAuthError('');setZaloAuthState('required');}}/>
               <p className="mt-3 text-[10px] text-[#526a73]">Không cần nhập số điện thoại hoặc mã OTP.</p>
               <LegalLinks />
               <button type="button" onClick={() => { authAttempt.current++; authBusy.current=false; apiClient.cancelZaloLogin(); setZaloAuthState('web'); }} className="mt-3 min-h-11 px-4 text-xs font-semibold text-[#526a73]">Xem dịch vụ trước</button>

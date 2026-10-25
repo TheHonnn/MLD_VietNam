@@ -32,6 +32,7 @@ async function main() {
   const app = createApp(store,{
     trustedProxyHops: /^(0|1|2|3)$/.test(process.env.TRUST_PROXY_HOPS ?? '') ? Number(process.env.TRUST_PROXY_HOPS) : 0,
     jwtSecret: process.env.JWT_SECRET ?? '',
+    certificateVerificationKey: process.env.CERTIFICATE_VERIFICATION_KEY,
     zaloAppId: process.env.ZALO_APP_ID,
     zaloAppSecret: process.env.ZALO_APP_SECRET,
     zaloRelayUrl: process.env.ZALO_RELAY_URL,

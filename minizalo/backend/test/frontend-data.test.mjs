@@ -7,6 +7,16 @@ const source = await readFile(new URL('../../zalo_mini_app/my-app/src/api/adapte
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
 const adapters = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
+test('certificate QR links use only the configured API origin and a signed verification path',async()=>{
+  const source=await readFile(new URL('../../zalo_mini_app/my-app/src/utils/certificate-verification.ts',import.meta.url),'utf8');
+  const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}});
+  const {certificateVerificationUrl}=await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+  const path='/verify/certificates/10000000-0000-0000-0000-000000000100.'+'A'.repeat(43);
+  assert.equal(certificateVerificationUrl(path,'https://api.example.test/api'),'https://api.example.test'+path);
+  for(const invalid of ['https://evil.test', '//evil.test',path+'?redirect=https://evil.test',path+'/../x',null])assert.equal(certificateVerificationUrl(invalid,'https://api.example.test/api'),undefined);
+  for(const base of ['javascript:alert(1)','http://evil.test/api','https://user:secret@api.example.test/api','invalid'])assert.equal(certificateVerificationUrl(path,base),undefined);
+});
+
 test('profile adapters preserve explicit clearing and never coerce mistyped optional fields',()=>{
   const clear=adapters.profileToCanonical({avatar:null,dob:'',name:'Actual name'});
   assert.equal(clear.avatarUrl,null);assert.equal(clear.dateOfBirth,null);

@@ -174,6 +174,8 @@ export interface Course {
     title: string;
     duration: string;
     videoUrl: string;
+    youtubeVideoId?: string|null;
+    mediaErrorCode?: string|null;
     isCompleted: boolean;
     chapterId?: string;
     durationMinutes?: number;

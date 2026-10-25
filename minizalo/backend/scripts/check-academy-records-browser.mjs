@@ -7,7 +7,7 @@ const browser=await(useWebKit?webkit:chromium).launch({...(useWebKit?{}:{executa
 try{
   for(const viewport of [{width:320,height:640},{width:390,height:844},{width:1366,height:900}]){
     const f=await staffFixture(),{db,id}=f,page=await browser.newPage({viewport}),errors=[];
-    let moreRequests=0,failMore=viewport.width===390;
+    let moreRequests=0,failMore=viewport.width===390;let verificationPage;
     page.on('pageerror',error=>errors.push(error.message));
     try{
       await db.query("UPDATE users SET date_of_birth='1998-05-15' WHERE id=$1",[id(90)]);
@@ -65,10 +65,25 @@ try{
       await list.getByRole('link',{name:'Mở giấy chứng nhận PDF',exact:true}).waitFor();
       await list.locator('.academy-certificate-qr img').waitFor();
       assert.equal(await list.locator('.academy-certificate-qr img').evaluate(img=>img.complete&&img.naturalWidth>0),true);
+      const verificationUrl=await list.getByRole('link',{name:'Tra cứu giấy chứng nhận',exact:true}).getAttribute('href');
+      const verificationPath=new URL(verificationUrl).pathname;
+      assert.match(verificationPath,/^\/verify\/certificates\/[0-9a-f-]+\.[A-Za-z0-9_-]{43}$/);
+      assert.equal(verificationUrl.includes('PRIMARY-VERIFY'),false);
+      // Never open the configured external API: verify this fixture's signed link on its isolated backend.
+      verificationPage=await browser.newPage({viewport});
+      verificationPage.on('pageerror',error=>errors.push(error.message));
+      assert.equal((await verificationPage.goto(f.base+verificationPath)).status(),200);
+      await verificationPage.getByRole('heading',{name:'Tra cứu giấy chứng nhận',exact:true}).waitFor();
+      await verificationPage.getByText('PRIMARY-ISSUED',{exact:true}).waitFor();
+      assert.equal(await verificationPage.getByText('15/5/1998',{exact:false}).count(),0);
+      assert.equal(await verificationPage.locator('a[href*=certificate]').count(),0);
+      assert.equal(await verificationPage.locator('body').evaluate(el=>el.scrollWidth>innerWidth+1),false);
+      await verificationPage.screenshot({path:fileURLToPath(new URL(`../.relay-local/certificate-verification-${useWebKit?'webkit':'chrome'}-${viewport.width}.png`,import.meta.url))});
       await page.screenshot({path:fileURLToPath(new URL(`../.relay-local/certificate-${useWebKit?'webkit':'chrome'}-${viewport.width}.png`,import.meta.url))});
       await db.query("UPDATE student_certificates SET status='REVOKED',revocation_reason='Actual fixture revocation' WHERE id=$1",[id(95)]);
       await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
       await list.getByText('Actual fixture revocation',{exact:true}).waitFor();
+      await verificationPage.reload();await verificationPage.getByText('Đã thu hồi',{exact:true}).waitFor();
       assert.equal(await list.getByRole('link',{name:'Mở giấy chứng nhận PDF',exact:true}).count(),0);
       assert.equal(await list.locator('.academy-certificate-qr').count(),0);
       await nav('Trang chủ');await page.locator('.home-bell').click();
@@ -77,8 +92,8 @@ try{
       assert.equal((await db.query('SELECT is_read FROM notifications WHERE id=$1',[id(950)])).rows[0].is_read,true);
       assert.equal(await page.locator('.mini-app-shell').evaluate(el=>el.scrollWidth>el.clientWidth+1),false);
       assert.deepEqual(errors,[]);
-      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,levelBasedAudiences:true,legacyCatalog:viewport.width===1366,combinedFilters:true,expiredLearningCannotContinue:true,certificateAfterExpiry:true,paginationAndRetry:true,revocationRefresh:true,legacyNotification:true,noPageErrors:true}));
+      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,levelBasedAudiences:true,legacyCatalog:viewport.width===1366,combinedFilters:true,expiredLearningCannotContinue:true,certificateAfterExpiry:true,publicSignedVerification:true,noPublicBirthDateOrPdf:true,paginationAndRetry:true,revocationRefresh:true,legacyNotification:true,noPageErrors:true}));
     }catch(error){console.error(JSON.stringify({viewport,body:(await page.locator('body').innerText()).slice(-2200)}));throw error;}
-    finally{await page.close();await f.close();}
+    finally{await verificationPage?.close();await page.close();await f.close();}
   }
 }finally{await browser.close();}

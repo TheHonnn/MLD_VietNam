@@ -6,8 +6,8 @@ const uuid=(value:unknown)=>{if(typeof value!=='string'||!/^[0-9a-f]{8}-(?:[0-9a
 export async function configureWorkflows(store:Store,input:unknown,apply=false){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new ApiError(400,'Configuration must be an object');
   const config=input as Record<string,unknown>;
-  if(Object.keys(config).some(key=>!['technicianServices','lessonQuizzes','quizLimits','courseDelivery','membershipCards','courseAccess','courseAudiences'].includes(key)))throw new ApiError(400,'Unknown configuration section');
-  const counts={technicianServices:0,lessonQuizzes:0,quizLimits:0,courseDelivery:0,membershipCards:0,courseAccess:0,courseAudiences:0};
+  if(Object.keys(config).some(key=>!['technicianServices','lessonQuizzes','quizLimits','courseDelivery','membershipCards','courseAccess','courseAudiences','lessonMedia'].includes(key)))throw new ApiError(400,'Unknown configuration section');
+  const counts={technicianServices:0,lessonQuizzes:0,quizLimits:0,courseDelivery:0,membershipCards:0,courseAccess:0,courseAudiences:0,lessonMedia:0};
   for(const section of Object.keys(counts) as (keyof typeof counts)[]){
     const rows=config[section]??[];
     if(!Array.isArray(rows)||rows.length>1000)throw new ApiError(400,'Invalid configuration list');
@@ -24,6 +24,12 @@ export async function configureWorkflows(store:Store,input:unknown,apply=false){
         const [valid]=await store.query(Prisma.sql`SELECT l.id FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id JOIN course_quizzes q ON q.course_id=ch.course_id WHERE l.id=${lessonId}::uuid AND q.id=${quizId}::uuid AND l.lesson_type='QUIZ'`);
         if(!valid)throw new ApiError(400,'Lesson and quiz must belong to the same course');
         if(apply)await store.query(Prisma.sql`INSERT INTO miniapp_lesson_quizzes(lesson_id,quiz_id) VALUES(${lessonId}::uuid,${quizId}::uuid) ON CONFLICT(lesson_id) DO UPDATE SET quiz_id=EXCLUDED.quiz_id RETURNING lesson_id`);
+      }else if(section==='lessonMedia'){
+        const lessonId=uuid(row.lessonId),allowed=row.allowPublicEmbed,reason=row.reason;
+        if(typeof allowed!=='boolean'||typeof reason!=='string'||!reason.trim()||reason.length>1000||/[\x00-\x1f\x7f]/.test(reason))throw new ApiError(400,'Public video embedding requires an explicit decision and reason');
+        const [valid]=await store.query(Prisma.sql`SELECT id,video_url FROM course_lessons WHERE id=${lessonId}::uuid AND lesson_type='VIDEO'`);
+        if(!valid||!valid.video_url||valid.video_url.length>4000)throw new ApiError(400,'Video lesson source is not configured');
+        if(apply)await store.query(Prisma.sql`INSERT INTO miniapp_lesson_media_policy(lesson_id,media_url,allow_public_embed,reason) VALUES(${lessonId}::uuid,${valid.video_url},${allowed},${reason.trim()}) ON CONFLICT(lesson_id) DO UPDATE SET media_url=EXCLUDED.media_url,allow_public_embed=EXCLUDED.allow_public_embed,reason=EXCLUDED.reason,updated_at=clock_timestamp() RETURNING lesson_id`);
       }else if(section==='courseDelivery'){
         const courseId=uuid(row.courseId),format=row.deliveryFormat;
         if(!['ONLINE','ONSITE','HYBRID'].includes(format))throw new ApiError(400,'Invalid course delivery format');

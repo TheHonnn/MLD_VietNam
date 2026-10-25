@@ -19,6 +19,7 @@ export const createStore = (client: PrismaClient | Prisma.TransactionClient): St
 
 // This is a read/write contract, not a second schema or a migration source.
 export const requiredColumns: Record<string, string[]> = {
+  miniapp_lesson_media_policy:['lesson_id','media_url','allow_public_embed','reason','updated_at'],
   miniapp_account_sessions:['id','user_id','token_hash','device_label','created_at','last_seen_at','expires_at','revoked_at'],
   miniapp_account_revocations:['user_id','revoked_before'],
   miniapp_shared_content:['id','kind','title','summary','content_text','image_url','attachments','status','author_id','updated_by','revision','payload_hash','published_at','created_at','updated_at'],

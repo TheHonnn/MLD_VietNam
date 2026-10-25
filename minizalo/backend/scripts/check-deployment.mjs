@@ -54,6 +54,8 @@ const results = await Promise.all(checks.map(async ([path, key, fields]) => {
     if(path==='/health'&&!body.data?.features?.includes('account-sessions-v1'))failures.push('Apply migration 014 and deploy revocable account sessions before the account-switching frontend');
     if(path==='/health'&&!body.data?.features?.includes('booking-group-actions-v1'))failures.push('Deploy complete booking-group reads/cancellation before the group-management frontend');
     if(path==='/health'&&!body.data?.features?.includes('single-learning-player-v1'))failures.push('Deploy the single active learning-player policy and terminal playback errors before this frontend');
+    if(path==='/health'&&!body.data?.features?.includes('certificate-verification-v1'))failures.push('Deploy public signed certificate verification before publishing the certificate QR frontend');
+    if(path==='/health'&&!body.data?.features?.includes('youtube-lessons-v1'))failures.push('Apply migration 015 and deploy source-bound lesson media policy before publishing YouTube lessons');
     if (key === 'validation') {
       if (response.status !== 400) failures.push('Availability route is missing or incorrectly protected; deploy the matching Mini App backend');
     } else if (key === 'private') {

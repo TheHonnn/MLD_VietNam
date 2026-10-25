@@ -7,6 +7,8 @@ import type { Branch, Course, CourseAudience, User } from '../../../../backend/s
 import { ArrowLeftIcon, FileTextIcon, PlayCircleIcon } from './Icons';
 import { EntityImage } from './GroupBExtensions';
 import {AcademyCertificates} from './AcademyCertificates';
+import {YouTubeLessonPlayer} from './YouTubeLessonPlayer';
+import type {LessonPlayerHandle} from './YouTubeLessonPlayer';
 import { AcademyHome, AcademyCatalog, AcademyCourseDetail, AcademyInstructor, AcademyRegistration, AcademyRegistrationStatus, AcademyMyCourses, AcademyClassSummary, AcademyHeader, AcademyFooter } from './AcademyViews';
 import type { AcademyEnrollment } from './AcademyViews';
 import '@/css/academy.scss';
@@ -100,6 +102,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const [learningError, setLearningError] = useState('');
   const [learningVersion, setLearningVersion] = useState(0);
   const [lessonId, setLessonId] = useState<string | null>(null);
+  const [playbackReady,setPlaybackReady]=useState(false);
   const [notes, setNotes] = useState('');
   const latestNotes=useRef(notes);latestNotes.current=notes;
   const persistedNotes=useRef('');
@@ -178,7 +181,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const progressCompletion=useRef<Promise<void>|null>(null);
   const watched = useRef(0);
   const lastPlaybackTime = useRef<number | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<LessonPlayerHandle|null>(null);
   const closingLesson = useRef(false);
   const activeScope = useRef('');
   const openedNotification = useRef('');
@@ -296,6 +299,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
           setActionError(result.error);
           if(result.code==='COURSE_ACCESS_EXPIRED'){videoRef.current?.pause();playback.current=null;setLessonId(null);setLearning(null);setLearningError('Quyền truy cập khóa học đã hết hạn hoặc tạm dừng.');}
           else if(result.code==='VIDEO_SESSION_EXPIRED'){videoRef.current?.pause();playback.current=null;setLessonId(null);setActionError('Phiên xem đã hết hạn hoặc đã mở video trên thiết bị khác. Vui lòng mở lại bài học.');}
+          else if(['YOUTUBE_NOT_APPROVED','INVALID_VIDEO_SOURCE'].includes(result.code)){videoRef.current?.pause();playback.current=null;setLessonId(null);setNotice('Quyền phát video đã thay đổi. Vui lòng mở lại bài học.');setLearningVersion(value=>value+1);}
           else videoRef.current?.pause();
           return false;
         }
@@ -360,14 +364,15 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     }catch{/* Server notes remain available with restricted storage. */}
     setNotes(savedNotes);
     setLessonId(item.id);
+    setPlaybackReady(false);
     playback.current=null;
     const generation=++playbackGeneration.current;
-    if(item.lessonType==='VIDEO'&&ownedLesson&&study&&activeEnrollmentId) {
+    if(item.lessonType==='VIDEO'&&!item.mediaErrorCode&&ownedLesson&&study&&activeEnrollmentId) {
       const scope=activeScope.current;
       void apiClient.startPlayback(study.id,item.id,activeEnrollmentId).then(result=>{
         if(activeScope.current!==scope||playbackGeneration.current!==generation)return;
         if(result?.error||!result?.playback){setActionError(result?.error||'Không thể lưu phiên xem video.');return;}
-        playback.current={id:result.playback.id,lessonId:item.id,enrollmentId:activeEnrollmentId,courseId:study.id};lastHeartbeat.current=performance.now();
+        playback.current={id:result.playback.id,lessonId:item.id,enrollmentId:activeEnrollmentId,courseId:study.id};lastHeartbeat.current=performance.now();setPlaybackReady(true);
       });
     }
   };
@@ -641,8 +646,15 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
         {actionError && <p role="alert" className="text-xs text-red-700">{actionError}</p>}
         {lessonExitBlocked&&<div className="space-y-2"><button className={buttonClass} disabled={progressSaving} onClick={()=>leaveLessonWithDraft()}>Đóng và giữ bản nháp</button>{draftStorageFailed&&<button className={buttonClass} disabled={progressSaving} onClick={()=>leaveLessonWithDraft(true)}>Đóng và bỏ ghi chú chưa lưu</button>}</div>}
         {notice && <p role="status" className="text-xs">{notice}</p>}
-        {safeUrl(lesson.videoUrl) ? <div className="academy-video-wrap"><video ref={videoRef} key={`${study?.id || selected?.id}-${lesson.id}`} controls playsInline controlsList="nodownload noremoteplayback nofullscreen" disablePictureInPicture onContextMenu={event=>event.preventDefault()} src={safeUrl(lesson.videoUrl)} className="aspect-video w-full bg-black"
-          onPlay={event => { lastPlaybackTime.current = event.currentTarget.currentTime; }}
+        {lesson.mediaErrorCode&&<p role="alert">Video chưa được cho phép phát với cấu hình hiện tại.</p>}
+        {activeLesson?.lessonType==='VIDEO'&&!lesson.mediaErrorCode&&!playbackReady&&!actionError&&<p role="status">Đang kiểm tra phiên xem...</p>}
+        {lesson.youtubeVideoId?(!activeLesson||playbackReady)&&<YouTubeLessonPlayer key={`${study?.id||selected?.id}-${lesson.id}`} ref={videoRef} videoId={lesson.youtubeVideoId} title={lesson.title}
+          onPlay={()=>{if(activeLesson&&(!playback.current||playback.current.lessonId!==activeLesson.id)){videoRef.current?.pause();return;}lastPlaybackTime.current=videoRef.current?.currentTime??null;}}
+          onPause={()=>{if(activeLesson&&!closingLesson.current)void flushHeartbeat().then(async saved=>{if(saved)await saveProgress(false,notes);});}}
+          onEnded={()=>{if(activeLesson)void flushHeartbeat().then(async saved=>{if(saved)await saveProgress(false,notes);});}}
+          onTick={(position,playing)=>{const previous=lastPlaybackTime.current;if(playing&&previous!==null){const delta=position-previous;if(delta>0&&delta<2)watched.current+=delta;}lastPlaybackTime.current=playing?position:null;}}
+        />:safeUrl(lesson.videoUrl) ? <div className="academy-video-wrap"><video ref={element=>{videoRef.current=element;}} key={`${study?.id || selected?.id}-${lesson.id}`} controls playsInline controlsList="nodownload noremoteplayback nofullscreen" disablePictureInPicture onContextMenu={event=>event.preventDefault()} src={activeLesson&&!playbackReady?undefined:safeUrl(lesson.videoUrl)} className="aspect-video w-full bg-black"
+          onPlay={event => {if(activeLesson&&(!playback.current||playback.current.lessonId!==activeLesson.id)){event.currentTarget.pause();return;}lastPlaybackTime.current = event.currentTarget.currentTime; }}
           onSeeking={() => { lastPlaybackTime.current = null; }}
           onSeeked={event => { lastPlaybackTime.current = event.currentTarget.currentTime; }}
           onTimeUpdate={event => {

@@ -7,10 +7,13 @@ import {apiErrorMessage} from './error-message';
 import { abortable } from '../utils/async-control';
 import { OwnerWriteQueue } from '../utils/owner-write-queue';
 import {isStaffRole} from '../utils/staff';
+import {certificateVerificationUrl as verificationLink} from '../utils/certificate-verification';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SESSION_KEY = 'mld_miniapp_session_v2';
 let memoryToken: string | null = null;
+let nativeSessionStorageAvailable=true;
+let verifiedZaloSessionThisPage=false;
 let sessionEpoch = 0;
 let authController: AbortController | null = null;
 type ReadResponse = { status: number; payload: Record<string, any>; cacheable?: boolean };
@@ -62,20 +65,22 @@ const session = {
   get() {
     if (memoryToken !== null) return memoryToken;
     // Resolve native storage once, including an empty or unavailable guest session.
-    try { const stored = nativeStorage.getItem(SESSION_KEY); memoryToken = typeof stored === 'string' ? stored : ''; }
-    catch { memoryToken = ''; }
+    try { const stored = nativeSessionStorageAvailable?nativeStorage.getItem(SESSION_KEY):null; memoryToken = typeof stored === 'string' ? stored : ''; }
+    catch { nativeSessionStorageAvailable=false;memoryToken = ''; }
     return memoryToken;
   },
   set(token: string) {
     if (session.get() !== token) { sessionEpoch++; readCache.invalidate(key => key.startsWith('private:')); }
     memoryToken = token;
-    try { nativeStorage.setItem(SESSION_KEY, token); } catch { /* Keep this session in memory. */ }
+    try { if(nativeSessionStorageAvailable)nativeStorage.setItem(SESSION_KEY, token); } catch { nativeSessionStorageAvailable=false; }
   },
   clear() {
+    const needsNativeRemoval=memoryToken!=='';
     sessionEpoch++;
+    verifiedZaloSessionThisPage=false;
     readCache.invalidate(key => key.startsWith('private:'));
     memoryToken = '';
-    try { nativeStorage.removeItem(SESSION_KEY); } catch { /* Storage may be unavailable in preview. */ }
+    try { if(needsNativeRemoval&&nativeSessionStorageAvailable)nativeStorage.removeItem(SESSION_KEY); } catch { nativeSessionStorageAvailable=false; }
   },
 };
 const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -123,7 +128,8 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   if (guardSession && sessionChanged()) return staleSession();
   const successful = response.ok && envelope.success === true;
   const payload = successful ? adaptPayload(envelope.data || {})
-    : { error: apiErrorMessage(envelope.message,response.status), status: envelope.statusCode || response.status,code:envelope.code,pricing:envelope.pricing };
+    : { error: apiErrorMessage(envelope.message,response.status), status: envelope.statusCode || response.status,code:envelope.code,pricing:envelope.pricing,
+      ...((relativePath(url)==='/auth/zalo'&&response.status===403)?{authIssue:envelope.message==='Staff booking access is required'?'STAFF_ACCESS_REQUIRED':envelope.message==='Active staff profile and branch are required'?'STAFF_PROFILE_INACTIVE':undefined}:{}) };
   if (guardSession && response.status === 401 && token && session.get() === token && sessionEpoch === epoch) { session.clear(); window.dispatchEvent(new Event('mld:session-expired')); }
   if (successful && method !== 'GET' && method !== 'HEAD') {
     const path = relativePath(url);
@@ -162,6 +168,8 @@ const createCustomerRecord=async(scope:'support-tickets'|'consultation-surveys',
 const searchWrites = new OwnerWriteQueue(() => String(sessionEpoch));
 
 export const apiClient = {
+  getSessionDiagnostics(){return {nativeStorageAvailable:nativeSessionStorageAvailable,verifiedZaloSessionThisPage};},
+  certificateVerificationUrl(path:unknown){return verificationLink(path,API_BASE_URL);},
   async getServiceFavorite(id:string){
     try{return await responseJson(await fetch(`${API_BASE_URL}/services/${encodeURIComponent(id)}/favorite`));}catch{return {error:'Không thể tải mục yêu thích.'};}
   },
@@ -260,9 +268,10 @@ export const apiClient = {
     const timer = window.setTimeout(() => controller.abort(), 20000);
     try {
       if (!requestConsent) {
-        if (memoryToken) {
+        if (verifiedZaloSessionThisPage&&memoryToken) {
           const current = await apiClient.getCurrentUser();
           if (current?.user&&isStaffRole(current.user.role)) return { ...current, token: session.get() };
+          if(current?.user){session.clear();window.dispatchEvent(new Event('mld:session-expired'));return {error:'Tài khoản cần được quản trị viên cấp quyền nhân viên trước khi sử dụng ứng dụng.',status:403,authIssue:'STAFF_ACCESS_REQUIRED'};}
         }
         return { needsConsent: true, error: 'Tiếp tục với Zalo và cho phép chia sẻ số điện thoại để kết nối hồ sơ.' };
       }
@@ -280,8 +289,8 @@ export const apiClient = {
       });
       const data = await responseJson(res);
       if (controller.signal.aborted || authController !== controller) return { error: 'Kết nối đã hủy. Vui lòng thử lại.' };
-      if(data.registrationRequired||data.user&&!isStaffRole(data.user.role))return {error:'Tài khoản cần được quản trị viên cấp quyền nhân viên trước khi sử dụng ứng dụng.'};
-      if (data.token) session.set(data.token);
+      if(data.registrationRequired||data.user&&!isStaffRole(data.user.role))return {error:'Tài khoản cần được quản trị viên cấp quyền nhân viên trước khi sử dụng ứng dụng.',status:403,authIssue:'STAFF_ACCESS_REQUIRED'};
+      if (data.token&&data.user&&isStaffRole(data.user.role)) {session.set(data.token);verifiedZaloSessionThisPage=true;}
       return data;
     } catch (error) {
       if (controller.signal.aborted) return { error: 'Kết nối đã hủy hoặc quá thời gian chờ. Bạn có thể xem dịch vụ và thử lại sau.' };
