@@ -19,6 +19,11 @@ test('staff customer dossier only exposes canonical branch-scoped history and re
       assert.deepEqual(Object.keys(first.data.customer).sort(),['dateOfBirth','fullName','id','phone']);
       const journals=await read('treatments');assert.equal(journals.data.records.length,1);assert.equal(journals.data.records[0].treatmentNotes,'Actual care notes');assert.equal(journals.data.records[0].conditionBefore,'Before condition');
       const packages=await read('packages');assert.equal(packages.data.records[0].remainingSessions,3);assert.equal(packages.data.records[0].completedSessions,1);
+      assert.equal(packages.data.records[0].serviceName,'Workflow service');assert.equal(packages.data.records[0].serviceSteps[0].title,'Assessment');
+      assert.equal(journals.data.records[0].bookingId,id(11));assert.equal(journals.data.records[0].title,'Workflow service');
+      await db.query("UPDATE user_packages SET expires_at='2000-01-01' WHERE id=$1",[id(10)]);
+      assert.equal((await read('packages')).data.records[0].status,'EXPIRED');
+      await db.query("UPDATE user_packages SET expires_at='2099-12-31' WHERE id=$1",[id(10)]);
     });
     await t.test('a relationship in another branch does not expose this branch clinical notes',async()=>{
       await db.query("INSERT INTO bookings(id,booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,base_total,final_price,qr_code_hash) VALUES($1,'OTHER-DOSSIER',$2,$3,'2020-01-01','12:00','13:00','COMPLETED',0,0,'OTHER-DOSSIER-QR')",[id(501),id(1),id(104)]);

@@ -3,6 +3,7 @@ import type {MedicalService,Branch,User,Booking} from '../../../../backend/src/d
 import {apiClient} from '@/api/client';
 import {ArrowLeftIcon} from './Icons';
 import {useBackAction} from '@/hooks/useNavigationHistory';
+import {contactPhone} from '@/utils/phone';
 import '@/css/booking-flow.scss';
 import '@/css/staff-booking.scss';
 
@@ -17,7 +18,7 @@ export function StaffBooking({currentUser,initialService,initialBranch,initialCu
   const [catalog,setCatalog]=useState(allServices);
   const [people,setPeople]=useState(1);
   const [identifyGuests,setIdentifyGuests]=useState(false),[guests,setGuests]=useState<{name:string;phone:string}[]>([]);
-  const validGuests=!identifyGuests||(guests.length===people&&guests.every(guest=>guest.name.trim()&&(!guest.phone.trim()||/^(?:0|\+?84)[1-9]\d{8,9}$/.test(guest.phone.trim()))));
+  const validGuests=!identifyGuests||(guests.length===people&&guests.every(guest=>guest.name.trim()&&(!guest.phone.trim()||contactPhone(guest.phone))));
   const [packages,setPackages]=useState<CustomerPackage[]>([]),[packagesFor,setPackagesFor]=useState(''),[packageId,setPackageId]=useState(''),[packageError,setPackageError]=useState(''),[packagesLoading,setPackagesLoading]=useState(false);
   const [serviceId,setServiceId]=useState(initialService.id),[branchId,setBranchId]=useState(initialBranch?.id||'');
   const [date,setDate]=useState(today),[range,setRange]=useState(today),[dates,setDates]=useState<string[]>([]),[datesLoading,setDatesLoading]=useState(false),[datesError,setDatesError]=useState('');
@@ -32,8 +33,8 @@ export function StaffBooking({currentUser,initialService,initialBranch,initialCu
   const key=JSON.stringify([branchId,serviceId,date,people]);
   const ready=slotFor===key&&!slotsLoading&&!slotsError;
   const labels=ready?[...new Set<string>(slots.map(slotLabel))]:[];
-  const contact=mode==='existing'?customer?.phone||phone.trim():phone.trim();
-  const validCustomer=Boolean((mode==='existing'?customer:name.trim())&&/^(?:0|\+?84)[1-9]\d{8,9}$/.test(contact));
+  const contact=contactPhone(mode==='existing'?customer?.phone||phone:phone);
+  const validCustomer=Boolean(contact&&(mode==='existing'?customer:name.trim()));
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   useEffect(()=>setCatalog(allServices),[allServices]);
   useEffect(()=>{
@@ -107,7 +108,7 @@ export function StaffBooking({currentUser,initialService,initialBranch,initialCu
   const submit=async()=>{
     if(lock.current||!scope||!service||!ready||!labels.includes(selectedTime)||!validCustomer||!validGuests||(packageId&&!chosenPackage))return;
     lock.current=true;setBusy(true);setError('');
-    const input={serviceId,branchId,date,people,timeSlot:selectedTime,expectedFinalPrice:packageId?0:service.price*people,...(identifyGuests?{guests:guests.map(guest=>({name:guest.name.trim(),phone:guest.phone.trim()}))}:{}),...(packageId?{userPackageId:packageId}:{}),...(mode==='existing'?{customerId:customer!.id,customerPhone:contact}:{customer:{name:name.trim(),phone:phone.trim()}})};
+    const input={serviceId,branchId,date,people,timeSlot:selectedTime,expectedFinalPrice:packageId?0:service.price*people,...(identifyGuests?{guests:guests.map(guest=>({name:guest.name.trim(),phone:contactPhone(guest.phone)||''}))}:{}),...(packageId?{userPackageId:packageId}:{}),...(mode==='existing'?{customerId:customer!.id,customerPhone:contact}:{customer:{name:name.trim(),phone:contact}})};
     try{
       const result=await apiClient.createStaffBooking(input,currentUser.id);
       if(!mounted.current||epoch.current!==apiClient.sessionVersion())return;

@@ -44,6 +44,8 @@
 .appointments-tabs button { min-height: 42px; padding: 7px 4px; border: 1px solid #c8dde3; border-radius: 9px; background: #fff; font-size: 11px; line-height: 16px; }
 .appointments-tabs [aria-pressed=true], .appointment-slot-grid [aria-pressed=true] { border-color: #087e9c; background: #087e9c; color: #fff; }
 .appointment-filter { display: flex; min-width: 0; flex-direction: column; gap: 7px; font-size: 12px; line-height: 18px; }
+.appointment-clinical-fields { display: grid; gap: 12px; }
+.appointment-clinical-fields textarea { width: 100%; min-height: 88px; padding: 10px; border: 1px solid #c8dde3; border-radius: 8px; resize: vertical; font: inherit; }
 .appointment-filter select, .appointment-filter input { width: 100%; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid #c8dde3; border-radius: 9px; background: #fff; color: #334f5b; font-size: 13px; text-overflow: ellipsis; }
 .appointments-date-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
 .appointments-filter-menu { margin-top: 18px; }

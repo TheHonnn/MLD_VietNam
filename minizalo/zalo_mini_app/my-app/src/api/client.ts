@@ -129,7 +129,7 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const successful = response.ok && envelope.success === true;
   const payload = successful ? adaptPayload(envelope.data || {})
     : { error: apiErrorMessage(envelope.message,response.status), status: envelope.statusCode || response.status,code:envelope.code,pricing:envelope.pricing,
-      ...((relativePath(url)==='/auth/zalo'&&response.status===403)?{authIssue:envelope.message==='Staff booking access is required'?'STAFF_ACCESS_REQUIRED':envelope.message==='Active staff profile and branch are required'?'STAFF_PROFILE_INACTIVE':undefined}:{}) };
+      ...((relativePath(url)==='/auth/zalo'&&response.status===403)?{authIssue:envelope.message==='Staff booking access is required'?'STAFF_ACCESS_REQUIRED':envelope.message==='Active staff profile and branch are required'?'STAFF_PROFILE_INACTIVE':envelope.message==='No shared staff account matches the verified Zalo phone'?'STAFF_ACCOUNT_NOT_FOUND':undefined}:{}) };
   if (guardSession && response.status === 401 && token && session.get() === token && sessionEpoch === epoch) { session.clear(); window.dispatchEvent(new Event('mld:session-expired')); }
   if (successful && method !== 'GET' && method !== 'HEAD') {
     const path = relativePath(url);
@@ -191,9 +191,11 @@ export const apiClient = {
     void preloadCatalogImages(results,signal);
     return results;
   },
-  async preloadPrivateData() {
+  async preloadPrivateData(staffMode=false) {
     const owner = session.get(), epoch = sessionEpoch;
-    const results = await Promise.all([apiClient.getMedicalRecords(),apiClient.getMembership(),apiClient.getBookings(),apiClient.getNotifications(),apiClient.getTreatmentPlans(),apiClient.getSettings(),apiClient.getTransactions(),apiClient.getSupportTickets(),apiClient.getConsultationSurveys(),apiClient.getMyReviews(),apiClient.getSearchHistory(),apiClient.getCourseEnrollments()]);
+    const results = await Promise.all(staffMode
+      ?[apiClient.getSettings(),apiClient.getSearchHistory(),apiClient.getCourseEnrollments()]
+      :[apiClient.getMedicalRecords(),apiClient.getMembership(),apiClient.getBookings(),apiClient.getNotifications(),apiClient.getTreatmentPlans(),apiClient.getSettings(),apiClient.getTransactions(),apiClient.getSupportTickets(),apiClient.getConsultationSurveys(),apiClient.getMyReviews(),apiClient.getSearchHistory(),apiClient.getCourseEnrollments()]);
     const enrollments = results[results.length - 1]?.enrollments;
     // Catalogs are warmed globally; full learning payloads are bounded for mobile memory.
     const eligible = Array.isArray(enrollments) ? enrollments.filter((entry: any) => ['enrolled','studying'].includes(entry.status?.toLowerCase())).slice(0,3) : [];
@@ -440,6 +442,23 @@ export const apiClient = {
     try{return await responseJson(await fetch(`${API_BASE_URL}/staff/context`,{signal}));}
     catch{return {error:'Không thể kiểm tra quyền nhân viên. Vui lòng thử lại.'};}
   },
+  async getStaffDashboard(signal?:AbortSignal){
+    try{
+      const response=await fetch(`${API_BASE_URL}/staff/dashboard`,{cache:'no-store',signal});
+      if(response.status===404)return {error:'Máy chủ chưa cập nhật trang công việc nhân viên. Vui lòng liên hệ quản trị viên.',status:404};
+      return await responseJson(response);
+    }
+    catch{return {error:'Không thể tải thông tin công tác. Vui lòng thử lại.'};}
+  },
+  async getStaffCustomerDirectory(search:string,cursor?:string,signal?:AbortSignal){
+    const params=new URLSearchParams({search,limit:'20',...(cursor?{cursor}:{})});
+    try{
+      const response=await fetch(`${API_BASE_URL}/staff/customers/directory?${params}`,{cache:'no-store',signal});
+      if(response.status===404)return {error:'Máy chủ chưa cập nhật danh sách khách hàng dành cho nhân viên.',status:404};
+      return await responseJson(response);
+    }
+    catch{return {error:'Không thể tải danh sách khách hàng. Vui lòng thử lại.'};}
+  },
   async getStaffCustomers(search:string,signal?:AbortSignal){
     try{return await responseJson(await fetch(`${API_BASE_URL}/staff/customers?${new URLSearchParams({search})}`,{signal}));}
     catch{return {error:'Không thể tìm khách hàng. Vui lòng thử lại.'};}
@@ -486,8 +505,8 @@ export const apiClient = {
       return result;
     }catch{return {error:'Không thể gửi lịch hẹn. Vui lòng thử lại để kiểm tra kết quả.'};}
   },
-  async updateStaffSession(id:string,status:string,treatmentNotes?:string){
-    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/bookings/${encodeURIComponent(id)}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,treatmentNotes})}));}
+  async updateStaffSession(id:string,status:string,treatmentNotes?:string,details?:{conditionBefore:string;conditionAfter:string;specialistAdvice:string}){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/bookings/${encodeURIComponent(id)}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,treatmentNotes,...details})}));}
     catch{return {error:'Không thể cập nhật ca trị liệu. Vui lòng thử lại.'};}
   },
 

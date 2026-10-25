@@ -36,6 +36,7 @@ export function GroupBHome(props: HomeDashboardProps) {
   const service = heroServices[index];
   const selectedBranch=branches.find(branch=>branch.id===selectedBranchId)||branches[0];
   const faqs=props.metadata?.faqs?.filter(item=>item.isActive!==false)||[];
+  const guidelines = props.guidelines?.filter(item => item.isPublished !== false) || [];
 
   useEffect(() => { setAvatarFailed(false); }, [userAvatar]);
   useEffect(() => {
@@ -49,7 +50,7 @@ export function GroupBHome(props: HomeDashboardProps) {
   };
 
   return <>
-    <section className="home-dashboard" aria-label="Trang chủ">
+    <section className={`home-dashboard${!service && !loading ? ' home-dashboard--without-feature' : ''}`} aria-label="Trang chủ">
       <header className="home-greeting">
         <button className="home-avatar" type="button" title="Hồ sơ cá nhân" onClick={() => onNavigateTab('profile')}>
           {userAvatar && !avatarFailed ? <img src={userAvatar} alt="" onError={() => setAvatarFailed(true)} /> : <NavProfileIcon size={23} />}
@@ -85,7 +86,7 @@ export function GroupBHome(props: HomeDashboardProps) {
         {error && <button type="button" title="Thử tải lại" disabled={loading} onClick={onRefresh}><RefreshIcon size={18} /></button>}
       </div>}
 
-      <section className="home-feature" aria-label="Chăm sóc và dịch vụ"
+      {service && <section className="home-feature" aria-label="Chăm sóc và dịch vụ"
         onFocusCapture={event => setInteracting(event.target.matches(':focus-visible'))} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}
         onClickCapture={event=>{if(suppressSwipeClick.current){suppressSwipeClick.current=false;event.preventDefault();event.stopPropagation();}}}
         onTouchStart={event => {
@@ -122,12 +123,12 @@ export function GroupBHome(props: HomeDashboardProps) {
             <button className="home-icon-button home-refresh" type="button" title="Cập nhật dữ liệu" disabled={loading} onClick={onRefresh}><RefreshIcon size={16} /></button>
           </div>
         </div>
-      </section>
+      </section>}
     </section>
     <div className="home-more">
       <nav className="home-shortcuts" aria-label="Tiện ích nhanh">
         <button type="button" onClick={()=>onNavigateTab('booking')}><CalendarIcon size={22}/><span>Lịch hẹn</span></button>
-        <button type="button" onClick={()=>onNavigateTab('academy')}><NavAcademyIcon size={22}/><span>Học viện</span></button>
+        <button type="button" onClick={()=>onNavigateTab('academy')}><NavAcademyIcon size={22}/><span>Đào tạo</span></button>
         <button type="button" disabled={loading} onClick={props.onOpenBranches}><MapIcon size={22}/><span>Chi nhánh</span></button>
         <button type="button" disabled={loading} onClick={props.onOpenSpecialists}><UserCheckIcon size={22}/><span>Chuyên viên</span></button>
       </nav>
@@ -137,10 +138,11 @@ export function GroupBHome(props: HomeDashboardProps) {
         <button type="button" onClick={()=>onNavigateTab('community')}><UserCheckIcon size={22}/><span>Cộng đồng</span></button>
       </nav>
       {props.upcomingBooking&&<section className="home-information"><h2>Lịch hẹn sắp tới</h2><button className="home-upcoming" type="button" onClick={()=>props.onOpenBooking?props.onOpenBooking(props.upcomingBooking!):onNavigateTab('booking')}><span><strong>{props.upcomingBooking.serviceTitle}</strong><small>{props.upcomingBooking.date.slice(0,10).split('-').reverse().join('/')} · {props.upcomingBooking.timeSlot.split(' - ').map(time=>time.slice(0,5)).join(' - ')}</small><small>{props.upcomingBooking.branchName}</small></span><ArrowRightIcon size={20}/></button></section>}
-      <section className="home-information home-about"><h2>MLD Việt Nam</h2><p>Chăm sóc sức khỏe và đào tạo nghề Spa</p>{!loading&&!error&&<div><span>{services.length} dịch vụ</span><span>{branches.length} chi nhánh</span>{Boolean(props.courses?.length)&&<span>{props.courses?.length} khóa học</span>}</div>}</section>
+      {!loading&&!error&&<section className="home-information home-about"><h2>Tổng quan dữ liệu</h2><div><span>{services.length} dịch vụ</span><span>{branches.length} chi nhánh</span>{Boolean(props.courses?.length)&&<span>{props.courses?.length} khóa học</span>}</div></section>}
       {services.length>0&&<section className="home-information"><header><h2>Dịch vụ chăm sóc</h2><button type="button" onClick={()=>onNavigateTab('services')}>Xem tất cả</button></header><div className="home-preview-list">{services.slice(0,3).map(item=><button key={item.id} type="button" onClick={()=>props.onViewServiceDetail(item)}><EntityImage src={item.image} alt={item.title}/><span><strong>{item.title}</strong><small>{item.durationMinutes} phút · {item.price.toLocaleString('vi-VN')}đ</small></span><ArrowRightIcon size={18}/></button>)}</div></section>}
       {Boolean(props.courses?.length)&&<section className="home-information"><header><h2>Đào tạo và phát triển nghề</h2><button type="button" onClick={()=>onNavigateTab('academy')}>Xem tất cả</button></header><div className="home-preview-list">{props.courses?.slice(0,3).map(item=><button key={item.id} type="button" onClick={()=>props.onSelectCourse?.(item)}><EntityImage src={item.image} alt={item.title}/><span><strong>{item.title}</strong><small>{item.duration} · {item.price.toLocaleString('vi-VN')}đ</small></span><ArrowRightIcon size={18}/></button>)}</div></section>}
       {selectedBranch&&<section className="home-information"><header><h2>Chi nhánh của bạn</h2><button type="button" onClick={()=>props.onSelectBranch(selectedBranch)}>Chi tiết</button></header><h3>{selectedBranch.name}</h3><p>{selectedBranch.address}</p><BranchHours branch={selectedBranch}/>{selectedBranch.phone&&<a href={`tel:${selectedBranch.phone}`}>{selectedBranch.phone}</a>}<button className="home-direction-link" type="button" onClick={()=>props.onOpenDirections(selectedBranch)}><MapIcon size={18}/>Chỉ đường</button></section>}
+      {guidelines.length>0&&<section className="home-information"><h2>Cẩm nang chăm sóc</h2>{guidelines.map(item=><details key={item.id}><summary>{item.title}</summary>{item.imageUrl&&<EntityImage src={item.imageUrl} alt={item.title}/>}<p>{item.summary}</p>{item.content&&<p>{item.content}</p>}</details>)}</section>}
       {faqs.length>0&&<section className="home-information"><h2>Câu hỏi thường gặp</h2>{faqs.map(item=><details key={item.id}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</section>}
     </div>
     <dialog ref={dialog} className="home-catalog-dialog" onClose={() => setCatalogOpen(false)} aria-label="Khám phá dịch vụ và tiện ích">

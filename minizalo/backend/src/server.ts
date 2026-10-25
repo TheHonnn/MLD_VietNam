@@ -23,6 +23,7 @@ import {certificateSelect,certificateVerification,verifyCertificate,certificateV
 import {courseAudienceSql} from './course-audiences.js';
 import {documentLibrary,libraryDocument} from './document-library.js';
 import {staffRecords} from './staff-records.js';
+import {staffDashboard,staffCustomerDirectory} from './staff-dashboard.js';
 import {sharedContent,sharedContentDetail,sharedContentEdit,manageSharedContent,saveSharedContent} from './shared-content.js';
 import {accountSession,accountSessions,revokeSession,revokeOtherSessions} from './account-sessions.js';
 import {lessonMedia} from './lesson-media.js';
@@ -288,7 +289,7 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
   }));
 
   app.get('/api/app-metadata', route(async (_req,res) => {
@@ -307,7 +308,7 @@ export function createApp(store: Store, options: AppOptions) {
     const profile = await authenticateZalo(req.body?.accessToken, req.body?.phoneToken, options);
     const staffLogin=req.body?.audience==='staff';
     const identity = await findZaloAccount(store, profile.phone,staffLogin?'staff':'customer');
-    if(staffLogin&&!identity)throw new ApiError(403,'Staff booking access is required');
+    if(staffLogin&&!identity)throw new ApiError(403,'No shared staff account matches the verified Zalo phone',{authIssue:'STAFF_ACCOUNT_NOT_FOUND'});
     if (!identity) {
       if (!options.zaloAllowSignup) throw new ApiError(409, 'New customer signup is disabled; contact support');
       const registrationToken = jwt.sign({ purpose: 'zalo-registration', phone: profile.phone }, options.jwtSecret,
@@ -422,6 +423,8 @@ export function createApp(store: Store, options: AppOptions) {
   const staffReadLimit=createRateLimiter(60,60000,(_req,res)=>res.locals.userId);
   app.use('/api/staff',staffReadLimit);
   app.get('/api/staff/context',route(async(_req,res)=>success(res,{scope:await staffScope(store,res.locals.userId)})));
+  app.get('/api/staff/dashboard',route(async(_req,res)=>success(res,await staffDashboard(store,res.locals.userId))));
+  app.get('/api/staff/customers/directory',route(async(req,res)=>success(res,await staffCustomerDirectory(store,res.locals.userId,req.query))));
   app.get('/api/staff/customers',route(async(req,res)=>success(res,{customers:await staffCustomers(store,res.locals.userId,req.query.search)})));
   app.get('/api/staff/customers/:id/records',route(async(req,res)=>success(res,await staffRecords(store,res.locals.userId,uuid(req.params.id),req.query))));
   app.get('/api/staff/customers/:id/packages',route(async(req,res)=>{

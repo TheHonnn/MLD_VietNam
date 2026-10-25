@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { ApiError } from './errors.js';
 import { Store } from './store.js';
 import {staffScope} from './staff-booking.js';
+import {phoneIdentity} from './phone-identity.js';
 
 export interface ZaloAuthOptions {
   zaloAppId?: string;
@@ -117,9 +118,8 @@ export async function verifyZaloPhone(accessToken: unknown, phoneToken: unknown,
 
 export async function findZaloAccount(store: Store, phone: string, audience:'customer'|'staff'='customer') {
   if (!/^0[1-9]\d{8,9}$/.test(phone)) throw new ApiError(400, 'A verified local phone number is required');
-  const international = `84${phone.slice(1)}`;
   const accounts = await store.query(Prisma.sql`SELECT id,is_active,role FROM public.users
-    WHERE phone IN (${phone},${international},${`+${international}`}) FOR UPDATE`);
+    WHERE ${phoneIdentity(Prisma.sql`phone`,phone)} FOR UPDATE`);
   if (accounts.length > 1) throw new ApiError(409, 'Duplicate shared phone identities require administrator review');
   const account = accounts[0];
   if (!account) return null;

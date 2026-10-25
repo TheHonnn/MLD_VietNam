@@ -18,6 +18,8 @@
     "Firefox >= 109"
   ],
   "scripts": {
+    "test:catalog": "node --test scripts/catalog-render.test.mjs",
+    "test:staff": "node --test scripts/staff-workspace.test.mjs",
     "test:auth": "node --test scripts/zalo-auth.test.mjs",
     "build": "vite build",
     "postbuild": "node scripts/check-build-artifacts.mjs",

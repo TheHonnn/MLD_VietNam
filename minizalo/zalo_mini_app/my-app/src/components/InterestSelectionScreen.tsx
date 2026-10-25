@@ -4,9 +4,9 @@ import { ArrowLeftIcon, CheckIcon, HeartIcon, NavAcademyIcon, FileTextIcon } fro
 import '@/css/interest-onboarding.scss';
 
 const choices = [
-  { value: PurposeInterest.BEAUTY_SPA, title: 'Chăm sóc sức khỏe', description: 'Đặt lịch spa, chăm sóc cơ thể, theo dõi liệu trình và nhận ưu đãi.', Icon: HeartIcon },
-  { value: PurposeInterest.ACADEMY, title: 'Học nghề spa', description: 'Khám phá khóa học, đăng ký đào tạo và theo dõi quá trình học tập.', Icon: NavAcademyIcon },
-  { value: PurposeInterest.BOTH, title: 'Cả hai', description: 'Trải nghiệm đầy đủ dịch vụ chăm sóc sức khỏe và chương trình đào tạo nghề.', Icon: FileTextIcon },
+  { value: PurposeInterest.BEAUTY_SPA, title: 'Chăm sóc và trị liệu', description: 'Đặt lịch cho khách hàng và theo dõi liệu trình chăm sóc.', Icon: HeartIcon },
+  { value: PurposeInterest.ACADEMY, title: 'Đào tạo chuyên môn', description: 'Khám phá khóa học, đăng ký đào tạo và theo dõi quá trình học tập.', Icon: NavAcademyIcon },
+  { value: PurposeInterest.BOTH, title: 'Cả hai', description: 'Quản lý lịch chăm sóc khách hàng và tham gia chương trình đào tạo.', Icon: FileTextIcon },
 ];
 
 export function InterestSelectionScreen({ value, onChange, onBack, onExplore, onVerifyAgain, busy, expired, error }: {

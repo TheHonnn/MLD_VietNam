@@ -1,7 +1,8 @@
 const messages:Record<string,string>={
+  'No shared staff account matches the verified Zalo phone':'Số điện thoại Zalo chưa khớp tài khoản trong hệ thống. Vui lòng nhờ quản trị viên kiểm tra số điện thoại của hồ sơ nhân viên.',
   'Certificate is unavailable':'Giấy chứng nhận không còn khả dụng hoặc không thuộc tài khoản này.',
   'Invalid course audience':'Nhóm khóa học không hợp lệ. Vui lòng chọn lại.',
-  'Staff booking access is required':'Ứng dụng đặt lịch dành cho nhân viên. Vui lòng liên hệ quản trị viên để được cấp quyền.',
+  'Staff booking access is required':'Tài khoản liên kết với số điện thoại Zalo chưa có vai trò nhân viên. Quyền chia sẻ thông tin Zalo không thay thế quyền này.',
   'Active staff profile and branch are required':'Hồ sơ nhân viên hoặc chi nhánh chưa được kích hoạt. Vui lòng liên hệ quản trị viên.',
   'Staff cannot book another branch':'Bạn chỉ được đặt lịch tại chi nhánh được phân công.',
   'Customer name and phone are required':'Vui lòng nhập tên khách và số điện thoại hợp lệ.',

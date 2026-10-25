@@ -144,6 +144,12 @@ test('Zalo phone permission preserves shared accounts without schema changes or 
       phoneError=true;
       assert.equal((await login({accessToken:'real-token',phoneToken:'expired'})).status,401);
       phoneError=false;
+      await db.query('UPDATE users SET phone=$1 WHERE id=$2',['0900000000',accountId]);
+      const missing=await login({accessToken:'real-token',phoneToken:'real-code',audience:'staff'});
+      const missingBody=await missing.json();
+      assert.equal(missing.status,403);assert.equal(missingBody.data,undefined);
+      assert.equal(missingBody.authIssue,'STAFF_ACCOUNT_NOT_FOUND');
+      await db.query('UPDATE users SET phone=$1 WHERE id=$2',[profile.phone,accountId]);
       const response=await login({accessToken:'real-token',phoneToken:'real-code',phone:'0900000000',userId:'forged',userInfo:{name:'Forged'}});
       const result=await response.json();
       assert.equal(response.status,200,JSON.stringify(result));

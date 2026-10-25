@@ -47,7 +47,9 @@ test('Mini App Zalo auth keeps permissions and storage failures separate',async 
       let message='Active staff profile and branch are required';
       globalThis.window={setTimeout,clearTimeout,dispatchEvent:()=>true,fetch:async()=>response({},403,message)};
       const api=await client({storage:{getItem:()=>'',setItem(){throw new Error('must not persist');},removeItem(){}},phone:()=>Promise.resolve({token:'isolated-phone'})});
-      assert.equal((await api.loginWithZalo(true)).authIssue,'STAFF_PROFILE_INACTIVE');message='Provider denied request';assert.equal((await api.loginWithZalo(true)).authIssue,undefined);
+      assert.equal((await api.loginWithZalo(true)).authIssue,'STAFF_PROFILE_INACTIVE');
+      message='No shared staff account matches the verified Zalo phone';assert.equal((await api.loginWithZalo(true)).authIssue,'STAFF_ACCOUNT_NOT_FOUND');
+      message='Provider denied request';assert.equal((await api.loginWithZalo(true)).authIssue,undefined);
       assert.equal(api.hasSession(),false);
     });
     await t.test('legacy customer responses never save a token or become employee access',async()=>{

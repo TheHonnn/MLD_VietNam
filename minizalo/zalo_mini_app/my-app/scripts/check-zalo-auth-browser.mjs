@@ -41,14 +41,16 @@ try{
       await consent.getByRole('button',{name:'Đổi tài khoản / dùng máy khác',exact:true}).click();
       reason='Active staff profile and branch are required';await consent.getByRole('button',{name:'Đăng nhập lại với Zalo',exact:true}).click();
       await consent.locator('[data-auth-issue="STAFF_PROFILE_INACTIVE"]').waitFor();assert.equal(requests,2);
+      reason='No shared staff account matches the verified Zalo phone';await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).click();
+      await consent.locator('[data-auth-issue="STAFF_ACCOUNT_NOT_FOUND"]').waitFor();assert.equal(requests,3);
       await page.evaluate(()=>{window.authFixture.deny=true;});await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).click();
-      await consent.getByRole('alert').filter({hasText:'Permission denied'}).waitFor();assert.equal(await consent.locator('[data-auth-issue]').count(),0);assert.equal(requests,2);
+      await consent.getByRole('alert').filter({hasText:'Permission denied'}).waitFor();assert.equal(await consent.locator('[data-auth-issue]').count(),0);assert.equal(requests,3);
       await page.evaluate(()=>{window.authFixture.deny=false;window.authFixture.delay=true;});await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).click();
       await consent.getByRole('button',{name:'Hủy kết nối',exact:true}).click();await page.evaluate(()=>window.authFixture.finishPhone({token:'late-result'}));
-      await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).waitFor();await page.waitForTimeout(100);assert.equal(requests,2);
+      await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).waitFor();await page.waitForTimeout(100);assert.equal(requests,3);
       assert.equal(await page.evaluate(()=>window.authFixture.reads),1);assert.deepEqual(errors,[]);
       assert.equal(await consent.evaluate(el=>el.scrollWidth>el.clientWidth+1),false);
-      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,staff403Preserved:true,inactiveProfileDistinct:true,storageCallsBounded:true,denialAndCancel:true,noDoubleClick:true,nativeBridgeSimulated:true,noBackendOrDatabaseChanges:true}));
+      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,staff403Preserved:true,inactiveProfileDistinct:true,missingAccountDistinct:true,storageCallsBounded:true,denialAndCancel:true,noDoubleClick:true,nativeBridgeSimulated:true,noBackendOrDatabaseChanges:true}));
     }finally{await page.close();}
   }
 }finally{await browser.close();}

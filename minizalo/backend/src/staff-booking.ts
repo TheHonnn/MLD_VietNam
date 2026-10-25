@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {Prisma} from '@prisma/client';
 import type {Store,Row} from './store.js';
 import {ApiError} from './errors.js';
+import {localPhone,phoneIdentity} from './phone-identity.js';
 
 export const staffRoles=['RECEPTIONIST','CASHIER','TECHNICIAN','INSTRUCTOR','BRANCH_MANAGER','ADMIN','SUPER_ADMIN'];
 export const isStaffRole=(role:unknown)=>typeof role==='string'&&staffRoles.includes(role.toUpperCase());
@@ -22,12 +23,10 @@ export async function bookingAccess(store:Store,viewerId:string){
   return Prisma.sql`b.customer_id=${viewerId}::uuid`;
 }
 const canonicalPhone=(input:unknown)=>{
-  if(typeof input!=='string')throw new ApiError(400,'Customer name and phone are required');
-  const phone=input.trim().replace(/^(?:\+?84)/,'0');
-  if(!/^0[1-9]\d{8,9}$/.test(phone))throw new ApiError(400,'Customer name and phone are required');
+  const phone=localPhone(input);
+  if(!phone)throw new ApiError(400,'Customer name and phone are required');
   return phone;
 };
-const aliases=(phone:string)=>[phone,'84'+phone.slice(1),'+84'+phone.slice(1)];
 export function bookingGuests(value:unknown,people:number){
   if(value===undefined)return null;
   if(!Array.isArray(value)||value.length!==people)throw new ApiError(400,'Enter details for every person in the group');
@@ -40,11 +39,10 @@ export async function staffCustomers(store:Store,actorId:string,input:unknown){
   const scope=await staffScope(store,actorId);
   const query=typeof input==='string'?input.trim():'';
   if(query.length<2||query.length>150)return [];
-  let phones:string[]=[];
-  try{phones=aliases(canonicalPhone(query));}catch{/* Name lookup remains branch scoped. */}
+  const phone=localPhone(query);
   const pattern='%'+query.replace(/[\\%_]/g,'\\$&')+'%';
   return store.query(Prisma.sql`SELECT u.id,u.full_name,u.phone FROM users u WHERE u.is_active AND u.role IN ('CUSTOMER','STUDENT')
-    AND (${phones.length?Prisma.sql`u.phone IN (${Prisma.join(phones)})`:Prisma.sql`false`}
+    AND (${phone?phoneIdentity(Prisma.sql`u.phone`,phone):Prisma.sql`false`}
       OR lower(u.full_name)=lower(${query})
       OR (u.full_name ILIKE ${pattern} AND (${scope.branchId}::uuid IS NULL OR EXISTS(SELECT 1 FROM bookings b WHERE b.customer_id=u.id AND b.branch_id=${scope.branchId}::uuid))))
     ORDER BY u.full_name,u.id LIMIT 20`);
@@ -56,7 +54,7 @@ export async function staffCustomer(store:Store,actorId:string,branchId:string,b
   if(body.customerId){
     if(typeof body.customerId!=='string'||!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(body.customerId))throw new ApiError(400,'Invalid customer');
     const phone=canonicalPhone(body.customerPhone);
-    const [customer]=await store.query(Prisma.sql`SELECT id,full_name,phone FROM users WHERE id=${body.customerId}::uuid AND is_active AND role IN ('CUSTOMER','STUDENT') AND (phone IS NULL OR phone IN (${Prisma.join(aliases(phone))})) FOR SHARE`);
+    const [customer]=await store.query(Prisma.sql`SELECT id,full_name,phone FROM users WHERE id=${body.customerId}::uuid AND is_active AND role IN ('CUSTOMER','STUDENT') AND (phone IS NULL OR ${phoneIdentity(Prisma.sql`phone`,phone)}) FOR SHARE`);
     if(!customer)throw new ApiError(404,'Customer is unavailable or contact details changed');
     return {...customer,phone:customer.phone||phone};
   }
@@ -64,7 +62,7 @@ export async function staffCustomer(store:Store,actorId:string,branchId:string,b
   if(!input||typeof input!=='object'||Array.isArray(input)||typeof input.name!=='string'||!input.name.trim()||input.name.trim().length>150||/[\x00-\x1f\x7f]/.test(input.name))throw new ApiError(400,'Customer name and phone are required');
   const phone=canonicalPhone(input.phone);
   await store.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${phone}))::text AS locked`);
-  const matches=await store.query(Prisma.sql`SELECT id,full_name,phone,role,is_active FROM users WHERE phone IN (${Prisma.join(aliases(phone))}) FOR UPDATE`);
+  const matches=await store.query(Prisma.sql`SELECT id,full_name,phone,role,is_active FROM users WHERE ${phoneIdentity(Prisma.sql`phone`,phone)} FOR UPDATE`);
   if(matches.length>1)throw new ApiError(409,'Duplicate shared phone identities require administrator review');
   if(matches.length){
     const customer=matches[0];

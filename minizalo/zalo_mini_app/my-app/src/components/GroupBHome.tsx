@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { MedicalService, Doctor, Branch, Booking, Course } from '../../../../backend/src/data/database';
 import type { ServiceCategory } from '../../../../../database/shared_types';
 import { SearchIcon } from '@/components/Icons';
-import { searchText } from '@/utils/catalog';
+import { searchText, serviceSearchText } from '@/utils/catalog';
 import { EntityImage, BranchHours } from './GroupBExtensions';
 import type { ServiceDetails, DoctorDetails, BranchDetails } from './GroupBExtensions';
 
@@ -52,14 +52,14 @@ export const HomeCatalog: React.FC<GroupBHomeProps> = ({
   const [category, setCategory] = useState('');
   const [city, setCity] = useState('');
   const [sort, setSort] = useState('name');
-  const categories = metadata?.serviceCategories
+  const categories = metadata?.serviceCategories?.length
     ? metadata.serviceCategories.filter(item => item.isActive !== false).sort((a, b) => a.displayOrder - b.displayOrder)
     : Array.from(new Set(services.map(service => service.category).filter(Boolean))).map(name => ({ id: name, name }));
   const cities = Array.from(new Set(branches.map(branch => branch.city).filter(Boolean)));
   const visibleBranches = branches.filter(branch => !city || branch.city === city);
   const selectedCategory = categories.find(item => item.id === category);
   const visibleServices = services.filter(service => (!category || service.categoryId === category || service.category === selectedCategory?.name)
-    && searchText(service.title + ' ' + service.description).includes(searchText(query)))
+    && serviceSearchText(service).includes(searchText(query)))
     .sort((a, b) => sort === 'priceAsc' ? a.price - b.price : sort === 'priceDesc' ? b.price - a.price : sort === 'duration' ? a.durationMinutes - b.durationMinutes : a.title.localeCompare(b.title, 'vi'));
   const faqs = metadata?.faqs?.filter(faq => faq.isActive !== false) || [];
 

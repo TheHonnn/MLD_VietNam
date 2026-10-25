@@ -55,12 +55,15 @@ export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCour
 }
 
 export function AcademyCourseDetail({course,onBack,onInstructor,onRegister,registered,onPreview}:{course:Course;onBack:()=>void;onInstructor:()=>void;onRegister:()=>void;registered:boolean;onPreview:(lesson:Course['lessons'][number])=>void}) {
+  const chapterIds = new Set(course.chapters?.map(chapter => chapter.id));
+  const otherLessons = course.lessons.filter(lesson => !lesson.chapterId || !chapterIds.has(lesson.chapterId));
   return <><AcademyHeader title={course.title} onBack={onBack}/><main className="academy-body">
     <EntityImage src={course.image} alt={course.title} className="academy-cover"/>
     <section className="academy-summary"><span>{course.category}</span><div className="academy-metrics"><div><strong>{course.totalHours}</strong><small>giờ đào tạo</small></div><div><strong>{course.lessonsCount}</strong><small>bài học</small></div></div><p>{course.theoryHours} giờ lý thuyết · {course.practiceHours} giờ thực hành</p><p>{academyMoney(course.price)}</p></section>
     <h2>Giới thiệu khóa học</h2><p className="academy-description">{course.description}</p>
     {course.learningOutcomes?.length? <><h2>Kết quả đầu ra</h2><ul>{course.learningOutcomes.map((outcome,index)=><li key={index}>{typeof outcome==='string'?outcome:outcome.title||outcome.description}</li>)}</ul></>:null}
     {!!course.chapters?.length && <section aria-label="Chương trình khóa học"><h2>Chương trình khóa học</h2>{course.chapters.map(chapter => <details key={chapter.id} className="academy-chapter"><summary>{chapter.title}</summary>{chapter.description && <p>{chapter.description}</p>}{course.lessons.filter(lesson => lesson.chapterId === chapter.id).map(lesson => <div key={lesson.id} className="academy-list-row"><strong>{lesson.title}</strong><p>{lesson.duration}</p></div>)}</details>)}</section>}
+    {otherLessons.length>0&&<section aria-label="Danh sách bài học"><h2>Bài học</h2>{otherLessons.map(lesson=><div key={lesson.id} className="academy-list-row"><strong>{lesson.title}</strong><p>{lesson.duration}</p></div>)}</section>}
     {!!course.quizzes?.length && <section><h2>Bài kiểm tra</h2>{course.quizzes.map(quiz => <p key={quiz.id}>{quiz.title}</p>)}</section>}
     <h2>Giảng viên</h2>{course.instructorProfile && <button className="academy-instructor-link" type="button" onClick={onInstructor}><EntityImage src={course.instructorProfile.avatarUrl} alt={course.instructorProfile.fullName} className="academy-instructor-thumb"/><span><strong>{course.instructorProfile.fullName}</strong><small>{course.instructorProfile.title}</small></span></button>}
     <h2>Lớp khai giảng</h2>{course.batches?.map(batch=><div className="academy-list-row" key={batch.id}><strong>{batch.batchCode}</strong><p>{batch.branchName}</p><p>{[academyDate(batch.startDate),academyDate(batch.endDate)].filter(Boolean).join(' – ')}</p><p>{batch.scheduleText}</p></div>)}

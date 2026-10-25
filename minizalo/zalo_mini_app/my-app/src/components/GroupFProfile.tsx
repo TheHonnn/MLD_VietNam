@@ -6,6 +6,9 @@ import { LegalLinks } from './LegalLinks';
 import { QRCode } from './QRCode';
 import {openShareSheet} from 'zmp-sdk';
 import { apiClient } from '@/api/client';
+import {isStaffRole,staffRoleLabel} from '@/utils/staff';
+import type {CustomerSection,StaffDashboard} from '@/types/staff';
+import {StaffWorkspace} from './StaffWorkspace';
 import type { User, Voucher, Branch } from '../../../../backend/src/data/database';
 import type { Invoice, MembershipTierRule, LoyaltyPointSetting } from '../../../../../database/shared_types';
 import {
@@ -34,6 +37,10 @@ const ProfileLayer:React.FC<React.HTMLAttributes<HTMLDivElement>>=({children,...
 };
 
 interface GroupFProfileProps {
+  staffDashboard?:StaffDashboard|null;
+  onOpenCustomers?:(section:CustomerSection)=>void;
+  onOpenDocuments?:()=>void;
+  onOpenCommunity?:()=>void;
   branches?: Branch[];
   onRefreshData?:()=>void;
   notificationTarget?: {id:string; tab:'payments'|'points'|'vouchers'; entityId?:string};
@@ -62,6 +69,7 @@ interface GroupFProfileProps {
 }
 
 export const GroupFProfile: React.FC<GroupFProfileProps> = ({
+  staffDashboard=null,onOpenCustomers,onOpenDocuments,onOpenCommunity,
   branches=[],
   notificationTarget,
   onRefreshData,
@@ -79,6 +87,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   summary,
   summaryError,
 }) => {
+  const staffMode=isStaffRole(user.role);
   type Settings = { biometricEnabled: boolean; appointmentReminder: boolean; promotionNotify: boolean; systemNotify: boolean; language: string };
   const [settings, setSettings] = useState<Settings | null>(() => apiClient.peek('/auth/settings')?.settings || null);
   const [settingsStatus, setSettingsStatus] = useState<'loading' | 'missing' | 'loaded' | 'error'>(() => { const cached=apiClient.peek('/auth/settings'); return cached ? cached.settings ? 'loaded' : 'missing' : 'loading'; });
@@ -99,11 +108,11 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
         setSettingsStatus('loaded');
       } else setSettingsStatus(result && !result.error && result.settings === null ? 'missing' : 'error');
     }).catch(() => { if (!cancelled) setSettingsStatus('error'); });
-    apiClient.getMembership().then(result => {
+    if(!staffMode)apiClient.getMembership().then(result => {
       if (!cancelled && result && !result.error) setMembership({ ...result, referralCode: result.user?.referralCode });
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [user.id,settingsVersion]);
+  }, [user.id,settingsVersion,staffMode]);
   const saveSetting = async (patch: Partial<Settings>) => {
     if (settingsSaveLock.current || (!settings && settingsStatus !== 'missing')) return;
     settingsSaveLock.current=true;
@@ -139,7 +148,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   // Modal states for F02 - F08 screens
   const [activeModal, setActiveModal] = useState<
     'edit_profile' | 'digital_card' | 'points' | 'vouchers' | 'payments' | 'referral' | 'settings' | null
-  >(notificationTarget?.tab || null);
+  >(staffMode?null:notificationTarget?.tab || null);
   useBackAction(Boolean(activeModal), () => { if(!profileSaveLock.current)setActiveModal(null); });
 
   // Toast feedback state
@@ -184,6 +193,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   const [transactionsError, setTransactionsError] = useState(false);
 
   useEffect(() => {
+    if(staffMode){setTransactions(null);setTransactionsLoading(false);setTransactionsError(false);return;}
     let cancelled = false;
     const cached = apiClient.peek('/transactions');
     setTransactions(cached ? {...cached,totalSpent:Number(cached.totalSpent)} : null);
@@ -198,7 +208,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     }).catch(() => { if (!cancelled) setTransactionsError(true); })
       .finally(() => { if (!cancelled) setTransactionsLoading(false); });
     return () => { cancelled = true; };
-  }, [user.id]);
+  }, [user.id,staffMode]);
 
   const selectAvatarFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -249,7 +259,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
     setSavingProfile(true);
     try {
       const { name, dob, gender, email, address, avatar, emergencyContactName, emergencyContactPhone,preferredBranch,skinType,healthNotes } = userProfile;
-      const response = await apiClient.updateProfile({ name, dob, gender, email, address, avatar, emergencyContactName, emergencyContactPhone,preferredBranch,skinType,healthNotes });
+      const response = await apiClient.updateProfile({ name, dob, gender, email, address, avatar, ...(staffMode?{}:{emergencyContactName, emergencyContactPhone,preferredBranch,skinType,healthNotes}) });
       if(!mounted.current)return;
       if (response?.user && !response.error) {
         onUserUpdated(response.user);
@@ -380,17 +390,17 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       ========================================================================= */}
       {/* User Header Profile Card (Matching Figma F01) */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        <div className="flex min-w-0 items-center space-x-3">
           {user.avatar ? <img
             src={user.avatar}
             alt="Avatar"
             className="w-12 h-12 rounded-full object-cover border border-[#c8dde3]"
           /> : <div className="w-12 h-12 rounded-full bg-white border border-[#c8dde3] flex items-center justify-center"><UserCheckIcon size={24} /></div>}
-          <div>
+          <div className="min-w-0 break-words">
             <h2 className="text-sm font-bold text-[#183b47]">{user.name}</h2>
             <p className="text-[11px] text-[#526a73] mt-0.5">{user.phone}{metadata?.phoneVerified === true ? ' · Đã xác thực' : ''}</p>
             <span className="inline-block px-2 py-0.5 rounded-full bg-[#f1f8fa] text-[#087e9c] text-[10px] font-semibold mt-1">
-              {userProfile.tier}
+              {staffMode?staffRoleLabel(user.role):userProfile.tier}
             </span>
           </div>
         </div>
@@ -406,6 +416,9 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
         </button>
       </div>
 
+      {staffMode?<StaffWorkspace data={staffDashboard} error={summaryError} onRetry={onRefreshData}
+        onAppointments={onOpenAppointments} onCustomers={section=>onOpenCustomers?.(section)} onAcademy={onOpenAcademy}
+        onDocuments={()=>onOpenDocuments?.()} onCommunity={()=>onOpenCommunity?.()}/>:<>
       {/* VIP Gold Card Preview (Figma F01) */}
       <button type="button"
         onClick={() => setActiveModal('digital_card')}
@@ -485,13 +498,14 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
         </div>
       </div>
 
+      </>}
       {/* Menu Group 2: Tài khoản & Quyền lợi (Figma F01) */}
       <div className="space-y-1.5">
         <div className="text-xs font-bold text-[#183b47]">
-          Tài khoản & Quyền lợi hội viên
+          {staffMode?'Tài khoản nhân viên':'Tài khoản & Quyền lợi hội viên'}
         </div>
         <div className="bg-white rounded-[10px] border border-[#f1f8fa] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-[#ffffff]">
-          <button type="button"
+          {!staffMode&&<><button type="button"
             onClick={() => setActiveModal('vouchers')}
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
@@ -524,6 +538,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <span className="text-[#607780]">&gt;</span>
           </button>
 
+          </>}
           <button type="button"
             onClick={() => setActiveModal('settings')}
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
@@ -552,7 +567,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 <ArrowLeftIcon size={16} color="#183b47" />
               </button>
               <div>
-                <h2 className="text-sm font-bold text-[#183b47]">Hồ sơ cá nhân & Y tế</h2>
+                <h2 className="text-sm font-bold text-[#183b47]">{staffMode?'Thông tin nhân viên':'Hồ sơ cá nhân & Y tế'}</h2>
                 {metadata?.phoneVerified&&<span className="text-[10px] text-emerald-600 font-bold">Đã xác minh qua Zalo</span>}
               </div>
             </div>
@@ -578,7 +593,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             >
               Thông tin liên hệ
             </button>
-            <button
+            {!staffMode&&<button
               onClick={() => setProfileSubTab('health')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
                 profileSubTab === 'health'
@@ -587,11 +602,11 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               }`}
             >
               Thể trạng & EMR Notes
-            </button>
+            </button>}
           </div>
 
           <fieldset disabled={savingProfile} className="m-0 min-w-0 flex-1 overflow-y-auto border-0 p-4 space-y-4 pb-24">
-            {profileSubTab === 'personal' ? (
+            {staffMode||profileSubTab === 'personal' ? (
               <>
                 {/* Avatar Picker */}
                 <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs text-center space-y-2.5">
@@ -684,7 +699,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-[#526a73] block mb-1">Chi nhánh yêu thích</label>
+                    {!staffMode&&<><label className="text-[11px] font-bold text-[#526a73] block mb-1">Chi nhánh yêu thích</label>
                     <select
                       aria-label="Chi nhánh yêu thích"
                       value={userProfile.preferredBranch}
@@ -693,7 +708,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                     >
                       <option value=""></option>
                       {branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}
-                    </select>
+                    </select></>}
                   </div>
                 </div>
               </>
@@ -1315,7 +1330,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 { key: 'appointmentReminder' as const, label: 'Thông báo lịch hẹn' },
                 { key: 'systemNotify' as const, label: 'Hiển thị thông báo hệ thống' },
                 { key: 'promotionNotify' as const, label: 'Hiển thị thông báo ưu đãi' },
-              ].map((st) => (
+              ].filter(st=>!staffMode||st.key!=='promotionNotify').map((st) => (
                 <label key={st.key} className="flex justify-between items-center p-2 cursor-pointer">
                   <span className="text-[10px] text-[#183b47]">{st.label}<small className="block text-[8px] text-[#526a73]">{settings ? settings[st.key] ? 'Đang bật' : 'Đang tắt' : ''}</small></span>
                   <input

@@ -29,3 +29,7 @@
 .shared-records [role=alert] { color: #a12f38; padding: 12px 0; font-size: 14px; }
 .shared-records [role=alert] button { margin-left: 8px; text-decoration: underline; }
 .shared-records button:disabled { opacity: .5; }
+.customer-package-information { margin: 12px 0; }
+.customer-package-information summary { min-height: 40px; padding: 10px 0; cursor: pointer; font-weight: 600; }
+.customer-package-information ol { padding-left: 20px; list-style: decimal; }
+.customer-package-information p, .customer-package-information li { margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }

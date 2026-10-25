@@ -3,12 +3,26 @@ import {apiClient} from '@/api/client';
 import {useBackAction} from '@/hooks/useNavigationHistory';
 import {ArrowLeftIcon,FileTextIcon,SearchIcon} from './Icons';
 import {EntityImage} from './GroupBExtensions';
+import type {CustomerSection} from '@/types/staff';
 import '@/css/shared-records.scss';
 
 export type StaffRecordCustomer={id:string;fullName:string;phone:string|null;dateOfBirth?:string|null};
 type Customer=StaffRecordCustomer;
 type Document={id:string;title:string;courseTitle?:string;chapterTitle?:string;summary?:string;imageUrl?:string;authorName?:string;publishedAt?:string;contentText?:string;attachments?:{url:string;name:string}[]};
-type RecordEntry={id:string;title?:string;serviceId?:string;bookingCode?:string;date?:string;startTime?:string;endTime?:string;status?:string;branchName?:string;technicianName?:string;recipientName?:string;treatmentNotes?:string;conditionBefore?:string;conditionAfter?:string;specialistAdvice?:string;totalSessions?:number;completedSessions?:number;reservedSessions?:number;remainingSessions?:number;expiresAt?:string};
+type RecordEntry={id:string;title?:string;serviceId?:string;bookingId?:string;bookingCode?:string;date?:string;startTime?:string;endTime?:string;status?:string;branchName?:string;technicianName?:string;recipientName?:string;treatmentNotes?:string;conditionBefore?:string;conditionAfter?:string;specialistAdvice?:string;totalSessions?:number;completedSessions?:number;reservedSessions?:number;remainingSessions?:number;expiresAt?:string;sessionNumber?:number;serviceName?:string;packageDescription?:string;serviceDescription?:string;serviceSteps?:unknown[];durationMinutes?:number};
+
+function PackageInformation({item}:{item:RecordEntry}){
+  const steps=(Array.isArray(item.serviceSteps)?item.serviceSteps:[]).flatMap(step=>{
+    if(typeof step==='string')return step.trim()?[{title:step,description:''}]:[];
+    if(!step||typeof step!=='object')return [];
+    const value=step as Record<string,unknown>;
+    const title=typeof value.title==='string'?value.title:typeof value.name==='string'?value.name:'';
+    const description=typeof value.description==='string'?value.description:typeof value.desc==='string'?value.desc:typeof value.text==='string'?value.text:'';
+    return title||description?[{title,description}]:[];
+  });
+  if(!item.serviceName&&!item.packageDescription&&!item.serviceDescription&&!steps.length)return null;
+  return <details className="customer-package-information"><summary>Thông tin liệu trình</summary>{item.serviceName&&<p>{item.serviceName}{item.durationMinutes?` · ${item.durationMinutes} phút`:''}</p>}{item.packageDescription&&<p>{item.packageDescription}</p>}{item.serviceDescription&&<p>{item.serviceDescription}</p>}{steps.length>0&&<ol>{steps.map((step,index)=><li key={index}>{step.title&&<strong>{step.title}</strong>}{step.description&&<p>{step.description}</p>}</li>)}</ol>}</details>;
+}
 type BookPackage=(customer:Customer,serviceId:string,ownedPackage:{id:string;name:string})=>void;
 const date=(value?:string|null)=>value?new Date(value).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'';
 const status=(value?:string)=>({PENDING:'Chờ xác nhận',CONFIRMED:'Đã xác nhận',CHECKED_IN:'Đã đến',IN_SERVICE:'Đang trị liệu',COMPLETED:'Hoàn thành',CANCELLED:'Đã hủy',NO_SHOW:'Không đến',ACTIVE:'Đang sử dụng',EXPIRED:'Hết hạn',USED_UP:'Đã dùng hết'}[value||'']||value||'');
@@ -77,19 +91,19 @@ function CustomerHistory({customer,section,onAppointment,onBookPackage}:{custome
     {item.title&&<h2>{item.title}</h2>}{item.bookingCode&&<h2>{item.bookingCode}</h2>}
     {item.date&&<p>{date(item.date)}{item.startTime&&` · ${item.startTime}–${item.endTime}`}</p>}
     {item.recipientName&&<p>Người trị liệu / đại diện nhóm: {item.recipientName}</p>}{item.branchName&&<p>{item.branchName}</p>}{item.technicianName&&<p>{item.technicianName}</p>}{item.status&&<p>{status(item.status)}</p>}
+    {section==='treatments'&&item.sessionNumber!=null&&<p>Buổi trị liệu {item.sessionNumber}</p>}
     {section==='appointments'&&<button type="button" onClick={()=>onAppointment(item.id)}>Xem lịch hẹn</button>}
-    {section==='treatments'&&<dl>{[['Trước trị liệu',item.conditionBefore],['Nội dung trị liệu',item.treatmentNotes],['Sau trị liệu',item.conditionAfter],['Lời dặn',item.specialistAdvice]].map(([label,value])=>value?<React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>:null)}</dl>}
+    {section==='treatments'&&<><dl>{[['Trước trị liệu',item.conditionBefore],['Nội dung trị liệu',item.treatmentNotes],['Sau trị liệu',item.conditionAfter],['Lời dặn',item.specialistAdvice]].map(([label,value])=>value?<React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>:null)}</dl>{item.bookingId&&<button type="button" onClick={()=>onAppointment(item.bookingId!)}>Xem lịch hẹn</button>}</>}
+    {section==='packages'&&<PackageInformation item={item}/>}
     {section==='packages'&&<><p>{item.completedSessions}/{item.totalSessions} buổi đã dùng · {item.reservedSessions} buổi đã đặt</p><p>Còn {item.remainingSessions} buổi · Hạn dùng {date(item.expiresAt)}</p><button type="button" disabled={item.status!=='ACTIVE'||!item.serviceId||!item.remainingSessions||!item.expiresAt||Date.parse(item.expiresAt)<=Date.now()} onClick={()=>onBookPackage(customer,item.serviceId!,{id:item.id,name:item.title||''})}>Đặt buổi tiếp theo</button></>}
   </article>)}<PageState state={state}/></>;
 }
-export function StaffCustomers({onBack,onAppointment,onBookPackage}:{onBack:()=>void;onAppointment:(id:string)=>void;onBookPackage:BookPackage}){
-  const {value,setValue,query}=useSearch(),[items,setItems]=useState<Customer[]>([]),[selected,setSelected]=useState<Customer|null>(null),[section,setSection]=useState('appointments'),[loading,setLoading]=useState(false),[error,setError]=useState(''),[version,setVersion]=useState(0);
+function CustomerDirectory({query,onSelect}:{query:string;onSelect:(customer:Customer)=>void}){
+  const state=usePages<Customer>((cursor,signal)=>apiClient.getStaffCustomerDirectory(query,cursor,signal),'customers');
+  return <>{state.items.map(item=><button className="record-row" type="button" key={item.id} onClick={()=>onSelect(item)}><span><strong>{item.fullName}</strong><small>{item.phone}</small></span></button>)}<PageState state={state}/></>;
+}
+export function StaffCustomers({onBack,onAppointment,onBookPackage,initialSection='appointments'}:{onBack:()=>void;onAppointment:(id:string)=>void;onBookPackage:BookPackage;initialSection?:CustomerSection}){
+  const {value,setValue,query}=useSearch(),[selected,setSelected]=useState<Customer|null>(null),[section,setSection]=useState<string>(initialSection);
   useBackAction(Boolean(selected),()=>setSelected(null),2);
-  useEffect(()=>{
-    setItems([]);setError('');setLoading(false);if(query.length<2||selected)return;
-    let active=true;const controller=new AbortController();setLoading(true);
-    apiClient.getStaffCustomers(query,controller.signal).then(result=>{if(!active)return;if(Array.isArray(result?.customers))setItems(result.customers);else setError(result?.error||'Không thể tìm khách.');}).catch(()=>{if(active)setError('Không thể tìm khách.');}).finally(()=>{if(active)setLoading(false);});
-    return()=>{active=false;controller.abort();};
-  },[query,selected,version]);
-  return <section className="shared-records staff-customers"><Header title={selected?selected.fullName:'Hồ sơ khách hàng'} onBack={()=>selected?setSelected(null):onBack()}/>{selected?<><p>{selected.phone}</p><div className="records-tabs" role="tablist" aria-label="Hồ sơ khách hàng">{[['appointments','Lịch hẹn'],['treatments','Trị liệu'],['packages','Liệu trình']].map(([key,label])=><button key={key} role="tab" aria-selected={section===key} type="button" onClick={()=>setSection(key)}>{label}</button>)}</div><CustomerHistory key={selected.id+section} customer={selected} section={section} onAppointment={onAppointment} onBookPackage={onBookPackage}/></>:<><label className="records-search"><SearchIcon size={20}/><input aria-label="Tìm hồ sơ khách" value={value} maxLength={150} placeholder="Số điện thoại hoặc họ tên đầy đủ" onChange={event=>setValue(event.target.value)}/></label>{items.map(item=><button className="record-row" type="button" key={item.id} onClick={()=>{setSelected(item);setSection('appointments');}}><span><strong>{item.fullName}</strong><small>{item.phone}</small></span></button>)}{loading&&<p role="status">Đang tìm khách...</p>}{error&&<div role="alert">{error}<button type="button" onClick={()=>setVersion(value=>value+1)}>Thử lại</button></div>}</>}</section>;
+  return <section className="shared-records staff-customers"><Header title={selected?selected.fullName:initialSection==='packages'?'Liệu trình khách hàng':initialSection==='treatments'?'Nhật ký trị liệu':'Hồ sơ khách hàng'} onBack={()=>selected?setSelected(null):onBack()}/>{selected?<><p>{selected.phone}</p><div className="records-tabs" role="tablist" aria-label="Hồ sơ khách hàng">{[['appointments','Lịch hẹn'],['treatments','Trị liệu'],['packages','Liệu trình']].map(([key,label])=><button key={key} role="tab" aria-selected={section===key} type="button" onClick={()=>setSection(key)}>{label}</button>)}</div><CustomerHistory key={selected.id+section} customer={selected} section={section} onAppointment={onAppointment} onBookPackage={onBookPackage}/></>:<><label className="records-search"><SearchIcon size={20}/><input aria-label="Tìm hồ sơ khách" value={value} maxLength={150} placeholder="Tên hoặc số điện thoại khách hàng" onChange={event=>setValue(event.target.value)}/></label><CustomerDirectory key={query} query={query} onSelect={item=>{setSelected(item);setSection(initialSection);}}/></>}</section>;
 }
