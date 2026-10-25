@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../home/data/repositories/service_repository.dart';
 import '../../../home/data/models/home_models.dart';
 import 'b03_service_detail_screen.dart';
 import '../../../home/presentation/screens/b04_search_screen.dart';
-import '../../../booking/data/models/booking_models.dart';
-import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
 
 class B02ServiceListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -799,19 +798,13 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                         elevation: 0,
                                       ),
                                       onPressed: () {
-                                        final model = service['model'] as SpaServiceModel?;
-                                        final flow = BookingFlowState(
-                                          selectedService: model,
-                                          selectedServices: model != null ? [model] : [],
-                                          autoAssignSpecialist: true,
-                                        );
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => C02BranchSelectionScreen(flowState: flow),
-                                          ),
-                                        );
-                                      },
+                                         Navigator.push(
+                                           context,
+                                           MaterialPageRoute(
+                                             builder: (_) => const AllInOneBookingScreen(),
+                                           ),
+                                         );
+                                       },
                                       child: const Text(
                                         'Đặt lịch ngay',
                                         style: TextStyle(

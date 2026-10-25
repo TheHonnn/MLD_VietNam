@@ -1,0 +1,171 @@
+
+
+
+. ĐẶT LỊCH TRỊ LIỆU
+1. Thêm chức năng một tài khoản đặt lịch cho nhiều người.
+2. Cho phép chọn số lượng người đến trị liệu.
+3. Khách hàng chọn dịch vụ cần sử dụng.
+4. Khách hàng chọn chi nhánh/cơ sở trị liệu.
+5. Khách hàng chọn ngày và khung giờ đến.
+6. Bỏ chức năng khách hàng tự chọn chuyên viên.
+7. Hệ thống tự động phân bổ kỹ thuật viên và giường trị liệu.
+8. Mỗi giường phục vụ một khách tại một thời điểm.
+9. Mỗi kỹ thuật viên phục vụ một khách tại một thời điểm.
+10. Kiểm tra giường và kỹ thuật viên còn trống trước khi cho phép đặt lịch.
+11. Khi hết giường hoặc hết kỹ thuật viên, không cho phép đặt lịch tại khung giờ đó.
+12. Chỉ hiển thị các khung giờ còn đủ giường và kỹ thuật viên.
+13. Ngăn chặn đặt lịch trùng giờ, trùng giường hoặc trùng kỹ thuật viên.
+14. Một ca trị liệu mặc định kéo dài 60 phút.
+15. Tự động giải phóng khung giờ khi ca kết thúc và nguồn lực sẵn sàng.
+16. Cho phép tiếp nhận khách tiếp theo khi giường và kỹ thuật viên đã trống.
+17. Thêm chức năng kết ca trị liệu.
+18. Cho phép Admin tạo và điều chỉnh lịch thủ công.
+19. Thêm nhóm đặt lịch tự động tối ưu.
+20. Thêm nhóm đặt lịch thủ công.
+21. Thêm nhóm khách hàng sử dụng liệu trình.
+22. Theo dõi số buổi đã sử dụng và số buổi còn lại trong liệu trình.
+23. Cho phép đặt lịch tái khám hoặc đặt lịch buổi tiếp theo trong liệu trình.
+24. Tích hợp thanh toán trong quy trình đặt lịch.
+25. Hiển thị hình ảnh kỹ thuật viên trên hệ thống.
+2. DỊCH VỤ
+26. Trang dịch vụ chỉ hiển thị danh sách dịch vụ và giá.
+27. Tích hợp chức năng đặt lịch trực tiếp vào từng dịch vụ.
+28. Quy trình đặt lịch: Chọn dịch vụ → Chọn chi nhánh → Chọn khung giờ → Nhập thông tin → Thanh toán.
+29. Không yêu cầu khách hàng chọn chuyên viên.
+30. Cho phép tìm kiếm dịch vụ theo tên.
+31. Cho phép tìm kiếm dịch vụ theo nhu cầu trị liệu.
+3. KHÓA HỌC VÀ ĐÀO TẠO
+32. Chỉ duy trì hai nhóm khóa học chính.
+33. Khóa học dành cho người mới bắt đầu làm nghề.
+34. Khóa học dành cho người đang làm nghề.
+35. Cho phép Admin đăng tải video bài giảng.
+36. Cho phép học viên học trực tuyến bằng video.
+37. Cho phép tổ chức khóa học thành chương và bài học.
+38. Cho phép nhúng video trực tiếp từ YouTube.
+39. Thêm bài kiểm tra trong khóa học.
+40. Tự động chấm điểm bài kiểm tra phù hợp.
+41. Lưu kết quả kiểm tra của học viên.
+42. Thêm chức năng đăng ký tư vấn khóa học.
+43. Người mới bắt đầu đăng ký giữ chỗ hoặc đặt lịch tư vấn.
+44. Người đang làm nghề đăng ký tư vấn khóa học.
+45. Bỏ hình thức đăng ký chuyển khoản trực tiếp nếu không phù hợp quy trình mới.
+46. Quản lý thời hạn truy cập khóa học.
+47. Tự động khóa quyền truy cập khi hết thời hạn khóa học.
+48. Cho phép Admin gia hạn khóa học.
+49. Gửi email nhắc lịch học.
+50. Gửi email nhắc thời hạn khóa học.
+51. Gửi email nhắc lịch kiểm tra và thông báo kết quả.
+4. BẢO MẬT VIDEO KHÓA HỌC
+52. Không cung cấp nút tải xuống video bài giảng.
+53. Hạn chế tải video bằng các phương pháp thông thường.
+54. Áp dụng bảo vệ nội dung video theo quyền tài khoản.
+55. Thêm watermark cá nhân hóa lên video.
+56. Watermark hiển thị thông tin nhận diện học viên.
+57. Thêm watermark động thay đổi vị trí khi xem.
+58. Hạn chế quay màn hình khi nền tảng hỗ trợ.
+59. Hạn chế chụp màn hình khi nền tảng hỗ trợ.
+60. Watermark vẫn xuất hiện trong nội dung bị ghi hình hoặc chụp lại.
+61. Hạn chế chia sẻ tài khoản học chung trái phép.
+62. Kiểm tra quyền truy cập trước khi phát video.
+63. Tự động thu hồi quyền xem video khi hết hạn học.
+64. Áp dụng DRM hoặc streaming bảo mật nếu nền tảng hỗ trợ.
+65. Không sử dụng YouTube công khai cho video cần bảo vệ bản quyền nghiêm ngặt.
+5. GIẤY CHỨNG NHẬN
+66. Đổi toàn bộ từ "Chứng chỉ" thành "Giấy chứng nhận".
+67. Bổ sung ngày, tháng, năm sinh của học viên.
+68. Bổ sung ngày cấp giấy chứng nhận.
+69. Hiển thị họ tên học viên.
+70. Hiển thị tên khóa học hoặc chương trình đào tạo.
+71. Thêm mã giấy chứng nhận.
+72. Thêm mã QR để tra cứu giấy chứng nhận.
+73. Cho phép Admin quản lý và cấp giấy chứng nhận.
+74. Cho phép học viên xem giấy chứng nhận của mình.
+75. Cho phép xuất giấy chứng nhận dưới dạng PDF.
+6. ĐẶT LỊCH KIỂM TRA PHÙ BẠCH HUYẾT
+76. Thêm chức năng đăng ký kiểm tra phù bạch huyết.
+77. Người dùng nhập thông tin cá nhân.
+78. Người dùng chọn cơ sở kiểm tra.
+79. Người dùng chọn ngày và giờ đến.
+80. Sau khi đăng ký, chuyển trạng thái chờ xác nhận.
+81. Admin xác nhận hoặc từ chối lịch kiểm tra.
+82. Gửi thông báo khi lịch kiểm tra được xác nhận.
+83. Quản lý kết quả kiểm tra.
+84. Cấp giấy chứng nhận nếu học viên đạt yêu cầu.
+7. THANH TOÁN, VAT VÀ LIỆU TRÌNH
+85. Hỗ trợ thuế VAT 8%.
+86. Hỗ trợ thuế VAT 10%.
+87. Cho phép cấu hình mức VAT tùy chỉnh theo quy định áp dụng.
+88. Tính tổng tiền sản phẩm bằng giá trước thuế cộng VAT.
+89. Tính tổng tiền dịch vụ theo số lượng và đơn giá.
+90. Tính tổng tiền theo liệu trình.
+91. Hỗ trợ thanh toán toàn bộ liệu trình.
+92. Hỗ trợ thanh toán theo từng buổi.
+93. Không tính tiền trùng đối với buổi trị liệu đã thanh toán.
+94. Hiển thị chi tiết tiền trước thuế, VAT và tổng thanh toán.
+95. Tích hợp máy POS nếu thiết bị hỗ trợ.
+96. Hỗ trợ in bill hoặc hóa đơn.
+97. Lưu lịch sử giao dịch thanh toán.
+98. Thêm chức năng kết ca và đối soát doanh thu.
+8. ZALO OA VÀ EMAIL
+99. Tích hợp Zalo Official Account.
+100. Gửi thông báo xác nhận đặt lịch.
+101. Gửi thông báo nhắc lịch trị liệu.
+102. Gửi thông báo khi thay đổi hoặc hủy lịch.
+103. Gửi lời cảm ơn sau khi khách sử dụng dịch vụ.
+104. Gửi thông báo nhắc lịch tái khám.
+105. Gửi thông báo số buổi liệu trình còn lại.
+106. Gửi email xác nhận đăng ký khóa học.
+107. Gửi email nhắc lịch học và lịch kiểm tra.
+108. Gửi email thông báo khóa học sắp hết hạn.
+109. Gửi email thông báo kết quả kiểm tra.
+110. Quản lý lịch sử gửi thông báo và hạn chế gửi trùng.
+9. WEBSITE VÀ ZALO MINI APP
+111. Đồng bộ chức năng giữa Website và Zalo Mini App.
+112. Giao diện chính gồm: Trang chủ, Dịch vụ, Đào tạo, Tài liệu, Cá nhân.
+113. Thêm banner giới thiệu trung tâm tại trang chủ.
+114. Thêm ô tìm kiếm dịch vụ.
+115. Thêm chức năng tìm kiếm theo nhu cầu.
+116. Hiển thị dịch vụ nổi bật tại trang chủ.
+117. Hiển thị hai nhóm khóa học đào tạo.
+118. Thêm trang Cộng đồng riêng.
+119. Thêm trang Tài liệu.
+120. Cho phép người dùng xem các tài liệu được chia sẻ.
+121. Thêm trang quản lý tài liệu trong Admin.
+122. Tích hợp đặt lịch ngay tại trang chi tiết dịch vụ.
+123. Hiển thị hình ảnh và thông tin kỹ thuật viên.
+124. Cho phép người dùng xem lịch sử đặt lịch.
+125. Cho phép người dùng xem liệu trình đang sử dụng.
+126. Cho phép học viên xem khóa học đã đăng ký.
+127. Cho phép học viên xem giấy chứng nhận đã được cấp.
+10. GIAO DIỆN VÀ THIẾT KẾ
+128. Thay đổi màu sắc chủ đạo sang trắng và xanh y tế.
+129. Đồng bộ bảng màu giữa Website, Mini App và Admin.
+130. Đồng bộ font chữ trên toàn bộ hệ thống.
+131. Thống nhất thiết kế nút bấm, biểu tượng và các thành phần giao diện.
+132. Thiết kế giao diện hiện đại, dễ nhìn và dễ sử dụng.
+133. Tối ưu hiển thị trên điện thoại và máy tính.
+134. Thiết kế lại trang chủ theo phong cách trung tâm y tế, trị liệu chuyên nghiệp.
+135. Đảm bảo giao diện Website và Mini App nhất quán.
+11. QUẢN TRỊ ADMIN
+136. Quản lý dịch vụ và bảng giá.
+137. Quản lý cơ sở và chi nhánh.
+138. Quản lý giường trị liệu.
+139. Quản lý nhân viên và kỹ thuật viên.
+140. Quản lý lịch làm việc của kỹ thuật viên.
+141. Quản lý đặt lịch tự động và thủ công.
+142. Quản lý đặt lịch nhiều người.
+143. Quản lý trạng thái giường và kết ca.
+144. Quản lý khách hàng và liệu trình.
+145. Quản lý hai nhóm khóa học.
+146. Quản lý video và bảo mật nội dung khóa học.
+147. Quản lý học viên và quyền truy cập khóa học.
+148. Quản lý bài kiểm tra và kết quả.
+149. Quản lý giấy chứng nhận.
+150. Quản lý lịch kiểm tra phù bạch huyết.
+151. Quản lý thanh toán, VAT và hóa đơn.
+152. Quản lý máy POS và in bill.
+153. Quản lý thông báo Zalo OA và email.
+154. Quản lý nội dung trang Cộng đồng.
+155. Quản lý tài liệu trên Website và Mini App.
+156. Quản lý banner, hình ảnh và nội dung trang chủ.
+157. Quản lý quyền truy cập và bảo mật hệ thống.

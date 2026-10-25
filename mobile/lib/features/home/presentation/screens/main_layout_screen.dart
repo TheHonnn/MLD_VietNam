@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
-import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
+import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../../academy/presentation/screens/e01_academy_home_screen.dart';
 import '../../../membership/presentation/screens/f01_profile_dashboard_screen.dart';
@@ -48,14 +47,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => C01ServiceSelectionScreen(
+              builder: (_) => AllInOneBookingScreen(
                 onBack: () => Navigator.pop(context),
-                onOpenAppointments: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
-                  );
-                },
               ),
             ),
           );

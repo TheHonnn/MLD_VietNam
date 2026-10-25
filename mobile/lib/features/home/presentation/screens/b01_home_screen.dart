@@ -1,32 +1,24 @@
-import '../../../treatment/data/repositories/treatment_repository.dart';
-import 'dart:async';
 import 'dart:ui';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
-import '../../../../l10n/app_localizations.dart';
-import '../../../booking/data/models/booking_models.dart';
-import '../../../booking/data/repositories/booking_repository.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
-import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
-import '../../../booking/presentation/screens/c10_appointment_detail_screen.dart';
-import '../../../membership/data/repositories/membership_repository.dart';
-import '../../data/models/home_models.dart';
-import '../../data/repositories/mock_home_repository.dart';
-import '../../data/repositories/branch_repository.dart';
-import '../../data/repositories/service_repository.dart';
-import 'b04_search_screen.dart';
-import '../../../services/presentation/screens/b03_service_detail_screen.dart';
+import '../../../auth/widgets/update_phone_modal.dart';
+import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
-import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
+import '../../../treatment/data/repositories/treatment_repository.dart';
+import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../treatment/presentation/screens/d09_documents_screen.dart';
 import '../../../treatment/presentation/screens/d10_lymph_examination_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
-import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
-import '../../../../core/services/auth_service.dart';
-import '../../../auth/widgets/update_phone_modal.dart';
+import '../../data/models/home_models.dart';
+import '../../data/repositories/branch_repository.dart';
 
+/// Màn hình Trang chủ MLD Việt Nam (Mobile-First)
+/// Tuân thủ chuẩn đặc tả: Giao diện trang chủ.docx & Website Trang chủ, dịch vụ, đặt lịch.txt
+/// Phong cách thiết kế: Modern Medical, Scientific, Clean, Professional (#168477)
 class B01HomeScreen extends StatefulWidget {
   final VoidCallback? onNavigateToServices;
   final VoidCallback? onNavigateToBooking;
@@ -46,100 +38,33 @@ class B01HomeScreen extends StatefulWidget {
 }
 
 class _B01HomeScreenState extends State<B01HomeScreen> {
-  final PageController _heroBannerController = PageController();
-  int _heroBannerIndex = 0;
-  Timer? _heroTimer;
-  String _selectedBranch = 'Chi nhánh Quận 3';
+  String _selectedBranch = 'Chi nhánh Đống Đa - Hà Nội';
 
-  final List<Map<String, String>> _heroBanners = [
-    {
-      'image': 'assets/images/gioithieu_1.png',
-      'title': 'Dẫn lưu bạch huyết MLD – Phục hồi hậu phẫu chuyên sâu',
-      'description': 'Tầm soát và điều trị giảm phù nề, tiêu dịch ứ đọng chuẩn y khoa Vodder.',
-      'btnText': 'Đăng ký kiểm tra phù nề',
-    },
-    {
-      'image': 'assets/images/gioithieu_2.png',
-      'title': 'Trị liệu Y khoa & Chăm sóc sức khỏe toàn diện',
-      'description': 'Quy trình phục hồi hệ bạch huyết và giảm đau nhức cùng chuyên viên chuyên môn.',
-      'btnText': 'Đặt lịch trị liệu ngay',
-    },
-    {
-      'image': 'assets/images/gioithieu_3.png',
-      'title': 'Học viện Đào tạo Nghề MLD & Trị liệu Chuẩn Y Khoa',
-      'description': 'Đào tạo thực hành cho người mới bắt đầu và nâng cao chuyên môn cho người làm nghề.',
-      'btnText': 'Khám phá khóa đào tạo',
-    },
-  ];
-
+  // Danh mục Icon tiện ích trang chủ
   final List<Map<String, dynamic>> _shortcuts = [
+    {
+      'title': 'Dịch vụ',
+      'icon': Icons.spa_outlined,
+    },
     {
       'title': 'Đặt lịch',
       'icon': Icons.calendar_month_outlined,
     },
     {
-      'title': 'Khám phù MLD',
-      'icon': Icons.medical_services_outlined,
-    },
-    {
-      'title': 'Liệu trình',
-      'icon': Icons.healing_outlined,
+      'title': 'Đào tạo',
+      'icon': Icons.school_outlined,
     },
     {
       'title': 'Tài liệu',
       'icon': Icons.menu_book_outlined,
     },
-  ];
-
-  final List<Map<String, dynamic>> _categories = [
     {
-      'title': 'Massage thư giãn',
-      'icon': Icons.spa_outlined,
+      'title': 'Khám phù',
+      'icon': Icons.medical_services_outlined,
     },
     {
-      'title': 'Chăm sóc da',
-      'icon': Icons.auto_awesome_outlined,
-    },
-    {
-      'title': 'Chăm sóc cơ thể',
-      'icon': Icons.self_improvement_rounded,
-    },
-    {
-      'title': 'Chăm sóc sức khỏe',
-      'icon': Icons.favorite_border_rounded,
-    },
-    {
-      'title': 'Gói liệu trình',
-      'icon': Icons.layers_outlined,
-    },
-    {
-      'title': 'Xem tất cả',
-      'icon': Icons.grid_view_rounded,
-    },
-  ];
-
-  List<Map<String, dynamic>> _suggestedServices = [
-    {
-      'id': 'srv-001',
-      'title': 'Massage thư giãn toàn thân',
-      'duration': '60 phút',
-      'price': '350.000đ',
-      'originalPrice': '450.000đ',
-      'hasDiscount': true,
-      'description': 'Thả lỏng cơ thể trong không gian yên tĩnh.',
-      'image': 'assets/images/gioithieu_1.png',
-      'isFavorite': true,
-    },
-    {
-      'id': 'srv-002',
-      'title': 'Chăm sóc da chuyên sâu',
-      'duration': '90 phút',
-      'price': '520.000đ',
-      'originalPrice': '650.000đ',
-      'hasDiscount': true,
-      'description': 'Chăm sóc làn da với quy trình nhẹ nhàng, chu đáo.',
-      'image': 'assets/images/gioithieu_2.png',
-      'isFavorite': false,
+      'title': 'Cá nhân',
+      'icon': Icons.person_outline_rounded,
     },
   ];
 
@@ -147,8 +72,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   void initState() {
     super.initState();
     _initBranchListener();
-    _startHeroTimer();
-    _loadSuggestedServices();
     _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
@@ -188,139 +111,28 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     }
   }
 
-  String _getGreetingName() {
-    final authName = AuthService.instance.currentDisplayName?.trim();
-    final repoName = MembershipRepository.instance.profile.fullName.trim();
-    bool isInvalidMock(String s) => s.isEmpty || s == 'Khách hàng MLD' || s == 'Khách hàng' || s == 'Lễ Tân Hoàng Yến' || s == 'Nguyễn Minh Anh';
-
-    String effective = '';
-    if (authName != null && !isInvalidMock(authName)) {
-      effective = authName;
-    } else if (!isInvalidMock(repoName)) {
-      effective = repoName;
-    }
-
-    if (effective.isEmpty) return 'Bạn';
-    return effective.split(' ').last;
-  }
-
-  static bool _hasPromptedPhoneThisSession = false;
-
   void _checkPhonePrompt() {
-    if (!_hasPromptedPhoneThisSession &&
-        AuthService.instance.isLoggedIn &&
-        !AuthService.instance.hasPhoneNumber) {
-      _hasPromptedPhoneThisSession = true;
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted && !AuthService.instance.hasPhoneNumber) {
-          UpdatePhoneModal.show(context, isDismissible: true);
-        }
-      });
+    if (!mounted) return;
+    final hasPhone = AuthService.instance.hasPhoneNumber ||
+        MembershipRepository.instance.profile.phone.trim().isNotEmpty;
+    if (AuthService.instance.isLoggedIn && !hasPhone) {
+      UpdatePhoneModal.show(context);
     }
-  }
-
-  Future<void> _loadSuggestedServices() async {
-    final liveServices = await ServiceRepository.instance.getFeaturedServices();
-    if (mounted && liveServices.isNotEmpty) {
-      setState(() {
-        _suggestedServices = liveServices.map((s) {
-          final hasDiscount = s.discountPrice != null && s.discountPrice! < s.price;
-          final priceFormatted =
-              '${s.displayPrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ';
-          final originalPriceFormatted = hasDiscount
-              ? '${s.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ'
-              : null;
-          return {
-            'id': s.id,
-            'title': s.name,
-            'duration': '${s.durationMinutes} phút',
-            'price': priceFormatted,
-            'originalPrice': originalPriceFormatted,
-            'hasDiscount': hasDiscount,
-            'description': s.description,
-            'image': s.imageUrl,
-            'model': s,
-            'isFavorite': false,
-          };
-        }).toList();
-      });
-    }
-  }
-
-  @override
-  void deactivate() {
-    _heroTimer?.cancel();
-    super.deactivate();
   }
 
   @override
   void dispose() {
     BranchRepository.instance.activeBranchNotifier.removeListener(_onActiveBranchChanged);
-    _heroTimer?.cancel();
-    _heroBannerController.dispose();
     super.dispose();
   }
 
-  void _startHeroTimer() {
-    _heroTimer?.cancel();
-    _heroTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      try {
-        if (_heroBannerController.hasClients) {
-          final nextIndex = (_heroBannerIndex + 1) % _heroBanners.length;
-          _heroBannerController.animateToPage(
-            nextIndex,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOut,
-          );
-        }
-      } catch (_) {}
-    });
-  }
-
-  void _handleBooking([String? serviceTitle]) {
-    SpaServiceModel? preselectedService;
-    if (serviceTitle != null && serviceTitle.isNotEmpty) {
-      final allServices = ServiceRepository.instance.cachedServices.isNotEmpty
-          ? ServiceRepository.instance.cachedServices
-          : MockHomeRepository.getFeaturedServices();
-      try {
-        preselectedService = allServices.firstWhere(
-          (s) => s.name.toLowerCase().contains(serviceTitle.toLowerCase()) ||
-                 serviceTitle.toLowerCase().contains(s.name.toLowerCase()),
-        );
-      } catch (_) {}
-    }
-
-    if (preselectedService != null) {
-      // Người dùng đã bấm "Đặt lịch" tại thẻ dịch vụ cụ thể trên Home -> Mở thẳng Bước 2: Chọn Chi nhánh
-      final flow = BookingFlowState(
-        selectedServices: [preselectedService],
-        selectedService: preselectedService,
-        selectedBranch: BranchRepository.instance.activeBranch,
-      );
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => C02BranchSelectionScreen(flowState: flow),
-        ),
-      );
-    } else {
-      // Người dùng bấm icon Shortcut "Đặt lịch" -> Mở Bước 1: Chọn dịch vụ từ đầu
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => C01ServiceSelectionScreen(
-            flowState: BookingFlowState(
-              selectedBranch: BranchRepository.instance.activeBranch,
-            ),
-          ),
-        ),
-      );
-    }
+  void _handleBooking() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AllInOneBookingScreen(),
+      ),
+    );
   }
 
   void _showBranchPicker() async {
@@ -340,74 +152,102 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       builder: (modalContext) {
         final activeId = BranchRepository.instance.activeBranch?.id;
         return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Chọn chi nhánh',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textHeading,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Chọn chi nhánh điều trị',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                      onPressed: () => Navigator.pop(modalContext),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (branches.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
+                  )
+                else
                   ...branches.map((b) {
                     final isSelected = b.id == activeId || b.name == _selectedBranch;
-                    return Column(
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            b.name,
-                            style: TextStyle(
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                            ),
-                          ),
-                          subtitle: Text(
-                            b.address,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                          trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: AppColors.primary)
-                              : null,
-                          onTap: () {
-                            BranchRepository.instance.setActiveBranch(b);
-                            setState(() {
-                              _selectedBranch = b.name;
-                            });
-                            Navigator.pop(modalContext);
-                          },
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.mintBackground : AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? AppColors.primary : AppColors.border,
+                          width: isSelected ? 1.5 : 1.0,
                         ),
-                        const Divider(),
-                      ],
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.location_on_rounded,
+                          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                        ),
+                        title: Text(
+                          b.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? AppColors.primaryDark : AppColors.textPrimary,
+                          ),
+                        ),
+                        subtitle: Text(
+                          b.address,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                            : null,
+                        onTap: () {
+                          BranchRepository.instance.setActiveBranch(b);
+                          setState(() => _selectedBranch = b.name);
+                          Navigator.pop(modalContext);
+                        },
+                      ),
                     );
                   }),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.store_mall_directory_outlined, color: AppColors.primary),
-                      label: const Text(
-                        'Xem toàn bộ hệ thống chi nhánh',
-                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(modalContext);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const B05BranchListingScreen()),
-                        );
-                      },
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary),
+                      foregroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: const Text('Xem danh sách tất cả cơ sở'),
+                    onPressed: () {
+                      Navigator.pop(modalContext);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const B05BranchListingScreen()),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -415,241 +255,156 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
-  Future<void> _showNotificationSheet() async {
-    await Navigator.push(
+  void _showNotificationSheet() {
+    Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const D08NotificationsScreen()),
     );
-    if (mounted) {
-      setState(() {});
-    }
   }
 
-  Future<void> _openExternalUrl(String urlString) async {
-    try {
-      final uri = Uri.parse(urlString);
-      final canLaunch = await canLaunchUrl(uri);
-      if (canLaunch) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        await launchUrl(uri);
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đang mở liên kết: $urlString'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showBannerLinkOptions(BuildContext context, [String? bannerTitle]) {
+  /// Modal lựa chọn Website / Facebook khi click vào banner ngang trang chủ
+  void _showBannerLinkOptions(BuildContext context) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (ctx) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Dialog(
-          backgroundColor: Colors.white.withValues(alpha: 0.94),
+          backgroundColor: Colors.white.withValues(alpha: 0.96),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.9), width: 1.5),
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppColors.border, width: 1.0),
           ),
           elevation: 12,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            padding: const EdgeInsets.all(22),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Image.asset(
-                      'assets/images/logo_mld.png',
-                      height: 24,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.spa, size: 22, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'MLD VIỆT NAM',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  bannerTitle ?? 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                    height: 1.35,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Chọn phương thức để xem thông tin chi tiết và cẩm nang trị liệu:',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Lựa chọn 1: Truy cập Website
-                InkWell(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openExternalUrl('https://mldvietnam.vn');
-                  },
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.mintBackground,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.open_in_new_rounded, size: 18, color: AppColors.primary),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Kênh Thông Tin MLD',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ],
                     ),
-                    child: Row(
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                      onPressed: () => Navigator.pop(ctx),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Chọn cổng thông tin chính thức của Trung tâm MLD Việt Nam để tiếp tục:',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
+                ),
+                const SizedBox(height: 18),
+                InkWell(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final uri = Uri.parse('https://mldvietnam.com');
+                    try {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } catch (_) {}
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.mintBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                    ),
+                    child: const Row(
                       children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.mintBackground,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.language_rounded, size: 20, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
+                        Icon(Icons.language_rounded, color: AppColors.primary, size: 22),
+                        SizedBox(width: 12),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Truy cập Website',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF0F172A),
-                                ),
+                                'Truy cập Website MLD',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'www.mldvietnam.vn · Cổng thông tin chính thức',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                ),
+                                'mldvietnam.com - Cổng tin tức & đào tạo',
+                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.primary),
+                        Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 20),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 10),
-
-                // Lựa chọn 2: Truy cập Facebook
                 InkWell(
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(ctx);
-                    _openExternalUrl('https://facebook.com/mldvietnam');
+                    final uri = Uri.parse('https://facebook.com/mldvietnam');
+                    try {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } catch (_) {}
                   },
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.mintBackground,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.facebook_rounded, size: 20, color: Color(0xFF1877F2)),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
+                        Icon(Icons.facebook_rounded, color: Color(0xFF1877F2), size: 22),
+                        SizedBox(width: 12),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Truy cập Facebook',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF0F172A),
-                                ),
+                                'Truy cập Facebook Fanpage',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'facebook.com/mldvietnam · Fanpage MLD Vietnam',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                ),
+                                'facebook.com/mldvietnam - Tư vấn trực tiếp',
+                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.open_in_new_rounded, size: 16, color: Color(0xFF1877F2)),
+                        Icon(Icons.chevron_right_rounded, color: Color(0xFF1877F2), size: 20),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-
-                // Nút Đóng
-                SizedBox(
-                  width: double.infinity,
-                  height: 36,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF64748B),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: const Text('Đóng', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  ),
-                ),
               ],
             ),
           ),
@@ -658,212 +413,42 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
-  void _showAppointmentDetailSheet(AppointmentItemModel item) {
-    final d = item.appointmentDate;
-    final dStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Chi tiết lịch hẹn',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHeading,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Mã lịch hẹn: ${item.bookingCode}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF236B42).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item.status.label,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF236B42),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        item.serviceName,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textHeading,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Thời gian: ${item.timeSlot}, $dStr',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Chuyên viên: ${item.specialistName}',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Địa điểm: ${item.branchName}\n${item.branchAddress}',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 140,
-                        height: 140,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: const Icon(
-                          Icons.qr_code_2_rounded,
-                          size: 110,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Xuất trình mã này tại quầy lễ tân để check-in nhanh',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => C10AppointmentDetailScreen(appointmentId: item.id),
-                            ),
-                          );
-                        },
-                        child: const Text('Xem toàn bộ lịch trình'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          'Đóng',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-    );
+  String _getGreetingName() {
+    final profileName = MembershipRepository.instance.profile.fullName.trim();
+    if (profileName.isNotEmpty && profileName != 'Khách hàng') {
+      return profileName;
+    }
+    final authName = AuthService.instance.currentDisplayName?.trim();
+    if (authName != null && authName.isNotEmpty) {
+      return authName;
+    }
+    return 'Khách hàng MLD';
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.only(
             left: 20.0,
             right: 20.0,
-            top: 8.0,
+            top: 10.0,
             bottom: 32.0,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ==========================================
-              // 1. ACCUEIL PERSONNALISÉ (Lời chào + Avatar + Thông báo)
+              // 1. HEADER (Lời chào + Avatar + Chuông thông báo)
               // ==========================================
               SizedBox(
-                height: 64,
+                height: 56,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Avatar (44x44, circle)
                     InkWell(
                       onTap: widget.onNavigateToProfile,
                       borderRadius: BorderRadius.circular(22),
@@ -871,43 +456,38 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         avatarUrl: MembershipRepository.instance.profile.avatarUrl,
                         size: 44,
                         borderWidth: 1.5,
-                        borderColor: AppColors.secondary,
+                        borderColor: AppColors.primary,
                         showShadow: false,
                       ),
                     ),
                     const SizedBox(width: 12),
-
-                    // Salutation texts (gap 4)
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Xin chào, ${_getGreetingName()}!',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary, // #40352F
-                            ),
-                          ),
-                          const SizedBox(height: 2),
                           const Text(
-                            'Hôm nay bạn muốn chăm sóc bản thân như thế nào?',
+                            'Xin chào,',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary, // #6B6158
+                              color: AppColors.textSecondary,
                             ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _getGreetingName(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-
-                    // Chuông thông báo (44x44 kèm chấm đỏ chưa đọc 7x7)
                     InkWell(
                       onTap: _showNotificationSheet,
                       borderRadius: BorderRadius.circular(12),
@@ -919,18 +499,18 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           children: [
                             const Icon(
                               Icons.notifications_none_rounded,
-                              size: 26,
-                              color: AppColors.primary, // #985018
+                              size: 24,
+                              color: AppColors.primary,
                             ),
                             if (TreatmentRepository.instance.hasUnreadNotifications)
                               Positioned(
                                 top: 8,
                                 right: 8,
                                 child: Container(
-                                  width: 7,
-                                  height: 7,
+                                  width: 8,
+                                  height: 8,
                                   decoration: const BoxDecoration(
-                                    color: Color(0xFFD64545), // #D64545 đỏ
+                                    color: AppColors.error,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -943,7 +523,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 ),
               ),
 
-              // --- BANNER CẢNH BÁO BỔ SUNG SỐ ĐIỆN THOẠI (CHO TÀI KHOẢN ĐĂNG NHẬP EMAIL) ---
+              // Banner cảnh báo bổ sung SĐT nếu đăng nhập bằng Email
               ValueListenableBuilder<String?>(
                 valueListenable: AuthService.instance.phoneNotifier,
                 builder: (context, phone, _) {
@@ -953,65 +533,31 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     return const SizedBox.shrink();
                   }
                   return Container(
-                    margin: const EdgeInsets.only(top: 14, bottom: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFF7ED),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFFDBA74), width: 1.0),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFDBA74)),
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFED7AA),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.phone_android_rounded,
-                            color: Color(0xFFC2410C),
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                        const Icon(Icons.phone_android_rounded, color: Color(0xFFC2410C), size: 20),
+                        const SizedBox(width: 10),
                         const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Cập nhật số điện thoại',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF9A3412),
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Vui lòng cập nhật để nhận thông báo lịch hẹn & bảo mật tài khoản.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF7C2D12),
-                                  height: 1.3,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            'Cập nhật SĐT để xác nhận lịch hẹn chính xác',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF9A3412)),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            elevation: 0,
-                            minimumSize: const Size(0, 36),
-                          ),
+                        TextButton(
                           onPressed: () => UpdatePhoneModal.show(context),
-                          child: const Text('Cập nhật', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                          ),
+                          child: const Text('Cập nhật', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ),
@@ -1019,101 +565,121 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 },
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // ==========================================
-              // 2. LỰA CHỌN CHI NHÁNH (Lựa chọn)
-              // ==========================================
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Chi nhánh đang chọn',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary, // #40352F
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: _showBranchPicker,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      height: 52,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface, // white
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.border, // #E3D1BF
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _selectedBranch,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 20,
-                            color: Color(0xFF80766E),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // ==========================================
-              // 3. SEARCH BAR (Tìm kiếm: 350x52, r=12)
+              // 2. BANNER NGANG GIỚI THIỆU MLD TRÊN ĐẦU
+              // (Click mở modal lựa chọn Website hoặc Facebook)
               // ==========================================
               InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const B04SearchScreen()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showBannerLinkOptions(context),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  height: 52,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  height: 148,
                   decoration: BoxDecoration(
-                    color: AppColors.surface, // white
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.border, // #E3D1BF
-                      width: 1.0,
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primaryDark, AppColors.primary],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.search_rounded,
-                        size: 22,
-                        color: AppColors.textSecondary,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.22),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          l10n?.homeSearchHint ?? 'Tìm dịch vụ, khóa học, chuyên viên...',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary, // #6B6158
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: -18,
+                        bottom: -18,
+                        child: Container(
+                          width: 130,
+                          height: 130,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.08),
                           ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 16,
+                        top: 24,
+                        child: Image.asset(
+                          'assets/images/logo_mld.png',
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.spa_rounded,
+                            size: 54,
+                            color: Colors.white24,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'TRUNG TÂM Y KHOA BẠCH HUYẾT',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ),
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'MLD VIỆT NAM',
+                                  style: TextStyle(
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Row(
+                              children: [
+                                Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Bấm để xem Website & Facebook chính thức ↗',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1121,281 +687,120 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               // ==========================================
-              // 4. HOME HERO BANNER CAROUSEL (350x446, r=20, #F3E2CE)
+              // 3. MỤC CHI NHÁNH ĐANG CHỌN
               // ==========================================
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary, // #F3E2CE
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Ảnh trượt Hero (Chiều cao 176, r=16)
-                    SizedBox(
-                      height: 176,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                        child: PageView.builder(
-                          controller: _heroBannerController,
-                          itemCount: _heroBanners.length,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _heroBannerIndex = index;
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            final banner = _heroBanners[index];
-                            return InkWell(
-                              onTap: () => _showBannerLinkOptions(context, banner['title']),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  Image.asset(
-                                    banner['image']!,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: AppColors.surfaceDisabled,
-                                      child: const Center(
-                                        child: Icon(Icons.spa_rounded, size: 48, color: AppColors.primary),
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 10,
-                                    right: 10,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.9),
-                                        borderRadius: BorderRadius.circular(6),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.08),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.open_in_new, size: 11, color: AppColors.primary),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'Website · Facebook',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+              InkWell(
+                onTap: _showBranchPicker,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.mintBackground,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Chi nhánh trị liệu hiện tại',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _selectedBranch,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-
-                    // Lời mời chăm sóc (Padding 20, gap 12)
-                    Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Accent bar (40x2, color #C58D59)
-                          Container(
-                            width: 40,
-                            height: 2,
-                            decoration: BoxDecoration(
-                              color: AppColors.secondary, // #C58D59
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Tiêu đề banner (20px, w600, #693B20)
-                          InkWell(
-                            onTap: () => _showBannerLinkOptions(context, _heroBanners[_heroBannerIndex]['title']),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _heroBanners[_heroBannerIndex]['title']!,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.3,
-                                    color: AppColors.textHeading, // #693B20
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-
-                                // Mô tả banner (14px, w400, #40352F)
-                                Text(
-                                  _heroBanners[_heroBannerIndex]['description']!,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.4,
-                                    color: AppColors.textPrimary, // #40352F
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Nút hành động chính (height 56, r=14, #985018)
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary, // #985018
-                                foregroundColor: AppColors.textInverse, // white
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                elevation: 0,
-                              ),
-                              onPressed: () {
-                                if (_heroBannerIndex == 0) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
-                                  );
-                                } else if (_heroBannerIndex == 2) {
-                                  widget.onNavigateToAcademy?.call();
-                                } else {
-                                  _handleBooking(_heroBanners[_heroBannerIndex]['title']);
-                                }
-                              },
-                              child: Text(
-                                _heroBanners[_heroBannerIndex]['btnText']!,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Center(
-                            child: InkWell(
-                              onTap: () => _showBannerLinkOptions(context, _heroBanners[_heroBannerIndex]['title']),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.public, size: 13, color: AppColors.primary),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Truy cập Website & Facebook MLD Vietnam',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Chỉ báo ảnh Carousel (24x8 and 8x8, gap 8)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(_heroBanners.length, (dotIndex) {
-                              final bool isActive = _heroBannerIndex == dotIndex;
-                              return Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                width: isActive ? 24 : 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: isActive ? AppColors.primary : AppColors.border,
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                              );
-                            }),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                      const Icon(Icons.unfold_more_rounded, color: AppColors.textSecondary, size: 20),
+                    ],
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // ==========================================
-              // 5. LỐI TẮT (4 Icons vuông 56x56, r=16, #F3E2CE)
+              // 4. ICON TIỆN ÍCH (Dịch vụ, Đặt lịch, Đào tạo, Tài liệu, Khám phù, Cá nhân)
               // ==========================================
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                runSpacing: 14,
                 children: _shortcuts.map((item) {
                   return InkWell(
                     onTap: () {
-                      if (item['title'] == 'Đặt lịch') {
+                      final title = item['title'] as String;
+                      if (title == 'Dịch vụ') {
+                        widget.onNavigateToServices?.call();
+                      } else if (title == 'Đặt lịch') {
                         _handleBooking();
-                      } else if (item['title'] == 'Khám phù MLD') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
-                        );
-                      } else if (item['title'] == 'Liệu trình' || item['title'] == 'Gói liệu trình') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
-                        );
-                      } else if (item['title'] == 'Tài liệu') {
+                      } else if (title == 'Đào tạo') {
+                        widget.onNavigateToAcademy?.call();
+                      } else if (title == 'Tài liệu') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const D09DocumentsScreen()),
                         );
-                      } else if (item['title'] == 'Khóa học') {
-                        widget.onNavigateToAcademy?.call();
-                      } else {
+                      } else if (title == 'Khám phù') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
                         );
+                      } else if (title == 'Cá nhân') {
+                        widget.onNavigateToProfile?.call();
                       }
                     },
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     child: SizedBox(
-                      width: 78,
+                      width: 52,
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 56,
-                            height: 56,
+                            width: 50,
+                            height: 50,
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary, // #F3E2CE
-                              borderRadius: BorderRadius.circular(16),
+                              color: AppColors.surfaceSecondary,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.border, width: 0.8),
                             ),
                             child: Icon(
                               item['icon'] as IconData,
-                              size: 24,
-                              color: AppColors.primary, // #985018
+                              size: 22,
+                              color: AppColors.primary,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
                             item['title'] as String,
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textPrimary, // #40352F
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ],
@@ -1405,658 +810,155 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 }).toList(),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 22),
 
               // ==========================================
-              // 6. BẠN MUỐN TRẢI NGHIỆM GÌ? (Danh mục ngang 144x112, r=16)
-              // ==========================================
-              const Text(
-                'Bạn muốn trải nghiệm gì?',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textHeading, // #693B20
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              SizedBox(
-                height: 112,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: _categories.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final cat = _categories[index];
-                    return InkWell(
-                      onTap: () {
-                        if (cat['title'] == 'Gói liệu trình') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
-                          );
-                        } else {
-                          widget.onNavigateToServices?.call();
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        width: 144,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface, // white
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Icon(
-                              cat['icon'] as IconData,
-                              size: 26,
-                              color: AppColors.primary, // #985018
-                            ),
-                            Text(
-                              cat['title'] as String,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textPrimary, // #40352F
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 28),
-
-              // ==========================================
-              // 7. GỢI Ý DÀNH CHO BẠN (Service Cards 350px, r=20)
-              // ==========================================
-              const Text(
-                'Gợi ý dành cho bạn',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textHeading, // #693B20
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              Column(
-                children: _suggestedServices.map((service) {
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => B03ServiceDetailScreen(
-                            serviceCode: service['id'] as String?,
-                            serviceModel: service['model'] as SpaServiceModel?,
-                            title: service['title'] as String,
-                            duration: service['duration'] as String,
-                            price: service['price'] as String,
-                            originalPrice: service['originalPrice'] as String?,
-                            image: service['image'] as String,
-                            description: service['description'] as String,
-                          ),
-                        ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 20.0),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface, // white
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Ảnh dịch vụ (Chiều cao 172, r=20 top)
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                              child: SizedBox(
-                                height: 172,
-                                width: double.infinity,
-                                child: (service['image'] as String).startsWith('http')
-                                    ? Image.network(
-                                        service['image'] as String,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
-                                          color: AppColors.surfaceSecondary,
-                                          child: const Center(
-                                            child: Icon(Icons.spa, size: 48, color: AppColors.primary),
-                                          ),
-                                        ),
-                                      )
-                                    : Image.asset(
-                                        service['image'] as String,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
-                                          color: AppColors.surfaceSecondary,
-                                          child: const Center(
-                                            child: Icon(Icons.spa, size: 48, color: AppColors.primary),
-                                          ),
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            // Nút yêu thích FavoriteButton (44x44, r=12, white)
-                            Positioned(
-                              top: 12,
-                              right: 12,
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    service['isFavorite'] = !(service['isFavorite'] as bool);
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 6,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    (service['isFavorite'] as bool)
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_border_rounded,
-                                    color: (service['isFavorite'] as bool)
-                                        ? const Color(0xFFD64545)
-                                        : AppColors.primary,
-                                    size: 22,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Thông tin dịch vụ (Padding 16, gap 8)
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                service['title'] as String,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary, // #40352F
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-
-                              // Thông số thời lượng & Giá
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    service['duration'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: AppColors.textSecondary, // #6B6158
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (service['hasDiscount'] == true && service['originalPrice'] != null) ...[
-                                        Text(
-                                          service['originalPrice'] as String,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w400,
-                                            color: AppColors.textSecondary,
-                                            decoration: TextDecoration.lineThrough,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                      ],
-                                      Text(
-                                        service['price'] as String,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.primary, // #985018
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Mô tả
-                              Text(
-                                service['description'] as String,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppColors.textPrimary, // #40352F
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Nút Đặt lịch (height 56, r=14, #985018)
-                              SizedBox(
-                                width: double.infinity,
-                                height: 56,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary, // #985018
-                                    foregroundColor: AppColors.textInverse,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  onPressed: () => _handleBooking(service['title'] as String),
-                                  child: const Text(
-                                    'Đặt lịch',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-              ),
-
-              // ==========================================
-              // 8. LỊCH HẸN SẮP TỚI (Empty state 100% cho tài khoản mới)
-              // ==========================================
-              Builder(
-                builder: (context) {
-                  final upcoming = BookingRepository.instance.getUpcomingAppointments();
-                  if (upcoming.isEmpty) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceSecondary, // #F3E2CE
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border, width: 1.0),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_month_outlined, size: 22, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n?.upcomingAppointments ?? 'Lịch hẹn sắp tới',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textHeading,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.calendar_today_outlined,
-                              size: 28,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            l10n?.noUpcomingAppointments ?? 'Bạn chưa có lịch hẹn nào sắp tới',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textHeading,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                            child: Text(
-                              l10n?.noUpcomingDesc ?? 'Đặt lịch ngay để được đón tiếp và trải nghiệm các dịch vụ chăm sóc sức khỏe & sắc đẹp chu đáo tại MLD.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                                height: 1.45,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 46,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: _handleBooking,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.add_rounded, size: 20),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    l10n?.bookNow ?? 'Đặt lịch hẹn ngay',
-                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final nextApp = upcoming.first;
-                  final d = nextApp.appointmentDate;
-                  final dStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} · ${nextApp.timeSlot}';
-
-                  return Container(
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary, // #F3E2CE
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border, width: 1.0),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              l10n?.upcomingAppointments ?? 'Lịch hẹn sắp tới',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textHeading,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF236B42).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                nextApp.status.label,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF236B42),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          nextApp.serviceName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          dStr,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          nextApp.branchName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 44,
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: const BorderSide(color: AppColors.primary),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: () => _showAppointmentDetailSheet(nextApp),
-                            child: Text(
-                              l10n?.viewDetails ?? 'Xem chi tiết',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 24),
-
-              // ==========================================
-              // 9. ACADEMY PROMO CARD (350x366, r=20, white)
+              // 5. DỊCH VỤ CỐT LÕI DUY NHẤT (Vodder MLD)
               // ==========================================
               Container(
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface, // white
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      child: SizedBox(
-                        height: 180,
-                        width: double.infinity,
-                        child: Image.asset(
-                          'assets/images/gioithieu_3.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.surfaceSecondary,
-                            child: const Center(
-                              child: Icon(Icons.school_outlined, size: 48, color: AppColors.primary),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.mintBackground,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.healing_rounded,
+                            color: AppColors.primary,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                  height: 1.3,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Phương pháp chuẩn Y khoa Quốc tế',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Ứng dụng kỹ thuật Vodder MLD nhẹ nhàng kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật, giảm đau nhức cơ xương khớp và hỗ trợ thải độc tế bào chuyên sâu.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(color: AppColors.border, height: 1),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Thời lượng ca:',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                            Text(
+                              '60 phút / ca',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                            ),
+                          ],
+                        ),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Đơn giá (đã gồm VAT 8%):',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                            Text(
+                              '702.000đ',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+                            ),
+                          ],
+                        ),
+                        SizedBox(
+                          height: 40,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: _handleBooking,
+                            child: const Text(
+                              'Đặt lịch ngay',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'HỌC VIỆN ĐÀO TẠO MLD VIỆT NAM',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Chương trình đào tạo chuẩn Y khoa Vodder Quốc tế',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              height: 1.35,
-                              color: AppColors.textHeading,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.check_circle, size: 16, color: AppColors.primary),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Nhóm 1: Người mới bắt đầu làm nghề (Cấp Giấy chứng nhận)',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Icon(Icons.check_circle, size: 16, color: AppColors.primary),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Nhóm 2: Người đang làm nghề nâng cao tay nghề & điều trị',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                elevation: 0,
-                              ),
-                              onPressed: widget.onNavigateToAcademy,
-                              child: const Text(
-                                'Khám phá 2 nhóm khóa đào tạo',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+
+              const SizedBox(height: 18),
 
               // ==========================================
-              // 10. CỘNG ĐỒNG MLD VIỆT NAM (Điểm 118, 154)
+              // 6. KHỐI CỘNG ĐỒNG Y KHOA MLD
               // ==========================================
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AppColors.primaryDark, AppColors.primary],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
+                      color: AppColors.primary.withValues(alpha: 0.18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
@@ -2066,56 +968,38 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.people_alt_outlined, color: Colors.white, size: 22),
+                          child: const Icon(Icons.menu_book_outlined, color: Colors.white, size: 16),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         const Text(
-                          'CỘNG ĐỒNG MLD VIỆT NAM',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                            color: Colors.white,
-                          ),
+                          'CỘNG ĐỒNG CHUYÊN GIA MLD',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Chia sẻ trải nghiệm phục hồi & thảo luận cùng chuyên gia Vodder',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
-                        color: Colors.white,
-                      ),
-                    ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Hàng trăm ca lâm sàng phục hồi phù nề sau phẫu thuật, chia sẻ kinh nghiệm hành nghề thực tế từ học viên và bác sĩ.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                        height: 1.4,
-                      ),
+                      'Chia sẻ ca lâm sàng & Hướng dẫn phục hồi Vodder',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Theo dõi các tài liệu trị liệu và bài viết chuyên môn do đội ngũ Bác sĩ, Giảng viên MLD trực tiếp biên soạn.',
+                      style: TextStyle(fontSize: 12, color: Colors.white70, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
+                      height: 38,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white, width: 1.2),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: () {
                           Navigator.push(
@@ -2123,17 +1007,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
                           );
                         },
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Vào diễn đàn cộng đồng',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                            ),
-                            SizedBox(width: 6),
-                            Icon(Icons.arrow_forward, size: 16),
-                          ],
-                        ),
+                        child: const Text('Xem bài viết chuyên môn', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ],
