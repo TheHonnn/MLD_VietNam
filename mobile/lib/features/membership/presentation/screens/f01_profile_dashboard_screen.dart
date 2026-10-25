@@ -245,20 +245,20 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     stops: [0.0, 0.55, 1.0],
                     colors: [
                       Color(0xFF7E4213),
-                      Color(0xFF0066B2),
-                      Color(0xFF0F172A),
+                      Color(0xFF168477),
+                      Color(0xFF1F2937),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.25),
+                      color: const Color(0xFF1F2937).withValues(alpha: 0.25),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -276,13 +276,13 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF0284C7), // #C58D59
+                            color: Color(0xFF145B55), // #C58D59
                           ),
                         ),
                         const Icon(
                           Icons.workspace_premium_rounded,
                           size: 24,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF145B55),
                         ),
                       ],
                     ),
@@ -325,7 +325,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: const Color(0xFF0284C7),
+                            color: const Color(0xFF145B55),
                             width: 1.0,
                           ),
                           color: Colors.black.withValues(alpha: 0.12),
@@ -335,7 +335,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                             const Icon(
                               Icons.qr_code_2_rounded,
                               size: 20,
-                              color: Color(0xFF0284C7),
+                              color: Color(0xFF145B55),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -758,7 +758,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             thickness: 1,
             indent: 16,
             endIndent: 16,
-            color: Color(0xFFF0F7FF),
+            color: Color(0xFFE8F5F1),
           ),
       ],
     );

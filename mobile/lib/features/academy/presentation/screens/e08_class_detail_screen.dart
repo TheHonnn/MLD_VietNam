@@ -59,7 +59,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AcademyColors.cardWarm,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Column(
@@ -108,20 +108,20 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: const Color(0xFFE8F5F1),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: const Color(0xFFBFDBFE)),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.schedule, size: 14, color: Color(0xFF0066B2)),
+                        Icon(Icons.schedule, size: 14, color: Color(0xFF168477)),
                         SizedBox(width: 6),
                         Text(
                           'Thời hạn truy cập: Còn 45 ngày (Hạn đến: 31/12/2026)',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF0066B2),
+                            color: Color(0xFF168477),
                           ),
                         ),
                       ],
@@ -325,7 +325,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: AcademyColors.cardWarm,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                 ),
                 child: Column(
@@ -420,7 +420,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                 ),
                 child: Column(
@@ -498,7 +498,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                 ),
                 child: const Column(
@@ -563,7 +563,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
       ),
       child: Column(
@@ -601,7 +601,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
       ),
       child: Row(

@@ -1,33 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// Bảng mã màu trích xuất 100% từ Figma Design System (Node 8107:5498 & Figma Styles)
+/// Bảng mã màu chuẩn Modern Medical Design System
+/// Phong cách: Modern Medical, Scientific, Clean, Professional
 class AppColors {
-  // Brand Primary & Secondary
-  static const Color primary = Color(0xFF985018); // --color-primary
-  static const Color primaryDark = Color(0xFF693B20); // --color-textHeading
-  static const Color secondary = Color(0xFFC58D59); // --color-secondary
-  static const Color primaryLight = Color(0xFFC58D59);
-  static const Color accent = Color(0xFFC58D59);
+  // Brand Primary & Medical Teal Palette
+  static const Color primary = Color(0xFF168477); // Deep medical teal #168477
+  static const Color primaryDark = Color(0xFF145B55); // Medical teal dark #145B55
+  static const Color secondary = Color(0xFF168477);
+  static const Color primaryLight = Color(0xFFE8F5F1); // Mint background #E8F5F1
+  static const Color mintBackground = Color(0xFFE8F5F1); // Mint background #E8F5F1
+  static const Color accent = Color(0xFF168477);
 
-  // Backgrounds & Surface
-  static const Color background = Color(0xFFF8F1E8); // Screen canvas #F8F1E8
-  static const Color surface = Color(0xFFFFFFFF); // --color-surface
-  static const Color surfaceSecondary = Color(0xFFF3E2CE); // --color-surfaceSecondary (Soft Amber Warm Box)
-  static const Color backgroundCard = Color(0xFFF3E2CE);
-  static const Color surfaceDisabled = Color(0xFFEBE3DA); // --color-surfaceDisabled
-  static const Color surfaceMuted = Color(0xFFEBE3DA);
-  static const Color border = Color(0xFFE3D1BF); // --color-border
+  // Backgrounds & Surfaces
+  static const Color background = Color(0xFFF5F7F7); // App background #F5F7F7
+  static const Color surface = Color(0xFFFFFFFF); // Surface #FFFFFF
+  static const Color surfaceSecondary = Color(0xFFE8F5F1); // Soft mint container #E8F5F1
+  static const Color backgroundCard = Color(0xFFFFFFFF);
+  static const Color surfaceDisabled = Color(0xFFF1F5F9);
+  static const Color surfaceMuted = Color(0xFFF1F5F9);
+  static const Color border = Color(0xFFE2E8F0); // Border #E2E8F0
 
   // Text & Typography
-  static const Color textHeading = Color(0xFF693B20); // --color-textHeading
-  static const Color textPrimary = Color(0xFF40352F); // --color-textPrimary
-  static const Color textSecondary = Color(0xFF6B6158); // --color-textSecondaryAccessible
-  static const Color textPlaceholder = Color(0xFFA1978E);
-  static const Color textInverse = Color(0xFFFFFFFF); // --color-textInverse
+  static const Color textHeading = Color(0xFF145B55); // Deep medical teal heading
+  static const Color textPrimary = Color(0xFF1F2937); // Primary text #1F2937
+  static const Color textSecondary = Color(0xFF475569); // Secondary text #475569
+  static const Color textPlaceholder = Color(0xFF94A3B8); // Muted slate #94A3B8
+  static const Color textInverse = Color(0xFFFFFFFF); // White text
 
   // Status & Utility Accents
-  static const Color accentTeal = Color(0xFF213C43);
-  static const Color success = Color(0xFF2E8B57);
-  static const Color error = Color(0xFFD64545);
-  static const Color errorDark = Color(0xFFB63131);
+  static const Color accentTeal = Color(0xFF168477);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
+  static const Color errorDark = Color(0xFFB91C1C);
 }

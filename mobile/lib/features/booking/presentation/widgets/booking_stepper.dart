@@ -23,8 +23,8 @@ class BookingStepper extends StatelessWidget {
       'Hoàn tất',
     ];
 
-    const activeColor = Color(0xFF0066B2);
-    const inactiveTextColor = Color(0xFF6B6158);
+    const activeColor = Color(0xFF168477);
+    const inactiveTextColor = Color(0xFF475569);
 
     return SizedBox(
       height: 36,

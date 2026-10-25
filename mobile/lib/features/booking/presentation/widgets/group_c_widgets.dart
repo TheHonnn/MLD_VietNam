@@ -5,20 +5,21 @@ import 'booking_stepper.dart';
 
 /// Bảng màu & Quy chuẩn thiết kế chuẩn Figma Group C
 class BookingColors {
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color primary = Color(0xFF0066B2);
-  static const Color heading = Color(0xFF0F172A);
-  static const Color textPrimary = Color(0xFF1E293B);
-  static const Color textSecondary = Color(0xFF6B6158);
-  static const Color cardWarm = Color(0xFFF0F7FF);
+  static const Color background = Color(0xFFF5F7F7);
+  static const Color primary = Color(0xFF168477);
+  static const Color primaryDark = Color(0xFF145B55);
+  static const Color heading = Color(0xFF145B55);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF475569);
+  static const Color cardWarm = Color(0xFFE8F5F1);
   static const Color cardBorder = Color(0xFFE2E8F0);
   static const Color cardWhite = Colors.white;
-  static const Color successText = Color(0xFF236B42);
-  static const Color successBg = Color(0xFFEFF7F0);
+  static const Color successText = Color(0xFF168477);
+  static const Color successBg = Color(0xFFE8F5F1);
   static const Color errorText = Color(0xFFB63131);
   static const Color errorBg = Color(0xFFFFF0ED);
-  static const Color qrBorder = Color(0xFF0284C7);
-  static const Color slotDisabledBg = Color(0xFFEBE3DA);
+  static const Color qrBorder = Color(0xFF168477);
+  static const Color slotDisabledBg = Color(0xFFF1F5F9);
 }
 
 /// 1. AppBar chuẩn Figma Group C
@@ -343,7 +344,7 @@ class BookingSummaryCardWidget extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: BookingColors.cardBorder, width: 1.0),
       ),
       padding: const EdgeInsets.all(16),
@@ -583,7 +584,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: BookingColors.cardBorder),
       ),
       padding: const EdgeInsets.all(16),
@@ -713,7 +714,7 @@ class _VoucherInputCardWidgetState extends State<VoucherInputCardWidget> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: BookingColors.cardBorder),
       ),
       padding: const EdgeInsets.all(16),
@@ -799,7 +800,7 @@ class PrepaidPackageSelectorWidget extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: BookingColors.cardBorder,
           width: 1.0,
@@ -895,7 +896,7 @@ class PaymentQRPlaceholderWidget extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: BookingColors.cardWarm,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: BookingColors.cardBorder),
       ),
       padding: const EdgeInsets.all(16),
@@ -1015,7 +1016,7 @@ class CheckInQRCodeWidget extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: BookingColors.cardWarm,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: BookingColors.cardBorder),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1072,7 +1073,7 @@ class BookingTimelineWidget extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: BookingColors.cardBorder),
       ),
       padding: const EdgeInsets.all(16),

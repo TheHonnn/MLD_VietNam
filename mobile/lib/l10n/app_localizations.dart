@@ -635,7 +635,7 @@ abstract class AppLocalizations {
   /// No description provided for @noLearningResults.
   ///
   /// In vi, this message translates to:
-  /// **'Chưa có kết quả học tập & giấy chứng nhận'**
+  /// **'Chưa có kết quả học tập & chứng chỉ'**
   String get noLearningResults;
 
   /// No description provided for @noLearningResultsDesc.

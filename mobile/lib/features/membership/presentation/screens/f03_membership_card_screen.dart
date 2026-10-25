@@ -81,20 +81,20 @@ class F03MembershipCardScreen extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           stops: [0.0, 0.55, 1.0],
                           colors: [
                             Color(0xFF7E4213),
-                            Color(0xFF0066B2),
-                            Color(0xFF0F172A),
+                            Color(0xFF168477),
+                            Color(0xFF1F2937),
                           ],
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF0F172A).withValues(alpha: 0.3),
+                            color: const Color(0xFF1F2937).withValues(alpha: 0.3),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
@@ -114,7 +114,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(10.4),
-                                  border: Border.all(color: const Color(0xFF0284C7), width: 1.0),
+                                  border: Border.all(color: const Color(0xFF145B55), width: 1.0),
                                 ),
                                 child: Image.asset(
                                   'assets/images/logo_mld.png',
@@ -134,7 +134,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                               const Icon(
                                 Icons.workspace_premium_rounded,
                                 size: 36,
-                                color: Color(0xFF0284C7),
+                                color: Color(0xFF145B55),
                               ),
                             ],
                           ),
@@ -147,7 +147,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 1.2,
-                              color: Color(0xFF0284C7),
+                              color: Color(0xFF145B55),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -165,7 +165,7 @@ class F03MembershipCardScreen extends StatelessWidget {
 
                           Container(
                             height: 1,
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.5),
+                            color: const Color(0xFF145B55).withValues(alpha: 0.5),
                           ),
 
                           const SizedBox(height: 14),
@@ -190,7 +190,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF0284C7),
+                                  color: Color(0xFF145B55),
                                 ),
                               ),
                               Text(
@@ -229,7 +229,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSecondary, // #F3E2CE
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppColors.border, width: 1.0),
                       ),
                       child: Column(
@@ -318,7 +318,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppColors.border, width: 1.0),
                         ),
                         child: Row(
@@ -372,7 +372,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSecondary, // #F3E2CE
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppColors.border, width: 1.0),
                       ),
                       child: Column(

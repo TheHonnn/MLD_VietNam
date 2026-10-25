@@ -26,27 +26,27 @@ class BookingStatusBadge extends StatelessWidget {
 
     switch (status) {
       case AppointmentStatus.pending:
-        bg = const Color(0xFFF0F7FF);
-        textColor = const Color(0xFF0066B2);
+        bg = const Color(0xFFE8F5F1);
+        textColor = const Color(0xFF168477);
         label = 'Chờ xác nhận';
         break;
       case AppointmentStatus.confirmed:
-        bg = const Color(0xFFF0F7FF);
-        textColor = const Color(0xFF236B42);
+        bg = const Color(0xFFE8F5F1);
+        textColor = const Color(0xFF145B55);
         label = isSimulated ? 'Đã xác nhận' : 'Đã xác nhận';
         break;
       case AppointmentStatus.inService:
-        bg = const Color(0xFFF0F7FF);
-        textColor = const Color(0xFF0066B2);
+        bg = const Color(0xFFE8F5F1);
+        textColor = const Color(0xFF168477);
         label = 'Đang phục vụ';
         break;
       case AppointmentStatus.completed:
-        bg = const Color(0xFFF0F7FF);
-        textColor = const Color(0xFF236B42);
+        bg = const Color(0xFFE8F5F1);
+        textColor = const Color(0xFF145B55);
         label = 'Hoàn thành';
         break;
       case AppointmentStatus.cancelled:
-        bg = const Color(0xFFF8FAFC);
+        bg = const Color(0xFFF1F5F9);
         textColor = const Color(0xFFB63131);
         label = 'Đã hủy';
         break;

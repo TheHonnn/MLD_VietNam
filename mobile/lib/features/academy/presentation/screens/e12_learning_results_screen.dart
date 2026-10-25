@@ -169,7 +169,7 @@ class E12LearningResultsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AcademyColors.cardWarm,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Column(
@@ -257,7 +257,7 @@ class E12LearningResultsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: const Column(
@@ -317,11 +317,11 @@ class E12LearningResultsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF0066B2), width: 1.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF168477), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0066B2).withValues(alpha: 0.1),
+                    color: const Color(0xFF168477).withValues(alpha: 0.1),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -331,7 +331,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF0066B2).withValues(alpha: 0.3), width: 1.0),
+                  border: Border.all(color: const Color(0xFF168477).withValues(alpha: 0.3), width: 1.0),
                 ),
                 child: Column(
                   children: [
@@ -339,7 +339,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.workspace_premium_rounded, color: Color(0xFF0066B2), size: 32),
+                        Icon(Icons.workspace_premium_rounded, color: Color(0xFF168477), size: 32),
                         SizedBox(width: 8),
                         Text(
                           'MLD VIETNAM ACADEMY',
@@ -360,7 +360,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF1F2937),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -369,14 +369,14 @@ class E12LearningResultsScreen extends StatelessWidget {
                       height: 2.5,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF0066B2), Color(0xFF0284C7)],
+                          colors: [Color(0xFF168477), Color(0xFF145B55)],
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     const Text(
                       'Chứng nhận học viên',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                      style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
                     ),
                     const SizedBox(height: 4),
                     const Text(
@@ -384,13 +384,13 @@ class E12LearningResultsScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0066B2),
+                        color: Color(0xFF168477),
                       ),
                     ),
                     const SizedBox(height: 4),
                     const Text(
                       'Sinh ngày: 15/08/1996',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -404,14 +404,14 @@ class E12LearningResultsScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF1F2937),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0F7FF),
+                        color: const Color(0xFFE8F5F1),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
@@ -420,15 +420,15 @@ class E12LearningResultsScreen extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Mã Giấy chứng nhận:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                              Text('MLD-GCN-2026-00089', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066B2))),
+                              Text('Mã Giấy chứng nhận:', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                              Text('MLD-GCN-2026-00089', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF168477))),
                             ],
                           ),
                           SizedBox(height: 4),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Ngày cấp:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                              Text('Ngày cấp:', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
                               Text('28/08/2026', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
                             ],
                           ),
@@ -453,7 +453,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                     const SizedBox(height: 6),
                     const Text(
                       'Quét mã QR để tra cứu tính xác thực trực tuyến',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
                     ),
                     const SizedBox(height: 16),
                     // Nút xuất PDF (Mục 75)
@@ -465,14 +465,14 @@ class E12LearningResultsScreen extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Đang tải xuống Giấy chứng nhận bản PDF chính thức (MLD-GCN-2026-00089.pdf)...'),
-                              backgroundColor: Color(0xFF0066B2),
+                              backgroundColor: Color(0xFF168477),
                             ),
                           );
                         },
                         icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                         label: const Text('Xuất Giấy chứng nhận (PDF)', style: TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066B2),
+                          backgroundColor: const Color(0xFF168477),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 0,
@@ -509,7 +509,7 @@ class E12LearningResultsScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
       ),
       child: Column(
@@ -626,7 +626,7 @@ class E12LearningResultsScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
       ),
       child: Column(
@@ -655,14 +655,14 @@ class E12LearningResultsScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              const Icon(Icons.workspace_premium, color: Color(0xFF0284C7), size: 48),
+              const Icon(Icons.workspace_premium, color: Color(0xFF145B55), size: 48),
               const SizedBox(height: 12),
               const Text(
                 'Chứng Nhận Hoàn Thành',

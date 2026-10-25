@@ -203,7 +203,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: const Color(0xFFE8F5F1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -211,12 +211,12 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0066B2),
+                          color: Color(0xFF168477),
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                      icon: const Icon(Icons.close, color: Color(0xFF475569)),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -239,7 +239,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
+                          color: Color(0xFF1F2937),
                           height: 1.3,
                         ),
                       ),
@@ -248,7 +248,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                       // Thông tin tác giả & ngày đăng
                       Row(
                         children: [
-                          const Icon(Icons.verified, size: 16, color: Color(0xFF0066B2)),
+                          const Icon(Icons.verified, size: 16, color: Color(0xFF168477)),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -256,7 +256,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF475569),
                               ),
                             ),
                           ),
@@ -305,7 +305,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
+                          color: const Color(0xFFF5F7F7),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
@@ -317,13 +317,13 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF0F172A),
+                                color: Color(0xFF1F2937),
                               ),
                             ),
                             const SizedBox(height: 6),
                             const Text(
                               'Liên hệ chuyên gia hoặc đăng ký kiểm tra phù nề y khoa trực tiếp tại cơ sở MLD Việt Nam.',
-                              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+                              style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
                             ),
                             const SizedBox(height: 14),
                             Row(
@@ -331,7 +331,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                                 Expanded(
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0066B2),
+                                      backgroundColor: const Color(0xFF168477),
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -351,8 +351,8 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                                 Expanded(
                                   child: OutlinedButton(
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: const Color(0xFF0066B2),
-                                      side: const BorderSide(color: Color(0xFF0066B2)),
+                                      foregroundColor: const Color(0xFF168477),
+                                      side: const BorderSide(color: Color(0xFF168477)),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                     ),
@@ -387,13 +387,13 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
     final filtered = _filteredArticles;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF5F7F7),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Color(0xFF0F172A)),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Color(0xFF1F2937)),
           onPressed: () {
             if (widget.onBack != null) {
               widget.onBack!();
@@ -409,7 +409,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF1F2937),
               ),
             ),
             SizedBox(height: 2),
@@ -417,7 +417,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
               'Góc chia sẻ bài viết & tài liệu trị liệu MLD',
               style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF64748B),
+                color: Color(0xFF475569),
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -442,7 +442,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
+                  const Icon(Icons.search, size: 20, color: Color(0xFF475569)),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
@@ -458,7 +458,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                   ),
                   if (_searchController.text.isNotEmpty)
                     IconButton(
-                      icon: const Icon(Icons.clear, size: 18, color: Color(0xFF64748B)),
+                      icon: const Icon(Icons.clear, size: 18, color: Color(0xFF475569)),
                       onPressed: () {
                         _searchController.clear();
                         setState(() {});
@@ -489,10 +489,10 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                       ),
                     ),
                     selected: isSelected,
-                    selectedColor: const Color(0xFF0066B2),
+                    selectedColor: const Color(0xFF168477),
                     backgroundColor: Colors.white,
                     side: BorderSide(
-                      color: isSelected ? const Color(0xFF0066B2) : const Color(0xFFCBD5E1),
+                      color: isSelected ? const Color(0xFF168477) : const Color(0xFFCBD5E1),
                     ),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     showCheckmark: false,
@@ -515,7 +515,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                 alignment: Alignment.center,
                 child: const Text(
                   'Không tìm thấy bài viết phù hợp',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
                 ),
               )
             else
@@ -592,14 +592,14 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.verified, size: 12, color: Color(0xFF0066B2)),
+                          Icon(Icons.verified, size: 12, color: Color(0xFF168477)),
                           SizedBox(width: 4),
                           Text(
                             'MLD VIETNAM · TÀI LIỆU TRỊ LIỆU',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF0066B2),
+                              color: Color(0xFF168477),
                               letterSpacing: 0.3,
                             ),
                           ),
@@ -618,7 +618,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
               style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF1F2937),
                 height: 1.35,
               ),
             ),

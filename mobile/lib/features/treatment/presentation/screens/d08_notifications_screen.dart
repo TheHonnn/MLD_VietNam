@@ -60,10 +60,10 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             item.category == NotificationCategory.appointments ? 'Lịch hẹn chăm sóc' : 'Thông tin liệu trình',
-            style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w700),
+            style: const TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.w700),
           ),
           content: Text(
             item.title,
@@ -83,7 +83,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0066B2),
+                backgroundColor: const Color(0xFF168477),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: const Text('Xem gói liệu trình', style: TextStyle(color: Colors.white)),
@@ -166,7 +166,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF0066B2),
+                      color: Color(0xFF168477),
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -180,7 +180,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF1F2937),
                   height: 1.25,
                 ),
               ),
@@ -216,7 +216,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                       ),
                       child: const Icon(
                         Icons.tune,
-                        color: Color(0xFF0066B2),
+                        color: Color(0xFF168477),
                         size: 20,
                       ),
                     ),
@@ -239,7 +239,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF0066B2),
+                            color: Color(0xFF168477),
                           ),
                         ),
                       ),
@@ -269,10 +269,10 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 18),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF0066B2) : Colors.white,
+                            color: isSelected ? const Color(0xFF168477) : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isSelected ? const Color(0xFF0066B2) : const Color(0xFFE2E8F0),
+                              color: isSelected ? const Color(0xFF168477) : const Color(0xFFE2E8F0),
                               width: 1.0,
                             ),
                           ),
@@ -333,13 +333,13 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: InkWell(
                             onTap: () => _markOneAsRead(notif),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: isUnread ? const Color(0xFFF0F7FF) : Colors.white,
-                                borderRadius: BorderRadius.circular(20),
+                                color: isUnread ? const Color(0xFFE8F5F1) : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
                                 border: isUnread
                                     ? null
                                     : Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
@@ -357,7 +357,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                                     ),
                                     child: Icon(
                                       _getIconData(notif.iconType),
-                                      color: const Color(0xFF0066B2),
+                                      color: const Color(0xFF168477),
                                       size: 20,
                                     ),
                                   ),

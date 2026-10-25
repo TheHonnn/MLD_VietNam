@@ -29,7 +29,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Chưa đủ điểm thưởng', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textHeading)),
           content: Text('Bạn cần ${rw.pointsRequired} điểm để đổi "${rw.title}". Hiện tại bạn đang có $currentPoints điểm.'),
           actions: [
@@ -46,7 +46,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận đổi ưu đãi', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textHeading)),
         content: Text('Bạn có chắc chắn muốn dùng ${rw.pointsRequired} điểm để đổi "${rw.title}" không?'),
         actions: [
@@ -172,7 +172,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSecondary, // #F3E2CE
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppColors.border, width: 1.0),
                       ),
                       child: Column(
@@ -333,7 +333,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: AppColors.border, width: 1.0),
                           ),
                           child: Column(
@@ -341,7 +341,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                             children: [
                               const Row(
                                 children: [
-                                  Icon(Icons.diamond_outlined, size: 22, color: Color(0xFF0284C7)),
+                                  Icon(Icons.diamond_outlined, size: 22, color: Color(0xFF145B55)),
                                   SizedBox(width: 8),
                                   Text(
                                     'Hướng tới hạng Bạc',
@@ -513,7 +513,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                                     thickness: 1,
                                     indent: 16,
                                     endIndent: 16,
-                                    color: Color(0xFFF0F7FF),
+                                    color: Color(0xFFE8F5F1),
                                   ),
                               ],
                             );
@@ -549,14 +549,14 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppColors.border, width: 1.0),
                         ),
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () => _showRedeemConfirmation(rw),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Row(

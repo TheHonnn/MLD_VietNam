@@ -59,7 +59,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
       ),
       child: Column(
@@ -228,7 +228,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Column(
@@ -284,7 +284,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                       const SizedBox(width: 14),
                       _buildLegendDot(AcademyColors.primary, 'Tại lớp'),
                       const SizedBox(width: 14),
-                      _buildLegendDot(const Color(0xFF0284C7), 'Thực hành'),
+                      _buildLegendDot(const Color(0xFF145B55), 'Thực hành'),
                       const SizedBox(width: 14),
                       _buildLegendDot(const Color(0xFF1E293B), 'Kiểm tra'),
                     ],
@@ -307,7 +307,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AcademyColors.cardWarm,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Column(
@@ -407,7 +407,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AcademyColors.cardWarm,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: const Column(
@@ -456,7 +456,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Column(
@@ -496,13 +496,13 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   // Khung QR điểm danh
                   InkWell(
                     onTap: _handleAttendanceScan,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         color: AcademyColors.cardWarm,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                       ),
                       child: const Column(
@@ -620,7 +620,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                                     : dotType == 'class'
                                         ? AcademyColors.primary
                                         : dotType == 'practice'
-                                            ? const Color(0xFF0284C7)
+                                            ? const Color(0xFF145B55)
                                             : const Color(0xFF1E293B),
                           ),
                         )

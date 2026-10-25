@@ -439,7 +439,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đang mở liên kết: $urlString'),
-            backgroundColor: const Color(0xFF0066B2),
+            backgroundColor: AppColors.primary,
           ),
         );
       }
@@ -472,7 +472,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Image.asset(
                       'assets/images/logo_mld.png',
                       height: 24,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.spa, size: 22, color: Color(0xFF0066B2)),
+                      errorBuilder: (_, __, ___) => const Icon(Icons.spa, size: 22, color: AppColors.primary),
                     ),
                     const SizedBox(width: 8),
                     const Text(
@@ -481,7 +481,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
-                        color: Color(0xFF0066B2),
+                        color: AppColors.primary,
                       ),
                     ),
                   ],
@@ -538,10 +538,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: AppColors.mintBackground,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.language_rounded, size: 20, color: Color(0xFF0066B2)),
+                          child: const Icon(Icons.language_rounded, size: 20, color: AppColors.primary),
                         ),
                         const SizedBox(width: 12),
                         const Expanded(
@@ -567,7 +567,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             ],
                           ),
                         ),
-                        const Icon(Icons.open_in_new_rounded, size: 16, color: Color(0xFF0066B2)),
+                        const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.primary),
                       ],
                     ),
                   ),
@@ -601,7 +601,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: AppColors.mintBackground,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(Icons.facebook_rounded, size: 20, color: Color(0xFF1877F2)),
@@ -1183,14 +1183,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                       child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.open_in_new, size: 11, color: Color(0xFF0066B2)),
+                                          Icon(Icons.open_in_new, size: 11, color: AppColors.primary),
                                           SizedBox(width: 4),
                                           Text(
                                             'Website · Facebook',
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.w700,
-                                              color: Color(0xFF0066B2),
+                                              color: AppColors.primary,
                                             ),
                                           ),
                                         ],
@@ -1295,14 +1295,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.public, size: 13, color: Color(0xFF0066B2)),
+                                  Icon(Icons.public, size: 13, color: AppColors.primary),
                                   SizedBox(width: 4),
                                   Text(
                                     'Truy cập Website & Facebook MLD Vietnam',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF0066B2),
+                                      color: AppColors.primary,
                                       decoration: TextDecoration.underline,
                                     ),
                                   ),
@@ -2041,14 +2041,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF0066B2), Color(0xFF0284C7)],
+                    colors: [AppColors.primaryDark, AppColors.primary],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF0066B2).withValues(alpha: 0.25),
+                      color: AppColors.primary.withValues(alpha: 0.25),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -2105,7 +2105,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF0066B2),
+                          foregroundColor: AppColors.primary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

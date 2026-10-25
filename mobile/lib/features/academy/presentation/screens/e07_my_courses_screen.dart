@@ -96,7 +96,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AcademyColors.cardWarm,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Column(
@@ -236,7 +236,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
       ),
       child: Column(
@@ -296,7 +296,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
       ),
       child: Column(
@@ -379,14 +379,14 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           const SizedBox(height: 6),
           const Row(
             children: [
-              Icon(Icons.timer_outlined, size: 14, color: Color(0xFF0066B2)),
+              Icon(Icons.timer_outlined, size: 14, color: Color(0xFF168477)),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Thời hạn học: Đến 31/12/2026 (Còn 68 ngày)',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF0066B2),
+                    color: Color(0xFF168477),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

@@ -99,7 +99,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSecondary, // #F3E2CE
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppColors.border, width: 1.0),
                       ),
                       child: Column(
@@ -145,7 +145,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                               const Icon(
                                 Icons.card_giftcard_rounded,
                                 size: 28,
-                                color: Color(0xFF0284C7),
+                                color: Color(0xFF145B55),
                               ),
                             ],
                           ),
@@ -315,7 +315,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border, width: 1.0),
         boxShadow: [
           BoxShadow(
@@ -359,7 +359,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                 const Icon(
                   Icons.auto_awesome_rounded,
                   size: 20,
-                  color: Color(0xFF0284C7),
+                  color: Color(0xFF145B55),
                 ),
               ],
             ),

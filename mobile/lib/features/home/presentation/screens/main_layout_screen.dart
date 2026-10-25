@@ -140,7 +140,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               child: Icon(
                 icon,
                 size: 22,
-                color: isSelected ? AppColors.primary : const Color(0xFF80766E),
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: 2),

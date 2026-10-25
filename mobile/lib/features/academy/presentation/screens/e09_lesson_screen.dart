@@ -271,13 +271,13 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: const Color(0xFFE8F5F1),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFBFDBFE)),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF0066B2)),
+                  Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF168477)),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -421,7 +421,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: AcademyColors.cardWarm,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                 ),
                 child: const Column(

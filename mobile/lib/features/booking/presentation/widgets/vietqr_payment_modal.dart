@@ -418,7 +418,7 @@ class _VietQrPaymentModalState extends State<VietQrPaymentModal> {
                               size: 190.0,
                               eyeStyle: const QrEyeStyle(
                                 eyeShape: QrEyeShape.square,
-                                color: Color(0xFF0066B2),
+                                color: AppColors.primary,
                               ),
                               dataModuleStyle: const QrDataModuleStyle(
                                 dataModuleShape: QrDataModuleShape.square,
@@ -450,7 +450,7 @@ class _VietQrPaymentModalState extends State<VietQrPaymentModal> {
                                     size: 190.0,
                                     eyeStyle: const QrEyeStyle(
                                       eyeShape: QrEyeShape.square,
-                                      color: Color(0xFF0066B2),
+                                      color: AppColors.primary,
                                     ),
                                     dataModuleStyle: const QrDataModuleStyle(
                                       dataModuleShape: QrDataModuleShape.square,
