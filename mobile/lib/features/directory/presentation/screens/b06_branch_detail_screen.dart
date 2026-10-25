@@ -1,8 +1,7 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
-import '../../../booking/data/models/booking_models.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../../services/presentation/screens/b03_service_detail_screen.dart';
@@ -599,11 +598,7 @@ class _B06BranchDetailScreenState extends State<B06BranchDetailScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => C01ServiceSelectionScreen(
-                          flowState: BookingFlowState(
-                            selectedBranch: targetBranch,
-                          ),
-                        ),
+                        builder: (_) => const AllInOneBookingScreen(),
                       ),
                     );
                   },

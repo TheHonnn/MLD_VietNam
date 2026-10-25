@@ -1,11 +1,10 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:medical_healthcare_app/features/home/data/models/home_models.dart';
 import 'package:medical_healthcare_app/features/home/data/repositories/mock_home_repository.dart';
 import '../widgets/branch_card_widget.dart';
 import '../widgets/specialist_card_widget.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
-import '../../../booking/data/models/booking_models.dart';
 
 class B02BranchesSpecialistsScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -233,10 +232,8 @@ class _B02BranchesSpecialistsScreenState extends State<B02BranchesSpecialistsScr
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => C01ServiceSelectionScreen(
-                                    flowState: BookingFlowState(selectedBranch: clinic),
-                                  ),
-                                ),
+                                  builder: (_) => const AllInOneBookingScreen(),
+                      ),
                               );
                             },
                             onDirectionTap: () {
@@ -264,10 +261,8 @@ class _B02BranchesSpecialistsScreenState extends State<B02BranchesSpecialistsScr
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => C01ServiceSelectionScreen(
-                                    flowState: BookingFlowState(selectedSpecialist: doctor),
-                                  ),
-                                ),
+                                  builder: (_) => const AllInOneBookingScreen(),
+                      ),
                               );
                             },
                             onProfileTap: () {

@@ -1,8 +1,9 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../data/models/treatment_models.dart';
-import '../../data/repositories/treatment_repository.dart';
+import '../../data/repositories/treatment_repository.dart';
+
 import 'd04_pre_service_consultation_screen.dart';
 import 'd05_service_review_screen.dart';
 import 'd06_home_care_guidelines_screen.dart';
@@ -355,7 +356,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
+                                MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
                               );
                             },
                             style: OutlinedButton.styleFrom(

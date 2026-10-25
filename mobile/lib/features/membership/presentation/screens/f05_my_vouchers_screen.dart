@@ -1,8 +1,8 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 
 class F05MyVouchersScreen extends StatefulWidget {
   const F05MyVouchersScreen({super.key});
@@ -262,7 +262,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
+                      MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
                     );
                   },
                   child: const Text(
@@ -469,7 +469,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
+                        MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
                       );
                     },
                     child: const Text(

@@ -1,6 +1,6 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import 'd10_lymph_examination_screen.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 
 /// Screen D11: Trang Cộng đồng MLD Việt Nam (Điểm 118, 154 trong Website Trang chủ, dịch vụ, đặt lịch.txt)
 /// Chuẩn 100% theo giao diện bài viết chuyên môn do Admin/Trung tâm đăng tải:
@@ -360,7 +360,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
                                       Navigator.pop(ctx);
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
+                                        MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
                                       );
                                     },
                                     child: const Text('Đặt trị liệu', style: TextStyle(fontWeight: FontWeight.w600)),

@@ -1,3 +1,4 @@
+import '../../data/repositories/service_repository.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -39,6 +40,7 @@ class B01HomeScreen extends StatefulWidget {
 
 class _B01HomeScreenState extends State<B01HomeScreen> {
   String _selectedBranch = 'Chi nhánh Đống Đa - Hà Nội';
+  SpaServiceModel? _coreService;
 
   // Danh mục Icon tiện ích trang chủ
   final List<Map<String, dynamic>> _shortcuts = [
@@ -73,6 +75,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     super.initState();
     _initBranchListener();
     _loadUserProfile();
+    _loadCoreServiceFromAdmin();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
     });
@@ -132,6 +135,19 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       MaterialPageRoute(
         builder: (_) => const AllInOneBookingScreen(),
       ),
+    );
+  }
+
+  Future<void> _loadCoreServiceFromAdmin() async {
+    final srv = await ServiceRepository.instance.getCoreVodderService();
+    if (!mounted) return;
+    setState(() => _coreService = srv);
+  }
+
+  String _formatCurrency(double amount) {
+    return amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
     );
   }
 
@@ -890,29 +906,29 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Column(
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Thời lượng ca:',
                               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                             ),
                             Text(
-                              '60 phút / ca',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                              '${_coreService?.durationMinutes ?? 60} phút / ca',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                             ),
                           ],
                         ),
-                        const Column(
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Đơn giá (đã gồm VAT 8%):',
-                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              'Đơn giá (đã gồm VAT ${((_coreService?.vatRate ?? 0.08) * 100).toInt()}%):',
+                              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                             ),
                             Text(
-                              '702.000đ',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+                              '${_formatCurrency(_coreService?.priceWithVat ?? 702000)}đ',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
                             ),
                           ],
                         ),

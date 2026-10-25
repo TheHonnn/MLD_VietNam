@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/booking/data/models/booking_models.dart';
-import 'package:medical_healthcare_app/features/booking/presentation/screens/c06_booking_confirmation_screen.dart';
-import 'package:medical_healthcare_app/features/booking/presentation/screens/c07_payment_qr_screen.dart';
+import 'package:medical_healthcare_app/features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:medical_healthcare_app/features/booking/presentation/widgets/group_c_widgets.dart';
 
 void main() {
@@ -46,37 +45,27 @@ void main() {
     expect(find.text('Sửa thông tin khách hàng'), findsOneWidget);
   });
 
-  testWidgets('C06BookingConfirmationScreen renders properly without crashing', (WidgetTester tester) async {
+  testWidgets('AllInOneBookingScreen renders properly with all booking sections and buttons', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(400, 1600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    final flowState = BookingFlowState();
     await tester.pumpWidget(
-      MaterialApp(
-        home: C06BookingConfirmationScreen(flowState: flowState),
+      const MaterialApp(
+        home: AllInOneBookingScreen(),
       ),
     );
 
-    expect(find.text('Xác nhận đặt lịch'), findsWidgets);
-  });
+    // Wait for frames
+    await tester.pumpAndSettle();
 
-  testWidgets('C07PaymentQrScreen renders properly with cardBorder and without crashing', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(400, 1600);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-
-    final flowState = BookingFlowState();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: C07PaymentQrScreen(flowState: flowState),
-      ),
-    );
-
-    expect(find.text('Thanh toán'), findsOneWidget);
-    expect(find.text('Chờ thanh toán'), findsOneWidget);
-    expect(find.text('Chuyển khoản ngân hàng / QR'), findsOneWidget);
-    expect(find.text('Thanh toán và hoàn tất'), findsOneWidget);
+    // Verify App Bar & Core service header
+    expect(find.text('Đặt lịch trị liệu'), findsOneWidget);
+    expect(find.text('DỊCH VỤ TRỊ LIỆU CỐT LÕI'), findsOneWidget);
+    expect(find.text('Chọn chi nhánh thực hiện'), findsOneWidget);
+    expect(find.text('Thời gian & Số lượng khách'), findsOneWidget);
+    expect(find.text('Thông tin khách hàng'), findsOneWidget);
+    expect(find.text('Bảng tóm tắt đặt lịch'), findsOneWidget);
+    expect(find.text('Xác nhận đặt lịch giữ chỗ'), findsOneWidget);
   });
 }
-

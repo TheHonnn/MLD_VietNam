@@ -1,13 +1,11 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
 
 import 'd02_package_details_screen.dart';
-import '../../../booking/data/models/booking_models.dart';
-import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 
 class D01MyPackagesScreen extends StatefulWidget {
@@ -241,7 +239,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const C01ServiceSelectionScreen()),
+                                MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
                               );
                             },
                             style: ElevatedButton.styleFrom(
@@ -582,15 +580,10 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           height: 44,
                           child: ElevatedButton(
                             onPressed: () {
-                              final flow = BookingFlowState(
-                                usePrepaidPackage: true,
-                                prepaidPackageName: package.packageName,
-                                autoAssignSpecialist: true,
-                              );
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => C02BranchSelectionScreen(flowState: flow),
+                                  builder: (_) => const AllInOneBookingScreen(),
                                 ),
                               );
                             },
@@ -754,7 +747,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const C01ServiceSelectionScreen(),
+                          builder: (_) => const AllInOneBookingScreen(),
                         ),
                       );
                     },

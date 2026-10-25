@@ -1,6 +1,6 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../data/models/treatment_models.dart';
 import 'd03_care_journal_screen.dart';
 import 'd04_pre_service_consultation_screen.dart';
@@ -261,7 +261,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => const C01ServiceSelectionScreen(),
+                                      builder: (_) => const AllInOneBookingScreen(),
                                     ),
                                   );
                                 },
@@ -476,7 +476,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const C01ServiceSelectionScreen(),
+                        builder: (_) => const AllInOneBookingScreen(),
                       ),
                     );
                   },

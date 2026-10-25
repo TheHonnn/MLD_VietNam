@@ -1,7 +1,6 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../booking/data/models/booking_models.dart';
-import '../../../booking/presentation/screens/c01_service_selection_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../home/data/repositories/technician_repository.dart';
@@ -636,12 +635,7 @@ class _B08SpecialistProfileScreenState extends State<B08SpecialistProfileScreen>
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => C01ServiceSelectionScreen(
-                          flowState: BookingFlowState(
-                            selectedSpecialist: matchedSpec,
-                            autoAssignSpecialist: matchedSpec == null,
-                          ),
-                        ),
+                        builder: (_) => const AllInOneBookingScreen(),
                       ),
                     );
                   },

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/models/booking_models.dart';
-import 'booking_stepper.dart';
 
 /// Bảng màu & Quy chuẩn thiết kế chuẩn Figma Group C
 class BookingColors {
@@ -138,7 +137,21 @@ class BookingHeaderSection extends StatelessWidget {
         ],
         if (showStepper) ...[
           const SizedBox(height: 12),
-          BookingStepper(currentStep: currentStep),
+          Row(
+            children: List.generate(4, (i) {
+              final active = i <= currentStep;
+              return Expanded(
+                child: Container(
+                  height: 4,
+                  margin: EdgeInsets.only(right: i < 3 ? 6 : 0),
+                  decoration: BoxDecoration(
+                    color: active ? BookingColors.primary : BookingColors.cardBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              );
+            }),
+          ),
         ],
         const SizedBox(height: 16),
       ],

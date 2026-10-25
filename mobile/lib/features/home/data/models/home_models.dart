@@ -214,6 +214,7 @@ class SpaServiceModel {
   final int durationMinutes;
   final double price;
   final double? discountPrice;
+  final double vatRate;
   final String imageUrl;
   final List<String> steps;
   final List<String> benefits;
@@ -228,6 +229,7 @@ class SpaServiceModel {
     required this.durationMinutes,
     required this.price,
     this.discountPrice,
+    this.vatRate = 0.08,
     required this.imageUrl,
     this.steps = const [],
     this.benefits = const [],
@@ -235,6 +237,8 @@ class SpaServiceModel {
   });
 
   double get displayPrice => discountPrice ?? price;
+  double get vatAmount => displayPrice * vatRate;
+  double get priceWithVat => displayPrice + vatAmount;
   String get description => shortDescription.isNotEmpty ? shortDescription : fullDescription;
   String get category => categoryName;
 
@@ -267,6 +271,7 @@ class SpaServiceModel {
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 60,
       price: (json['price'] as num?)?.toDouble() ?? (json['priceRaw'] as num?)?.toDouble() ?? 450000.0,
       discountPrice: (json['discount_price'] as num?)?.toDouble() ?? (json['discountPrice'] as num?)?.toDouble(),
+      vatRate: (json['vat_rate'] as num?)?.toDouble() ?? (json['vatRate'] as num?)?.toDouble() ?? 0.08,
       imageUrl: json['image_url'] as String? ?? json['image'] as String? ?? 'assets/images/gioithieu_1.png',
       steps: stepsList,
       benefits: benefitsList,

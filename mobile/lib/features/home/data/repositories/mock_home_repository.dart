@@ -216,17 +216,17 @@ class MockHomeRepository {
 
   static List<SpaServiceModel> getFeaturedServices() {
     return const [
-      // 1. Massage thư giãn
+      // 1. Dịch vụ cốt lõi duy nhất do Admin thiết lập
       SpaServiceModel(
-        id: 'srv-001',
-        name: 'Massage thư giãn toàn thân',
-        categoryName: 'Massage thư giãn',
-        shortDescription: 'Thả lỏng cơ thể trong không gian yên tĩnh.',
-        fullDescription: 'Dịch vụ massage thư giãn toàn thân sử dụng tinh dầu tự nhiên kết hợp các kỹ thuật ấn huyệt nhẹ nhàng, giúp xua tan mệt mỏi và phục hồi năng lượng.',
+        id: 'srv-vodder-core',
+        name: 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
+        categoryName: 'Dẫn lưu bạch huyết MLD',
+        shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
+        fullDescription: 'Ứng dụng kỹ thuật Vodder MLD nhẹ nhàng kích hoạt hệ mao mạch bạch huyết dưới bề mặt da, hỗ trợ giải phóng dịch ứ đọng, tăng cường miễn dịch và thải độc tế bào.',
         durationMinutes: 60,
-        price: 450000,
-        discountPrice: 350000,
-        imageUrl: 'assets/images/specialist_hero_1.png',
+        price: 650000,
+        vatRate: 0.08,
+        imageUrl: 'assets/images/logo_mld.png',
         isFeatured: true,
       ),
       SpaServiceModel(

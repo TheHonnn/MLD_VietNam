@@ -1,7 +1,6 @@
+import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../booking/data/models/booking_models.dart';
-import '../../../booking/presentation/screens/c02_branch_selection_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
@@ -729,16 +728,11 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                             );
                           }
 
-                          final flow = BookingFlowState(
-                            selectedServices: [effectiveService],
-                            selectedService: effectiveService,
-                          );
-
                           // Điều hướng THẲNG sang Bước 2: Chọn Chi nhánh (C02BranchSelectionScreen)
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => C02BranchSelectionScreen(flowState: flow),
+                              builder: (_) => const AllInOneBookingScreen(),
                             ),
                           );
                         },

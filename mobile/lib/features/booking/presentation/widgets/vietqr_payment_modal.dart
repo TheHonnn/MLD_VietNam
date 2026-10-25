@@ -7,7 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../data/models/booking_models.dart';
-import '../screens/c08_booking_success_screen.dart';
+import '../screens/c09_my_appointments_screen.dart';
 import 'group_c_widgets.dart';
 
 /// Modal quét mã VietQR và kiểm tra tự động / thủ công qua Cổng PayOS - MBBank
@@ -246,7 +246,7 @@ class _VietQrPaymentModalState extends State<VietQrPaymentModal> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) => C08BookingSuccessScreen(flowState: widget.flowState),
+          builder: (_) => const C09MyAppointmentsScreen(),
         ),
         (route) => route.isFirst,
       );

@@ -7,6 +7,41 @@ import 'mock_home_repository.dart';
 /// Real Service Repository fetching spa services from Supabase REST API
 /// With automatic resilient fallback to MockHomeRepository when offline.
 class ServiceRepository {
+  /// Thuế suất VAT toàn hệ thống do Admin thiết lập (8%, 10% hoặc tùy chỉnh)
+  double _systemVatRate = 0.08;
+  double get systemVatRate => _systemVatRate;
+  void updateAdminVatRate(double rate) {
+    _systemVatRate = rate;
+  }
+
+  /// Dịch vụ dẫn lưu phù bạch huyết Vodder MLD cốt lõi do Admin thiết lập
+  static const SpaServiceModel defaultCoreVodderService = SpaServiceModel(
+    id: 'srv-vodder-core',
+    name: 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
+    categoryName: 'Dẫn lưu bạch huyết MLD',
+    shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
+    fullDescription: 'Dẫn lưu phù bạch huyết chuẩn kỹ thuật Vodder chuyên sâu...',
+    durationMinutes: 60,
+    price: 650000,
+    vatRate: 0.08,
+    imageUrl: 'assets/images/logo_mld.png',
+    isFeatured: true,
+  );
+
+  /// Lấy dịch vụ cốt lõi do Admin thiết lập từ Supabase
+  Future<SpaServiceModel> getCoreVodderService() async {
+    final list = await getServices();
+    try {
+      return list.firstWhere(
+        (s) => s.name.toLowerCase().contains('bạch huyết') ||
+               s.name.toLowerCase().contains('vodder') ||
+               s.name.toLowerCase().contains('mld'),
+      );
+    } catch (_) {
+      return list.isNotEmpty ? list.first : defaultCoreVodderService;
+    }
+  }
+
   ServiceRepository._internal();
   static final ServiceRepository instance = ServiceRepository._internal();
   factory ServiceRepository() => instance;
