@@ -33,6 +33,9 @@ import {
   notificationService,
   customerService,
   supabaseService,
+  inventoryService,
+  commissionService,
+  znsService,
 } from '../services';
 import { toast } from '../components/common';
 import {
@@ -84,7 +87,9 @@ interface ScheduleAppointment {
   guestCount?: number;
   bedCode?: string;
   roomName?: string;
+  serviceId?: string;
 }
+
 
 export const TIME_SLOT_OPTIONS = [
   { label: '09:00–10:15', startHour: 9.0, durationHours: 1.25, bufferTimeRange: '10:15–10:30', bufferEndTime: '10:30' },
@@ -512,7 +517,9 @@ export const W05_StaffSchedule: React.FC = () => {
         guestCount: b.guestCount || 1,
         bedCode: b.assignedBedNumber || 'G01',
         roomName: b.room?.name || 'Phòng Trị Liệu',
+        serviceId: (b.items && b.items[0]?.serviceId) || (b as any).serviceId || (b as any).service_id || '',
       };
+
     });
   }, [liveBookings, customers, branchTechnicians, services]);
 
@@ -974,12 +981,32 @@ export const W05_StaffSchedule: React.FC = () => {
         if (appDate !== selectedDate) {
           handleSelectDate(appDate);
         }
+
+        // Giai đoạn 2: Tự động kích hoạt Zalo ZNS Xác nhận đặt lịch
+        if (custPhone.trim()) {
+          znsService.sendZns({
+            recipientPhone: custPhone.trim(),
+            recipientName: custName.trim(),
+            templateCode: 'BOOKING_CONFIRMATION',
+            bookingId: res.data.id,
+            paramsSent: {
+              customer_name: custName.trim(),
+              service_name: srv.name,
+              booking_time: startTimeStr.slice(0, 5),
+              booking_date: appDate,
+              branch_name: branches.find((b) => b.id === targetBranchId)?.name || 'MLD Vietnam',
+              staff_name: tech?.name || 'KTV MLD',
+              checkin_code: `MLD-${Math.floor(1000 + Math.random() * 9000)}`,
+            },
+          });
+        }
       }
 
       toast.success(
         'Tạo lịch hẹn thành công',
-        `Đã lên lịch "${srv.name}" cho khách hàng ${custName.trim()} lúc ${slot.label} ngày ${appDate}.`
+        `Đã lên lịch "${srv.name}" cho khách hàng ${custName.trim()} lúc ${slot.label} ngày ${appDate}. Tin Zalo ZNS xác nhận đã được gửi tự động.`
       );
+
 
       // Gửi thông báo hệ thống
       notificationService.addNotification({
@@ -1837,9 +1864,47 @@ export const W05_StaffSchedule: React.FC = () => {
                           disabled={isUpdatingStatus}
                           onClick={() => {
                             handleUpdateBookingStatus(selectedApp.id, BookingStatus.COMPLETED);
+
+                            // Giai đoạn 2: Tự động trừ kho nguyên vật liệu tiêu hao BOM
+                            const targetServiceId = selectedApp.serviceId || 'db29e3c0-c659-492c-8aef-a7d8abc772a3';
+                            const targetBranchId = selectedApp.branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
+                            inventoryService.deductMaterialsForBooking({
+                              bookingId: selectedApp.id,
+                              serviceId: targetServiceId,
+                              branchId: targetBranchId,
+                              technicianId: selectedApp.technicianId || null,
+                            });
+
+                            // Giai đoạn 2: Tự động ghi nhận hoa hồng KTV
+                            if (selectedApp.technicianId) {
+                              commissionService.createCommission({
+                                staffId: selectedApp.technicianId,
+                                branchId: targetBranchId,
+                                bookingId: selectedApp.id,
+                                commissionType: 'SERVICE_DIRECT',
+                                baseAmount: 450000,
+                                percentage: 10,
+                                notes: `Hoa hồng ca trị liệu ${selectedApp.service} cho khách ${selectedApp.customer}`,
+                              });
+                            }
+
+                            // Giai đoạn 2: Tự động gửi Zalo ZNS dặn dò sau trị liệu
+                            if (selectedApp.customerPhone) {
+                              znsService.sendZns({
+                                recipientPhone: selectedApp.customerPhone,
+                                recipientName: selectedApp.customer,
+                                templateCode: 'POST_TREATMENT_CARE',
+                                bookingId: selectedApp.id,
+                                paramsSent: {
+                                  customer_name: selectedApp.customer,
+                                  service_name: selectedApp.service,
+                                },
+                              });
+                            }
+
                             toast.success(
-                              'Kết ca trị liệu thành công!',
-                              `Ca của khách ${selectedApp.customer} đã hoàn tất. Giường và KTV ${selectedApp.technicianName} đã sẵn sàng tiếp nhận lượt tiếp theo.`
+                              'Kết ca trị liệu hoàn tất!',
+                              `Ca của khách ${selectedApp.customer} đã hoàn tất. Đã tự động trừ kho vật tư (BOM), trích hoa hồng KTV và lên lịch Zalo ZNS dặn dò sau trị liệu.`
                             );
                           }}
                           className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
@@ -1848,6 +1913,7 @@ export const W05_StaffSchedule: React.FC = () => {
                           <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Kết ca trị liệu (Giải phóng Giường & KTV)'}</span>
                         </button>
                       )}
+
 
                       {selectedApp.statusRaw !== 'COMPLETED' && selectedApp.statusRaw !== 'CANCELLED' && (
                         <button

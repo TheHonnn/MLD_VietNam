@@ -719,10 +719,12 @@ export interface StaffCommission {
   baseAmount: number;
   percentage: number;
   commissionAmount: number;
-  status: 'PENDING' | 'APPROVED' | 'PAID';
+  status: 'PENDING_APPROVAL' | 'PENDING' | 'APPROVED' | 'PAID';
   cycleMonth: string;
   notes?: string | null;
   createdAt: string;
+  staffName?: string;
+  branchName?: string;
 }
 
 export interface ServiceMaterial {
@@ -732,6 +734,7 @@ export interface ServiceMaterial {
   dosagePerSession: number;
   unit: string;
   notes?: string | null;
+  serviceName?: string;
 }
 
 export interface InventoryConsumptionLog {
@@ -745,16 +748,40 @@ export interface InventoryConsumptionLog {
   quantityDeducted: number;
   unit: string;
   loggedAt: string;
+  serviceName?: string;
+  branchName?: string;
+  technicianName?: string;
+}
+
+export interface ZNSTemplate {
+  id: string;
+  templateCode: string;
+  name: string;
+  description?: string | null;
+  contentTemplate: string;
+  sampleParams: Record<string, string>;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ZaloZnsLog {
   id: string;
-  customerId: string;
-  customerName: string;
-  phone: string;
-  templateType: 'BOOKING_CONFIRM' | 'PRE_REMINDER_2H' | 'POST_CARE_24H' | 'REVISIT_14D';
+  recipientPhone?: string;
+  recipientName?: string | null;
+  templateCode?: string;
+  bookingId?: string | null;
+  paramsSent?: Record<string, any>;
   status: 'SENT' | 'DELIVERED' | 'FAILED';
-  contentPreview: string;
+  responseCode?: string | null;
+  errorMessage?: string | null;
   sentAt: string;
+  customerId?: string;
+  customerName?: string;
+  phone?: string;
+  templateType?: 'BOOKING_CONFIRM' | 'PRE_REMINDER_2H' | 'POST_CARE_24H' | 'REVISIT_14D';
+  contentPreview?: string;
 }
+
+
 

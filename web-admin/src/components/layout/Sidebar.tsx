@@ -22,6 +22,9 @@ import {
   UserRoundCog,
   BadgeCheck,
   ShieldCheck,
+  DollarSign,
+  Boxes,
+  Smartphone,
   type LucideIcon,
   X,
 } from 'lucide-react';
@@ -54,6 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         { name: 'Lịch kỹ thuật viên', path: '/staff-schedule', icon: Calendar },
         { name: 'Liệu trình', path: '/medical-records', icon: Leaf },
         { name: 'Thu ngân', path: '/cashier-pos', icon: CreditCard },
+        { name: 'Hoa hồng KTV', path: '/commissions', icon: DollarSign },
+        { name: 'Định mức vật tư (BOM)', path: '/inventory-bom', icon: Boxes },
         { name: 'Voucher & hội viên', path: '/manage/coupons', icon: Ticket, onlyWhenAllowed: true },
       ],
     },
@@ -75,9 +80,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     },
     {
       title: 'HỆ THỐNG',
-      items: [{ name: 'Phân quyền', path: '/manage/roles', icon: ShieldCheck, onlyWhenAllowed: true }],
+      items: [
+        { name: 'CSKH Zalo ZNS', path: '/zalo-zns', icon: Smartphone },
+        { name: 'Phân quyền', path: '/manage/roles', icon: ShieldCheck, onlyWhenAllowed: true },
+      ],
     },
   ];
+
 
   return (
     <>
