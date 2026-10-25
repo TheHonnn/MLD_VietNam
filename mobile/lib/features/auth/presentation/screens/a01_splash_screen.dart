@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import 'a02_onboarding_screen.dart';
@@ -51,11 +52,11 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF8F2), // Màu nền be sáng chuẩn Figma
+      backgroundColor: AppColors.background, // #F5F7F7
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Decorative botanical leaf 1 (Top-Right corner matching Figma 8107:5507)
+          // Decorative botanical leaf 1
           Positioned(
             top: 20,
             right: 0,
@@ -69,7 +70,7 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
             ),
           ),
 
-          // Decorative botanical leaf 2 (Bottom-Left corner matching Figma 8107:5508)
+          // Decorative botanical leaf 2
           Positioned(
             bottom: 60,
             left: -10,
@@ -91,23 +92,23 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Logo Card bo bởi viền vàng theo đúng thiết kế (Node 8107:6931)
+                  // Logo Card chuẩn Modern Medical
                   Container(
                     width: 204,
                     height: 94,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: const Color(0xFFD4A359), // Viền vàng chuẩn design
-                        width: 1.6,
+                        color: AppColors.border,
+                        width: 1.2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFD4A359).withValues(alpha: 0.16),
-                          blurRadius: 20,
-                          offset: const Offset(0, 6),
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
@@ -123,7 +124,7 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
 
                   const SizedBox(height: 36),
 
-                  // Header Title 1: Chữ đen sẫm chuẩn Figma 8107:5513
+                  // Header Title 1: Chăm sóc sức khỏe
                   const Text(
                     'CHĂM SÓC SỨC KHỎE',
                     textAlign: TextAlign.center,
@@ -131,12 +132,12 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.5,
-                      color: Color(0xFF26211E),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
 
-                  // Header Title 2: Màu nâu đồng chuẩn Figma 8107:5514
+                  // Header Title 2: & Đào tạo nghề
                   const Text(
                     '& ĐÀO TẠO NGHỀ',
                     textAlign: TextAlign.center,
@@ -144,32 +145,32 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
-                      color: Color(0xFF8B4513),
+                      color: AppColors.primary,
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Divider vàng chuẩn Figma 8107:5515
+                  // Divider Primary Teal
                   Container(
                     width: 48,
-                    height: 2,
+                    height: 2.5,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD4A359),
-                      borderRadius: BorderRadius.circular(1),
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Lời hứa thương hiệu chuẩn Figma 8107:5516
+                  // Lời hứa thương hiệu
                   const Text(
                     'Tận tâm chăm sóc – Đồng hành phát triển',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xFF7A7067),
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -177,7 +178,7 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
             ),
           ),
 
-          // Bottom Loading Spinner & status text (Figma 8107:5517)
+          // Bottom Loading Spinner & status text
           const Positioned(
             bottom: 48,
             left: 0,
@@ -191,7 +192,7 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.4,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B4513)),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
                   ),
                   SizedBox(height: 14),
@@ -200,7 +201,7 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF7A7067),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],

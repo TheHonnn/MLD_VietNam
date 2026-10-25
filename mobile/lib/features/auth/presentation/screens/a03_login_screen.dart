@@ -271,7 +271,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                           height: 48,
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1E4D6),
+                            color: AppColors.mintBackground,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Row(
@@ -356,19 +356,19 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                             margin: const EdgeInsets.only(bottom: 16),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFDE8E8),
+                              color: const Color(0xFFFEF2F2),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFF8B4B4)),
+                              border: Border.all(color: const Color(0xFFFECACA)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline, color: Color(0xFFE02424), size: 20),
+                                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _errorMessage!,
                                     style: const TextStyle(
-                                      color: Color(0xFF9B1C1C),
+                                      color: AppColors.errorDark,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -646,10 +646,10 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF6ECE0),
+                            color: AppColors.mintBackground,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFFEADBCE),
+                              color: AppColors.border,
                               width: 0.8,
                             ),
                           ),
@@ -669,7 +669,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w400,
                                     height: 1.45,
-                                    color: Color(0xFF7A6F65),
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ),

@@ -149,7 +149,7 @@ class _A06PurposeSelectionScreenState extends State<A06PurposeSelectionScreen> {
                                   color: isSelected
                                       ? AppColors.surfaceSecondary // #F3E2CE
                                       : AppColors.surface, // white
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: isSelected
                                         ? AppColors.primary // #985018

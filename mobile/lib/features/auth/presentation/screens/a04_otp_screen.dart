@@ -160,7 +160,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Xác thực tài khoản thành công! Đang vào ứng dụng...'),
-              backgroundColor: Color(0xFF236B42),
+              backgroundColor: AppColors.primary,
             ),
           );
           Navigator.pushAndRemoveUntil(
@@ -218,7 +218,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Đăng nhập thành công!'),
-              backgroundColor: Color(0xFF236B42),
+              backgroundColor: AppColors.primary,
             ),
           );
           Navigator.pushAndRemoveUntil(
@@ -378,7 +378,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                             height: 64,
                             decoration: BoxDecoration(
                               color: AppColors.surfaceSecondary, // #F3E2CE
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(16),
                             ),
                             child: Center(
                               child: Icon(

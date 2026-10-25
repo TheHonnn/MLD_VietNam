@@ -80,7 +80,7 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Đã cập nhật và lưu số điện thoại thành công!'),
-            backgroundColor: Color(0xFF236B42),
+            backgroundColor: AppColors.primary,
           ),
         );
       }
@@ -135,14 +135,14 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
+                    color: AppColors.mintBackground,
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFFED7AA), width: 1.5),
+                    border: Border.all(color: AppColors.primary, width: 1.5),
                   ),
                   child: const Center(
                     child: Icon(
                       Icons.phone_iphone_rounded,
-                      color: Color(0xFFC2410C),
+                      color: AppColors.primary,
                       size: 28,
                     ),
                   ),

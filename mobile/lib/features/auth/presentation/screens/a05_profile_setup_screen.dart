@@ -309,7 +309,7 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
                                           fontSize: 12,
                                           fontWeight: FontWeight.w400,
                                           color: _avatarPath != null
-                                              ? const Color(0xFF236B42)
+                                              ? AppColors.success
                                               : AppColors.textSecondary,
                                         ),
                                       ),
