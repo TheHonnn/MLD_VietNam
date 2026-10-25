@@ -595,11 +595,8 @@ class SupabaseService {
 
   async updateUser(userId: string, updates: Record<string, any>): Promise<boolean> {
     try {
-      const res = await this.query<any>(`users?id=eq.${userId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      });
-      return res !== null;
+      const updated = await adminApi<{ id: string }>('users/update', { key: { id: userId }, values: updates });
+      return updated?.id === userId;
     } catch (err) {
       console.warn('[SupabaseService] updateUser error:', err);
       return false;

@@ -98,7 +98,9 @@ export const customerService = {
       if (updates.membershipTier !== undefined) payload.membership_tier = updates.membershipTier;
       if (updates.purpose !== undefined) payload.purpose = updates.purpose;
 
-      await supabaseService.updateUser(id, payload);
+      if (!await supabaseService.updateUser(id, payload)) {
+        throw new Error('Database chưa xác nhận cập nhật tài khoản. Vui lòng kiểm tra quyền quản trị và thử lại.');
+      }
       const custRes = await this.getCustomerById(id);
       if (custRes.success && custRes.data) {
         return {

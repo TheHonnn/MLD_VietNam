@@ -438,18 +438,6 @@ function createLocalRecord(table: string, values: Record<string, any>): Row {
   return newRow;
 }
 
-function updateLocalRecord(table: string, key: any, values: Record<string, any>): Row {
-  const rows = getLocalTableRows(table);
-  const targetId = typeof key === "object" ? key.id : key;
-  const index = rows.findIndex((r) => r.id === targetId);
-  if (index >= 0) {
-    rows[index] = { ...rows[index], ...values, updated_at: new Date().toISOString() };
-    saveLocalTableRows(table, rows);
-    return rows[index];
-  }
-  return values;
-}
-
 function deleteLocalRecord(table: string, key: any): boolean {
   const rows = getLocalTableRows(table);
   const targetId = typeof key === "object" ? key.id : key;
@@ -796,6 +784,12 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
   if (action === "update" && payload?.values) {
     const key = payload.key || {};
+    const primaryColumns = SCHEMA_COLUMNS[table]?.filter((column) => column.primary).map((column) => column.name);
+    if (!Object.keys(key).length || primaryColumns?.some((name) => key[name] == null || key[name] === "") || Object.entries(key).some(([name, value]) =>
+      !/^[a-z_][a-z0-9_]*$/.test(name) || value == null || value === "" ||
+      (primaryColumns?.length && !primaryColumns.includes(name)))) {
+      throw new Error("Không xác định được bản ghi cần cập nhật. Vui lòng tải lại trang.");
+    }
     const id = key.id;
     const match = id
       ? `id=eq.${encodeURIComponent(id)}`
@@ -818,16 +812,26 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
       }
-      if (isMissingTableError(res, err)) {
-        return updateLocalRecord(table, id || key, cleanValues) as T;
-      }
       throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
     }
     const updated = await res.json();
-    if (Array.isArray(updated) && updated.length === 0) {
-      return updateLocalRecord(table, id || key, cleanValues) as T;
+    if (!Array.isArray(updated) || updated.length !== 1 || !updated[0] ||
+      Object.entries(key).some(([name, value]) => String(updated[0][name]) !== String(value))) {
+      throw new Error("Database chưa xác nhận cập nhật. Tài khoản có thể thiếu quyền ghi hoặc bản ghi đã thay đổi. Vui lòng tải lại và kiểm tra quyền quản trị.");
     }
-    return (Array.isArray(updated) ? updated[0] : updated) as T;
+    if (table === "users" && Object.prototype.hasOwnProperty.call(cleanValues, "role")) {
+      const verified = await fetch(`${SUPABASE_URL}/rest/v1/users?${match}&select=id,role`, {
+        headers: getSupabaseHeaders({ "Cache-Control": "no-cache" }),
+        cache: "no-store",
+        signal,
+      });
+      const records = await verified.json().catch(() => null);
+      if (!verified.ok || !Array.isArray(records) || records.length !== 1 ||
+        records[0].id !== updated[0].id || records[0].role !== cleanValues.role) {
+        throw new Error("Chưa xác minh được vai trò mới trong database. Vui lòng tải lại tài khoản để kiểm tra trước khi thử lại.");
+      }
+    }
+    return updated[0] as T;
   }
 
   if (action === "delete" && (payload?.key || payload?.id)) {
