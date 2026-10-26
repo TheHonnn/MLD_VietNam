@@ -9,6 +9,17 @@ import {
   CheckCircle2,
   Calendar,
   Search,
+  ShieldCheck,
+  Award,
+  HelpCircle,
+  Lock,
+  Layers,
+  Sparkles,
+  Eye,
+  FileText,
+  User,
+  Check,
+  Clock,
 } from 'lucide-react';
 import { academyService, staffService, StaffWithProfile } from '../services';
 import { Course, CourseBatch, BatchStatus } from '../types/shared_types';
@@ -86,6 +97,21 @@ export const W11_Curriculum: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<string>('week-12-18');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [courseGroupFilter, setCourseGroupFilter] = useState<'all' | 'new_learner' | 'advanced_ktv'>('all');
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
+  const [isVideoSecurityModalOpen, setIsVideoSecurityModalOpen] = useState<boolean>(false);
+  const [isWatermarkActive, setIsWatermarkActive] = useState<boolean>(true);
+  const [watermarkText, setWatermarkText] = useState<string>('Học viên: Nguyễn Thị Mai · SĐT: 0912345678 · MLD#8892');
+  const [watermarkPos, setWatermarkPos] = useState<number>(0);
+
+  useEffect(() => {
+    if (isVideoSecurityModalOpen) {
+      const interval = setInterval(() => {
+        setWatermarkPos((prev) => (prev + 1) % 4);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isVideoSecurityModalOpen]);
 
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
@@ -209,7 +235,17 @@ export const W11_Curriculum: React.FC = () => {
     const matchBranch = branchFilter === 'all' || matchSearch(c.branch, branchFilter);
     const matchStatus = statusFilter === 'all' || c.status === statusFilter;
 
-    return isMatched && matchBranch && matchStatus;
+    const matchGroup =
+      courseGroupFilter === 'all' ||
+      (courseGroupFilter === 'new_learner' &&
+        (c.courseTitle.toLowerCase().includes('cơ bản') ||
+          c.courseTitle.toLowerCase().includes('massage') ||
+          c.courseTitle.toLowerCase().includes('nhập môn'))) ||
+      (courseGroupFilter === 'advanced_ktv' &&
+        (!c.courseTitle.toLowerCase().includes('cơ bản') &&
+          !c.courseTitle.toLowerCase().includes('nhập môn')));
+
+    return isMatched && matchBranch && matchStatus && matchGroup;
   });
 
   return (
@@ -227,16 +263,32 @@ export const W11_Curriculum: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Vận hành đào tạo</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Lớp học, phòng thực hành và chương trình · Tuần 12/10/2026 – 18/10/2026
+            Lớp học, phòng thực hành, bài thi Quiz & bản quyền video · Tuần 12/10/2026 – 18/10/2026
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddClassModalOpen(true)}
-          className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
-        >
-          Tạo lớp học
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setIsQuizModalOpen(true)}
+            className="px-3.5 py-2.5 bg-white border border-[#D7BBA6] hover:bg-[#FAF5EF] text-[#8D4B1A] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <HelpCircle className="w-4 h-4 text-[#8D4B1A]" />
+            Ngân hàng Quiz & Điểm thi
+          </button>
+          <button
+            onClick={() => setIsVideoSecurityModalOpen(true)}
+            className="px-3.5 py-2.5 bg-white border border-[#D7BBA6] hover:bg-[#FAF5EF] text-[#8D4B1A] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4 text-[#8D4B1A]" />
+            Bảo mật Video & Watermark
+          </button>
+          <button
+            onClick={() => setIsAddClassModalOpen(true)}
+            className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
+          >
+            Tạo lớp học
+          </button>
+        </div>
       </div>
 
       {/* 2. Search & Filter Bar */}
@@ -261,6 +313,20 @@ export const W11_Curriculum: React.FC = () => {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* Filter: Phân nhóm 2 khóa học */}
+        <div className="relative shrink-0 flex-1 sm:flex-none">
+          <select
+            value={courseGroupFilter}
+            onChange={(e) => setCourseGroupFilter(e.target.value as any)}
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+          >
+            <option value="all">Tất cả nhóm khóa học</option>
+            <option value="new_learner">Khóa cho người mới bắt đầu làm nghề</option>
+            <option value="advanced_ktv">Khóa chuyên sâu cho KTV đang làm nghề</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Filter: Tuần học */}
@@ -887,6 +953,298 @@ export const W11_Curriculum: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: NGÂN HÀNG CÂU HỎI & BẢNG ĐIỂM THI QUIZZES                        */}
+      {/* ========================================================================= */}
+      {isQuizModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                  <HelpCircle className="w-6 h-6 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">
+                    Ngân Hàng Câu Hỏi & Đánh Giá Bài Thi Quizzes
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Bộ đề kiểm tra lý thuyết MLD · Yêu cầu đạt ≥ 80% để thi thực hành lâm sàng
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsQuizModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Content Tabs / Split */}
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1 text-xs">
+              {/* Thống kê bài thi */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-100">
+                  <div className="text-gray-500 font-medium">Tổng số câu hỏi đề thi</div>
+                  <div className="text-xl font-bold text-gray-900 mt-0.5">25 câu trắc nghiệm</div>
+                </div>
+                <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
+                  <div className="text-gray-500 font-medium">Học viên đã đạt chuẩn lý thuyết</div>
+                  <div className="text-xl font-bold text-emerald-700 mt-0.5">42 / 48 (87.5%)</div>
+                </div>
+                <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                  <div className="text-gray-500 font-medium">Điểm trung bình toàn viện</div>
+                  <div className="text-xl font-bold text-blue-700 mt-0.5">8.8 / 10</div>
+                </div>
+              </div>
+
+              {/* Ngân hàng câu hỏi mẫu chuẩn y tế */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-bold text-gray-800 uppercase tracking-wide">
+                    1. Đề thi trắc nghiệm mẫu (Module 1 - Giải phẫu & Kỹ thuật Vodder)
+                  </h4>
+                  <span className="text-[11px] text-amber-800 font-semibold px-2 py-0.5 bg-amber-100 rounded">
+                    Thời gian làm bài: 30 phút
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Câu 1 */}
+                  <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                    <p className="font-bold text-gray-900">
+                      Câu 1: Lực tác động tối ưu khi thực hiện động tác vuốt dẫn lưu bạch huyết theo kỹ thuật Vodder là bao nhiêu?
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-gray-700">
+                      <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-300 font-semibold text-emerald-800 flex items-center justify-between">
+                        <span>A. Rất nhẹ, khoảng 30 - 40 mmHg (chỉ làm căng nhẹ lớp da bì)</span>
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-gray-200">
+                        <span>B. Lực mạnh từ 80 - 100 mmHg tác động sâu vào khối cơ</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-gray-200">
+                        <span>C. Ấn day điểm huyệt liên tục với lực tăng dần</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-gray-200">
+                        <span>D. Tùy thuộc vào ngưỡng chịu đau của bệnh nhân</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Câu 2 */}
+                  <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                    <p className="font-bold text-gray-900">
+                      Câu 2: Trường hợp nào sau đây là CHỐNG CHỈ ĐỊNH TUYỆT ĐỐI của liệu trình dẫn lưu bạch huyết MLD?
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-gray-700">
+                      <div className="p-2 rounded-lg bg-white border border-gray-200">
+                        <span>A. Phù nề nhẹ sau phẫu thuật hút mỡ 3 tuần</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-300 font-semibold text-emerald-800 flex items-center justify-between">
+                        <span>B. Viêm tĩnh mạch huyết khối cấp tính (DVT) & suy tim mất bù</span>
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-gray-200">
+                        <span>C. Mệt mỏi căng thẳng sau ngày làm việc</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-gray-200">
+                        <span>D. Phù nề chân lành sau phẫu thuật thay khớp</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bảng điểm học viên mẫu */}
+              <div className="pt-2">
+                <h4 className="font-bold text-gray-800 uppercase tracking-wide mb-2">
+                  2. Bảng tổng hợp điểm thi lý thuyết lớp K26-MLD-HANOI
+                </h4>
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100/80 text-gray-600 font-semibold">
+                        <th className="py-2 px-3">Học viên</th>
+                        <th className="py-2 px-3 text-center">Số câu đúng</th>
+                        <th className="py-2 px-3 text-center">Điểm số</th>
+                        <th className="py-2 px-3 text-center">Kết quả</th>
+                        <th className="py-2 px-3 text-right">Điều kiện thi thực hành</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      <tr>
+                        <td className="py-2 px-3 font-semibold text-gray-900">Nguyễn Thị Mai</td>
+                        <td className="py-2 px-3 text-center font-mono">24 / 25</td>
+                        <td className="py-2 px-3 text-center font-mono font-bold text-sky-700">9.6 / 10</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">XUẤT SẮC</span>
+                        </td>
+                        <td className="py-2 px-3 text-right text-emerald-600 font-semibold">✓ Đủ điều kiện</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 font-semibold text-gray-900">Trần Thu Trang</td>
+                        <td className="py-2 px-3 text-center font-mono">22 / 25</td>
+                        <td className="py-2 px-3 text-center font-mono font-bold text-sky-700">8.8 / 10</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">GIỎI</span>
+                        </td>
+                        <td className="py-2 px-3 text-right text-emerald-600 font-semibold">✓ Đủ điều kiện</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 font-semibold text-gray-900">Phạm Hoàng Oanh</td>
+                        <td className="py-2 px-3 text-center font-mono">23 / 25</td>
+                        <td className="py-2 px-3 text-center font-mono font-bold text-sky-700">9.2 / 10</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">XUẤT SẮC</span>
+                        </td>
+                        <td className="py-2 px-3 text-right text-emerald-600 font-semibold">✓ Đủ điều kiện</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setIsQuizModalOpen(false)}
+                className="px-5 py-2 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: BẢO MẬT VIDEO & DYNAMIC WATERMARK SIMULATOR                      */}
+      {/* ========================================================================= */}
+      {isVideoSecurityModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6 text-blue-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">
+                    Bảo Mật Bản Quyền Video & Watermark Động
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Ngăn chặn quay lén màn hình & chống leak video bài giảng độc quyền Viện MLD
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsVideoSecurityModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Configuration Settings */}
+              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-gray-900 block">Kích hoạt Watermark động cá nhân hóa</span>
+                    <span className="text-gray-500 text-[11px]">Tự động chèn thông tin học viên di chuyển ngẫu nhiên trên khung hình video</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isWatermarkActive}
+                    onChange={(e) => setIsWatermarkActive(e.target.checked)}
+                    className="w-5 h-5 accent-sky-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-1">Mẫu cấu trúc Watermark:</label>
+                  <input
+                    type="text"
+                    value={watermarkText}
+                    onChange={(e) => setWatermarkText(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-xl bg-white font-mono text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-sky-600" />
+                    <span>Khóa chuột phải & chặn tải video: <strong>BẬT</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-sky-600" />
+                    <span>Tần suất nhảy vị trí: <strong>15 giây / lần</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* LIVE VIDEO PLAYER SIMULATOR */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-bold text-gray-900">Mô phỏng trình phát video bài giảng:</span>
+                  <span className="text-sky-700 font-mono text-[11px] animate-pulse">
+                    ● Watermark đang tự động đổi vị trí...
+                  </span>
+                </div>
+
+                <div className="relative w-full aspect-video bg-gray-950 rounded-2xl overflow-hidden border-2 border-gray-800 shadow-inner flex items-center justify-center">
+                  {/* Fake Video Screen */}
+                  <div className="text-center text-gray-600 select-none">
+                    <PlayCircle className="w-16 h-16 mx-auto mb-2 text-gray-700 opacity-60" />
+                    <p className="text-xs font-semibold text-gray-400">MLD VIDEO PLAYER ENGINE · BẢN QUYỀN VIỆN MLD VIỆT NAM</p>
+                    <p className="text-[10px] text-gray-600">Bài 04: Kỹ thuật miết xoay tròn & dẫn lưu hạch nách sau phẫu thuật</p>
+                  </div>
+
+                  {/* FLOATING WATERMARK SIMULATOR */}
+                  {isWatermarkActive && (
+                    <div
+                      className={`absolute transition-all duration-700 ease-in-out pointer-events-none ${
+                        watermarkPos === 0
+                          ? 'top-4 left-4'
+                          : watermarkPos === 1
+                          ? 'top-4 right-4'
+                          : watermarkPos === 2
+                          ? 'bottom-8 right-4'
+                          : 'bottom-8 left-4'
+                      }`}
+                    >
+                      <div className="px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-xs text-white/70 font-mono text-[11px] border border-white/20 shadow-md">
+                        {watermarkText}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Player bottom bar */}
+                  <div className="absolute bottom-0 inset-x-0 h-6 bg-gray-900/90 flex items-center px-3 justify-between text-[10px] text-gray-400">
+                    <span>14:20 / 45:00</span>
+                    <span className="text-emerald-400 font-mono">1080p HD · DRM Protected</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setIsVideoSecurityModalOpen(false);
+                  showToast('Đã lưu cấu hình bảo mật video bản quyền thành công!');
+                }}
+                className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-semibold shadow-xs cursor-pointer"
+              >
+                Lưu cấu hình bảo mật
+              </button>
+            </div>
           </div>
         </div>
       )}
