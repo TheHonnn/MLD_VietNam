@@ -6,6 +6,7 @@ import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
+import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -2438,6 +2439,15 @@ function RecordDialog({
           throw new Error("Ngày kết thúc / bế giảng phải diễn ra sau ngày bắt đầu nhập học.");
         }
       }
+      if (resource.name === "course_categories") {
+        if (!payload.icon_url && values.icon_url) payload.icon_url = values.icon_url;
+        if (!payload.icon_url) {
+          payload.icon_url = "https://api.iconify.design/lucide:graduation-cap.svg?color=%23985018";
+        }
+        if (!payload.code) {
+          payload.code = slugifyCategoryCode(String(payload.name || values.name || "MLD-CAT"));
+        }
+      }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -2531,6 +2541,21 @@ function RecordDialog({
               onClose={onClose}
               onEdit={() => (onSwitchMode ? onSwitchMode("update", row) : undefined)}
               onRefresh={onSaved}
+            />
+          </div>
+        ) : resource.name === "course_categories" && mode !== "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
+            <CourseCategoryFormEditor
+              values={{
+                name: String(values.name ?? (columns.find((x) => x.name === "name") ? current(columns.find((x) => x.name === "name")!) : "")),
+                code: String(values.code ?? (columns.find((x) => x.name === "code") ? current(columns.find((x) => x.name === "code")!) : "")),
+                icon_url: String(values.icon_url ?? (columns.find((x) => x.name === "icon_url") ? current(columns.find((x) => x.name === "icon_url")!) : "")),
+                description: String(values.description ?? (columns.find((x) => x.name === "description") ? current(columns.find((x) => x.name === "description")!) : "")),
+                display_order: Number(values.display_order ?? (columns.find((x) => x.name === "display_order") ? current(columns.find((x) => x.name === "display_order")!) : 1) ?? 1),
+                is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
+              }}
+              onChange={(field, val) => set(field, val)}
+              isCreate={mode === "create"}
             />
           </div>
         ) : (
