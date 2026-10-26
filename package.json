@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "cd web-admin && npm install && npm run build"
+    "build": "cd web-admin && npm install && npm run build",
+    "test:develop": "node scripts/testing/run_all_tests.js"
   }
 }
