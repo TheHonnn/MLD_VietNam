@@ -92,7 +92,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                       duration: const Duration(milliseconds: 150),
                       style: TextStyle(
                         fontFamily: 'Montserrat',
-                        fontSize: 15.5,
+                        fontSize: 17,
                         fontWeight: FontWeight.w800,
                         color: _isPressed ? const Color(0xFF168477) : const Color(0xFF0F172A),
                         height: 1.35,
@@ -116,7 +116,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                               TextSpan(
                                 text: '${_formatCurrency(priceWithVat)} ',
                                 style: const TextStyle(
-                                  fontSize: 19,
+                                  fontSize: 21,
                                   fontWeight: FontWeight.w800,
                                   color: Color(0xFF00693F),
                                 ),
@@ -124,7 +124,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                               const TextSpan(
                                 text: 'đ',
                                 style: TextStyle(
-                                  fontSize: 19,
+                                  fontSize: 21,
                                   fontWeight: FontWeight.w800,
                                   color: Color(0xFF00693F),
                                   decoration: TextDecoration.underline,
@@ -152,7 +152,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                               Text(
                                 'Đặt lịch',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.w700,
                                   color: _isPressed ? Colors.white : const Color(0xFF0F172A),
                                 ),

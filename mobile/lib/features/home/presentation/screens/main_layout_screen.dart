@@ -99,7 +99,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 64,
+            height: 68,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -141,8 +141,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? AppColors.secondary : Colors.white.withValues(alpha: 0.65),
               ),
             ),

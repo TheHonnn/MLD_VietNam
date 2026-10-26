@@ -45,6 +45,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
     _allDocuments = [
       {
         'id': 'doc-01',
+        'image': 'assets/images/document_joint_pain_banner.png',
         'title': 'Nghiên cứu lâm sàng: Hiệu quả của Dẫn lưu bạch huyết bằng tay (MLD) trong hỗ trợ điều trị phù nề sau phẫu thuật',
         'category': 'Phù bạch huyết & MLD',
         'readTime': '8 phút đọc',
@@ -57,6 +58,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       },
       {
         'id': 'doc-02',
+        'image': 'assets/images/course_banner_clean.png',
         'title': 'Cẩm nang hướng dẫn tự chăm sóc và bảo dưỡng hệ bạch huyết tại nhà',
         'category': 'Cẩm nang trị liệu',
         'readTime': '5 phút đọc',
@@ -69,6 +71,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       },
       {
         'id': 'doc-03',
+        'image': 'assets/images/banner.webp',
         'title': 'Phác đồ kỹ thuật dẫn lưu bạch huyết chuyên sâu theo phương pháp Vodder chuẩn hóa',
         'category': 'Tài liệu đào tạo',
         'readTime': '12 phút đọc',
@@ -81,6 +84,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       },
       {
         'id': 'doc-04',
+        'image': 'assets/images/course_banner_clean.png',
         'title': 'Nhận diện sớm các dấu hiệu phù bạch huyết (Lymphedema) và thời điểm vàng can thiệp',
         'category': 'Phù bạch huyết & MLD',
         'readTime': '6 phút đọc',
@@ -93,6 +97,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       },
       {
         'id': 'doc-05',
+        'image': 'assets/images/document_joint_pain_banner.png',
         'title': 'Chia sẻ trải nghiệm hồi phục thần tốc sau phẫu thuật nâng ngực & hút mỡ bụng',
         'category': 'Cộng đồng chia sẻ',
         'readTime': '4 phút đọc',
@@ -105,6 +110,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       },
       {
         'id': 'doc-06',
+        'image': 'assets/images/course_banner_clean.png',
         'title': 'Quy trình đối soát và kiểm tra phù bạch huyết định kỳ tại trung tâm',
         'category': 'Tài liệu đào tạo',
         'readTime': '7 phút đọc',
@@ -193,7 +199,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               Text(
                 doc['title'] as String,
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: 24,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textHeading,
                   height: 1.35,
@@ -214,7 +220,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               Text(
                 doc['summary'] as String,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 15.5,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary,
                   height: 1.6,
@@ -303,7 +309,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         title: const Text(
           'Tài liệu & Y khoa MLD',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             color: AppColors.textHeading,
           ),
@@ -344,7 +350,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: 'Tìm tài liệu, nghiên cứu lâm sàng, bài viết...',
-                    hintStyle: const TextStyle(fontSize: 13, color: AppColors.textPlaceholder),
+                    hintStyle: const TextStyle(fontSize: 14, color: AppColors.textPlaceholder),
                     prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 20),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -389,7 +395,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                       child: Text(
                         cat,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13.5,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                           color: isSelected ? Colors.white : AppColors.textSecondary,
                         ),
@@ -432,127 +438,53 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                           onTap: () => _showDocumentDetail(doc),
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.all(16),
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: AppColors.border),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.02),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
                                 ),
                               ],
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primaryLight,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Icon(
-                                        doc['icon'] as IconData,
-                                        size: 20,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            doc['category'] as String,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '${doc['date']} · ${doc['readTime']}',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
+                                // 1. Ảnh tài liệu
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.asset(
+                                    doc['image'] as String? ?? 'assets/images/course_banner_clean.png',
+                                    height: 185,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      height: 185,
+                                      width: double.infinity,
+                                      color: const Color(0xFFE8F5F1),
+                                      child: const Center(
+                                        child: Icon(Icons.menu_book_rounded, size: 48, color: Color(0xFF168477)),
                                       ),
                                     ),
-                                    if (doc['isPdf'] == true)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.shade50,
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: Colors.red.shade200),
-                                        ),
-                                        child: Text(
-                                          'PDF',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.red.shade700,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                                  ),
                                 ),
                                 const SizedBox(height: 12),
+
+                                // 2. Tên tài liệu (chỉ có tên tài liệu, không nội dung bên dưới)
                                 Text(
                                   doc['title'] as String,
                                   style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textHeading,
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0F172A),
                                     height: 1.35,
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  doc['summary'] as String,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.textSecondary,
-                                    height: 1.4,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      doc['author'] as String,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    const Row(
-                                      children: [
-                                        Text(
-                                          'Xem chi tiết',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                        SizedBox(width: 4),
-                                        Icon(Icons.arrow_forward_ios_rounded, size: 11, color: AppColors.primary),
-                                      ],
-                                    ),
-                                  ],
                                 ),
                               ],
                             ),

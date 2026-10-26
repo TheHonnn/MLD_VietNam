@@ -263,17 +263,17 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           Text(
                             'Dịch vụ trị liệu',
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: 26,
                               fontWeight: FontWeight.w700,
                               color: kTextHeading,
                               letterSpacing: -0.3,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          SizedBox(height: 4),
                           Text(
                             'Trung tâm Ứng dụng Khoa học Bạch huyết MLD Việt Nam',
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w500,
                               color: kTextNeutral,
                             ),
@@ -319,10 +319,10 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               child: TextField(
                                 controller: _searchController,
                                 onChanged: (_) => setState(() {}),
-                                style: const TextStyle(fontSize: 13, color: kTextHeading),
+                                style: const TextStyle(fontSize: 14, color: kTextHeading),
                                 decoration: const InputDecoration(
                                   hintText: 'Tìm kiếm dịch vụ dẫn lưu...',
-                                  hintStyle: TextStyle(fontSize: 13, color: kTextNeutral),
+                                  hintStyle: TextStyle(fontSize: 14, color: kTextNeutral),
                                   border: InputBorder.none,
                                   isDense: true,
                                   contentPadding: EdgeInsets.zero,
@@ -371,7 +371,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 13.5,
                                           fontWeight: _selectedServiceFilter != 'Tất cả dịch vụ'
                                               ? FontWeight.w700
                                               : FontWeight.w500,
@@ -423,7 +423,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 13.5,
                                           fontWeight: _selectedBranchFilter != 'Tất cả'
                                               ? FontWeight.w700
                                               : FontWeight.w500,
@@ -459,7 +459,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                     const Text(
                       'Dịch vụ khả dụng',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: kTextHeading,
                       ),
@@ -474,7 +474,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       child: Text(
                         _isServiceMatch ? '1 dịch vụ cốt lõi' : '0 dịch vụ',
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                           color: kPrimary,
                         ),

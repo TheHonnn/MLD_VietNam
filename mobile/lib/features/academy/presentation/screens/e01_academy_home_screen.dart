@@ -273,17 +273,17 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                           Text(
                             'Đào tạo & Khóa học',
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: 26,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF0F172A),
                               letterSpacing: -0.3,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          SizedBox(height: 4),
                           Text(
                             'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam (hebachhuyet.vn)',
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w500,
                               color: AppColors.textSecondary,
                             ),
@@ -329,10 +329,10 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                               child: TextField(
                                 controller: _searchController,
                                 onChanged: (_) => setState(() {}),
-                                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                                style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
                                 decoration: const InputDecoration(
                                   hintText: 'Tìm kiếm khóa học...',
-                                  hintStyle: TextStyle(fontSize: 13, color: AppColors.textPlaceholder),
+                                  hintStyle: TextStyle(fontSize: 14, color: AppColors.textPlaceholder),
                                   border: InputBorder.none,
                                   isDense: true,
                                   contentPadding: EdgeInsets.zero,

@@ -106,7 +106,7 @@ class AppTheme {
         iconTheme: IconThemeData(color: AppColors.textPrimary),
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.w700,
           fontFamily: 'Montserrat',
         ),
@@ -124,7 +124,7 @@ class AppTheme {
           ),
           elevation: 0,
           textStyle: const TextStyle(
-            fontSize: 15,
+            fontSize: 15.5,
             fontWeight: FontWeight.w600,
             fontFamily: 'Montserrat',
           ),
@@ -169,12 +169,12 @@ class AppTheme {
         ),
         hintStyle: const TextStyle(
           color: AppColors.textPlaceholder,
-          fontSize: 14,
+          fontSize: 14.5,
           fontFamily: 'Montserrat',
         ),
         labelStyle: const TextStyle(
           color: AppColors.textSecondary,
-          fontSize: 14,
+          fontSize: 14.5,
           fontFamily: 'Montserrat',
         ),
       ),

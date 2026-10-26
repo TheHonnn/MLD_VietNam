@@ -451,7 +451,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           const Text(
                             'Xin chào,',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w400,
                               color: AppColors.textSecondary,
                             ),
@@ -462,7 +462,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 17.5,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
                             ),
@@ -529,7 +529,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         const Expanded(
                           child: Text(
                             'Cập nhật SĐT để xác nhận lịch hẹn chính xác',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF9A3412)),
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF9A3412)),
                           ),
                         ),
                         TextButton(
@@ -539,7 +539,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             minimumSize: const Size(0, 32),
                           ),
-                          child: const Text('Cập nhật', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          child: const Text('Cập nhật', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ),
@@ -557,7 +557,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 onTap: () => _showBannerLinkOptions(context),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  height: 148,
+                  height: 156,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
@@ -631,7 +631,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               child: const Text(
                                 'TRUNG TÂM Y KHOA BẠCH HUYẾT',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
                                   letterSpacing: 0.4,
@@ -644,7 +644,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                 Text(
                                   'MLD VIỆT NAM',
                                   style: TextStyle(
-                                    fontSize: 19,
+                                    fontSize: 22,
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
                                     letterSpacing: 0.5,
@@ -654,7 +654,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                 Text(
                                   'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 13.5,
                                     color: Colors.white70,
                                   ),
                                 ),
@@ -667,7 +667,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                 Text(
                                   'Bấm để xem Website & Facebook chính thức ↗',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 12.5,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
                                     decoration: TextDecoration.underline,
@@ -715,7 +715,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           children: [
                             const Text(
                               'Chi nhánh trị liệu hiện tại',
-                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -723,7 +723,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 13,
+                                fontSize: 15.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
                               ),
@@ -788,23 +788,23 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         const SizedBox(width: 8),
                         const Text(
                           'CỘNG ĐỒNG CHUYÊN GIA MLD',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Chia sẻ ca lâm sàng & Hướng dẫn phục hồi Vodder',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3),
                     ),
                     const SizedBox(height: 4),
                     const Text(
                       'Theo dõi các tài liệu trị liệu và bài viết chuyên môn do đội ngũ Bác sĩ, Giảng viên MLD trực tiếp biên soạn.',
-                      style: TextStyle(fontSize: 12, color: Colors.white70, height: 1.4),
+                      style: TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.4),
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 38,
+                      height: 42,
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.white, width: 1.2),
@@ -817,7 +817,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
                           );
                         },
-                        child: const Text('Xem bài viết chuyên môn', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        child: const Text('Xem bài viết chuyên môn', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ],

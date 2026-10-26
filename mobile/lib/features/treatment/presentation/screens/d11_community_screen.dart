@@ -35,7 +35,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
       'title': 'Dẫn lưu bạch huyết có hỗ trợ giảm đau mỏi xương khớp không?',
       'excerpt':
           'Đau mỏi xương khớp là tình trạng thường gặp, đặc biệt ở người trung niên và lớn tuổi. Nhiều người không chỉ đau khi vận động mà còn cảm thấy nhức mỏi, căng cứng do dịch ứ đọng quanh bao khớp và các mô mềm lân cận...',
-      'image': 'assets/images/clinic_1.png',
+      'image': 'assets/images/document_joint_pain_banner.png',
       'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
       'publishDate': '24/10/2026',
       'readTime': '5 phút đọc',
@@ -60,7 +60,7 @@ Người bệnh nên kết hợp liệu trình MLD định kỳ 1–2 lần/tu�
       'title': 'Tại sao dẫn lưu bạch huyết thủ công lại không gây đau?',
       'excerpt':
           '“Nhẹ như vậy thì có tác dụng không?” là thắc mắc của nhiều người khi lần đầu trải nghiệm MLD. Bởi vì kỹ thuật Vodder chuẩn chỉ tác động rất nhẹ lên lớp mao mạch bạch huyết nông ngay dưới bề mặt biểu bì...',
-      'image': 'assets/images/clinic_2.png',
+      'image': 'assets/images/course_banner_clean.png',
       'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
       'publishDate': '23/10/2026',
       'readTime': '4 phút đọc',
@@ -84,7 +84,7 @@ MLD tác động trực tiếp lên hệ thần kinh phó giao cảm (Parasympat
       'title': 'Dẫn lưu bạch huyết MLD – Giải pháp vàng tiêu dịch và giảm phù nề sau phẫu thuật',
       'excerpt':
           'Sau phẫu thuật tạo hình (hút mỡ, nâng ngực, tạo hình thành bụng, nâng mũi), tổn thương mao mạch gây ứ đọng dịch kẽ và bầm tím kéo dài. Dẫn lưu MLD kích thích mở các van bạch huyết để hút dịch thừa...',
-      'image': 'assets/images/gioithieu_1.png',
+      'image': 'assets/images/banner.webp',
       'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
       'publishDate': '22/10/2026',
       'readTime': '6 phút đọc',
@@ -109,7 +109,7 @@ Nên bắt đầu buổi MLD đầu tiên từ ngày thứ 3 đến ngày thứ 
       'title': 'Nguyên tắc 4 KHÔNG trong chăm sóc hệ bạch huyết tại nhà theo chuẩn Vodder',
       'excerpt':
           'Không bóp mạnh, không chườm nóng trực tiếp lên vùng phù dịch, không mặc quần áo quá bó chèn ép hạch bạch huyết và không tự ý dùng thuốc chống viêm khi chưa có chỉ định từ bác sĩ chuyên khoa...',
-      'image': 'assets/images/gioithieu_2.png',
+      'image': 'assets/images/course_banner_clean.png',
       'author': 'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam',
       'publishDate': '20/10/2026',
       'readTime': '4 phút đọc',
@@ -537,7 +537,7 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
       onTap: () => _showArticleDetail(article),
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 20),
+        margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -547,93 +547,43 @@ MLD được coi là phương pháp y khoa phục hồi chức năng và giảm 
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 10,
-              offset: const Offset(0, 4),
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Ảnh minh họa chuyên đề (Bo tròn r=12)
+            // 1. Ảnh minh họa tài liệu (Bo tròn r=12)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                children: [
-                  Image.asset(
-                    article['image'] as String,
-                    height: 185,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 185,
-                      width: double.infinity,
-                      color: const Color(0xFFF1F5F9),
-                      child: const Center(
-                        child: Icon(Icons.image, size: 48, color: Color(0xFFCBD5E1)),
-                      ),
-                    ),
+              child: Image.asset(
+                article['image'] as String,
+                height: 185,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 185,
+                  width: double.infinity,
+                  color: const Color(0xFFE8F5F1),
+                  child: const Center(
+                    child: Icon(Icons.menu_book_rounded, size: 48, color: Color(0xFF168477)),
                   ),
-                  // Huy hiệu MLD VIETNAM ở góc trên bên trái
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified, size: 12, color: Color(0xFF168477)),
-                          SizedBox(width: 4),
-                          Text(
-                            'MLD VIETNAM · TÀI LIỆU TRỊ LIỆU',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF168477),
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
-            // 2. Tiêu đề bài viết
+            // 2. Tên tài liệu (chỉ tên tài liệu, không nội dung bên dưới)
             Text(
               article['title'] as String,
               style: const TextStyle(
+                fontFamily: 'Montserrat',
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1F2937),
+                color: Color(0xFF0F172A),
                 height: 1.35,
               ),
-            ),
-            const SizedBox(height: 8),
-
-            // 3. Tóm tắt nội dung trích đoạn
-            Text(
-              article['excerpt'] as String,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF475569),
-                height: 1.45,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
