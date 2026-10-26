@@ -466,7 +466,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       try {
         const parsedFilter = JSON.parse(filterParam);
         for (const [col, val] of Object.entries(parsedFilter)) {
-          if (val !== undefined && val !== null && val !== "") {
+          if (val !== undefined && val !== null && val !== "" && val !== "__ALL__") {
             url += `&${col}=eq.${encodeURIComponent(String(val))}`;
           }
         }
