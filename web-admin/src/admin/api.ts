@@ -155,6 +155,7 @@ const TABLE_SELECTS: Record<string, string> = {
   instructors: "*,user:users!user_id(full_name,phone,email,avatar_url)",
   student_certificates: "*,student:users!student_id(full_name,phone),courses(title,code)",
   staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
+  student_attendance: "*,batch_schedules(id,batch_id,session_date,start_time,end_time,topic,is_practice_lab,course_batches(id,batch_code,courses(id,title,code))),course_enrollments(id,student_id,batch_id,student:users!student_id(id,full_name,phone,email)),marked_by:users!marked_by_id(id,full_name)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -467,7 +468,11 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         const parsedFilter = JSON.parse(filterParam);
         for (const [col, val] of Object.entries(parsedFilter)) {
           if (val !== undefined && val !== null && val !== "" && val !== "__ALL__") {
-            url += `&${col}=eq.${encodeURIComponent(String(val))}`;
+            if (table === "student_attendance" && col === "batch_id") {
+              url += `&batch_schedules.batch_id=eq.${encodeURIComponent(String(val))}`;
+            } else {
+              url += `&${col}=eq.${encodeURIComponent(String(val))}`;
+            }
           }
         }
       } catch {}
@@ -475,7 +480,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
     const directBatchId = q.get("batch_id");
     if (directBatchId && directBatchId !== "__ALL__" && !url.includes("batch_id=")) {
-      url += `&batch_id=eq.${encodeURIComponent(directBatchId)}`;
+      if (table === "student_attendance") {
+        url += `&batch_schedules.batch_id=eq.${encodeURIComponent(directBatchId)}`;
+      } else {
+        url += `&batch_id=eq.${encodeURIComponent(directBatchId)}`;
+      }
+    }
+    const directScheduleId = q.get("schedule_id");
+    if (directScheduleId && directScheduleId !== "__ALL__" && !url.includes("schedule_id=")) {
+      url += `&schedule_id=eq.${encodeURIComponent(directScheduleId)}`;
     }
     const directCourseId = q.get("course_id");
     if (directCourseId && directCourseId !== "__ALL__" && !url.includes("course_id=")) {

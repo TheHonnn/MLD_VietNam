@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TrainingActions } from "./TrainingActions";
 import { QuizOptions, quizOptions } from "./QuizOptions";
 import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
@@ -51,6 +51,9 @@ import {
   MapPin,
   UserCheck,
   BookOpen,
+  CalendarCheck,
+  CheckCheck,
+  FileEdit,
 } from "lucide-react";
 import {
   adminApi,
@@ -1326,6 +1329,51 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   }
   if (
     c.name === "status" &&
+    (row.schedule_id !== undefined ||
+      row.enrollment_id !== undefined ||
+      row.check_in_time !== undefined)
+  ) {
+    const s = String(row[c.name] || "PRESENT").toUpperCase();
+    const attMap: Record<string, { label: string; badge: string; dot: string; icon: string }> = {
+      PRESENT: {
+        label: "Có mặt",
+        badge: "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]",
+        dot: "bg-[#0D6832]",
+        icon: "✓",
+      },
+      ABSENT: {
+        label: "Vắng",
+        badge: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+        dot: "bg-[#DC2626]",
+        icon: "✕",
+      },
+      LATE: {
+        label: "Đi muộn",
+        badge: "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]",
+        dot: "bg-[#D97706]",
+        icon: "⏰",
+      },
+      EXCUSED: {
+        label: "Nghỉ có phép",
+        badge: "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]",
+        dot: "bg-[#2563EB]",
+        icon: "✉",
+      },
+    };
+    const opt = attMap[s];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          opt?.badge || "bg-[#FAF0E4] text-[#8A4F23] border-[#E8DFD8]"
+        }`}
+      >
+        <span>{opt?.icon || "•"}</span>
+        <span>{opt?.label || enums[s] || s}</span>
+      </span>
+    );
+  }
+  if (
+    c.name === "status" &&
     (row.tuition_total !== undefined ||
       row.student_id !== undefined ||
       row.enrolled_at !== undefined ||
@@ -1507,6 +1555,120 @@ function formatCell(row: Row, c: Column): React.ReactNode {
         </span>
       );
     }
+  }
+  if (c.name === "enrollment_id") {
+    const student =
+      row.course_enrollments?.student ||
+      (typeof row[c.name] === "object" ? row[c.name]?.student : null);
+    const sName =
+      student?.full_name ||
+      row.student_name ||
+      row.student?.full_name ||
+      (typeof row[c.name] === "object" ? row[c.name]?.full_name : null);
+    const phone = student?.phone || row.student?.phone;
+    const email = student?.email || row.student?.email;
+    const bCode =
+      row.batch_code ||
+      row.course_enrollments?.course_batches?.batch_code ||
+      row.batch_schedules?.course_batches?.batch_code;
+    return (
+      <div className="min-w-0 max-w-[240px]">
+        <div className="font-bold text-[#2C241E] text-xs leading-snug flex items-center gap-1.5">
+          <span className="w-5 h-5 rounded-full bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center text-[10px] font-bold border border-[#EAD8C7] shrink-0">
+            👤
+          </span>
+          <span className="truncate">{sName || "Học viên"}</span>
+          {bCode && (
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#FAF0E4] text-[#8A4F23] font-bold border border-[#EAD8C7] shrink-0">
+              🎓 {bCode}
+            </span>
+          )}
+        </div>
+        {(phone || email) && (
+          <div className="text-[10px] text-[#8C7A6B] mt-0.5 pl-6 truncate">
+            {phone ? phone : email}
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (c.name === "schedule_id") {
+    const sched = row.batch_schedules || (typeof row[c.name] === "object" ? row[c.name] : null);
+    if (sched) {
+      const dateStr = sched.session_date
+        ? new Date(sched.session_date).toLocaleDateString("vi-VN")
+        : "";
+      const timeStr =
+        sched.start_time && sched.end_time
+          ? `${sched.start_time.slice(0, 5)} - ${sched.end_time.slice(0, 5)}`
+          : "";
+      return (
+        <div className="min-w-0 max-w-[260px]">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-[#2C241E]">
+              📅 {dateStr}
+            </span>
+            {timeStr && (
+              <span className="text-[11px] font-semibold text-[#8A4F23]">
+                ({timeStr})
+              </span>
+            )}
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                sched.is_practice_lab
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-blue-100 text-blue-800"
+              }`}
+            >
+              {sched.is_practice_lab ? "Thực hành" : "Lý thuyết"}
+            </span>
+          </div>
+          {sched.topic && (
+            <div className="text-[11px] text-[#7D6E63] mt-0.5 truncate" title={sched.topic}>
+              {sched.topic}
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
+  if (c.name === "marked_by_id") {
+    const markerName =
+      row.marked_by?.full_name ||
+      (typeof row[c.name] === "object" ? row[c.name]?.full_name : null);
+    return (
+      <div className="text-xs font-medium text-[#2C241E]">
+        {markerName ? (
+          <span className="inline-flex items-center gap-1 text-[#0D6832]">
+            <span>✓</span>
+            <span>{markerName}</span>
+          </span>
+        ) : (
+          <span className="text-[#A69788]">—</span>
+        )}
+      </div>
+    );
+  }
+  if (c.name === "check_in_time") {
+    const val = row[c.name];
+    if (!val) return <span className="text-[#A69788] text-xs">—</span>;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return <span className="text-[#A69788] text-xs">—</span>;
+    return (
+      <span className="text-[11.5px] font-medium text-[#2C241E] inline-flex items-center gap-1">
+        <Clock size={12} className="text-[#8A4F23]" />
+        <span>
+          {new Intl.DateTimeFormat("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }).format(d)}
+        </span>
+      </span>
+    );
   }
   if (c.name === "booking_id") {
     const bCode = row.booking_code || row.bookings?.booking_code || (typeof row[c.name] === "string" ? row[c.name] : null);
@@ -3726,6 +3888,49 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     }>
   >([]);
 
+  // Dữ liệu thời khóa biểu / buổi học phục vụ bộ lọc và timeline lớp học
+  const [schedulesForFilter, setSchedulesForFilter] = useState<
+    Array<{
+      id: string;
+      batch_id: string;
+      session_date: string;
+      start_time: string;
+      end_time: string;
+      topic?: string;
+      is_practice_lab?: boolean;
+      assigned_room_id?: string;
+      room?: { id?: string; name?: string };
+    }>
+  >([]);
+
+  // Danh sách học viên trong lớp phục vụ điểm danh
+  const [enrollmentsForAttendance, setEnrollmentsForAttendance] = useState<
+    Array<{
+      id: string;
+      student_id: string;
+      batch_id: string;
+      status: string;
+      student?: { id: string; full_name: string; phone?: string; email?: string; avatar_url?: string };
+    }>
+  >([]);
+
+  // Dữ liệu điểm danh của buổi học hiện tại
+  const [attendanceRecordsForSchedule, setAttendanceRecordsForSchedule] = useState<
+    Array<{
+      id: string;
+      schedule_id: string;
+      enrollment_id: string;
+      status: string;
+      check_in_time?: string;
+      notes?: string;
+      marked_by_id?: string;
+    }>
+  >([]);
+
+  const [markingEnrollmentId, setMarkingEnrollmentId] = useState<string | null>(null);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [inlineNotes, setInlineNotes] = useState<Record<string, string>>({});
+
   useEffect(() => {
     let active = true;
     if (table === "course_categories") {
@@ -3746,7 +3951,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           if (active && Array.isArray(data)) setCategoriesForFilter(data);
         })
         .catch(() => {});
-    } else if (table === "course_enrollments") {
+    } else if (table === "course_enrollments" || table === "student_attendance") {
       fetch(
         `${SUPABASE_URL}/rest/v1/course_batches?select=*,courses(id,title,code),branches(id,name,code),instructor:instructors!instructor_id(id,full_name)&order=start_date.desc,created_at.desc`,
         {
@@ -3758,6 +3963,20 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           if (active && Array.isArray(data)) setBatchesForFilter(data);
         })
         .catch(() => {});
+
+      if (table === "student_attendance") {
+        fetch(
+          `${SUPABASE_URL}/rest/v1/batch_schedules?select=id,batch_id,session_date,start_time,end_time,topic,is_practice_lab,assigned_room_id,room:branch_rooms!assigned_room_id(id,name)&order=session_date.asc,start_time.asc`,
+          {
+            headers: getSupabaseHeaders(),
+          }
+        )
+          .then((r) => r.json())
+          .then((data) => {
+            if (active && Array.isArray(data)) setSchedulesForFilter(data);
+          })
+          .catch(() => {});
+      }
     }
     return () => {
       active = false;
@@ -3822,6 +4041,224 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const selectedBatch = batchesForFilter.find(
     (b) => String(b.id) === String(selectedBatchId)
   );
+
+  const schedulesOfBatch = useMemo(() => {
+    if (!selectedBatchId || selectedBatchId === "__ALL__") return [];
+    return schedulesForFilter.filter((s) => s.batch_id === selectedBatchId);
+  }, [schedulesForFilter, selectedBatchId]);
+
+  const rawScheduleParam = params.get("schedule_id");
+  const effectiveScheduleId = useMemo(() => {
+    if (rawScheduleParam) return rawScheduleParam;
+    if (schedulesOfBatch.length > 0) return schedulesOfBatch[0].id;
+    return "";
+  }, [rawScheduleParam, schedulesOfBatch]);
+
+  const effectiveSchedule = useMemo(() => {
+    return schedulesForFilter.find((s) => s.id === effectiveScheduleId) || null;
+  }, [schedulesForFilter, effectiveScheduleId]);
+
+  useEffect(() => {
+    if (table !== "student_attendance" || !selectedBatchId || selectedBatchId === "__ALL__") {
+      setEnrollmentsForAttendance([]);
+      return;
+    }
+    let active = true;
+    fetch(
+      `${SUPABASE_URL}/rest/v1/course_enrollments?batch_id=eq.${selectedBatchId}&select=id,student_id,batch_id,status,student:users!student_id(id,full_name,phone,email,avatar_url)&order=created_at.asc`,
+      { headers: getSupabaseHeaders() }
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (active && Array.isArray(data)) setEnrollmentsForAttendance(data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [table, selectedBatchId, version]);
+
+  useEffect(() => {
+    if (table !== "student_attendance" || !effectiveScheduleId) {
+      setAttendanceRecordsForSchedule([]);
+      return;
+    }
+    let active = true;
+    fetch(
+      `${SUPABASE_URL}/rest/v1/student_attendance?schedule_id=eq.${effectiveScheduleId}&select=*`,
+      { headers: getSupabaseHeaders() }
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (active && Array.isArray(data)) {
+          setAttendanceRecordsForSchedule(data);
+          const initialNotes: Record<string, string> = {};
+          data.forEach((item: any) => {
+            if (item.enrollment_id && item.notes) {
+              initialNotes[item.enrollment_id] = item.notes;
+            }
+          });
+          setInlineNotes((prev) => ({ ...prev, ...initialNotes }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [table, effectiveScheduleId, version]);
+
+  const handleQuickMarkAttendance = async (enrollmentId: string, newStatus: string) => {
+    if (!effectiveScheduleId) return;
+    setMarkingEnrollmentId(enrollmentId);
+    const existing = attendanceRecordsForSchedule.find(
+      (a) => a.enrollment_id === enrollmentId
+    );
+    const nowIso = new Date().toISOString();
+
+    const prevRecords = [...attendanceRecordsForSchedule];
+    if (existing) {
+      setAttendanceRecordsForSchedule((prev) =>
+        prev.map((a) =>
+          a.id === existing.id
+            ? { ...a, status: newStatus, check_in_time: nowIso }
+            : a
+        )
+      );
+    } else {
+      setAttendanceRecordsForSchedule((prev) => [
+        ...prev,
+        {
+          id: `temp-${Date.now()}`,
+          schedule_id: effectiveScheduleId,
+          enrollment_id: enrollmentId,
+          status: newStatus,
+          check_in_time: nowIso,
+          notes: inlineNotes[enrollmentId] || "",
+        },
+      ]);
+    }
+
+    try {
+      const payload: any = {
+        schedule_id: effectiveScheduleId,
+        enrollment_id: enrollmentId,
+        status: newStatus,
+        check_in_time: nowIso,
+      };
+      if (user?.id) payload.marked_by_id = user.id;
+      if (inlineNotes[enrollmentId]) payload.notes = inlineNotes[enrollmentId];
+
+      let res;
+      if (existing && !existing.id.startsWith("temp-")) {
+        res = await fetch(`${SUPABASE_URL}/rest/v1/student_attendance?id=eq.${existing.id}`, {
+          method: "PATCH",
+          headers: {
+            ...getSupabaseHeaders(),
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        res = await fetch(`${SUPABASE_URL}/rest/v1/student_attendance`, {
+          method: "POST",
+          headers: {
+            ...getSupabaseHeaders(),
+            "Content-Type": "application/json",
+            Prefer: "return=representation,resolution=merge-duplicates",
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (!res.ok) {
+        throw new Error("Lỗi khi lưu điểm danh");
+      }
+      const saved = await res.json();
+      if (Array.isArray(saved) && saved[0]) {
+        setAttendanceRecordsForSchedule((prev) =>
+          prev.map((a) =>
+            a.enrollment_id === enrollmentId ? saved[0] : a
+          )
+        );
+      }
+    } catch (e: any) {
+      console.error(e);
+      setAttendanceRecordsForSchedule(prevRecords);
+      alert("Không thể cập nhật điểm danh: " + (e?.message || "Lỗi mạng"));
+    } finally {
+      setMarkingEnrollmentId(null);
+    }
+  };
+
+  const handleMarkAllPresent = async () => {
+    if (!effectiveScheduleId || enrollmentsForAttendance.length === 0) return;
+    setIsMarkingAll(true);
+    const nowIso = new Date().toISOString();
+
+    const items = enrollmentsForAttendance.map((enr) => ({
+      schedule_id: effectiveScheduleId,
+      enrollment_id: enr.id,
+      status: "PRESENT",
+      check_in_time: nowIso,
+      notes: inlineNotes[enr.id] || "",
+      ...(user?.id ? { marked_by_id: user.id } : {}),
+    }));
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_attendance`, {
+        method: "POST",
+        headers: {
+          ...getSupabaseHeaders(),
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation",
+        },
+        body: JSON.stringify(items),
+      });
+      if (!res.ok) throw new Error("Lỗi khi điểm danh tất cả");
+      const saved = await res.json();
+      if (Array.isArray(saved)) {
+        setAttendanceRecordsForSchedule(saved);
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Lỗi khi điểm danh tất cả: " + (e?.message || ""));
+    } finally {
+      setIsMarkingAll(false);
+    }
+  };
+
+  const handleSaveNote = async (enrollmentId: string, notes: string) => {
+    setInlineNotes((prev) => ({ ...prev, [enrollmentId]: notes }));
+    const existing = attendanceRecordsForSchedule.find(
+      (a) => a.enrollment_id === enrollmentId
+    );
+    if (!existing) {
+      await handleQuickMarkAttendance(enrollmentId, "PRESENT");
+    }
+    try {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/student_attendance?schedule_id=eq.${effectiveScheduleId}&enrollment_id=eq.${enrollmentId}`,
+        {
+          method: "PATCH",
+          headers: {
+            ...getSupabaseHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ notes }),
+        }
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const presentCount = attendanceRecordsForSchedule.filter((a) => a.status === "PRESENT").length;
+  const lateCount = attendanceRecordsForSchedule.filter((a) => a.status === "LATE").length;
+  const absentCount = attendanceRecordsForSchedule.filter((a) => a.status === "ABSENT").length;
+  const excusedCount = attendanceRecordsForSchedule.filter((a) => a.status === "EXCUSED").length;
+  const markedEnrollmentIds = new Set(attendanceRecordsForSchedule.map((a) => a.enrollment_id));
+  const unmarkedCount = enrollmentsForAttendance.filter((e) => !markedEnrollmentIds.has(e.id)).length;
 
   useEffect(() => {
     if (
@@ -4064,6 +4501,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "experience_years",
       "is_active",
     ],
+    student_attendance: [
+      "enrollment_id",
+      "schedule_id",
+      "status",
+      "check_in_time",
+      "notes",
+      "marked_by_id",
+    ],
   };
   const visible = listing
     ? columnOrder[table]
@@ -4173,6 +4618,15 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     },
                     mode: "create",
                   });
+                } else if (table === "student_attendance" && effectiveScheduleId) {
+                  setEdit({
+                    row: {
+                      schedule_id: effectiveScheduleId,
+                      status: "PRESENT",
+                      check_in_time: new Date().toISOString(),
+                    },
+                    mode: "create",
+                  });
                 } else {
                   setEdit({ row: {}, mode: "create" });
                 }
@@ -4214,7 +4668,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {table === "course_enrollments" && (
+        {(table === "course_enrollments" || table === "student_attendance") && (
           <select
             aria-label="Chọn Lớp học"
             className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7]"
@@ -4226,9 +4680,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               if (!bId) {
                 delete next.batch_id;
                 p.delete("batch_id");
+                p.delete("schedule_id");
               } else {
                 next.batch_id = bId;
                 p.set("batch_id", bId);
+                p.delete("schedule_id");
               }
               Object.keys(next).length
                 ? p.set("filter", JSON.stringify(next))
@@ -4238,12 +4694,40 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             }}
           >
             <option value="">🎓 Chọn lớp học ({batchesForFilter.length} lớp có sẵn)</option>
-            <option value="__ALL__">🌐 Toàn bộ học viên tất cả các lớp</option>
+            <option value="__ALL__">🌐 {table === "student_attendance" ? "Toàn bộ lịch sử điểm danh tất cả các lớp" : "Toàn bộ học viên tất cả các lớp"}</option>
             {batchesForFilter.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.batch_code} · {b.courses?.title || "Khóa học"} {b.branches?.name ? `(${b.branches.name})` : ""}
               </option>
             ))}
+          </select>
+        )}
+        {table === "student_attendance" && selectedBatchId && selectedBatchId !== "__ALL__" && (
+          <select
+            aria-label="Chọn Buổi học"
+            className="font-bold text-[#2C241E] bg-[#FFFDF9] border-[#EAD8C7] max-w-[280px]"
+            value={effectiveScheduleId}
+            onChange={(e) => {
+              const sId = e.target.value;
+              const p = new URLSearchParams(params);
+              if (sId) {
+                p.set("schedule_id", sId);
+              } else {
+                p.delete("schedule_id");
+              }
+              p.delete("page");
+              setParams(p);
+            }}
+          >
+            {schedulesOfBatch.length === 0 ? (
+              <option value="">Lớp này chưa có buổi học</option>
+            ) : (
+              schedulesOfBatch.map((s, idx) => (
+                <option key={s.id} value={s.id}>
+                  Buổi {idx + 1} ({s.session_date ? new Date(s.session_date).toLocaleDateString("vi-VN") : ""}{s.start_time ? ` ${s.start_time.slice(0, 5)}` : ""}): {s.topic || (s.is_practice_lab ? "Thực hành" : "Lý thuyết")}
+                </option>
+              ))
+            )}
           </select>
         )}
         {table === "course_categories" && (
@@ -4330,7 +4814,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             ))}
           </select>
         ))}
-        {(Object.keys(filter).length > 0 || Boolean(params.get("course_id")) || Boolean(params.get("batch_id"))) && (
+        {(Object.keys(filter).length > 0 || Boolean(params.get("course_id")) || Boolean(params.get("batch_id")) || Boolean(params.get("schedule_id"))) && (
           <button
             className="admin-secondary"
             onClick={() => {
@@ -4338,6 +4822,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               p.delete("filter");
               p.delete("course_id");
               p.delete("batch_id");
+              p.delete("schedule_id");
               p.delete("page");
               setParams(p);
             }}
@@ -4366,7 +4851,614 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 {notice}
               </p>
             )}
-            {table === "course_enrollments" && !selectedBatchId && !params.get("search") ? (
+            {table === "student_attendance" && !selectedBatchId && !params.get("search") ? (
+              <div className="space-y-6 my-2 font-['Plus_Jakarta_Sans',sans-serif]">
+                <div className="p-6 md:p-8 bg-gradient-to-br from-[#FFFDF9] via-[#FAF4EE] to-[#F5E9DC] rounded-3xl border-2 border-[#EAD8C7] shadow-sm">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-[#8A4F23] text-white flex items-center justify-center text-2xl shadow-md shrink-0">
+                        <CalendarCheck size={28} />
+                      </div>
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#8A4F23]/10 text-[#8A4F23] mb-1">
+                          Học viện đào tạo MLD Việt Nam
+                        </div>
+                        <h2 className="text-xl md:text-2xl font-black text-[#2D1B08] tracking-tight">
+                          Chọn Lớp Học Để Quản Lý Điểm Danh & Lịch Học
+                        </h2>
+                        <p className="text-xs md:text-sm text-[#7D6E63] mt-1 max-w-2xl leading-relaxed">
+                          Xem toàn bộ lịch học và thời khóa biểu của lớp, theo dõi sĩ số học viên và thực hiện điểm danh 1 chạm cho từng buổi học theo chuẩn học viện.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const p = new URLSearchParams(params);
+                        p.set("batch_id", "__ALL__");
+                        const next = { ...filter, batch_id: "__ALL__" };
+                        p.set("filter", JSON.stringify(next));
+                        p.delete("page");
+                        setParams(p);
+                      }}
+                      className="self-start md:self-center px-4 py-2.5 rounded-xl text-xs font-bold text-[#8A4F23] bg-white hover:bg-[#FAF0E4] border border-[#EAD8C7] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <span>🌐 Xem toàn bộ nhật ký điểm danh tất cả các lớp</span>
+                    </button>
+                  </div>
+                </div>
+
+                {batchesForFilter.length === 0 ? (
+                  <div className="p-12 text-center bg-white rounded-2xl border border-[#EAD8C7] space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center text-2xl mx-auto border border-[#EAD8C7]">
+                      🎓
+                    </div>
+                    <h3 className="text-base font-bold text-[#2D1B08]">Chưa có lớp học nào trong hệ thống</h3>
+                    <p className="text-xs text-[#7D6E63] max-w-md mx-auto">
+                      Cần có ít nhất một lớp học (Course Batch) trước khi có thể điểm danh học viên. Vui lòng tạo lớp học mới trước.
+                    </p>
+                    <Link
+                      to="/manage/course_batches?create=1"
+                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-colors shadow-sm cursor-pointer"
+                    >
+                      <Plus size={15} />
+                      <span>+ Tạo lớp học mới ngay</span>
+                    </Link>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-[#2D1B08] flex items-center gap-2">
+                        <span>Danh sách các lớp học hiện có</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7]">
+                          {batchesForFilter.length} lớp
+                        </span>
+                      </h3>
+                      <span className="text-xs text-[#8C7A6B]">Bấm vào một lớp để mở lịch học và điểm danh</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {batchesForFilter.map((b) => {
+                        const batchSchedCount = schedulesForFilter.filter((s) => s.batch_id === b.id).length;
+                        return (
+                          <div
+                            key={b.id}
+                            onClick={() => {
+                              const next = { ...filter, batch_id: b.id };
+                              const p = new URLSearchParams(params);
+                              p.set("batch_id", b.id);
+                              p.set("filter", JSON.stringify(next));
+                              p.delete("schedule_id");
+                              p.delete("page");
+                              setParams(p);
+                            }}
+                            className="bg-white hover:bg-[#FFFDF9] border-2 border-[#EAD8C7] hover:border-[#8A4F23] rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden text-left"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7] flex items-center gap-1">
+                                  <span>🎓</span>
+                                  <span>{b.batch_code}</span>
+                                </span>
+                                {b.status && (
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                                      b.status === "ONGOING"
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                        : b.status === "PLANNED"
+                                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                                        : b.status === "COMPLETED"
+                                        ? "bg-slate-50 text-slate-700 border-slate-200"
+                                        : "bg-[#FAF0E4] text-[#8A4F23] border-[#EAD8C7]"
+                                    }`}
+                                  >
+                                    {b.status === "ONGOING"
+                                      ? "Đang học"
+                                      : b.status === "PLANNED"
+                                      ? "Sắp khai giảng"
+                                      : b.status === "COMPLETED"
+                                      ? "Đã bế giảng"
+                                      : enums[b.status] || b.status}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div>
+                                <h4 className="text-base font-bold text-[#2D1B08] group-hover:text-[#8A4F23] transition-colors leading-snug line-clamp-2">
+                                  {b.courses?.title || "Khóa đào tạo MLD"}
+                                </h4>
+                                {b.courses?.code && (
+                                  <span className="text-[11px] text-[#8A4F23] font-mono mt-0.5 block font-semibold">
+                                    Mã khóa: {b.courses.code}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="space-y-1.5 text-xs text-[#7D6E63] pt-2 border-t border-[#F2E7DC]">
+                                <div className="flex items-center gap-2">
+                                  <MapPin size={13} className="text-[#8A4F23] shrink-0" />
+                                  <span className="truncate">
+                                    Chi nhánh: <b>{b.branches?.name || "Toàn hệ thống"}</b>
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <UserCheck size={13} className="text-[#8A4F23] shrink-0" />
+                                  <span className="truncate">
+                                    Giảng viên: <b>{b.instructor?.full_name || "Chưa phân công"}</b>
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Calendar size={13} className="text-[#8A4F23] shrink-0" />
+                                  <span>
+                                    Khai giảng: <b>{b.start_date ? new Date(b.start_date).toLocaleDateString("vi-VN") : "Chưa xác định"}</b>
+                                  </span>
+                                </div>
+                                {b.schedule_text && (
+                                  <div className="flex items-center gap-2">
+                                    <Clock size={13} className="text-[#8A4F23] shrink-0" />
+                                    <span className="truncate">
+                                      Lịch: <b>{b.schedule_text}</b>
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-[#F2E7DC] flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#8A4F23] bg-[#FAF0E4] px-2 py-0.5 rounded-lg">
+                                  <CalendarCheck size={13} />
+                                  <span>{batchSchedCount} buổi</span>
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D1B08] bg-[#F7F4F0] px-2 py-0.5 rounded-lg border border-[#EAD8C7]">
+                                  <Users size={13} />
+                                  <span>{b.enrolled_count || 0} HV</span>
+                                </span>
+                              </div>
+                              <span className="text-xs font-bold text-[#8A4F23] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                                <span>Mở điểm danh</span>
+                                <span>→</span>
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : table === "student_attendance" && selectedBatch ? (
+              <div className="space-y-6 my-2 font-['Plus_Jakarta_Sans',sans-serif]">
+                {/* 1. Header Banner của Lớp học */}
+                <div className="bg-gradient-to-r from-[#FAF0E4] via-[#F8ECE0] to-[#F5E5D3] border-2 border-[#EAD8C7] rounded-3xl p-6 shadow-xs">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider bg-[#8A4F23] text-white px-2.5 py-0.5 rounded-md shadow-2xs">
+                          Lớp đào tạo đang chọn
+                        </span>
+                        <span className="text-base font-extrabold text-[#2D1B08] bg-white px-2.5 py-0.5 rounded-md border border-[#EAD8C7]">
+                          🎓 {selectedBatch.batch_code}
+                        </span>
+                        {selectedBatch.branches?.name && (
+                          <span className="text-xs font-medium text-[#7D6E63] bg-white/80 px-2 py-0.5 rounded-md border border-[#EAD8C7]">
+                            📍 {selectedBatch.branches.name}
+                          </span>
+                        )}
+                        {selectedBatch.instructor?.full_name && (
+                          <span className="text-xs font-medium text-[#7D6E63] bg-white/80 px-2 py-0.5 rounded-md border border-[#EAD8C7]">
+                            👨‍🏫 {selectedBatch.instructor.full_name}
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-lg md:text-xl font-extrabold text-[#2D1B08]">
+                        {selectedBatch.courses?.title || "Khóa đào tạo"} {selectedBatch.courses?.code ? `(${selectedBatch.courses.code})` : ""}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-[#7D6E63]">
+                        <span>📅 Khai giảng: <b>{selectedBatch.start_date ? new Date(selectedBatch.start_date).toLocaleDateString("vi-VN") : "Chưa xác định"}</b></span>
+                        {selectedBatch.schedule_text && (
+                          <span>⏰ Lịch học cố định: <b>{selectedBatch.schedule_text}</b></span>
+                        )}
+                        <span className="bg-[#8A4F23]/10 text-[#8A4F23] font-bold px-2.5 py-0.5 rounded-md">
+                          👥 {enrollmentsForAttendance.length} học viên trong lớp
+                        </span>
+                        <span className="bg-[#0D6832]/10 text-[#0D6832] font-bold px-2.5 py-0.5 rounded-md">
+                          📅 {schedulesOfBatch.length} buổi học trong lịch
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const p = new URLSearchParams(params);
+                          p.delete("batch_id");
+                          p.delete("schedule_id");
+                          const next = { ...filter };
+                          delete next.batch_id;
+                          Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                          p.delete("page");
+                          setParams(p);
+                        }}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#8A4F23] bg-white hover:bg-[#FAF0E4] border border-[#EAD8C7] transition-all cursor-pointer shadow-2xs"
+                      >
+                        ⇄ Đổi lớp khác
+                      </button>
+                      <Link
+                        to="/manage/batch_schedules?create=1"
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-all cursor-pointer shadow-sm inline-flex items-center gap-1.5"
+                      >
+                        <Plus size={15} />
+                        <span>+ Thêm buổi học vào lịch</span>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Lịch học của lớp đó (Schedule Timeline Strip) */}
+                <div className="bg-white rounded-3xl border-2 border-[#EAD8C7] p-5 md:p-6 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#F2E7DC]">
+                    <div>
+                      <h3 className="text-base font-extrabold text-[#2D1B08] flex items-center gap-2">
+                        <CalendarCheck size={18} className="text-[#8A4F23]" />
+                        <span>Lịch Học & Thời Khóa Biểu Của Lớp ({schedulesOfBatch.length} buổi)</span>
+                      </h3>
+                      <p className="text-xs text-[#8C7A6B] mt-0.5">
+                        Bấm vào từng buổi học bên dưới để chuyển phiên và thực hiện điểm danh học viên cho buổi đó
+                      </p>
+                    </div>
+                    {schedulesOfBatch.length > 0 && (
+                      <span className="text-xs font-bold text-[#8A4F23] bg-[#FAF0E4] px-3 py-1 rounded-full border border-[#EAD8C7] self-start sm:self-auto">
+                        Đang chọn: Buổi {schedulesOfBatch.findIndex((s) => s.id === effectiveScheduleId) + 1}
+                      </span>
+                    )}
+                  </div>
+
+                  {schedulesOfBatch.length === 0 ? (
+                    <div className="p-8 text-center bg-[#FFFDF9] rounded-2xl border border-dashed border-[#EAD8C7] space-y-2">
+                      <div className="w-12 h-12 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center text-xl mx-auto border border-[#EAD8C7]">
+                        📅
+                      </div>
+                      <h4 className="text-sm font-bold text-[#2D1B08]">Lớp học này chưa có buổi học nào trong lịch trình</h4>
+                      <p className="text-xs text-[#7D6E63] max-w-md mx-auto">
+                        Để thực hiện điểm danh, cần phân bổ các buổi học trong phân hệ Thời khóa biểu (Batch Schedules).
+                      </p>
+                      <Link
+                        to="/manage/batch_schedules?create=1"
+                        className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-colors cursor-pointer"
+                      >
+                        <Plus size={14} />
+                        <span>+ Tạo buổi học mới cho lớp</span>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                      {schedulesOfBatch.map((s, idx) => {
+                        const isActive = s.id === effectiveScheduleId;
+                        const dateFormatted = s.session_date
+                          ? new Date(s.session_date).toLocaleDateString("vi-VN")
+                          : "Chưa có ngày";
+                        const timeStr =
+                          s.start_time && s.end_time
+                            ? `${s.start_time.slice(0, 5)} - ${s.end_time.slice(0, 5)}`
+                            : "";
+                        return (
+                          <div
+                            key={s.id}
+                            onClick={() => {
+                              const p = new URLSearchParams(params);
+                              p.set("schedule_id", s.id);
+                              p.delete("page");
+                              setParams(p);
+                            }}
+                            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between text-left relative overflow-hidden ${
+                              isActive
+                                ? "bg-[#FFFDF9] border-[#8A4F23] shadow-md ring-2 ring-[#8A4F23]/20"
+                                : "bg-white hover:bg-[#FAF8F5] border-[#EAD8C7] hover:border-[#C4A48A] shadow-2xs"
+                            }`}
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-lg text-xs font-black ${
+                                    isActive
+                                      ? "bg-[#8A4F23] text-white"
+                                      : "bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7]"
+                                  }`}
+                                >
+                                  Buổi {idx + 1}
+                                </span>
+                                <span
+                                  className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${
+                                    s.is_practice_lab
+                                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                                      : "bg-blue-50 text-blue-800 border-blue-200"
+                                  }`}
+                                >
+                                  {s.is_practice_lab ? "⚡ Thực hành" : "📖 Lý thuyết"}
+                                </span>
+                              </div>
+
+                              <div className="font-bold text-xs text-[#2D1B08] flex items-center gap-1.5 flex-wrap">
+                                <span>📅 {dateFormatted}</span>
+                                {timeStr && (
+                                  <span className="text-[#8A4F23] font-semibold">⏰ {timeStr}</span>
+                                )}
+                              </div>
+
+                              <p
+                                className="text-xs text-[#4A3E36] line-clamp-2 font-medium leading-relaxed"
+                                title={s.topic || `Buổi học số ${idx + 1}`}
+                              >
+                                {s.topic || `Chuyên đề buổi học ${idx + 1}`}
+                              </p>
+
+                              {s.room?.name && (
+                                <div className="text-[11px] text-[#8C7A6B] flex items-center gap-1 truncate">
+                                  <MapPin size={11} className="text-[#8A4F23] shrink-0" />
+                                  <span className="truncate">{s.room.name}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="mt-3 pt-2.5 border-t border-[#F2E7DC] flex items-center justify-between text-[11px]">
+                              {isActive ? (
+                                <span className="font-bold text-[#0D6832] flex items-center gap-1">
+                                  <Check size={13} className="stroke-[3]" />
+                                  <span>Đang chọn</span>
+                                </span>
+                              ) : (
+                                <span className="font-medium text-[#8A4F23] group-hover:underline">
+                                  Bấm để điểm danh
+                                </span>
+                              )}
+                              <span className="text-[#A69788]">→</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Interactive Student Attendance Roster for Active Session */}
+                {effectiveSchedule && (
+                  <div className="bg-white rounded-3xl border-2 border-[#EAD8C7] p-5 md:p-6 shadow-xs space-y-5">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#F2E7DC]">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-0.5 rounded-lg text-xs font-black bg-[#8A4F23] text-white">
+                            Buổi {schedulesOfBatch.findIndex((s) => s.id === effectiveScheduleId) + 1}
+                          </span>
+                          <h3 className="text-base md:text-lg font-black text-[#2D1B08]">
+                            {effectiveSchedule.topic || "Điểm Danh Buổi Học"}
+                          </h3>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#7D6E63] mt-1.5">
+                          <span>📅 Ngày: <b>{effectiveSchedule.session_date ? new Date(effectiveSchedule.session_date).toLocaleDateString("vi-VN") : "Chưa xác định"}</b></span>
+                          <span>⏰ Giờ: <b>{effectiveSchedule.start_time?.slice(0, 5)} - {effectiveSchedule.end_time?.slice(0, 5)}</b></span>
+                          {effectiveSchedule.room?.name && (
+                            <span>📍 Phòng: <b>{effectiveSchedule.room.name}</b></span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Summary Metrics & Bulk Button */}
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <div className="flex items-center gap-1.5 bg-[#FAF8F5] p-1.5 rounded-2xl border border-[#EAD8C7]">
+                          <span className="px-2 py-1 rounded-xl text-xs font-bold bg-white text-[#2D1B08] shadow-2xs border border-[#EAD8C7]" title="Tổng sĩ số">
+                            Sĩ số: <b>{enrollmentsForAttendance.length}</b>
+                          </span>
+                          <span className="px-2 py-1 rounded-xl text-xs font-bold bg-[#E8F6ED] text-[#0D6832] border border-[#BDE8CD]" title="Có mặt">
+                            ✓ {presentCount}
+                          </span>
+                          <span className="px-2 py-1 rounded-xl text-xs font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]" title="Đi muộn">
+                            ⏰ {lateCount}
+                          </span>
+                          <span className="px-2 py-1 rounded-xl text-xs font-bold bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]" title="Vắng">
+                            ✕ {absentCount}
+                          </span>
+                          <span className="px-2 py-1 rounded-xl text-xs font-bold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]" title="Nghỉ có phép">
+                            ✉ {excusedCount}
+                          </span>
+                          {unmarkedCount > 0 && (
+                            <span className="px-2 py-1 rounded-xl text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300" title="Chưa đánh dấu">
+                              • {unmarkedCount} chưa điểm danh
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleMarkAllPresent}
+                          disabled={isMarkingAll || enrollmentsForAttendance.length === 0}
+                          className="px-4 py-2 rounded-xl text-xs font-black text-white bg-[#0D6832] hover:bg-[#095026] active:scale-95 transition-all shadow-sm inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                        >
+                          <CheckCheck size={16} />
+                          <span>{isMarkingAll ? "Đang lưu..." : "✓ Điểm danh tất cả Có mặt"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {enrollmentsForAttendance.length === 0 ? (
+                      <div className="p-8 text-center bg-[#FFFDF9] rounded-2xl border border-[#EAD8C7] space-y-2">
+                        <div className="w-12 h-12 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center text-xl mx-auto border border-[#EAD8C7]">
+                          👥
+                        </div>
+                        <h4 className="text-sm font-bold text-[#2D1B08]">Lớp học này chưa có học viên nào được ghi danh</h4>
+                        <p className="text-xs text-[#7D6E63] max-w-md mx-auto">
+                          Vui lòng ghi danh học viên vào lớp trước khi tiến hành điểm danh buổi học.
+                        </p>
+                        <Link
+                          to={`/manage/course_enrollments?batch_id=${selectedBatch.id}&create=1`}
+                          className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-colors cursor-pointer"
+                        >
+                          <Plus size={14} />
+                          <span>+ Ghi danh học viên ngay</span>
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="admin-table-wrap overflow-x-auto">
+                        <table className="admin-table w-full">
+                          <thead>
+                            <tr>
+                              <th className="w-12 text-center">STT</th>
+                              <th>Học viên</th>
+                              <th className="min-w-[320px]">Trạng thái điểm danh (1 chạm)</th>
+                              <th className="min-w-[150px]">Giờ điểm danh</th>
+                              <th className="min-w-[220px]">Ghi chú buổi học</th>
+                              <th className="min-w-[140px]">Người xác nhận</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {enrollmentsForAttendance.map((enr, idx) => {
+                              const att = attendanceRecordsForSchedule.find(
+                                (a) => a.enrollment_id === enr.id
+                              );
+                              const curStatus = att?.status;
+                              const isUpdating = markingEnrollmentId === enr.id;
+                              const studentName = enr.student?.full_name || "Học viên";
+                              const phone = enr.student?.phone;
+                              const email = enr.student?.email;
+
+                              return (
+                                <tr key={enr.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                                  <td className="text-center font-bold text-xs text-[#8C7A6B]">
+                                    {idx + 1}
+                                  </td>
+                                  <td>
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="w-8 h-8 rounded-full bg-[#FAF0E4] text-[#8A4F23] font-bold text-xs flex items-center justify-center border border-[#EAD8C7] shrink-0">
+                                        {studentName.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="font-extrabold text-xs text-[#2D1B08] truncate">
+                                          {studentName}
+                                        </div>
+                                        <div className="text-[10.5px] text-[#8C7A6B] truncate">
+                                          {phone || email || "Chưa có liên hệ"}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {/* PRESENT */}
+                                      <button
+                                        type="button"
+                                        disabled={isUpdating}
+                                        onClick={() => handleQuickMarkAttendance(enr.id, "PRESENT")}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                          curStatus === "PRESENT"
+                                            ? "bg-[#0D6832] text-white shadow-xs scale-102"
+                                            : "bg-[#E8F6ED] text-[#0D6832] hover:bg-[#D3EEDF] border border-[#BDE8CD]"
+                                        }`}
+                                      >
+                                        <span>✓</span>
+                                        <span>Có mặt</span>
+                                      </button>
+
+                                      {/* LATE */}
+                                      <button
+                                        type="button"
+                                        disabled={isUpdating}
+                                        onClick={() => handleQuickMarkAttendance(enr.id, "LATE")}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                          curStatus === "LATE"
+                                            ? "bg-[#D97706] text-white shadow-xs scale-102"
+                                            : "bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] border border-[#FDE68A]"
+                                        }`}
+                                      >
+                                        <span>⏰</span>
+                                        <span>Đi muộn</span>
+                                      </button>
+
+                                      {/* ABSENT */}
+                                      <button
+                                        type="button"
+                                        disabled={isUpdating}
+                                        onClick={() => handleQuickMarkAttendance(enr.id, "ABSENT")}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                          curStatus === "ABSENT"
+                                            ? "bg-[#DC2626] text-white shadow-xs scale-102"
+                                            : "bg-[#FEF2F2] text-[#991B1B] hover:bg-[#FEE2E2] border border-[#FECACA]"
+                                        }`}
+                                      >
+                                        <span>✕</span>
+                                        <span>Vắng</span>
+                                      </button>
+
+                                      {/* EXCUSED */}
+                                      <button
+                                        type="button"
+                                        disabled={isUpdating}
+                                        onClick={() => handleQuickMarkAttendance(enr.id, "EXCUSED")}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                          curStatus === "EXCUSED"
+                                            ? "bg-[#2563EB] text-white shadow-xs scale-102"
+                                            : "bg-[#EFF6FF] text-[#1D4ED8] hover:bg-[#DBEAFE] border border-[#BFDBFE]"
+                                        }`}
+                                      >
+                                        <span>✉</span>
+                                        <span>Có phép</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    {att?.check_in_time ? (
+                                      <span className="text-xs font-medium text-[#2D1B08] inline-flex items-center gap-1">
+                                        <Clock size={12} className="text-[#8A4F23]" />
+                                        <span>
+                                          {new Intl.DateTimeFormat("vi-VN", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            day: "2-digit",
+                                            month: "2-digit",
+                                          }).format(new Date(att.check_in_time))}
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-[#A69788]">—</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      value={inlineNotes[enr.id] ?? (att?.notes || "")}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setInlineNotes((prev) => ({ ...prev, [enr.id]: val }));
+                                      }}
+                                      onBlur={(e) => handleSaveNote(enr.id, e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                      }}
+                                      placeholder="Ghi chú (VD: tiếp thu tốt)..."
+                                      className="text-xs px-2.5 py-1.5 rounded-lg border border-[#EAD8C7] bg-white w-full max-w-[220px] focus:outline-[#8A4F23]"
+                                    />
+                                  </td>
+                                  <td>
+                                    {att ? (
+                                      <span className="text-xs font-medium text-[#0D6832] inline-flex items-center gap-1">
+                                        <span>✓</span>
+                                        <span>{user?.full_name || "Giảng viên"}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-[#A69788]">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : table === "course_enrollments" && !selectedBatchId && !params.get("search") ? (
               <div className="space-y-6 my-2 font-['Plus_Jakarta_Sans',sans-serif]">
                 <div className="p-6 md:p-8 bg-gradient-to-br from-[#FFFDF9] via-[#FAF4EE] to-[#F5E9DC] rounded-3xl border-2 border-[#EAD8C7] shadow-sm">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -4604,6 +5696,30 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         </button>
                       </div>
                     </div>
+                  </div>
+                )}
+                {table === "student_attendance" && selectedBatchId === "__ALL__" && (
+                  <div className="bg-[#FAF8F5] border border-[#EAD8C7] rounded-2xl p-4 mb-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-['Plus_Jakarta_Sans',sans-serif]">
+                    <div className="flex items-center gap-2.5 text-xs font-bold text-[#2D1B08]">
+                      <span className="text-lg">🌐</span>
+                      <span>Đang hiển thị toàn bộ nhật ký điểm danh của tất cả các lớp ({listing.total.toLocaleString("vi-VN")} bản ghi)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const p = new URLSearchParams(params);
+                        p.delete("batch_id");
+                        p.delete("schedule_id");
+                        const next = { ...filter };
+                        delete next.batch_id;
+                        Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                        p.delete("page");
+                        setParams(p);
+                      }}
+                      className="self-start sm:self-auto px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#8A4F23] bg-white border border-[#EAD8C7] hover:bg-[#FAF0E4] cursor-pointer"
+                    >
+                      ← Quay lại chọn theo từng lớp
+                    </button>
                   </div>
                 )}
                 {table === "course_enrollments" && selectedBatchId === "__ALL__" && (
