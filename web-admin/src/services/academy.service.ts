@@ -9,6 +9,9 @@ import {
   EnrollmentStatus,
   CertificateStatus,
   ApiResponse,
+  EdemaAssessment,
+  EdemaAssessmentStatus,
+  EdemaAssessmentResult,
 } from '../types/shared_types';
 
 import { supabaseService } from './supabaseService';
@@ -231,23 +234,167 @@ export const academyService = {
     return legacyWrite<TuitionTransaction>('tuition_transactions', data);
   },
 
-  // --- Chứng chỉ tốt nghiệp điện tử ---
+  // --- Giấy chứng nhận Chuẩn Y khoa (Student Certificates) ---
   async getCertificates(params?: {
     status?: CertificateStatus;
     search?: string;
   }): Promise<ApiResponse<StudentCertificate[]>> {
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Dữ liệu chứng chỉ tốt nghiệp từ Supabase Cloud',
-      data: (await legacyRead<StudentCertificate>('student_certificates')).filter(c=>(!params?.status||c.status===params.status)&&(!params?.search||c.studentName.toLowerCase().includes(params.search.toLowerCase()))),
-    };
+    try {
+      const live = await supabaseService.getStudentCertificates();
+      let res = live || [];
+      if (params?.status) {
+        res = res.filter((c) => c.status === params.status);
+      }
+      if (params?.search) {
+        const kw = params.search.toLowerCase();
+        res = res.filter(
+          (c) =>
+            c.studentName.toLowerCase().includes(kw) ||
+            c.certificateCode.toLowerCase().includes(kw) ||
+            c.courseTitle.toLowerCase().includes(kw)
+        );
+      }
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu Giấy chứng nhận từ Supabase Cloud',
+        data: res,
+      };
+    } catch (err) {
+      console.error('[academyService] getCertificates failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn Giấy chứng nhận từ Supabase',
+        data: [],
+      };
+    }
   },
 
   async issueCertificate(
     data: Partial<StudentCertificate>
   ): Promise<ApiResponse<StudentCertificate>> {
-    return legacyWrite<StudentCertificate>('student_certificates',data);
+    try {
+      const created = await supabaseService.createStudentCertificate(data);
+      if (created) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Cấp Giấy chứng nhận thành công trên Supabase Cloud',
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] issueCertificate failed:', err);
+    }
+    return legacyWrite<StudentCertificate>('student_certificates', data);
+  },
+
+  async revokeCertificate(
+    id: string,
+    reason?: string
+  ): Promise<ApiResponse<StudentCertificate | null>> {
+    try {
+      const updated = await supabaseService.updateStudentCertificate(id, {
+        status: CertificateStatus.REVOKED,
+      });
+      if (updated) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: 'Thu hồi Giấy chứng nhận thành công trên Supabase Cloud',
+          data: updated,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] revokeCertificate error:', err);
+    }
+    return {
+      success: false,
+      statusCode: 500,
+      message: 'Lỗi khi thu hồi Giấy chứng nhận',
+      data: null,
+    };
+  },
+
+  // --- Đăng ký & Kiểm tra phù bạch huyết lâm sàng (Edema Assessments) ---
+  async getEdemaAssessments(params?: {
+    status?: EdemaAssessmentStatus;
+    search?: string;
+  }): Promise<ApiResponse<EdemaAssessment[]>> {
+    try {
+      const live = await supabaseService.getEdemaAssessments();
+      let res = live || [];
+      if (params?.status) {
+        res = res.filter((item) => item.status === params.status);
+      }
+      if (params?.search) {
+        const kw = params.search.toLowerCase();
+        res = res.filter(
+          (item) =>
+            item.customerName.toLowerCase().includes(kw) ||
+            item.customerPhone.includes(kw)
+        );
+      }
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu đăng ký khám phù từ Supabase Cloud',
+        data: res,
+      };
+    } catch (err) {
+      console.error('[academyService] getEdemaAssessments failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn khám phù lâm sàng',
+        data: [],
+      };
+    }
+  },
+
+  async createEdemaAssessment(
+    data: Partial<EdemaAssessment>
+  ): Promise<ApiResponse<EdemaAssessment>> {
+    try {
+      const created = await supabaseService.createEdemaAssessment(data);
+      if (created) {
+        return {
+          success: true,
+          statusCode: 201,
+          message: 'Đăng ký lịch khám phù lâm sàng thành công',
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] createEdemaAssessment error:', err);
+    }
+    return legacyWrite<EdemaAssessment>('edema_assessments', data);
+  },
+
+  async updateEdemaAssessment(
+    id: string,
+    updates: Partial<EdemaAssessment>
+  ): Promise<ApiResponse<EdemaAssessment | null>> {
+    try {
+      const updated = await supabaseService.updateEdemaAssessment(id, updates);
+      if (updated) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: 'Cập nhật phiếu kiểm tra phù thành công',
+          data: updated,
+        };
+      }
+    } catch (err) {
+      console.error('[academyService] updateEdemaAssessment error:', err);
+    }
+    return {
+      success: false,
+      statusCode: 500,
+      message: 'Lỗi cập nhật phiếu kiểm tra phù',
+      data: null,
+    };
   },
 
   // --- Đội ngũ giảng viên (Instructors) ---

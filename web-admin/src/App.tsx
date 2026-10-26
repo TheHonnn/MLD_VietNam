@@ -22,6 +22,9 @@ const W12_FinancialReports = lazy(() => import('./pages/W12_FinancialReports').t
 const W13_StaffCommissions = lazy(() => import('./pages/W13_StaffCommissions').then((m) => ({ default: m.W13_StaffCommissions })));
 const W14_ZaloZNS = lazy(() => import('./pages/W14_ZaloZNS').then((m) => ({ default: m.W14_ZaloZNS })));
 const W15_InventoryBOM = lazy(() => import('./pages/W15_InventoryBOM').then((m) => ({ default: m.W15_InventoryBOM })));
+const W16_Certificates = lazy(() => import('./pages/W16_Certificates').then((m) => ({ default: m.W16_Certificates })));
+const W17_EdemaAssessments = lazy(() => import('./pages/W17_EdemaAssessments').then((m) => ({ default: m.W17_EdemaAssessments })));
+const W18_PortalContent = lazy(() => import('./pages/W18_PortalContent').then((m) => ({ default: m.W18_PortalContent })));
 const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ default: m.ResourcePage })));
 
 
@@ -253,6 +256,56 @@ const AppContent: React.FC = () => {
                 </RoleRoute>
               }
             />
+            <Route
+              path="certificates"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
+                  <W16_Certificates />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="chung-chi"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
+                  <W16_Certificates />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="giay-chung-nhan"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
+                  <W16_Certificates />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="edema-assessments"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR', 'RECEPTIONIST']}>
+                  <W17_EdemaAssessments />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="kham-phu"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR', 'RECEPTIONIST']}>
+                  <W17_EdemaAssessments />
+                </RoleRoute>
+              }
+            />
+            <Route path="manage/student_certificates" element={<Navigate to="/certificates" replace />} />
+            <Route
+              path="portal-content"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
+                  <W18_PortalContent />
+                </RoleRoute>
+              }
+            />
+            <Route path="portal" element={<Navigate to="/portal-content" replace />} />
             <Route path="manage/branches" element={<Navigate to="/branches" replace />} />
 
             <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />

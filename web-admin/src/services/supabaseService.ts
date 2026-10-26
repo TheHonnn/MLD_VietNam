@@ -24,6 +24,8 @@ import {
   StaffCommission,
   ServiceMaterial,
   InventoryConsumptionLog,
+  StudentCertificate,
+  EdemaAssessment,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -2001,6 +2003,263 @@ class SupabaseService {
     } catch {
       return null;
     }
+  }
+
+  // ==========================================
+  // GIẤY CHỨNG NHẬN CHUẨN Y KHOA (STUDENT CERTIFICATES)
+  // ==========================================
+  async getStudentCertificates(): Promise<StudentCertificate[]> {
+    try {
+      const rows = await this.query<any[]>('student_certificates?select=*&order=issue_date.desc');
+      if (rows && rows.length > 0) {
+        return rows.map((r) => ({
+          id: r.id,
+          enrollmentId: r.enrollment_id,
+          studentId: r.student_id,
+          courseId: r.course_id,
+          certificateCode: r.certificate_code,
+          qrVerificationCode: r.qr_verification_code,
+          studentName: r.student_name,
+          dateOfBirth: r.date_of_birth,
+          courseTitle: r.course_title,
+          issueDate: r.issue_date,
+          theoryScore: r.theory_score !== null ? Number(r.theory_score) : null,
+          practicalScore: r.practical_score !== null ? Number(r.practical_score) : null,
+          finalGrade: r.final_grade,
+          certificatePdfUrl: r.certificate_pdf_url,
+          qrImageUrl: r.qr_image_url,
+          signerName: r.signer_name,
+          signerTitle: r.signer_title,
+          status: r.status,
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] getStudentCertificates error:', err);
+    }
+    return [];
+  }
+
+  async createStudentCertificate(data: Partial<StudentCertificate>): Promise<StudentCertificate | null> {
+    const payload: any = {
+      enrollment_id: isUuid(data.enrollmentId) ? data.enrollmentId : null,
+      student_id: isUuid(data.studentId) ? data.studentId : null,
+      course_id: isUuid(data.courseId) ? data.courseId : null,
+      certificate_code: data.certificateCode || `MLD-GCN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      qr_verification_code: data.qrVerificationCode || `https://mldvietnam.vn/verify/${data.certificateCode}`,
+      student_name: data.studentName,
+      date_of_birth: data.dateOfBirth || null,
+      course_title: data.courseTitle,
+      issue_date: data.issueDate || new Date().toISOString().split('T')[0],
+      theory_score: data.theoryScore ?? null,
+      practical_score: data.practicalScore ?? null,
+      final_grade: data.finalGrade || 'GIỎI',
+      certificate_pdf_url: data.certificatePdfUrl || null,
+      qr_image_url: data.qrImageUrl || null,
+      signer_name: data.signerName || 'BS. CKI Trần Hoàng Nam',
+      signer_title: data.signerTitle || 'Chủ Tịch Hội Đồng Y Khoa MLD',
+      status: data.status || 'ISSUED',
+    };
+
+    try {
+      const res = await this.query<any[]>('student_certificates', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          enrollmentId: r.enrollment_id,
+          studentId: r.student_id,
+          courseId: r.course_id,
+          certificateCode: r.certificate_code,
+          qrVerificationCode: r.qr_verification_code,
+          studentName: r.student_name,
+          dateOfBirth: r.date_of_birth,
+          courseTitle: r.course_title,
+          issueDate: r.issue_date,
+          theoryScore: r.theory_score !== null ? Number(r.theory_score) : null,
+          practicalScore: r.practical_score !== null ? Number(r.practical_score) : null,
+          finalGrade: r.final_grade,
+          certificatePdfUrl: r.certificate_pdf_url,
+          qrImageUrl: r.qr_image_url,
+          signerName: r.signer_name,
+          signerTitle: r.signer_title,
+          status: r.status,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createStudentCertificate error:', err);
+    }
+    return null;
+  }
+
+  async updateStudentCertificate(id: string, updates: Partial<StudentCertificate>): Promise<StudentCertificate | null> {
+    const payload: any = {};
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.studentName !== undefined) payload.student_name = updates.studentName;
+    if (updates.dateOfBirth !== undefined) payload.date_of_birth = updates.dateOfBirth;
+    if (updates.finalGrade !== undefined) payload.final_grade = updates.finalGrade;
+    if (updates.signerName !== undefined) payload.signer_name = updates.signerName;
+    if (updates.signerTitle !== undefined) payload.signer_title = updates.signerTitle;
+
+    try {
+      const res = await this.query<any[]>(`student_certificates?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          enrollmentId: r.enrollment_id,
+          studentId: r.student_id,
+          courseId: r.course_id,
+          certificateCode: r.certificate_code,
+          qrVerificationCode: r.qr_verification_code,
+          studentName: r.student_name,
+          dateOfBirth: r.date_of_birth,
+          courseTitle: r.course_title,
+          issueDate: r.issue_date,
+          theoryScore: r.theory_score !== null ? Number(r.theory_score) : null,
+          practicalScore: r.practical_score !== null ? Number(r.practical_score) : null,
+          finalGrade: r.final_grade,
+          certificatePdfUrl: r.certificate_pdf_url,
+          qrImageUrl: r.qr_image_url,
+          signerName: r.signer_name,
+          signerTitle: r.signer_title,
+          status: r.status,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] updateStudentCertificate error:', err);
+    }
+    return null;
+  }
+
+  // ==========================================
+  // ĐĂNG KÝ & KIỂM TRA PHÙ LÂM SÀNG (EDEMA ASSESSMENTS)
+  // ==========================================
+  async getEdemaAssessments(): Promise<EdemaAssessment[]> {
+    try {
+      const rows = await this.query<any[]>('edema_assessments?select=*&order=assessment_date.desc,created_at.desc');
+      if (rows && rows.length > 0) {
+        return rows.map((r) => ({
+          id: r.id,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          customerPhone: r.customer_phone,
+          branchId: r.branch_id,
+          examinerId: r.examiner_id,
+          assessmentDate: r.assessment_date,
+          timeSlot: r.time_slot,
+          status: r.status,
+          result: r.result,
+          stageLevel: r.stage_level,
+          circumferenceMeasurements: r.circumference_measurements,
+          clinicalNotes: r.clinical_notes,
+          certificateIssuedId: r.certificate_issued_id,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] getEdemaAssessments error:', err);
+    }
+    return [];
+  }
+
+  async createEdemaAssessment(data: Partial<EdemaAssessment>): Promise<EdemaAssessment | null> {
+    const payload: any = {
+      customer_id: isUuid(data.customerId) ? data.customerId : null,
+      customer_name: data.customerName,
+      customer_phone: data.customerPhone,
+      branch_id: isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+      examiner_id: isUuid(data.examinerId) ? data.examinerId : null,
+      assessment_date: data.assessmentDate || new Date().toISOString().split('T')[0],
+      time_slot: data.timeSlot || '09:00 - 10:00',
+      status: data.status || 'WAITING_CONFIRMATION',
+      result: data.result || 'PENDING',
+      stage_level: data.stageLevel || null,
+      circumference_measurements: data.circumferenceMeasurements || {},
+      clinical_notes: data.clinicalNotes || null,
+    };
+
+    try {
+      const res = await this.query<any[]>('edema_assessments', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          customerPhone: r.customer_phone,
+          branchId: r.branch_id,
+          examinerId: r.examiner_id,
+          assessmentDate: r.assessment_date,
+          timeSlot: r.time_slot,
+          status: r.status,
+          result: r.result,
+          stageLevel: r.stage_level,
+          circumferenceMeasurements: r.circumference_measurements,
+          clinicalNotes: r.clinical_notes,
+          certificateIssuedId: r.certificate_issued_id,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createEdemaAssessment error:', err);
+    }
+    return null;
+  }
+
+  async updateEdemaAssessment(id: string, updates: Partial<EdemaAssessment>): Promise<EdemaAssessment | null> {
+    const payload: any = {};
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.result !== undefined) payload.result = updates.result;
+    if (updates.stageLevel !== undefined) payload.stage_level = updates.stageLevel;
+    if (updates.circumferenceMeasurements !== undefined) payload.circumference_measurements = updates.circumferenceMeasurements;
+    if (updates.clinicalNotes !== undefined) payload.clinical_notes = updates.clinicalNotes;
+    if (updates.certificateIssuedId !== undefined) payload.certificate_issued_id = updates.certificateIssuedId;
+
+    try {
+      const res = await this.query<any[]>(`edema_assessments?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          customerPhone: r.customer_phone,
+          branchId: r.branch_id,
+          examinerId: r.examiner_id,
+          assessmentDate: r.assessment_date,
+          timeSlot: r.time_slot,
+          status: r.status,
+          result: r.result,
+          stageLevel: r.stage_level,
+          circumferenceMeasurements: r.circumference_measurements,
+          clinicalNotes: r.clinical_notes,
+          certificateIssuedId: r.certificate_issued_id,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] updateEdemaAssessment error:', err);
+    }
+    return null;
   }
 }
 

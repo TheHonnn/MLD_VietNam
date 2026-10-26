@@ -12,4 +12,6 @@ export * from './realtime.service';
 export * from './commission.service';
 export * from './zns.service';
 export * from './inventory.service';
+export * from './portal.service';
+export * from './email.service';
 

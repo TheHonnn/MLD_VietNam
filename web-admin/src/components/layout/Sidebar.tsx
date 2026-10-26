@@ -25,6 +25,9 @@ import {
   DollarSign,
   Boxes,
   Smartphone,
+  Layers,
+  Award,
+  Stethoscope,
   type LucideIcon,
   X,
 } from 'lucide-react';
@@ -56,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         { name: 'Nhân viên', path: '/manage/staff_profiles', icon: UserRoundCog, onlyWhenAllowed: true },
         { name: 'Lịch kỹ thuật viên', path: '/staff-schedule', icon: Calendar },
         { name: 'Liệu trình', path: '/medical-records', icon: Leaf },
+        { name: 'Khám kiểm tra phù', path: '/edema-assessments', icon: Stethoscope },
         { name: 'Thu ngân', path: '/cashier-pos', icon: CreditCard },
         { name: 'Hoa hồng KTV', path: '/commissions', icon: DollarSign },
         { name: 'Định mức vật tư (BOM)', path: '/inventory-bom', icon: Boxes },
@@ -69,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         { name: 'Giảng viên', path: '/instructors', icon: Presentation },
         { name: 'Học viên', path: '/attendance', icon: GraduationCap },
         { name: 'Vận hành đào tạo', path: '/curriculum', icon: BookOpen },
-        { name: 'Chứng chỉ', path: '/manage/student_certificates', icon: BadgeCheck, onlyWhenAllowed: true },
+        { name: 'Giấy chứng nhận', path: '/certificates', icon: Award },
       ],
     },
     {
@@ -81,6 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     {
       title: 'HỆ THỐNG',
       items: [
+        { name: 'Nội dung Portal', path: '/portal-content', icon: Layers },
         { name: 'CSKH Zalo ZNS', path: '/zalo-zns', icon: Smartphone },
         { name: 'Phân quyền', path: '/manage/roles', icon: ShieldCheck, onlyWhenAllowed: true },
       ],

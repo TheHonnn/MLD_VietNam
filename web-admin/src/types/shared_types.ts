@@ -552,20 +552,59 @@ export interface StudentAttendance {
   markedById?: string | null;
 }
 
+export enum EdemaAssessmentStatus {
+  WAITING_CONFIRMATION = 'WAITING_CONFIRMATION',
+  CONFIRMED = 'CONFIRMED',
+  CANCELLED = 'CANCELLED',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum EdemaAssessmentResult {
+  PENDING = 'PENDING',
+  PASSED = 'PASSED',
+  FAILED = 'FAILED',
+  NEEDS_FOLLOW_UP = 'NEEDS_FOLLOW_UP',
+}
+
+export interface EdemaAssessment {
+  id: string;
+  customerId?: string | null;
+  customerName: string;
+  customerPhone: string;
+  branchId: string;
+  examinerId?: string | null;
+  assessmentDate: string;
+  timeSlot: string;
+  status: EdemaAssessmentStatus;
+  result: EdemaAssessmentResult;
+  stageLevel?: string | null;
+  circumferenceMeasurements?: Record<string, string> | any;
+  clinicalNotes?: string | null;
+  certificateIssuedId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  branch?: Branch;
+  examiner?: User;
+}
+
 export interface StudentCertificate {
   id: string;
-  enrollmentId: string;
-  studentId: string;
-  courseId: string;
+  enrollmentId?: string | null;
+  studentId?: string | null;
+  courseId?: string | null;
   certificateCode: string;
   qrVerificationCode: string;
   studentName: string;
+  dateOfBirth?: string | null;
   courseTitle: string;
   issueDate: string;
-  theoryScore: number;
-  practicalScore: number;
+  theoryScore?: number | null;
+  practicalScore?: number | null;
   finalGrade: string;
   certificatePdfUrl?: string | null;
+  qrImageUrl?: string | null;
+  signerName?: string | null;
+  signerTitle?: string | null;
   status: CertificateStatus;
 }
 
@@ -783,5 +822,63 @@ export interface ZaloZnsLog {
   contentPreview?: string;
 }
 
+// ==========================================
+// PORTAL CONTENT & CMS TYPES
+// ==========================================
+export type PortalContentKind = 'BANNER' | 'DOCUMENT' | 'COMMUNITY' | 'ARTICLE';
+export type PortalContentStatus = 'DRAFT' | 'PUBLISHED' | 'APPROVED' | 'PENDING' | 'REJECTED' | 'ARCHIVED';
+export type DocumentAccessLevel = 'PUBLIC' | 'FREE_TRIAL' | 'MEMBERS_ONLY';
 
+export interface PortalContentItem {
+  id: string;
+  kind: PortalContentKind;
+  title: string;
+  summary: string;
+  contentText: string;
+  imageUrl?: string;
+  targetLink?: string;
+  sortOrder: number;
+  downloadCount: number;
+  isFeatured: boolean;
+  category?: string;
+  accessLevel: DocumentAccessLevel;
+  fileUrl?: string;
+  fileSizeBytes: number;
+  likesCount: number;
+  commentsCount: number;
+  status: PortalContentStatus;
+  authorName?: string;
+  authorAvatar?: string;
+  publishedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
+// ==========================================
+// AUTOMATED EMAIL NOTIFICATION TYPES
+// ==========================================
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  description?: string;
+  bodyHtml: string;
+  variables: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName?: string;
+  templateId?: string;
+  subject: string;
+  bodyHtml: string;
+  status: 'SENT' | 'FAILED' | 'PENDING';
+  metadata?: Record<string, any>;
+  errorMessage?: string;
+  sentAt: string;
+  createdAt: string;
+}
