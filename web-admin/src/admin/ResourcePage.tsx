@@ -5,6 +5,7 @@ import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurve
 import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
+import { CourseEditorSheet } from "./CourseEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -2477,6 +2478,14 @@ function RecordDialog({
     >
       {resource.name === "staff_profiles" ? (
         <StaffProfileEditorSheet
+          row={row}
+          mode={mode}
+          onClose={onClose}
+          onSaved={onSaved}
+          onSwitchMode={onSwitchMode}
+        />
+      ) : resource.name === "courses" ? (
+        <CourseEditorSheet
           row={row}
           mode={mode}
           onClose={onClose}
