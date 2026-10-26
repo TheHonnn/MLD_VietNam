@@ -10,7 +10,6 @@ import '../../../treatment/data/models/treatment_models.dart';
 import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
 import '../../../treatment/presentation/screens/d03_care_journal_screen.dart';
 import '../../../academy/data/repositories/academy_repository.dart';
-import '../../../academy/data/models/academy_models.dart';
 import '../../../academy/presentation/screens/e07_my_courses_screen.dart';
 import '../../../academy/presentation/screens/e11_attendance_schedule_screen.dart';
 import '../../../academy/presentation/screens/e12_learning_results_screen.dart';
@@ -21,9 +20,10 @@ import 'f06_payment_history_screen.dart';
 import 'f08_settings_screen.dart';
 
 /// Screen F01: Trang Cá nhân chuẩn Design System (#2860EB)
-/// Tối ưu trải nghiệm:
-/// - Giữ đầy đủ các nghiệp vụ quan trọng: Khóa học của tôi, Lịch học, Chứng chỉ, Lịch hẹn, Gói liệu trình, v.v.
-/// - Đã loại bỏ các mục rườm rà theo yêu cầu: Thẻ hội viên, điểm tích lũy, voucher, phiếu trước khám, hướng dẫn chăm sóc, icon phân loại.
+/// - Đưa nhóm Dịch vụ & Trị liệu lên trên
+/// - Đổi "Chứng chỉ" thành "Chứng nhận"
+/// - Xóa toàn bộ chữ giải thích / subtitle thừa
+/// - Lấy 100% dữ liệu thực từ database, hiển thị 0 khi chưa có dữ liệu (không mock tĩnh)
 class F01ProfileDashboardScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
 
@@ -50,6 +50,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           _profile = p;
         });
       }
+    });
+    BookingRepository.instance.fetchMyAppointments().then((_) {
+      if (mounted) setState(() {});
+    });
+    TreatmentRepository.instance.fetchPackages().then((_) {
+      if (mounted) setState(() {});
     });
     AcademyRepository.instance.getMyCourses().then((_) {
       if (mounted) setState(() {});
@@ -117,13 +123,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
         ? _profile.phone
         : (AuthService.instance.lastLoginPhone ?? 'Chưa cập nhật số điện thoại');
 
+    // Dữ liệu thực từ database / repository (không fallback mock)
     final upcomingAppointmentsCount = BookingRepository.instance.getUpcomingAppointments().length;
-    final myCoursesCount = AcademyRepository.instance.enrolledCourses.isNotEmpty
-        ? AcademyRepository.instance.enrolledCourses.length
-        : MockAcademyData.courses.length;
     final remainingSessions = TreatmentRepository.instance.packages
         .where((p) => p.status == PackageStatus.active)
         .fold<int>(0, (acc, p) => acc + (p.totalSessions - p.completedSessions));
+    final myCoursesCount = AcademyRepository.instance.enrolledCourses.length;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -225,25 +230,10 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 16),
 
               // ==========================================
-              // 2. CHỈ SỐ NHANH (Khóa học, Lịch hẹn, Liệu trình)
+              // 2. CHỈ SỐ NHANH (Dữ liệu thực tế từ Database)
               // ==========================================
               Row(
                 children: [
-                  Expanded(
-                    child: _buildMetricItem(
-                      icon: Icons.school_outlined,
-                      count: myCoursesCount.toString(),
-                      label: 'Khóa học',
-                      subLabel: 'đang học',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: _buildMetricItem(
                       icon: Icons.calendar_today_outlined,
@@ -273,66 +263,35 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       },
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildMetricItem(
+                      icon: Icons.school_outlined,
+                      count: myCoursesCount.toString(),
+                      label: 'Khóa học',
+                      subLabel: 'đang học',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
 
               const SizedBox(height: 24),
 
               // ==========================================
-              // 3. NHÓM ĐÀO TẠO & KHÓA HỌC
+              // 3. NHÓM 1: DỊCH VỤ TRỊ LIỆU (ĐƯA LÊN TRÊN)
               // ==========================================
-              _buildSectionHeader('ĐÀO TẠO & KHÓA HỌC'),
-              const SizedBox(height: 8),
-              _buildCardContainer([
-                _buildMenuItem(
-                  icon: Icons.school_outlined,
-                  title: 'Khóa học của tôi',
-                  subtitle: 'Video bài giảng, tài liệu học và tiến độ đào tạo',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
-                    );
-                  },
-                ),
-                const Divider(height: 1, indent: 56, color: AppColors.border),
-                _buildMenuItem(
-                  icon: Icons.event_note_outlined,
-                  title: 'Lịch học & Điểm danh',
-                  subtitle: 'Thời khóa biểu các lớp lý thuyết và thực hành',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()),
-                    );
-                  },
-                ),
-                const Divider(height: 1, indent: 56, color: AppColors.border),
-                _buildMenuItem(
-                  icon: Icons.workspace_premium_outlined,
-                  title: 'Chứng chỉ & Kết quả học tập',
-                  subtitle: 'Bằng chứng nhận tốt nghiệp chuẩn Y khoa MLD',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const E12LearningResultsScreen()),
-                    );
-                  },
-                ),
-              ]),
-
-              const SizedBox(height: 20),
-
-              // ==========================================
-              // 4. NHÓM DỊCH VỤ & TRỊ LIỆU
-              // ==========================================
-              _buildSectionHeader('DỊCH VỤ & TRỊ LIỆU'),
+              _buildSectionHeader('DỊCH VỤ TRỊ LIỆU'),
               const SizedBox(height: 8),
               _buildCardContainer([
                 _buildMenuItem(
                   icon: Icons.calendar_today_outlined,
                   title: 'Lịch hẹn của tôi',
-                  subtitle: 'Lịch hẹn sắp tới và lịch sử đã hoàn thành',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -343,8 +302,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.spa_outlined,
-                  title: 'Gói liệu trình của tôi',
-                  subtitle: 'Các gói trị liệu Vodder MLD và số buổi',
+                  title: 'Gói liệu trình',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -356,7 +314,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.menu_book_outlined,
                   title: 'Nhật ký trị liệu',
-                  subtitle: 'Hồ sơ theo dõi tiến trình giảm phù định kỳ',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -369,7 +326,49 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 20),
 
               // ==========================================
-              // 5. NHÓM TÀI KHOẢN & HỆ THỐNG
+              // 4. NHÓM 2: ĐÀO TẠO & KHÓA HỌC
+              // ==========================================
+              _buildSectionHeader('ĐÀO TẠO & KHÓA HỌC'),
+              const SizedBox(height: 8),
+              _buildCardContainer([
+                _buildMenuItem(
+                  icon: Icons.school_outlined,
+                  title: 'Khóa học của tôi',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.event_note_outlined,
+                  title: 'Lịch học',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'Chứng nhận',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const E12LearningResultsScreen()),
+                    );
+                  },
+                ),
+              ]),
+
+              const SizedBox(height: 20),
+
+              // ==========================================
+              // 5. NHÓM 3: TÀI KHOẢN & HỆ THỐNG
               // ==========================================
               _buildSectionHeader('TÀI KHOẢN & HỆ THỐNG'),
               const SizedBox(height: 8),
@@ -377,7 +376,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.person_outline_rounded,
                   title: 'Thông tin cá nhân',
-                  subtitle: 'Hồ sơ, họ tên và số điện thoại liên hệ',
                   onTap: () async {
                     await Navigator.push(
                       context,
@@ -390,7 +388,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.receipt_long_outlined,
                   title: 'Lịch sử thanh toán',
-                  subtitle: 'Hóa đơn dịch vụ và học phí khóa học',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -402,7 +399,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
                   title: 'Cài đặt tài khoản',
-                  subtitle: 'Ngôn ngữ, bảo mật và thông báo',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -416,7 +412,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                   iconColor: AppColors.error,
                   title: 'Đăng xuất',
                   titleColor: AppColors.error,
-                  subtitle: 'Thoát tài khoản khỏi thiết bị này',
                   onTap: _handleLogout,
                   showChevron: false,
                 ),
@@ -553,7 +548,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     Color? iconColor,
     required String title,
     Color? titleColor,
-    required String subtitle,
     required VoidCallback onTap,
     bool showChevron = true,
   }) {
@@ -578,13 +572,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           fontSize: 14.5,
           fontWeight: FontWeight.w600,
           color: titleColor ?? AppColors.textPrimary,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(
-          fontSize: 12,
-          color: AppColors.textSecondary,
         ),
       ),
       trailing: showChevron

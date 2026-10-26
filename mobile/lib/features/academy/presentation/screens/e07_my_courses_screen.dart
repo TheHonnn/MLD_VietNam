@@ -33,9 +33,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allCourses = AcademyRepository.instance.enrolledCourses.isNotEmpty
-        ? AcademyRepository.instance.enrolledCourses
-        : MockAcademyData.courses;
+    final allCourses = AcademyRepository.instance.enrolledCourses;
 
     final inProgressCourses = allCourses
         .where((c) => (c.progressPercentage > 0 && c.progressPercentage < 100) || c.status == 'IN_PROGRESS')
@@ -379,14 +377,14 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           const SizedBox(height: 6),
           const Row(
             children: [
-              Icon(Icons.timer_outlined, size: 14, color: Color(0xFF168477)),
+              Icon(Icons.timer_outlined, size: 14, color: AcademyColors.primary),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Thời hạn học: Đến 31/12/2026 (Còn 68 ngày)',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF168477),
+                    color: AcademyColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

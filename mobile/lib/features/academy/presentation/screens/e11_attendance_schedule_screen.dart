@@ -46,7 +46,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Điểm danh thành công! Mã xác thực: $scannedCode'),
-          backgroundColor: const Color(0xFF2E8B57),
+          backgroundColor: AcademyColors.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -284,7 +284,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                       const SizedBox(width: 14),
                       _buildLegendDot(AcademyColors.primary, 'Tại lớp'),
                       const SizedBox(width: 14),
-                      _buildLegendDot(const Color(0xFF145B55), 'Thực hành'),
+                      _buildLegendDot(AcademyColors.primaryDark, 'Thực hành'),
                       const SizedBox(width: 14),
                       _buildLegendDot(const Color(0xFF1E293B), 'Kiểm tra'),
                     ],
@@ -479,7 +479,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: _isCheckedIn ? const Color(0xFFE8F5E9) : AcademyColors.cardWarm,
+                      color: _isCheckedIn ? AcademyColors.cardWarm : AcademyColors.cardWarm,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -487,7 +487,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: _isCheckedIn ? const Color(0xFF2E8B57) : AcademyColors.primary,
+                        color: _isCheckedIn ? AcademyColors.primary : AcademyColors.primary,
                       ),
                     ),
                   ),
@@ -538,7 +538,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                       icon: Icon(_isCheckedIn ? Icons.check_circle : Icons.camera_alt_outlined, size: 20),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 56),
-                        backgroundColor: _isCheckedIn ? const Color(0xFF2E8B57) : AcademyColors.primary,
+                        backgroundColor: _isCheckedIn ? AcademyColors.primary : AcademyColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -620,7 +620,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                                     : dotType == 'class'
                                         ? AcademyColors.primary
                                         : dotType == 'practice'
-                                            ? const Color(0xFF145B55)
+                                            ? AcademyColors.primaryDark
                                             : const Color(0xFF1E293B),
                           ),
                         )

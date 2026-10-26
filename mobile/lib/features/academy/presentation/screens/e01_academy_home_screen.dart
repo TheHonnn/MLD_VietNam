@@ -460,9 +460,9 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     children: [
                       _buildGroupChip('Tất cả', 'Tất cả (${_allCourses.length})'),
                       const SizedBox(width: 8),
-                      _buildGroupChip('Người mới bắt đầu', '🌱 Người mới bắt đầu'),
+                      _buildGroupChip('Người mới bắt đầu', 'Người mới bắt đầu'),
                       const SizedBox(width: 8),
-                      _buildGroupChip('Người đang làm nghề', '💼 Người đang làm nghề'),
+                      _buildGroupChip('Người đang làm nghề', 'Người đang làm nghề'),
                     ],
                   ),
                 ),

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
 class AcademyColors {
-  static const Color background = Color(0xFFF5F7F7);
-  static const Color primary = Color(0xFF168477);
-  static const Color primaryDark = Color(0xFF145B55);
-  static const Color heading = Color(0xFF145B55);
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color primary = Color(0xFF2860EB);
+  static const Color primaryDark = Color(0xFF1D4ED8);
+  static const Color heading = Color(0xFF1F2937);
   static const Color textPrimary = Color(0xFF1F2937);
-  static const Color textSecondary = Color(0xFF475569);
-  static const Color cardWarm = Color(0xFFE8F5F1);
-  static const Color cardBorder = Color(0xFFE2E8F0);
+  static const Color textSecondary = Color(0xFF616161);
+  static const Color cardWarm = Color(0xFFEFF4FE);
+  static const Color cardBorder = Color(0xFFE5E7EB);
   static const Color cardWhite = Colors.white;
   static const Color success = Color(0xFF10B981);
 }

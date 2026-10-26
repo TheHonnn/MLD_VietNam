@@ -318,10 +318,10 @@ class E12LearningResultsScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF168477), width: 1.5),
+                border: Border.all(color: AcademyColors.primary, width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF168477).withValues(alpha: 0.1),
+                    color: AcademyColors.primary.withValues(alpha: 0.1),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -331,7 +331,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF168477).withValues(alpha: 0.3), width: 1.0),
+                  border: Border.all(color: AcademyColors.primary.withValues(alpha: 0.3), width: 1.0),
                 ),
                 child: Column(
                   children: [
@@ -339,7 +339,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.workspace_premium_rounded, color: Color(0xFF168477), size: 32),
+                        Icon(Icons.workspace_premium_rounded, color: AcademyColors.primary, size: 32),
                         SizedBox(width: 8),
                         Text(
                           'MLD VIETNAM ACADEMY',
@@ -347,7 +347,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
-                            color: Color(0xFF004C87),
+                            color: AcademyColors.primary,
                           ),
                         ),
                       ],
@@ -369,7 +369,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                       height: 2.5,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF168477), Color(0xFF145B55)],
+                          colors: [AcademyColors.primary, AcademyColors.primaryDark],
                         ),
                       ),
                     ),
@@ -384,7 +384,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF168477),
+                        color: AcademyColors.primary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -411,7 +411,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5F1),
+                        color: AcademyColors.cardWarm,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
@@ -421,7 +421,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Mã Giấy chứng nhận:', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
-                              Text('MLD-GCN-2026-00089', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF168477))),
+                              Text('MLD-GCN-2026-00089', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AcademyColors.primary)),
                             ],
                           ),
                           SizedBox(height: 4),
@@ -465,14 +465,14 @@ class E12LearningResultsScreen extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Đang tải xuống Giấy chứng nhận bản PDF chính thức (MLD-GCN-2026-00089.pdf)...'),
-                              backgroundColor: Color(0xFF168477),
+                              backgroundColor: AcademyColors.primary,
                             ),
                           );
                         },
                         icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                         label: const Text('Xuất Giấy chứng nhận (PDF)', style: TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF168477),
+                          backgroundColor: AcademyColors.primary,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 0,
@@ -662,7 +662,7 @@ class E12LearningResultsScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              const Icon(Icons.workspace_premium, color: Color(0xFF145B55), size: 48),
+              const Icon(Icons.workspace_premium, color: AcademyColors.primaryDark, size: 48),
               const SizedBox(height: 12),
               const Text(
                 'Chứng Nhận Hoàn Thành',
