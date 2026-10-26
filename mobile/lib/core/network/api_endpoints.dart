@@ -56,6 +56,9 @@ class ApiEndpoints {
   static String courseDetail(String id) => '/rest/v1/courses?id=eq.$id&select=*,course_chapters(*,course_lessons(*))';
   static const String courseEnrollments = '/rest/v1/course_enrollments';
 
+  // --- Portal Shared Content & Banners ---
+  static const String portalContent = '/rest/v1/miniapp_shared_content';
+
   // --- Supabase Edge Functions ---
   static const String vietQrPayment = '/functions/v1/vietqr-payment';
   static const String appointmentReminder = '/functions/v1/appointment-reminder';

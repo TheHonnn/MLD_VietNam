@@ -154,5 +154,26 @@ class SupabaseDataService {
     if (response.data == null) return [];
     return List<Map<String, dynamic>>.from(response.data!);
   }
+
+  // ==========================================
+  // 8. BANNERS & NỘI DUNG TRANG CHỦ (PORTAL BANNERS)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchBanners() async {
+    try {
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.portalContent,
+        queryParameters: {
+          'kind': 'eq.BANNER',
+          'status': 'in.(PUBLISHED,APPROVED)',
+          'select': '*',
+          'order': 'sort_order.asc,created_at.desc',
+        },
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
 }
 
