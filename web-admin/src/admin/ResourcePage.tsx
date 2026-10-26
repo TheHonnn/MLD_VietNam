@@ -8,6 +8,7 @@ import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
 import { CourseEditorSheet } from "./CourseEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
+import { InstructorFormEditor } from "./InstructorFormEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -2449,6 +2450,23 @@ function RecordDialog({
           payload.code = slugifyCategoryCode(String(payload.name || values.name || "MLD-CAT"));
         }
       }
+      if (resource.name === "instructors") {
+        if (!payload.avatar_url && values.avatar_url) payload.avatar_url = values.avatar_url;
+        if (!payload.avatar_url) {
+          payload.avatar_url = "https://images.unsplash.com/photo-1594824813589-4b830d937077?w=200&auto=format&fit=crop&q=80";
+        }
+        if (!payload.bio && values.bio) payload.bio = values.bio;
+        if (!payload.bio) {
+          payload.bio = "Chuyên gia đào tạo dẫn lưu bạch huyết chuẩn Dr. Vodder quốc tế tại Học viện MLD Academy.";
+        }
+        if (values.achievements !== undefined) {
+          payload.achievements = Array.isArray(values.achievements)
+            ? values.achievements
+            : typeof values.achievements === "string" && values.achievements.trim()
+              ? values.achievements.split("\n").map((s: string) => s.trim()).filter(Boolean)
+              : [];
+        }
+      }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -2561,6 +2579,23 @@ function RecordDialog({
                 icon_url: String(values.icon_url ?? (columns.find((x) => x.name === "icon_url") ? current(columns.find((x) => x.name === "icon_url")!) : "")),
                 description: String(values.description ?? (columns.find((x) => x.name === "description") ? current(columns.find((x) => x.name === "description")!) : "")),
                 display_order: Number(values.display_order ?? (columns.find((x) => x.name === "display_order") ? current(columns.find((x) => x.name === "display_order")!) : 1) ?? 1),
+                is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
+              }}
+              onChange={(field, val) => set(field, val)}
+              isCreate={mode === "create"}
+            />
+          </div>
+        ) : resource.name === "instructors" && mode !== "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
+            <InstructorFormEditor
+              values={{
+                user_id: values.user_id !== undefined ? String(values.user_id) : (columns.find((x) => x.name === "user_id") ? String(current(columns.find((x) => x.name === "user_id")!) || "") : undefined),
+                full_name: String(values.full_name ?? (columns.find((x) => x.name === "full_name") ? current(columns.find((x) => x.name === "full_name")!) : "")),
+                title: String(values.title ?? (columns.find((x) => x.name === "title") ? current(columns.find((x) => x.name === "title")!) : "")),
+                avatar_url: String(values.avatar_url ?? (columns.find((x) => x.name === "avatar_url") ? current(columns.find((x) => x.name === "avatar_url")!) : "")),
+                experience_years: Number(values.experience_years ?? (columns.find((x) => x.name === "experience_years") ? current(columns.find((x) => x.name === "experience_years")!) : 1) ?? 1),
+                bio: String(values.bio ?? (columns.find((x) => x.name === "bio") ? current(columns.find((x) => x.name === "bio")!) : "")),
+                achievements: values.achievements ?? (columns.find((x) => x.name === "achievements") ? current(columns.find((x) => x.name === "achievements")!) : []),
                 is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
               }}
               onChange={(field, val) => set(field, val)}
