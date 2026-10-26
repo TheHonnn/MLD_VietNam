@@ -294,6 +294,232 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
 };
 
 // ==========================================
+// MOBILE HOME APP MOCKUP (CHUẨN FLUTTER MLD)
+// ==========================================
+interface MobileHomeMockupProps {
+  banner?: Partial<PortalContentItem> | null;
+  banners?: PortalContentItem[];
+  currentIndex?: number;
+  onIndexChange?: (index: number) => void;
+  isRealtimeEdit?: boolean;
+}
+
+const MobileHomeMockup: React.FC<MobileHomeMockupProps> = ({
+  banner,
+  banners = [],
+  currentIndex = 0,
+  onIndexChange,
+  isRealtimeEdit = false,
+}) => {
+  // Determine current active banner data
+  const currentBanner: Partial<PortalContentItem> | undefined =
+    isRealtimeEdit && banner
+      ? banner
+      : banners.length > 0
+      ? banners[currentIndex % banners.length]
+      : banner || undefined;
+
+  const getCategoryLabel = (cat?: string) => {
+    switch (cat) {
+      case 'DAO_TAO':
+        return 'MLD ACADEMY & ĐÀO TẠO';
+      case 'DICH_VU':
+        return 'DỊCH VỤ TRỊ LIỆU Y KHOA';
+      case 'KHUYEN_MAI':
+        return 'ƯU ĐÃI ĐẶC QUYỀN';
+      case 'SU_KIEN':
+        return 'SỰ KIỆN CHUYÊN NGÀNH';
+      default:
+        return 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
+    }
+  };
+
+  const titleText = currentBanner?.title?.trim() || 'MLD VIỆT NAM';
+  const summaryText =
+    currentBanner?.summary?.trim() || 'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder';
+  const targetLinkText = currentBanner?.targetLink?.trim()
+    ? `Liên kết: ${currentBanner.targetLink} ↗`
+    : 'Bấm để xem Website & Facebook chính thức ↗';
+  const categoryLabel = getCategoryLabel(currentBanner?.category);
+
+  return (
+    <div className="w-[300px] h-[580px] bg-[#F8FAFC] text-slate-800 rounded-[40px] p-3 border-[6px] border-neutral-900 shadow-2xl relative overflow-hidden flex flex-col justify-between select-none shrink-0 font-sans">
+      {/* Top Speaker / Dynamic Island */}
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-4 bg-black rounded-full z-30 flex items-center justify-end pr-2.5">
+        <div className="w-2 h-2 rounded-full bg-[#111] border border-neutral-800" />
+      </div>
+
+      {/* Top Status Bar */}
+      <div className="pt-2 px-3 pb-1 flex items-center justify-between text-[10px] font-bold text-slate-700 z-10">
+        <span>09:41</span>
+        <div className="flex items-center gap-1.5 text-[9px]">
+          <span className="font-semibold">5G</span>
+          <div className="w-4 h-2 border border-slate-700 rounded-2xs p-0.5 flex items-center">
+            <div className="h-full w-full bg-slate-700 rounded-3xs" />
+          </div>
+        </div>
+      </div>
+
+      {/* App Body - Scrollable */}
+      <div className="flex-1 overflow-y-auto px-1 py-1 space-y-3 no-scrollbar">
+        {/* 1. Header: Greeting & Profile */}
+        <div className="flex items-center justify-between py-1 px-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full border-2 border-[#168477] bg-[#E6F4F1] text-[#168477] flex items-center justify-center font-bold text-xs shadow-2xs">
+              <User className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <div>
+              <span className="text-[10.5px] text-slate-500 block leading-tight">Xin chào,</span>
+              <span className="text-xs font-extrabold text-slate-900 leading-tight">Bùi Thế Hoàng</span>
+            </div>
+          </div>
+          <div className="relative p-1.5 rounded-full text-[#168477] hover:bg-emerald-50 cursor-pointer">
+            <Bell className="w-4 h-4 stroke-[2]" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border border-white" />
+          </div>
+        </div>
+
+        {/* Real-time preview indicator tag */}
+        {isRealtimeEdit && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 flex items-center justify-between text-[9px] text-emerald-700 font-bold">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Đang phản ánh thay đổi trực tiếp
+            </span>
+            <span className="text-[8px] bg-emerald-600 text-white px-1 rounded">Live</span>
+          </div>
+        )}
+
+        {/* 2. THE BANNER (VỊ TRÍ ĐẦU TIÊN TRANG CHỦ) */}
+        <div className="relative rounded-2xl overflow-hidden shadow-md text-white bg-gradient-to-r from-[#002A6B] to-[#1E3A8A] h-[152px] flex flex-col justify-between p-3.5 border border-blue-900/40 group transition-all">
+          {/* Background Image with Overlay */}
+          {currentBanner?.imageUrl && (
+            <img
+              src={currentBanner.imageUrl}
+              alt="Banner"
+              className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60 pointer-events-none transition-opacity duration-300"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          )}
+
+          {/* Deep Navy Gradient Overlay #002A6B (Khớp 100% b01_home_screen.dart) */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#002A6B] via-[#002A6B]/80 to-transparent pointer-events-none" />
+
+          {/* Top Banner Tag & Spa Icon */}
+          <div className="relative z-10 flex items-start justify-between gap-1">
+            <span className="text-[8px] font-extrabold uppercase tracking-wider bg-white/20 backdrop-blur-md px-2 py-0.5 rounded-md text-white border border-white/10 truncate max-w-[190px]">
+              {categoryLabel}
+            </span>
+            <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0">
+              <Sparkles className="w-3 h-3 text-amber-300" />
+            </div>
+          </div>
+
+          {/* Middle: Title & Subtitle */}
+          <div className="relative z-10 my-1 space-y-0.5">
+            <h4 className="text-[12.5px] font-black tracking-tight text-white leading-snug line-clamp-2 drop-shadow-xs">
+              {titleText}
+            </h4>
+            <p className="text-[9.5px] text-white/85 line-clamp-2 font-medium leading-tight">
+              {summaryText}
+            </p>
+          </div>
+
+          {/* Bottom: CTA Link */}
+          <div className="relative z-10 flex items-center gap-1 text-[9px] font-bold text-white underline decoration-white/60 truncate">
+            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+            <span className="truncate">{targetLinkText}</span>
+          </div>
+        </div>
+
+        {/* Dots Indicator */}
+        {!isRealtimeEdit && banners.length > 1 && (
+          <div className="flex items-center justify-center gap-1 pt-0.5">
+            {banners.map((_, idx) => (
+              <div
+                key={idx}
+                onClick={() => onIndexChange?.(idx)}
+                className={`h-1 rounded-full transition-all cursor-pointer ${
+                  idx === currentIndex % banners.length ? 'w-4 bg-[#168477]' : 'w-1.5 bg-slate-300'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+        {isRealtimeEdit && (
+          <div className="flex items-center justify-center gap-1 pt-0.5">
+            <div className="w-4 h-1 rounded-full bg-[#168477]" />
+            <div className="w-1.5 h-1 rounded-full bg-slate-300" />
+            <div className="w-1.5 h-1 rounded-full bg-slate-300" />
+          </div>
+        )}
+
+        {/* 3. Chi nhánh trị liệu hiện tại */}
+        <div className="bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#E6F4F1] text-[#168477] flex items-center justify-center shrink-0">
+              <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
+            </div>
+            <div>
+              <span className="text-[8.5px] text-slate-500 block leading-none">Chi nhánh trị liệu hiện tại</span>
+              <span className="text-[10px] font-bold text-slate-800 block truncate max-w-[165px] mt-0.5">
+                Cơ sở Liễu Giai - Ba Đình, Hà Nội
+              </span>
+            </div>
+          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        </div>
+
+        {/* 4. Dịch vụ trọng tâm Vodder */}
+        <div className="bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[8px] font-black uppercase text-[#168477] bg-[#E6F4F1] px-1.5 py-0.5 rounded">
+              Dịch vụ trọng tâm
+            </span>
+            <span className="text-[8.5px] text-slate-500">60 - 90 phút</span>
+          </div>
+          <h5 className="text-[10px] font-bold text-slate-800 line-clamp-1 leading-snug">
+            Trị liệu Dẫn lưu Phù bạch huyết Vodder Toàn thân
+          </h5>
+          <div className="flex items-center justify-between pt-0.5">
+            <span className="text-[11px] font-extrabold text-[#168477]">702.000 đ</span>
+            <span className="text-[9px] font-bold bg-[#FAF8F5] text-[#985018] px-2 py-0.5 rounded-md flex items-center gap-1 border border-[#E8DFD8]">
+              Đặt lịch <Calendar className="w-2.5 h-2.5" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* App Bottom Navigation Bar (Khớp 5 tab b01_home_screen.dart) */}
+      <div className="py-2 px-2 bg-white rounded-2xl flex items-center justify-between text-[8px] font-semibold text-slate-400 border border-slate-200 shadow-xs mt-1">
+        <div className="flex flex-col items-center gap-0.5 text-[#168477] font-bold">
+          <Home className="w-3.5 h-3.5 stroke-[2.4]" />
+          <span>Trang chủ</span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5 hover:text-slate-600">
+          <Layers className="w-3.5 h-3.5" />
+          <span>Dịch vụ</span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5 hover:text-slate-600">
+          <GraduationCap className="w-3.5 h-3.5" />
+          <span>Học viện</span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5 hover:text-slate-600">
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Cẩm nang</span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5 hover:text-slate-600">
+          <User className="w-3.5 h-3.5" />
+          <span>Tài khoản</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
 // MAIN COMPONENT: W18_PortalContent
 // ==========================================
 export const W18_PortalContent: React.FC = () => {
@@ -316,6 +542,7 @@ export const W18_PortalContent: React.FC = () => {
   // Mini App Mockup Preview State for Tab 1
   const [showMobileMockup, setShowMobileMockup] = useState(false);
   const [currentMockupIndex, setCurrentMockupIndex] = useState(0);
+  const mockupSectionRef = useRef<HTMLDivElement>(null);
 
   // Modals
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
@@ -408,6 +635,10 @@ export const W18_PortalContent: React.FC = () => {
     () => banners.filter((b) => b.status === 'PUBLISHED' || b.status === 'APPROVED'),
     [banners]
   );
+  const previewBanners = useMemo(
+    () => (activeBanners.length > 0 ? activeBanners : banners),
+    [activeBanners, banners]
+  );
   const totalDownloads = useMemo(
     () => documents.reduce((sum, d) => sum + (d.downloadCount || 0), 0),
     [documents]
@@ -438,6 +669,17 @@ export const W18_PortalContent: React.FC = () => {
   // ==========================================
   // HANDLERS: BANNER ACTIONS & REORDERING
   // ==========================================
+  const handleViewBannerOnMockup = (banner: PortalContentItem) => {
+    setShowMobileMockup(true);
+    const targetIndex = previewBanners.findIndex((b) => b.id === banner.id);
+    if (targetIndex >= 0) {
+      setCurrentMockupIndex(targetIndex);
+    }
+    setTimeout(() => {
+      mockupSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
+
   const handleOpenAddBanner = () => {
     setEditingBanner({
       kind: 'BANNER',
@@ -1003,182 +1245,39 @@ export const W18_PortalContent: React.FC = () => {
         <div className="space-y-5">
           {/* Mobile App Mockup Preview Section */}
           {showMobileMockup && (
-            <div className="p-6 bg-gradient-to-br from-[#2C241E] to-[#1E1814] text-white rounded-3xl shadow-xl border border-[#BA7E4C]/30 animate-in fade-in duration-300">
+            <div
+              ref={mockupSectionRef}
+              className="p-6 bg-gradient-to-br from-[#2C241E] to-[#1E1814] text-white rounded-3xl shadow-xl border border-[#BA7E4C]/30 animate-in fade-in duration-300"
+            >
               <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-5">
-                <div className="flex items-center gap-2">
-                  <Smartphone className="w-5 h-5 text-[#BA7E4C]" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#BA7E4C]/20 border border-[#BA7E4C]/40 flex items-center justify-center text-[#BA7E4C]">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
                   <div>
                     <h3 className="font-serif font-bold text-sm">Xem trước Banner trên Trang chủ Ứng dụng Khách hàng</h3>
-                    <p className="text-[11px] text-neutral-300">Vị trí: Ngay dưới mục tên tài khoản ("Hello, Bui The Hoang")</p>
+                    <p className="text-[11px] text-neutral-300">
+                      Khớp 100% chuẩn giao diện ứng dụng MLD Mobile Flutter (ngay dưới mục tên tài khoản)
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowMobileMockup(false)}
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white"
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white cursor-pointer transition-colors"
                 >
                   <X size={16} />
                 </button>
               </div>
 
-              {activeBanners.length > 0 ? (
+              {previewBanners.length > 0 ? (
                 <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-                  {/* Phone frame with authentic app layout */}
-                  <div className="w-[310px] h-[550px] bg-[#F8FAFC] text-slate-800 rounded-[38px] p-3 border-[6px] border-neutral-900 shadow-2xl relative overflow-hidden flex flex-col justify-between select-none">
-                    {/* Top Speaker Notch / Dynamic Island */}
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-3.5 bg-black rounded-full z-30" />
-
-                    {/* Status bar */}
-                    <div className="pt-2 px-3 pb-1 flex items-center justify-between text-[10px] font-bold text-slate-700 z-10">
-                      <span>14:36</span>
-                      <div className="flex items-center gap-1.5 text-[9px]">
-                        <span>5G</span>
-                        <div className="w-4 h-2 border border-slate-700 rounded-xs p-0.5 flex items-center">
-                          <div className="h-full w-full bg-slate-700 rounded-2xs" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* App Content Scrollable area */}
-                    <div className="flex-1 overflow-y-auto px-1 py-1 space-y-3 no-scrollbar">
-                      {/* 1. Header: Greeting & Account Name */}
-                      <div className="flex items-center justify-between py-1">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full border border-blue-500 bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
-                            <User className="w-5 h-5 stroke-[2]" />
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 block leading-tight">Hello,</span>
-                            <span className="text-xs font-bold text-slate-900 leading-tight">Bui The Hoang</span>
-                          </div>
-                        </div>
-                        <div className="relative p-1.5 rounded-full text-blue-600 hover:bg-blue-50 cursor-pointer">
-                          <Bell className="w-5 h-5" />
-                          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                        </div>
-                      </div>
-
-                      {/* 2. THE BANNER (VỊ TRÍ ĐẦU TIÊN DƯỚI MỤC TÊN TÀI KHOẢN) */}
-                      <div className="relative rounded-2xl overflow-hidden shadow-md text-white bg-gradient-to-r from-[#002A6B] to-[#1E40AF] min-h-[142px] flex flex-col justify-between p-3.5 border border-blue-900/40">
-                        {/* Background Image with Overlay */}
-                        {activeBanners[currentMockupIndex % activeBanners.length]?.imageUrl && (
-                          <img
-                            src={activeBanners[currentMockupIndex % activeBanners.length]?.imageUrl}
-                            alt="Banner background"
-                            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60 pointer-events-none"
-                          />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#002A6B]/90 via-[#002A6B]/60 to-transparent pointer-events-none" />
-
-                        {/* Top Banner Tag & Logo */}
-                        <div className="relative z-10 flex items-start justify-between">
-                          <span className="text-[8.5px] font-extrabold uppercase tracking-wider bg-white/20 backdrop-blur-md px-2 py-0.5 rounded-md text-white">
-                            {activeBanners[currentMockupIndex % activeBanners.length]?.category === 'TRI_LIEU'
-                              ? 'LYMPHATIC MEDICAL CENTER'
-                              : activeBanners[currentMockupIndex % activeBanners.length]?.category === 'DAO_TAO'
-                              ? 'MLD ACADEMY & EDUCATION'
-                              : activeBanners[currentMockupIndex % activeBanners.length]?.category || 'LYMPHATIC MEDICAL CENTER'}
-                          </span>
-                          <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
-                            <Play className="w-3 h-3 fill-white ml-0.5" />
-                          </div>
-                        </div>
-
-                        {/* Middle: Title & Subtitle */}
-                        <div className="relative z-10 my-1 space-y-0.5">
-                          <h4 className="text-[13px] font-extrabold tracking-wide text-white line-clamp-1">
-                            {activeBanners[currentMockupIndex % activeBanners.length]?.title || 'MLD VIỆT NAM'}
-                          </h4>
-                          <p className="text-[9.5px] text-white/80 line-clamp-1">
-                            {activeBanners[currentMockupIndex % activeBanners.length]?.summary || 'Medical Vodder Manual Lymphatic Drainage'}
-                          </p>
-                        </div>
-
-                        {/* Bottom: CTA Link */}
-                        <div className="relative z-10 flex items-center gap-1 text-[9px] font-semibold text-white/95 underline decoration-white/50">
-                          <ExternalLink className="w-2.5 h-2.5" />
-                          <span>
-                            {activeBanners[currentMockupIndex % activeBanners.length]?.targetLink
-                              ? 'Tap to visit official link ↗'
-                              : 'Tap to visit official Website & Facebook ↗'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Dots Indicator */}
-                      {activeBanners.length > 1 && (
-                        <div className="flex items-center justify-center gap-1 pt-0.5">
-                          {activeBanners.map((_, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => setCurrentMockupIndex(idx)}
-                              className={`h-1 rounded-full transition-all cursor-pointer ${
-                                idx === currentMockupIndex % activeBanners.length ? 'w-4 bg-blue-600' : 'w-1.5 bg-slate-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {/* 3. Current Therapy Branch */}
-                      <div className="bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                            <MapPin className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="text-[8.5px] text-slate-500 block leading-none">Current Therapy Branch</span>
-                            <span className="text-[10.5px] font-bold text-slate-800 block truncate max-w-[170px] mt-0.5">
-                              MLD Vietnam Headquarters (5 Mast...
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                      </div>
-
-                      {/* 4. Core Service Peek */}
-                      <div className="bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs space-y-1.5">
-                        <div className="h-16 rounded-lg bg-amber-50 overflow-hidden relative border border-amber-100 flex items-center justify-center">
-                          <span className="text-[9px] font-extrabold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-md">
-                            DẪN LƯU BẠCH HUYẾT NỀN TẢNG (LEVEL 0)
-                          </span>
-                        </div>
-                        <h5 className="text-[10.5px] font-bold text-slate-800 line-clamp-1">
-                          Intensive Manual Lymphatic Drainage Therapy (Vodder MLD)
-                        </h5>
-                        <div className="flex items-center justify-between pt-0.5">
-                          <span className="text-xs font-extrabold text-blue-600">702.000 đ</span>
-                          <span className="text-[9.5px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200">
-                            Book Now <Calendar className="w-2.5 h-2.5" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* App Bottom Navigation Bar */}
-                    <div className="py-2 px-3 bg-white rounded-2xl flex items-center justify-between text-[8px] font-semibold text-slate-400 border border-slate-200 shadow-xs mt-1">
-                      <div className="flex flex-col items-center gap-0.5 text-blue-600 font-bold">
-                        <Home className="w-3.5 h-3.5 fill-blue-600" />
-                        <span>Home</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Services</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <GraduationCap className="w-3.5 h-3.5" />
-                        <span>Academy</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <BookOpen className="w-3.5 h-3.5" />
-                        <span>Documents</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <User className="w-3.5 h-3.5" />
-                        <span>Profile</span>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Phone Mockup using MobileHomeMockup */}
+                  <MobileHomeMockup
+                    banners={previewBanners}
+                    currentIndex={currentMockupIndex}
+                    onIndexChange={setCurrentMockupIndex}
+                  />
 
                   {/* Mockup Controls & Info */}
                   <div className="max-w-xs space-y-3">
@@ -1186,41 +1285,66 @@ export const W18_PortalContent: React.FC = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          setCurrentMockupIndex((prev) => (prev > 0 ? prev - 1 : activeBanners.length - 1))
+                          setCurrentMockupIndex((prev) => (prev > 0 ? prev - 1 : previewBanners.length - 1))
                         }
-                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl cursor-pointer"
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl cursor-pointer transition-colors"
                         title="Banner trước"
                       >
                         <ChevronLeft size={16} />
                       </button>
                       <span className="text-xs font-mono font-bold">
-                        Banner { (currentMockupIndex % activeBanners.length) + 1 } / { activeBanners.length }
+                        Banner { (currentMockupIndex % previewBanners.length) + 1 } / { previewBanners.length }
                       </span>
                       <button
                         type="button"
-                        onClick={() => setCurrentMockupIndex((prev) => (prev + 1) % activeBanners.length)}
-                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl cursor-pointer"
+                        onClick={() => setCurrentMockupIndex((prev) => (prev + 1) % previewBanners.length)}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl cursor-pointer transition-colors"
                         title="Banner tiếp"
                       >
                         <ChevronRight size={16} />
                       </button>
                     </div>
 
-                    <div className="p-3 bg-white/5 rounded-2xl border border-white/10 space-y-1 text-xs">
-                      <span className="text-neutral-400 block text-[10px]">Tiêu đề:</span>
-                      <p className="font-bold text-white line-clamp-2">
-                        {activeBanners[currentMockupIndex % activeBanners.length]?.title}
-                      </p>
-                      <span className="text-neutral-400 block text-[10px] mt-2">Liên kết điều hướng:</span>
-                      <code className="text-[#BA7E4C] text-[11px] font-mono">
-                        {activeBanners[currentMockupIndex % activeBanners.length]?.targetLink || '/academy'}
-                      </code>
+                    <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 space-y-2 text-xs">
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] uppercase font-bold tracking-wider">Tiêu đề:</span>
+                        <p className="font-bold text-white line-clamp-2">
+                          {previewBanners[currentMockupIndex % previewBanners.length]?.title}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] uppercase font-bold tracking-wider">Mô tả tóm tắt:</span>
+                        <p className="text-neutral-300 text-[11px] line-clamp-2">
+                          {previewBanners[currentMockupIndex % previewBanners.length]?.summary || 'Không có mô tả'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] uppercase font-bold tracking-wider">Liên kết điều hướng:</span>
+                        <code className="text-[#BA7E4C] text-[11px] font-mono block truncate">
+                          {previewBanners[currentMockupIndex % previewBanners.length]?.targetLink || '/academy'}
+                        </code>
+                      </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = previewBanners[currentMockupIndex % previewBanners.length];
+                        if (selected) {
+                          setEditingBanner({ ...selected });
+                          setIsBannerModalOpen(true);
+                        }
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-[#BA7E4C] hover:bg-[#A36D3F] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Chỉnh sửa Banner này với Live Preview</span>
+                    </button>
                   </div>
                 </div>
               ) : (
                 <div className="py-8 text-center text-xs text-neutral-400">
-                  Chưa có banner nào ở trạng thái "Hiển thị". Vui lòng bật hiển thị ít nhất 1 banner để xem trước.
+                  Chưa có banner nào trên hệ thống. Vui lòng bấm "Thêm Banner Mới" để tạo banner.
                 </div>
               )}
             </div>
@@ -1272,6 +1396,26 @@ export const W18_PortalContent: React.FC = () => {
                 <option value="KHUYEN_MAI">Ưu đãi / Chiến dịch</option>
                 <option value="SU_KIEN">Sự kiện Chuyên ngành</option>
               </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileMockup((prev) => !prev);
+                  if (!showMobileMockup) {
+                    setTimeout(() => {
+                      mockupSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  showMobileMockup
+                    ? 'bg-[#002A6B] text-white shadow-xs'
+                    : 'bg-[#FAF8F5] text-[#002A6B] border border-blue-200 hover:bg-blue-50'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>{showMobileMockup ? 'Đang mở Mockup' : 'Xem trước Mobile'}</span>
+              </button>
 
               <button
                 type="button"
@@ -1385,8 +1529,17 @@ export const W18_PortalContent: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Edit & Delete */}
+                    {/* View on Mobile, Edit & Delete */}
                     <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleViewBannerOnMockup(banner)}
+                        className="p-2 rounded-xl border border-blue-200 bg-blue-50 text-[#002A6B] hover:text-white hover:bg-[#002A6B] transition-colors cursor-pointer"
+                        title="Xem vị trí hiển thị trên App Mobile"
+                      >
+                        <Smartphone className="w-4 h-4" />
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1911,135 +2064,164 @@ export const W18_PortalContent: React.FC = () => {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL 1: THÊM / SỬA BANNER                                     */}
+      {/* MODAL 1: THÊM / SỬA BANNER (REAL-TIME LIVE PREVIEW)             */}
       {/* ============================================================== */}
       {isBannerModalOpen && editingBanner && (
-        <div className="fixed inset-0 bg-[#2C241E]/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-[#FAF8F5] rounded-3xl max-w-xl w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-[#2C241E]/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-[#FAF8F5] rounded-3xl max-w-5xl w-full border border-[#EFE4D9] shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
             <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-                  <ImageIcon className="w-4 h-4" />
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200 shadow-2xs">
+                  <ImageIcon className="w-5 h-5 text-[#985018]" />
                 </div>
-                <h3 className="font-serif font-bold text-base text-[#2C241E]">
-                  {editingBanner.id ? 'Chỉnh sửa Banner' : 'Thêm Banner Trang Chủ Mới'}
-                </h3>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#2C241E]">
+                    {editingBanner.id ? 'Chỉnh sửa Banner' : 'Thêm Banner Trang Chủ Mới'}
+                  </h3>
+                  <p className="text-[11px] text-[#73675F]">
+                    Mọi thay đổi trên biểu mẫu sẽ phản ánh ngay lập tức trên bản mô phỏng App Mobile bên phải
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsBannerModalOpen(false)}
-                className="w-7 h-7 rounded-full hover:bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B]"
+                className="w-8 h-8 rounded-full hover:bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B] hover:text-[#2C241E] transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveBanner} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1">Tiêu đề chiến dịch Banner *</label>
-                <input
-                  type="text"
-                  required
-                  value={editingBanner.title || ''}
-                  onChange={(e) => setEditingBanner({ ...editingBanner, title: e.target.value })}
-                  placeholder="VD: Khóa Đào tạo Chuyên gia Dẫn lưu Bạch huyết MLD Khóa 15..."
-                  className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
+            {/* Content: 2-Column Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 max-h-[82vh] overflow-y-auto">
+              {/* Left Column: Form Fields (7 cols) */}
+              <div className="lg:col-span-7 p-5 sm:p-6 border-b lg:border-b-0 lg:border-r border-[#EFE4D9] bg-[#FAF8F5]">
+                <form onSubmit={handleSaveBanner} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1">Tiêu đề chiến dịch Banner *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingBanner.title || ''}
+                      onChange={(e) => setEditingBanner({ ...editingBanner, title: e.target.value })}
+                      placeholder="VD: Khóa Đào tạo Chuyên gia Dẫn lưu Bạch huyết MLD Khóa 15..."
+                      className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1">Mô tả tóm tắt (Phụ đề)</label>
+                    <textarea
+                      rows={2}
+                      value={editingBanner.summary || ''}
+                      onChange={(e) => setEditingBanner({ ...editingBanner, summary: e.target.value })}
+                      placeholder="Mô tả nổi bật chương trình..."
+                      className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Ảnh Banner (Tỉ lệ chuẩn 16:9)</label>
+                    <MediaUploadInput
+                      value={editingBanner.imageUrl || ''}
+                      onChange={(url) => setEditingBanner({ ...editingBanner, imageUrl: url })}
+                      aspectRatio="16:9"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1">Link điều hướng khi bấm</label>
+                      <input
+                        type="text"
+                        value={editingBanner.targetLink || ''}
+                        onChange={(e) => setEditingBanner({ ...editingBanner, targetLink: e.target.value })}
+                        placeholder="/academy hoặc /services..."
+                        className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1">Thứ tự hiển thị (#1, #2...)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editingBanner.sortOrder || 1}
+                        onChange={(e) => setEditingBanner({ ...editingBanner, sortOrder: Number(e.target.value) })}
+                        className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1">Chuyên mục</label>
+                      <select
+                        value={editingBanner.category || 'DAO_TAO'}
+                        onChange={(e) => setEditingBanner({ ...editingBanner, category: e.target.value })}
+                        className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      >
+                        <option value="DAO_TAO">Đào tạo Học viện</option>
+                        <option value="DICH_VU">Dịch vụ Trị liệu</option>
+                        <option value="KHUYEN_MAI">Ưu đãi / Chiến dịch</option>
+                        <option value="SU_KIEN">Sự kiện Chuyên ngành</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1">Trạng thái hiển thị</label>
+                      <select
+                        value={editingBanner.status || 'PUBLISHED'}
+                        onChange={(e) =>
+                          setEditingBanner({ ...editingBanner, status: e.target.value as PortalContentStatus })
+                        }
+                        className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      >
+                        <option value="PUBLISHED">Hiển thị công khai (Active)</option>
+                        <option value="DRAFT">Lưu nháp / Tạm ẩn</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsBannerModalOpen(false)}
+                      disabled={isSavingBanner}
+                      className="px-4 py-2 border border-[#E8DFD8] bg-white rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] disabled:opacity-50 cursor-pointer"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingBanner}
+                      className="px-5 py-2 bg-[#985018] hover:bg-[#804213] disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      {isSavingBanner && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      <span>{editingBanner.id ? 'Cập nhật Banner' : 'Lưu Banner'}</span>
+                    </button>
+                  </div>
+                </form>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1">Mô tả tóm tắt (Phụ đề)</label>
-                <textarea
-                  rows={2}
-                  value={editingBanner.summary || ''}
-                  onChange={(e) => setEditingBanner({ ...editingBanner, summary: e.target.value })}
-                  placeholder="Mô tả nổi bật chương trình..."
-                  className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Ảnh Banner (Tỉ lệ chuẩn 16:9)</label>
-                <MediaUploadInput
-                  value={editingBanner.imageUrl || ''}
-                  onChange={(url) => setEditingBanner({ ...editingBanner, imageUrl: url })}
-                  aspectRatio="16:9"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1">Link điều hướng khi bấm</label>
-                  <input
-                    type="text"
-                    value={editingBanner.targetLink || ''}
-                    onChange={(e) => setEditingBanner({ ...editingBanner, targetLink: e.target.value })}
-                    placeholder="/academy hoặc /services..."
-                    className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
+              {/* Right Column: Live Mobile Mockup (5 cols) */}
+              <div className="lg:col-span-5 p-6 bg-gradient-to-b from-[#1E293B] via-[#0F172A] to-[#020617] text-white flex flex-col items-center justify-center">
+                <div className="w-full flex items-center justify-between mb-3 px-1 max-w-[300px]">
+                  <div className="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Real-time Live Preview</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Khớp App Flutter</span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1">Thứ tự hiển thị (#1, #2...)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={editingBanner.sortOrder || 1}
-                    onChange={(e) => setEditingBanner({ ...editingBanner, sortOrder: Number(e.target.value) })}
-                    className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-              </div>
+                <MobileHomeMockup banner={editingBanner} isRealtimeEdit={true} />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1">Chuyên mục</label>
-                  <select
-                    value={editingBanner.category || 'DAO_TAO'}
-                    onChange={(e) => setEditingBanner({ ...editingBanner, category: e.target.value })}
-                    className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  >
-                    <option value="DAO_TAO">Đào tạo Học viện</option>
-                    <option value="DICH_VU">Dịch vụ Trị liệu</option>
-                    <option value="KHUYEN_MAI">Ưu đãi / Chiến dịch</option>
-                    <option value="SU_KIEN">Sự kiện Chuyên ngành</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1">Trạng thái hiển thị</label>
-                  <select
-                    value={editingBanner.status || 'PUBLISHED'}
-                    onChange={(e) =>
-                      setEditingBanner({ ...editingBanner, status: e.target.value as PortalContentStatus })
-                    }
-                    className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  >
-                    <option value="PUBLISHED">Hiển thị công khai (Active)</option>
-                    <option value="DRAFT">Lưu nháp / Tạm ẩn</option>
-                  </select>
-                </div>
+                <p className="text-[10px] text-slate-400 text-center mt-3 max-w-[280px]">
+                  Xem trước thay đổi trực tiếp trên giao diện điện thoại di động trước khi bấm Lưu.
+                </p>
               </div>
-
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsBannerModalOpen(false)}
-                  disabled={isSavingBanner}
-                  className="px-4 py-2 border border-[#E8DFD8] bg-white rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] disabled:opacity-50"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingBanner}
-                  className="px-5 py-2 bg-[#985018] hover:bg-[#804213] disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                >
-                  {isSavingBanner && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{editingBanner.id ? 'Cập nhật Banner' : 'Lưu Banner'}</span>
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
