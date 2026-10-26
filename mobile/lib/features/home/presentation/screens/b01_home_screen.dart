@@ -1,9 +1,10 @@
-import '../../data/repositories/service_repository.dart';
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/supabase_data_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
@@ -14,6 +15,7 @@ import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/branch_repository.dart';
+import '../../data/repositories/service_repository.dart';
 import '../widgets/vodder_service_card.dart';
 
 /// Màn hình Trang chủ MLD Việt Nam (Mobile-First)
@@ -40,16 +42,57 @@ class B01HomeScreen extends StatefulWidget {
 class _B01HomeScreenState extends State<B01HomeScreen> {
   String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   SpaServiceModel? _coreService;
-
+  List<Map<String, dynamic>> _banners = [];
+  bool _isLoadingBanners = false;
+  int _currentBannerIndex = 0;
+  late final PageController _bannerPageController;
+  Timer? _bannerTimer;
 
   @override
   void initState() {
     super.initState();
+    _bannerPageController = PageController();
     _initBranchListener();
     _loadUserProfile();
     _loadCoreServiceFromAdmin();
+    _loadBanners();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
+    });
+  }
+
+  Future<void> _loadBanners() async {
+    if (!mounted) return;
+    setState(() => _isLoadingBanners = true);
+    try {
+      final data = await SupabaseDataService().fetchBanners();
+      if (!mounted) return;
+      setState(() {
+        _banners = data;
+        _isLoadingBanners = false;
+        if (_currentBannerIndex >= data.length) {
+          _currentBannerIndex = 0;
+        }
+      });
+      _startBannerAutoScroll();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingBanners = false);
+      }
+    }
+  }
+
+  void _startBannerAutoScroll() {
+    _bannerTimer?.cancel();
+    if (_banners.length <= 1) return;
+    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_bannerPageController.hasClients || _banners.isEmpty) return;
+      final nextIndex = (_currentBannerIndex + 1) % _banners.length;
+      _bannerPageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeInOutCubic,
+      );
     });
   }
 
@@ -97,6 +140,8 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
   @override
   void dispose() {
+    _bannerTimer?.cancel();
+    _bannerPageController.dispose();
     BranchRepository.instance.activeBranchNotifier.removeListener(_onActiveBranchChanged);
     super.dispose();
   }
@@ -395,6 +440,296 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
+  /// Xử lý điều hướng khi bấm vào Banner động
+  void _handleBannerTap(Map<String, dynamic> banner) async {
+    final targetLink = (banner['target_link'] as String?)?.trim() ?? '';
+    if (targetLink.isEmpty) {
+      _showBannerDetailModal(context, banner);
+      return;
+    }
+
+    if (targetLink.startsWith('http://') || targetLink.startsWith('https://')) {
+      try {
+        final uri = Uri.parse(targetLink);
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        if (mounted) _showBannerDetailModal(context, banner);
+      }
+      return;
+    }
+
+    if (targetLink.contains('academy') ||
+        targetLink.contains('dao-tao') ||
+        targetLink.contains('curriculum') ||
+        targetLink.contains('enrollment')) {
+      if (widget.onNavigateToAcademy != null) {
+        widget.onNavigateToAcademy!.call();
+      } else {
+        _showBannerDetailModal(context, banner);
+      }
+      return;
+    }
+
+    if (targetLink.contains('treatment') ||
+        targetLink.contains('service') ||
+        targetLink.contains('tri-lieu') ||
+        targetLink.contains('dich-vu')) {
+      if (widget.onNavigateToServices != null) {
+        widget.onNavigateToServices!.call();
+      } else {
+        _showBannerDetailModal(context, banner);
+      }
+      return;
+    }
+
+    if (targetLink.contains('booking') || targetLink.contains('dat-lich')) {
+      if (widget.onNavigateToBooking != null) {
+        widget.onNavigateToBooking!.call();
+      } else {
+        _handleBooking();
+      }
+      return;
+    }
+
+    _showBannerDetailModal(context, banner);
+  }
+
+  /// Modal chi tiết thông tin Banner khi bấm vào
+  void _showBannerDetailModal(BuildContext context, Map<String, dynamic> banner) {
+    final title = banner['title'] as String? ?? 'Thông tin MLD Việt Nam';
+    final summary = banner['summary'] as String? ?? '';
+    final contentText = banner['content_text'] as String? ?? '';
+    final imageUrl = (banner['image_url'] as String?)?.trim() ?? '';
+    final authorName = (banner['author_name'] as String?)?.trim() ?? 'Trung Tâm MLD Việt Nam';
+    final targetLink = (banner['target_link'] as String?)?.trim() ?? '';
+    final category = (banner['category'] as String?)?.trim() ?? '';
+
+    String categoryLabel = 'THÔNG BÁO Y KHOA';
+    if (category == 'DAO_TAO') {
+      categoryLabel = 'MLD ACADEMY & ĐÀO TẠO';
+    } else if (category == 'DICH_VU' || category == 'TRI_LIEU') {
+      categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
+    } else if (category == 'KHUYEN_MAI') {
+      categoryLabel = 'ƯU ĐÃI ĐẶC QUYỀN';
+    } else if (category.isNotEmpty) {
+      categoryLabel = category;
+    }
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: AppColors.border, width: 1.0),
+          ),
+          elevation: 16,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header ảnh với nút đóng
+              Stack(
+                children: [
+                  Container(
+                    height: 160,
+                    width: double.infinity,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    child: imageUrl.startsWith('http')
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Image.asset(
+                              'assets/images/banner.webp',
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Image.asset(
+                            'assets/images/banner.webp',
+                            fit: BoxFit.cover,
+                          ),
+                  ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withValues(alpha: 0.65),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    left: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        categoryLabel,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: InkWell(
+                      onTap: () => Navigator.pop(ctx),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (summary.isNotEmpty) ...[
+                        Text(
+                          summary,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF985018),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      if (contentText.isNotEmpty && contentText != summary) ...[
+                        Text(
+                          contentText,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Row(
+                        children: [
+                          const Icon(Icons.verified_user_outlined, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 5),
+                          Text(
+                            authorName,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: AppColors.border),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text(
+                                'Đóng',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (targetLink.isNotEmpty) ...[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _handleBannerTap(banner);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: Text(
+                                  targetLink.contains('academy')
+                                      ? 'Xem Đào Tạo'
+                                      : targetLink.contains('treatment') || targetLink.contains('service')
+                                          ? 'Xem Dịch Vụ'
+                                          : 'Khám Phá Ngay',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String _getGreetingName() {
     final profileName = MembershipRepository.instance.profile.fullName.trim();
     if (profileName.isNotEmpty && profileName != 'Khách hàng') {
@@ -412,8 +747,17 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            await Future.wait([
+              _loadUserProfile(),
+              _loadCoreServiceFromAdmin(),
+              _loadBanners(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
           padding: const EdgeInsets.only(
             left: 20.0,
             right: 20.0,
@@ -551,137 +895,360 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
               // ==========================================
               // 2. BANNER NGANG GIỚI THIỆU MLD TRÊN ĐẦU
-              // (Click mở modal lựa chọn Website hoặc Facebook)
+              // (Dynamic Banner Carousel từ Supabase / CMS, fallback offline an toàn)
               // ==========================================
-              InkWell(
-                onTap: () => _showBannerLinkOptions(context),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  height: 156,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.22),
-                        blurRadius: 14,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+              if (_banners.isEmpty)
+                InkWell(
+                  onTap: () => _showBannerLinkOptions(context),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 156,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.22),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        // Ảnh nền banner: assets/images/banner.webp
+                        Positioned.fill(
+                          child: Image.asset(
+                            'assets/images/banner.webp',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              decoration: const BoxDecoration(
+                                gradient: AppColors.brandGradient,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Lớp phủ gradient #002A6B tăng độ tương phản hiển thị chữ
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF002A6B).withValues(alpha: 0.86),
+                                  const Color(0xFF002A6B).withValues(alpha: 0.40),
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.65, 1.0],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Logo: assets/images/logo.webp
+                        Positioned(
+                          right: 14,
+                          top: 20,
+                          child: Image.asset(
+                            'assets/images/logo.webp',
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.spa_rounded,
+                              size: 50,
+                              color: Colors.white24,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'TRUNG TÂM Y KHOA BẠCH HUYẾT',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'MLD VIỆT NAM',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Row(
+                                children: [
+                                  Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Bấm để xem Website & Facebook chính thức ↗',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Stack(
-                    children: [
-                      // Ảnh nền banner: assets/images/banner.webp
-                      Positioned.fill(
-                        child: Image.asset(
-                          'assets/images/banner.webp',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            decoration: const BoxDecoration(
-                              gradient: AppColors.brandGradient,
+                )
+              else
+                Column(
+                  children: [
+                    SizedBox(
+                      height: 160,
+                      child: PageView.builder(
+                        controller: _bannerPageController,
+                        itemCount: _banners.length,
+                        onPageChanged: (idx) {
+                          if (mounted) {
+                            setState(() => _currentBannerIndex = idx);
+                          }
+                        },
+                        itemBuilder: (context, index) {
+                          final banner = _banners[index];
+                          final title = banner['title'] as String? ?? 'MLD VIỆT NAM';
+                          final summary = banner['summary'] as String? ?? 'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder';
+                          final imageUrl = (banner['image_url'] as String?)?.trim() ?? '';
+                          final category = (banner['category'] as String?)?.trim() ?? '';
+                          final targetLink = (banner['target_link'] as String?)?.trim() ?? '';
+
+                          String categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
+                          if (category == 'DAO_TAO') {
+                            categoryLabel = 'MLD ACADEMY & ĐÀO TẠO';
+                          } else if (category == 'DICH_VU' || category == 'TRI_LIEU') {
+                            categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
+                          } else if (category == 'KHUYEN_MAI') {
+                            categoryLabel = 'ƯU ĐÃI ĐẶC QUYỀN';
+                          } else if (category == 'SU_KIEN') {
+                            categoryLabel = 'SỰ KIỆN CHUYÊN NGÀNH';
+                          } else if (category.isNotEmpty) {
+                            categoryLabel = category;
+                          }
+
+                          String ctaText = 'Bấm để xem chi tiết →';
+                          if (targetLink.contains('academy') || targetLink.contains('curriculum') || targetLink.contains('enrollment')) {
+                            ctaText = 'Xem khóa đào tạo ngay →';
+                          } else if (targetLink.contains('treatment') || targetLink.contains('service')) {
+                            ctaText = 'Khám phá dịch vụ trị liệu →';
+                          } else if (targetLink.startsWith('http')) {
+                            ctaText = 'Truy cập cổng thông tin ↗';
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 1.0),
+                            child: InkWell(
+                              onTap: () => _handleBannerTap(banner),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                clipBehavior: Clip.antiAlias,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.22),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // 1. Ảnh nền banner (Network với Fallback an toàn)
+                                    Positioned.fill(
+                                      child: imageUrl.startsWith('http')
+                                          ? Image.network(
+                                              imageUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Image.asset(
+                                                'assets/images/banner.webp',
+                                                fit: BoxFit.cover,
+                                              ),
+                                            )
+                                          : Image.asset(
+                                              'assets/images/banner.webp',
+                                              fit: BoxFit.cover,
+                                            ),
+                                    ),
+                                    // 2. Lớp phủ gradient y khoa sang trọng
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              const Color(0xFF002A6B).withValues(alpha: 0.90),
+                                              const Color(0xFF002A6B).withValues(alpha: 0.48),
+                                              Colors.transparent,
+                                            ],
+                                            stops: const [0.0, 0.70, 1.0],
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // 3. Logo MLD chìm bên phải
+                                    Positioned(
+                                      right: 14,
+                                      top: 18,
+                                      child: Image.asset(
+                                        'assets/images/logo.webp',
+                                        width: 66,
+                                        height: 66,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => const Icon(
+                                          Icons.spa_rounded,
+                                          size: 48,
+                                          color: Colors.white24,
+                                        ),
+                                      ),
+                                    ),
+                                    // 4. Nội dung Banner
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(alpha: 0.22),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(alpha: 0.35),
+                                                width: 0.8,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              categoryLabel,
+                                              style: const TextStyle(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                                letterSpacing: 0.4,
+                                              ),
+                                            ),
+                                          ),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                title,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Colors.white,
+                                                  letterSpacing: 0.3,
+                                                  height: 1.25,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                summary,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.white.withValues(alpha: 0.88),
+                                                  height: 1.2,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                ctaText,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  decoration: TextDecoration.underline,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
-                      // Lớp phủ gradient #002A6B tăng độ tương phản hiển thị chữ
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFF002A6B).withValues(alpha: 0.86),
-                                const Color(0xFF002A6B).withValues(alpha: 0.40),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.65, 1.0],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Logo: assets/images/logo.webp
-                      Positioned(
-                        right: 14,
-                        top: 20,
-                        child: Image.asset(
-                          'assets/images/logo.webp',
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.spa_rounded,
-                            size: 50,
-                            color: Colors.white24,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    ),
+                    if (_banners.length > 1) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(_banners.length, (dotIdx) {
+                          final isActive = dotIdx == _currentBannerIndex;
+                          return GestureDetector(
+                            onTap: () {
+                              _bannerPageController.animateToPage(
+                                dotIdx,
+                                duration: const Duration(milliseconds: 350),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              height: 4.5,
+                              width: isActive ? 20 : 6,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text(
-                                'TRUNG TÂM Y KHOA BẠCH HUYẾT',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  letterSpacing: 0.4,
-                                ),
+                                color: isActive ? AppColors.primary : AppColors.border,
+                                borderRadius: BorderRadius.circular(4),
                               ),
                             ),
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'MLD VIỆT NAM',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Row(
-                              children: [
-                                Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Bấm để xem Website & Facebook chính thức ↗',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                          );
+                        }),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-              ),
 
               const SizedBox(height: 18),
 
@@ -827,6 +1394,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

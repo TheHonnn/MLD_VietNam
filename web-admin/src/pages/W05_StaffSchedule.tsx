@@ -523,20 +523,7 @@ export const W05_StaffSchedule: React.FC = () => {
     });
   }, [liveBookings, customers, branchTechnicians, services]);
 
-  // Local Custom Appointments resilience
-  const [customAppointments, setCustomAppointments] = useState<ScheduleAppointment[]>(() => {
-    try {
-      const saved = localStorage.getItem('mld_staff_appointments');
-      if (saved) return JSON.parse(saved);
-    } catch (err) {
-      console.error('Failed to parse saved appointments', err);
-    }
-    return [];
-  });
-
-  const allAppointments = useMemo(() => {
-    return [...customAppointments, ...appointments];
-  }, [customAppointments, appointments]);
+  const allAppointments = appointments;
 
   // Filtered appointments displayed on current date's schedule
   const displayedAppointments = useMemo(() => {
@@ -658,20 +645,7 @@ export const W05_StaffSchedule: React.FC = () => {
       setLiveBookings((prev) =>
         prev.map((b) => (b.id === bookingId || b.bookingCode === bookingId ? { ...b, technicianId: techId } : b))
       );
-      // Cập nhật customAppointments nếu có
-      setCustomAppointments((prev) => {
-        const next = prev.map((a) =>
-          a.id === bookingId || a.customerCode.includes(bookingId)
-            ? { ...a, technicianId: techId, technicianName: chosenTechName }
-            : a
-        );
-        try {
-          localStorage.setItem('mld_staff_appointments', JSON.stringify(next));
-        } catch (e) {
-          console.error(e);
-        }
-        return next;
-      });
+
 
       toast.success(
         'Phân công KTV thành công',

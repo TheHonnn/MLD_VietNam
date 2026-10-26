@@ -110,57 +110,29 @@ export const treatmentService = {
   },
 
   // --- Gói Liệu Trình của Khách hàng (UserPackage) ---
-  getLocalUserPackages(customerId?: string): UserPackage[] {
-    try {
-      const raw = localStorage.getItem('mld_local_user_packages');
-      if (raw) {
-        const list: UserPackage[] = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          return customerId ? list.filter((p) => p.customerId === customerId) : list;
-        }
-      }
-    } catch {}
+  getLocalUserPackages(): UserPackage[] {
     return [];
   },
 
-  saveLocalUserPackage(pkg: UserPackage) {
-    try {
-      const existing = this.getLocalUserPackages();
-      const updated = [pkg, ...existing.filter((p) => p.id !== pkg.id)];
-      localStorage.setItem('mld_local_user_packages', JSON.stringify(updated));
-    } catch (err) {
-      console.warn('Failed to save local user package:', err);
-    }
-  },
+  saveLocalUserPackage() {},
 
   async getUserPackagesByCustomer(customerId?: string): Promise<ApiResponse<UserPackage[]>> {
     try {
       const isValidUuid = customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId);
       const live = await supabaseService.getUserPackages(isValidUuid ? customerId : undefined);
-      let result = live || [];
-
-      // Merge local packages if any
-      const locals = this.getLocalUserPackages(customerId);
-      if (locals.length > 0) {
-        const liveIds = new Set(result.map((p) => p.id));
-        const missing = locals.filter((p) => !liveIds.has(p.id));
-        result = [...missing, ...result];
-      }
-
       return {
         success: true,
         statusCode: 200,
         message: 'Dữ liệu gói liệu trình từ Supabase Cloud',
-        data: result,
+        data: live || [],
       };
     } catch (err) {
       console.error('[treatmentService] getUserPackagesByCustomer error:', err);
-      const locals = this.getLocalUserPackages(customerId);
       return {
-        success: true,
-        statusCode: 200,
-        message: 'Dữ liệu gói liệu trình từ bộ nhớ cục bộ',
-        data: locals,
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi nạp gói liệu trình từ Supabase Cloud',
+        data: [],
       };
     }
   },
@@ -177,7 +149,6 @@ export const treatmentService = {
     const validity = params.validityMonths || 6;
     const expiresAt = new Date(Date.now() + validity * 30 * 86400000).toISOString();
 
-    // 1. Thử ghi vào Supabase
     try {
       const created = await supabaseService.createUserPackage({
         customerId: params.customerId,
@@ -189,7 +160,6 @@ export const treatmentService = {
       });
 
       if (created) {
-        // Gán thông tin package kèm theo
         created.package = {
           id: params.packageId,
           name: params.packageName,
@@ -200,7 +170,6 @@ export const treatmentService = {
           description: '',
           imageUrl: '',
         };
-        this.saveLocalUserPackage(created);
         return {
           success: true,
           statusCode: 201,
@@ -208,40 +177,16 @@ export const treatmentService = {
           data: created,
         };
       }
-    } catch (err) {
-      console.warn('[treatmentService] Cloud assign package failed, falling back to local storage:', err);
+      throw new Error('Không thể tạo bản ghi gói liệu trình trên Supabase Cloud');
+    } catch (err: any) {
+      console.error('[treatmentService] Cloud assign package failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: err?.message || 'Lỗi khi gán gói liệu trình lên Supabase Cloud',
+        data: {} as UserPackage,
+      };
     }
-
-    // 2. Dự phòng an toàn tuyệt đối
-    const fallbackPackage: UserPackage = {
-      id: `upkg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      customerId: params.customerId,
-      packageId: params.packageId,
-      totalSessions: params.totalSessions,
-      completedSessions: 0,
-      status: PackageStatus.ACTIVE,
-      purchasedAt: new Date().toISOString(),
-      expiresAt,
-      package: {
-        id: params.packageId,
-        name: params.packageName,
-        totalSessions: params.totalSessions,
-        price: params.price,
-        validityMonths: validity,
-        isActive: true,
-        description: '',
-        imageUrl: '',
-      },
-    };
-
-    this.saveLocalUserPackage(fallbackPackage);
-
-    return {
-      success: true,
-      statusCode: 201,
-      message: 'Gói liệu trình đã được gán và lưu trữ an toàn trong hồ sơ khách hàng',
-      data: fallbackPackage,
-    };
   },
 
   // --- Nhật ký & Buổi trị liệu (TreatmentJournal) ---

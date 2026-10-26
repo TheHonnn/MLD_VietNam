@@ -213,6 +213,12 @@ class SupabaseDataService {
           'select': '*',
           'order': 'sort_order.asc,created_at.desc',
         },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       if (response.data == null) return [];
       return List<Map<String, dynamic>>.from(response.data!);
