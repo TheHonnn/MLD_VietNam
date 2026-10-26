@@ -38,7 +38,7 @@ class B01HomeScreen extends StatefulWidget {
 }
 
 class _B01HomeScreenState extends State<B01HomeScreen> {
-  String _selectedBranch = 'Chi nhánh Đống Đa - Hà Nội';
+  String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   SpaServiceModel? _coreService;
 
 

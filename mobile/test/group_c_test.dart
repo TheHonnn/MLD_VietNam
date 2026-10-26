@@ -59,13 +59,12 @@ void main() {
     // Wait for frames
     await tester.pumpAndSettle();
 
-    // Verify App Bar & Core service header
+    // Verify App Bar & Core sections per Master Redesign
     expect(find.text('Đặt lịch trị liệu'), findsOneWidget);
-    expect(find.text('DỊCH VỤ TRỊ LIỆU CỐT LÕI'), findsOneWidget);
-    expect(find.text('Chọn chi nhánh thực hiện'), findsOneWidget);
-    expect(find.text('Thời gian & Số lượng khách'), findsOneWidget);
-    expect(find.text('Thông tin khách hàng'), findsOneWidget);
-    expect(find.text('Bảng tóm tắt đặt lịch'), findsOneWidget);
-    expect(find.text('Xác nhận đặt lịch giữ chỗ'), findsOneWidget);
+    expect(find.text('Chi nhánh thực hiện'), findsOneWidget);
+    expect(find.text('Thời gian hẹn'), findsOneWidget);
+    expect(find.text('Khách hàng'), findsOneWidget);
+    expect(find.text('Thông tin đặt lịch'), findsOneWidget);
+    expect(find.text('Xác nhận đặt lịch'), findsOneWidget);
   });
 }

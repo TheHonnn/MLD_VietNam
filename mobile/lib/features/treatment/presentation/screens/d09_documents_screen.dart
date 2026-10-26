@@ -315,6 +315,12 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
           ),
         ),
         centerTitle: false,
+        leading: widget.onBackToHome != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                onPressed: widget.onBackToHome,
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.forum_outlined, color: AppColors.primary),
@@ -325,10 +331,6 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
               );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
-            onPressed: () {},
           ),
         ],
       ),

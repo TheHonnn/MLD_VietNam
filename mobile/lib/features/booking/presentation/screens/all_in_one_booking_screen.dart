@@ -1,16 +1,15 @@
-import '../../../home/data/repositories/service_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
+import '../../../home/data/repositories/service_repository.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
 import 'c09_my_appointments_screen.dart';
 
-/// Màn hình đặt lịch trị liệu All-in-One tích hợp trọn vẹn trên 1 trang duy nhất
-/// Chuẩn đặc tả: Giao diện trang chủ.docx & Website Trang chủ, dịch vụ, đặt lịch.txt
+/// Màn hình đặt lịch trị liệu All-in-One tinh giản theo chuẩn Design System (#2860EB)
 class AllInOneBookingScreen extends StatefulWidget {
   final VoidCallback? onBack;
 
@@ -27,12 +26,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   double _pricePerPerson = 650000;
   double _vatRate = 0.08;
 
-  // 2. Chi nhánh
+  // 2. Chi nhánh từ repository
   List<BranchModel> _branches = [];
   BranchModel? _selectedBranch;
 
   // 3. Số người & Ngày giờ
-  int _guestCount = 1; // 1 - 5 người
+  final int _guestCount = 1; // 1 - 5 người
   late DateTime _selectedDate;
   String _selectedTimeSlot = '09:45';
 
@@ -108,6 +107,102 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     });
   }
 
+  void _showBranchSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Chọn chi nhánh',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ..._branches.map((b) {
+                  final isSelected = _selectedBranch?.id == b.id;
+                  return InkWell(
+                    onTap: () {
+                      setState(() => _selectedBranch = b);
+                      Navigator.pop(ctx);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFFEFF4FE) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFF2860EB) : AppColors.border,
+                          width: isSelected ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                            color: isSelected ? const Color(0xFF2860EB) : AppColors.textSecondary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  b.name,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                    color: isSelected ? const Color(0xFF2860EB) : AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  b.address,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _pickDate() async {
     final currentYear = DateTime.now().year;
     final picked = await showDatePicker(
@@ -171,7 +266,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       durationMinutes: _serviceDuration,
       branchName: _selectedBranch!.name,
       branchAddress: _selectedBranch!.address,
-      branchPhone: _selectedBranch!.phone.isNotEmpty ? _selectedBranch!.phone : '1900 6868',
+      branchPhone: _selectedBranch!.phone.isNotEmpty ? _selectedBranch!.phone : '096.7786.399',
       specialistName: 'Kỹ thuật viên hệ thống MLD',
       specialistTitle: 'Chuyên viên Vodder tự động phân bổ',
       specialistAvatar: 'assets/images/logo.webp',
@@ -180,9 +275,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       customerName: _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : 'Khách hàng MLD',
       customerPhone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : '0900000000',
       customerEmail: '',
-      specialNotes: _noteController.text.trim().isNotEmpty
-          ? '${_isBookingForSelf ? "[Đặt cho bản thân]" : "[Đặt hộ cho: ${_nameController.text}]"} ${_noteController.text.trim()}'
-          : (_isBookingForSelf ? 'Đặt cho bản thân' : 'Đặt hộ cho: ${_nameController.text}'),
+      specialNotes: _noteController.text.trim(),
       totalAmount: _totalPrice,
       depositAmount: 0,
       remainingAmount: _totalPrice,
@@ -203,7 +296,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     // Lưu vào Repository
     BookingRepository.instance.createAppointment(appointment);
 
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
@@ -224,49 +317,31 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 64,
-              height: 64,
+              width: 56,
+              height: 56,
               decoration: const BoxDecoration(
-                color: AppColors.mintBackground,
+                color: Color(0xFFEFF4FE),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.schedule_send_rounded, color: AppColors.primary, size: 36),
+              child: const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 36),
             ),
             const SizedBox(height: 16),
             const Text(
-              'Đặt lịch giữ chỗ thành công!',
-              textAlign: TextAlign.center,
+              'Đặt lịch thành công!',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primaryDark,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.mintBackground,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'TRẠNG THÁI: CHỜ DUYỆT',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
             Text(
-              'Lịch hẹn của bạn ($code) tại ${_selectedBranch?.name} vào lúc $_selectedTimeSlot ngày $dateString đã được ghi nhận và đang chờ chuyên viên xác nhận.',
+              'Lịch hẹn ($code) tại ${_selectedBranch?.name} vào lúc $_selectedTimeSlot ngày $dateString đã được ghi nhận.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
-                height: 1.45,
+                height: 1.4,
               ),
             ),
             const SizedBox(height: 20),
@@ -278,6 +353,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
@@ -286,7 +362,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
                   );
                 },
-                child: const Text('Xem lịch hẹn của tôi', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: const Text('Xem lịch hẹn của tôi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -298,10 +374,10 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   @override
   Widget build(BuildContext context) {
     final dateDisplay =
-        'Thứ ${_selectedDate.weekday + 1 == 8 ? "Chủ Nhật" : "${_selectedDate.weekday + 1}"}, ngày ${_selectedDate.day.toString().padLeft(2, "0")}/${_selectedDate.month.toString().padLeft(2, "0")}/${_selectedDate.year}';
+        'Thứ ${_selectedDate.weekday + 1 == 8 ? "Chủ Nhật" : "${_selectedDate.weekday + 1}"}, ${_selectedDate.day.toString().padLeft(2, "0")}/${_selectedDate.month.toString().padLeft(2, "0")}/${_selectedDate.year}';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -335,322 +411,127 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ==========================================
-              // CARD 1: DỊCH VỤ DUY NHẤT (Điều trị phù bạch huyết)
+              // 1. CHỌN CHI NHÁNH (Chuẩn 4.1: Bấm để chọn, không hộp to, không km)
               // ==========================================
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: AppColors.mintBackground,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.medical_services_rounded, color: AppColors.primary, size: 28),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'DỊCH VỤ TRỊ LIỆU CỐT LÕI',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _serviceTitle,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                              height: 1.3,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(Icons.timer_outlined, size: 14, color: AppColors.textSecondary),
-                              const SizedBox(width: 4),
-                              Text('$_serviceDuration phút/ca', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                              const SizedBox(width: 12),
-                              Text(
-                                '${_formatCurrency(_pricePerPerson)}đ',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primaryDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // ==========================================
-              // CARD 2: CHỌN CHI NHÁNH & Ô VỊ TRÍ
-              // ==========================================
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.store_mall_directory_rounded, size: 18, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Chọn chi nhánh thực hiện',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textHeading),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Thanh công cụ tích chọn chi nhánh
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _branches.map((b) {
-                        final isSel = _selectedBranch?.id == b.id;
-                        return ChoiceChip(
-                          label: Text(b.name),
-                          selected: isSel,
-                          onSelected: (val) {
-                            if (val) setState(() => _selectedBranch = b);
-                          },
-                          selectedColor: AppColors.mintBackground,
-                          backgroundColor: AppColors.background,
-                          labelStyle: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                            color: isSel ? AppColors.primary : AppColors.textSecondary,
-                          ),
-                          side: BorderSide(
-                            color: isSel ? AppColors.primary : AppColors.border,
-                            width: isSel ? 1.5 : 1.0,
-                          ),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        );
-                      }).toList(),
-                    ),
-
-                    if (_selectedBranch != null) ...[
-                      const SizedBox(height: 14),
-                      // Tên & địa chỉ
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
+              InkWell(
+                onTap: _showBranchSelector,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.storefront_outlined, size: 20, color: AppColors.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.location_on, size: 16, color: AppColors.primary),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    _selectedBranch!.name,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                                  ),
-                                ),
-                              ],
+                            const Text(
+                              'Chi nhánh thực hiện',
+                              style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                             ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 22),
-                              child: Text(
-                                _selectedBranch!.address,
-                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Ô VỊ TRÍ (Map location / distance)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.near_me_rounded, size: 14, color: AppColors.primary),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Vị trí: ${_selectedBranch!.district}, ${_selectedBranch!.city} · Cách ${_selectedBranch!.distanceKm.toStringAsFixed(1)} km',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                                  ),
-                                ],
+                            const SizedBox(height: 2),
+                            Text(
+                              _selectedBranch?.name ?? 'Chọn chi nhánh',
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
                               ),
                             ),
                           ],
                         ),
                       ),
+                      const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
                     ],
-                  ],
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 18),
+              if (_selectedBranch != null) ...[
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _selectedBranch!.address,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 16),
 
               // ==========================================
-              // CARD 3: CHỌN SỐ NGƯỜI & NGÀY THÁNG, KHUNG GIỜ
+              // 2. CHỌN NGÀY & KHUNG GIỜ (Chuẩn 4.2: Gọn gàng)
               // ==========================================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Thời gian & Số lượng khách',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textHeading),
-                          ),
-                        ),
-                      ],
+                    const Text(
+                      'Thời gian hẹn',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
-                    // Chọn số người (1 - 5 người)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Số lượng người trị liệu:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              Text('Tự động phân bổ 1 giường + 1 KTV/khách', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.mintBackground,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove, size: 18, color: AppColors.primary),
-                                onPressed: _guestCount > 1 ? () => setState(() => _guestCount--) : null,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                padding: EdgeInsets.zero,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                child: Text(
-                                  '$_guestCount khách',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
-                                onPressed: _guestCount < 5 ? () => setState(() => _guestCount++) : null,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Divider(height: 24, color: AppColors.border),
-
-                    // Ô Chọn ngày tháng (Bấm mở Lịch năm hiện tại)
+                    // Ngày hẹn (Bấm chọn ngày)
                     InkWell(
                       onTap: _pickDate,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(12),
+                          color: const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: AppColors.border),
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
+                            const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.primary),
+                            const SizedBox(width: 10),
                             Expanded(
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.edit_calendar_rounded, size: 20, color: AppColors.primary),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      dateDisplay,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                dateDisplay,
+                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                               ),
                             ),
-                            const SizedBox(width: 8),
                             const Text(
                               'Đổi ngày',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary),
                             ),
                           ],
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
-                    // Chọn khung giờ
-                    const Text('Khung giờ trị liệu (60 phút/ca):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    // Giờ hẹn
+                    const Text(
+                      'Giờ hẹn (60 phút/ca):',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -661,7 +542,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           onTap: () => setState(() => _selectedTimeSlot = slot),
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
                               color: isSel ? AppColors.primary : Colors.white,
                               borderRadius: BorderRadius.circular(10),
@@ -685,50 +566,41 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
               // ==========================================
-              // CARD 4: NHẬP THÔNG TIN CÁ NHÂN (Bản thân vs Đặt hộ)
+              // 3. THÔNG TIN KHÁCH HÀNG & GHI CHÚ (Chuẩn 4.3: Đổi nhãn Ghi chú)
               // ==========================================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.person_pin_rounded, size: 18, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Thông tin khách hàng',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textHeading),
-                          ),
-                        ),
-                      ],
+                    const Text(
+                      'Khách hàng',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
-                    // 2 Ô tích chọn: Đặt cho bản thân vs Đặt hộ
+                    // Radio chọn Bản thân vs Đặt hộ
                     Row(
                       children: [
                         Expanded(
                           child: InkWell(
                             onTap: () => _onToggleBookingMode(true),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: _isBookingForSelf ? AppColors.mintBackground : AppColors.background,
-                                borderRadius: BorderRadius.circular(10),
+                                color: _isBookingForSelf ? const Color(0xFFEFF4FE) : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: _isBookingForSelf ? AppColors.primary : AppColors.border,
-                                  width: _isBookingForSelf ? 1.5 : 1.0,
                                 ),
                               ),
                               child: Row(
@@ -740,16 +612,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                     color: _isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      'Đặt cho bản thân',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: _isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
-                                        color: _isBookingForSelf ? AppColors.primaryDark : AppColors.textSecondary,
-                                      ),
+                                  Text(
+                                    'Bản thân',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: _isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
+                                      color: _isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -757,19 +625,18 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: InkWell(
                             onTap: () => _onToggleBookingMode(false),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: !_isBookingForSelf ? AppColors.mintBackground : AppColors.background,
-                                borderRadius: BorderRadius.circular(10),
+                                color: !_isBookingForSelf ? const Color(0xFFEFF4FE) : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: !_isBookingForSelf ? AppColors.primary : AppColors.border,
-                                  width: !_isBookingForSelf ? 1.5 : 1.0,
                                 ),
                               ),
                               child: Row(
@@ -781,16 +648,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                     color: !_isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      'Đặt hộ người khác',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: !_isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
-                                        color: !_isBookingForSelf ? AppColors.primaryDark : AppColors.textSecondary,
-                                      ),
+                                  Text(
+                                    'Đặt hộ',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: !_isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
+                                      color: !_isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -801,31 +664,27 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
-                    // Họ và tên
                     TextFormField(
                       controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: _isBookingForSelf ? 'Họ và tên của bạn' : 'Họ và tên người được đặt hộ',
-                        prefixIcon: const Icon(Icons.person_outline, size: 20, color: AppColors.primary),
-                        filled: true,
-                        fillColor: AppColors.background,
+                      decoration: const InputDecoration(
+                        labelText: 'Họ và tên',
+                        prefixIcon: Icon(Icons.person_outline, size: 20),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       validator: (val) => (val == null || val.trim().isEmpty) ? 'Vui lòng nhập họ tên' : null,
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
-                    // Số điện thoại
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: _isBookingForSelf ? 'Số điện thoại liên hệ' : 'Số điện thoại người được đặt hộ',
-                        prefixIcon: const Icon(Icons.phone_outlined, size: 20, color: AppColors.primary),
-                        filled: true,
-                        fillColor: AppColors.background,
+                      decoration: const InputDecoration(
+                        labelText: 'Số điện thoại',
+                        prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) return 'Vui lòng nhập số điện thoại';
@@ -834,88 +693,77 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       },
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
-                    // Ghi chú
+                    // Nhãn Ghi chú đơn giản theo mục 4.3
                     TextFormField(
                       controller: _noteController,
+                      maxLines: 2,
                       decoration: const InputDecoration(
-                        labelText: 'Ghi chú tình trạng phù nề (nếu có)',
-                        prefixIcon: Icon(Icons.note_alt_outlined, size: 20, color: AppColors.primary),
-                        filled: true,
-                        fillColor: AppColors.background,
+                        labelText: 'Ghi chú',
+                        hintText: 'Nhập ghi chú cho chuyên viên nếu cần (không bắt buộc)',
+                        prefixIcon: Icon(Icons.note_alt_outlined, size: 20),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
               // ==========================================
-              // CARD 5: BẢNG THÔNG TIN ĐẶT LỊCH (Summary Card)
+              // 4. THÔNG TIN ĐẶT LỊCH (Chuẩn 4.4: Đổi tên Bảng tóm tắt thành Thông tin đặt lịch)
               // ==========================================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.mintBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    const Text(
+                      'Thông tin đặt lịch',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInfoRow('Dịch vụ:', _serviceTitle),
+                    _buildInfoRow('Chi nhánh:', _selectedBranch?.name ?? '---'),
+                    _buildInfoRow('Ngày & Giờ:', '$dateDisplay lúc $_selectedTimeSlot'),
+                    _buildInfoRow('Khách hàng:', '${_nameController.text} (${_phoneController.text})'),
+                    if (_noteController.text.trim().isNotEmpty)
+                      _buildInfoRow('Ghi chú:', _noteController.text.trim()),
+                    const Divider(color: AppColors.border, height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.assignment_outlined, size: 18, color: AppColors.primaryDark),
-                        SizedBox(width: 8),
-                        Expanded(
+                        const Expanded(
                           child: Text(
-                            'Bảng tóm tắt đặt lịch',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                            'Chi phí dự kiến:',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                          ),
+                        ),
+                        Text(
+                          '${_formatCurrency(_totalPrice)}đ',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF00693F),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _buildSummaryRow('Dịch vụ:', _serviceTitle),
-                    _buildSummaryRow('Cơ sở:', _selectedBranch?.name ?? 'Chưa chọn'),
-                    _buildSummaryRow('Địa chỉ:', _selectedBranch?.address ?? '---'),
-                    _buildSummaryRow('Ngày & Giờ:', '$dateDisplay | Lúc $_selectedTimeSlot'),
-                    _buildSummaryRow('Số lượng khách:', '$_guestCount người (Tự động cấp $_guestCount giường + $_guestCount KTV)'),
-                    _buildSummaryRow(
-                      'Người đặt:',
-                      _isBookingForSelf
-                          ? '${_nameController.text.isNotEmpty ? _nameController.text : "Khách"} (Đặt cho bản thân)'
-                          : '${_nameController.text.isNotEmpty ? _nameController.text : "Khách"} (Đặt hộ)',
-                    ),
-                    _buildSummaryRow('SĐT liên hệ:', _phoneController.text.isNotEmpty ? _phoneController.text : '---'),
-                    const Divider(color: AppColors.border, height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(child: Text('Giá trước thuế:', style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-                        Text('${_formatCurrency(_subtotal)}đ', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: Text('Thuế VAT (${(_vatRate * 100).toInt()}%):', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-                        Text('${_formatCurrency(_vatAmount)}đ', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(child: Text('Tổng thanh toán:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primaryDark))),
-                        Text(
-                          '${_formatCurrency(_totalPrice)}đ',
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
-                        ),
-                      ],
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Đã bao gồm 8% thuế VAT theo quy định',
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -924,35 +772,28 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               const SizedBox(height: 24),
 
               // ==========================================
-              // NÚT XÁC NHẬN ĐẶT LỊCH GIỮ CHỖ
+              // 5. NÚT XÁC NHẬN (Chuẩn 4.5: "Xác nhận đặt lịch", 48-52px)
               // ==========================================
               SizedBox(
-                height: 54,
+                height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
                   onPressed: _isSubmitting ? null : _handleSubmitBooking,
                   child: _isSubmitting
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
                       : const Text(
-                          'Xác nhận đặt lịch giữ chỗ',
+                          'Xác nhận đặt lịch',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                         ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Center(
-                child: Text(
-                  'Hệ thống sẽ giữ chỗ và gửi thông báo xác nhận trong ít phút',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ),
               const SizedBox(height: 20),
@@ -963,20 +804,20 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
-            child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            width: 90,
+            child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
           ),
         ],

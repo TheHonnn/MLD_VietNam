@@ -78,20 +78,20 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
     return Scaffold(
       body: screens[_currentIndex],
-      // Bottom Navigation Bar chuẩn Brand Color
+      // Bottom Navigation Bar chuẩn Design System (#FFFFFF, #E5E7EB, #2860EB)
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: AppColors.menuBackground, // rgb(0, 42, 107) #002A6B
+          color: Colors.white,
           border: const Border(
             top: BorderSide(
-              color: Color(0xFF001B45),
+              color: AppColors.border,
               width: 1.0,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 10,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
               offset: const Offset(0, -2),
             ),
           ],
@@ -128,13 +128,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.secondary.withValues(alpha: 0.22) : Colors.transparent,
+                color: isSelected ? const Color(0xFFEFF4FE) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
                 size: 22,
-                color: isSelected ? AppColors.secondary : Colors.white.withValues(alpha: 0.65),
+                color: isSelected ? const Color(0xFF2860EB) : const Color(0xFF616161),
               ),
             ),
             const SizedBox(height: 2),
@@ -143,7 +143,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? AppColors.secondary : Colors.white.withValues(alpha: 0.65),
+                color: isSelected ? const Color(0xFF2860EB) : const Color(0xFF616161),
               ),
             ),
           ],
