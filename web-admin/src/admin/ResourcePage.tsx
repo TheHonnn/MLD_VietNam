@@ -3738,6 +3738,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   useEffect(() => {
     if (confirmation) confirmDialog.current?.showModal();
   }, [confirmation]);
+  let filter: Row = {};
+  try {
+    filter = JSON.parse(params.get("filter") || "{}");
+  } catch {}
+  const selectedBatchId =
+    filter.batch_id !== undefined
+      ? String(filter.batch_id)
+      : params.get("batch_id") || "";
+  const selectedBatch = batchesForFilter.find(
+    (b) => String(b.id) === String(selectedBatchId)
+  );
+
   useEffect(() => {
     if (
       !listing ||
@@ -3752,19 +3764,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           ? { role: "CUSTOMER", membership_tier: "STANDARD", is_active: true }
           : table === "course_lessons" && params.get("lesson_type") === "VIDEO"
             ? { lesson_type: "VIDEO" }
-            : {},
+            : table === "course_enrollments" && selectedBatch
+              ? { batch_id: selectedBatch.id, course_id: selectedBatch.course_id }
+              : {},
     });
-  }, [listing, resource, table, params]);
+  }, [listing, resource, table, params, selectedBatch]);
   const updateParam = (name: string, value: string) => {
     const next = new URLSearchParams(params);
     value ? next.set(name, value) : next.delete(name);
     if (name !== "page") next.delete("page");
     setParams(next);
   };
-  let filter: Row = {};
-  try {
-    filter = JSON.parse(params.get("filter") || "{}");
-  } catch {}
   const filterColumns =
     listing?.columns.filter(
       (c) => (c.options.length || c.type === "bool") && !(table === "users" && c.name === "role")
@@ -3969,10 +3979,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "course_id",
       "batch_id",
       "enrolled_at",
-      "tuition_fee",
-      "deposit_amount",
+      "tuition_total",
+      "amount_paid",
+      "progress_percent",
       "status",
-      "payment_status",
     ],
     instructors: [
       "avatar_url",
