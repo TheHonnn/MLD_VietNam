@@ -400,6 +400,26 @@ function isMissingTableError(res: Response, err: any): boolean {
   );
 }
 
+function formatDatabaseError(err: any, defaultMsg: string): string {
+  const msg = err?.message || "";
+  if (!msg) return defaultMsg;
+  if (msg.includes("violates foreign key constraint")) {
+    const match = msg.match(/violates foreign key constraint "([^"]+)" on table "([^"]+)"/i);
+    if (match) {
+      const targetTable = match[2];
+      return `Không thể xóa do còn dữ liệu phụ thuộc ở bảng "${targetTable}". Vui lòng xử lý hoặc xóa các dữ liệu liên kết trước.`;
+    }
+    return "Không thể thực hiện do ràng buộc dữ liệu liên quan trong hệ thống.";
+  }
+  if (msg.includes("violates unique constraint")) {
+    return "Dữ liệu đã tồn tại trong hệ thống (trùng lặp khóa duy nhất).";
+  }
+  if (msg.includes("violates not-null constraint")) {
+    return "Dữ liệu thiếu các thông tin bắt buộc.";
+  }
+  return msg;
+}
+
 function getLocalTableRows(table: string): Row[] {
   try {
     const raw = localStorage.getItem(`mld_local_${table}`);
@@ -859,7 +879,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         deleteLocalRecord(table, id || key);
         return true as unknown as T;
       }
-      throw new Error(err?.message || "Không thể xóa bản ghi trên Supabase.");
+      throw new Error(formatDatabaseError(err, "Không thể xóa bản ghi trên Supabase."));
     }
 
     deleteLocalRecord(table, id || key);
