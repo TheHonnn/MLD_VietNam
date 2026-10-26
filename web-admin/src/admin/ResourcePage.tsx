@@ -4091,7 +4091,19 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           {resource?.actions?.includes("create") && listing && (
             <button
               className="admin-primary"
-              onClick={() => setEdit({ row: {}, mode: "create" })}
+              onClick={() => {
+                if (table === "course_enrollments" && selectedBatch) {
+                  setEdit({
+                    row: {
+                      batch_id: selectedBatch.id,
+                      course_id: selectedBatch.course_id,
+                    },
+                    mode: "create",
+                  });
+                } else {
+                  setEdit({ row: {}, mode: "create" });
+                }
+              }}
             >
               <Plus />
               Thêm mới
@@ -4129,6 +4141,37 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {table === "course_enrollments" && (
+          <select
+            aria-label="Chọn Lớp học"
+            className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7]"
+            value={selectedBatchId}
+            onChange={(e) => {
+              const bId = e.target.value;
+              const next = { ...filter };
+              const p = new URLSearchParams(params);
+              if (!bId) {
+                delete next.batch_id;
+                p.delete("batch_id");
+              } else {
+                next.batch_id = bId;
+                p.set("batch_id", bId);
+              }
+              Object.keys(next).length
+                ? p.set("filter", JSON.stringify(next))
+                : p.delete("filter");
+              p.delete("page");
+              setParams(p);
+            }}
+          >
+            <option value="">🎓 Chọn lớp học · Tất cả ({batchesForFilter.length} lớp)</option>
+            {batchesForFilter.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.batch_code} · {b.courses?.title || "Khóa học"} {b.branches?.name ? `(${b.branches.name})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
         {table === "course_categories" && (
           <select
             aria-label="Lọc theo Khóa học"
@@ -4213,13 +4256,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             ))}
           </select>
         ))}
-        {(Object.keys(filter).length > 0 || Boolean(params.get("course_id"))) && (
+        {(Object.keys(filter).length > 0 || Boolean(params.get("course_id")) || Boolean(params.get("batch_id"))) && (
           <button
             className="admin-secondary"
             onClick={() => {
               const p = new URLSearchParams(params);
               p.delete("filter");
               p.delete("course_id");
+              p.delete("batch_id");
               p.delete("page");
               setParams(p);
             }}

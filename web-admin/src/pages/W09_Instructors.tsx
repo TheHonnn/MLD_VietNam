@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Info,
   X,
-  Plus,
   CheckCircle2,
   Search,
   Settings2,
@@ -215,16 +214,8 @@ export const W09_Instructors: React.FC = () => {
   }, [instructorsData, selectedInstructorId]);
 
   // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
-
-  // Form add instructor state
-  const [newInsName, setNewInsName] = useState('');
-  const [newInsRole, setNewInsRole] = useState('Chuyên gia Đào tạo');
-  const [newInsSpecialty, setNewInsSpecialty] = useState('Massage chuyên nghiệp & Dẫn lưu bạch huyết');
-  const [newInsCert, setNewInsCert] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Assignment modal states
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
@@ -283,38 +274,6 @@ export const W09_Instructors: React.FC = () => {
     setIsAssignModalOpen(true);
   };
 
-  const handleCreateInstructor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newInsName.trim()) {
-      showToast('Vui lòng nhập họ và tên giảng viên');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const res = await supabaseService.createInstructor({
-        fullName: newInsName.trim(),
-        title: newInsRole,
-        achievements: newInsCert.trim() ? [newInsCert.trim()] : ['Chứng chỉ Đào tạo MLD Academy'],
-        bio: `${newInsRole} - Chuyên môn: ${newInsSpecialty}`,
-      });
-      if (res) {
-        showToast('Đã lưu hồ sơ giảng viên thành công lên Supabase Cloud!');
-        setIsAddModalOpen(false);
-        setNewInsName('');
-        setNewInsCert('');
-        await fetchInstructorData();
-      } else {
-        showToast('Đã lưu hồ sơ giảng viên vào hệ thống!');
-        setIsAddModalOpen(false);
-      }
-    } catch (err) {
-      console.error('Error creating instructor:', err);
-      showToast('Không thể lưu hồ sơ giảng viên. Vui lòng thử lại.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleAssignClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBatchId) {
@@ -370,7 +329,7 @@ export const W09_Instructors: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Header Title & Top CTA */}
+      {/* 1. Header Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Giảng viên</h1>
@@ -378,13 +337,6 @@ export const W09_Instructors: React.FC = () => {
             Hồ sơ giảng viên, phân công lớp và lịch giảng dạy học viện MLD.
           </p>
         </div>
-
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
-        >
-          Thêm giảng viên
-        </button>
       </div>
 
       {/* 2. Search & Filter Bar */}
@@ -791,108 +743,7 @@ export const W09_Instructors: React.FC = () => {
         </span>
       </div>
 
-      {/* MODAL 1: Thêm giảng viên */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF5EF]">
-              <div>
-                <h3 className="text-base font-bold text-[#2C241E]">Thêm hồ sơ giảng viên mới</h3>
-                <p className="text-xs text-[#73675F] mt-0.5">Nhập thông tin giảng viên đào tạo học viện MLD</p>
-              </div>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 rounded-lg text-[#73675F] hover:bg-white transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleCreateInstructor}
-              className="p-5 space-y-4 text-xs"
-            >
-              <div>
-                <label className="block font-semibold text-[#2C241E] mb-1.5">Họ và tên giảng viên</label>
-                <input
-                  required
-                  type="text"
-                  value={newInsName}
-                  onChange={(e) => setNewInsName(e.target.value)}
-                  placeholder="Ví dụ: Bác sĩ Nguyễn Hoàng Quân"
-                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Chức danh đào tạo</label>
-                  <input
-                    type="text"
-                    value={newInsRole}
-                    onChange={(e) => setNewInsRole(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Cơ sở giảng dạy</label>
-                  <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                    <option value="q3">Quận 3</option>
-                    <option value="q1">Quận 1</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#2C241E] mb-1.5">Chuyên môn chính</label>
-                <select
-                  value={newInsSpecialty}
-                  onChange={(e) => setNewInsSpecialty(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                >
-                  <option value="Massage chuyên nghiệp & Dẫn lưu bạch huyết">Massage chuyên nghiệp & Dẫn lưu bạch huyết</option>
-                  <option value="Chăm sóc da nâng cao & Trị liệu da">Chăm sóc da nâng cao & Trị liệu da</option>
-                  <option value="Chăm sóc cơ thể & Dưỡng sinh y học">Chăm sóc cơ thể & Dưỡng sinh y học</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#2C241E] mb-1.5">Bằng cấp / Chứng chỉ hành nghề</label>
-                <input
-                  type="text"
-                  value={newInsCert}
-                  onChange={(e) => setNewInsCert(e.target.value)}
-                  placeholder="Ví dụ: Chứng chỉ hành nghề Y học cổ truyền, Chứng chỉ CIDESCO"
-                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div className="p-3 bg-[#FAF5EF] rounded-xl text-[11px] text-[#73675F]">
-                Dữ liệu giảng viên sẽ được đồng bộ trực tiếp lên hệ thống quản trị đào tạo MLD.
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-white border border-[#EFE4D9] text-[#73675F] hover:bg-[#FAF7F2] rounded-xl font-medium cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Đang lưu...' : 'Lưu hồ sơ'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: Phân công lớp */}
+      {/* MODAL: Phân công lớp */}
       {isAssignModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
