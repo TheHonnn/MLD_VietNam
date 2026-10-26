@@ -6,7 +6,8 @@ import { LegalLinks } from './LegalLinks';
 import { QRCode } from './QRCode';
 import {openShareSheet} from 'zmp-sdk';
 import { apiClient } from '@/api/client';
-import {isStaffRole,staffRoleLabel} from '@/utils/staff';
+import {translate} from '@/i18n';
+import {canUseStaffTools,staffRoleLabel} from '@/utils/staff';
 import type {CustomerSection,StaffDashboard} from '@/types/staff';
 import {StaffWorkspace} from './StaffWorkspace';
 import type { User, Voucher, Branch } from '../../../../backend/src/data/database';
@@ -87,7 +88,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   summary,
   summaryError,
 }) => {
-  const staffMode=isStaffRole(user.role);
+  const staffMode=canUseStaffTools(user);
   type Settings = { biometricEnabled: boolean; appointmentReminder: boolean; promotionNotify: boolean; systemNotify: boolean; language: string };
   const [settings, setSettings] = useState<Settings | null>(() => apiClient.peek('/auth/settings')?.settings || null);
   const [settingsStatus, setSettingsStatus] = useState<'loading' | 'missing' | 'loaded' | 'error'>(() => { const cached=apiClient.peek('/auth/settings'); return cached ? cached.settings ? 'loaded' : 'missing' : 'loading'; });
@@ -123,6 +124,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       if (result?.settings && !result.error) {
         setSettings(result.settings);
         setSettingsStatus('loaded');
+        if(result.localeError)showToast(result.localeError);
       }
       else showToast(result?.error || 'Không thể lưu cài đặt.');
     } catch { showToast('Không thể lưu cài đặt.'); }
@@ -279,6 +281,20 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   // Digital Card Barcode/QR toggle
   const cardShareLock=useRef(false);
   const [sharingCard,setSharingCard]=useState(false);
+  const referralShareLock=useRef(false);
+  const [sharingReferral,setSharingReferral]=useState(false);
+  const shareReferral=async()=>{
+    if(!referralCode||referralShareLock.current)return;
+    referralShareLock.current=true;setSharingReferral(true);
+    const text=[translate(`Mã giới thiệu MLD Việt Nam: ${referralCode}`),metadata?.referral?.terms].filter(Boolean).join('\n');
+    try{
+      if(/Zalo/i.test(navigator.userAgent)||Boolean((window as any).ZJSBridge))await openShareSheet({type:'text',data:{text}});
+      else if(navigator.share)await navigator.share({title:'Mã giới thiệu MLD Việt Nam',text});
+      else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);showToast('Đã sao chép mã giới thiệu.');}
+      else showToast('Thiết bị không hỗ trợ chia sẻ.');
+    }catch(error){if((error as {name?:string})?.name!=='AbortError')showToast('Không thể chia sẻ mã. Vui lòng thử lại.');}
+    finally{referralShareLock.current=false;if(mounted.current)setSharingReferral(false);}
+  };
   const shareCard=async()=>{
     if(!membershipCardCode||cardShareLock.current)return;
     cardShareLock.current=true;setSharingCard(true);
@@ -399,7 +415,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           <div className="min-w-0 break-words">
             <h2 className="text-sm font-bold text-[#183b47]">{user.name}</h2>
             <p className="text-[11px] text-[#526a73] mt-0.5">{user.phone}{metadata?.phoneVerified === true ? ' · Đã xác thực' : ''}</p>
-            <span className="inline-block px-2 py-0.5 rounded-full bg-[#f1f8fa] text-[#087e9c] text-[10px] font-semibold mt-1">
+            <span className="inline-block px-2 py-0.5 rounded-full bg-[#f1f8fa] text-[#2860eb] text-[10px] font-semibold mt-1">
               {staffMode?staffRoleLabel(user.role):userProfile.tier}
             </span>
           </div>
@@ -450,7 +466,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
           { value: summary?String(summary.activeCourses):'', label: 'Khóa học', sub: 'đang học', action: onOpenAcademy },
         ].map((item) => (
           <button key={item.label} onClick={item.action} className="min-h-[78px] rounded-[10px] bg-white p-3 text-left shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-            <span className="text-[17px] font-bold text-[#087e9c]">{item.value}</span>
+            <span className="text-[17px] font-bold text-[#2860eb]">{item.value}</span>
             <span className="mt-1 block text-[9px] font-medium text-[#183b47]">{item.label}</span>
             <span className="block text-[8px] text-[#526a73]">{item.sub}</span>
           </button>
@@ -468,7 +484,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <CalendarIcon size={16} className="text-[#087e9c]" />
+              <CalendarIcon size={16} className="text-[#2860eb]" />
               <span className="font-semibold text-[#183b47]">Lịch hẹn của tôi</span>
             </div>
             <span className="text-[#607780]">&gt;</span>
@@ -479,7 +495,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <HeartIcon size={16} className="text-[#087e9c]" />
+              <HeartIcon size={16} className="text-[#2860eb]" />
               <span className="font-semibold text-[#183b47]">Gói liệu trình</span>
             </div>
             <span className="text-[#607780]">&gt;</span>
@@ -490,7 +506,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <NavAcademyIcon size={16} className="text-[#087e9c]" />
+              <NavAcademyIcon size={16} className="text-[#2860eb]" />
               <span className="font-semibold text-[#183b47]">Khóa học & Chứng nhận của tôi</span>
             </div>
             <span className="text-[#607780]">&gt;</span>
@@ -510,7 +526,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><TagIcon size={17} /></span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#2860eb]"><TagIcon size={17} /></span>
               <span className="font-semibold text-[#183b47]">Ưu đãi của tôi{summary?` (${vouchersList.filter(v => v.status === 'available').length} voucher)`:''}</span>
             </div>
             <span className="text-[#607780]">&gt;</span>
@@ -521,7 +537,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><StarIcon size={17} filled={false} /></span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#2860eb]"><StarIcon size={17} filled={false} /></span>
               <span className="font-semibold text-[#183b47]">Điểm tích lũy & Hạng hội viên</span>
             </div>
             <span className="text-[#607780]">&gt;</span>
@@ -532,7 +548,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><UserCheckIcon size={17} /></span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#2860eb]"><UserCheckIcon size={17} /></span>
               <span className="font-semibold text-[#183b47]">Giới thiệu bạn bè</span>
             </div>
             <span className="text-[#607780]">&gt;</span>
@@ -544,7 +560,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             className="flex w-full items-center justify-between p-3.5 text-left hover:bg-[#ffffff] cursor-pointer text-xs transition"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="flex h-7 w-7 items-center justify-center text-[#087e9c]"><ShieldIcon size={17} /></span>
+              <span className="flex h-7 w-7 items-center justify-center text-[#2860eb]"><ShieldIcon size={17} /></span>
               <span className="font-semibold text-[#183b47]">Cài đặt tài khoản & Bảo mật</span>
             </div>
             <span className="text-[#607780]">&gt;</span>
@@ -575,7 +591,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               onClick={saveProfile}
               disabled={savingProfile||avatarReading}
               aria-busy={savingProfile||avatarReading}
-              className="text-xs font-bold text-[#087e9c] px-2.5 py-1 rounded-lg bg-[#f1f8fa] hover:bg-[#e8f4f7]"
+              className="text-xs font-bold text-[#2860eb] px-2.5 py-1 rounded-lg bg-[#f1f8fa] hover:bg-[#eff4fe]"
             >
               {savingProfile ? 'Đang lưu...' : 'Lưu'}
             </button>
@@ -587,7 +603,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               onClick={() => setProfileSubTab('personal')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
                 profileSubTab === 'personal'
-                  ? 'border-[#087e9c] text-[#087e9c]'
+                  ? 'border-[#2860eb] text-[#2860eb]'
                   : 'border-transparent text-[#526a73]'
               }`}
             >
@@ -597,7 +613,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               onClick={() => setProfileSubTab('health')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
                 profileSubTab === 'health'
-                  ? 'border-[#087e9c] text-[#087e9c]'
+                  ? 'border-[#2860eb] text-[#2860eb]'
                   : 'border-transparent text-[#526a73]'
               }`}
             >
@@ -613,11 +629,11 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   {userProfile.avatar ? <img
                     src={userProfile.avatar}
                     alt="Avatar"
-                    className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-[#087e9c] shadow-sm"
+                    className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-[#2860eb] shadow-sm"
                   /> : <div className="w-20 h-20 mx-auto rounded-full bg-stone-100 flex items-center justify-center"><UserCheckIcon size={32} /></div>}
                   <div>
                     <p className="text-xs font-bold text-[#183b47]">Ảnh đại diện</p>
-                    <label htmlFor="profile-avatar-file" className="mx-auto mt-3 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[#087e9c] bg-white text-xs font-bold text-[#087e9c]">
+                    <label htmlFor="profile-avatar-file" className="mx-auto mt-3 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[#2860eb] bg-white text-xs font-bold text-[#2860eb]">
                       <CameraIcon size={17} /> {avatarReading?'Đang xử lý ảnh...':'Chọn ảnh từ thiết bị'}
                     </label>
                     <input id="profile-avatar-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectAvatarFile} className="hidden" />
@@ -632,7 +648,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       type="text"
                       value={userProfile.name}
                       onChange={(e) => setUserProfile({ ...userProfile, name: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#2860eb] outline-none"
                     />
                   </div>
 
@@ -645,7 +661,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                           onClick={() => setUserProfile({ ...userProfile, gender: g })}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
                             userProfile.gender === g
-                              ? 'bg-[#087e9c] text-white border-[#087e9c]'
+                              ? 'bg-[#2860eb] text-white border-[#2860eb]'
                               : 'bg-white text-stone-700 border-[#c8dde3]'
                           }`}
                         >
@@ -674,7 +690,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       type="email"
                       value={userProfile.email}
                       onChange={(e) => setUserProfile({ ...userProfile, email: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#2860eb] outline-none"
                     />
                   </div>
 
@@ -684,7 +700,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       type="date"
                       value={userProfile.dob?.slice(0, 10) || ''}
                       onChange={(e) => setUserProfile({ ...userProfile, dob: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#2860eb] outline-none"
                     />
                   </div>
 
@@ -694,7 +710,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       type="text"
                       value={userProfile.address}
                       onChange={(e) => setUserProfile({ ...userProfile, address: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#2860eb] outline-none"
                     />
                   </div>
 
@@ -704,7 +720,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       aria-label="Chi nhánh yêu thích"
                       value={userProfile.preferredBranch}
                       onChange={event=>setUserProfile(current=>({...current,preferredBranch:event.target.value}))}
-                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none bg-white cursor-pointer"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#2860eb] outline-none bg-white cursor-pointer"
                     >
                       <option value=""></option>
                       {branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}
@@ -725,7 +741,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       aria-label="Đặc điểm làn da"
                       maxLength={150}
                       onChange={event=>setUserProfile(current=>({...current,skinType:event.target.value}))}
-                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#2860eb] outline-none"
                     />
                   </div>
 
@@ -739,7 +755,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       maxLength={10000}
                       onChange={event=>setUserProfile(current=>({...current,healthNotes:event.target.value}))}
                       rows={3}
-                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#087e9c] outline-none resize-none"
+                      className="w-full p-2.5 rounded-xl border border-[#c8dde3] text-xs font-medium focus:border-[#2860eb] outline-none resize-none"
                     />
                   </div>
 
@@ -777,7 +793,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <button
               onClick={saveProfile}
               disabled={savingProfile||avatarReading}
-              className="w-full py-3 rounded-xl bg-[#087e9c] text-white text-xs font-bold hover:bg-[#076985] shadow-md transition active:scale-95"
+              className="w-full py-3 rounded-xl bg-[#2860eb] text-white text-xs font-bold hover:bg-[#076985] shadow-md transition active:scale-95"
             >
               {savingProfile ? 'Đang lưu...' : 'Lưu thay đổi hồ sơ'}
             </button>
@@ -805,7 +821,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               disabled={!membershipCardCode||sharingCard}
               onClick={shareCard}
               title="Chia sẻ thẻ"
-              className="text-xs font-bold text-[#087e9c] px-2 py-1"
+              className="text-xs font-bold text-[#2860eb] px-2 py-1"
             >
               Chia sẻ
             </button>
@@ -840,19 +856,19 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             {/* Code switcher */}
             <div className="p-4 rounded-2xl bg-white border border-[#c8dde3] text-center space-y-3 shadow-xs">
               <div className="flex justify-center space-x-2 border-b border-[#c8dde3] pb-2">
-                <span className="px-3 py-1 text-xs font-bold text-[#087e9c]">Mã QR thẻ hội viên</span>
+                <span className="px-3 py-1 text-xs font-bold text-[#2860eb]">Mã QR thẻ hội viên</span>
               </div>
 
               <div className="w-44 h-44 mx-auto bg-white p-2 rounded-2xl border border-[#c8dde3] flex items-center justify-center text-xs text-[#526a73]">
                 {membershipCardCode&&<QRCode value={membershipCardCode} size={160}/>}
               </div>
-              <p className="font-mono text-sm font-bold text-[#087e9c]">{membershipCardCode || ''}</p>
+              <p className="font-mono text-sm font-bold text-[#2860eb]">{membershipCardCode || ''}</p>
 
               <div className="flex space-x-2 pt-1">
                 <button
                   disabled
                   title="Chưa hỗ trợ ví điện tử"
-                  className="flex-1 py-2 rounded-xl bg-[#f1f8fa] text-[#087e9c] text-xs font-bold hover:bg-[#e8f4f7]"
+                  className="flex-1 py-2 rounded-xl bg-[#f1f8fa] text-[#2860eb] text-xs font-bold hover:bg-[#eff4fe]"
                 >
                   Lưu vào Ví điện tử
                 </button>
@@ -902,7 +918,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="text-xs font-bold text-[#526a73] hover:text-[#087e9c] px-2 py-1"
+              className="text-xs font-bold text-[#526a73] hover:text-[#2860eb] px-2 py-1"
             >
               Đóng
             </button>
@@ -912,7 +928,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <button
               onClick={() => setPointsTab('rewards')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
-                pointsTab === 'rewards' ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
+                pointsTab === 'rewards' ? 'border-[#2860eb] text-[#2860eb]' : 'border-transparent text-[#526a73]'
               }`}
             >
               Đổi quà từ điểm
@@ -920,7 +936,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <button
               onClick={() => setPointsTab('tiers')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
-                pointsTab === 'tiers' ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
+                pointsTab === 'tiers' ? 'border-[#2860eb] text-[#2860eb]' : 'border-transparent text-[#526a73]'
               }`}
             >
               Bảng hạng hội viên
@@ -928,7 +944,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <button
               onClick={() => setPointsTab('history')}
               className={`flex-1 py-2.5 text-xs font-bold border-b-2 text-center transition ${
-                pointsTab === 'history' ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
+                pointsTab === 'history' ? 'border-[#2860eb] text-[#2860eb]' : 'border-transparent text-[#526a73]'
               }`}
             >
               Lịch sử điểm
@@ -939,7 +955,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             {/* Points Summary Card */}
             <div className="bg-white p-5 rounded-3xl border border-[#c8dde3] shadow-xs text-center space-y-1">
               <span className="text-[11px] font-semibold text-[#526a73]">Điểm thưởng khả dụng</span>
-              <div className="text-3xl font-black text-[#087e9c]">{userProfile.points.toLocaleString()} điểm</div>
+              <div className="text-3xl font-black text-[#2860eb]">{userProfile.points.toLocaleString()} điểm</div>
               <p className="text-xs">{userProfile.tier}</p>
             </div>
             {pointsTab === 'rewards' && <div className="space-y-2 text-xs"><p></p>{loyalty && <><p>Tích 1 điểm / {money(loyalty.earnAmountPerPoint)}</p><p>Giá trị 1 điểm: {money(loyalty.redeemValuePerPoint)}</p><p>Giới hạn sử dụng: {loyalty.maxRedeemPercentPerOrder}% mỗi đơn</p><p>Thời hạn điểm: {loyalty.pointExpiryMonths} tháng</p></>}</div>}
@@ -984,7 +1000,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="text-xs font-bold text-[#526a73] hover:text-[#087e9c] px-2 py-1"
+              className="text-xs font-bold text-[#526a73] hover:text-[#2860eb] px-2 py-1"
             >
               Đóng
             </button>
@@ -999,13 +1015,13 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               maxLength={60}
               value={voucherInput}
               onChange={(e) => setVoucherInput(e.target.value)}
-              className="flex-1 p-2.5 rounded-xl border border-[#c8dde3] bg-[#ffffff] text-xs font-mono uppercase font-bold outline-none focus:border-[#087e9c]"
+              className="flex-1 p-2.5 rounded-xl border border-[#c8dde3] bg-[#ffffff] text-xs font-mono uppercase font-bold outline-none focus:border-[#2860eb]"
             />
             <button
               onClick={handleApplyNewVoucher}
               disabled={voucherClaiming||!voucherInput.trim()}
               aria-busy={voucherClaiming}
-              className="px-4 py-2.5 rounded-xl bg-[#087e9c] text-white text-xs font-bold hover:bg-[#076985] active:scale-95 transition"
+              className="px-4 py-2.5 rounded-xl bg-[#2860eb] text-white text-xs font-bold hover:bg-[#076985] active:scale-95 transition"
             >
               {voucherClaiming?'Đang thêm...':'Áp dụng'}
             </button>
@@ -1022,7 +1038,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 key={tab.id}
                 onClick={() => setVoucherTab(tab.id as any)}
                 className={`flex-1 py-2 text-xs font-bold border-b-2 text-center transition ${
-                  voucherTab === tab.id ? 'border-[#087e9c] text-[#087e9c]' : 'border-transparent text-[#526a73]'
+                  voucherTab === tab.id ? 'border-[#2860eb] text-[#2860eb]' : 'border-transparent text-[#526a73]'
                 }`}
               >
                 {tab.label}
@@ -1036,7 +1052,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               .map((vc, idx) => (
                 <div key={idx} id={`profile-entry-${vc.id}`} className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs space-y-2">
                   <div className="flex justify-between items-start">
-                    <span className="text-xs font-extrabold text-[#087e9c] bg-[#ffffff] px-2.5 py-1 rounded-md border border-[#c8dde3]">
+                    <span className="text-xs font-extrabold text-[#2860eb] bg-[#ffffff] px-2.5 py-1 rounded-md border border-[#c8dde3]">
                       {voucherLabel(vc)}
                     </span>
                     <span className="text-[11px] text-[#526a73]">HSD: {voucherExpiry(vc.expiryDate)}</span>
@@ -1044,7 +1060,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   <h4 className="text-xs font-bold text-[#183b47]">{vc.title}</h4>
                   <p className="text-[11px] text-[#526a73] leading-relaxed">{vc.description}</p>
                   <div className="flex justify-between items-center pt-2 border-t border-[#c8dde3]">
-                    <span className="font-mono text-xs font-black text-[#087e9c]">{vc.code}</span>
+                    <span className="font-mono text-xs font-black text-[#2860eb]">{vc.code}</span>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleCopy(vc.code)}
@@ -1057,7 +1073,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                           onClick={() => useVoucher(vc)}
                           disabled={!onSelectVoucher}
                           title={!onSelectVoucher ? 'Chưa hỗ trợ chuyển voucher sang đơn hàng' : 'Chọn voucher cho đơn hàng'}
-                          className="px-3.5 py-1.5 rounded-lg bg-[#087e9c] text-white text-[11px] font-bold hover:bg-[#076985]"
+                          className="px-3.5 py-1.5 rounded-lg bg-[#2860eb] text-white text-[11px] font-bold hover:bg-[#076985]"
                         >
                           {onSelectVoucher ? 'Chọn voucher' : 'Chưa hỗ trợ'}
                         </button>
@@ -1087,7 +1103,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="text-xs font-bold text-[#526a73] hover:text-[#087e9c] px-2 py-1"
+              className="text-xs font-bold text-[#526a73] hover:text-[#2860eb] px-2 py-1"
             >
               Đóng
             </button>
@@ -1097,7 +1113,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             {/* Total Expense Card */}
             <div className="bg-white p-5 rounded-3xl border border-[#c8dde3] shadow-xs text-center space-y-1">
               <span className="text-[11px] font-semibold text-[#526a73]">Tổng chi tiêu tích lũy</span>
-              <div className="text-2xl font-black text-[#087e9c]">{transactions ? money(transactions.totalSpent) : transactionMessage}</div>
+              <div className="text-2xl font-black text-[#2860eb]">{transactions ? money(transactions.totalSpent) : transactionMessage}</div>
               {transactions && <p className="text-[11px] text-[#607780]">{transactions.invoices.filter((item) => item.paymentStatus === 'PAID').length} giao dịch hoàn tất</p>}
             </div>
 
@@ -1111,7 +1127,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                       <span className="font-mono text-[10px] text-stone-400 font-bold block">{inv.id}</span>
                       <p className="font-bold text-[#183b47] text-xs mt-0.5">{inv.service}</p>
                     </div>
-                    <span className="font-black text-[#087e9c] text-sm">{inv.price}</span>
+                    <span className="font-black text-[#2860eb] text-sm">{inv.price}</span>
                   </div>
 
                   <div className="text-[11px] text-[#526a73] space-y-0.5">
@@ -1126,7 +1142,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setSelectedInvoice(item)}
-                        className="px-2.5 py-1 rounded-lg bg-[#ffffff] text-[#087e9c] text-[11px] font-bold border border-[#c8dde3]"
+                        className="px-2.5 py-1 rounded-lg bg-[#ffffff] text-[#2860eb] text-[11px] font-bold border border-[#c8dde3]"
                       >
                         Chi tiết hóa đơn
                       </button>
@@ -1135,7 +1151,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                           setActiveModal(null);
                           onOpenAppointments();
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-[#087e9c] text-white text-[11px] font-bold"
+                        className="px-2.5 py-1 rounded-lg bg-[#2860eb] text-white text-[11px] font-bold"
                       >
                         Đặt lịch
                       </button>
@@ -1164,7 +1180,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             </div>
             <button
               onClick={() => setSelectedInvoice(null)}
-              className="text-xs text-[#087e9c] font-bold"
+              className="text-xs text-[#2860eb] font-bold"
             >
               Đóng
             </button>
@@ -1175,7 +1191,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               <div className="border-b border-[#ffffff] pb-2 text-center">
                 <h4 className="font-black text-sm text-[#183b47]">{selectedInvoice.branchName || selectedInvoice.branch?.name || ''}</h4>
                 <p className="text-[10px] text-stone-500 mt-0.5"></p>
-                <p className="font-mono text-xs font-bold text-[#087e9c] mt-1">Số: {selectedInvoice.invoiceCode}</p>
+                <p className="font-mono text-xs font-bold text-[#2860eb] mt-1">Số: {selectedInvoice.invoiceCode}</p>
               </div>
 
               <div className="space-y-1.5 text-stone-600">
@@ -1218,14 +1234,14 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                   <span>Thuế GTGT:</span>
                   <span>{money(selectedInvoice.vatAmount)}</span>
                 </div>
-                <div className="flex justify-between text-[#087e9c] font-black text-sm pt-1 border-t border-dashed border-stone-200">
+                <div className="flex justify-between text-[#2860eb] font-black text-sm pt-1 border-t border-dashed border-stone-200">
                   <span>TỔNG THANH TOÁN:</span>
                   <span>{money(selectedInvoice.totalAmount)}</span>
                 </div>
               </div>
             </div>
 
-            {receiptUrl(selectedInvoice.receiptPdfUrl) ? <a href={receiptUrl(selectedInvoice.receiptPdfUrl)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="block text-center w-full py-3 rounded-xl bg-[#087e9c] text-white text-xs font-bold">Mở hóa đơn điện tử PDF</a> : <p className="text-center text-xs text-[#526a73]"></p>}
+            {receiptUrl(selectedInvoice.receiptPdfUrl) ? <a href={receiptUrl(selectedInvoice.receiptPdfUrl)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="block text-center w-full py-3 rounded-xl bg-[#2860eb] text-white text-xs font-bold">Mở hóa đơn điện tử PDF</a> : <p className="text-center text-xs text-[#526a73]"></p>}
           </div>
         </div>
       )}
@@ -1256,17 +1272,18 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
               </div>
             </div>
 
-            <div className="p-3 rounded-[10px] bg-[#e8f4f7] space-y-3">
+            <div className="p-3 rounded-[10px] bg-[#eff4fe] space-y-3">
               <span className="text-[9px] text-[#526a73]">Mã giới thiệu của bạn</span>
-              <p className="text-[13px] font-bold text-[#087e9c]">{referralCode || ''}</p>
+              <p className="text-[13px] font-bold text-[#2860eb]">{referralCode || ''}</p>
               <div className="flex space-x-2">
                 <button
                   disabled={!referralCode}
                   onClick={() => referralCode && handleCopy(referralCode)}
-                  className="flex-1 h-10 rounded-[8px] bg-white text-[#087e9c] text-[10px] font-bold border border-[#087e9c]"
+                  className="flex-1 h-10 rounded-[8px] bg-white text-[#2860eb] text-[10px] font-bold border border-[#2860eb]"
                 >
                   {referralCode && copiedVoucher === referralCode ? 'Đã sao chép ✓' : 'Sao chép mã'}
                 </button>
+                <button type="button" disabled={!referralCode||sharingReferral} onClick={()=>void shareReferral()} className="flex-1 h-10 rounded-[8px] bg-[#2860eb] text-white text-[10px] font-bold disabled:opacity-50">{sharingReferral?'Đang chia sẻ…':'Chia sẻ mã'}</button>
               </div>
             </div>
 
@@ -1323,8 +1340,8 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <div>
               <h3 className="mb-2 text-[13px] font-bold text-[#164e63]">Thông báo</h3>
               {!settings && <p className="text-xs text-[#526a73]">{settingsStatus === 'loading' ? 'Đang tải cài đặt...' : settingsStatus === 'missing' ? '' : 'Không thể tải cài đặt tài khoản.'}</p>}
-              {settingsStatus==='error'&&<button type="button" className="my-2 text-xs font-bold text-[#087e9c]" onClick={()=>{apiClient.invalidateReadPaths(['/auth/settings']);setSettingsVersion(value=>value+1);}}>Thử lại</button>}
-              {settingsStatus === 'missing' && <button disabled={settingsSaving} onClick={() => saveSetting({})} className="my-2 text-xs font-bold text-[#087e9c]">{settingsSaving ? 'Đang lưu...' : 'Lưu cài đặt mặc định của hệ thống'}</button>}
+              {settingsStatus==='error'&&<button type="button" className="my-2 text-xs font-bold text-[#2860eb]" onClick={()=>{apiClient.invalidateReadPaths(['/auth/settings']);setSettingsVersion(value=>value+1);}}>Thử lại</button>}
+              {settingsStatus === 'missing' && <button disabled={settingsSaving} onClick={() => saveSetting({})} className="my-2 text-xs font-bold text-[#2860eb]">{settingsSaving ? 'Đang lưu...' : 'Lưu cài đặt mặc định của hệ thống'}</button>}
               <div className="bg-white p-2 rounded-[10px] divide-y divide-[#f1f8fa] text-xs">
               {[
                 { key: 'appointmentReminder' as const, label: 'Thông báo lịch hẹn' },
@@ -1338,7 +1355,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                     checked={settings?.[st.key] === true}
                     disabled={!settings || settingsSaving}
                     onChange={(e) => saveSetting({ [st.key]: e.target.checked })}
-                    className="h-5 w-9 appearance-none rounded-full bg-[#DDC8B7] checked:bg-[#087e9c] relative cursor-pointer after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition checked:after:translate-x-4"
+                    className="h-5 w-9 appearance-none rounded-full bg-[#DDC8B7] checked:bg-[#2860eb] relative cursor-pointer after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition checked:after:translate-x-4"
                   />
                 </label>
               ))}
@@ -1348,7 +1365,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs space-y-3 text-xs">
               <h4 className="font-bold text-[#183b47]">Bảo mật & Hệ thống:</h4>
               <label className="flex items-center justify-between gap-2">
-                <span>Ngôn ngữ giao diện</span><span>Tiếng Việt</span>
+                <span>Ngôn ngữ giao diện</span><select aria-label="Ngôn ngữ giao diện" value={settings?.language||'vi'} disabled={settingsSaving||!['loaded','missing'].includes(settingsStatus)} onChange={event=>void saveSetting({language:event.target.value})}><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
               </label>
 
               <button

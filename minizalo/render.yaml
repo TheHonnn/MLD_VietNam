@@ -2,6 +2,7 @@ services:
   - type: web
     name: mld-api
     runtime: node
+    branch: develop
     rootDir: minizalo/backend
     plan: free
     buildCommand: npm ci --include=dev && npm run db:generate && npm run build

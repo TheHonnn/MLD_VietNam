@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import {useLocale} from '@/i18n';
 import { Box, Text } from 'zmp-ui';
 import { HeaderFigma } from '@/components/HeaderFigma';
 import { GroupBHome } from '@/components/HomeDashboard';
@@ -20,7 +21,9 @@ import {
 } from '@/components/GroupBExtensions';
 import { apiClient } from '@/api/client';
 import { searchText,serviceSearchText } from '@/utils/catalog';
-import {isStaffRole} from '@/utils/staff';
+import {canUseStaffTools,isMiniAppRole} from '@/utils/staff';
+import type {PortalBanner} from '@/components/PortalBanners';
+import {ExaminationServicePicker,LYMPH_BOOKING_NOTE} from '@/components/ExaminationServicePicker';
 import type {CustomerSection,StaffDashboard} from '@/types/staff';
 import type {StaffRecordCustomer} from '@/components/SharedRecords';
 import {AccountSessions,ZaloAccountOptions} from '@/components/AccountControls';
@@ -57,6 +60,7 @@ import {
 } from '@/components/Icons';
 
 const StaffBooking = deferredScreen(() => import('@/components/StaffBooking').then(module => ({default:module.StaffBooking})));
+const CustomerBooking = deferredScreen(() => import('@/components/CustomerBooking').then(module => ({default:module.CustomerBooking})));
 const AppointmentsManager = deferredScreen(() => import('@/components/AppointmentsManager').then(module => ({default:module.AppointmentsManager})));
 const ETicketGroupC = deferredScreen(() => import('@/components/ETicketGroupC').then(module => ({default:module.ETicketGroupC})));
 const GroupEAcademy = deferredScreen(() => import('@/components/GroupEAcademy').then(module => ({default:module.GroupEAcademy})));
@@ -68,6 +72,7 @@ const StaffCustomers = deferredScreen(() => import('@/components/SharedRecords')
 const Community = deferredScreen(() => import('@/components/SharedRecords').then(module => ({default:module.Community})));
 
 function MasterHomePage() {
+  useLocale();
   const [showLaunchScreen, setShowLaunchScreen] = useState(true);
   const [showCareIntro, setShowCareIntro] = useState(true);
   const [sharedServiceId]=useState(launchServiceId);
@@ -150,6 +155,7 @@ function MasterHomePage() {
   const currentUserId = useRef(user.id);
   currentUserId.current = user.id;
   const currentUserRole=useRef(user.role);currentUserRole.current=user.role;
+  const currentStaffAccess=useRef(canUseStaffTools(user));currentStaffAccess.current=canUseStaffTools(user);
   useEffect(()=>{if(staffDashboard?.scope.branchId)setHomeBranchId(staffDashboard.scope.branchId);},[staffDashboard?.scope.branchId]);
 
   useEffect(() => {
@@ -192,6 +198,8 @@ function MasterHomePage() {
   const [isBranchDirectoryOpen, setIsBranchDirectoryOpen] = useState(false);
   const [isSpecialistDirectoryOpen, setIsSpecialistDirectoryOpen] = useState(false);
   const [bookingService, setBookingService] = useState<MedicalService | null>(null);
+  const [examinationOpen,setExaminationOpen]=useState(false);
+  const [bookingPurpose,setBookingPurpose]=useState<'standard'|'lymph'>('standard');
   const [bookingBranch, setBookingBranch] = useState<Branch | null>(null);
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null);
   const [specialistBookingError,setSpecialistBookingError]=useState('');
@@ -226,9 +234,11 @@ function MasterHomePage() {
   useEffect(() => { if (!isTreatmentOpen) setTreatmentEntityId(undefined); }, [isTreatmentOpen]);
   const [appMetadata, setAppMetadata] = useState<any>({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
   const [guidelines, setGuidelines] = useState<any[]>([]);
+  const [banners,setBanners]=useState<PortalBanner[]>([]);
   const navigateTab = (tab: typeof activeTab) => {
     if(navigationBusy)return;
-    if(!user.id&&['profile','customers','documents','community'].includes(tab)){setCanCloseAuth(true);setIsAuthOpen(true);return;}
+    if(tab==='customers'&&!canUseStaffTools(user))return;
+    if(!user.id&&['profile','customers'].includes(tab)){setCanCloseAuth(true);setIsAuthOpen(true);return;}
     if(['documents','community'].includes(tab)&&!['documents','community'].includes(activeTab))setUtilityReturnTab(activeTab==='profile'?'profile':'home');
     if(tab==='booking')setBookingTarget(undefined);
     setIsSearchOpen(false);setIsSpecialistDirectoryOpen(false);setIsBranchDirectoryOpen(false);setIsTreatmentOpen(false);
@@ -243,7 +253,7 @@ function MasterHomePage() {
     if(user.id)setIsNotificationsOpen(true);
     else {setCanCloseAuth(true);setIsAuthOpen(true);}
   };
-  const navigation = {activeTab,customerSection,customerReturnTab,utilityReturnTab,academyMode,academyVisit,selectedCourseId,isSearchOpen,isNotificationsOpen,viewingService,viewingDoctor,viewingBranch,directionsBranch,isBranchDirectoryOpen,isSpecialistDirectoryOpen,bookingService,bookingBranch,bookingDoctor,bookingPackage,bookingCustomer,eTicketBooking,isEMRModalOpen,isTreatmentOpen,treatmentInitialTab};
+  const navigation = {activeTab,customerSection,customerReturnTab,utilityReturnTab,academyMode,academyVisit,selectedCourseId,isSearchOpen,isNotificationsOpen,viewingService,viewingDoctor,viewingBranch,directionsBranch,isBranchDirectoryOpen,isSpecialistDirectoryOpen,bookingService,bookingPurpose,examinationOpen,bookingBranch,bookingDoctor,bookingPackage,bookingCustomer,eTicketBooking,isEMRModalOpen,isTreatmentOpen,treatmentInitialTab};
   const navigationKey = JSON.stringify(Object.values(navigation).map(value => value && typeof value === 'object' ? value.id : value));
   useNavigationHistory(navigationKey,navigation,view => {
     setActiveTab(view.activeTab);setCustomerSection(view.customerSection);setCustomerReturnTab(view.customerReturnTab);setUtilityReturnTab(view.utilityReturnTab);setAcademyMode(view.academyMode);setAcademyVisit(view.academyVisit);setSelectedCourseId(view.selectedCourseId);
@@ -252,8 +262,9 @@ function MasterHomePage() {
     setIsBranchDirectoryOpen(view.isBranchDirectoryOpen);setIsSpecialistDirectoryOpen(view.isSpecialistDirectoryOpen);
     setBookingService(view.bookingService);setBookingBranch(view.bookingBranch);setBookingDoctor(view.bookingDoctor);setBookingPackage(view.bookingPackage);
     setBookingCustomer(view.bookingCustomer);
+    setBookingPurpose(view.bookingPurpose);setExaminationOpen(view.examinationOpen);
     setETicketBooking(view.eTicketBooking);setIsEMRModalOpen(view.isEMRModalOpen);setIsTreatmentOpen(view.isTreatmentOpen);setTreatmentInitialTab(view.treatmentInitialTab);
-  },user.id,!viewingService&&!viewingDoctor&&!viewingBranch&&!directionsBranch&&!isSearchOpen&&!isNotificationsOpen&&!bookingService&&!eTicketBooking&&!isTreatmentOpen&&!isEMRModalOpen&&!isBranchDirectoryOpen&&!isSpecialistDirectoryOpen);
+  },user.id,!viewingService&&!viewingDoctor&&!viewingBranch&&!directionsBranch&&!isSearchOpen&&!isNotificationsOpen&&!bookingService&&!examinationOpen&&!eTicketBooking&&!isTreatmentOpen&&!isEMRModalOpen&&!isBranchDirectoryOpen&&!isSpecialistDirectoryOpen);
   useEffect(()=>{
     if(!sharedServiceId||sharedLinkOpened.current||dataLoading||showLaunchScreen||showCareIntro||registration||zaloAuthState==='required'||zaloAuthState==='checking')return;
     sharedLinkOpened.current=true;
@@ -261,8 +272,8 @@ function MasterHomePage() {
     if(service)setViewingService(service);else setDataError('Dịch vụ trong liên kết không còn khả dụng.');
   },[sharedServiceId,dataLoading,services,showLaunchScreen,showCareIntro,registration,zaloAuthState]);
   const refreshData = () => { apiClient.clearReadCache(); setLoadVersion(value => value + 1); };
-  const loadPrivateData = async (cancelled:()=>boolean=()=>false,role=currentUserRole.current) => {
-    const staffMode=isStaffRole(role);
+  const loadPrivateData = async (cancelled:()=>boolean=()=>false,role=currentUserRole.current,staffAccess=currentStaffAccess.current) => {
+    const staffMode=canUseStaffTools({role,staffAccess});
     const request=++relatedReadRevision.current,epoch=apiClient.sessionVersion(),inboxEpoch=notificationPageEpoch.current,readRevision=notificationReadRevision.current,filter=notificationFilterRef.current;
     setPrivateLoading(true);setPrivateErrors({});
     const [recData,membData,bkData,notifData,treatmentData]=await Promise.all([
@@ -304,7 +315,7 @@ function MasterHomePage() {
   useEffect(() => {
     const expire = (event:Event) => {
       authAttempt.current++;authBusy.current=false;
-      resetInbox();setBookingPackage(null);setBookingCustomer(null);
+      resetInbox();setBookingPackage(null);setBookingCustomer(null);setExaminationOpen(false);setBookingPurpose('standard');
       setUser({...guestUser}); setBookings([]); setRecords([]); setVouchers([]); setNotifications([]); setTreatmentPlans([]);
       setMemberSummary(null);setMembershipError('');setStaffDashboard(null);
       setPrivateLoading(false);setPrivateErrors({});
@@ -333,6 +344,7 @@ function MasterHomePage() {
       setBranches([]);
       setCourses([]);
       setGuidelines([]);
+      setBanners([]);
       setAppMetadata({ serviceCategories: [], courseCategories: [], instructors: [], membershipTiers: [], loyaltySettings: null, faqs: [] });
       setUser({ ...guestUser });
       setBookings([]);
@@ -354,14 +366,16 @@ function MasterHomePage() {
       const catalogRequest = Promise.all([
         serviceRequest, publish(apiClient.getDoctors(),value => setDoctors(value.doctors || [])), publish(apiClient.getBranches(),value => setBranches(value.branches || [])),
         publish(apiClient.getCourses(),value => setCourses(value.courses || [])), publish(apiClient.getCareGuidelines(),value => setGuidelines(value.guidelines || [])),
+        publish(apiClient.getPortalBanners(),value=>setBanners(value.banners||[])),
       ]);
-      const publicReady = Promise.all([metadataRequest,catalogRequest]).then(([metadata,[srvData,docData,brData,crsData,care]]) => {
+      const publicReady = Promise.all([metadataRequest,catalogRequest]).then(([metadata,[srvData,docData,brData,crsData,care,portal]]) => {
         if (cancelled) return;
-        if ([metadata,srvData,docData,brData,crsData,care].some(result=>!result||result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
+        if ([metadata,srvData,docData,brData,crsData,care,portal].some(result=>!result||result.error)) setDataError('Không thể tải một số dữ liệu. Vui lòng thử lại.');
         setDataLoading(false);
       });
       let authenticated = false;
       let accountRole=user.role;
+      let accountHasStaffAccess=false;
       const authRequestEpoch = apiClient.sessionVersion();
       const isInsideZalo = /Zalo/i.test(navigator.userAgent) || Boolean((window as any).ZJSBridge);
       if (isInsideZalo) {
@@ -370,6 +384,7 @@ function MasterHomePage() {
         if (zaloSession?.user && zaloSession.token) {
           authenticated = true;
           accountRole=zaloSession.user.role;
+          accountHasStaffAccess=canUseStaffTools(zaloSession.user);
           setUser((prev) => ({ ...prev, ...zaloSession.user }));
           setZaloAuthState('connected');
         } else {
@@ -381,15 +396,15 @@ function MasterHomePage() {
         setZaloAuthState('web');
         const session = await apiClient.getCurrentUser();
         if (cancelled || apiClient.sessionVersion() !== authRequestEpoch) return;
-        if (session?.user&&isStaffRole(session.user.role)) { setUser(session.user); authenticated = true;accountRole=session.user.role; }
+        if (session?.user&&isMiniAppRole(session.user.role)) { setUser(session.user); authenticated = true;accountRole=session.user.role;accountHasStaffAccess=canUseStaffTools(session.user); }
         else {
           setUser({ ...guestUser });
-          if(session?.user)setDataError('Ứng dụng đặt lịch dành cho nhân viên. Tài khoản hiện tại chưa được cấp quyền.');
+          if(session?.user)setDataError('Tài khoản hiện tại không được phép truy cập ứng dụng.');
           if(!session || (session.error && session.status!==401))setDataError('Không thể xác minh phiên đăng nhập. Kiểm tra kết nối và thử lại.');
         }
       }
-      if (authenticated) void apiClient.preloadPrivateData(isStaffRole(accountRole)).catch(() => {});
-      if(authenticated)await loadPrivateData(()=>cancelled,accountRole);
+      if (authenticated) void apiClient.preloadPrivateData(accountHasStaffAccess).catch(() => {});
+      if(authenticated)await loadPrivateData(()=>cancelled,accountRole,accountHasStaffAccess);
       else if(!cancelled)setPrivateLoading(false);
       await publicReady;
     }
@@ -418,7 +433,7 @@ function MasterHomePage() {
       setZaloAuthState('connected');
       if(manageDevices)setAccountSessionsOpen(true);
       setLoadVersion(value => value + 1);
-      if(isStaffRole(result.user.role)){setStaffDashboard(null);return;}
+      if(canUseStaffTools(result.user)){setStaffDashboard(null);return;}
       const membershipEpoch=apiClient.sessionVersion();
       const membership = await apiClient.getMembership();
       if(apiClient.sessionVersion()!==membershipEpoch)return;
@@ -473,13 +488,13 @@ function MasterHomePage() {
     return()=>{clearInterval(timer);window.removeEventListener('focus',update);document.removeEventListener('visibilitychange',update);};
   },[activeTab,bookings]);
 
-  const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null, ownedPackage?:{id:string;name:string},customer?:StaffRecordCustomer) => {
+  const openBooking = (service?: MedicalService | null, branch?: Branch | null, doctor?: Doctor | null, ownedPackage?:{id:string;name:string},customer?:StaffRecordCustomer,purpose:'standard'|'lymph'='standard') => {
     setBookingActionError('');
     if (!user.id) { setCanCloseAuth(true); setIsAuthOpen(true); return false; }
-    if(!isStaffRole(user.role)){setBookingActionError('Vui lòng dùng tài khoản nhân viên được cấp quyền đặt lịch.');return false;}
-    if(ownedPackage&&!customer){setBookingActionError('Vui lòng chọn liệu trình trong hồ sơ của khách hàng để đặt bằng gói.');return false;}
+    if(!isMiniAppRole(user.role)){setBookingActionError('Tài khoản không có quyền đặt lịch.');return false;}
     if (!services.length || !branches.length) {setBookingActionError('Không thể mở đặt lịch. Vui lòng cập nhật dữ liệu và thử lại.');return false;}
     setBookingPackage(ownedPackage||null);
+    setBookingPurpose(purpose);
     setBookingCustomer(customer||null);
     setBookingBranch(branch || branches.find(item => item.id === homeBranchId) || branches[0] || null);
     setBookingDoctor(null);
@@ -522,7 +537,7 @@ function MasterHomePage() {
       }
       setSelectedCourseId(null); setAcademyMode('learning'); setActiveTab('academy');
     } else if (target.screen === 'profile') {
-      if(isStaffRole(user.role))throw unavailable();
+      if(canUseStaffTools(user))throw unavailable();
       if (!['payments','points','vouchers'].includes(target.tab || '')) throw unavailable();
       apiClient.invalidateReadPaths(['/transactions','/membership']);
       if (target.tab === 'vouchers') {
@@ -592,11 +607,11 @@ function MasterHomePage() {
         {(zaloAuthState === 'required' || zaloAuthState === 'checking') && (
           <div className="zalo-consent-screen absolute inset-0 z-[100] flex flex-col overflow-y-auto bg-[#ffffff] p-5">
             <div className="my-auto w-full shrink-0 rounded-[8px] border border-[#c8dde3] bg-white p-5 text-center shadow-lg">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5EBE1] text-xl font-black text-[#087e9c]">Z</div>
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5EBE1] text-xl font-black text-[#2860eb]">Z</div>
               <h1 className="mt-4 text-lg font-bold text-[#183b47]">Kết nối tài khoản Zalo</h1>
               <p className="mt-2 text-xs leading-relaxed text-[#526a73]">Kết nối bằng số điện thoại Zalo. Tên và ảnh đại diện chỉ được sử dụng khi bạn đồng ý chia sẻ.</p>
               <ZaloAuthFeedback error={zaloAuthError} issue={zaloAuthIssue} className="mt-3 rounded-[8px] bg-red-50 p-2.5 text-left text-[11px] text-red-700"/>
-              <button disabled={zaloAuthState === 'checking'} onClick={()=>void connectZaloProfile()} className="mt-5 h-11 w-full rounded-[8px] bg-[#087e9c] text-sm font-bold text-white disabled:opacity-60">
+              <button disabled={zaloAuthState === 'checking'} onClick={()=>void connectZaloProfile()} className="mt-5 h-11 w-full rounded-[8px] bg-[#2860eb] text-sm font-bold text-white disabled:opacity-60">
                 {zaloAuthState === 'checking' ? 'Đang kết nối...' : 'Tiếp tục với Zalo'}
               </button>
               <ZaloAccountOptions busy={zaloAuthState==='checking'} onLogin={manage=>void connectZaloProfile(manage)} onCancel={()=>{authAttempt.current++;authBusy.current=false;apiClient.cancelZaloLogin();setZaloAuthIssue(undefined);setZaloAuthError('');setZaloAuthState('required');}}/>
@@ -619,6 +634,25 @@ function MasterHomePage() {
         {/* TAB 1: TRANG CHỦ (FIGMA GROUP B HOME) */}
         {activeTab === 'home' && (
           <GroupBHome
+            staffMode={canUseStaffTools(user)}
+            banners={banners}
+            onBannerNavigate={screen=>{
+              if(screen==='new-booking'){openBooking();return;}
+              if(screen==='notifications'){openInbox();return;}
+              if(screen==='branches'){setIsBranchDirectoryOpen(true);return;}
+              if(screen==='learning'){setSelectedCourseId(null);setAcademyMode('learning');setAcademyVisit(value=>value+1);setActiveTab('academy');return;}
+              if(screen==='packages'||screen==='journal'){
+                if(!user.id){setCanCloseAuth(true);setIsAuthOpen(true);return;}
+                if(canUseStaffTools(user)){openCustomers(screen==='packages'?'packages':'treatments');return;}
+                setTreatmentInitialTab(screen==='packages'?'packages':'journal');setIsTreatmentOpen(true);return;
+              }
+              if(screen==='vouchers'){
+                if(!user.id){setCanCloseAuth(true);setIsAuthOpen(true);return;}
+                if(!canUseStaffTools(user))setProfileTarget({id:`banner-${Date.now()}`,tab:'vouchers'});
+                navigateTab('profile');return;
+              }
+              if(['services','academy','documents','profile','community','booking'].includes(screen))navigateTab(screen as typeof activeTab);
+            }}
             carouselPaused={showLaunchScreen || showCareIntro || Boolean(registration) || zaloAuthState === 'checking' || zaloAuthState === 'required' || isAuthOpen || isNotificationsOpen || isSearchOpen || Boolean(viewingService || viewingDoctor || viewingBranch || directionsBranch) || isBranchDirectoryOpen || isSpecialistDirectoryOpen || isTreatmentOpen || isEMRModalOpen}
             userName={user.name}
             userAvatar={user.avatar}
@@ -633,7 +667,7 @@ function MasterHomePage() {
             guidelines={guidelines}
             services={services}
             doctors={doctors}
-            branches={isStaffRole(user.role)&&staffDashboard?.scope.branchId?branches.filter(branch=>branch.id===staffDashboard.scope.branchId):branches}
+            branches={canUseStaffTools(user)&&staffDashboard?.scope.branchId?branches.filter(branch=>branch.id===staffDashboard.scope.branchId):branches}
             upcomingBooking={upcomingBooking}
             onOpenBooking={booking=>{setBookingTarget({id:`home:${booking.id}`,bookingId:booking.id});setActiveTab('booking');}}
             onSelectService={(service) => openBooking(service)}
@@ -654,7 +688,7 @@ function MasterHomePage() {
         )}
 
         {activeTab === 'documents' && <DocumentLibrary key={user.id} onBack={()=>navigateTab(utilityReturnTab)}/>}
-        {activeTab === 'community' && <Community key={user.id} onBack={()=>navigateTab(utilityReturnTab)}/>}
+        {activeTab === 'community' && <Community key={user.id} onBack={()=>navigateTab(utilityReturnTab)} onExamination={services.length?()=>setExaminationOpen(true):undefined}/>}
         {activeTab === 'customers' && <><StaffCustomers key={`${user.id}:${customerSection}`} initialSection={customerSection} onBack={()=>navigateTab(customerReturnTab)} onAppointment={id=>{setBookingTarget({id:`customer:${id}`,bookingId:id});setActiveTab('booking');}} onBookPackage={(customer,serviceId,ownedPackage)=>{const service=services.find(item=>item.id===serviceId);if(service)openBooking(service,null,null,ownedPackage,customer);else setBookingActionError('Dịch vụ của liệu trình hiện không khả dụng.');}}/>{bookingActionError&&<p role="alert" className="px-4 text-sm text-red-700">{bookingActionError}</p>}</>}
 
         {/* TAB 2: DỊCH VỤ CHĂM SÓC (FIGMA GROUP B SCREEN 2) */}
@@ -662,15 +696,14 @@ function MasterHomePage() {
           <Box className="space-y-3 px-3 pt-3 pb-20">
             <div>
               <h1 className="text-[18px] font-bold text-[#164e63] leading-tight">Dịch vụ chăm sóc</h1>
-              <p className="text-[10px] text-[#526a73] mt-1">Tra cứu dịch vụ và đặt lịch cho khách hàng.</p>
+              <p className="text-[10px] text-[#526a73] mt-1">{canUseStaffTools(user)?'Tra cứu dịch vụ và đặt lịch cho khách hàng.':'Khám phá dịch vụ và lựa chọn lịch hẹn phù hợp.'}</p>
             </div>
-            {services.filter(service=>/phu (?:bach|mach) huyet/.test(searchText(service.title))).map(service=><button key={service.id} type="button" onClick={()=>openBooking(service)} className="w-full rounded-[8px] border border-[#c8dde3] bg-white px-3 py-3 text-left text-sm font-semibold text-[#087e9c]">Đặt lịch {service.title}</button>)}
-            {!services.some(service=>/phu (?:bach|mach) huyet/.test(searchText(service.title)))&&<button type="button" disabled title="Dịch vụ đang chờ cấu hình thời lượng và lịch nhận khách" className="w-full rounded-[8px] border border-[#c8dde3] bg-white px-3 py-3 text-left text-sm font-semibold text-[#087e9c] opacity-60">Đặt lịch kiểm tra phù bạch huyết</button>}
+            {services.length>0&&<button type="button" disabled={dataLoading} onClick={()=>setExaminationOpen(true)} className="w-full rounded-[8px] border border-[#c8dde3] bg-white px-3 py-3 text-left text-sm font-semibold text-[#2860eb]">Đặt lịch kiểm tra phù bạch huyết</button>}
 
             {/* Search */}
             <div className="w-full flex items-center gap-2 text-left">
               <button type="button" title="Tìm kiếm tất cả" onClick={() => setIsSearchOpen(true)} className="w-10 h-10 rounded-[7px] bg-white border border-[#c8dde3] flex items-center justify-center shrink-0">
-                <SearchIcon size={17} color="#087e9c" />
+                <SearchIcon size={17} color="#2860eb" />
               </button>
               <input type="search" aria-label="Tìm dịch vụ chăm sóc" placeholder="Tìm dịch vụ chăm sóc..." value={servicesSearch} onChange={event => setServicesSearch(event.target.value)} className="h-10 min-w-0 flex-1 rounded-[7px] bg-white border border-[#c8dde3] px-3 text-xs text-[#183b47]" />
             </div>
@@ -683,7 +716,7 @@ function MasterHomePage() {
                   onClick={() => setServicesCategory(c.id)}
                   className={`px-3 py-2 rounded-[7px] text-[10px] font-semibold whitespace-nowrap border transition active:scale-95 ${
                     servicesCategory === c.id
-                      ? 'bg-[#087e9c] text-white border-[#087e9c]'
+                      ? 'bg-[#2860eb] text-white border-[#2860eb]'
                       : 'bg-white text-[#526a73] border-[#c8dde3] hover:bg-[#F8EEE5]'
                   }`}
                 >
@@ -699,9 +732,9 @@ function MasterHomePage() {
                 aria-expanded={showServiceFilters}
                 aria-controls="service-filters"
                 onClick={() => setShowServiceFilters(value => !value)}
-                className="h-10 px-3 rounded-[7px] bg-white border border-[#c8dde3] font-semibold text-[10px] text-[#087e9c] flex items-center space-x-1.5"
+                className="h-10 px-3 rounded-[7px] bg-white border border-[#c8dde3] font-semibold text-[10px] text-[#2860eb] flex items-center space-x-1.5"
               >
-                <FilterIcon size={13} color="#087e9c" />
+                <FilterIcon size={13} color="#2860eb" />
                 <span>Bộ lọc</span>
               </button>
 
@@ -726,7 +759,7 @@ function MasterHomePage() {
               <label>Giá đến<input aria-label="Giá dịch vụ đến" type="number" min="0" value={maxServicePrice} onChange={event => setMaxServicePrice(event.target.value)} className="mt-1 h-10 w-full min-w-0 rounded-[7px] border border-[#c8dde3] bg-white px-2" /></label>
               <label className="col-span-2">Thời lượng tối đa<select aria-label="Thời lượng dịch vụ tối đa" value={maxServiceDuration} onChange={event => setMaxServiceDuration(event.target.value)} className="mt-1 h-10 w-full rounded-[7px] border border-[#c8dde3] bg-white px-2"><option value="">Tất cả</option>{Array.from(new Set(services.map(service => service.durationMinutes).filter(Number.isFinite))).sort((a,b) => a-b).map(minutes => <option key={minutes} value={minutes}>{minutes} phút</option>)}</select></label>
               {minServicePrice && maxServicePrice && Number(minServicePrice) > Number(maxServicePrice) && <p role="alert" className="col-span-2 text-red-700">Giá đến phải lớn hơn hoặc bằng giá từ.</p>}
-              <button type="button" className="col-span-2 justify-self-start py-2 font-semibold text-[#087e9c]" onClick={() => { setMinServicePrice(''); setMaxServicePrice(''); setMaxServiceDuration(''); setServicesCategory('all'); }}>Xóa bộ lọc</button>
+              <button type="button" className="col-span-2 justify-self-start py-2 font-semibold text-[#2860eb]" onClick={() => { setMinServicePrice(''); setMaxServicePrice(''); setMaxServiceDuration(''); setServicesCategory('all'); }}>Xóa bộ lọc</button>
             </fieldset>}
 
             <div className="text-[11px] font-bold text-[#183b47]">
@@ -741,7 +774,7 @@ function MasterHomePage() {
                   <Box className="p-3 space-y-2.5">
                     <Box className="min-w-0 space-y-1">
                       <div className="flex items-center space-x-2">
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-[4px] bg-[#F8EBDD] text-[#087e9c]">
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-[4px] bg-[#F8EBDD] text-[#2860eb]">
                           {service.category}
                         </span>
                         <span className="text-[10px] text-stone-400 flex items-center space-x-1">
@@ -757,7 +790,7 @@ function MasterHomePage() {
                   <Box className="flex items-center justify-between pt-2 border-t border-[#c8dde3]">
                     <Box>
                       <Text className="text-[10px] text-stone-400">Giá dịch vụ</Text>
-                      <Text className="text-sm font-extrabold text-[#087e9c]">
+                      <Text className="text-sm font-extrabold text-[#2860eb]">
                         {service.price.toLocaleString('vi-VN')}đ
                       </Text>
                     </Box>
@@ -768,7 +801,7 @@ function MasterHomePage() {
                           e.stopPropagation();
                           setViewingService(service);
                         }}
-                        className="px-3 py-2 rounded-[7px] bg-white text-[#087e9c] text-[10px] font-bold border border-[#c8dde3]"
+                        className="px-3 py-2 rounded-[7px] bg-white text-[#2860eb] text-[10px] font-bold border border-[#c8dde3]"
                       >
                         Chi tiết
                       </button>
@@ -777,7 +810,7 @@ function MasterHomePage() {
                           e.stopPropagation();
                           openBooking(service);
                         }}
-                        className="px-3.5 py-2 rounded-[7px] bg-[#087e9c] hover:bg-[#8F4513] text-white text-[10px] font-bold active:scale-95 transition flex items-center space-x-1"
+                        className="px-3.5 py-2 rounded-[7px] bg-[#2860eb] hover:bg-[#8F4513] text-white text-[10px] font-bold active:scale-95 transition flex items-center space-x-1"
                       >
                         <span>Đặt lịch</span>
                         <ArrowRightIcon size={12} color="#FFFFFF" />
@@ -795,6 +828,7 @@ function MasterHomePage() {
         {/* TAB 3: ĐẶT LỊCH & QUẢN LÝ LỊCH HẸN (FIGMA GROUP C: C01 -> C10) */}
         {activeTab === 'booking' && (
           <AppointmentsManager
+            canManageSessions={canUseStaffTools(user)}
             onBusyChange={setNavigationBusy}
             key={`${user.id}:${bookingTarget?.id || ''}`}
             initialBookingId={bookingTarget?.bookingId}
@@ -850,7 +884,7 @@ function MasterHomePage() {
               onUserUpdated={account=>{setUser(account);refreshBookingRelatedData();}}
               onOpenAppointments={() => navigateTab('booking')}
               onOpenPackages={() => {
-                if(isStaffRole(user.role)){openCustomers('packages');return;}
+                if(canUseStaffTools(user)){openCustomers('packages');return;}
                 setTreatmentInitialTab('packages');
                 setIsTreatmentOpen(true);
               }}
@@ -1014,8 +1048,11 @@ function MasterHomePage() {
       )}
 
       {/* 8. GROUP C: 4-STEP BOOKING FLOW MODAL (C01 -> C07) */}
-      {bookingService && (
+      {examinationOpen&&<ExaminationServicePicker services={services} onClose={()=>setExaminationOpen(false)} onSelect={service=>{if(openBooking(service,null,null,undefined,undefined,'lymph'))setExaminationOpen(false);}}/>}
+      {bookingService && !bookingCustomer && <CustomerBooking key={user.id+bookingService.id+bookingPurpose} currentUser={user} initialNotes={bookingPurpose==='lymph'?LYMPH_BOOKING_NOTE:''} initialService={bookingService} initialBranch={bookingBranch} initialPackageId={bookingPackage?.id} allServices={services} branches={branches} onClose={()=>{setBookingService(null);setBookingBranch(null);}} onBookingSuccess={handleBookingSuccess} onCatalogUpdate={setServices}/>}
+      {bookingService && bookingCustomer && canUseStaffTools(user) && (
         <StaffBooking
+          initialNotes={bookingPurpose==='lymph'?LYMPH_BOOKING_NOTE:''}
           onCatalogUpdate={setServices}
           currentUser={user}
           initialService={bookingService}
@@ -1061,7 +1098,7 @@ function MasterHomePage() {
             </div>
             <button
               onClick={() => setIsEMRModalOpen(false)}
-              className="text-xs text-[#087e9c] font-bold"
+              className="text-xs text-[#2860eb] font-bold"
             >
               Đóng
             </button>
@@ -1181,13 +1218,13 @@ function MasterHomePage() {
                 }}
                 className={`w-full h-[58px] flex flex-col items-center justify-center gap-1 transition-colors rounded-[10px] active:scale-[0.98] ${
                   isActive
-                    ? 'bg-[#e8f4f7] text-[#087e9c] font-semibold'
-                    : 'text-[#526a73] hover:text-[#087e9c] font-normal'
+                    ? 'bg-[#eff4fe] text-[#2860eb] font-semibold'
+                    : 'text-[#526a73] hover:text-[#2860eb] font-normal'
                 }`}
               >
                 <TabIcon
                   size={22}
-                  color={isActive ? '#087e9c' : '#526a73'}
+                  color={isActive ? '#2860eb' : '#526a73'}
                   fill="none"
                 />
                 <span className="text-[10px] leading-none whitespace-nowrap">{tab.label}</span>

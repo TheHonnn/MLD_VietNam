@@ -1,0 +1,9 @@
+.examination-picker .booking-header h1 { font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
+.examination-picker h2 { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
+.examination-search { display: flex; align-items: center; gap: 10px; border: 1px solid #c8dde3; border-radius: 8px; padding: 0 12px; }
+.examination-search input { width: 100%; min-width: 0; min-height: 44px; font-size: 14px; background: white; }
+.examination-service { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 88px; padding: 16px 0; border-bottom: 1px solid #dbe8eb; text-align: left; }
+.examination-service > img,.examination-service > div { flex: 0 0 64px; width: 64px; height: 64px; border-radius: 8px; object-fit: cover; }
+.examination-service > span { min-width: 0; }
+.examination-service strong { display: block; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.examination-service small { display: block; margin-top: 6px; font-size: 12px; line-height: 1.5; }

@@ -1307,6 +1307,45 @@ class SupabaseService {
     }));
   }
 
+  async updateCourseBatch(
+    batchId: string,
+    updates: {
+      instructorId?: string | null;
+      scheduleText?: string;
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const payload: Record<string, any> = {};
+      if (updates.instructorId !== undefined) payload.instructor_id = updates.instructorId;
+      if (updates.scheduleText !== undefined) payload.schedule_text = updates.scheduleText;
+      if (updates.startDate !== undefined) payload.start_date = updates.startDate;
+      if (updates.endDate !== undefined) payload.end_date = updates.endDate;
+      if (updates.status !== undefined) payload.status = updates.status;
+
+      const res = await this.query<any[]>(`course_batches?id=eq.${batchId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return Boolean(res && res.length > 0);
+    } catch (err) {
+      console.warn('[SupabaseService] updateCourseBatch error:', err);
+      return false;
+    }
+  }
+
+  async assignInstructorToBatch(
+    batchId: string,
+    instructorId: string | null,
+    scheduleText?: string
+  ): Promise<boolean> {
+    const updates: any = { instructorId };
+    if (scheduleText !== undefined) updates.scheduleText = scheduleText;
+    return this.updateCourseBatch(batchId, updates);
+  }
+
   // 13. HỒ SƠ HỌC VIÊN GHI DANH (COURSE ENROLLMENTS)
   async getEnrollments(batchId?: string): Promise<CourseEnrollment[] | null> {
     const path = batchId

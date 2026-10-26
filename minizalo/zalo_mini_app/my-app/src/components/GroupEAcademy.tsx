@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { QuizTimer } from './QuizTimer';
+import {AttendanceScanner} from './Attendance';
 import { useBackAction } from '@/hooks/useNavigationHistory';
 import { events, EventName } from 'zmp-sdk';
 import { apiClient } from '@/api/client';
@@ -81,7 +82,7 @@ const Empty = ({ children }: { children?: React.ReactNode }) => children ? <p cl
 export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, user, branches = [], onOpenNotifications, loading, error, onRefresh, onRequireLogin, mode = 'catalog', initialCourseId, catalogSearch, notificationTarget,onBusyChange }) => {
   const [tab, setTab] = useState<Tab>(initialCourseId ? 'catalog' : mode === 'learning' ? 'my_courses' : 'catalog');
   const [selectedId, setSelectedId] = useState<string | null>(initialCourseId || null);
-  const [catalogView, setCatalogView] = useState<'home'|'catalog'|'course'|'instructor'|'registration'|'payment'>(initialCourseId?'course':'home');
+  const [catalogView, setCatalogView] = useState<'home'|'catalog'|'course'|'instructor'|'registration'|'payment'>(initialCourseId?'course':'catalog');
   const [branchId, setBranchId] = useState('');
   const [catalogAudience,setCatalogAudience]=useState<CourseAudience|''>('');
   const [batchId, setBatchId] = useState('');
@@ -451,13 +452,13 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       videoRef.current?.pause();playbackGeneration.current++;playback.current=null;setLessonId(null);setLessonExitBlocked(false);
     } finally {closingLesson.current=false;}
   };
-  useBackAction(Boolean(lesson) || tab !== 'catalog' || catalogView !== 'home', () => {
+  useBackAction(Boolean(lesson) || tab !== 'catalog' || catalogView !== 'catalog', () => {
     if (lesson) { if(lessonExitBlocked)leaveLessonWithDraft();else void closeLesson();return; }
     if (registering || quizSubmitting || attemptBusy || progressSaving) return;
     if (tab !== 'catalog') { setTab(tab==='my_courses'?'catalog':'my_courses'); return; }
     if (catalogView === 'registration' || catalogView === 'instructor' || catalogView === 'payment') { setCatalogView('course'); return; }
     if (catalogView === 'course') { setCatalogView('catalog');setSelectedId(null); return; }
-    setCatalogView('home');
+    setCatalogView('catalog');
   });
   useEffect(() => {
     const pauseVideo = () => { videoRef.current?.pause(); lastPlaybackTime.current=null; };
@@ -581,8 +582,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       {enrollmentLoading && <p role="status">Đang tải đăng ký học...</p>}
       {enrollmentError && <p role="alert" className="academy-error">{enrollmentError} <button onClick={() => setEnrollmentVersion(value => value+1)}>Thử lại</button></p>}
     </div>}
-    {tab === 'catalog' && catalogView === 'home' && <AcademyHome courses={courses} user={user} branches={branches} branchId={branchId} onBranch={setBranchId} onCatalog={openCatalog} onMine={openMine} onCertificates={openCertificates} onNotifications={onOpenNotifications || onRequireLogin}/>}
-    {tab === 'catalog' && catalogView === 'catalog' && <AcademyCatalog key={catalogSearch?.id} initialQuery={catalogSearch?.query} initialAudience={catalogAudience} courses={courses} branches={branches} branchId={branchId} onBranch={setBranchId} instructorId={instructorId} onBack={() => setCatalogView('home')} onCourse={showCourse}/>}
+    {tab === 'catalog' && ['home','catalog'].includes(catalogView) && <><div className="academy-body academy-chips"><button type="button" className="academy-outline" onClick={openMine}>Khóa học của tôi</button><button type="button" className="academy-outline" onClick={openCertificates}>Giấy chứng nhận</button></div><AcademyCatalog key={catalogSearch?.id} initialQuery={catalogSearch?.query} initialAudience={catalogAudience} courses={courses} branches={branches} branchId={branchId} onBranch={setBranchId} instructorId={instructorId} onCourse={showCourse}/></>}
     {tab === 'catalog' && !['home','catalog'].includes(catalogView) && !selected && !(catalogView==='payment'&&paymentEnrollment) && <AcademyHeader title="Khóa học" onBack={openCatalog}/>}
     {tab === 'catalog' && catalogView === 'course' && selected && <AcademyCourseDetail course={selected} onBack={openCatalog} onInstructor={() => setCatalogView('instructor')} onRegister={beginRegistration} registered={enrollments.some(entry => entry.courseId === selected.id && entry.status !== 'dropped')} onPreview={openLesson}/>}
     {tab === 'catalog' && catalogView === 'instructor' && selected && <AcademyInstructor course={selected} onBack={() => setCatalogView('course')} onCourses={() => { openCatalog(); setInstructorId(selected.instructorProfile?.id || ''); }}/>}
@@ -602,6 +602,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       </select>}
       {learningLoading && <p role="status" className="text-xs">Đang tải nội dung học...</p>}
       {learningError && <div role="alert" className="text-xs text-red-700">{learningError} <button className={buttonClass} onClick={() => setLearningVersion(value => value + 1)}>Thử lại</button></div>}
+      {tab==='schedule'&&study?.schedules?.length&&activeCourseId&&activeEnrollmentId?<AttendanceScanner key={activeEnrollmentId} courseId={activeCourseId} enrollmentId={activeEnrollmentId} onSaved={()=>setLearningVersion(value=>value+1)}/>:null}
       {study && !learningLoading && !learningError && <>
         {tab === 'content' && <div className="space-y-3">
           {study.chapters?.map((chapter,index) => <details key={chapter.id} className="academy-chapter" open={index===0}><summary>{chapter.title}</summary>{chapter.description && <p className="text-xs">{chapter.description}</p>}{study.lessons.filter(item => item.chapterId === chapter.id).map(renderLesson)}</details>)}

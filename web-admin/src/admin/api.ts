@@ -134,13 +134,14 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
 }
 
 const TABLE_SELECTS: Record<string, string> = {
-  staff_profiles: "*,users(full_name,phone,email),branches(name,code)",
+  staff_profiles: "*,users(full_name,phone,email,role),branches(name,code)",
   technicians: "*,branches(name)",
   bookings: "*,customer:users!customer_id(full_name,phone),branches(name)",
   branch_rooms: "*,branches(name)",
   technician_shifts: "*,technicians(full_name),branches(name)",
-  course_batches: "*,courses(title)",
-  course_chapters: "*,courses(title)",
+  course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
+  batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
+  course_chapters: "*,courses(title,code)",
   course_lessons: "*,course_chapters(title)",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
@@ -149,7 +150,12 @@ const TABLE_SELECTS: Record<string, string> = {
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
   services: "*,service_categories(name,code)",
   treatment_packages: "*,services(name)",
+  courses: "*,course_categories(name,code),primary_instructor:instructors!primary_instructor_id(full_name)",
+  course_enrollments: "*,student:users!student_id(full_name,phone,email),courses(title,code,tuition_fee,deposit_amount),course_batches(batch_code,start_date,schedule_text)",
+  instructors: "*,user:users!user_id(full_name,phone,email,avatar_url)",
+  student_certificates: "*,student:users!student_id(full_name,phone),courses(title,code)",
   staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
+  student_attendance: "*,batch_schedules(id,batch_id,session_date,start_time,end_time,topic,is_practice_lab,course_batches(id,batch_code,courses(id,title,code))),course_enrollments(id,student_id,batch_id,student:users!student_id(id,full_name,phone,email)),marked_by:users!marked_by_id(id,full_name)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -217,12 +223,12 @@ function buildColumns(table: string, rows: Row[]): Column[] {
       cols.unshift({
         name: "full_name",
         type: "varchar",
-        required: false,
+        required: true,
         hasDefault: false,
         maxLength: 150,
         options: [],
         primary: false,
-        writable: false,
+        writable: true,
         reference: null,
       });
     }
@@ -230,12 +236,38 @@ function buildColumns(table: string, rows: Row[]): Column[] {
       cols.push({
         name: "phone",
         type: "varchar",
-        required: false,
+        required: true,
         hasDefault: false,
         maxLength: 50,
         options: [],
         primary: false,
-        writable: false,
+        writable: true,
+        reference: null,
+      });
+    }
+    if (!cols.some((c) => c.name === "email")) {
+      cols.push({
+        name: "email",
+        type: "varchar",
+        required: false,
+        hasDefault: false,
+        maxLength: 150,
+        options: [],
+        primary: false,
+        writable: true,
+        reference: null,
+      });
+    }
+    if (!cols.some((c) => c.name === "role")) {
+      cols.push({
+        name: "role",
+        type: "varchar",
+        required: false,
+        hasDefault: true,
+        maxLength: 50,
+        options: ["TECHNICIAN", "RECEPTIONIST", "CASHIER", "INSTRUCTOR", "BRANCH_MANAGER", "ADMIN"],
+        primary: false,
+        writable: true,
         reference: null,
       });
     }
@@ -435,11 +467,32 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       try {
         const parsedFilter = JSON.parse(filterParam);
         for (const [col, val] of Object.entries(parsedFilter)) {
-          if (val !== undefined && val !== null && val !== "") {
-            url += `&${col}=eq.${encodeURIComponent(String(val))}`;
+          if (val !== undefined && val !== null && val !== "" && val !== "__ALL__") {
+            if (table === "student_attendance" && col === "batch_id") {
+              url += `&batch_schedules.batch_id=eq.${encodeURIComponent(String(val))}`;
+            } else {
+              url += `&${col}=eq.${encodeURIComponent(String(val))}`;
+            }
           }
         }
       } catch {}
+    }
+
+    const directBatchId = q.get("batch_id");
+    if (directBatchId && directBatchId !== "__ALL__" && !url.includes("batch_id=")) {
+      if (table === "student_attendance") {
+        url += `&batch_schedules.batch_id=eq.${encodeURIComponent(directBatchId)}`;
+      } else {
+        url += `&batch_id=eq.${encodeURIComponent(directBatchId)}`;
+      }
+    }
+    const directScheduleId = q.get("schedule_id");
+    if (directScheduleId && directScheduleId !== "__ALL__" && !url.includes("schedule_id=")) {
+      url += `&schedule_id=eq.${encodeURIComponent(directScheduleId)}`;
+    }
+    const directCourseId = q.get("course_id");
+    if (directCourseId && directCourseId !== "__ALL__" && !url.includes("course_id=")) {
+      url += `&course_id=eq.${encodeURIComponent(directCourseId)}`;
     }
 
     // Search handling
@@ -461,6 +514,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         "point_transactions",
         "invoices",
         "staff_commissions",
+        "course_enrollments",
       ];
       if (tablesWithUser.includes(table)) {
         try {
@@ -527,6 +581,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
         } else if (table === "staff_commissions") {
           orClauses.push(`staff_id.in.(${matchedUserIds.join(",")})`);
+        } else if (table === "course_enrollments") {
+          orClauses.push(`student_id.in.(${matchedUserIds.join(",")})`);
         } else if (tablesWithUser.includes(table)) {
           orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
         }
@@ -589,9 +645,18 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         r.full_name = r.full_name || r.users.full_name;
         r.phone = r.phone || r.users.phone;
         r.email = r.email || r.users.email;
+        r.role = r.role || r.users.role;
+        r.user_role = r.users.role;
+      }
+      if (r.user) {
+        r.full_name = r.full_name || r.user.full_name;
+        r.phone = r.phone || r.user.phone;
+        r.email = r.email || r.user.email;
+        r.avatar_url = r.avatar_url || r.user.avatar_url;
       }
       if (r.branches) {
         r.branch_name = r.branch_name || r.branches.name || r.branches.code;
+        r.branch_code = r.branch_code || r.branches.code;
       }
       if (r.customer) {
         r.customer_name = r.customer_name || r.customer.full_name;
@@ -620,6 +685,30 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.courses) {
         r.course_title = r.course_title || r.courses.title;
+        r.course_code = r.course_code || r.courses.code;
+      }
+      if (r.student) {
+        r.student_name = r.student_name || r.student.full_name;
+        r.student_phone = r.student_phone || r.student.phone;
+        r.student_email = r.student_email || r.student.email;
+        r.full_name = r.full_name || r.student.full_name;
+        r.phone = r.phone || r.student.phone;
+      }
+      if (r.course_batches) {
+        r.batch_code = r.batch_code || r.course_batches.batch_code;
+        r.batch_name = r.batch_name || r.course_batches.batch_code;
+      }
+      if (r.instructor) {
+        r.instructor_name = r.instructor_name || r.instructor.full_name;
+      }
+      if (r.primary_instructor) {
+        r.instructor_name = r.instructor_name || r.primary_instructor.full_name;
+      }
+      if (r.assigned_room) {
+        r.room_name = r.room_name || r.assigned_room.name;
+      }
+      if (r.branch_rooms) {
+        r.room_name = r.room_name || r.branch_rooms.name;
       }
       if (r.course_chapters) {
         r.chapter_title = r.chapter_title || r.course_chapters.title;
@@ -662,6 +751,183 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         payload.values.referral_code = `REF${Date.now().toString().slice(-6)}`;
       }
     }
+
+    if (table === "staff_profiles") {
+      let userId = payload.values.user_id;
+      const staffFullName = payload.values.full_name ? String(payload.values.full_name).trim() : "";
+      const staffPhone = payload.values.phone ? String(payload.values.phone).trim() : "";
+      const staffEmail = payload.values.email ? String(payload.values.email).trim() : null;
+      const staffRole = payload.values.role || "TECHNICIAN";
+
+      if (!userId) {
+        if (!staffPhone || !staffFullName) {
+          throw new Error("Vui lòng nhập Họ và tên và Số điện thoại nhân sự để khởi tạo tài khoản.");
+        }
+        // Check if a user already exists with this phone
+        const checkRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/users?phone=eq.${encodeURIComponent(staffPhone)}&select=id,full_name,role`,
+          {
+            headers: getSupabaseHeaders(),
+            signal,
+          }
+        );
+        const existing = await checkRes.json().catch(() => []);
+        if (Array.isArray(existing) && existing.length > 0) {
+          userId = existing[0].id;
+          // Update user info and ensure staff role
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+              full_name: staffFullName,
+              ...(staffEmail ? { email: staffEmail } : {}),
+              role: staffRole,
+            }),
+            signal,
+          });
+        } else {
+          // Create new user account for employee
+          const createURes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+            method: "POST",
+            headers: getSupabaseHeaders({
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            }),
+            body: JSON.stringify({
+              full_name: staffFullName,
+              phone: staffPhone,
+              email: staffEmail,
+              role: staffRole,
+              referral_code: `NV${Date.now().toString().slice(-6)}`,
+              membership_tier: "STANDARD",
+              is_active: true,
+            }),
+            signal,
+          });
+          if (!createURes.ok) {
+            const uErr = await createURes.json().catch(() => null);
+            throw new Error(uErr?.message || "Không thể tạo tài khoản người dùng cho nhân viên.");
+          }
+          const newUser = await createURes.json();
+          userId = Array.isArray(newUser) ? newUser[0].id : newUser.id;
+        }
+        payload.values.user_id = userId;
+      }
+
+      if (!payload.values.employee_code || !String(payload.values.employee_code).trim()) {
+        payload.values.employee_code = `NV-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+      if (!payload.values.hire_date) {
+        payload.values.hire_date = new Date().toISOString().slice(0, 10);
+      }
+
+      // Remove virtual/joined keys so Supabase schema cache does not error
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.role;
+      delete payload.values.users;
+      delete payload.values.branches;
+      delete payload.values.branch_name;
+      delete payload.values.user_role;
+    }
+
+    if (table === "course_enrollments") {
+      let studentId = payload.values.student_id;
+      const studentFullName = payload.values.full_name ? String(payload.values.full_name).trim() : "";
+      const studentPhone = payload.values.phone ? String(payload.values.phone).trim() : "";
+      const studentEmail = payload.values.email ? String(payload.values.email).trim() : null;
+
+      if (!studentId) {
+        if (!studentPhone || !studentFullName) {
+          throw new Error("Vui lòng nhập Họ và tên và Số điện thoại học viên để đăng ký ghi danh.");
+        }
+        // Check if user already exists with this phone
+        const checkRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/users?phone=eq.${encodeURIComponent(studentPhone)}&select=id,full_name,role`,
+          {
+            headers: getSupabaseHeaders(),
+            signal,
+          }
+        );
+        const existing = await checkRes.json().catch(() => []);
+        if (Array.isArray(existing) && existing.length > 0) {
+          studentId = existing[0].id;
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(studentId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+              full_name: studentFullName,
+              ...(studentEmail ? { email: studentEmail } : {}),
+            }),
+            signal,
+          });
+        } else {
+          // Create new user account for student
+          const createURes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+            method: "POST",
+            headers: getSupabaseHeaders({
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            }),
+            body: JSON.stringify({
+              full_name: studentFullName,
+              phone: studentPhone,
+              email: studentEmail,
+              role: "STUDENT",
+              purpose: "ACADEMY",
+              referral_code: `HV${Date.now().toString().slice(-6)}`,
+              membership_tier: "STANDARD",
+              is_active: true,
+            }),
+            signal,
+          });
+          if (!createURes.ok) {
+            const uErr = await createURes.json().catch(() => null);
+            throw new Error(uErr?.message || "Không thể tạo tài khoản học viên trong hệ thống.");
+          }
+          const newUser = await createURes.json();
+          studentId = Array.isArray(newUser) ? newUser[0].id : newUser.id;
+        }
+        payload.values.student_id = studentId;
+      }
+
+      if (payload.values.tuition_total === undefined || payload.values.tuition_total === null) {
+        payload.values.tuition_total = 0;
+      }
+      if (payload.values.amount_paid === undefined || payload.values.amount_paid === null) {
+        payload.values.amount_paid = 0;
+      }
+      if (!payload.values.enrolled_at) {
+        payload.values.enrolled_at = new Date().toISOString();
+      }
+
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.student;
+      delete payload.values.courses;
+      delete payload.values.course_batches;
+      delete payload.values.student_name;
+      delete payload.values.student_phone;
+      delete payload.values.student_email;
+      delete payload.values.course_title;
+      delete payload.values.batch_code;
+      delete payload.values.batch_name;
+      delete payload.values.notes;
+    }
+
+    if (table === "course_chapters") {
+      if (payload.values.chapter_order === undefined || payload.values.chapter_order === null || isNaN(Number(payload.values.chapter_order))) {
+        payload.values.chapter_order = 1;
+      } else {
+        payload.values.chapter_order = Number(payload.values.chapter_order);
+      }
+      delete payload.values.courses;
+      delete payload.values.course_title;
+      delete payload.values.course_code;
+    }
+
     const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -687,6 +953,87 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
   }
 
   if (action === "update" && payload?.values) {
+    if (table === "staff_profiles") {
+      const staffFullName = payload.values.full_name ? String(payload.values.full_name).trim() : undefined;
+      const staffPhone = payload.values.phone ? String(payload.values.phone).trim() : undefined;
+      const staffEmail = payload.values.email !== undefined ? (payload.values.email ? String(payload.values.email).trim() : null) : undefined;
+      const staffRole = payload.values.role;
+      const targetUserId = payload.values.user_id || payload.key?.user_id;
+
+      if (targetUserId && (staffFullName !== undefined || staffPhone !== undefined || staffEmail !== undefined || staffRole !== undefined)) {
+        const userPatch: Record<string, any> = {};
+        if (staffFullName !== undefined) userPatch.full_name = staffFullName;
+        if (staffPhone !== undefined) userPatch.phone = staffPhone;
+        if (staffEmail !== undefined) userPatch.email = staffEmail;
+        if (staffRole !== undefined) userPatch.role = staffRole;
+
+        if (Object.keys(userPatch).length > 0) {
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(targetUserId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify(userPatch),
+            signal,
+          });
+        }
+      }
+
+      // Remove virtual/joined keys so Supabase schema cache does not error
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.role;
+      delete payload.values.users;
+      delete payload.values.branches;
+      delete payload.values.branch_name;
+      delete payload.values.user_role;
+    }
+
+    if (table === "course_enrollments") {
+      const studentFullName = payload.values.full_name ? String(payload.values.full_name).trim() : undefined;
+      const studentPhone = payload.values.phone ? String(payload.values.phone).trim() : undefined;
+      const studentEmail = payload.values.email !== undefined ? (payload.values.email ? String(payload.values.email).trim() : null) : undefined;
+      const targetStudentId = payload.values.student_id || payload.key?.student_id;
+
+      if (targetStudentId && (studentFullName !== undefined || studentPhone !== undefined || studentEmail !== undefined)) {
+        const userPatch: Record<string, any> = {};
+        if (studentFullName !== undefined) userPatch.full_name = studentFullName;
+        if (studentPhone !== undefined) userPatch.phone = studentPhone;
+        if (studentEmail !== undefined) userPatch.email = studentEmail;
+
+        if (Object.keys(userPatch).length > 0) {
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(targetStudentId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify(userPatch),
+            signal,
+          });
+        }
+      }
+
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.student;
+      delete payload.values.courses;
+      delete payload.values.course_batches;
+      delete payload.values.student_name;
+      delete payload.values.student_phone;
+      delete payload.values.student_email;
+      delete payload.values.course_title;
+      delete payload.values.batch_code;
+      delete payload.values.batch_name;
+      delete payload.values.notes;
+    }
+
+    if (table === "course_chapters") {
+      if (payload.values.chapter_order !== undefined && payload.values.chapter_order !== null) {
+        payload.values.chapter_order = Number(payload.values.chapter_order);
+      }
+      delete payload.values.courses;
+      delete payload.values.course_title;
+      delete payload.values.course_code;
+    }
+
     const key = payload.key || {};
     const primaryColumns = SCHEMA_COLUMNS[table]?.filter((column) => column.primary).map((column) => column.name);
     if (!Object.keys(key).length || primaryColumns?.some((name) => key[name] == null || key[name] === "") || Object.entries(key).some(([name, value]) =>

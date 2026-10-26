@@ -6,23 +6,28 @@ import {bookingRequest,completeBookingRequest} from './booking-request';
 import {apiErrorMessage} from './error-message';
 import { abortable } from '../utils/async-control';
 import { OwnerWriteQueue } from '../utils/owner-write-queue';
-import {isStaffRole} from '../utils/staff';
+import {isMiniAppRole,isCustomerRole} from '../utils/staff';
 import {certificateVerificationUrl as verificationLink} from '../utils/certificate-verification';
+import {setLocale} from '../i18n';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SESSION_KEY = 'mld_miniapp_session_v2';
 let memoryToken: string | null = null;
 let nativeSessionStorageAvailable=true;
 let verifiedZaloSessionThisPage=false;
+let verifiedContext='';
+const accountContext=(account:{role?:unknown;staffAccess?:unknown;staffBranchId?:unknown})=>JSON.stringify([account.role,account.staffAccess===true,account.staffBranchId??null]);
 let sessionEpoch = 0;
+let localeRevision=0;
 let authController: AbortController | null = null;
 type ReadResponse = { status: number; payload: Record<string, any>; cacheable?: boolean };
 const readCache = new ReadCache<ReadResponse>(60000, 256, value => value.status === 200 && !value.payload.error && value.cacheable === true);
-const publicReads = new Set(['/app-metadata','/services','/doctors','/branches','/courses','/care-guidelines','/support-faqs','/search/popular']);
-const isPublicRead = (path: string) => publicReads.has(path) || ['/health','/slots','/slots/dates'].includes(path) || /^\/(services|doctors|courses)\/[^/]+$/.test(path);
+const publicReads = new Set(['/app-metadata','/services','/doctors','/branches','/courses','/care-guidelines','/support-faqs','/search/popular','/portal/banners']);
+const isPublicRead = (path: string) => publicReads.has(path) || ['/health','/slots','/slots/dates'].includes(path) || /^\/portal\/content(?:\/[^/]+)?$/.test(path) || /^\/(services|doctors|courses)\/[^/]+$/.test(path);
 const privateReads = new Set(['/auth/settings','/bookings','/records','/membership','/notifications','/treatment-plans','/transactions','/course-enrollments','/support-tickets','/consultation-surveys','/reviews/mine','/search/history']);
 const pagedCollections:Record<string,string>={'/bookings':'bookings','/support-tickets':'tickets','/consultation-surveys':'surveys','/treatment-plans':'treatmentPlans'};
 const validReadPayload = (path: string, payload: Record<string,any>) => {
+  if(path==='/portal/banners')return Array.isArray(payload.banners);
   const listFields: Record<string,string> = {'/services':'services','/doctors':'doctors','/branches':'branches','/courses':'courses','/care-guidelines':'guidelines','/support-faqs':'faqs','/search/popular':'popularSearches','/bookings':'bookings','/records':'records','/notifications':'notifications','/treatment-plans':'treatmentPlans','/course-enrollments':'enrollments','/support-tickets':'tickets','/consultation-surveys':'surveys','/reviews/mine':'reviews','/search/history':'history'};
   if (listFields[path]) return Array.isArray(payload[listFields[path]]);
   if (path === '/auth/settings') return payload.settings === null || (typeof payload.settings === 'object' && Boolean(payload.settings));
@@ -78,6 +83,7 @@ const session = {
     const needsNativeRemoval=memoryToken!=='';
     sessionEpoch++;
     verifiedZaloSessionThisPage=false;
+    localeRevision++;setLocale('vi');
     readCache.invalidate(key => key.startsWith('private:'));
     memoryToken = '';
     try { if(needsNativeRemoval&&nativeSessionStorageAvailable)nativeStorage.removeItem(SESSION_KEY); } catch { nativeSessionStorageAvailable=false; }
@@ -168,6 +174,18 @@ const createCustomerRecord=async(scope:'support-tickets'|'consultation-surveys',
 const searchWrites = new OwnerWriteQueue(() => String(sessionEpoch));
 
 export const apiClient = {
+  async getClassSchedules(signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/class-schedules`,{signal}));}
+    catch{return {error:'Không thể tải lịch lớp. Vui lòng thử lại.'};}
+  },
+  async getAttendanceCode(id:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/class-schedules/${encodeURIComponent(id)}/attendance-code`,{signal}));}
+    catch{return {error:'Không thể tạo mã điểm danh. Vui lòng thử lại.'};}
+  },
+  async checkInClass(courseId:string,enrollmentId:string,content:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/courses/${encodeURIComponent(courseId)}/attendance`,{method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({enrollmentId,content})}));}
+    catch{return {error:'Chưa xác nhận được điểm danh. Vui lòng kiểm tra lịch học hoặc thử lại.'};}
+  },
   getSessionDiagnostics(){return {nativeStorageAvailable:nativeSessionStorageAvailable,verifiedZaloSessionThisPage};},
   certificateVerificationUrl(path:unknown){return verificationLink(path,API_BASE_URL);},
   async getServiceFavorite(id:string){
@@ -232,11 +250,13 @@ export const apiClient = {
     catch { return { error: 'Không thể tải danh mục và cấu hình ứng dụng.' }; }
   },
   async getSettings() {
-    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`)); }
+    const revision=localeRevision,epoch=sessionEpoch;
+    try { const result=await responseJson(await fetch(`${API_BASE_URL}/auth/settings`));if(!result.error&&result.settings&&revision===localeRevision&&epoch===sessionEpoch)await setLocale(result.settings.language);return result; }
     catch { return { error: 'Không thể tải thiết lập.' }; }
   },
   async updateSettings(settings: Record<string, unknown>) {
-    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) })); }
+    const revision=++localeRevision,epoch=sessionEpoch;
+    try { const result=await responseJson(await fetch(`${API_BASE_URL}/auth/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }));if(!result.error&&result.settings&&revision===localeRevision&&epoch===sessionEpoch){const ready=await setLocale(result.settings.language);if(!ready&&epoch===sessionEpoch)result.localeError='Đã lưu lựa chọn nhưng chưa tải được ngôn ngữ. Kiểm tra mạng và chọn lại.';}return result; }
     catch { return { error: 'Không thể lưu thiết lập.' }; }
   },
   async getSupportFaqs() {
@@ -272,8 +292,13 @@ export const apiClient = {
       if (!requestConsent) {
         if (verifiedZaloSessionThisPage&&memoryToken) {
           const current = await apiClient.getCurrentUser();
-          if (current?.user&&isStaffRole(current.user.role)) return { ...current, token: session.get() };
-          if(current?.user){session.clear();window.dispatchEvent(new Event('mld:session-expired'));return {error:'Tài khoản cần được quản trị viên cấp quyền nhân viên trước khi sử dụng ứng dụng.',status:403,authIssue:'STAFF_ACCESS_REQUIRED'};}
+          if (current?.user&&isMiniAppRole(current.user.role)) {
+            const context=accountContext(current.user);
+            if(verifiedContext!==context)readCache.invalidate(key=>key.startsWith('private:'));
+            verifiedContext=context;
+            return { ...current, token: session.get() };
+          }
+          if(current?.user){session.clear();window.dispatchEvent(new Event('mld:session-expired'));return {error:'Tài khoản hiện tại không được phép truy cập ứng dụng.',status:403};}
         }
         return { needsConsent: true, error: 'Tiếp tục với Zalo và cho phép chia sẻ số điện thoại để kết nối hồ sơ.' };
       }
@@ -287,12 +312,12 @@ export const apiClient = {
       const res = await fetch(`${API_BASE_URL}/auth/zalo`, {
         signal: controller.signal,
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, phoneToken, audience:'staff' }),
+        body: JSON.stringify({ accessToken, phoneToken }),
       });
       const data = await responseJson(res);
       if (controller.signal.aborted || authController !== controller) return { error: 'Kết nối đã hủy. Vui lòng thử lại.' };
-      if(data.registrationRequired||data.user&&!isStaffRole(data.user.role))return {error:'Tài khoản cần được quản trị viên cấp quyền nhân viên trước khi sử dụng ứng dụng.',status:403,authIssue:'STAFF_ACCESS_REQUIRED'};
-      if (data.token&&data.user&&isStaffRole(data.user.role)) {session.set(data.token);verifiedZaloSessionThisPage=true;}
+      if(data.user&&!isMiniAppRole(data.user.role))return {error:'Tài khoản hiện tại không được phép truy cập ứng dụng.',status:403};
+      if (data.token&&data.user) {session.set(data.token);verifiedZaloSessionThisPage=true;verifiedContext=accountContext(data.user);}
       return data;
     } catch (error) {
       if (controller.signal.aborted) return { error: 'Kết nối đã hủy hoặc quá thời gian chờ. Bạn có thể xem dịch vụ và thử lại sau.' };
@@ -350,7 +375,7 @@ export const apiClient = {
       });
       const result=await responseJson(res);
       if(signal?.aborted||epoch!==sessionEpoch)return {error:'Phiên đăng ký đã thay đổi. Vui lòng xác minh lại.',status:401};
-      if(result?.user&&result.token)session.set(result.token);
+      if(result?.user&&result.token&&isCustomerRole(result.user.role)){session.set(result.token);verifiedZaloSessionThisPage=true;verifiedContext=accountContext(result.user);}
       return result;
     } catch { return { error: 'Không thể lưu hồ sơ. Vui lòng thử lại.' }; }
   },
@@ -489,11 +514,11 @@ export const apiClient = {
   },
   async getSharedContent(kind:'COMMUNITY'|'DOCUMENT',search:string,cursor?:string,signal?:AbortSignal){
     const params=new URLSearchParams({kind,search,limit:'20',...(cursor?{cursor}:{})});
-    try{return await responseJson(await fetch(`${API_BASE_URL}/shared-content?${params}`,{cache:'no-store',signal}));}
+    try{return await responseJson(await fetch(`${API_BASE_URL}/portal/${session.get()?'library':'content'}?${params}`,{cache:'no-store',signal}));}
     catch{return {error:'Không thể tải nội dung chia sẻ. Vui lòng thử lại.'};}
   },
   async getSharedContentItem(id:string,signal?:AbortSignal){
-    try{return await responseJson(await fetch(`${API_BASE_URL}/shared-content/${encodeURIComponent(id)}`,{cache:'no-store',signal}));}
+    try{return await responseJson(await fetch(`${API_BASE_URL}/portal/${session.get()?'library':'content'}/${encodeURIComponent(id)}`,{cache:'no-store',signal}));}
     catch{return {error:'Không thể mở nội dung chia sẻ. Vui lòng thử lại.'};}
   },
   async createStaffBooking(data:Record<string,unknown>,ownerId:string){
@@ -632,9 +657,13 @@ export const apiClient = {
     try { return await createCustomerRecord('support-tickets',{subject,message}); }
     catch { return { error: 'Không thể gửi yêu cầu hỗ trợ.' }; }
   },
-  async getCareGuidelines() {
-    try { return await responseJson(await fetch(`${API_BASE_URL}/care-guidelines`)); }
+  async getCareGuidelines(signal?: AbortSignal) {
+    try { return await responseJson(await fetch(`${API_BASE_URL}/care-guidelines`, {signal})); }
     catch { return { error: 'Không thể tải hướng dẫn chăm sóc.' }; }
+  },
+  async getPortalBanners(){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/portal/banners`));}
+    catch{return {error:'Không thể tải banner trang chủ.'};}
   },
 
   async getTreatmentPlans() {

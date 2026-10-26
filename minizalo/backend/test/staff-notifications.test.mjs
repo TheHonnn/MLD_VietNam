@@ -35,7 +35,7 @@ test('staff receive real booked-customer events and reminders without another br
       assert.equal((await inbox()).data.notifications.length,0);
       await db.query("UPDATE users SET role='RECEPTIONIST' WHERE id=$1",[id(90)]);
       await db.query('UPDATE staff_profiles SET is_active=false WHERE user_id=$1',[id(90)]);
-      assert.equal((await inbox()).status,403);
+      const personal=await inbox();assert.equal(personal.status,200);assert.deepEqual(personal.data.notifications,[]);
     });
   }finally{await f.close();}
 });

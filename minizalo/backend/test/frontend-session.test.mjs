@@ -17,6 +17,7 @@ async function client(storage){
   globalThis.__sessionFixture=storage;
   const prefix=`import {ReadCache} from ${JSON.stringify(moduleUrl(cacheSource))};
 const nativeStorage=globalThis.__sessionFixture;
+const setLocale=()=>{};
 const adaptPayload=value=>value, profileToCanonical=value=>value;
 const apiErrorMessage=value=>value;
 const preloadCatalogImages=()=>{},bookingRequest=()=>{},completeBookingRequest=()=>{};
@@ -25,6 +26,8 @@ import {certificateVerificationUrl as verificationLink} from ${JSON.stringify(mo
 class OwnerWriteQueue {run(_key,operation){return operation();}}
 const getAccessToken=()=>Promise.resolve('fixture-access'),getPhoneNumber=()=>globalThis.__zaloAuthFixture?.()??Promise.resolve({token:'fixture-phone'}),getUserInfo=()=>{};
 const isStaffRole=role=>['ADMIN','RECEPTIONIST'].includes(role);
+const isCustomerRole=role=>['CUSTOMER','STUDENT','patient'].includes(role);
+const isMiniAppRole=role=>isStaffRole(role)||isCustomerRole(role);
 // fixture ${++sequence}
 `;
   return (await import(moduleUrl(prefix+isolated))).apiClient;
@@ -84,7 +87,7 @@ test('native session reads and public availability failures do not break authent
         return new Promise(resolve=>resolveRead=resolve);
       };
       const oldRead=api.getCurrentUser(),logout=api.logout();assert.equal(stored,'');
-      const signedIn=await api.loginWithZalo(true);assert.equal(signedIn.user.id,'b');assert.equal(stored,'account-b');
+      const signedIn=await api.loginWithZalo(true,'staff');assert.equal(signedIn.user.id,'b');assert.equal(stored,'account-b');
       resolveRead(Response.json({success:true,data:{user:{id:'a'}}}));assert.equal((await oldRead).status,401);
       resolveLogout(Response.json({success:true,data:{revoked:true}}));assert.equal((await logout).revoked,true);assert.equal(stored,'account-b');
       assert.deepEqual(events,['mld:session-cleared']);

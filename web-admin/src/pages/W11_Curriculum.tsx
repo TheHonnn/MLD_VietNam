@@ -79,13 +79,13 @@ const defaultSession: PracticalSession = {
   room: 'Phòng thực hành 01',
   dateKey: '2026-10-16',
   dateLabel: '16/10/2026',
-  subject: 'Kỹ thuật Massage Trị Liệu',
+  subject: 'Dẫn lưu Bạch huyết MLD Vodder Lâm sàng',
   timeRange: '13:00–17:00',
   instructorName: 'Nguyễn Thảo Ngọc',
-  className: 'K26-SPA-Q1 · Phòng 01',
+  className: 'K26-MLD · Phòng 01',
   status: 'Sắp diễn ra',
-  videoTopic: 'Thực hành kỹ thuật bấm huyệt và massage cơ bản',
-  videoDuration: '20 phút',
+  videoTopic: 'Thực hành thao tác dẫn lưu hạch nách và vùng cổ Vodder',
+  videoDuration: '45 phút',
   practiceDuration: '150 phút',
   prepTime: '12:45–13:00',
   note: 'Nhân sự đào tạo và giảng viên đối chiếu chuyên cần sau buổi học theo quy chế học viện MLD.',
@@ -98,6 +98,7 @@ export const W11_Curriculum: React.FC = () => {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [courseGroupFilter, setCourseGroupFilter] = useState<'all' | 'new_learner' | 'advanced_ktv'>('all');
+  const [courseFilter, setCourseFilter] = useState<string>('all');
   const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
   const [isVideoSecurityModalOpen, setIsVideoSecurityModalOpen] = useState<boolean>(false);
   const [isWatermarkActive, setIsWatermarkActive] = useState<boolean>(true);
@@ -225,7 +226,9 @@ export const W11_Curriculum: React.FC = () => {
   const hasActiveFilter =
     searchTerm.trim().length > 0 ||
     branchFilter !== 'all' ||
-    statusFilter !== 'all';
+    statusFilter !== 'all' ||
+    courseGroupFilter !== 'all' ||
+    courseFilter !== 'all';
 
   const filteredClasses = trainingClasses.filter((c) => {
     const isMatched = matchSearch(
@@ -245,7 +248,11 @@ export const W11_Curriculum: React.FC = () => {
         (!c.courseTitle.toLowerCase().includes('cơ bản') &&
           !c.courseTitle.toLowerCase().includes('nhập môn')));
 
-    return isMatched && matchBranch && matchStatus && matchGroup;
+    const matchCourse =
+      courseFilter === 'all' ||
+      c.courseTitle.toLowerCase() === courseFilter.toLowerCase();
+
+    return isMatched && matchBranch && matchStatus && matchGroup && matchCourse;
   });
 
   return (
@@ -325,6 +332,23 @@ export const W11_Curriculum: React.FC = () => {
             <option value="all">Tất cả nhóm khóa học</option>
             <option value="new_learner">Khóa cho người mới bắt đầu làm nghề</option>
             <option value="advanced_ktv">Khóa chuyên sâu cho KTV đang làm nghề</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Filter: Khóa học cụ thể */}
+        <div className="relative shrink-0 flex-1 sm:flex-none">
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+          >
+            <option value="all">Khóa học · Tất cả ({liveCourses.length})</option>
+            {liveCourses.map((c) => (
+              <option key={c.id} value={c.title}>
+                {c.title}
+              </option>
+            ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -506,7 +530,7 @@ export const W11_Curriculum: React.FC = () => {
               <span className="text-[#2C241E] font-medium">{selectedSession.timeRange}</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
-              <span>Video Bài 05</span>
+              <span>Thời lượng bài giảng</span>
               <span className="text-[#2C241E] font-medium">{selectedSession.videoDuration}</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
@@ -585,6 +609,8 @@ export const W11_Curriculum: React.FC = () => {
                             setSearchTerm('');
                             setBranchFilter('all');
                             setStatusFilter('all');
+                            setCourseGroupFilter('all');
+                            setCourseFilter('all');
                           }}
                           className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                         >
@@ -671,77 +697,6 @@ export const W11_Curriculum: React.FC = () => {
         </div>
       </div>
 
-      {/* 5. TẦNG 3: Chương trình đào tạo & Theo dõi học tập */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left: Chương trình · 20 bài / 5 chương */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-          <h2 className="text-base font-bold text-[#2C241E]">
-            Chương trình · 20 bài / 5 chương
-          </h2>
-
-          <div className="space-y-3 text-xs leading-relaxed">
-            <div>
-              <div className="font-bold text-[#2C241E]">Chương 1 · Giới thiệu nghề Spa</div>
-              <div className="text-[#73675F] mt-1">
-                ✓ Bài 1: Tổng quan ngành Spa · ✓ Bài 2: Quy trình phục vụ khách hàng · ✓ Bài 3: An toàn và vệ sinh trong Spa.
-              </div>
-            </div>
-
-            <div>
-              <div className="font-bold text-[#2C241E]">Chương 2 · Kỹ thuật cơ bản</div>
-              <div className="text-[#73675F] mt-1">
-                ✓ Bài 4: Kiến thức chăm sóc cơ thể · Bài 5: Kỹ thuật Massage cơ bản · Bài 6: Thực hành kỹ thuật. 120 phút.
-              </div>
-            </div>
-          </div>
-
-          <div className="text-xs text-[#73675F] pt-2 border-t border-[#EFE4D9]">
-            MCN-0926: 12 tuần, 144 giờ · 48 giờ lý thuyết + 96 giờ thực hành.
-          </div>
-        </div>
-
-        {/* Right: Theo dõi học tập */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-          <h2 className="text-base font-bold text-[#2C241E]">
-            Theo dõi tiến độ học tập
-          </h2>
-
-          {/* Lesson box */}
-          <div
-            onClick={() => showToast('Mở video bài học: Kỹ thuật Massage cơ bản')}
-            className="bg-[#F5EADF] rounded-xl p-3.5 flex items-center justify-between cursor-pointer hover:bg-[#EFE0D2] transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <PlayCircle className="w-5 h-5 text-[#8D4B1A] shrink-0" />
-              <div>
-                <div className="text-xs font-bold text-[#2C241E]">
-                  Bài 05: Kỹ thuật Massage cơ bản
-                </div>
-                <div className="text-[11px] text-[#73675F] mt-0.5">
-                  Video · 18 phút · Tiếp theo
-                </div>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-[#8C7A6B] shrink-0" />
-          </div>
-
-          {/* Stats */}
-          <div className="space-y-2 text-xs pt-0.5">
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Xuân Trường đã hoàn thành</span>
-              <span className="text-[#2C241E] font-medium">4/20 bài · 20%</span>
-            </div>
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Chuyên cần</span>
-              <span className="text-[#2C241E] font-medium">8/9 · 88,9%</span>
-            </div>
-          </div>
-
-          <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Đánh giá kiến thức và thực hành theo dõi trên hệ thống quản lý học tập MLD Academy.
-          </div>
-        </div>
-      </div>
 
       {/* 6. Bottom Page Disclaimer */}
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">

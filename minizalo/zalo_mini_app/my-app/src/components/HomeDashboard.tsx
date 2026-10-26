@@ -7,8 +7,12 @@ import { useCarousel } from '@/hooks/useCarousel';
 import { useBackAction } from '@/hooks/useNavigationHistory';
 import { BranchHours } from './GroupBExtensions';
 import { CalendarIcon, NavAcademyIcon, MapIcon, UserCheckIcon, ArrowRightIcon } from './Icons';
+import {PortalBanners} from './PortalBanners';
+import type {PortalBanner} from './PortalBanners';
 
 interface HomeDashboardProps extends GroupBHomeProps {
+  banners?:PortalBanner[];
+  onBannerNavigate?:(screen:string)=>void;
   carouselPaused?: boolean;
   userAvatar?: string;
   selectedBranchId: string;
@@ -57,7 +61,7 @@ export function GroupBHome(props: HomeDashboardProps) {
         </button>
         <div className="home-greeting-copy">
           <h1>{userName?.trim() ? `Xin chào, ${userName.trim()}!` : 'Xin chào!'}</h1>
-          <p>Hôm nay bạn hỗ trợ khách hàng nào?</p>
+          <p>{props.staffMode?'Hôm nay bạn hỗ trợ khách hàng nào?':'Chăm sóc sức khỏe và phát triển chuyên môn'}</p>
         </div>
         <button className="home-icon-button home-bell" type="button" title={unreadNotifications ? `Thông báo: ${unreadNotifications} chưa đọc` : 'Thông báo'} onClick={onOpenNotifications}>
           <BellIcon size={22} />{unreadNotifications > 0 && <span className="home-unread" />}
@@ -86,7 +90,8 @@ export function GroupBHome(props: HomeDashboardProps) {
         {error && <button type="button" title="Thử tải lại" disabled={loading} onClick={onRefresh}><RefreshIcon size={18} /></button>}
       </div>}
 
-      {service && <section className="home-feature" aria-label="Chăm sóc và dịch vụ"
+      {Boolean(props.banners?.length)&&<PortalBanners items={props.banners!} paused={Boolean(props.carouselPaused)||loading} onNavigate={props.onBannerNavigate||(()=>{})}/>}
+      {service && !props.banners?.length && <section className="home-feature" aria-label="Chăm sóc và dịch vụ"
         onFocusCapture={event => setInteracting(event.target.matches(':focus-visible'))} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}
         onClickCapture={event=>{if(suppressSwipeClick.current){suppressSwipeClick.current=false;event.preventDefault();event.stopPropagation();}}}
         onTouchStart={event => {
@@ -133,7 +138,7 @@ export function GroupBHome(props: HomeDashboardProps) {
         <button type="button" disabled={loading} onClick={props.onOpenSpecialists}><UserCheckIcon size={22}/><span>Chuyên viên</span></button>
       </nav>
       <nav className="home-shortcuts" aria-label="Quản lý khách và tài liệu">
-        <button type="button" onClick={()=>onNavigateTab('customers')}><UserCheckIcon size={22}/><span>Hồ sơ khách</span></button>
+        {props.staffMode&&<button type="button" onClick={()=>onNavigateTab('customers')}><UserCheckIcon size={22}/><span>Hồ sơ khách</span></button>}
         <button type="button" onClick={()=>onNavigateTab('documents')}><NavAcademyIcon size={22}/><span>Tài liệu</span></button>
         <button type="button" onClick={()=>onNavigateTab('community')}><UserCheckIcon size={22}/><span>Cộng đồng</span></button>
       </nav>

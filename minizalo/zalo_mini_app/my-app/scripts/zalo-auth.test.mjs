@@ -14,7 +14,8 @@ async function client(fixture){
       builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`const f=globalThis.__zaloAuthFixture;export const nativeStorage=f.storage;export const getPhoneNumber=()=>f.phone();export const getAccessToken=()=>Promise.resolve('isolated-access');export const getUserInfo=()=>Promise.resolve({userInfo:{}});`,loader:'js'}));
     },
   }]});
-  return (await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64')+'#'+(++sequence))).apiClient;
+  const api=(await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64')+'#'+(++sequence))).apiClient;
+  return api;
 }
 
 test('Mini App Zalo auth keeps permissions and storage failures separate',async t=>{
@@ -52,11 +53,25 @@ test('Mini App Zalo auth keeps permissions and storage failures separate',async 
       message='Provider denied request';assert.equal((await api.loginWithZalo(true)).authIssue,undefined);
       assert.equal(api.hasSession(),false);
     });
-    await t.test('legacy customer responses never save a token or become employee access',async()=>{
+    await t.test('unified login accepts the actual customer role without making it employee access',async()=>{
       let writes=0;
       globalThis.window={setTimeout,clearTimeout,dispatchEvent:()=>true,fetch:async()=>response({user:{...staff,role:'CUSTOMER'},token:'must-not-save'})};
       const api=await client({storage:{getItem:()=>'',setItem(){writes++;},removeItem(){}},phone:()=>Promise.resolve({token:'isolated-phone'})});
-      const result=await api.loginWithZalo(true);assert.equal(result.authIssue,'STAFF_ACCESS_REQUIRED');assert.equal(api.hasSession(),false);assert.equal(writes,0);
+      const result=await api.loginWithZalo(true);assert.equal(result.user.role,'patient');assert.equal(api.hasSession(),true);assert.equal(writes,1);
+    });
+    await t.test('one login accepts actual customer/staff roles and registration challenges, never a client-selected role',async()=>{
+      let reply={user:{...staff,role:'CUSTOMER'},token:'customer-token'};
+      const bodies=[];
+      globalThis.window={setTimeout,clearTimeout,dispatchEvent:()=>true,fetch:async(_input,options)=>{bodies.push(JSON.parse(options.body));return response(reply);}};
+      const api=await client({storage:{getItem:()=>'',setItem(){},removeItem(){}},phone:()=>Promise.resolve({token:'phone'})});
+      assert.equal((await api.loginWithZalo(true)).user.role,'patient');assert.equal(api.hasSession(),true);
+      assert.equal(bodies[0].audience,undefined);assert.equal(bodies[0].role,undefined);
+      reply={registrationRequired:true,registrationToken:'registration-proof',phone:'0900000090'};
+      const challenge=await api.loginWithZalo(true);assert.equal(challenge.registrationRequired,true);assert.equal(api.hasSession(),false);
+      reply={user:staff,token:'unmatched-staff'};
+      assert.equal((await api.loginWithZalo(true)).user.role,'receptionist');assert.equal(api.hasSession(),true);
+      reply={user:{...staff,role:'UNKNOWN'},token:'invalid-role'};
+      assert.equal((await api.loginWithZalo(true)).status,403);assert.equal(api.hasSession(),false);
     });
     await t.test('permission denial and duplicate clicks release auth without creating a fake login',async()=>{
       let complete,requests=0;
@@ -72,12 +87,25 @@ test('Mini App Zalo auth keeps permissions and storage failures separate',async 
       const api=await client(fixture),old=api.loginWithZalo(true);api.cancelZaloLogin();assert.ok((await old).error);
       fixture.phone=()=>Promise.resolve({token:'new-phone'});assert.equal((await api.loginWithZalo(true)).user.id,staff.id);finish({token:'old-phone'});await new Promise(resolve=>setTimeout(resolve,0));assert.equal(requests,1);assert.equal(api.getSessionDiagnostics().verifiedZaloSessionThisPage,true);
     });
-    await t.test('a role revoked after sign-in clears local access instead of silently reusing the token',async()=>{
+    await t.test('an actual role change is reflected in the common login without retaining the old employee role',async()=>{
       const events=[];
       globalThis.window={setTimeout,clearTimeout,dispatchEvent:event=>{events.push(event.type);return true;},fetch:async input=>response(new URL(input).pathname.endsWith('/auth/zalo')?{user:staff,token:'isolated-token'}:{user:{...staff,role:'CUSTOMER'}})};
       const api=await client({storage:{getItem:()=>'',setItem(){},removeItem(){}},phone:()=>Promise.resolve({token:'isolated-phone'})});
-      await api.loginWithZalo(true);assert.equal((await api.loginWithZalo(false)).authIssue,'STAFF_ACCESS_REQUIRED');assert.equal(api.hasSession(),false);assert.equal(api.getSessionDiagnostics().verifiedZaloSessionThisPage,false);
-      assert.deepEqual(events,['mld:session-expired']);
+      await api.loginWithZalo(true);assert.equal((await api.loginWithZalo(false)).user.role,'patient');assert.equal(api.hasSession(),true);
+      assert.deepEqual(events,[]);
+    });
+    await t.test('losing operational access invalidates cached work reads while preserving the common login',async()=>{
+      let bookingReads=0;
+      globalThis.window={setTimeout,clearTimeout,dispatchEvent:()=>true,fetch:async input=>{
+        const path=new URL(input).pathname;
+        if(path.endsWith('/auth/zalo'))return response({user:{...staff,staffAccess:true,staffBranchId:'10000000-0000-0000-0000-000000000003'},token:'unified-token'});
+        if(path.endsWith('/auth/me'))return response({user:{...staff,staffAccess:false,staffBranchId:null}});
+        bookingReads++;return response({bookings:[],nextCursor:null});
+      }};
+      const api=await client({storage:{getItem:()=>'',setItem(){},removeItem(){}},phone:()=>Promise.resolve({token:'phone'})});
+      await api.loginWithZalo(true);await api.getBookings();await api.getBookings();assert.equal(bookingReads,1);
+      const current=await api.loginWithZalo(false);assert.equal(current.user.staffAccess,false);assert.equal(api.hasSession(),true);
+      await api.getBookings();assert.equal(bookingReads,2);
     });
   }finally{globalThis.window=originalWindow;delete globalThis.__zaloAuthFixture;}
 });

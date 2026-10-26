@@ -3,6 +3,7 @@ import type { Branch, Course, CourseAudience, CourseEnrollment, User } from '../
 import { ArrowLeftIcon, BellIcon, NavProfileIcon, SearchIcon } from './Icons';
 import { EntityImage } from './GroupBExtensions';
 import { searchText } from '@/utils/catalog';
+import {trainingMetadata} from '@/utils/training-metadata';
 
 export const academyMoney = (value?: number) => value != null && Number.isFinite(Number(value)) ? `${Number(value).toLocaleString('vi-VN')}đ` : '';
 export const academyDate = (value?: string) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '';
@@ -30,18 +31,28 @@ export function AcademyHome({courses,user,branches,branchId,onBranch,onCatalog,o
     </main></>;
 }
 
-export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCourse,instructorId,initialQuery='',initialAudience=''}:{courses:Course[];branches:Branch[];branchId:string;onBranch:(id:string)=>void;onBack:()=>void;onCourse:(course:Course)=>void;instructorId?:string;initialQuery?:string;initialAudience?:CourseAudience|''}) {
+export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCourse,instructorId,initialQuery='',initialAudience=''}:{courses:Course[];branches:Branch[];branchId:string;onBranch:(id:string)=>void;onBack?:()=>void;onCourse:(course:Course)=>void;instructorId?:string;initialQuery?:string;initialAudience?:CourseAudience|''}) {
   const [audience,setAudience]=useState<CourseAudience|''>(initialAudience);
+  const [targetAudience,setTargetAudience]=useState(''),[targetNeed,setTargetNeed]=useState('');
   const [search,setSearch]=useState(initialQuery),[category,setCategory]=useState(''),[level,setLevel]=useState(''),[hours,setHours]=useState(''),[price,setPrice]=useState(''),[format,setFormat]=useState('');
   const formats=Array.from(new Set(courses.map(course=>course.deliveryFormat).filter(Boolean)));
   const categories=Array.from(new Set(courses.map(course=>course.category).filter(Boolean)));
   const levels=Array.from(new Set(courses.map(course=>course.level).filter(Boolean)));
   const durations=Array.from(new Set(courses.map(course=>course.totalHours).filter(value=>value!=null))).sort((a,b)=>a-b);
   const prices=Array.from(new Set(courses.map(course=>course.price).filter(Number.isFinite))).sort((a,b)=>a-b);
-  const filtered=courses.filter(course=>(!audience||course.trainingAudience===audience)&&(!instructorId||course.instructorProfile?.id===instructorId)&&(!branchId||course.batches?.some(batch=>batch.branchId===branchId))&&(!category||course.category===category)&&(!level||course.level===level)&&(!hours||course.totalHours===Number(hours))&&(!price||course.price===Number(price))&&(!format||course.deliveryFormat===format)&&searchText(`${course.title} ${course.category} ${course.instructor} ${course.description}`).includes(searchText(search)));
-  return <><AcademyHeader title="Khám phá khóa học" subtitle="Chọn chương trình đào tạo phù hợp với mục tiêu nghề nghiệp của bạn." onBack={onBack}/><main className="academy-body">
+  const audiences=Array.from(new Set(courses.map(course=>trainingMetadata(course).targetAudience).filter(Boolean)));
+  const needs=Array.from(new Set(courses.map(course=>trainingMetadata(course).targetNeed).filter(Boolean)));
+  const filtered=courses.filter(course=>{
+    const metadata=trainingMetadata(course);
+    return (!targetAudience||metadata.targetAudience===targetAudience)&&(!targetNeed||metadata.targetNeed===targetNeed)&&(!audience||course.trainingAudience===audience)&&(!instructorId||course.instructorProfile?.id===instructorId)&&(!branchId||course.batches?.some(batch=>batch.branchId===branchId))&&(!category||course.category===category)&&(!level||course.level===level)&&(!hours||course.totalHours===Number(hours))&&(!price||course.price===Number(price))&&(!format||course.deliveryFormat===format)&&searchText([course.title,course.category,course.instructor,course.description,metadata.targetAudience,metadata.targetNeed,metadata.courseGroup].join(' ')).includes(searchText(search));
+  });
+  return <><AcademyHeader title="Đào tạo & Khóa học" onBack={onBack}/><main className="academy-body">
     <label className="academy-search"><SearchIcon size={19}/><input aria-label="Tìm khóa học" placeholder="Tìm khóa học, kỹ năng hoặc chuyên ngành..." value={search} onChange={event=>setSearch(event.target.value)}/></label>
     <div className="academy-chips" role="group" aria-label="Nhóm đào tạo">{([['','Tất cả'],['BEGINNER','Mới bắt đầu'],['PRACTITIONER','Đang làm nghề']] as const).map(([value,label])=><button key={value} type="button" aria-pressed={audience===value} onClick={()=>setAudience(value)}>{label}</button>)}</div>
+    <div className="academy-filters">
+      <label>Đối tượng<select aria-label="Đối tượng khóa học" value={targetAudience} onChange={event=>setTargetAudience(event.target.value)}><option value="">Tất cả đối tượng</option>{audiences.map(value=><option key={value}>{value}</option>)}</select></label>
+      <label>Nhu cầu<select aria-label="Nhu cầu đào tạo" value={targetNeed} onChange={event=>setTargetNeed(event.target.value)}><option value="">Tất cả nhu cầu</option>{needs.map(value=><option key={value}>{value}</option>)}</select></label>
+    </div>
     <h2 className="academy-filter-title">Tinh chỉnh chương trình</h2><div className="academy-filters">
       <label>Chuyên ngành<select aria-label="Chuyên ngành" value={category} onChange={event=>setCategory(event.target.value)}><option value="">Tất cả</option>{categories.map(value=><option key={value}>{value}</option>)}</select></label>
       <label>Trình độ<select aria-label="Trình độ" value={level} onChange={event=>setLevel(event.target.value)}><option value="">Tất cả</option>{levels.map(value=><option key={value} value={value}>{({BEGINNER:'Cơ bản',INTERMEDIATE:'Trung cấp',ADVANCED:'Nâng cao',MASTER:'Chuyên sâu'} as Record<string,string>)[value]||value}</option>)}</select></label>
@@ -49,6 +60,7 @@ export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCour
       <label>Học phí<select value={price} onChange={event=>setPrice(event.target.value)}><option value="">Tất cả</option>{prices.map(value=><option key={value} value={value}>{academyMoney(value)}</option>)}</select></label>
       <label>Hình thức<select aria-label="Hình thức" value={format} onChange={event=>setFormat(event.target.value)}><option value="">Tất cả</option>{formats.map(value=><option key={value} value={value!}>{({ONLINE:'Trực tuyến',ONSITE:'Trực tiếp',HYBRID:'Kết hợp'})[value!]}</option>)}</select></label>
     </div><label className="academy-field">Chi nhánh<select value={branchId} onChange={event=>onBranch(event.target.value)}><option value="">Tất cả chi nhánh</option>{branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
+    <button type="button" className="academy-outline" onClick={()=>{setAudience('');setTargetAudience('');setTargetNeed('');setSearch('');setCategory('');setLevel('');setHours('');setPrice('');setFormat('');onBranch('');}}>Đặt lại bộ lọc</button>
     <h2 className="academy-count">{filtered.length} chương trình đào tạo</h2>
     {filtered.map(course=><button type="button" key={course.id} className="academy-course-card" onClick={()=>onCourse(course)}><EntityImage src={course.image} alt={course.title} className="academy-course-photo"/><span><strong>{course.title}</strong><small>{[course.category,course.duration].filter(Boolean).join(' · ')}</small><b>{academyMoney(course.price)}</b></span></button>)}
   </main></>;
@@ -57,10 +69,12 @@ export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCour
 export function AcademyCourseDetail({course,onBack,onInstructor,onRegister,registered,onPreview}:{course:Course;onBack:()=>void;onInstructor:()=>void;onRegister:()=>void;registered:boolean;onPreview:(lesson:Course['lessons'][number])=>void}) {
   const chapterIds = new Set(course.chapters?.map(chapter => chapter.id));
   const otherLessons = course.lessons.filter(lesson => !lesson.chapterId || !chapterIds.has(lesson.chapterId));
+  const metadata = trainingMetadata(course);
   return <><AcademyHeader title={course.title} onBack={onBack}/><main className="academy-body">
     <EntityImage src={course.image} alt={course.title} className="academy-cover"/>
     <section className="academy-summary"><span>{course.category}</span><div className="academy-metrics"><div><strong>{course.totalHours}</strong><small>giờ đào tạo</small></div><div><strong>{course.lessonsCount}</strong><small>bài học</small></div></div><p>{course.theoryHours} giờ lý thuyết · {course.practiceHours} giờ thực hành</p><p>{academyMoney(course.price)}</p></section>
     <h2>Giới thiệu khóa học</h2><p className="academy-description">{course.description}</p>
+    {metadata.targetAudience&&<p>Đối tượng: {metadata.targetAudience}</p>}{metadata.targetNeed&&<p>Nhu cầu: {metadata.targetNeed}</p>}
     {course.learningOutcomes?.length? <><h2>Kết quả đầu ra</h2><ul>{course.learningOutcomes.map((outcome,index)=><li key={index}>{typeof outcome==='string'?outcome:outcome.title||outcome.description}</li>)}</ul></>:null}
     {!!course.chapters?.length && <section aria-label="Chương trình khóa học"><h2>Chương trình khóa học</h2>{course.chapters.map(chapter => <details key={chapter.id} className="academy-chapter"><summary>{chapter.title}</summary>{chapter.description && <p>{chapter.description}</p>}{course.lessons.filter(lesson => lesson.chapterId === chapter.id).map(lesson => <div key={lesson.id} className="academy-list-row"><strong>{lesson.title}</strong><p>{lesson.duration}</p></div>)}</details>)}</section>}
     {otherLessons.length>0&&<section aria-label="Danh sách bài học"><h2>Bài học</h2>{otherLessons.map(lesson=><div key={lesson.id} className="academy-list-row"><strong>{lesson.title}</strong><p>{lesson.duration}</p></div>)}</section>}

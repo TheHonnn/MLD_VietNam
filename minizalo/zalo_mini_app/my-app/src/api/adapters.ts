@@ -3,6 +3,7 @@ import type {
   CourseEnrollment, TreatmentJournal, UserPackage, Coupon, Invoice,
 } from '../../../../../database/shared_types';
 import type * as View from '../../../../backend/src/data/database';
+import {trainingMetadata} from '../utils/training-metadata';
 
 type DisplayFields = { categoryName?: string; branchName?: string; technicianName?: string };
 type BookingResponse = Omit<Booking, 'items'> & DisplayFields & {
@@ -90,7 +91,7 @@ const adaptQuiz = (quiz: Quiz): NonNullable<View.Course['quiz']> => ({
 });
 
 export const adaptCourse = (c: CourseResponse): View.Course => ({
-  ...c, category: c.categoryName || '', price: Number(c.tuitionFee),
+  ...c, ...trainingMetadata(c), category: c.categoryName || '', price: Number(c.tuitionFee),
   trainingAudience:c.trainingAudience!==undefined?c.trainingAudience:c.level==='BEGINNER'?'BEGINNER':['INTERMEDIATE','ADVANCED','MASTER'].includes(c.level)?'PRACTITIONER':null,
   duration: c.totalHours + ' giờ', instructor: c.instructorName || '',
   instructorAvatar: c.instructorAvatar || '', instructorProfile: (c as any).instructor || null, studentsCount: Number(c.studentsCount || 0),
