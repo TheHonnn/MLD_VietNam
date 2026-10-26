@@ -150,6 +150,7 @@ const TABLE_SELECTS: Record<string, string> = {
   services: "*,service_categories(name,code)",
   treatment_packages: "*,services(name)",
   courses: "*,course_categories(name,code),primary_instructor:instructors!primary_instructor_id(full_name)",
+  course_enrollments: "*,student:users!student_id(full_name,phone,email),courses(title,code,tuition_fee,deposit_amount),course_batches(batch_code,start_date,schedule_text)",
   staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
 };
 
@@ -488,6 +489,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         "point_transactions",
         "invoices",
         "staff_commissions",
+        "course_enrollments",
       ];
       if (tablesWithUser.includes(table)) {
         try {
@@ -554,6 +556,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
         } else if (table === "staff_commissions") {
           orClauses.push(`staff_id.in.(${matchedUserIds.join(",")})`);
+        } else if (table === "course_enrollments") {
+          orClauses.push(`student_id.in.(${matchedUserIds.join(",")})`);
         } else if (tablesWithUser.includes(table)) {
           orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
         }
@@ -649,6 +653,17 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.courses) {
         r.course_title = r.course_title || r.courses.title;
+      }
+      if (r.student) {
+        r.student_name = r.student_name || r.student.full_name;
+        r.student_phone = r.student_phone || r.student.phone;
+        r.student_email = r.student_email || r.student.email;
+        r.full_name = r.full_name || r.student.full_name;
+        r.phone = r.phone || r.student.phone;
+      }
+      if (r.course_batches) {
+        r.batch_code = r.batch_code || r.course_batches.batch_code;
+        r.batch_name = r.batch_name || r.course_batches.batch_code;
       }
       if (r.primary_instructor) {
         r.instructor_name = r.instructor_name || r.primary_instructor.full_name;
@@ -775,6 +790,91 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       delete payload.values.user_role;
     }
 
+    if (table === "course_enrollments") {
+      let studentId = payload.values.student_id;
+      const studentFullName = payload.values.full_name ? String(payload.values.full_name).trim() : "";
+      const studentPhone = payload.values.phone ? String(payload.values.phone).trim() : "";
+      const studentEmail = payload.values.email ? String(payload.values.email).trim() : null;
+
+      if (!studentId) {
+        if (!studentPhone || !studentFullName) {
+          throw new Error("Vui lòng nhập Họ và tên và Số điện thoại học viên để đăng ký ghi danh.");
+        }
+        // Check if user already exists with this phone
+        const checkRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/users?phone=eq.${encodeURIComponent(studentPhone)}&select=id,full_name,role`,
+          {
+            headers: getSupabaseHeaders(),
+            signal,
+          }
+        );
+        const existing = await checkRes.json().catch(() => []);
+        if (Array.isArray(existing) && existing.length > 0) {
+          studentId = existing[0].id;
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(studentId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+              full_name: studentFullName,
+              ...(studentEmail ? { email: studentEmail } : {}),
+            }),
+            signal,
+          });
+        } else {
+          // Create new user account for student
+          const createURes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+            method: "POST",
+            headers: getSupabaseHeaders({
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            }),
+            body: JSON.stringify({
+              full_name: studentFullName,
+              phone: studentPhone,
+              email: studentEmail,
+              role: "STUDENT",
+              purpose: "ACADEMY",
+              referral_code: `HV${Date.now().toString().slice(-6)}`,
+              membership_tier: "STANDARD",
+              is_active: true,
+            }),
+            signal,
+          });
+          if (!createURes.ok) {
+            const uErr = await createURes.json().catch(() => null);
+            throw new Error(uErr?.message || "Không thể tạo tài khoản học viên trong hệ thống.");
+          }
+          const newUser = await createURes.json();
+          studentId = Array.isArray(newUser) ? newUser[0].id : newUser.id;
+        }
+        payload.values.student_id = studentId;
+      }
+
+      if (payload.values.tuition_total === undefined || payload.values.tuition_total === null) {
+        payload.values.tuition_total = 0;
+      }
+      if (payload.values.amount_paid === undefined || payload.values.amount_paid === null) {
+        payload.values.amount_paid = 0;
+      }
+      if (!payload.values.enrolled_at) {
+        payload.values.enrolled_at = new Date().toISOString();
+      }
+
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.student;
+      delete payload.values.courses;
+      delete payload.values.course_batches;
+      delete payload.values.student_name;
+      delete payload.values.student_phone;
+      delete payload.values.student_email;
+      delete payload.values.course_title;
+      delete payload.values.batch_code;
+      delete payload.values.batch_name;
+      delete payload.values.notes;
+    }
+
     const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -833,6 +933,43 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       delete payload.values.branches;
       delete payload.values.branch_name;
       delete payload.values.user_role;
+    }
+
+    if (table === "course_enrollments") {
+      const studentFullName = payload.values.full_name ? String(payload.values.full_name).trim() : undefined;
+      const studentPhone = payload.values.phone ? String(payload.values.phone).trim() : undefined;
+      const studentEmail = payload.values.email !== undefined ? (payload.values.email ? String(payload.values.email).trim() : null) : undefined;
+      const targetStudentId = payload.values.student_id || payload.key?.student_id;
+
+      if (targetStudentId && (studentFullName !== undefined || studentPhone !== undefined || studentEmail !== undefined)) {
+        const userPatch: Record<string, any> = {};
+        if (studentFullName !== undefined) userPatch.full_name = studentFullName;
+        if (studentPhone !== undefined) userPatch.phone = studentPhone;
+        if (studentEmail !== undefined) userPatch.email = studentEmail;
+
+        if (Object.keys(userPatch).length > 0) {
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(targetStudentId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify(userPatch),
+            signal,
+          });
+        }
+      }
+
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.student;
+      delete payload.values.courses;
+      delete payload.values.course_batches;
+      delete payload.values.student_name;
+      delete payload.values.student_phone;
+      delete payload.values.student_email;
+      delete payload.values.course_title;
+      delete payload.values.batch_code;
+      delete payload.values.batch_name;
+      delete payload.values.notes;
     }
 
     const key = payload.key || {};

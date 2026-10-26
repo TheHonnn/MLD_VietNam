@@ -6,8 +6,11 @@ import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
 import { CourseEditorSheet } from "./CourseEditorSheet";
+import { EnrollmentEditorSheet } from "./EnrollmentEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
+import { InstructorFormEditor } from "./InstructorFormEditor";
+import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -2449,6 +2452,56 @@ function RecordDialog({
           payload.code = slugifyCategoryCode(String(payload.name || values.name || "MLD-CAT"));
         }
       }
+      if (resource.name === "instructors") {
+        if (!payload.avatar_url && values.avatar_url) payload.avatar_url = values.avatar_url;
+        if (!payload.avatar_url) {
+          payload.avatar_url = "https://images.unsplash.com/photo-1594824813589-4b830d937077?w=200&auto=format&fit=crop&q=80";
+        }
+        if (!payload.bio && values.bio) payload.bio = values.bio;
+        if (!payload.bio) {
+          payload.bio = "Chuyên gia đào tạo dẫn lưu bạch huyết chuẩn Dr. Vodder quốc tế tại Học viện MLD Academy.";
+        }
+        if (values.achievements !== undefined) {
+          payload.achievements = Array.isArray(values.achievements)
+            ? values.achievements
+            : typeof values.achievements === "string" && values.achievements.trim()
+              ? values.achievements.split("\n").map((s: string) => s.trim()).filter(Boolean)
+              : [];
+        }
+      }
+      if (resource.name === "batch_schedules") {
+        if (!payload.batch_id && values.batch_id) payload.batch_id = values.batch_id;
+        if (!payload.session_date && values.session_date) payload.session_date = values.session_date;
+        if (!payload.start_time && values.start_time) payload.start_time = values.start_time;
+        if (!payload.end_time && values.end_time) payload.end_time = values.end_time;
+        if (!payload.topic && values.topic) payload.topic = values.topic;
+
+        // Clean time format to HH:mm:ss if it is HH:mm
+        if (typeof payload.start_time === "string" && payload.start_time.length === 5) {
+          payload.start_time += ":00";
+        }
+        if (typeof payload.end_time === "string" && payload.end_time.length === 5) {
+          payload.end_time += ":00";
+        }
+
+        // Validate time
+        if (payload.start_time && payload.end_time && payload.end_time <= payload.start_time) {
+          throw new Error("Giờ kết thúc buổi học phải diễn ra sau giờ bắt đầu.");
+        }
+
+        // Clean assigned_room_id: if empty string, set to null
+        if (!payload.assigned_room_id && values.assigned_room_id) {
+          payload.assigned_room_id = values.assigned_room_id;
+        }
+        if (payload.assigned_room_id === "" || payload.assigned_room_id === "null" || payload.assigned_room_id === undefined) {
+          payload.assigned_room_id = null;
+        }
+
+        // Default topic fallback if empty
+        if (!payload.topic) {
+          payload.topic = "Buổi học chuyên đề Dẫn lưu Bạch huyết Vodder";
+        }
+      }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -2468,7 +2521,11 @@ function RecordDialog({
   };
   return (
     <dialog
-      className="admin-dialog"
+      className={`admin-dialog ${
+        ["staff_profiles", "courses", "course_enrollments"].includes(resource.name)
+          ? "!max-w-[880px] !w-[min(880px,calc(100%-32px))]"
+          : ""
+      }`}
       ref={dialog}
       onCancel={(e) => {
         if (busy) e.preventDefault();
@@ -2486,6 +2543,14 @@ function RecordDialog({
         />
       ) : resource.name === "courses" ? (
         <CourseEditorSheet
+          row={row}
+          mode={mode}
+          onClose={onClose}
+          onSaved={onSaved}
+          onSwitchMode={onSwitchMode}
+        />
+      ) : resource.name === "course_enrollments" ? (
+        <EnrollmentEditorSheet
           row={row}
           mode={mode}
           onClose={onClose}
@@ -2562,6 +2627,39 @@ function RecordDialog({
                 description: String(values.description ?? (columns.find((x) => x.name === "description") ? current(columns.find((x) => x.name === "description")!) : "")),
                 display_order: Number(values.display_order ?? (columns.find((x) => x.name === "display_order") ? current(columns.find((x) => x.name === "display_order")!) : 1) ?? 1),
                 is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
+              }}
+              onChange={(field, val) => set(field, val)}
+              isCreate={mode === "create"}
+            />
+          </div>
+        ) : resource.name === "instructors" && mode !== "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
+            <InstructorFormEditor
+              values={{
+                user_id: values.user_id !== undefined ? String(values.user_id) : (columns.find((x) => x.name === "user_id") ? String(current(columns.find((x) => x.name === "user_id")!) || "") : undefined),
+                full_name: String(values.full_name ?? (columns.find((x) => x.name === "full_name") ? current(columns.find((x) => x.name === "full_name")!) : "")),
+                title: String(values.title ?? (columns.find((x) => x.name === "title") ? current(columns.find((x) => x.name === "title")!) : "")),
+                avatar_url: String(values.avatar_url ?? (columns.find((x) => x.name === "avatar_url") ? current(columns.find((x) => x.name === "avatar_url")!) : "")),
+                experience_years: Number(values.experience_years ?? (columns.find((x) => x.name === "experience_years") ? current(columns.find((x) => x.name === "experience_years")!) : 1) ?? 1),
+                bio: String(values.bio ?? (columns.find((x) => x.name === "bio") ? current(columns.find((x) => x.name === "bio")!) : "")),
+                achievements: values.achievements ?? (columns.find((x) => x.name === "achievements") ? current(columns.find((x) => x.name === "achievements")!) : []),
+                is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
+              }}
+              onChange={(field, val) => set(field, val)}
+              isCreate={mode === "create"}
+            />
+          </div>
+        ) : resource.name === "batch_schedules" && mode !== "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
+            <BatchScheduleFormEditor
+              values={{
+                batch_id: String(values.batch_id ?? (columns.find((x) => x.name === "batch_id") ? current(columns.find((x) => x.name === "batch_id")!) : "")),
+                assigned_room_id: values.assigned_room_id !== undefined ? (values.assigned_room_id ? String(values.assigned_room_id) : null) : (columns.find((x) => x.name === "assigned_room_id") && current(columns.find((x) => x.name === "assigned_room_id")!) ? String(current(columns.find((x) => x.name === "assigned_room_id")!)) : null),
+                session_date: String(values.session_date ?? (columns.find((x) => x.name === "session_date") ? current(columns.find((x) => x.name === "session_date")!) : "")),
+                start_time: String(values.start_time ?? (columns.find((x) => x.name === "start_time") ? current(columns.find((x) => x.name === "start_time")!) : "")),
+                end_time: String(values.end_time ?? (columns.find((x) => x.name === "end_time") ? current(columns.find((x) => x.name === "end_time")!) : "")),
+                topic: String(values.topic ?? (columns.find((x) => x.name === "topic") ? current(columns.find((x) => x.name === "topic")!) : "")),
+                is_practice_lab: Boolean(values.is_practice_lab ?? (columns.find((x) => x.name === "is_practice_lab") ? current(columns.find((x) => x.name === "is_practice_lab")!) : true) ?? true),
               }}
               onChange={(field, val) => set(field, val)}
               isCreate={mode === "create"}
