@@ -928,19 +928,19 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             ),
                           ),
                         ),
-                        // Lớp phủ gradient #002A6B tăng độ tương phản hiển thị chữ
+                        // Lớp phủ tối nhẹ giữ nguyên màu sắc mặc định của ảnh banner
                         Positioned.fill(
                           child: Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  const Color(0xFF002A6B).withValues(alpha: 0.86),
-                                  const Color(0xFF002A6B).withValues(alpha: 0.40),
-                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.80),
+                                  Colors.black.withValues(alpha: 0.35),
+                                  Colors.black.withValues(alpha: 0.10),
                                 ],
                                 stops: const [0.0, 0.65, 1.0],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
+                                begin: Alignment.bottomLeft,
+                                end: Alignment.topRight,
                               ),
                             ),
                           ),
@@ -1111,9 +1111,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             colors: [
-                                              const Color(0xFF002A6B).withValues(alpha: 0.90),
-                                              const Color(0xFF002A6B).withValues(alpha: 0.48),
-                                              Colors.transparent,
+                                              Colors.black.withValues(alpha: 0.80),
+                                              Colors.black.withValues(alpha: 0.35),
+                                              Colors.black.withValues(alpha: 0.10),
                                             ],
                                             stops: const [0.0, 0.70, 1.0],
                                             begin: Alignment.centerLeft,
