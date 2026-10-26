@@ -1,15 +1,19 @@
 import '../../data/repositories/service_repository.dart';
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/supabase_data_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
+import '../../../academy/presentation/screens/e01_academy_home_screen.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
+import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../../treatment/data/repositories/treatment_repository.dart';
 import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
@@ -41,14 +45,19 @@ class B01HomeScreen extends StatefulWidget {
 class _B01HomeScreenState extends State<B01HomeScreen> {
   String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   SpaServiceModel? _coreService;
-
+  List<BannerPromoModel> _banners = [];
+  int _currentBannerIndex = 0;
+  late PageController _bannerPageController;
+  Timer? _bannerTimer;
 
   @override
   void initState() {
     super.initState();
+    _bannerPageController = PageController();
     _initBranchListener();
     _loadUserProfile();
     _loadCoreServiceFromAdmin();
+    _loadBannersFromAdmin();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
     });
@@ -99,7 +108,81 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   @override
   void dispose() {
     BranchRepository.instance.activeBranchNotifier.removeListener(_onActiveBranchChanged);
+    _bannerTimer?.cancel();
+    _bannerPageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBannersFromAdmin() async {
+    try {
+      final raw = await SupabaseDataService.instance.fetchBanners();
+      if (!mounted) return;
+      if (raw.isNotEmpty) {
+        setState(() {
+          _banners = raw.map((m) => BannerPromoModel.fromMap(m)).toList();
+        });
+        _startBannerTimer();
+      }
+    } catch (_) {}
+  }
+
+  void _startBannerTimer() {
+    _bannerTimer?.cancel();
+    if (_banners.length <= 1) return;
+    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_bannerPageController.hasClients) return;
+      final next = (_currentBannerIndex + 1) % _banners.length;
+      _bannerPageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _onBannerTap(BannerPromoModel? banner) async {
+    final link = banner?.targetLink?.trim() ?? '';
+    if (link.startsWith('http://') || link.startsWith('https://')) {
+      try {
+        await launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+      } catch (_) {}
+      return;
+    }
+
+    if (link == '/academy' || link.contains('academy')) {
+      if (widget.onNavigateToAcademy != null) {
+        widget.onNavigateToAcademy!();
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()),
+        );
+      }
+      return;
+    }
+
+    if (link == '/services' || link.contains('services') || link.contains('treatment')) {
+      if (widget.onNavigateToServices != null) {
+        widget.onNavigateToServices!();
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const B02ServiceListingScreen()),
+        );
+      }
+      return;
+    }
+
+    if (link == '/booking' || link.contains('booking')) {
+      if (widget.onNavigateToBooking != null) {
+        widget.onNavigateToBooking!();
+      } else {
+        _handleBooking();
+      }
+      return;
+    }
+
+    _showBannerLinkOptions(context);
   }
 
   void _handleBooking() {
@@ -396,6 +479,216 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
+  Widget _buildBannerSection() {
+    if (_banners.isEmpty) {
+      const defaultBanner = BannerPromoModel(
+        id: 'default',
+        title: 'MLD VIỆT NAM',
+        subtitle: 'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder',
+        tag: 'TRUNG TÂM Y KHOA BẠCH HUYẾT',
+        ctaText: 'Bấm để xem Website & Facebook chính thức ↗',
+        imageUrl: 'assets/images/banner.webp',
+      );
+      return _buildBannerItem(defaultBanner);
+    }
+
+    if (_banners.length == 1) {
+      return _buildBannerItem(_banners.first);
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 156,
+          child: PageView.builder(
+            controller: _bannerPageController,
+            onPageChanged: (idx) {
+              setState(() => _currentBannerIndex = idx);
+            },
+            itemCount: _banners.length,
+            itemBuilder: (context, index) {
+              return _buildBannerItem(_banners[index]);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            _banners.length,
+            (index) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: _currentBannerIndex == index ? 20 : 6,
+              height: 5,
+              decoration: BoxDecoration(
+                color: _currentBannerIndex == index
+                    ? AppColors.primary
+                    : AppColors.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBannerItem(BannerPromoModel banner) {
+    final isNetwork = banner.imageUrl.startsWith('http://') || banner.imageUrl.startsWith('https://');
+
+    return InkWell(
+      onTap: () => _onBannerTap(banner),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 156,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.22),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // 1. Ảnh nền banner (Tự động tải ảnh Admin thêm từ Supabase hoặc dùng ảnh local asset)
+            Positioned.fill(
+              child: isNetwork
+                  ? Image.network(
+                      banner.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Image.asset(
+                        'assets/images/banner.webp',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          decoration: const BoxDecoration(
+                            gradient: AppColors.brandGradient,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Image.asset(
+                      banner.imageUrl.isNotEmpty ? banner.imageUrl : 'assets/images/banner.webp',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        decoration: const BoxDecoration(
+                          gradient: AppColors.brandGradient,
+                        ),
+                      ),
+                    ),
+            ),
+            // 2. Lớp phủ gradient #002A6B để chữ luôn hiển thị rõ nét trên mọi ảnh nền
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF002A6B).withValues(alpha: 0.86),
+                      const Color(0xFF002A6B).withValues(alpha: 0.40),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.65, 1.0],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+              ),
+            ),
+            // 3. Logo MLD Việt Nam góc phải
+            Positioned(
+              right: 14,
+              top: 20,
+              child: Image.asset(
+                'assets/images/logo.webp',
+                width: 70,
+                height: 70,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.spa_rounded,
+                  size: 50,
+                  color: Colors.white24,
+                ),
+              ),
+            ),
+            // 4. Nội dung text trên banner
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      context.tr(banner.tag, banner.tag),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        banner.title.isNotEmpty ? banner.title : 'MLD VIỆT NAM',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        banner.subtitle.isNotEmpty
+                            ? context.tr(banner.subtitle, banner.subtitle)
+                            : context.tr('Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder', 'Medical Vodder Manual Lymphatic Drainage'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        context.tr(banner.ctaText.isNotEmpty ? banner.ctaText : 'Bấm để xem chi tiết ↗', 'Tap to explore ↗'),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _getGreetingName() {
     final profileName = MembershipRepository.instance.profile.fullName.trim();
     if (profileName.isNotEmpty && profileName != 'Khách hàng') {
@@ -552,137 +845,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
               // ==========================================
               // 2. BANNER NGANG GIỚI THIỆU MLD TRÊN ĐẦU
-              // (Click mở modal lựa chọn Website hoặc Facebook)
+              // (Đồng bộ động từ Admin Portal / Supabase, hỗ trợ đổi ảnh nền & trượt banner)
               // ==========================================
-              InkWell(
-                onTap: () => _showBannerLinkOptions(context),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  height: 156,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.22),
-                        blurRadius: 14,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      // Ảnh nền banner: assets/images/banner.webp
-                      Positioned.fill(
-                        child: Image.asset(
-                          'assets/images/banner.webp',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            decoration: const BoxDecoration(
-                              gradient: AppColors.brandGradient,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Lớp phủ gradient #002A6B tăng độ tương phản hiển thị chữ
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFF002A6B).withValues(alpha: 0.86),
-                                const Color(0xFF002A6B).withValues(alpha: 0.40),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.65, 1.0],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Logo: assets/images/logo.webp
-                      Positioned(
-                        right: 14,
-                        top: 20,
-                        child: Image.asset(
-                          'assets/images/logo.webp',
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.spa_rounded,
-                            size: 50,
-                            color: Colors.white24,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                context.tr('TRUNG TÂM Y KHOA BẠCH HUYẾT', 'LYMPHATIC MEDICAL CENTER'),
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  letterSpacing: 0.4,
-                                ),
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'MLD VIỆT NAM',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  context.tr('Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder', 'Medical Vodder Manual Lymphatic Drainage'),
-                                  style: const TextStyle(
-                                    fontSize: 13.5,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                const Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
-                                const SizedBox(width: 4),
-                                Text(
-                                  context.tr('Bấm để xem Website & Facebook chính thức ↗', 'Tap to visit official Website & Facebook ↗'),
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _buildBannerSection(),
 
               const SizedBox(height: 18),
 

@@ -11,6 +11,7 @@ class BannerPromoModel {
   final String tag;
   final String ctaText;
   final String imageUrl;
+  final String? targetLink;
 
   const BannerPromoModel({
     required this.id,
@@ -19,7 +20,39 @@ class BannerPromoModel {
     required this.tag,
     required this.ctaText,
     required this.imageUrl,
+    this.targetLink,
   });
+
+  factory BannerPromoModel.fromMap(Map<String, dynamic> map) {
+    final category = (map['category']?.toString() ?? '').trim();
+    String tagDisplay;
+    switch (category) {
+      case 'DAO_TAO':
+        tagDisplay = 'ĐÀO TẠO HỌC VIỆN';
+        break;
+      case 'DICH_VU':
+        tagDisplay = 'DỊCH VỤ TRỊ LIỆU';
+        break;
+      case 'KHUYEN_MAI':
+        tagDisplay = 'ƯU ĐÃI ĐẶC BIỆT';
+        break;
+      case 'SU_KIEN':
+        tagDisplay = 'SỰ KIỆN Y KHOA';
+        break;
+      default:
+        tagDisplay = category.isNotEmpty ? category : 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
+    }
+
+    return BannerPromoModel(
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      subtitle: map['summary']?.toString() ?? '',
+      tag: tagDisplay,
+      ctaText: 'Xem chi tiết ↗',
+      imageUrl: map['image_url']?.toString() ?? '',
+      targetLink: map['target_link']?.toString(),
+    );
+  }
 }
 
 /// 2. Gói Liệu trình Định kỳ (Treatment Package)

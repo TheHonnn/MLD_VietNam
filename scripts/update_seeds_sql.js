@@ -1,0 +1,238 @@
+const fs = require('fs');
+const path = require('path');
+
+const filePath = path.join(__dirname, '../database/seeds/001_mld_vietnam_seeds.sql');
+let content = fs.readFileSync(filePath, 'utf8');
+
+const targetRegex = /-- 11\. KHÓA HỌC ACADEMY \(COURSES\)[\s\S]*?ON CONFLICT \(code\) DO UPDATE SET tuition_fee = EXCLUDED\.tuition_fee;/;
+
+const replacement = `-- 11. KHÓA HỌC ACADEMY (COURSES)
+INSERT INTO courses (id, category_id, primary_instructor_id, title, code, short_description, full_description, level, total_hours, theory_hours, practice_hours, total_lessons, tuition_fee, deposit_amount, certificate_title, image_url, is_featured)
+VALUES 
+    (
+        '30303030-0001-0001-0001-000000000001',
+        '20202020-0001-0001-0001-000000000001',
+        '10101010-0001-0001-0001-000000000001',
+        'DẪN LƯU BẠCH HUYẾT NỀN TẢNG CHO NGƯỜI MỚI BẮT ĐẦU - Level 0',
+        'MLD-LV0',
+        'Lý thuyết nền tảng Master Lymphatic Therapy Level 0. Hiểu sâu về dòng chảy hệ bạch huyết.',
+        'Lý thuyết nền tảng Master Lymphatic Therapy Level 0. Hiểu sâu về dòng chảy hệ bạch huyết, cấu trúc mao mạch và nguyên lý kích hoạt tự chữa lành của cơ thể.',
+        'BEGINNER',
+        24,
+        12,
+        12,
+        6,
+        599000.00,
+        200000.00,
+        'Chứng nhận MLD Nền Tảng - Level 0',
+        'assets/images/DaoTao/Dẫn lưu bạch huyết nền tảng cho người mới bắt đầu 599.000.jpg',
+        TRUE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000003',
+        '20202020-0001-0001-0001-000000000001',
+        '10101010-0001-0001-0001-000000000001',
+        'Workshop: HƯỚNG DẪN PHÒNG NGỪA PHÙ TAY SAU PHẪU THUẬT UNG THƯ VÚ',
+        'WS-PHU-TAY',
+        'Hướng dẫn thực hành các kỹ thuật tự dẫn lưu nhẹ nhàng và tư thế sinh hoạt tránh ứ trệ dịch sau phẫu thuật.',
+        'Chuyên đề lâm sàng trang bị kiến thức tự bảo vệ và phòng ngừa biến chứng phù tay (lymphoedema) cho bệnh nhân và người chăm sóc sau điều trị hoặc phẫu thuật vú.',
+        'BEGINNER',
+        8,
+        4,
+        4,
+        2,
+        350000.00,
+        100000.00,
+        'Giấy chứng nhận Tham gia Workshop MLD',
+        'assets/images/DaoTao/Khóa học Hướng dẫn phòng ngừa phù tay sau phẫu thuật ung thư vú 350.000.jpg',
+        FALSE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000004',
+        '20202020-0001-0001-0001-000000000001',
+        '10101010-0001-0001-0001-000000000001',
+        'Workshop: HƯỚNG DẪN XÂY DỰNG CHẾ ĐỘ ĂN PHÒNG NGỪA BỆNH LÝ TUYẾN VÚ',
+        'WS-CHE-DO-AN',
+        'Nguyên lý tương tác dinh dưỡng kháng viêm và dòng chảy tuần hoàn bạch huyết.',
+        'Workshop dinh dưỡng trị liệu: Nguyên lý tương tác giữa dinh dưỡng kháng viêm và dòng chảy hệ tuần hoàn bạch huyết, chế độ ăn lành mạnh bảo vệ tuyến vú.',
+        'BEGINNER',
+        8,
+        4,
+        4,
+        2,
+        350000.00,
+        100000.00,
+        'Giấy chứng nhận Tham gia Workshop MLD Dinh Dưỡng',
+        'assets/images/DaoTao/HƯỚNG DẪN XÂY DỰNG CHẾ ĐỘ ĂN PHÒNG NGỪA BỆNH LÝ TUYẾN VÚ 350.000.jpg',
+        FALSE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000005',
+        '20202020-0001-0001-0001-000000000001',
+        '10101010-0001-0001-0001-000000000001',
+        'Workshop: HƯỚNG DẪN VẬN ĐỘNG PHÒNG NGỪA PHÙ TAY SAU PHẪU THUẬT TUYẾN VÚ',
+        'WS-VAN-DONG',
+        'Bài tập vận động nhẹ nhàng kích hoạt bơm cơ mao mạch vùng ngực và cánh tay.',
+        'Bài tập vận động nhẹ nhàng kích hoạt bơm cơ mao mạch vùng ngực và cánh tay, duy trì tầm vận động khớp và chống phù nề sau mổ.',
+        'BEGINNER',
+        8,
+        4,
+        4,
+        2,
+        350000.00,
+        100000.00,
+        'Giấy chứng nhận Tham gia Workshop Vận Động MLD',
+        'assets/images/DaoTao/Khóa học Hướng dẫn phòng ngừa phù tay sau phẫu thuật tuyến vú 350.000.jpg',
+        FALSE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000009',
+        '20202020-0001-0001-0001-000000000002',
+        '10101010-0001-0001-0001-000000000001',
+        'Khoá học Chuyên đề: CHĂM SÓC MẸ SAU SINH',
+        'MLD-PRO-POSTPARTUM',
+        'Kỹ thuật dẫn lưu bạch huyết chuyên sâu dành riêng cho mẹ sau sinh, hỗ trợ hồi phục nhanh chóng.',
+        'Kỹ thuật dẫn lưu bạch huyết chuyên sâu dành riêng cho mẹ sau sinh: hỗ trợ hồi phục cơ thể nhanh chóng, giảm phù nề chi dưới, thông tắc tia sữa và săn chắc phục hồi vóc dáng an toàn.',
+        'INTERMEDIATE',
+        48,
+        16,
+        32,
+        8,
+        10000000.00,
+        2000000.00,
+        'Chứng nhận Chuyên đề MLD Chăm Sóc Mẹ Sau Sinh',
+        'assets/images/DaoTao/Khoá học Chuyên đề CHĂM SÓC MẸ SAU SINH 10.000.000.jpg',
+        TRUE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000002',
+        '20202020-0001-0001-0001-000000000002',
+        '10101010-0001-0001-0001-000000000001',
+        'DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI LÀM NGHỀ - Level 1',
+        'MLD-PRO-BAS',
+        'Chuẩn hóa kỹ thuật dẫn lưu bạch huyết thủ công Vodder quốc tế với áp lực 30-40 mmHg.',
+        'Chuẩn hóa kỹ thuật dẫn lưu bạch huyết thủ công Vodder quốc tế với áp lực 30-40 mmHg. Đào tạo cầm tay chỉ việc, ứng dụng ngay vào cơ sở chăm sóc sức khỏe.',
+        'INTERMEDIATE',
+        72,
+        24,
+        48,
+        12,
+        15000000.00,
+        3000000.00,
+        'Chứng chỉ Hành nghề Dẫn lưu Bạch huyết - Level 1',
+        'assets/images/DaoTao/Dẫn lưu bạch huyết cơ bản cho người làm nghề 15.000.000.jpg',
+        TRUE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000006',
+        '20202020-0001-0001-0001-000000000002',
+        '10101010-0001-0001-0001-000000000001',
+        'DẪN LƯU BẠCH HUYẾT NÂNG CAO CHO NGƯỜI LÀM NGHỀ - Level 2',
+        'MLD-PRO-ADV',
+        'Kỹ thuật can thiệp sâu các trường hợp phù bạch huyết phức tạp, điều trị phục hồi sau phẫu thuật.',
+        'Kỹ thuật can thiệp sâu các trường hợp phù bạch huyết phức tạp, điều trị phục hồi sau phẫu thuật thẩm mỹ và tạo hình, nạo vét hạch hoặc xạ trị.',
+        'ADVANCED',
+        96,
+        32,
+        64,
+        16,
+        25000000.00,
+        5000000.00,
+        'Chứng chỉ MLD Nâng cao - Level 2',
+        'assets/images/DaoTao/Dẫn lưu bạch huyết nâng cao cho người làm nghề 25.000.000.jpg',
+        FALSE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000010',
+        '20202020-0001-0001-0001-000000000002',
+        '10101010-0001-0001-0001-000000000001',
+        'DẪN LƯU BẠCH HUYẾT CHUYÊN SÂU CHO NGƯỜI LÀM NGHỀ - Level 3',
+        'MLD-PRO-INTENSIVE',
+        'Kỹ thuật can thiệp lâm sàng chuyên sâu, xử lý các ca phù bạch huyết nguyên phát và thứ phát mức độ nặng.',
+        'Kỹ thuật can thiệp lâm sàng chuyên sâu, xử lý các ca phù bạch huyết nguyên phát và thứ phát mức độ nặng, xây dựng phác đồ cá nhân hóa chuẩn quốc tế.',
+        'ADVANCED',
+        120,
+        40,
+        80,
+        20,
+        35000000.00,
+        7000000.00,
+        'Chứng chỉ Chuyên gia MLD Lâm Sàng - Level 3',
+        'assets/images/DaoTao/Dẫn lưu bạch huyết chuyên sâu cho người làm nghề.jpg',
+        TRUE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000007',
+        '20202020-0001-0001-0001-000000000002',
+        '10101010-0001-0001-0001-000000000001',
+        'GIẢM PHÙ BẰNG DẪN LƯU BẠCH HUYẾT VÀ BĂNG ÉP CDT',
+        'MLD-CDT-SPEC',
+        'Liệu pháp phức hợp giảm ứ trệ dịch (CDT): phối hợp kỹ thuật xoa bóp dẫn lưu Vodder và băng ép nhiều lớp.',
+        'Liệu pháp phức hợp giảm ứ trệ dịch (CDT): phối hợp kỹ thuật xoa bóp dẫn lưu Vodder và nghệ thuật băng ép nhiều lớp phân tầng áp lực chuẩn y học.',
+        'ADVANCED',
+        120,
+        40,
+        80,
+        20,
+        30000000.00,
+        6000000.00,
+        'Chứng chỉ Chuyên gia Băng ép Phức hợp CDT',
+        'assets/images/DaoTao/Giảm phù bằng dẫn lưu bạch huyết và băng ép CDT 30.000.000.webp',
+        FALSE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000011',
+        '20202020-0001-0001-0001-000000000002',
+        '10101010-0001-0001-0001-000000000001',
+        'Chương trình: PHÁT TRIỂN GIẢNG VIÊN VÀ HỌC THUẬT',
+        'MLD-TRAIN-THE-TRAINER',
+        'Bồi dưỡng năng lực sư phạm, phương pháp biên soạn giáo trình và chuẩn hóa kỹ năng giảng dạy lâm sàng.',
+        'Chương trình bồi dưỡng năng lực sư phạm, phương pháp biên soạn giáo trình và chuẩn hóa kỹ năng sư phạm lâm sàng dành cho các chuyên gia MLD hướng tới vai trò giảng viên.',
+        'MASTER',
+        140,
+        50,
+        90,
+        24,
+        35000000.00,
+        7000000.00,
+        'Chứng nhận Giảng viên Đào tạo MLD Quốc Tế',
+        'assets/images/DaoTao/Chương trình phát triển giảng viên và học thuật 35.000.000.jpg',
+        FALSE
+    ),
+    (
+        '30303030-0001-0001-0001-000000000008',
+        '20202020-0001-0001-0001-000000000002',
+        '10101010-0001-0001-0001-000000000001',
+        'LYMPHATIC WELLNESS SIGNATURE PROGRAM',
+        'MLD-SIGNATURE',
+        'Chuyển giao độc quyền mô hình Lymphatic Wellness chuẩn quốc tế cho chủ Spa & Clinic.',
+        'Chương trình chuyển giao công nghệ cao cấp nhất của MLD Việt Nam: thiết lập quy trình vận hành Spa trị liệu chuyên nghiệp, đào tạo toàn bộ nhân sự và chứng nhận nhượng quyền thương hiệu.',
+        'MASTER',
+        200,
+        60,
+        140,
+        30,
+        350000000.00,
+        50000000.00,
+        'Chứng nhận Chuyển giao Thương hiệu Lymphatic Signature',
+        'assets/images/DaoTao/LYMPHATIC WELLNESS SIGNATURE PROGRAM 350.000.000.jpg',
+        TRUE
+    )
+ON CONFLICT (id) DO UPDATE SET 
+    title = EXCLUDED.title,
+    code = EXCLUDED.code,
+    tuition_fee = EXCLUDED.tuition_fee,
+    deposit_amount = EXCLUDED.deposit_amount,
+    image_url = EXCLUDED.image_url,
+    short_description = EXCLUDED.short_description,
+    full_description = EXCLUDED.full_description;`;
+
+if (targetRegex.test(content)) {
+  content = content.replace(targetRegex, replacement);
+  fs.writeFileSync(filePath, content, 'utf8');
+  console.log('Successfully updated seeds.sql');
+} else {
+  console.error('Target regex not matched in seeds.sql');
+  process.exit(1);
+}
+

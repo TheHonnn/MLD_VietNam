@@ -5,9 +5,16 @@ import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import 'e03_course_detail_screen.dart';
 
-/// Screen E01: Trang Đào tạo & Danh mục khóa học chuẩn Y khoa
-/// - Áp dụng thiết kế đồng bộ với Trang Tài liệu:
-///   + Header gồm AppBar trắng, ô tìm kiếm, thanh lọc danh mục ngang
+enum AcademyFilterExpanded { audience, need }
+
+/// Screen E01: Trang Khám phá & Đào tạo Chuẩn Y khoa MLD Việt Nam
+/// - Dưới ô tìm kiếm có 2 nút chọn: [ Đối tượng ▼ ] và [ Nhu cầu ▼ ]
+/// - Mặc định: Để tất cả, không sổ danh sách lọc
+/// - Click vào nút "Đối tượng" -> Sổ ra danh sách các đối tượng để chọn và lọc
+/// - Click vào nút "Nhu cầu" -> Sổ ra danh sách các nhu cầu để chọn và lọc
+/// - Click lại vào nút -> Thu gọn lại
+/// - Thẻ khóa học hiển thị ảnh từ thư mục assets/images/DaoTao/
+/// - Đồng bộ chuẩn thiết kế Trang Tài liệu:
 ///   + Không bo viền lồng chéo, bo viền vuông tròn nhẹ 8px
 ///   + 100% phông chữ Montserrat, màu sắc xanh dương #2860EB, không dùng xanh lá
 class E01AcademyHomeScreen extends StatefulWidget {
@@ -31,21 +38,33 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   List<CourseModel> _allCourses = MockAcademyData.courses;
   bool _isLoading = false;
 
-  // Thanh danh mục lọc ngang (Đồng bộ chuẩn Trang Tài liệu)
-  static const List<String> _courseCategories = [
-    'Tất cả',
+  // Trạng thái mở rộng bộ lọc: mặc định là null (thu gọn, hiển thị tất cả)
+  AcademyFilterExpanded? _expandedFilter;
+
+  // Danh mục lọc Đối tượng
+  static const List<String> _audienceCategories = [
+    'Tất cả đối tượng',
     'Người mới bắt đầu',
     'Người đang làm nghề',
     'Kỹ thuật viên XBBH/VLTL',
     'Y tế & Phục hồi',
   ];
-  String _selectedCategory = 'Tất cả';
+  String _selectedAudience = 'Tất cả đối tượng';
+
+  // Danh mục lọc Nhu cầu
+  static const List<String> _needCategories = [
+    'Tất cả nhu cầu',
+    'Kiến thức nền tảng & Tự chăm sóc',
+    'Tích hợp dịch vụ mới',
+    'Mở cơ sở chăm sóc',
+  ];
+  String _selectedNeed = 'Tất cả nhu cầu';
 
   @override
   void initState() {
     super.initState();
     if (widget.initialGroup != null && widget.initialGroup!.isNotEmpty) {
-      _selectedCategory = widget.initialGroup!;
+      _selectedAudience = widget.initialGroup!;
     }
     _loadCourses();
   }
@@ -58,7 +77,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
 
   void filterByGroup(String group) {
     setState(() {
-      _selectedCategory = group;
+      _selectedAudience = group;
     });
   }
 
@@ -77,18 +96,34 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     return _allCourses.where((c) {
-      // Lọc theo danh mục ngang
-      if (_selectedCategory != 'Tất cả') {
-        final groupText = c.courseGroup.toLowerCase();
-        final catText = c.category.toLowerCase();
-        final filterText = _selectedCategory.toLowerCase();
-        final matches = groupText.contains(filterText) ||
-            catText.contains(filterText) ||
-            c.targetAudience.toLowerCase().contains(filterText);
-        if (!matches) return false;
+      // 1. Lọc theo Đối tượng
+      if (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả') {
+        final aud = _selectedAudience.toLowerCase();
+        final matchesAudience = c.targetAudience.toLowerCase().contains(aud) ||
+            c.courseGroup.toLowerCase().contains(aud) ||
+            c.category.toLowerCase().contains(aud);
+        if (!matchesAudience) return false;
       }
 
-      // Lọc theo ô tìm kiếm
+      // 2. Lọc theo Nhu cầu
+      if (_selectedNeed != 'Tất cả nhu cầu' && _selectedNeed != 'Tất cả') {
+        final need = _selectedNeed.toLowerCase();
+        bool matchesNeed = c.targetNeed.toLowerCase().contains(need);
+        if (!matchesNeed) {
+          if (need.contains('nền tảng') || need.contains('tự chăm sóc')) {
+            matchesNeed = c.targetNeed.toLowerCase().contains('nền tảng') ||
+                c.targetNeed.toLowerCase().contains('chăm sóc cơ bản');
+          } else if (need.contains('dịch vụ mới') || need.contains('tích hợp')) {
+            matchesNeed = c.targetNeed.toLowerCase().contains('dịch vụ mới');
+          } else if (need.contains('mở cơ sở') || need.contains('mở spa')) {
+            matchesNeed = c.targetNeed.toLowerCase().contains('mở cơ sở') ||
+                c.targetNeed.toLowerCase().contains('mở spa');
+          }
+        }
+        if (!matchesNeed) return false;
+      }
+
+      // 3. Lọc theo ô tìm kiếm
       if (query.isNotEmpty) {
         final matchTitle = c.title.toLowerCase().contains(query);
         final matchDesc = c.description.toLowerCase().contains(query);
@@ -133,7 +168,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
             // 1. Ô tìm kiếm khóa học
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.surfaceMuted,
@@ -172,47 +207,238 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
               ),
             ),
 
-            // 2. Thanh lọc danh mục ngang (Đồng bộ chuẩn Trang Tài liệu)
+            // 2. Hai nút bộ lọc: [ Đối tượng ▼ ] và [ Nhu cầu ▼ ]
+            // Mặc định hiển thị Tất cả. Click vào nút nào sẽ mở danh sách nút đó để chọn.
             Container(
               color: Colors.white,
-              height: 48,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                scrollDirection: Axis.horizontal,
-                itemCount: _courseCategories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final cat = _courseCategories[index];
-                  final isSelected = cat == _selectedCategory;
-                  return InkWell(
-                    onTap: () => setState(() => _selectedCategory = cat),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.border,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (_expandedFilter == AcademyFilterExpanded.audience) {
+                            _expandedFilter = null; // Thu gọn
+                          } else {
+                            _expandedFilter = AcademyFilterExpanded.audience; // Mở ra
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _expandedFilter == AcademyFilterExpanded.audience
+                              ? AppColors.primaryLight
+                              : AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _expandedFilter == AcademyFilterExpanded.audience ||
+                                    (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả')
+                                ? AppColors.primary
+                                : AppColors.border,
+                            width: 1.2,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        cat.tr(context),
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 13.5,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.people_alt_outlined,
+                              size: 16,
+                              color: _expandedFilter == AcademyFilterExpanded.audience ||
+                                      (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả')
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _selectedAudience == 'Tất cả đối tượng' || _selectedAudience == 'Tất cả'
+                                    ? context.tr('Đối tượng', 'Target Audience')
+                                    : _selectedAudience.tr(context),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _expandedFilter == AcademyFilterExpanded.audience ||
+                                          (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả')
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _expandedFilter == AcademyFilterExpanded.audience
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: _expandedFilter == AcademyFilterExpanded.audience
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (_expandedFilter == AcademyFilterExpanded.need) {
+                            _expandedFilter = null; // Thu gọn
+                          } else {
+                            _expandedFilter = AcademyFilterExpanded.need; // Mở ra
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _expandedFilter == AcademyFilterExpanded.need
+                              ? AppColors.primaryLight
+                              : AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _expandedFilter == AcademyFilterExpanded.need ||
+                                    (_selectedNeed != 'Tất cả nhu cầu' && _selectedNeed != 'Tất cả')
+                                ? AppColors.primary
+                                : AppColors.border,
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline,
+                              size: 16,
+                              color: _expandedFilter == AcademyFilterExpanded.need ||
+                                      (_selectedNeed != 'Tất cả nhu cầu' && _selectedNeed != 'Tất cả')
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _selectedNeed == 'Tất cả nhu cầu' || _selectedNeed == 'Tất cả'
+                                    ? context.tr('Nhu cầu', 'Learning Needs')
+                                    : _selectedNeed.tr(context),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _expandedFilter == AcademyFilterExpanded.need ||
+                                          (_selectedNeed != 'Tất cả nhu cầu' && _selectedNeed != 'Tất cả')
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _expandedFilter == AcademyFilterExpanded.need
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: _expandedFilter == AcademyFilterExpanded.need
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+
+            // 3. Khung sổ xuống các tùy chọn (Chỉ hiện khi click vào nút Đối tượng hoặc Nhu cầu)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              child: _expandedFilter == null
+                  ? const SizedBox.shrink()
+                  : Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF8FAFC),
+                        border: Border(
+                          bottom: BorderSide(color: AppColors.border),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _expandedFilter == AcademyFilterExpanded.audience
+                                ? context.tr('Chọn đối tượng đào tạo:', 'Select target audience:')
+                                : context.tr('Chọn nhu cầu học tập:', 'Select learning need:'),
+                            style: const TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: (_expandedFilter == AcademyFilterExpanded.audience
+                                    ? _audienceCategories
+                                    : _needCategories)
+                                .map((cat) {
+                              final isSelected = _expandedFilter == AcademyFilterExpanded.audience
+                                  ? cat == _selectedAudience
+                                  : cat == _selectedNeed;
+                              return InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    if (_expandedFilter == AcademyFilterExpanded.audience) {
+                                      _selectedAudience = cat;
+                                    } else {
+                                      _selectedNeed = cat;
+                                    }
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? AppColors.primary : Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isSelected ? AppColors.primary : AppColors.border,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    cat.tr(context),
+                                    style: TextStyle(
+                                      fontFamily: 'Montserrat',
+                                      fontSize: 12.5,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isSelected ? Colors.white : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
             const Divider(height: 1, color: AppColors.border),
 
-            // 3. Danh sách khóa học
+            // 4. Danh sách khóa học
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -249,6 +475,31 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                           color: AppColors.textPlaceholder,
                                         ),
                                       ),
+                                      const SizedBox(height: 16),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedAudience = 'Tất cả đối tượng';
+                                            _selectedNeed = 'Tất cả nhu cầu';
+                                            _expandedFilter = null;
+                                            _searchController.clear();
+                                          });
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          context.tr('Đặt lại bộ lọc', 'Reset filter'),
+                                          style: const TextStyle(
+                                            fontFamily: 'Montserrat',
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -273,7 +524,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
 }
 
 /// Thẻ Khóa học hiển thị đúng theo ảnh mô tả:
-/// - Ảnh trên cùng kèm Badge giảm giá (-90%) và Số lượng buổi học (▶ 6 buổi học)
+/// - Ảnh trên cùng từ assets/images/DaoTao/ hoặc network/asset kèm Badge giảm giá (-90%) và Số lượng buổi học (▶ 6 buổi học)
 /// - Tiêu đề đen in đậm, bấm vào chuyển sang màu xanh dương #2860EB (không dùng xanh lá)
 /// - Giá tiền sau giảm (xanh dương #2860EB) và Giá gốc gạch ngang (xám)
 /// - Nút "Chi tiết →" màu trắng xám, bấm vào chuyển sang xanh dương #2860EB
@@ -295,6 +546,44 @@ class _CourseCardItemState extends State<_CourseCardItem> {
     final str = integerAmount.toString();
     final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
     return str.replaceAllMapped(reg, (Match m) => '${m[1]}.');
+  }
+
+  String _resolveCourseImage(CourseModel course) {
+    final t = course.title.toLowerCase();
+    if (t.contains('lymphatic wellness signature program')) {
+      return 'assets/images/DaoTao/LYMPHATIC WELLNESS SIGNATURE PROGRAM 350.000.000.jpg';
+    }
+    if (t.contains('phát triển giảng viên')) {
+      return 'assets/images/DaoTao/Chương trình phát triển giảng viên và học thuật 35.000.000.jpg';
+    }
+    if (t.contains('chuyên sâu') && (t.contains('làm nghề') || t.contains('người làm nghề'))) {
+      return 'assets/images/DaoTao/Dẫn lưu bạch huyết chuyên sâu cho người làm nghề.jpg';
+    }
+    if (t.contains('nâng cao') && (t.contains('làm nghề') || t.contains('người làm nghề'))) {
+      return 'assets/images/DaoTao/Dẫn lưu bạch huyết nâng cao cho người làm nghề 25.000.000.jpg';
+    }
+    if (t.contains('cơ bản') && (t.contains('làm nghề') || t.contains('người làm nghề'))) {
+      return 'assets/images/DaoTao/Dẫn lưu bạch huyết cơ bản cho người làm nghề 15.000.000.jpg';
+    }
+    if (t.contains('nền tảng') || (t.contains('người mới bắt đầu') && (t.contains('599') || t.contains('level 0')))) {
+      return 'assets/images/DaoTao/Dẫn lưu bạch huyết nền tảng cho người mới bắt đầu 599.000.jpg';
+    }
+    if (t.contains('giảm phù') && (t.contains('băng ép') || t.contains('cdt'))) {
+      return 'assets/images/DaoTao/Giảm phù bằng dẫn lưu bạch huyết và băng ép CDT 30.000.000.webp';
+    }
+    if (t.contains('chế độ ăn') || (t.contains('tuyến vú') && t.contains('phòng ngừa bệnh lý'))) {
+      return 'assets/images/DaoTao/HƯỚNG DẪN XÂY DỰNG CHẾ ĐỘ ĂN PHÒNG NGỪA BỆNH LÝ TUYẾN VÚ 350.000.jpg';
+    }
+    if (t.contains('mẹ sau sinh')) {
+      return 'assets/images/DaoTao/Khoá học Chuyên đề CHĂM SÓC MẸ SAU SINH 10.000.000.jpg';
+    }
+    if (t.contains('phù tay') || t.contains('ung thư vú') || (t.contains('tuyến vú') && t.contains('350.000'))) {
+      return 'assets/images/DaoTao/Khóa học Hướng dẫn phòng ngừa phù tay sau phẫu thuật ung thư vú 350.000.jpg';
+    }
+    if (course.image.isNotEmpty && !course.image.contains('gioithieu_1.png')) {
+      return course.image;
+    }
+    return 'assets/images/course_banner_clean.png';
   }
 
   void _navigateToDetail() {
@@ -348,7 +637,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                     width: double.infinity,
                     height: 185,
                     child: Image.asset(
-                      course.image,
+                      _resolveCourseImage(course),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         color: AppColors.primaryLight,

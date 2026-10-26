@@ -3,15 +3,21 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/service_repository.dart';
 import '../../../home/presentation/widgets/vodder_service_card.dart';
 
+enum ServiceFilterExpanded { service, branch }
+
 /// Screen B02: Trang Danh mục dịch vụ chuẩn Y khoa MLD Việt Nam
-/// - Áp dụng thiết kế đồng bộ với Trang Tài liệu:
-///   + Header gồm AppBar trắng, ô tìm kiếm, thanh lọc danh mục ngang
-///   + Không bo viền lồng chéo, bo viền vuông tròn nhẹ 8px
-///   + Không chữ thừa dưới tiêu đề dịch vụ chính
-///   + 100% phông chữ Montserrat, màu sắc xanh dương #2860EB, không dùng xanh lá
+/// - Dưới ô tìm kiếm có 2 nút chọn: [ Dịch vụ ] và [ Cơ sở ]
+/// - Mặc định: Để tất cả, không sổ danh sách lọc
+/// - Click vào nút "Dịch vụ" -> Sổ ra danh sách các dịch vụ để chọn và lọc
+/// - Click vào nút "Cơ sở" -> Sổ ra danh sách các cơ sở để chọn và lọc
+/// - Click lại vào nút -> Thu gọn lại
+/// - Thiết kế đồng bộ chuẩn Trang Tài liệu:
+///   + Bo viền vuông tròn nhẹ 8px
+///   + 100% phông chữ Montserrat, màu sắc xanh dương #2860EB
 class B02ServiceListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final String? initialQuery;
@@ -31,7 +37,10 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   bool _isLoading = false;
   SpaServiceModel? _coreService;
 
-  // Danh mục lọc dịch vụ ngang chuẩn
+  // Trạng thái mở rộng bộ lọc: mặc định là null (thu gọn, hiển thị tất cả)
+  ServiceFilterExpanded? _expandedFilter;
+
+  // Danh mục lọc dịch vụ
   static const List<String> _serviceCategories = [
     'Tất cả dịch vụ',
     'Dẫn lưu Bạch huyết Giảm phù',
@@ -41,7 +50,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     'Dẫn lưu chân',
     'Dẫn lưu bụng',
   ];
-  String _selectedCategory = 'Tất cả dịch vụ';
+  String _selectedServiceCategory = 'Tất cả dịch vụ';
+
+  // Danh mục lọc cơ sở
+  List<BranchModel> _branches = [];
+  String _selectedBranch = 'Tất cả cơ sở';
 
   @override
   void initState() {
@@ -50,6 +63,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       _searchController.text = widget.initialQuery!.trim();
     }
     _loadCoreServiceFromDb();
+    _loadBranches();
   }
 
   @override
@@ -69,18 +83,51 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }
   }
 
+  Future<void> _loadBranches() async {
+    var list = BranchRepository.instance.cachedBranches;
+    if (list.isEmpty) {
+      list = await BranchRepository.instance.getBranches();
+    }
+    if (mounted) {
+      setState(() {
+        _branches = list;
+      });
+    }
+  }
+
   bool get _isServiceMatch {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return true;
 
-    final serviceName = (_coreService?.name ?? 'Điều trị dẫn lưu phù bạch huyết').toLowerCase();
-    final filterText = _selectedCategory.toLowerCase();
+    // 1. Lọc theo Dịch vụ đã chọn
+    if (_selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả') {
+      final serviceName = (_coreService?.name ?? 'Điều trị dẫn lưu phù bạch huyết').toLowerCase();
+      final filterText = _selectedServiceCategory.toLowerCase();
+      final matchesService = serviceName.contains(filterText) ||
+          'bạch huyết'.contains(filterText) ||
+          'vodder'.contains(filterText) ||
+          'phù'.contains(filterText);
+      if (!matchesService) return false;
+    }
 
-    return serviceName.contains(query) ||
-        filterText.contains(query) ||
-        'bạch huyết'.contains(query) ||
-        'vodder'.contains(query) ||
-        'phù'.contains(query);
+    // 2. Lọc theo Cơ sở đã chọn
+    if (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả') {
+      // Dịch vụ Vodder có mặt ở tất cả các cơ sở chính thức
+    }
+
+    // 3. Lọc theo từ khóa tìm kiếm
+    if (query.isNotEmpty) {
+      final serviceName = (_coreService?.name ?? 'Điều trị dẫn lưu phù bạch huyết').toLowerCase();
+      final filterText = _selectedServiceCategory.toLowerCase();
+      final matchesQuery = serviceName.contains(query) ||
+          filterText.contains(query) ||
+          'bạch huyết'.contains(query) ||
+          'vodder'.contains(query) ||
+          'phù'.contains(query) ||
+          _selectedBranch.toLowerCase().contains(query);
+      if (!matchesQuery) return false;
+    }
+
+    return true;
   }
 
   void _handleBooking() {
@@ -125,7 +172,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
             // 1. Ô tìm kiếm dịch vụ
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.surfaceMuted,
@@ -164,47 +211,293 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               ),
             ),
 
-            // 2. Thanh lọc danh mục ngang (Đồng bộ chuẩn Trang Tài liệu)
+            // 2. Hai nút bộ lọc: [ Dịch vụ ▼ ] và [ Cơ sở ▼ ]
+            // Mặc định hiển thị Tất cả. Click vào nút nào sẽ mở danh sách nút đó để chọn.
             Container(
               color: Colors.white,
-              height: 48,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                scrollDirection: Axis.horizontal,
-                itemCount: _serviceCategories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final cat = _serviceCategories[index];
-                  final isSelected = cat == _selectedCategory;
-                  return InkWell(
-                    onTap: () => setState(() => _selectedCategory = cat),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.border,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (_expandedFilter == ServiceFilterExpanded.service) {
+                            _expandedFilter = null; // Thu gọn
+                          } else {
+                            _expandedFilter = ServiceFilterExpanded.service; // Mở ra
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _expandedFilter == ServiceFilterExpanded.service
+                              ? AppColors.primaryLight
+                              : AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _expandedFilter == ServiceFilterExpanded.service ||
+                                    (_selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả')
+                                ? AppColors.primary
+                                : AppColors.border,
+                            width: 1.2,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        cat.tr(context),
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 13.5,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.medical_services_outlined,
+                              size: 16,
+                              color: _expandedFilter == ServiceFilterExpanded.service ||
+                                      (_selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả')
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _selectedServiceCategory == 'Tất cả dịch vụ' || _selectedServiceCategory == 'Tất cả'
+                                    ? context.tr('Dịch vụ', 'Services')
+                                    : _selectedServiceCategory.tr(context),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _expandedFilter == ServiceFilterExpanded.service ||
+                                          (_selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả')
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _expandedFilter == ServiceFilterExpanded.service
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: _expandedFilter == ServiceFilterExpanded.service
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (_expandedFilter == ServiceFilterExpanded.branch) {
+                            _expandedFilter = null; // Thu gọn
+                          } else {
+                            _expandedFilter = ServiceFilterExpanded.branch; // Mở ra
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _expandedFilter == ServiceFilterExpanded.branch
+                              ? AppColors.primaryLight
+                              : AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _expandedFilter == ServiceFilterExpanded.branch ||
+                                    (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả')
+                                ? AppColors.primary
+                                : AppColors.border,
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 16,
+                              color: _expandedFilter == ServiceFilterExpanded.branch ||
+                                      (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả')
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _selectedBranch == 'Tất cả cơ sở' || _selectedBranch == 'Tất cả'
+                                    ? context.tr('Cơ sở', 'Branches')
+                                    : _selectedBranch.tr(context),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _expandedFilter == ServiceFilterExpanded.branch ||
+                                          (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả')
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _expandedFilter == ServiceFilterExpanded.branch
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: _expandedFilter == ServiceFilterExpanded.branch
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+
+            // 3. Khung sổ xuống các tùy chọn (Chỉ hiện khi click vào nút Dịch vụ hoặc Cơ sở)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              child: _expandedFilter == null
+                  ? const SizedBox.shrink()
+                  : Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF8FAFC),
+                        border: Border(
+                          bottom: BorderSide(color: AppColors.border),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _expandedFilter == ServiceFilterExpanded.service
+                                ? context.tr('Chọn loại dịch vụ:', 'Select service type:')
+                                : context.tr('Chọn cơ sở / chi nhánh:', 'Select branch / facility:'),
+                            style: const TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_expandedFilter == ServiceFilterExpanded.service)
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _serviceCategories.map((cat) {
+                                final isSelected = cat == _selectedServiceCategory;
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedServiceCategory = cat;
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? AppColors.primary : Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isSelected ? AppColors.primary : AppColors.border,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      cat.tr(context),
+                                      style: TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 12.5,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            )
+                          else
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                // Nút Tất cả cơ sở
+                                InkWell(
+                                  onTap: () {
+                                    setState(() => _selectedBranch = 'Tất cả cơ sở');
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: _selectedBranch == 'Tất cả cơ sở' ? AppColors.primary : Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: _selectedBranch == 'Tất cả cơ sở' ? AppColors.primary : AppColors.border,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      context.tr('Tất cả cơ sở', 'All Branches'),
+                                      style: TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 12.5,
+                                        fontWeight: _selectedBranch == 'Tất cả cơ sở' ? FontWeight.bold : FontWeight.w500,
+                                        color: _selectedBranch == 'Tất cả cơ sở' ? Colors.white : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Các cơ sở thực tế từ Database
+                                ..._branches.map((b) {
+                                  final isSelected = _selectedBranch == b.name;
+                                  return InkWell(
+                                    onTap: () {
+                                      setState(() => _selectedBranch = b.name);
+                                      BranchRepository.instance.setActiveBranch(b);
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? AppColors.primary : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected ? AppColors.primary : AppColors.border,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        b.name.tr(context),
+                                        style: TextStyle(
+                                          fontFamily: 'Montserrat',
+                                          fontSize: 12.5,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                          color: isSelected ? Colors.white : AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
             ),
             const Divider(height: 1, color: AppColors.border),
 
-            // 3. Danh sách dịch vụ khả dụng
+            // 4. Danh sách dịch vụ khả dụng
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -246,7 +539,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                   ElevatedButton(
                                     onPressed: () {
                                       setState(() {
-                                        _selectedCategory = 'Tất cả dịch vụ';
+                                        _selectedServiceCategory = 'Tất cả dịch vụ';
+                                        _selectedBranch = 'Tất cả cơ sở';
+                                        _expandedFilter = null;
                                         _searchController.clear();
                                       });
                                     },
