@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronDown, type LucideIcon } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+type LucideIcon = React.ComponentType<any>;
 import { Resource } from './api';
 
 export const menuResources: Record<string, string[]> = {

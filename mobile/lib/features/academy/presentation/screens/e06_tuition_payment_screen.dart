@@ -380,7 +380,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
           style: TextStyle(
             fontSize: isTotal ? 18 : 14,
             fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
-            color: isTotal ? AcademyColors.primary : AcademyColors.textPrimary,
+            color: isTotal ? AcademyColors.price : AcademyColors.textPrimary,
           ),
         ),
       ],

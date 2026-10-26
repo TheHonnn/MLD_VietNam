@@ -220,4 +220,37 @@ class SupabaseDataService {
       return [];
     }
   }
+
+  // ==========================================
+  // 10. HỌC LIỆU & BÀI HỌC VIDEO KHÓA HỌC (CURRICULUM)
+  // Lấy danh sách chương và bài học video từ Supabase Cloud
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchCourseCurriculum(String courseId) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+
+    try {
+      final response = await _client.get<List<dynamic>>(
+        '/rest/v1/course_chapters',
+        queryParameters: {
+          'course_id': 'eq.$courseId',
+          'select': '*,course_lessons(*)',
+          'order': 'chapter_order.asc',
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
 }

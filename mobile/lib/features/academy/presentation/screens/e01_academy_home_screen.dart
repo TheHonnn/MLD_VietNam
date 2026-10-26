@@ -743,7 +743,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                       fontFamily: 'Montserrat',
                                       fontSize: 19,
                                       fontWeight: FontWeight.w700,
-                                      color: AppColors.primary,
+                                      color: AppColors.coursePrice,
                                     ),
                                   ),
                                   const TextSpan(
@@ -752,7 +752,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                       fontFamily: 'Montserrat',
                                       fontSize: 19,
                                       fontWeight: FontWeight.w700,
-                                      color: AppColors.primary,
+                                      color: AppColors.coursePrice,
                                       decoration: TextDecoration.underline,
                                     ),
                                   ),

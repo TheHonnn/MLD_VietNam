@@ -414,7 +414,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: AcademyColors.primary,
+                        color: AcademyColors.price,
                       ),
                     ),
                     OutlinedButton(

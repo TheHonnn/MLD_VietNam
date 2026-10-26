@@ -292,7 +292,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                             fontFamily: 'Montserrat',
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF00693F),
+                            color: AppColors.servicePrice,
                           ),
                         ),
                       ],

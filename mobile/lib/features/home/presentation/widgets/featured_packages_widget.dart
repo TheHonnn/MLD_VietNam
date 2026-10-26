@@ -237,7 +237,7 @@ class FeaturedPackagesWidget extends StatelessWidget {
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
-                                      color: AppColors.primary,
+                                      color: AppColors.servicePrice,
                                     ),
                                   ),
                                   const SizedBox(width: 8),

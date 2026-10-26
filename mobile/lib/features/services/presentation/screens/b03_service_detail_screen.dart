@@ -315,7 +315,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
+                                  color: AppColors.servicePrice,
                                 ),
                               ),
                               const SizedBox(width: 14),
@@ -651,7 +651,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+                              color: AppColors.servicePrice,
                             ),
                           ),
                         ],

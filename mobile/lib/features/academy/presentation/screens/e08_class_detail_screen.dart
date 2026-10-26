@@ -1,5 +1,9 @@
+import '../../../../core/constants/app_colors.dart';
+import '../../data/repositories/academy_repository.dart';
+import '../../data/models/academy_models.dart';
 import 'package:flutter/material.dart';
 import '../widgets/academy_widgets.dart';
+import 'e05_enrollment_form_screen.dart';
 import 'e09_lesson_screen.dart';
 import 'e10_quiz_screen.dart';
 import 'e11_attendance_schedule_screen.dart';
@@ -7,7 +11,9 @@ import 'e11_attendance_schedule_screen.dart';
 /// Screen E08: Chi tiết lớp học [8116:25997]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
 class E08ClassDetailScreen extends StatefulWidget {
-  const E08ClassDetailScreen({super.key});
+  final CourseModel? course;
+
+  const E08ClassDetailScreen({super.key, this.course});
 
   @override
   State<E08ClassDetailScreen> createState() => _E08ClassDetailScreenState();
@@ -15,6 +21,154 @@ class E08ClassDetailScreen extends StatefulWidget {
 
 class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
   int _selectedTab = 0; // 0: Nội dung học, 1: Lịch học, 2: Tài liệu
+  List<ChapterModel> _chapters = [];
+  bool _isLoading = false;
+
+  bool get _isEnrolled {
+    if (widget.course == null) return true;
+    return AcademyRepository.instance.isCourseEnrolled(widget.course!.id, widget.course!.title);
+  }
+
+  void _onLessonTap(LessonModel lesson) {
+    if (_isEnrolled || lesson.isFreePreview) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => E09LessonScreen(
+            lesson: lesson,
+            courseTitle: widget.course?.title,
+          ),
+        ),
+      );
+    } else {
+      _showEnrollRequiredModal(lesson);
+    }
+  }
+
+  void _showEnrollRequiredModal(LessonModel lesson) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_outline_rounded, size: 28, color: AppColors.primary),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Yêu cầu đăng ký khóa học',
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Video "${lesson.title}" thuộc nội dung đào tạo chuyên sâu.\n\nBạn cần đăng ký khóa học để mở khóa toàn bộ bài giảng và thực hành lâm sàng.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 13.5,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (widget.course != null)
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => E05EnrollmentFormScreen(course: widget.course!),
+                      ),
+                    ).then((_) {
+                      if (mounted) setState(() {});
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'Đăng ký khóa học ngay',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                'Để sau',
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  color: AppColors.textSecondary,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurriculum();
+  }
+
+  Future<void> _loadCurriculum() async {
+    final courseId = widget.course?.id ?? '30303030-0001-0001-0001-000000000001';
+    setState(() => _isLoading = true);
+    try {
+      final data = await AcademyRepository.instance.getCourseCurriculum(courseId);
+      if (mounted && data.isNotEmpty) {
+        setState(() => _chapters = data);
+      }
+    } catch (_) {} finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +178,21 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
         
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
-        summaryText: 'Bài 05 · Kỹ thuật Massage cơ bản',
+        summaryText: _chapters.isNotEmpty && _chapters[0].lessons.isNotEmpty
+            ? _chapters[0].lessons[0].title
+            : 'Bài 01 · Đại cương hệ bạch huyết Vodder',
         buttonText: 'Tiếp tục bài học',
         onPressed: () {
+          final firstLesson = _chapters.isNotEmpty && _chapters[0].lessons.isNotEmpty
+              ? _chapters[0].lessons[0]
+              : null;
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const E09LessonScreen(),
+              builder: (_) => E09LessonScreen(
+                lesson: firstLesson,
+                courseTitle: widget.course?.title,
+              ),
             ),
           );
         },
@@ -81,9 +243,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Kỹ thuật Massage Chuyên Nghiệp',
-                    style: TextStyle(
+                  Text(
+                    widget.course?.title ?? 'Dẫn lưu bạch huyết Vodder Chuyên Nghiệp',
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.heading,
@@ -180,87 +342,92 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
 
             // 4. Tab 0: Lộ trình chương học [8116:26027]
             if (_selectedTab == 0) ...[
-              // Chương 1 (Expanded)
-              _buildChapterCard(
-                title: 'Chương 1: Giới thiệu nghề Spa',
-                subtitle: '3 bài học · Đã hoàn thành',
-                lessons: [
-                  _buildLessonItem('Bài 1: Tổng quan ngành Spa', 'Video · 12 phút', isDone: true),
-                  _buildLessonItem('Bài 2: Đạo đức & tác phong nghề', 'Video · 15 phút', isDone: true),
-                  _buildLessonItem('Bài 3: Chuẩn bị không gian trị liệu', 'Video · 20 phút', isDone: true),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Chương 2 (Expanded with Active Lesson 5)
-              _buildChapterCard(
-                title: 'Chương 2: Kỹ thuật nền tảng',
-                subtitle: '3 bài học · 1 bài đã hoàn thành',
-                lessons: [
-                  _buildLessonItem('Bài 4: Giải phẫu học ứng dụng', 'Video · 25 phút', isDone: true),
-                  // Lesson 5 - Active
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const E09LessonScreen()),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 8, bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AcademyColors.cardWarm,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.play_circle_fill, color: AcademyColors.primary, size: 24),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+              if (_isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                )
+              else if (_chapters.isNotEmpty) ...[
+                for (final chapter in _chapters)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: _buildChapterCard(
+                      title: chapter.title,
+                      subtitle: '${chapter.lessons.length} bài học video',
+                      lessons: chapter.lessons.map((lesson) {
+                        final canWatch = _isEnrolled || lesson.isFreePreview;
+                        return InkWell(
+                          onTap: () => _onLessonTap(lesson),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                            child: Row(
                               children: [
-                                Text(
-                                  'Bài 05: Kỹ thuật Massage cơ bản',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: AcademyColors.textPrimary,
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: canWatch
+                                        ? AppColors.primary.withValues(alpha: 0.1)
+                                        : Colors.grey.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    canWatch ? Icons.play_arrow_rounded : Icons.lock_outline_rounded,
+                                    color: canWatch ? AppColors.primary : Colors.grey[600],
+                                    size: 20,
                                   ),
                                 ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Video · 18 phút · Tiếp theo',
-                                  style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        lesson.title,
+                                        style: const TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: AcademyColors.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Video · ${lesson.durationMinutes} phút${lesson.isFreePreview ? ' · Học thử' : ''}',
+                                        style: const TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
+                                if (_isEnrolled)
+                                  const Text('Đã mở', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2E8B57)))
+                                else if (lesson.isFreePreview)
+                                  const Text('Học thử ▶', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary))
+                                else
+                                  const Text('Khóa 🔒', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFE11D48))),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.chevron_right, size: 18, color: AcademyColors.textSecondary),
                               ],
                             ),
                           ),
-                          Icon(Icons.chevron_right, color: AcademyColors.primary, size: 20),
-                        ],
-                      ),
+                        );
+                      }).toList(),
                     ),
                   ),
-                  _buildLessonItem('Bài 6: Thao tác xoa vuốt & miết', 'Video · 22 phút', isLocked: true),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              // Chương 3, 4, 5 (Collapsed)
-              _buildCollapsedChapterCard('Chương 3: Kỹ thuật chuyên sâu', '4 bài học · Chưa học'),
-              const SizedBox(height: 8),
-              _buildCollapsedChapterCard('Chương 4: Vệ sinh an toàn & CSKH', '4 bài học · Chưa học'),
-              const SizedBox(height: 8),
-              _buildCollapsedChapterCard('Chương 5: Thực hành lâm sàng & đánh giá', '6 bài học · Chưa học'),
-              const SizedBox(height: 8),
-              const Center(
-                child: Text(
-                  'Tổng cộng 20 bài học trong 5 chương.',
-                  style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
+              ] else ...[
+                _buildChapterCard(
+                  title: 'Chương 1: Giới thiệu nghề Spa & Dẫn lưu Vodder',
+                  subtitle: '3 bài học',
+                  lessons: [
+                    _buildLessonItem('Bài 1: Tổng quan phương pháp Vodder', 'Video · 18 phút', isDone: true),
+                    _buildLessonItem('Bài 2: Giải phẫu hệ bạch huyết', 'Video · 24 phút', isDone: true),
+                    _buildLessonItem('Bài 3: Thao tác vòng xoay tĩnh', 'Video · 20 phút', isDone: false),
+                  ],
                 ),
-              ),
+              ],
               const SizedBox(height: 24),
 
               // 5. Bài học tiếp theo [8116:26047]
@@ -590,42 +757,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
           ),
           const SizedBox(height: 12),
           ...lessons,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCollapsedChapterCard(String title, String subtitle) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AcademyColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
-              ),
-            ],
-          ),
-          const Icon(Icons.keyboard_arrow_down, color: AcademyColors.textSecondary),
         ],
       ),
     );

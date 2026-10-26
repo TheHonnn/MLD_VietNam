@@ -402,7 +402,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const E08ClassDetailScreen()),
+                  MaterialPageRoute(builder: (_) => E08ClassDetailScreen(course: course)),
                 );
               },
               style: ElevatedButton.styleFrom(

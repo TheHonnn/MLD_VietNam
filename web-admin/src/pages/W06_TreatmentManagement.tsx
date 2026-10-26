@@ -786,7 +786,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                         <div className="font-bold text-xs text-[#2C241E] whitespace-nowrap">
                           {pkg.name}
                         </div>
-                        <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
+                        <div className="text-[11px] font-semibold text-[#E11D48] mt-0.5 whitespace-nowrap">
                           {pkg.price}
                         </div>
                       </td>
@@ -815,7 +815,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                         <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
                           {pkg.purchaseDate}
                         </div>
-                        <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
+                        <div className="text-[11px] font-semibold text-[#E11D48] mt-0.5 whitespace-nowrap">
                           {pkg.expiryDate}
                         </div>
                       </td>

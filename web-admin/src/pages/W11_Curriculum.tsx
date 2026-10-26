@@ -1,3 +1,4 @@
+import { CourseCurriculumModal } from '../components/academy/CourseCurriculumModal';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
@@ -98,6 +99,7 @@ export const W11_Curriculum: React.FC = () => {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [courseGroupFilter, setCourseGroupFilter] = useState<'all' | 'new_learner' | 'advanced_ktv'>('all');
+  const [isCurriculumModalOpen, setIsCurriculumModalOpen] = useState<boolean>(false);
   const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
   const [isVideoSecurityModalOpen, setIsVideoSecurityModalOpen] = useState<boolean>(false);
   const [isWatermarkActive, setIsWatermarkActive] = useState<boolean>(true);
@@ -268,6 +270,13 @@ export const W11_Curriculum: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setIsCurriculumModalOpen(true)}
+            className="px-4 py-2.5 bg-[#2860EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <PlayCircle className="w-4 h-4 text-white" />
+            Học liệu & Video YouTube
+          </button>
           <button
             onClick={() => setIsQuizModalOpen(true)}
             className="px-3.5 py-2.5 bg-white border border-[#D7BBA6] hover:bg-[#FAF5EF] text-[#8D4B1A] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
@@ -1248,6 +1257,14 @@ export const W11_Curriculum: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    
+      {/* Modal Quản lý Học liệu & Video Bài giảng YouTube */}
+      <CourseCurriculumModal
+        isOpen={isCurriculumModalOpen}
+        onClose={() => setIsCurriculumModalOpen(false)}
+        courses={liveCourses}
+        onSuccessToast={showToast}
+      />
+</div>
   );
 };

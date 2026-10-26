@@ -1,3 +1,5 @@
+import '../widgets/mld_youtube_player.dart';
+import '../../data/models/academy_models.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/academy_widgets.dart';
@@ -7,7 +9,14 @@ import 'e10_quiz_screen.dart';
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
 /// Tích hợp cơ chế bảo mật video, Watermark động chống quay/chụp màn hình (Điểm 52 - 65)
 class E09LessonScreen extends StatefulWidget {
-  const E09LessonScreen({super.key});
+  final LessonModel? lesson;
+  final String? courseTitle;
+
+  const E09LessonScreen({
+    super.key,
+    this.lesson,
+    this.courseTitle,
+  });
 
   @override
   State<E09LessonScreen> createState() => _E09LessonScreenState();
@@ -15,7 +24,6 @@ class E09LessonScreen extends StatefulWidget {
 
 class _E09LessonScreenState extends State<E09LessonScreen> {
   int _selectedTab = 0; // 0: Nội dung, 1: Tài liệu, 2: Ghi chú
-  bool _isPlaying = false;
   bool _isCompleted = false;
 
   Timer? _watermarkTimer;
@@ -73,9 +81,9 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                 onPressed: () {
                   setState(() => _isCompleted = true);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã ghi nhận hoàn thành Bài 05!'),
-                      duration: Duration(seconds: 2),
+                    SnackBar(
+                      content: Text('Đã ghi nhận hoàn thành bài học: ${widget.lesson?.title ?? "Bài giảng MLD"}!'),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 },
@@ -142,130 +150,42 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2. Video Player [8116:26144] (350x197, r=16)
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+            // 2. Video Player YouTube In-App
+            if (widget.lesson?.isFreePreview == true)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: AcademyColors.primary, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Bạn đang xem video học thử miễn phí. Hãy đăng ký khóa học để xem trọn bộ bài giảng và học liệu chuyên sâu.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1E40AF),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                    'assets/images/academy_hero_classroom.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFF1E293B),
-                      child: const Center(
-                        child: Icon(Icons.play_circle_fill, size: 60, color: Colors.white70),
-                      ),
-                    ),
-                  ),
 
-                  // Nút Play ở giữa
-                  Center(
-                    child: InkWell(
-                      onTap: () => setState(() => _isPlaying = !_isPlaying),
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: AcademyColors.primary,
-                          size: 28,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Thanh điều khiển phát video phía dưới
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      color: const Color(0xFF1E293B).withValues(alpha: 0.9),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: const LinearProgressIndicator(
-                              value: 0.18,
-                              minHeight: 3,
-                              backgroundColor: Colors.white24,
-                              valueColor: AlwaysStoppedAnimation<Color>(AcademyColors.primary),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.pause, color: Colors.white, size: 16),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    '03:20 / 18:00',
-                                    style: TextStyle(color: Colors.white, fontSize: 11),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  Text(
-                                    '1x',
-                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Icon(Icons.fullscreen, color: Colors.white, size: 18),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Watermark động di chuyển bảo mật bản quyền (Điểm 55, 56, 57, 60)
-                  IgnorePointer(
-                    child: AnimatedAlign(
-                      duration: const Duration(seconds: 1),
-                      curve: Curves.easeInOut,
-                      alignment: _watermarkAlignments[_watermarkPositionIndex],
-                      child: Container(
-                        margin: const EdgeInsets.all(12),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'Nguyễn Minh Anh · 0912***678 · MLD Vodder DRM',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            MldYoutubePlayer(
+              videoUrl: widget.lesson?.videoUrl ?? 'https://www.youtube.com/watch?v=QA-xR_E24G8',
+              title: widget.lesson?.title ?? 'Bài 01: Đại cương hệ bạch huyết & Phương pháp Vodder',
+              onVideoEnded: () {
+                setState(() => _isCompleted = true);
+              },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
             // Huy hiệu bảo mật video MLD DRM (Điểm 52, 53, 58, 59, 64)
             Container(
@@ -295,27 +215,27 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             const SizedBox(height: 16),
 
             // 3. Thông tin bài học [8116:26152]
-            const Text(
-              'Chương 2 · Video 18 phút',
-              style: TextStyle(
+            Text(
+              'Video ${widget.lesson?.durationMinutes ?? 18} phút',
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.primary,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Bài 05: Kỹ thuật Massage cơ bản',
-              style: TextStyle(
+            Text(
+              widget.lesson?.title ?? 'Bài 01: Đại cương hệ bạch huyết & Phương pháp Vodder',
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Kỹ thuật Massage Chuyên Nghiệp',
-              style: TextStyle(fontSize: 14, color: AcademyColors.textPrimary),
+            Text(
+              widget.courseTitle ?? 'Học viện MLD Việt Nam',
+              style: const TextStyle(fontSize: 14, color: AcademyColors.textPrimary),
             ),
             const SizedBox(height: 2),
             const Text(
