@@ -28,6 +28,7 @@ import {sharedContent,sharedContentDetail,sharedContentEdit,manageSharedContent,
 import {accountSession,accountSessions,revokeSession,revokeOtherSessions} from './account-sessions.js';
 import {lessonMedia} from './lesson-media.js';
 import {portalContent,portalContentDetail} from './portal-content.js';
+import {staffClassSchedules,attendanceCode,recordAttendance} from './attendance.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -291,7 +292,7 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['class-attendance-v1','unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
   }));
 
   app.get('/api/app-metadata', route(async (_req,res) => {
@@ -752,6 +753,13 @@ export function createApp(store: Store, options: AppOptions) {
       return (await enrollments(tx,customerId)).find(item=>item.id === entry.id);
     });
     return success(res,{enrollment:saved},201);
+  }));
+
+  app.get('/api/staff/class-schedules',route(async (_req,res)=>success(res,{schedules:await staffClassSchedules(store,res.locals.userId)})));
+  app.get('/api/staff/class-schedules/:id/attendance-code',route(async (req,res)=>success(res,await attendanceCode(store,res.locals.userId,uuid(req.params.id),options.jwtSecret))));
+  app.post('/api/courses/:id/attendance',route(async (req,res)=>{
+    const attendance=await recordAttendance(store,res.locals.userId,uuid(req.params.id),uuid(req.body.enrollmentId),req.body.content,options.jwtSecret);
+    return success(res,{attendance});
   }));
 
   app.get('/api/courses/:id/learning',route(async (req,res)=>{

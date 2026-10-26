@@ -2,6 +2,7 @@ import React from 'react';
 import type {CustomerSection,StaffDashboard} from '@/types/staff';
 import {CalendarIcon,UserCheckIcon,HeartIcon,FileTextIcon,NavAcademyIcon,ArrowRightIcon} from './Icons';
 import '@/css/staff-workspace.scss';
+import {AttendanceDesk} from './Attendance';
 
 export function StaffWorkspace({data,error,onRetry,onAppointments,onCustomers,onAcademy,onDocuments,onCommunity}:{
   data:StaffDashboard|null;error?:string;onRetry?:()=>void;onAppointments:()=>void;onCustomers:(section:CustomerSection)=>void;
@@ -30,6 +31,7 @@ export function StaffWorkspace({data,error,onRetry,onAppointments,onCustomers,on
         {value:summary?.inServiceBookings,label:'Đang tiếp nhận'},
       ].map(item=><div key={item.label}><strong>{item.value??''}</strong><span>{item.label}</span></div>)}
     </div>
+    <AttendanceDesk/>
     <h3>Công việc</h3>
     <nav aria-label="Công việc nhân viên">{actions.map(({label,icon:Icon,onClick})=><button type="button" key={label} onClick={onClick}><Icon size={19}/><span>{label}</span><ArrowRightIcon size={17}/></button>)}</nav>
   </section>;

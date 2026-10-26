@@ -17,6 +17,7 @@ async function client(storage){
   globalThis.__sessionFixture=storage;
   const prefix=`import {ReadCache} from ${JSON.stringify(moduleUrl(cacheSource))};
 const nativeStorage=globalThis.__sessionFixture;
+const setLocale=()=>{};
 const adaptPayload=value=>value, profileToCanonical=value=>value;
 const apiErrorMessage=value=>value;
 const preloadCatalogImages=()=>{},bookingRequest=()=>{},completeBookingRequest=()=>{};

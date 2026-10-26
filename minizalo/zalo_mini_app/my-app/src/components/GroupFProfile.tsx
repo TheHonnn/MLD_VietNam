@@ -6,6 +6,7 @@ import { LegalLinks } from './LegalLinks';
 import { QRCode } from './QRCode';
 import {openShareSheet} from 'zmp-sdk';
 import { apiClient } from '@/api/client';
+import {translate} from '@/i18n';
 import {canUseStaffTools,staffRoleLabel} from '@/utils/staff';
 import type {CustomerSection,StaffDashboard} from '@/types/staff';
 import {StaffWorkspace} from './StaffWorkspace';
@@ -123,6 +124,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
       if (result?.settings && !result.error) {
         setSettings(result.settings);
         setSettingsStatus('loaded');
+        if(result.localeError)showToast(result.localeError);
       }
       else showToast(result?.error || 'Không thể lưu cài đặt.');
     } catch { showToast('Không thể lưu cài đặt.'); }
@@ -279,6 +281,20 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
   // Digital Card Barcode/QR toggle
   const cardShareLock=useRef(false);
   const [sharingCard,setSharingCard]=useState(false);
+  const referralShareLock=useRef(false);
+  const [sharingReferral,setSharingReferral]=useState(false);
+  const shareReferral=async()=>{
+    if(!referralCode||referralShareLock.current)return;
+    referralShareLock.current=true;setSharingReferral(true);
+    const text=[translate(`Mã giới thiệu MLD Việt Nam: ${referralCode}`),metadata?.referral?.terms].filter(Boolean).join('\n');
+    try{
+      if(/Zalo/i.test(navigator.userAgent)||Boolean((window as any).ZJSBridge))await openShareSheet({type:'text',data:{text}});
+      else if(navigator.share)await navigator.share({title:'Mã giới thiệu MLD Việt Nam',text});
+      else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);showToast('Đã sao chép mã giới thiệu.');}
+      else showToast('Thiết bị không hỗ trợ chia sẻ.');
+    }catch(error){if((error as {name?:string})?.name!=='AbortError')showToast('Không thể chia sẻ mã. Vui lòng thử lại.');}
+    finally{referralShareLock.current=false;if(mounted.current)setSharingReferral(false);}
+  };
   const shareCard=async()=>{
     if(!membershipCardCode||cardShareLock.current)return;
     cardShareLock.current=true;setSharingCard(true);
@@ -1267,6 +1283,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
                 >
                   {referralCode && copiedVoucher === referralCode ? 'Đã sao chép ✓' : 'Sao chép mã'}
                 </button>
+                <button type="button" disabled={!referralCode||sharingReferral} onClick={()=>void shareReferral()} className="flex-1 h-10 rounded-[8px] bg-[#2860eb] text-white text-[10px] font-bold disabled:opacity-50">{sharingReferral?'Đang chia sẻ…':'Chia sẻ mã'}</button>
               </div>
             </div>
 
@@ -1348,7 +1365,7 @@ export const GroupFProfile: React.FC<GroupFProfileProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-[#c8dde3] shadow-xs space-y-3 text-xs">
               <h4 className="font-bold text-[#183b47]">Bảo mật & Hệ thống:</h4>
               <label className="flex items-center justify-between gap-2">
-                <span>Ngôn ngữ giao diện</span><span>Tiếng Việt</span>
+                <span>Ngôn ngữ giao diện</span><select aria-label="Ngôn ngữ giao diện" value={settings?.language||'vi'} disabled={settingsSaving||!['loaded','missing'].includes(settingsStatus)} onChange={event=>void saveSetting({language:event.target.value})}><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
               </label>
 
               <button

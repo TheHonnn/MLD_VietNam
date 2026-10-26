@@ -21,6 +21,8 @@
     "test:catalog": "node --test scripts/catalog-render.test.mjs",
     "test:staff": "node --test scripts/staff-workspace.test.mjs",
     "test:auth": "node --test scripts/zalo-auth.test.mjs",
+    "test:localization": "node --test scripts/localization.test.mjs && node scripts/audit-translations.mjs --check",
+    "prebuild": "node scripts/compile-ui-translations.mjs",
     "build": "vite build",
     "postbuild": "node scripts/check-build-artifacts.mjs",
     "build:verify": "node scripts/check-build-artifacts.mjs",

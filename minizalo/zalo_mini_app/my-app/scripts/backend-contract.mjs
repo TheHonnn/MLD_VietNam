@@ -1,4 +1,4 @@
-export const requiredFeatures = ['unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1'];
+export const requiredFeatures = ['unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1','class-attendance-v1'];
 
 export function checkBackendContract(envelope) {
   if(envelope?.success !== true || envelope?.data?.status !== 'ok') return ['health-response'];

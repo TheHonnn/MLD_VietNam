@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { QuizTimer } from './QuizTimer';
+import {AttendanceScanner} from './Attendance';
 import { useBackAction } from '@/hooks/useNavigationHistory';
 import { events, EventName } from 'zmp-sdk';
 import { apiClient } from '@/api/client';
@@ -601,6 +602,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       </select>}
       {learningLoading && <p role="status" className="text-xs">Đang tải nội dung học...</p>}
       {learningError && <div role="alert" className="text-xs text-red-700">{learningError} <button className={buttonClass} onClick={() => setLearningVersion(value => value + 1)}>Thử lại</button></div>}
+      {tab==='schedule'&&study?.schedules?.length&&activeCourseId&&activeEnrollmentId?<AttendanceScanner key={activeEnrollmentId} courseId={activeCourseId} enrollmentId={activeEnrollmentId} onSaved={()=>setLearningVersion(value=>value+1)}/>:null}
       {study && !learningLoading && !learningError && <>
         {tab === 'content' && <div className="space-y-3">
           {study.chapters?.map((chapter,index) => <details key={chapter.id} className="academy-chapter" open={index===0}><summary>{chapter.title}</summary>{chapter.description && <p className="text-xs">{chapter.description}</p>}{study.lessons.filter(item => item.chapterId === chapter.id).map(renderLesson)}</details>)}
