@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:dio/dio.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 
@@ -153,6 +155,42 @@ class SupabaseDataService {
     );
     if (response.data == null) return [];
     return List<Map<String, dynamic>>.from(response.data!);
+  }
+
+  // ==========================================
+  // 8. TÀI LIỆU Y KHOA & CẨM NANG (DOCUMENTS)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchDocuments({String? category}) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+    final query = <String, dynamic>{
+      'is_published': 'eq.true',
+      'select': '*',
+      'order': 'created_at.desc',
+    };
+    if (category != null && category.isNotEmpty && category != 'Tất cả') {
+      query['category'] = 'eq.$category';
+    }
+
+    try {
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.homeCareGuidelines,
+        queryParameters: query,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (response.data != null) {
+        return List<Map<String, dynamic>>.from(response.data!);
+      }
+    } catch (_) {}
+    return [];
   }
 }
 

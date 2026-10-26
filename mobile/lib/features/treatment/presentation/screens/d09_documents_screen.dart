@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/supabase_data_service.dart';
 import 'd11_community_screen.dart';
 
 /// Screen D09: Trang Tài liệu & Cẩm nang Y khoa MLD
-/// Đáp ứng các yêu cầu:
-/// 112. Giao diện chính gồm: Trang chủ, Dịch vụ, Đào tạo, Tài liệu, Cá nhân
-/// 118. Thêm trang / mục Cộng đồng riêng
-/// 119. Thêm trang Tài liệu
-/// 120. Cho phép người dùng xem các tài liệu được chia sẻ
-/// 128. Bảng màu chuẩn Trắng và Xanh Y tế (#0066B2)
+/// Tối giản giao diện - Tải 100% dữ liệu thực từ Database (home_care_guidelines)
+/// Thiết kế thẻ: Chỉ có ảnh và tên tài liệu, không có văn bản thừa bên dưới.
 class D09DocumentsScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
 
@@ -23,105 +20,17 @@ class D09DocumentsScreen extends StatefulWidget {
 
 class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final SupabaseDataService _dataService = SupabaseDataService.instance;
+
   String _selectedCategory = 'Tất cả';
-
-  final List<String> _categories = [
-    'Tất cả',
-    'Phù bạch huyết & MLD',
-    'Cẩm nang trị liệu',
-    'Tài liệu đào tạo',
-    'Cộng đồng chia sẻ',
-  ];
-
-  late List<Map<String, dynamic>> _allDocuments;
+  List<String> _categories = ['Tất cả'];
+  List<Map<String, dynamic>> _allDocuments = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initDocuments();
-  }
-
-  void _initDocuments() {
-    _allDocuments = [
-      {
-        'id': 'doc-01',
-        'image': 'assets/images/document_joint_pain_banner.png',
-        'title': 'Nghiên cứu lâm sàng: Hiệu quả của Dẫn lưu bạch huyết bằng tay (MLD) trong hỗ trợ điều trị phù nề sau phẫu thuật',
-        'category': 'Phù bạch huyết & MLD',
-        'readTime': '8 phút đọc',
-        'author': 'Hội đồng Y khoa đồng hành MLD Vietnam',
-        'summary': 'Tổng quan cơ chế sinh lý của hệ bạch huyết, bằng chứng y học về giảm sưng phù và tăng tốc độ lành thương sau phẫu thuật can thiệp mô mềm.',
-        'isPdf': true,
-        'pdfSize': '2.4 MB',
-        'icon': Icons.picture_as_pdf_outlined,
-        'date': '15/10/2026',
-      },
-      {
-        'id': 'doc-02',
-        'image': 'assets/images/course_banner_clean.png',
-        'title': 'Cẩm nang hướng dẫn tự chăm sóc và bảo dưỡng hệ bạch huyết tại nhà',
-        'category': 'Cẩm nang trị liệu',
-        'readTime': '5 phút đọc',
-        'author': 'Chuyên gia Trị liệu MLD Vietnam',
-        'summary': 'Nguyên tắc uống nước ấm, bài tập thở cơ hoành kích thích bể dưỡng chấp (Cisterna Chyli) và tư thế nằm gác chân hỗ trợ lưu thông bạch huyết.',
-        'isPdf': false,
-        'pdfSize': '',
-        'icon': Icons.menu_book_outlined,
-        'date': '10/10/2026',
-      },
-      {
-        'id': 'doc-03',
-        'image': 'assets/images/banner.webp',
-        'title': 'Phác đồ kỹ thuật dẫn lưu bạch huyết chuyên sâu theo phương pháp Vodder chuẩn hóa',
-        'category': 'Tài liệu đào tạo',
-        'readTime': '12 phút đọc',
-        'author': 'Học viện Đào tạo MLD Academy',
-        'summary': 'Tài liệu hướng dẫn thực hành nguyên lý áp lực nhẹ (<30 mmHg), nhịp điệu chuyển động xoay tròn và định hướng dòng chảy hạch bạch huyết.',
-        'isPdf': true,
-        'pdfSize': '4.1 MB',
-        'icon': Icons.picture_as_pdf_outlined,
-        'date': '05/10/2026',
-      },
-      {
-        'id': 'doc-04',
-        'image': 'assets/images/course_banner_clean.png',
-        'title': 'Nhận diện sớm các dấu hiệu phù bạch huyết (Lymphedema) và thời điểm vàng can thiệp',
-        'category': 'Phù bạch huyết & MLD',
-        'readTime': '6 phút đọc',
-        'author': 'Bác sĩ Cố vấn Chuyên môn MLD',
-        'summary': 'Phân độ phù bạch huyết từ giai đoạn tiềm ẩn đến giai đoạn xơ hóa; cách đo chu vi chi và kiểm tra dấu hiệu Stemmer sign.',
-        'isPdf': false,
-        'pdfSize': '',
-        'icon': Icons.medical_information_outlined,
-        'date': '28/09/2026',
-      },
-      {
-        'id': 'doc-05',
-        'image': 'assets/images/document_joint_pain_banner.png',
-        'title': 'Chia sẻ trải nghiệm hồi phục thần tốc sau phẫu thuật nâng ngực & hút mỡ bụng',
-        'category': 'Cộng đồng chia sẻ',
-        'readTime': '4 phút đọc',
-        'author': 'Thành viên Cộng đồng Khách hàng MLD',
-        'summary': 'Nhật ký 7 ngày giảm bầm tím và tiêu dịch ứ đọng rõ rệt ngay sau ca trị liệu MLD thứ hai tại cơ sở Quận 3.',
-        'isPdf': false,
-        'pdfSize': '',
-        'icon': Icons.forum_outlined,
-        'date': '20/09/2026',
-      },
-      {
-        'id': 'doc-06',
-        'image': 'assets/images/course_banner_clean.png',
-        'title': 'Quy trình đối soát và kiểm tra phù bạch huyết định kỳ tại trung tâm',
-        'category': 'Tài liệu đào tạo',
-        'readTime': '7 phút đọc',
-        'author': 'Hệ thống Quản lý Chất lượng MLD',
-        'summary': 'Bảng kiểm 10 bước chuẩn y khoa tiếp nhận khách hàng, đánh giá chỉ số dịch mô và lưu trữ hồ sơ theo dõi liệu trình.',
-        'isPdf': true,
-        'pdfSize': '1.8 MB',
-        'icon': Icons.picture_as_pdf_outlined,
-        'date': '12/09/2026',
-      },
-    ];
+    _loadDocuments();
   }
 
   @override
@@ -130,19 +39,117 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
     super.dispose();
   }
 
+  /// Tải danh sách tài liệu thực tế từ Database Supabase
+  Future<void> _loadDocuments() async {
+    setState(() => _isLoading = true);
+    try {
+      final docs = await _dataService.fetchDocuments();
+      if (!mounted) return;
+
+      final categoriesSet = <String>{'Tất cả'};
+      for (final doc in docs) {
+        final cat = doc['category'] as String?;
+        if (cat != null && cat.trim().isNotEmpty) {
+          categoriesSet.add(cat.trim());
+        }
+      }
+
+      setState(() {
+        _allDocuments = docs;
+        _categories = categoriesSet.toList();
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _allDocuments = [];
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   List<Map<String, dynamic>> get _filteredDocuments {
     final query = _searchController.text.trim().toLowerCase();
     return _allDocuments.where((doc) {
-      final matchesCategory = _selectedCategory == 'Tất cả' || doc['category'] == _selectedCategory;
-      final matchesQuery = query.isEmpty ||
-          (doc['title'] as String).toLowerCase().contains(query) ||
-          (doc['summary'] as String).toLowerCase().contains(query) ||
-          (doc['author'] as String).toLowerCase().contains(query);
-      return matchesCategory && matchesQuery;
+      final category = (doc['category'] as String? ?? '').trim();
+      final matchesCategory = _selectedCategory == 'Tất cả' || category == _selectedCategory;
+      if (!matchesCategory) return false;
+
+      if (query.isEmpty) return true;
+      final title = (doc['title'] as String? ?? '').toLowerCase();
+      final summary = (doc['summary'] as String? ?? '').toLowerCase();
+      final author = (doc['author_name'] as String? ?? '').toLowerCase();
+      return title.contains(query) || summary.contains(query) || author.contains(query);
     }).toList();
   }
 
+  String _formatDate(dynamic dateVal) {
+    if (dateVal == null) return '';
+    if (dateVal is DateTime) {
+      return '${dateVal.day.toString().padLeft(2, '0')}/${dateVal.month.toString().padLeft(2, '0')}/${dateVal.year}';
+    }
+    final dt = DateTime.tryParse(dateVal.toString());
+    if (dt != null) {
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    }
+    return dateVal.toString();
+  }
+
+  Widget _buildDocImage(String? imagePath, {double height = 185}) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return Container(
+        height: height,
+        width: double.infinity,
+        color: const Color(0xFFEFF4FE),
+        child: const Center(
+          child: Icon(Icons.menu_book_rounded, size: 48, color: AppColors.primary),
+        ),
+      );
+    }
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return Image.network(
+        imagePath,
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          height: height,
+          width: double.infinity,
+          color: const Color(0xFFEFF4FE),
+          child: const Center(
+            child: Icon(Icons.menu_book_rounded, size: 48, color: AppColors.primary),
+          ),
+        ),
+      );
+    }
+    return Image.asset(
+      imagePath,
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        height: height,
+        width: double.infinity,
+        color: const Color(0xFFEFF4FE),
+        child: const Center(
+          child: Icon(Icons.menu_book_rounded, size: 48, color: AppColors.primary),
+        ),
+      ),
+    );
+  }
+
   void _showDocumentDetail(Map<String, dynamic> doc) {
+    final title = doc['title'] as String? ?? '';
+    final category = doc['category'] as String? ?? 'Tài liệu Y khoa';
+    final date = _formatDate(doc['created_at']);
+    final readTime = '${doc['read_time_minutes'] ?? 5} phút đọc';
+    final author = doc['author_name'] as String? ?? 'Hội đồng Y khoa MLD';
+    final summary = doc['summary'] as String? ?? '';
+    final content = doc['content'] as String? ?? '';
+    final imageUrl = doc['image_url'] as String?;
+    final steps = doc['steps'];
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -171,6 +178,17 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // Banner ảnh trong chi tiết
+              if (imageUrl != null && imageUrl.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: _buildDocImage(imageUrl, height: 200),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Danh mục & Ngày
               Row(
                 children: [
                   Container(
@@ -180,7 +198,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      (doc['category'] as String).toUpperCase(),
+                      category.toUpperCase(),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -189,25 +207,30 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    doc['date'] as String,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  ),
+                  if (date.isNotEmpty)
+                    Text(
+                      date,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
+
+              // Tiêu đề
               Text(
-                doc['title'] as String,
+                title,
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textHeading,
                   height: 1.35,
                 ),
               ),
               const SizedBox(height: 8),
+
+              // Tác giả & Thời gian đọc
               Text(
-                '${doc['readTime']} · ${doc['author']}',
+                '$readTime · $author',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -217,27 +240,113 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               const SizedBox(height: 16),
               const Divider(color: AppColors.border),
               const SizedBox(height: 16),
-              Text(
-                doc['summary'] as String,
-                style: const TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
-                  height: 1.6,
+
+              // Tóm tắt y khoa
+              if (summary.isNotEmpty) ...[
+                Text(
+                  summary,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textHeading,
+                    height: 1.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 16),
+              ],
+
+              // Nội dung chi tiết
+              if (content.isNotEmpty && content != summary) ...[
+                Text(
+                  content,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textPrimary,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Các bước hướng dẫn nếu có (JSONB)
+              if (steps is List && steps.isNotEmpty) ...[
+                const Text(
+                  'Các bước thực hiện chuẩn hóa:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textHeading,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...steps.asMap().entries.map((entry) {
+                  final idx = entry.key + 1;
+                  final stepItem = entry.value;
+                  String stepTitle = '';
+                  String stepDesc = '';
+                  if (stepItem is Map) {
+                    stepTitle = stepItem['title']?.toString() ?? '';
+                    stepDesc = stepItem['desc']?.toString() ?? stepItem['description']?.toString() ?? '';
+                  } else {
+                    stepDesc = stepItem.toString();
+                  }
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 12,
+                          backgroundColor: AppColors.primary,
+                          child: Text(
+                            '$idx',
+                            style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (stepTitle.isNotEmpty)
+                                Text(
+                                  stepTitle,
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textHeading),
+                                ),
+                              if (stepDesc.isNotEmpty)
+                                Text(
+                                  stepDesc,
+                                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 16),
+              ],
+
+              // Khung chứng nhận y khoa MLD
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
+                  color: const Color(0xFFEFF4FE),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: const Color(0xFFCCE0FF)),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.verified_user_outlined, color: AppColors.primary, size: 20),
                         SizedBox(width: 8),
@@ -251,40 +360,15 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Tài liệu này được biên soạn và kiểm chứng theo tiêu chuẩn Dẫn lưu bạch huyết y khoa quốc tế (MLD Vodder Method). Mục đích cung cấp kiến thức chuẩn xác, hỗ trợ học viên và khách hàng trong quá trình phục hồi sức khỏe an toàn.',
+                    SizedBox(height: 8),
+                    Text(
+                      'Tài liệu này được biên soạn và kiểm chứng theo tiêu chuẩn Dẫn lưu bạch huyết y khoa quốc tế (MLD Vodder Method).',
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.textPrimary,
                         height: 1.5,
                       ),
                     ),
-                    if (doc['isPdf'] == true) ...[
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Đang tải xuống tệp PDF: ${doc['title']} (${doc['pdfSize']})...'),
-                                  backgroundColor: AppColors.primary,
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.download_rounded, size: 18),
-                            label: Text('Tải bản PDF (${doc['pdfSize']})'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 0,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -337,7 +421,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Ô tìm kiếm tài liệu & cẩm nang
+            // Ô tìm kiếm tài liệu
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -371,128 +455,137 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
             ),
 
             // Thanh lọc danh mục ngang
-            Container(
-              color: Colors.white,
-              height: 48,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final cat = _categories[index];
-                  final isSelected = cat == _selectedCategory;
-                  return InkWell(
-                    onTap: () => setState(() => _selectedCategory = cat),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.border,
+            if (_categories.length > 1) ...[
+              Container(
+                color: Colors.white,
+                height: 48,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final cat = _categories[index];
+                    final isSelected = cat == _selectedCategory;
+                    return InkWell(
+                      onTap: () => setState(() => _selectedCategory = cat),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : AppColors.border,
+                          ),
+                        ),
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isSelected ? Colors.white : AppColors.textSecondary,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        cat,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-            const Divider(height: 1, color: AppColors.border),
+              const Divider(height: 1, color: AppColors.border),
+            ],
 
-            // Danh sách tài liệu
+            // Danh sách tài liệu (RefreshIndicator hỗ trợ kéo để làm mới)
             Expanded(
-              child: filtered.isEmpty
+              child: _isLoading
                   ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.find_in_page_outlined, size: 64, color: AppColors.border),
-                          SizedBox(height: 12),
-                          Text(
-                            'Không tìm thấy tài liệu phù hợp',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Vui lòng thử từ khóa khác hoặc chọn danh mục khác',
-                            style: TextStyle(fontSize: 13, color: AppColors.textPlaceholder),
-                          ),
-                        ],
-                      ),
+                      child: CircularProgressIndicator(color: AppColors.primary),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final doc = filtered[index];
-                        return InkWell(
-                          onTap: () => _showDocumentDetail(doc),
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.border),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
+                  : RefreshIndicator(
+                      color: AppColors.primary,
+                      onRefresh: _loadDocuments,
+                      child: filtered.isEmpty
+                          ? ListView(
+                              children: const [
+                                SizedBox(height: 100),
+                                Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.find_in_page_outlined, size: 64, color: AppColors.border),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        'Không tìm thấy tài liệu phù hợp',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Vui lòng thử từ khóa khác hoặc chọn danh mục khác',
+                                        style: TextStyle(fontSize: 13, color: AppColors.textPlaceholder),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // 1. Ảnh tài liệu
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.asset(
-                                    doc['image'] as String? ?? 'assets/images/course_banner_clean.png',
-                                    height: 185,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      height: 185,
-                                      width: double.infinity,
-                                      color: const Color(0xFFE8F5F1),
-                                      child: const Center(
-                                        child: Icon(Icons.menu_book_rounded, size: 48, color: Color(0xFF168477)),
-                                      ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 14),
+                              itemBuilder: (context, index) {
+                                final doc = filtered[index];
+                                final imageUrl = doc['image_url'] as String?;
+                                final title = doc['title'] as String? ?? '';
+
+                                return InkWell(
+                                  onTap: () => _showDocumentDetail(doc),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: AppColors.border),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.04),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // 1. Ảnh tài liệu
+                                        ClipRRect(
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                                          child: _buildDocImage(imageUrl, height: 185),
+                                        ),
+
+                                        // 2. Tên tài liệu (chỉ có tên tài liệu, không nội dung bên dưới)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                                          child: Text(
+                                            title,
+                                            style: const TextStyle(
+                                              fontFamily: 'Montserrat',
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF0F172A),
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-
-                                // 2. Tên tài liệu (chỉ có tên tài liệu, không nội dung bên dưới)
-                                Text(
-                                  doc['title'] as String,
-                                  style: const TextStyle(
-                                    fontFamily: 'Montserrat',
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0F172A),
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
+                                );
+                              },
                             ),
-                          ),
-                        );
-                      },
                     ),
             ),
           ],

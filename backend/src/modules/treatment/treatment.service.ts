@@ -516,7 +516,7 @@ export class TreatmentService {
         .from('home_care_guidelines')
         .select('*')
         .eq('is_published', true)
-        .order('display_order', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (category && category !== 'Tất cả') {
         query = query.eq('category', category);
@@ -587,7 +587,7 @@ export class TreatmentService {
         .from('support_faqs')
         .select('*')
         .eq('is_active', true)
-        .order('display_order', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (!error && data && data.length > 0) {
         return data;
