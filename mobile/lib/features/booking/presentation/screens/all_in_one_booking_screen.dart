@@ -771,7 +771,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF00693F),
+                            color: AppColors.servicePrice,
                           ),
                         ),
                       ],

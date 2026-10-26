@@ -175,27 +175,77 @@ class LessonModel {
   final String title;
   final int durationMinutes;
   final bool isCompleted;
+  final String? videoUrl;
+  final String? contentText;
+  final bool isFreePreview;
+  final int lessonOrder;
 
   const LessonModel({
     required this.id,
     required this.title,
     required this.durationMinutes,
     this.isCompleted = false,
+    this.videoUrl,
+    this.contentText,
+    this.isFreePreview = false,
+    this.lessonOrder = 1,
   });
+
+  factory LessonModel.fromJson(Map<String, dynamic> json) {
+    return LessonModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt() ??
+          (json['durationMinutes'] as num?)?.toInt() ??
+          18,
+      isCompleted: json['is_completed'] == true || json['isCompleted'] == true,
+      videoUrl: json['video_url']?.toString() ?? json['videoUrl']?.toString(),
+      contentText: json['content_text']?.toString() ?? json['contentText']?.toString(),
+      isFreePreview: json['is_free_preview'] == true || json['isFreePreview'] == true,
+      lessonOrder: (json['lesson_order'] as num?)?.toInt() ?? 1,
+    );
+  }
 }
 
 class ChapterModel {
   final String id;
   final String title;
+  final String? description;
   final bool isCompleted;
+  final int chapterOrder;
   final List<LessonModel> lessons;
 
   const ChapterModel({
     required this.id,
     required this.title,
+    this.description,
     this.isCompleted = false,
+    this.chapterOrder = 1,
     required this.lessons,
   });
+
+  factory ChapterModel.fromJson(Map<String, dynamic> json) {
+    List<LessonModel> lessonList = [];
+    if (json['course_lessons'] is List) {
+      lessonList = (json['course_lessons'] as List)
+          .map((l) => LessonModel.fromJson(Map<String, dynamic>.from(l as Map)))
+          .toList();
+      lessonList.sort((a, b) => a.lessonOrder.compareTo(b.lessonOrder));
+    } else if (json['lessons'] is List) {
+      lessonList = (json['lessons'] as List)
+          .map((l) => LessonModel.fromJson(Map<String, dynamic>.from(l as Map)))
+          .toList();
+    }
+
+    return ChapterModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString(),
+      chapterOrder: (json['chapter_order'] as num?)?.toInt() ?? 1,
+      isCompleted: json['is_completed'] == true,
+      lessons: lessonList,
+    );
+  }
 }
 
 class AttendanceScheduleItem {
@@ -527,9 +577,30 @@ class MockAcademyData {
       title: 'Chương 1: Giải phẫu & Sinh lý hệ bạch huyết',
       isCompleted: true,
       lessons: [
-        LessonModel(id: 'les_01', title: 'Bài 1: Tổng quan và nguồn gốc phương pháp Emil Vodder', durationMinutes: 15, isCompleted: true),
-        LessonModel(id: 'les_02', title: 'Bài 2: Cấu tạo mao mạch và hạch bạch huyết', durationMinutes: 20, isCompleted: true),
-        LessonModel(id: 'les_03', title: 'Bài 3: Áp lực mô và cơ chế hình thành dịch phù', durationMinutes: 25, isCompleted: true),
+        LessonModel(
+          id: 'les_01',
+          title: 'Bài 1: Tổng quan và nguồn gốc phương pháp Emil Vodder',
+          durationMinutes: 15,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=QA-xR_E24G8',
+          isFreePreview: true,
+        ),
+        LessonModel(
+          id: 'les_02',
+          title: 'Bài 2: Cấu tạo mao mạch và hạch bạch huyết',
+          durationMinutes: 20,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=0h9sC3wK-yA',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_03',
+          title: 'Bài 3: Áp lực mô và cơ chế hình thành dịch phù',
+          durationMinutes: 25,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=2r1pZ3Wf2lA',
+          isFreePreview: false,
+        ),
       ],
     ),
     ChapterModel(
@@ -537,9 +608,30 @@ class MockAcademyData {
       title: 'Chương 2: Nguyên lý 4 thao tác dẫn lưu cơ bản',
       isCompleted: false,
       lessons: [
-        LessonModel(id: 'les_04', title: 'Bài 4: Thao tác xoay tròn tĩnh (Stationary Circles)', durationMinutes: 20, isCompleted: true),
-        LessonModel(id: 'les_05', title: 'Bài 5: Thao tác ép bơm (Pump technique)', durationMinutes: 25, isCompleted: false),
-        LessonModel(id: 'les_06', title: 'Bài 6: Thao tác múc và cuộn (Scoop & Rotary)', durationMinutes: 30, isCompleted: false),
+        LessonModel(
+          id: 'les_04',
+          title: 'Bài 4: Thao tác xoay tròn tĩnh (Stationary Circles)',
+          durationMinutes: 20,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=Zz1X1U0v6g0',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_05',
+          title: 'Bài 5: Thao tác ép bơm (Pump technique)',
+          durationMinutes: 25,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=XvcJpA_k24k',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_06',
+          title: 'Bài 6: Thao tác múc và cuộn (Scoop & Rotary)',
+          durationMinutes: 30,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=Yp69xN1D9Xk',
+          isFreePreview: false,
+        ),
       ],
     ),
     ChapterModel(
@@ -547,8 +639,22 @@ class MockAcademyData {
       title: 'Chương 3: Phác đồ lâm sàng & Thực hành cầm tay chỉ việc',
       isCompleted: false,
       lessons: [
-        LessonModel(id: 'les_07', title: 'Bài 7: Quy trình dẫn lưu vùng cổ vai gáy và đầu mặt', durationMinutes: 30, isCompleted: false),
-        LessonModel(id: 'les_08', title: 'Bài 8: Xử lý phù chi và phòng ngừa biến chứng', durationMinutes: 35, isCompleted: false),
+        LessonModel(
+          id: 'les_07',
+          title: 'Bài 7: Quy trình dẫn lưu vùng cổ vai gáy và đầu mặt',
+          durationMinutes: 30,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=QA-xR_E24G8',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_08',
+          title: 'Bài 8: Xử lý phù chi và phòng ngừa biến chứng',
+          durationMinutes: 35,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=0h9sC3wK-yA',
+          isFreePreview: false,
+        ),
       ],
     ),
   ];

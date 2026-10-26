@@ -374,7 +374,7 @@ class _VietQrPaymentModalState extends State<VietQrPaymentModal> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
+                      color: AppColors.servicePrice,
                     ),
                   ),
                 ],

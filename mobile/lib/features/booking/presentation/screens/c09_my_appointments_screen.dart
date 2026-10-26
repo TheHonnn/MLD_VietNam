@@ -267,7 +267,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                       fontFamily: 'Montserrat',
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF00693F),
+                      color: AppColors.servicePrice,
                     ),
                   ),
                 ],

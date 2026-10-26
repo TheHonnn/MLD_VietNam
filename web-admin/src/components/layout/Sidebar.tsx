@@ -28,9 +28,11 @@ import {
   Layers,
   Award,
   Stethoscope,
-  type LucideIcon,
+
   X,
 } from 'lucide-react';
+
+type LucideIcon = React.ComponentType<any>;
 
 export interface SidebarProps {
   isMobileOpen?: boolean;

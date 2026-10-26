@@ -27,6 +27,27 @@ const W17_EdemaAssessments = lazy(() => import('./pages/W17_EdemaAssessments').t
 const W18_PortalContent = lazy(() => import('./pages/W18_PortalContent').then((m) => ({ default: m.W18_PortalContent })));
 const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ default: m.ResourcePage })));
 
+// Tự động dọn sạch các khóa dữ liệu thử nghiệm/cục bộ cũ khỏi localStorage để luôn đồng bộ 100% với Supabase Cloud
+(function purgeLegacyMockStorage() {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (
+        k &&
+        (k.startsWith('mld_local_') ||
+          k.startsWith('mld_custom_') ||
+          k === 'mld_staff_appointments')
+      ) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch (e) {
+    console.warn('Could not purge legacy mock storage:', e);
+  }
+})();
+
 
 const PageLoadingFallback: React.FC = () => (
   <div className="min-h-[400px] w-full flex flex-col items-center justify-center p-8 font-['Plus_Jakarta_Sans',sans-serif]">

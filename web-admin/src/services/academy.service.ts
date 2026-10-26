@@ -1,6 +1,8 @@
 import {
   Course,
   CourseBatch,
+  CourseChapter,
+  CourseLesson,
   CourseEnrollment,
   TuitionTransaction,
   StudentCertificate,
@@ -433,5 +435,125 @@ export const academyService = {
       console.error('[academyService] createInstructor error:', err);
     }
     return legacyWrite<Instructor>('instructors', data);
+  },
+
+  // --- Quản lý Học liệu & Bài giảng Video YouTube ---
+  async getCourseCurriculum(courseId: string): Promise<ApiResponse<CourseChapter[]>> {
+    try {
+      const data = await supabaseService.getCourseCurriculum(courseId);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Lấy danh sách chương và bài học thành công',
+        data: data || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getCourseCurriculum failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn học liệu khóa học',
+        data: [],
+      };
+    }
+  },
+
+  async createCourseChapter(data: { courseId: string; chapterOrder: number; title: string; description?: string }): Promise<ApiResponse<CourseChapter | null>> {
+    try {
+      const created = await supabaseService.createCourseChapter(data);
+      return {
+        success: !!created,
+        statusCode: created ? 201 : 500,
+        message: created ? 'Tạo chương học thành công' : 'Không tạo được chương học',
+        data: created,
+      };
+    } catch (err) {
+      console.error('[academyService] createCourseChapter failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi tạo chương học',
+        data: null,
+      };
+    }
+  },
+
+  async createCourseLesson(data: {
+    chapterId: string;
+    lessonOrder: number;
+    title: string;
+    durationMinutes: number;
+    videoUrl?: string | null;
+    contentText?: string | null;
+    isFreePreview?: boolean;
+  }): Promise<ApiResponse<CourseLesson | null>> {
+    try {
+      const created = await supabaseService.createCourseLesson(data);
+      return {
+        success: !!created,
+        statusCode: created ? 201 : 500,
+        message: created ? 'Thêm bài học Video thành công' : 'Không tạo được bài học',
+        data: created,
+      };
+    } catch (err) {
+      console.error('[academyService] createCourseLesson failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi tạo bài học',
+        data: null,
+      };
+    }
+  },
+
+  async updateCourseLesson(
+    id: string,
+    data: Partial<{
+      title: string;
+      durationMinutes: number;
+      videoUrl: string | null;
+      contentText: string | null;
+      isFreePreview: boolean;
+      chapterId: string;
+      lessonOrder: number;
+    }>
+  ): Promise<ApiResponse<CourseLesson | null>> {
+    try {
+      const updated = await supabaseService.updateCourseLesson(id, data);
+      return {
+        success: !!updated,
+        statusCode: updated ? 200 : 500,
+        message: updated ? 'Cập nhật bài học thành công' : 'Không cập nhật được bài học',
+        data: updated,
+      };
+    } catch (err) {
+      console.error('[academyService] updateCourseLesson failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi cập nhật bài học',
+        data: null,
+      };
+    }
+  },
+
+  async deleteCourseLesson(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      const deleted = await supabaseService.deleteCourseLesson(id);
+      return {
+        success: deleted,
+        statusCode: deleted ? 200 : 500,
+        message: deleted ? 'Xóa bài học thành công' : 'Không xóa được bài học',
+        data: deleted,
+      };
+    } catch (err) {
+      console.error('[academyService] deleteCourseLesson failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi xóa bài học',
+        data: false,
+      };
+    }
   },
 };

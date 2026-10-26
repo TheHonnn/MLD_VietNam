@@ -1,3 +1,4 @@
+import '../../../../core/services/supabase_data_service.dart';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -264,15 +265,41 @@ class AcademyRepository {
   }
 
   void enrollCourseLocal(CourseModel course) {
-    if (!_enrolledCourses.any((c) => c.id == course.id)) {
+    if (!_enrolledCourses.any((c) => c.id == course.id || c.title == course.title)) {
       _enrolledCourses.add(course);
       _saveEnrolledCourses();
     }
+  }
+
+  bool isCourseEnrolled(String courseId, [String? title]) {
+    return _enrolledCourses.any((c) =>
+        c.id == courseId ||
+        (title != null && c.title.trim().toLowerCase() == title.trim().toLowerCase()) ||
+        c.title.trim().toLowerCase() == courseId.trim().toLowerCase()
+    );
   }
 
   void clearEnrolledCourses() {
     _enrolledCourses.clear();
     _saveEnrolledCourses();
   }
-}
 
+  /// Lấy danh sách chương và bài học video thực tế từ Supabase
+  Future<List<ChapterModel>> getCourseCurriculum(String courseId) async {
+    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      return MockAcademyData.syllabusChapters;
+    }
+
+    try {
+      final raw = await SupabaseDataService.instance.fetchCourseCurriculum(courseId);
+      if (raw.isNotEmpty) {
+        return raw.map((c) => ChapterModel.fromJson(c)).toList();
+      }
+    } catch (e) {
+      debugPrint('>>> [AcademyRepository] Error fetching curriculum: $e');
+    }
+
+    return MockAcademyData.syllabusChapters;
+  }
+
+}

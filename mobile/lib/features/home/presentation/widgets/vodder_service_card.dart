@@ -112,7 +112,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Giá tiền (Màu xanh dương chủ đạo #2860EB, chữ đ gạch chân)
+                        // Giá tiền dịch vụ: Màu rgb(225, 29, 72) (#E11D48), chữ đ gạch chân
                         Text.rich(
                           TextSpan(
                             children: [
@@ -122,7 +122,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                                   fontFamily: 'Montserrat',
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
+                                  color: AppColors.servicePrice,
                                 ),
                               ),
                               const TextSpan(
@@ -131,7 +131,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                                   fontFamily: 'Montserrat',
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
+                                  color: AppColors.servicePrice,
                                   decoration: TextDecoration.underline,
                                 ),
                               ),

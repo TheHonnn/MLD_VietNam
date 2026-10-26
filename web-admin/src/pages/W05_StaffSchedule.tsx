@@ -803,18 +803,6 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   };
 
-  // Delete Custom Appointment
-  const handleDeleteCustomAppointment = (id: string) => {
-    const updated = customAppointments.filter((a) => a.id !== id);
-    setCustomAppointments(updated);
-    try {
-      localStorage.setItem('mld_staff_appointments', JSON.stringify(updated));
-    } catch (err) {
-      console.error('Failed to update localStorage', err);
-    }
-    toast.success('Đã hủy lịch hẹn', 'Lịch hẹn đã được gỡ bỏ khỏi bảng phân công ca trực.');
-  };
-
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Xóa vĩnh viễn 1 lịch hẹn bất kỳ
@@ -835,15 +823,6 @@ export const W05_StaffSchedule: React.FC = () => {
       setLiveBookings((prev) =>
         prev.filter((b) => b.id !== id && b.bookingCode !== id && (!bCode || b.bookingCode !== bCode))
       );
-      const updatedCustom = customAppointments.filter(
-        (a) => a.id !== id && (!bCode || !a.customerCode?.includes(bCode))
-      );
-      setCustomAppointments(updatedCustom);
-      try {
-        localStorage.setItem('mld_staff_appointments', JSON.stringify(updatedCustom));
-      } catch (e) {
-        console.error(e);
-      }
       setSelectedAppId('');
       toast.success('Đã xóa lịch hẹn', 'Lịch hẹn đã được xóa hoàn toàn khỏi bảng phân công.');
     } catch (err) {
@@ -867,7 +846,6 @@ export const W05_StaffSchedule: React.FC = () => {
     try {
       await bookingService.deleteAllBookings();
       setLiveBookings([]);
-      setCustomAppointments([]);
       setSelectedAppId('');
       toast.success('Đã dọn sạch', 'Đã xóa toàn bộ lịch hẹn kỹ thuật viên thành công.');
     } catch (err) {
