@@ -908,7 +908,138 @@ function ServiceImageInput({
 
 function formatCell(row: Row, c: Column): React.ReactNode {
   if (c.name === "branch_id") {
-    return row.branch_name || row.branches?.name || row.branches?.code || display(row[c.name]);
+    const branchName =
+      row.branch_name ||
+      row.branches?.name ||
+      row.branch?.name ||
+      (typeof row.branches === "string" ? row.branches : null);
+    const branchCode = row.branch_code || row.branches?.code || row.branch?.code;
+    if (branchName) {
+      return (
+        <div className="min-w-0 max-w-[220px]">
+          <div className="font-semibold text-[#2C241E] text-xs truncate flex items-center gap-1.5" title={branchName}>
+            <span>🏢</span>
+            <span>{branchName}</span>
+          </div>
+          {branchCode && (
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#F0F5FA] text-[#1E56A0] border border-[#D0E0F0]">
+              {branchCode}
+            </span>
+          )}
+        </div>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
+        Chi nhánh #{String(row[c.name] || "").slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "course_id") {
+    const courseTitle =
+      row.course_title ||
+      row.courses?.title ||
+      row.course?.title ||
+      (typeof row.courses === "string" ? row.courses : null);
+    const courseCode = row.course_code || row.courses?.code || row.course?.code;
+    if (courseTitle) {
+      return (
+        <div className="min-w-0 max-w-[240px]">
+          <div className="font-bold text-[#2C241E] text-xs truncate flex items-center gap-1.5" title={courseTitle}>
+            <span>📚</span>
+            <span>{courseTitle}</span>
+          </div>
+          {courseCode && (
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+              {courseCode}
+            </span>
+          )}
+        </div>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
+        Khóa học #{String(row[c.name] || "").slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "batch_id") {
+    const bCode =
+      row.batch_code ||
+      row.course_batches?.batch_code ||
+      (typeof row.course_batches === "string" ? row.course_batches : null);
+    if (bCode) {
+      return (
+        <span className="font-bold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
+          <span className="px-2 py-0.5 rounded-md bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] font-mono">
+            🎓 {bCode}
+          </span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
+        Lớp #{String(row[c.name] || "").slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "batch_code") {
+    const val = row[c.name];
+    return (
+      <span className="font-bold text-[#2C241E] text-xs inline-flex items-center gap-1.5">
+        <span className="px-2.5 py-1 rounded-md bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] font-bold">
+          {val || "—"}
+        </span>
+      </span>
+    );
+  }
+  if (c.name === "student_id") {
+    const sName =
+      row.student_name ||
+      row.student?.full_name ||
+      row.users?.full_name ||
+      (typeof row[c.name] === "string" ? null : null);
+    const phone = row.student_phone || row.student?.phone || row.users?.phone;
+    if (sName) {
+      return (
+        <div>
+          <div className="font-bold text-[#2C241E] text-xs flex items-center gap-1">
+            <span>🎓</span>
+            <span>{sName}</span>
+          </div>
+          {phone && <div className="text-[10px] text-[#8C7A6B]">{phone}</div>}
+        </div>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
+        Học viên #{String(row[c.name] || "").slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "assigned_room_id" || c.name === "room_id") {
+    const rName = row.room_name || row.branch_rooms?.name || row.assigned_room?.name;
+    if (rName) {
+      return (
+        <span className="font-medium text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
+          <span>🚪</span>
+          <span>{rName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
+        Phòng #{String(row[c.name] || "").slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "id") {
+    const val = String(row[c.name] || "");
+    return (
+      <span className="font-mono text-[10px] text-[#A69788] bg-[#F5F2ED] px-1.5 py-0.5 rounded border border-[#E8DFD8]" title={val}>
+        #{val.length > 8 ? val.slice(0, 8) : val}
+      </span>
+    );
   }
   if (c.name === "user_id") {
     return row.full_name || row.users?.full_name || display(row[c.name]);
@@ -1275,11 +1406,23 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     );
   }
   if (c.name === "primary_instructor_id" || c.name === "instructor_id") {
-    return (
+    const instName =
       row.instructor_name ||
       row.instructor?.full_name ||
       row.primary_instructor?.full_name ||
-      display(row[c.name])
+      row.instructors?.full_name;
+    if (instName) {
+      return (
+        <span className="font-semibold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
+          <span>👨‍🏫</span>
+          <span>{instName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
+        Giảng viên #{String(row[c.name] || "").slice(0, 8)}
+      </span>
     );
   }
   if (c.name === "rating") {
@@ -1361,7 +1504,16 @@ function formatCell(row: Row, c: Column): React.ReactNode {
   if (Array.isArray(row[c.name])) {
     return row[c.name].length > 0 ? row[c.name].join(", ") : "—";
   }
-  return display(row[c.name]);
+  const raw = row[c.name];
+  const rawStr = String(raw ?? "");
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawStr)) {
+    return (
+      <span className="font-mono text-[10.5px] text-[#8C7A6B] bg-[#F7F4F0] px-1.5 py-0.5 rounded border border-[#E8DFD8]" title={rawStr}>
+        #{rawStr.slice(0, 8)}
+      </span>
+    );
+  }
+  return display(raw);
 }
 
 function ReferenceInput({
@@ -3629,6 +3781,50 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "primary_instructor_id",
       "level",
       "tuition_fee",
+      "is_active",
+    ],
+    course_batches: [
+      "batch_code",
+      "course_id",
+      "branch_id",
+      "instructor_id",
+      "start_date",
+      "end_date",
+      "schedule_text",
+      "enrolled_count",
+      "status",
+    ],
+    batch_schedules: [
+      "batch_id",
+      "session_date",
+      "start_time",
+      "end_time",
+      "topic",
+      "assigned_room_id",
+      "is_practice_lab",
+    ],
+    course_chapters: [
+      "chapter_order",
+      "title",
+      "course_id",
+      "estimated_hours",
+      "is_published",
+    ],
+    course_enrollments: [
+      "student_id",
+      "course_id",
+      "batch_id",
+      "enrolled_at",
+      "tuition_fee",
+      "deposit_amount",
+      "status",
+      "payment_status",
+    ],
+    instructors: [
+      "avatar_url",
+      "full_name",
+      "title",
+      "experience_years",
       "is_active",
     ],
   };

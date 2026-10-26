@@ -14,8 +14,10 @@ import {
   Info,
   Stethoscope,
   Eye,
+  Sparkles,
 } from "lucide-react";
 import { adminApi, Listing, Row } from "./api";
+import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 export interface BatchScheduleFormValues {
   batch_id: string;
@@ -128,6 +130,66 @@ function cleanTime(t: string | undefined | null): string {
   return String(t).substring(0, 5);
 }
 
+/**
+ * Trích xuất giờ bắt đầu và kết thúc từ mô tả lịch học dự kiến của lớp
+ * Ví dụ: "Thứ 2 - Thứ 6 (Chiều 13:30 - 16:30)" -> { start: "13:30", end: "16:30" }
+ *        "Tối Thứ 2, 4, 6 (18:30 - 21:00)" -> { start: "18:30", end: "21:00" }
+ *        "Cuối tuần: Thứ 7 & Chủ Nhật (08:30 - 17:00)" -> { start: "08:30", end: "17:00" }
+ */
+export function extractTimesFromScheduleText(
+  scheduleText?: string | null
+): { start: string; end: string } | null {
+  if (!scheduleText) return null;
+  const str = String(scheduleText).trim();
+
+  // Pattern 1: HH:mm - HH:mm hoặc HH:mm đến HH:mm hoặc HHhMM - HHhMM
+  const match1 = str.match(/(\d{1,2})[:h](\d{2})\s*(?:[-–—]|đến|to)\s*(\d{1,2})[:h](\d{2})/i);
+  if (match1) {
+    const startH = match1[1].padStart(2, "0");
+    const startM = match1[2];
+    const endH = match1[3].padStart(2, "0");
+    const endM = match1[4];
+    return {
+      start: `${startH}:${startM}`,
+      end: `${endH}:${endM}`,
+    };
+  }
+
+  // Pattern 2: Chỉ có giờ không có phút ví dụ: 8h - 11h hoặc 8:00 - 11:00
+  const match2 = str.match(/(\d{1,2})(?:[:h](\d{2}))?\s*(?:[-–—]|đến|to)\s*(\d{1,2})(?:[:h](\d{2}))?/i);
+  if (match2) {
+    const startH = match2[1].padStart(2, "0");
+    const startM = match2[2] || "00";
+    const endH = match2[3].padStart(2, "0");
+    const endM = match2[4] || "00";
+    return {
+      start: `${startH}:${startM}`,
+      end: `${endH}:${endM}`,
+    };
+  }
+
+  return null;
+}
+
+// Truy vấn giờ của buổi học gần nhất trong lớp nếu không có trong mô tả lịch
+async function fetchLastSessionTimes(batchId: string): Promise<{ start: string; end: string } | null> {
+  if (!batchId) return null;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/batch_schedules?batch_id=eq.${encodeURIComponent(batchId)}&select=start_time,end_time&order=session_date.desc,created_at.desc&limit=1`,
+      { headers: getSupabaseHeaders() }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.start_time && data[0]?.end_time) {
+      return {
+        start: cleanTime(data[0].start_time),
+        end: cleanTime(data[0].end_time),
+      };
+    }
+  } catch {}
+  return null;
+}
+
 
 export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = ({
   values,
@@ -191,23 +253,57 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
     : rooms;
 
   // Xử lý khi đổi lớp học
-  const handleBatchChange = (batchId: string) => {
+  const handleBatchChange = async (batchId: string) => {
     onChange("batch_id", batchId);
     const b = batches.find((x) => String(x.id) === String(batchId));
     if (b) {
-      // Nếu chưa có ngày học, gợi ý ngày bắt đầu của lớp
+      // 1. Ngày học mặc định
       if (!values.session_date && b.start_date) {
         onChange("session_date", String(b.start_date));
       }
-      // Gợi ý phòng đầu tiên thuộc chi nhánh của lớp nếu có
+      // 2. Gợi ý phòng đầu tiên thuộc chi nhánh của lớp nếu có
       if (!values.assigned_room_id) {
         const matchingRoom = rooms.find((r) => String(r.branch_id) === String(b.branch_id));
         if (matchingRoom) {
           onChange("assigned_room_id", String(matchingRoom.id));
         }
       }
+      // 3. Khung giờ bắt đầu & kết thúc: tự động đồng bộ theo lịch học dự kiến của lớp hoặc buổi học trước
+      const extracted = extractTimesFromScheduleText(b.schedule_text);
+      if (extracted) {
+        onChange("start_time", extracted.start);
+        onChange("end_time", extracted.end);
+      } else {
+        const prevSession = await fetchLastSessionTimes(batchId);
+        if (prevSession) {
+          onChange("start_time", prevSession.start);
+          onChange("end_time", prevSession.end);
+        }
+      }
     }
   };
+
+  // Tự động đồng bộ khung giờ học khi dữ liệu lớp được tải xong (hoặc khi form mở với batch_id sẵn có)
+  useEffect(() => {
+    if (!values.batch_id || batches.length === 0) return;
+    const b = batches.find((x) => String(x.id) === String(values.batch_id));
+    if (!b) return;
+
+    if (isCreate && (!values.start_time || !values.end_time)) {
+      const extracted = extractTimesFromScheduleText(b.schedule_text);
+      if (extracted) {
+        if (!values.start_time) onChange("start_time", extracted.start);
+        if (!values.end_time) onChange("end_time", extracted.end);
+      } else {
+        fetchLastSessionTimes(String(b.id)).then((prevSession) => {
+          if (prevSession) {
+            if (!values.start_time) onChange("start_time", prevSession.start);
+            if (!values.end_time) onChange("end_time", prevSession.end);
+          }
+        });
+      }
+    }
+  }, [batches, values.batch_id, isCreate]);
 
   const startTimeClean = cleanTime(values.start_time);
   const endTimeClean = cleanTime(values.end_time);
@@ -462,7 +558,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
         )}
       </div>
 
-      {/* 3. KHUNG GIỜ HỌC (START_TIME, END_TIME) & CA HỌC CHUẨN */}
+      {/* 3. KHUNG GIỜ HỌC (START_TIME, END_TIME) & TỰ ĐỘNG ĐỒNG BỘ LỊCH HỌC DỰ KIẾN */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3.5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -483,6 +579,54 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
           )}
         </div>
 
+        {/* Khối hiển thị lịch học dự kiến của lớp và nút đồng bộ */}
+        {selectedBatch && (
+          <div className="p-3 bg-[#FAF6F2] rounded-xl border border-[#E8DFD8] flex flex-wrap items-center justify-between gap-2.5">
+            <div className="space-y-0.5">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-[#985018] flex items-center gap-1">
+                <Calendar size={12} />
+                Lịch học dự kiến của lớp:
+              </span>
+              <p className="text-xs font-bold text-[#2C241E]">
+                {selectedBatch.schedule_text || "Chưa có mô tả lịch học dự kiến"}
+              </p>
+            </div>
+
+            {(() => {
+              const extracted = extractTimesFromScheduleText(selectedBatch.schedule_text);
+              if (!extracted) return null;
+              const isMatched =
+                startTimeClean === extracted.start && endTimeClean === extracted.end;
+
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange("start_time", extracted.start);
+                    onChange("end_time", extracted.end);
+                  }}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isMatched
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200 cursor-default"
+                      : "bg-[#985018] text-white hover:bg-[#804213] border-[#985018] shadow-xs active:scale-95"
+                  }`}
+                >
+                  {isMatched ? (
+                    <>
+                      <CheckCircle2 size={13} className="text-emerald-700" />
+                      <span>Đã khớp lịch học dự kiến ({extracted.start} - {extracted.end})</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={13} className="text-amber-200" />
+                      <span>Khôi phục theo lịch dự kiến ({extracted.start} - {extracted.end})</span>
+                    </>
+                  )}
+                </button>
+              );
+            })()}
+          </div>
+        )}
 
         {/* 2 Ô nhập giờ tùy chỉnh */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
