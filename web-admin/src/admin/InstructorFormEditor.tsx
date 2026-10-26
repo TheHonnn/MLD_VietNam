@@ -115,9 +115,29 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // 1. Kiểm tra định dạng tệp ảnh
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP, GIF).");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // 2. Kiểm tra dung lượng tối đa 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Dung lượng ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
+
+    // 3. Hiển thị ngay ảnh xem trước để người dùng thấy kết quả tức thì
+    const localBlob = URL.createObjectURL(file);
+    onChange("avatar_url", localBlob);
+
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
       const cleanFileName = `instructor_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
       const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
       const KEY =
@@ -135,13 +155,31 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
           body: file,
         }
       );
+
       if (!res.ok) {
-        throw new Error("Không thể tải ảnh chân dung lên đám mây.");
+        // Fallback sang Base64 nếu storage gặp trục trặc
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (reader.result) {
+            onChange("avatar_url", String(reader.result));
+          }
+        };
+        reader.readAsDataURL(file);
+        return;
       }
+
       const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/avatars/${cleanFileName}`;
       onChange("avatar_url", publicUrl);
     } catch (err: any) {
-      alert(err.message || "Lỗi khi tải ảnh chân dung");
+      console.warn("Lỗi tải ảnh lên Supabase Storage, chuyển sang lưu Base64:", err);
+      // Fallback an toàn sang Base64 để không làm gián đoạn người dùng
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result) {
+          onChange("avatar_url", String(reader.result));
+        }
+      };
+      reader.readAsDataURL(file);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -288,34 +326,80 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
         )}
 
         {/* Ô xem trước Ảnh chân dung đang áp dụng */}
-        <div className="flex items-center gap-3 pt-2 border-t border-[#EFE4D9]">
-          <div className="w-13 h-13 rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/50 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+        <div className="flex items-center gap-3.5 p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E8DFD8]">
+          <div
+            className="rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/50 flex items-center justify-center shrink-0 overflow-hidden shadow-xs relative"
+            style={{ width: 68, height: 68, minWidth: 68, minHeight: 68, maxWidth: 68, maxHeight: 68 }}
+          >
             {values.avatar_url ? (
               <img
                 src={values.avatar_url}
                 alt="Avatar Preview"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover block"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = "none";
                 }}
               />
             ) : (
-              <User className="w-7 h-7 text-[#985018]" />
+              <User className="w-8 h-8 text-[#985018]" />
+            )}
+            {uploading && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-xs">
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              </div>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-bold text-[#2C241E] block">
-              {values.full_name || "Chưa nhập họ tên"}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#2C241E] truncate block">
+                {values.full_name || "Chưa nhập họ tên"}
+              </span>
+              {values.avatar_url && !uploading && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#EBF7EE] text-[#059669] border border-[#CDEED5]">
+                  ✓ Đã có ảnh
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-[#8C7A6B] font-mono truncate block mt-0.5">
+              {uploading
+                ? "Đang tải ảnh lên máy chủ..."
+                : values.avatar_url || "Chưa có ảnh (sẽ dùng avatar mặc định)"}
             </span>
-            <span className="text-[10px] text-[#8C7A6B] font-mono truncate block">
-              {values.avatar_url || "Chưa có ảnh (hệ thống sẽ áp dụng avatar mặc định)"}
-            </span>
+            {values.avatar_url && !uploading && (
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-[10px] text-[#985018] hover:underline font-bold cursor-pointer"
+                >
+                  Đổi ảnh khác
+                </button>
+                <span className="text-[#D1C7BD] text-[10px]">·</span>
+                <a
+                  href={values.avatar_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] text-[#73675F] hover:underline cursor-pointer"
+                >
+                  Xem ảnh gốc
+                </a>
+                <span className="text-[#D1C7BD] text-[10px]">·</span>
+                <button
+                  type="button"
+                  onClick={() => onChange("avatar_url", "")}
+                  className="text-[10px] text-[#DC2626] hover:underline cursor-pointer"
+                >
+                  Gỡ ảnh
+                </button>
+              </div>
+            )}
           </div>
-          {values.avatar_url && (
+          {values.avatar_url && !uploading && (
             <button
               type="button"
               onClick={() => onChange("avatar_url", "")}
-              className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-red-600 hover:bg-red-50 cursor-pointer"
+              className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-red-600 hover:bg-red-50 cursor-pointer shrink-0"
               title="Gỡ ảnh này"
             >
               <X size={14} />
@@ -475,12 +559,16 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
           <span className="text-[10px] text-[#73675F]">{values.experience_years || 1} năm kinh nghiệm</span>
         </div>
         <div className="bg-white rounded-xl p-3.5 border border-[#EFE4D9] flex items-start gap-3.5 shadow-2xs">
-          <div className="w-14 h-14 rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/40 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+          <div
+            className="rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/40 flex items-center justify-center shrink-0 overflow-hidden shadow-xs"
+            style={{ width: 56, height: 56, minWidth: 56, minHeight: 56, maxWidth: 56, maxHeight: 56 }}
+          >
             {values.avatar_url ? (
               <img
                 src={values.avatar_url}
                 alt="Instructor"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover block"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = "none";
                 }}
