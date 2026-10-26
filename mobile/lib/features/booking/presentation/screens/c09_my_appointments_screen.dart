@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
 import '../widgets/booking_status_badge.dart';
@@ -69,9 +70,10 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Lịch hẹn của tôi',
-          style: TextStyle(
+        title: Text(
+          context.tr('Lịch hẹn của tôi', 'My Appointments'),
+          style: const TextStyle(
+            fontFamily: 'Montserrat',
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -95,14 +97,14 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                   Expanded(
                     child: _buildTabButton(
                       0,
-                      upcomingList.isNotEmpty ? 'Sắp tới (${upcomingList.length})' : 'Sắp tới',
+                      upcomingList.isNotEmpty ? context.tr('Sắp tới (${upcomingList.length})', 'Upcoming (${upcomingList.length})') : context.tr('Sắp tới', 'Upcoming'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildTabButton(
                       1,
-                      completedList.isNotEmpty ? 'Đã hoàn thành (${completedList.length})' : 'Đã hoàn thành',
+                      completedList.isNotEmpty ? context.tr('Đã hoàn thành (${completedList.length})', 'Completed (${completedList.length})') : context.tr('Đã hoàn thành', 'Completed'),
                     ),
                   ),
                 ],
@@ -156,6 +158,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
         child: Text(
           label,
           style: TextStyle(
+            fontFamily: 'Montserrat',
             fontSize: 13.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected ? Colors.white : AppColors.textSecondary,
@@ -192,6 +195,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               Text(
                 app.bookingCode,
                 style: const TextStyle(
+                  fontFamily: 'Montserrat',
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,
@@ -203,8 +207,9 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
 
           // Tên dịch vụ
           Text(
-            app.serviceName,
+            app.serviceName.tr(context),
             style: const TextStyle(
+              fontFamily: 'Montserrat',
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -220,7 +225,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               const SizedBox(width: 6),
               Text(
                 '${app.timeSlot} · ${_formatDate(app.appointmentDate)}',
-                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textPrimary),
               ),
             ],
           ),
@@ -233,10 +238,10 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  app.branchName,
+                  app.branchName.tr(context),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -251,14 +256,18 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Chi phí dịch vụ', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  Text(
+                    context.tr('Chi phí dịch vụ', 'Service Cost'),
+                    style: const TextStyle(fontFamily: 'Montserrat', fontSize: 11, color: AppColors.textSecondary),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     _formatCurrency(app.totalAmount),
                     style: const TextStyle(
+                      fontFamily: 'Montserrat',
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF00693F),
+                      color: AppColors.servicePrice,
                     ),
                   ),
                 ],
@@ -280,9 +289,10 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
-                  child: const Text(
-                    'Xem chi tiết',
-                    style: TextStyle(
+                  child: Text(
+                    context.tr('Xem chi tiết', 'View Details'),
+                    style: const TextStyle(
+                      fontFamily: 'Montserrat',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
@@ -315,19 +325,20 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                 child: const Icon(Icons.calendar_month_outlined, size: 32, color: AppColors.primary),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Chưa có lịch hẹn nào sắp tới',
-                style: TextStyle(
+              Text(
+                context.tr('Chưa có lịch hẹn nào sắp tới', 'No upcoming appointments'),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Đặt lịch để được chăm sóc và phục hồi chức năng hệ bạch huyết chuyên sâu.',
+              Text(
+                context.tr('Đặt lịch để được chăm sóc và phục hồi chức năng hệ bạch huyết chuyên sâu.', 'Book a session for intensive lymphatic care and recovery.'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -346,7 +357,10 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     elevation: 0,
                   ),
-                  child: const Text('Đặt lịch ngay', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    context.tr('Đặt lịch ngay', 'Book Now'),
+                    style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
             ],
@@ -354,27 +368,28 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
         ),
       );
     } else {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.history_rounded, size: 48, color: Color(0xFFCBD5E1)),
-              SizedBox(height: 12),
+              const Icon(Icons.history_rounded, size: 48, color: Color(0xFFCBD5E1)),
+              const SizedBox(height: 12),
               Text(
-                'Chưa có lịch hẹn hoàn thành',
-                style: TextStyle(
+                context.tr('Chưa có lịch hẹn hoàn thành', 'No completed appointments'),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
-                'Các buổi trị liệu sau khi hoàn thành sẽ được lưu trữ tại đây.',
+                context.tr('Các buổi trị liệu sau khi hoàn thành sẽ được lưu trữ tại đây.', 'Your completed therapy sessions will be stored here.'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textSecondary),
               ),
             ],
           ),

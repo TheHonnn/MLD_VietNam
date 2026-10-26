@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/home_models.dart';
 
-/// Thẻ Dịch vụ Chuẩn Y khoa MLD Việt Nam - Đồng bộ 100% phong cách Trang Đào tạo:
-/// - Ít chữ, không giải thích, không note chi tiết
-/// - Chỉ gồm: Ảnh, Tên dịch vụ, Giá tiền và Nút Đặt lịch
-/// - Tương tác chạm: Tiêu đề và Nút đổi sang màu xanh lá thương hiệu (#168477)
+/// Thẻ Dịch vụ Chuẩn Y khoa MLD Việt Nam:
+/// - Thiết kế tối giản theo chuẩn Trang Tài liệu: Ảnh, Tên dịch vụ, Giá tiền và Nút Đặt lịch
+/// - Màu sắc đồng bộ thương hiệu #2860EB (Xanh dương MLD), không dùng xanh lá
+/// - Bo viền vuông, bo tròn nhẹ 8px
+/// - Phông chữ 100% Montserrat
 class VodderServiceCard extends StatefulWidget {
   final SpaServiceModel? service;
   final VoidCallback onBooking;
@@ -34,23 +36,24 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
   Widget build(BuildContext context) {
     final service = widget.service;
     final priceWithVat = service?.priceWithVat ?? 702000.0;
-    final title = service?.name ?? 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
+    final rawTitle = service?.name ?? 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
+    final title = context.tr(rawTitle);
 
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapCancel: () => setState(() => _isPressed = false),
@@ -61,11 +64,11 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
               if (mounted) setState(() => _isPressed = false);
             });
           },
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Ảnh minh họa dịch vụ (chuẩn tỷ lệ như trang Đào tạo)
+              // 1. Ảnh minh họa dịch vụ
               SizedBox(
                 width: double.infinity,
                 height: 185,
@@ -73,60 +76,62 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                   'assets/images/course_banner_clean.png',
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    color: const Color(0xFFE8F5F1),
+                    color: AppColors.primaryLight,
                     child: const Center(
-                      child: Icon(Icons.spa_rounded, size: 48, color: Color(0xFF168477)),
+                      child: Icon(Icons.spa_rounded, size: 48, color: AppColors.primary),
                     ),
                   ),
                 ),
               ),
 
-              // 2. Nội dung: Chỉ Tên dịch vụ, Giá tiền và Chữ Đặt lịch
+              // 2. Nội dung: Chỉ Tên dịch vụ, Giá tiền và Chữ Đặt lịch (Không chữ thừa)
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(14.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tên dịch vụ (Đen in đậm, khi bấm đổi sang xanh lá)
+                    // Tên dịch vụ (Bình thường: Đen in đậm | Khi chạm: Đổi sang #2860EB)
                     AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 150),
                       style: TextStyle(
                         fontFamily: 'Montserrat',
                         fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: _isPressed ? const Color(0xFF168477) : const Color(0xFF0F172A),
+                        fontWeight: FontWeight.w700,
+                        color: _isPressed ? AppColors.primary : const Color(0xFF0F172A),
                         height: 1.35,
                       ),
                       child: Text(title),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
                     // Hàng Giá tiền và Nút Đặt lịch
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Giá tiền (Xanh lá đậm, chữ đ gạch chân)
+                        // Giá tiền dịch vụ: Màu rgb(225, 29, 72) (#E11D48), chữ đ gạch chân
                         Text.rich(
                           TextSpan(
                             children: [
                               TextSpan(
                                 text: '${_formatCurrency(priceWithVat)} ',
                                 style: const TextStyle(
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF00693F),
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.servicePrice,
                                 ),
                               ),
                               const TextSpan(
                                 text: 'đ',
                                 style: TextStyle(
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF00693F),
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.servicePrice,
                                   decoration: TextDecoration.underline,
                                 ),
                               ),
@@ -134,15 +139,15 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                           ),
                         ),
 
-                        // Nút Đặt lịch (Màu xám nhạt, bấm vào chuyển sang xanh lá)
+                        // Nút Đặt lịch (Màu xám nhạt, chạm vào chuyển sang xanh dương #2860EB)
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.5),
                           decoration: BoxDecoration(
-                            color: _isPressed ? const Color(0xFF168477) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
+                            color: _isPressed ? AppColors.primary : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: _isPressed ? const Color(0xFF168477) : const Color(0xFFE2E8F0),
+                              color: _isPressed ? AppColors.primary : const Color(0xFFE2E8F0),
                               width: 1.0,
                             ),
                           ),
@@ -150,16 +155,17 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Đặt lịch',
+                                context.tr('Đặt lịch', 'Book Now'),
                                 style: TextStyle(
-                                  fontSize: 14.5,
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
                                   color: _isPressed ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ),
                               const SizedBox(width: 4),
                               Icon(
-                                Icons.arrow_forward_rounded,
+                                Icons.calendar_month_outlined,
                                 size: 14,
                                 color: _isPressed ? Colors.white : const Color(0xFF0F172A),
                               ),
@@ -178,4 +184,3 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
     );
   }
 }
-

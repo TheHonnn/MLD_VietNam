@@ -4,6 +4,7 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/vietnamese_dob_picker.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
+import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
 
 
@@ -30,7 +31,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   late final TextEditingController _addressController;
 
   int _selectedExperience = 1; // 0: Chưa có, 1: Cơ bản / tự học (chuẩn Figma đang chọn), 2: Đang làm nghề
-  String _selectedBranch = 'Chi nhánh Quận 3';
+  String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   String _selectedBatch = '23/10/2026 · MCN-1026';
   String _selectedFormat = 'Học trực tiếp';
 
@@ -88,6 +89,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   }
 
   void _submitConsultation(String phone) {
+    AcademyRepository.instance.enrollCourseLocal(widget.course);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -100,7 +102,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
           ],
         ),
         content: const Text(
-          'Yêu cầu tư vấn & giữ chỗ khóa học của bạn đã được ghi nhận thành công.\n\nĐội ngũ đào tạo MLD Vietnam sẽ liên hệ trực tiếp qua số điện thoại để tư vấn lộ trình và hướng dẫn thủ tục nhập học cho bạn.',
+          'Chúc mừng! Bạn đã đăng ký khóa học thành công.\n\nToàn bộ video bài giảng và học liệu chuyên sâu đã được mở khóa. Đội ngũ đào tạo MLD Vietnam sẽ liên hệ hỗ trợ bạn trong suốt quá trình học tập.',
           style: TextStyle(fontSize: 14, height: 1.5),
         ),
         actions: [
@@ -109,7 +111,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               Navigator.of(ctx).pop();
               Navigator.of(context).pop();
             },
-            child: const Text('Đồng ý', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Bắt đầu học ngay', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -248,7 +250,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: AcademyColors.primary,
+                      color: AcademyColors.price,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -346,12 +348,12 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                   const SizedBox(height: 6),
                   _buildDropdownContainer(
                     value: _selectedBranch,
-                    items: const ['Chi nhánh Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
+                    items: const ['Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399'],
                     onChanged: (val) => setState(() => _selectedBranch = val!),
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
+                    'Trụ sở chính MLD Việt Nam · Hotline: 096.7786.399',
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
@@ -686,7 +688,7 @@ Widget _buildInputField(
           style: TextStyle(
             fontSize: isTotal ? 18 : 14,
             fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
-            color: isTotal ? AcademyColors.primary : AcademyColors.textPrimary,
+            color: isTotal ? AcademyColors.price : AcademyColors.textPrimary,
           ),
         ),
       ],

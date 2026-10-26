@@ -175,27 +175,77 @@ class LessonModel {
   final String title;
   final int durationMinutes;
   final bool isCompleted;
+  final String? videoUrl;
+  final String? contentText;
+  final bool isFreePreview;
+  final int lessonOrder;
 
   const LessonModel({
     required this.id,
     required this.title,
     required this.durationMinutes,
     this.isCompleted = false,
+    this.videoUrl,
+    this.contentText,
+    this.isFreePreview = false,
+    this.lessonOrder = 1,
   });
+
+  factory LessonModel.fromJson(Map<String, dynamic> json) {
+    return LessonModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt() ??
+          (json['durationMinutes'] as num?)?.toInt() ??
+          18,
+      isCompleted: json['is_completed'] == true || json['isCompleted'] == true,
+      videoUrl: json['video_url']?.toString() ?? json['videoUrl']?.toString(),
+      contentText: json['content_text']?.toString() ?? json['contentText']?.toString(),
+      isFreePreview: json['is_free_preview'] == true || json['isFreePreview'] == true,
+      lessonOrder: (json['lesson_order'] as num?)?.toInt() ?? 1,
+    );
+  }
 }
 
 class ChapterModel {
   final String id;
   final String title;
+  final String? description;
   final bool isCompleted;
+  final int chapterOrder;
   final List<LessonModel> lessons;
 
   const ChapterModel({
     required this.id,
     required this.title,
+    this.description,
     this.isCompleted = false,
+    this.chapterOrder = 1,
     required this.lessons,
   });
+
+  factory ChapterModel.fromJson(Map<String, dynamic> json) {
+    List<LessonModel> lessonList = [];
+    if (json['course_lessons'] is List) {
+      lessonList = (json['course_lessons'] as List)
+          .map((l) => LessonModel.fromJson(Map<String, dynamic>.from(l as Map)))
+          .toList();
+      lessonList.sort((a, b) => a.lessonOrder.compareTo(b.lessonOrder));
+    } else if (json['lessons'] is List) {
+      lessonList = (json['lessons'] as List)
+          .map((l) => LessonModel.fromJson(Map<String, dynamic>.from(l as Map)))
+          .toList();
+    }
+
+    return ChapterModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString(),
+      chapterOrder: (json['chapter_order'] as num?)?.toInt() ?? 1,
+      isCompleted: json['is_completed'] == true,
+      lessons: lessonList,
+    );
+  }
 }
 
 class AttendanceScheduleItem {
@@ -232,7 +282,7 @@ class MockAcademyData {
       tuitionFee: 599000,
       depositFee: 200000,
       originalPrice: 6000000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/Dẫn lưu bạch huyết nền tảng cho người mới bắt đầu 599.000.jpg',
       instructorName: 'ThS. Nguyễn Thu Hà',
       instructorTitle: 'Giảng viên chuyên môn MLD',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
@@ -256,7 +306,7 @@ class MockAcademyData {
       tuitionFee: 350000,
       depositFee: 100000,
       originalPrice: 350000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/Khóa học Hướng dẫn phòng ngừa phù tay sau phẫu thuật ung thư vú 350.000.jpg',
       instructorName: 'Trần Minh Phương',
       instructorTitle: 'Chuyên gia Trị liệu & Phục hồi',
       instructorAvatar: 'assets/images/tran_minh_phuong.png',
@@ -280,7 +330,7 @@ class MockAcademyData {
       tuitionFee: 350000,
       depositFee: 100000,
       originalPrice: 350000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/HƯỚNG DẪN XÂY DỰNG CHẾ ĐỘ ĂN PHÒNG NGỪA BỆNH LÝ TUYẾN VÚ 350.000.jpg',
       instructorName: 'ThS. Nguyễn Thu Hà',
       instructorTitle: 'Chuyên gia Dinh dưỡng & Miễn dịch',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
@@ -304,7 +354,7 @@ class MockAcademyData {
       tuitionFee: 350000,
       depositFee: 100000,
       originalPrice: 350000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/Khóa học Hướng dẫn phòng ngừa phù tay sau phẫu thuật tuyến vú 350.000.jpg',
       instructorName: 'Lê Hoài An',
       instructorTitle: 'Kỹ thuật viên Trưởng',
       instructorAvatar: 'assets/images/le_hoai_an.png',
@@ -316,8 +366,32 @@ class MockAcademyData {
 
     // --- 2. Nhóm: Người đang làm nghề ---
     CourseModel(
+      id: '30303030-0001-0001-0001-000000000009',
+      title: 'Khoá học Chuyên đề: CHĂM SÓC MẸ SAU SINH',
+      category: 'Người đang làm nghề',
+      courseGroup: 'Người đang làm nghề',
+      targetAudience: 'Kỹ thuật viên XBBH/PHCN/Mẹ & Bé',
+      targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
+      level: 'Chuyên đề',
+      durationWeeks: 4,
+      totalHours: 48,
+      theoryHours: 16,
+      practiceHours: 32,
+      tuitionFee: 10000000,
+      depositFee: 2000000,
+      originalPrice: 15000000,
+      image: 'assets/images/DaoTao/Khoá học Chuyên đề CHĂM SÓC MẸ SAU SINH 10.000.000.jpg',
+      instructorName: 'ThS. Nguyễn Thu Hà',
+      instructorTitle: 'Giảng viên chuyên môn MLD',
+      instructorAvatar: 'assets/images/nguyen_thu_ha.png',
+      branch: 'Học viện MLD Việt Nam',
+      schedule: 'Thứ 7 & Chủ nhật · 08:30–12:30',
+      description: 'Kỹ thuật dẫn lưu bạch huyết chuyên sâu dành riêng cho mẹ sau sinh: hỗ trợ hồi phục cơ thể nhanh chóng, giảm phù nề chi dưới, thông tắc tia sữa và săn chắc phục hồi vóc dáng an toàn.',
+      tag: 'Chứng nhận Chuyên đề Hậu sản',
+    ),
+    CourseModel(
       id: '30303030-0001-0001-0001-000000000002',
-      title: 'DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI LÀM NGHỀ',
+      title: 'DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI LÀM NGHỀ - Level 1',
       category: 'Người đang làm nghề',
       courseGroup: 'Người đang làm nghề',
       targetAudience: 'Kỹ thuật viên XBBH/PHCN/VLTL',
@@ -330,18 +404,18 @@ class MockAcademyData {
       tuitionFee: 15000000,
       depositFee: 3000000,
       originalPrice: 30000000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/Dẫn lưu bạch huyết cơ bản cho người làm nghề 15.000.000.jpg',
       instructorName: 'Nguyễn Thanh Hương',
       instructorTitle: 'Giảng viên kỹ thuật MLD Vodder',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
       branch: 'Học viện MLD Việt Nam',
       schedule: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
       description: 'Chuẩn hóa kỹ thuật dẫn lưu bạch huyết thủ công Vodder quốc tế với áp lực 30-40 mmHg. Đào tạo cầm tay chỉ việc, ứng dụng ngay vào cơ sở chăm sóc sức khỏe.',
-      tag: 'Chứng chỉ hành nghề MLD',
+      tag: 'Chứng chỉ hành nghề MLD - Level 1',
     ),
     CourseModel(
       id: '30303030-0001-0001-0001-000000000006',
-      title: 'DẪN LƯU BẠCH HUYẾT NÂNG CAO CHO NGƯỜI LÀM NGHỀ',
+      title: 'DẪN LƯU BẠCH HUYẾT NÂNG CAO CHO NGƯỜI LÀM NGHỀ - Level 2',
       category: 'Người đang làm nghề',
       courseGroup: 'Người đang làm nghề',
       targetAudience: 'Kỹ thuật viên XBBH/PHCN/VLTL',
@@ -354,14 +428,38 @@ class MockAcademyData {
       tuitionFee: 25000000,
       depositFee: 5000000,
       originalPrice: 30000000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/Dẫn lưu bạch huyết nâng cao cho người làm nghề 25.000.000.jpg',
       instructorName: 'Nguyễn Thanh Hương',
       instructorTitle: 'Giảng viên kỹ thuật MLD Vodder',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
       branch: 'Học viện MLD Việt Nam',
       schedule: 'Thứ 2–4–6 · 09:00–12:00',
       description: 'Kỹ thuật can thiệp sâu các trường hợp phù bạch huyết phức tạp, điều trị phục hồi sau phẫu thuật thẩm mỹ và tạo hình, nạo vét hạch hoặc xạ trị.',
-      tag: 'Kỹ thuật viên Chuyên sâu',
+      tag: 'Kỹ thuật viên Chuyên sâu - Level 2',
+    ),
+    CourseModel(
+      id: '30303030-0001-0001-0001-000000000010',
+      title: 'DẪN LƯU BẠCH HUYẾT CHUYÊN SÂU CHO NGƯỜI LÀM NGHỀ - Level 3',
+      category: 'Người đang làm nghề',
+      courseGroup: 'Người đang làm nghề',
+      targetAudience: 'Kỹ thuật viên XBBH/PHCN/VLTL & Y bác sĩ',
+      targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
+      level: 'Chuyên sâu',
+      durationWeeks: 10,
+      totalHours: 120,
+      theoryHours: 40,
+      practiceHours: 80,
+      tuitionFee: 35000000,
+      depositFee: 7000000,
+      originalPrice: 40000000,
+      image: 'assets/images/DaoTao/Dẫn lưu bạch huyết chuyên sâu cho người làm nghề.jpg',
+      instructorName: 'BS. Lê Hoài An',
+      instructorTitle: 'Chuyên gia Y học Phục hồi & MLD',
+      instructorAvatar: 'assets/images/le_hoai_an.png',
+      branch: 'Học viện MLD Việt Nam',
+      schedule: 'Thứ 3–5–7 · 09:00–13:00',
+      description: 'Kỹ thuật can thiệp lâm sàng chuyên sâu, xử lý các ca phù bạch huyết nguyên phát và thứ phát mức độ nặng, xây dựng phác đồ cá nhân hóa chuẩn quốc tế.',
+      tag: 'Chuyên gia Trị liệu MLD - Level 3',
     ),
     CourseModel(
       id: '30303030-0001-0001-0001-000000000007',
@@ -378,7 +476,7 @@ class MockAcademyData {
       tuitionFee: 30000000,
       depositFee: 6000000,
       originalPrice: 35000000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/Giảm phù bằng dẫn lưu bạch huyết và băng ép CDT 30.000.000.webp',
       instructorName: 'BS. Lê Hoài An',
       instructorTitle: 'Chuyên gia Y học Phục hồi & CDT',
       instructorAvatar: 'assets/images/le_hoai_an.png',
@@ -386,6 +484,30 @@ class MockAcademyData {
       schedule: 'Thứ 3–5–7 · 13:30–17:30',
       description: 'Liệu pháp phức hợp giảm ứ trệ dịch (CDT): phối hợp kỹ thuật xoa bóp dẫn lưu Vodder và nghệ thuật băng ép nhiều lớp phân tầng áp lực chuẩn y học.',
       tag: 'Chứng chỉ Chuyên đề CDT',
+    ),
+    CourseModel(
+      id: '30303030-0001-0001-0001-000000000011',
+      title: 'Chương trình: PHÁT TRIỂN GIẢNG VIÊN VÀ HỌC THUẬT',
+      category: 'Người đang làm nghề',
+      courseGroup: 'Người đang làm nghề',
+      targetAudience: 'Giảng viên & Kỹ thuật viên Trưởng',
+      targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
+      level: 'Giảng viên',
+      durationWeeks: 12,
+      totalHours: 140,
+      theoryHours: 50,
+      practiceHours: 90,
+      tuitionFee: 35000000,
+      depositFee: 7000000,
+      originalPrice: 45000000,
+      image: 'assets/images/DaoTao/Chương trình phát triển giảng viên và học thuật 35.000.000.jpg',
+      instructorName: 'Ban Cố Vấn Y Khoa MLD',
+      instructorTitle: 'Hội đồng Giảng viên & Học thuật',
+      instructorAvatar: 'assets/images/nguyen_thu_ha.png',
+      branch: 'Học viện MLD Việt Nam',
+      schedule: 'Cuối tuần · 09:00–17:00',
+      description: 'Đào tạo bồi dưỡng năng lực sư phạm, phương pháp biên soạn giáo trình và chuẩn hóa kỹ năng sư phạm lâm sàng dành cho các chuyên gia MLD hướng tới vai trò giảng viên.',
+      tag: 'Chứng nhận Giảng viên MLD',
     ),
     CourseModel(
       id: '30303030-0001-0001-0001-000000000008',
@@ -402,7 +524,7 @@ class MockAcademyData {
       tuitionFee: 350000000,
       depositFee: 50000000,
       originalPrice: 350000000,
-      image: 'assets/images/course_banner_clean.png',
+      image: 'assets/images/DaoTao/LYMPHATIC WELLNESS SIGNATURE PROGRAM 350.000.000.jpg',
       instructorName: 'Ban Cố Vấn Y Khoa MLD',
       instructorTitle: 'Hội đồng Chuyên gia Quốc tế',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
@@ -455,9 +577,30 @@ class MockAcademyData {
       title: 'Chương 1: Giải phẫu & Sinh lý hệ bạch huyết',
       isCompleted: true,
       lessons: [
-        LessonModel(id: 'les_01', title: 'Bài 1: Tổng quan và nguồn gốc phương pháp Emil Vodder', durationMinutes: 15, isCompleted: true),
-        LessonModel(id: 'les_02', title: 'Bài 2: Cấu tạo mao mạch và hạch bạch huyết', durationMinutes: 20, isCompleted: true),
-        LessonModel(id: 'les_03', title: 'Bài 3: Áp lực mô và cơ chế hình thành dịch phù', durationMinutes: 25, isCompleted: true),
+        LessonModel(
+          id: 'les_01',
+          title: 'Bài 1: Tổng quan và nguồn gốc phương pháp Emil Vodder',
+          durationMinutes: 15,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=QA-xR_E24G8',
+          isFreePreview: true,
+        ),
+        LessonModel(
+          id: 'les_02',
+          title: 'Bài 2: Cấu tạo mao mạch và hạch bạch huyết',
+          durationMinutes: 20,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=0h9sC3wK-yA',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_03',
+          title: 'Bài 3: Áp lực mô và cơ chế hình thành dịch phù',
+          durationMinutes: 25,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=2r1pZ3Wf2lA',
+          isFreePreview: false,
+        ),
       ],
     ),
     ChapterModel(
@@ -465,9 +608,30 @@ class MockAcademyData {
       title: 'Chương 2: Nguyên lý 4 thao tác dẫn lưu cơ bản',
       isCompleted: false,
       lessons: [
-        LessonModel(id: 'les_04', title: 'Bài 4: Thao tác xoay tròn tĩnh (Stationary Circles)', durationMinutes: 20, isCompleted: true),
-        LessonModel(id: 'les_05', title: 'Bài 5: Thao tác ép bơm (Pump technique)', durationMinutes: 25, isCompleted: false),
-        LessonModel(id: 'les_06', title: 'Bài 6: Thao tác múc và cuộn (Scoop & Rotary)', durationMinutes: 30, isCompleted: false),
+        LessonModel(
+          id: 'les_04',
+          title: 'Bài 4: Thao tác xoay tròn tĩnh (Stationary Circles)',
+          durationMinutes: 20,
+          isCompleted: true,
+          videoUrl: 'https://www.youtube.com/watch?v=Zz1X1U0v6g0',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_05',
+          title: 'Bài 5: Thao tác ép bơm (Pump technique)',
+          durationMinutes: 25,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=XvcJpA_k24k',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_06',
+          title: 'Bài 6: Thao tác múc và cuộn (Scoop & Rotary)',
+          durationMinutes: 30,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=Yp69xN1D9Xk',
+          isFreePreview: false,
+        ),
       ],
     ),
     ChapterModel(
@@ -475,8 +639,22 @@ class MockAcademyData {
       title: 'Chương 3: Phác đồ lâm sàng & Thực hành cầm tay chỉ việc',
       isCompleted: false,
       lessons: [
-        LessonModel(id: 'les_07', title: 'Bài 7: Quy trình dẫn lưu vùng cổ vai gáy và đầu mặt', durationMinutes: 30, isCompleted: false),
-        LessonModel(id: 'les_08', title: 'Bài 8: Xử lý phù chi và phòng ngừa biến chứng', durationMinutes: 35, isCompleted: false),
+        LessonModel(
+          id: 'les_07',
+          title: 'Bài 7: Quy trình dẫn lưu vùng cổ vai gáy và đầu mặt',
+          durationMinutes: 30,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=QA-xR_E24G8',
+          isFreePreview: false,
+        ),
+        LessonModel(
+          id: 'les_08',
+          title: 'Bài 8: Xử lý phù chi và phòng ngừa biến chứng',
+          durationMinutes: 35,
+          isCompleted: false,
+          videoUrl: 'https://www.youtube.com/watch?v=0h9sC3wK-yA',
+          isFreePreview: false,
+        ),
       ],
     ),
   ];

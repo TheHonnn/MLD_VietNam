@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/models/academy_models.dart';
 import '../widgets/academy_widgets.dart';
-import 'e02_course_catalog_screen.dart';
+import 'e01_academy_home_screen.dart';
 import 'e03_course_detail_screen.dart';
 
 /// Screen E04: Thông tin giảng viên [8116:25508]
@@ -35,7 +35,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const E02CourseCatalogScreen(),
+                  builder: (_) => const E01AcademyHomeScreen(),
                 ),
               );
             },
@@ -414,7 +414,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: AcademyColors.primary,
+                        color: AcademyColors.price,
                       ),
                     ),
                     OutlinedButton(

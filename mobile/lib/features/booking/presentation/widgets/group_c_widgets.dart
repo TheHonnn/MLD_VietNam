@@ -19,6 +19,7 @@ class BookingColors {
   static const Color errorBg = Color(0xFFFFF0ED);
   static const Color qrBorder = Color(0xFF002A6B);
   static const Color slotDisabledBg = Color(0xFFF1F5F9);
+  static const Color servicePrice = Color(0xFFE11D48); // rgb(225, 29, 72)
 }
 
 /// 1. AppBar chuẩn Figma Group C
@@ -648,7 +649,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: BookingColors.primary,
+                  color: BookingColors.servicePrice,
                 ),
               ),
             ],

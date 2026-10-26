@@ -390,22 +390,24 @@ const MobileHomeMockup: React.FC<MobileHomeMockupProps> = ({
           </div>
         )}
 
-        {/* 2. THE BANNER (VỊ TRÍ ĐẦU TIÊN TRANG CHỦ) */}
-        <div className="relative rounded-2xl overflow-hidden shadow-md text-white bg-gradient-to-r from-[#002A6B] to-[#1E3A8A] h-[152px] flex flex-col justify-between p-3.5 border border-blue-900/40 group transition-all">
-          {/* Background Image with Overlay */}
-          {currentBanner?.imageUrl && (
+        {/* 2. THE BANNER (VỊ TRÍ ĐẦU TIÊN TRANG CHỦ - HIỂN THỊ MÀU GỐC CỦA ẢNH) */}
+        <div className="relative rounded-2xl overflow-hidden shadow-md text-white bg-neutral-900 h-[152px] flex flex-col justify-between p-3.5 border border-neutral-700/60 group transition-all">
+          {/* Background Image with Original Natural Colors (Không ám xanh, giữ màu mặc định) */}
+          {currentBanner?.imageUrl ? (
             <img
               src={currentBanner.imageUrl}
               alt="Banner"
-              className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60 pointer-events-none transition-opacity duration-300"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-300"
               onError={(e) => {
                 (e.target as HTMLElement).style.display = 'none';
               }}
             />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#2C241E] to-[#1E1814] pointer-events-none" />
           )}
 
-          {/* Deep Navy Gradient Overlay #002A6B (Khớp 100% b01_home_screen.dart) */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#002A6B] via-[#002A6B]/80 to-transparent pointer-events-none" />
+          {/* Lớp phủ tối nhẹ nhàng giữ nguyên màu sắc gốc của ảnh nhưng đảm bảo chữ sắc nét */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15 pointer-events-none" />
 
           {/* Top Banner Tag & Spa Icon */}
           <div className="relative z-10 flex items-start justify-between gap-1">

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
@@ -46,8 +47,11 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
       _noteController.clear();
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã lưu ghi chú vào nhật ký trị liệu!'),
+      SnackBar(
+        content: Text(
+          context.tr('Đã lưu ghi chú vào nhật ký trị liệu!', 'Note saved to care journal!'),
+          style: const TextStyle(fontFamily: 'Montserrat'),
+        ),
         backgroundColor: AppColors.primary,
       ),
     );
@@ -58,7 +62,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
     final canGoBack = widget.onBack != null || Navigator.of(context).canPop();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -75,10 +79,11 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                 },
               )
             : null,
-        title: const Text(
-          'Nhật ký trị liệu',
-          style: TextStyle(
-            fontSize: 20,
+        title: Text(
+          context.tr('Nhật ký trị liệu', 'Care Journal'),
+          style: const TextStyle(
+            fontFamily: 'Montserrat',
+            fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
@@ -96,8 +101,8 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
               Builder(
                 builder: (context) {
                   final profile = MembershipRepository.instance.profile;
-                  final displayName = profile.fullName.trim().isNotEmpty ? profile.fullName : 'Khách hàng MLD';
-                  final packageName = _repo.packages.isNotEmpty ? _repo.packages.first.packageName : 'Chưa có gói liệu trình';
+                  final displayName = profile.fullName.trim().isNotEmpty ? profile.fullName : context.tr('Khách hàng MLD', 'MLD Customer');
+                  final packageName = _repo.packages.isNotEmpty ? _repo.packages.first.packageName.tr(context) : context.tr('Chưa có gói liệu trình', 'No treatment package');
                   final completedCount = _repo.journalEntries.length;
 
                   return Container(
@@ -136,6 +141,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                               Text(
                                 displayName,
                                 style: const TextStyle(
+                                  fontFamily: 'Montserrat',
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
@@ -145,6 +151,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                               Text(
                                 packageName,
                                 style: const TextStyle(
+                                  fontFamily: 'Montserrat',
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.primary,
@@ -152,8 +159,9 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '$completedCount buổi hoàn thành',
+                                '$completedCount ${context.tr("buổi hoàn thành", "sessions completed")}',
                                 style: const TextStyle(
+                                  fontFamily: 'Montserrat',
                                   fontSize: 12,
                                   color: AppColors.textSecondary,
                                 ),
@@ -170,9 +178,10 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
               const SizedBox(height: 20),
 
               // 2. TIÊU ĐỀ LỊCH SỬ TRỊ LIỆU
-              const Text(
-                'LỊCH SỬ TRỊ LIỆU',
-                style: TextStyle(
+              Text(
+                context.tr('LỊCH SỬ TRỊ LIỆU', 'TREATMENT HISTORY'),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textSecondary,
@@ -187,8 +196,8 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
@@ -203,16 +212,19 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                         child: const Icon(Icons.menu_book_outlined, size: 28, color: AppColors.primary),
                       ),
                       const SizedBox(height: 14),
-                      const Text(
-                        'Chưa có nhật ký trị liệu',
+                      Text(
+                        context.tr('Chưa có nhật ký trị liệu', 'No care journal entries yet'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Sau mỗi buổi trị liệu tại trung tâm, chuyên viên MLD sẽ ghi chép chi tiết kết quả phục hồi tại đây.',
+                      Text(
+                        context.tr(
+                          'Sau mỗi buổi trị liệu tại trung tâm, chuyên viên MLD sẽ ghi chép chi tiết kết quả phục hồi tại đây.',
+                          'After each session at the center, MLD specialists will record your recovery results here.',
+                        ),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.45),
+                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textSecondary, height: 1.45),
                       ),
                       const SizedBox(height: 20),
                       SizedBox(
@@ -229,7 +241,10 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             elevation: 0,
                           ),
-                          child: const Text('Đặt lịch trị liệu ngay', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            context.tr('Đặt lịch trị liệu ngay', 'Book Therapy Now'),
+                            style: const TextStyle(fontFamily: 'Montserrat', color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                     ],
@@ -250,8 +265,8 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(14),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border),
                   boxShadow: [
                     BoxShadow(
@@ -264,9 +279,10 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Ghi chú cá nhân',
-                      style: TextStyle(
+                    Text(
+                      context.tr('Ghi chú cá nhân', 'Personal Notes'),
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
                         fontSize: 14.5,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -276,11 +292,15 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                     TextField(
                       controller: _noteController,
                       maxLines: 3,
+                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Ghi lại cảm nhận cơ thể hoặc điều cần trao đổi ở buổi tiếp theo...',
-                        hintStyle: const TextStyle(fontSize: 13, color: AppColors.textPlaceholder),
+                        hintText: context.tr(
+                          'Ghi lại cảm nhận cơ thể hoặc điều cần trao đổi ở buổi tiếp theo...',
+                          'Record your body feeling or notes for the next session...',
+                        ),
+                        hintStyle: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textPlaceholder),
                         filled: true,
-                        fillColor: AppColors.background,
+                        fillColor: const Color(0xFFF9FAFB),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(color: AppColors.border),
@@ -307,9 +327,9 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                           elevation: 0,
                         ),
-                        child: const Text(
-                          'Lưu ghi chú',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                        child: Text(
+                          context.tr('Lưu ghi chú', 'Save Note'),
+                          style: const TextStyle(fontFamily: 'Montserrat', color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                       ),
                     ),
@@ -362,8 +382,8 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.border),
               ),
               child: Column(
@@ -375,14 +395,16 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                       Text(
                         item.date,
                         style: const TextStyle(
+                          fontFamily: 'Montserrat',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
                         ),
                       ),
                       Text(
-                        'Buổi ${item.sessionNumber}',
+                        '${context.tr("Buổi", "Session")} ${item.sessionNumber}',
                         style: const TextStyle(
+                          fontFamily: 'Montserrat',
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textSecondary,
@@ -392,8 +414,9 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.serviceTitle,
+                    item.serviceTitle.tr(context),
                     style: const TextStyle(
+                      fontFamily: 'Montserrat',
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
@@ -401,16 +424,18 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Chuyên viên: ${item.specialistName}',
+                    '${context.tr("Chuyên viên:", "Specialist:")} ${item.specialistName.tr(context)}',
                     style: const TextStyle(
+                      fontFamily: 'Montserrat',
                       fontSize: 12.5,
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    item.sessionNote,
+                    item.sessionNote.tr(context),
                     style: const TextStyle(
+                      fontFamily: 'Montserrat',
                       fontSize: 13.5,
                       color: AppColors.textPrimary,
                       height: 1.4,

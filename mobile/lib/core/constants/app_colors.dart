@@ -42,4 +42,10 @@ class AppColors {
   static const Color success = Color(0xFF10B981);
   static const Color error = Color(0xFFEF4444);
   static const Color errorDark = Color(0xFFB91C1C);
+
+  // Price Colors (Phân định màu sắc giá tiền chuyên biệt)
+  // Khóa học: rgb(0, 105, 63) - Xanh lá y khoa đậm Vodder
+  static const Color coursePrice = Color(0xFF00693F);
+  // Dịch vụ: rgb(225, 29, 72) - Đỏ hồng Rose nổi bật
+  static const Color servicePrice = Color(0xFFE11D48);
 }

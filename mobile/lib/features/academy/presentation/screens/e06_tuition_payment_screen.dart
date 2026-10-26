@@ -380,7 +380,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
           style: TextStyle(
             fontSize: isTotal ? 18 : 14,
             fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
-            color: isTotal ? AcademyColors.primary : AcademyColors.textPrimary,
+            color: isTotal ? AcademyColors.price : AcademyColors.textPrimary,
           ),
         ),
       ],
@@ -496,7 +496,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Học viện MLD Việt Nam đã ghi nhận hồ sơ đăng ký của bạn. Khóa học đã được thêm vào mục "Khóa học của tôi".',
+              'Khóa học đã được thêm vào mục "Khóa học của tôi".',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,

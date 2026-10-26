@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/widgets/qr_scanner_screen.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
-import 'e02_course_catalog_screen.dart';
+import 'e01_academy_home_screen.dart';
 
 /// Screen E11: Lịch học & điểm danh [8116:26294]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -16,7 +17,6 @@ class E11AttendanceScheduleScreen extends StatefulWidget {
 class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScreen> {
   int _selectedDay = 16;
   bool _isCheckedIn = false;
-  bool _showDemoSchedule = false;
 
   // Lịch mẫu tháng 10/2026
   final Map<int, String> _eventDots = {
@@ -78,20 +78,20 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Bạn chưa có lịch học & điểm danh',
+          Text(
+            context.tr('Bạn chưa có lịch học & điểm danh', 'No class schedule or attendance yet'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
               color: AcademyColors.heading,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Bạn hiện chưa ghi danh khóa đào tạo nào tại Học viện MLD. Sau khi đăng ký, lịch học lý thuyết, các buổi thực hành và mã QR điểm danh sẽ xuất hiện tại đây.',
+          Text(
+            context.tr('Bạn hiện chưa ghi danh khóa đào tạo nào tại Học viện MLD. Sau khi đăng ký, lịch học lý thuyết, các buổi thực hành và mã QR điểm danh sẽ xuất hiện tại đây.', 'You have not enrolled in any MLD Academy course yet. Class schedule, practice sessions, and attendance QR code will appear here after enrollment.'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               color: AcademyColors.textSecondary,
               height: 1.45,
@@ -105,7 +105,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()),
+                  MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -114,37 +114,16 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.school_outlined, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.school_outlined, size: 20),
+                  const SizedBox(width: 8),
                   Text(
-                    'Khám phá khóa đào tạo ngay',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    context.tr('Khám phá khóa đào tạo ngay', 'Explore Courses Now'),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: OutlinedButton(
-              onPressed: () {
-                setState(() {
-                  _showDemoSchedule = true;
-                });
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AcademyColors.cardBorder),
-                foregroundColor: AcademyColors.textPrimary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text(
-                'Xem lịch học thực hành mẫu',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ),
           ),
@@ -156,7 +135,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
   @override
   Widget build(BuildContext context) {
     final hasEnrolled = AcademyRepository.instance.hasEnrolledCourses;
-    final isShowingEmpty = !hasEnrolled && !_showDemoSchedule;
+    final isShowingEmpty = !hasEnrolled;
 
     return Scaffold(
       backgroundColor: AcademyColors.background,
@@ -168,9 +147,9 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Giới thiệu [8116:26299]
-            const Text(
-              'Lịch học & điểm danh',
-              style: TextStyle(
+            Text(
+              context.tr('Lịch học & điểm danh', 'Class Schedule & Attendance'),
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
@@ -178,9 +157,9 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Chủ động theo dõi lịch đào tạo và các buổi thực hành.',
-              style: TextStyle(
+            Text(
+              context.tr('Chủ động theo dõi lịch đào tạo và các buổi thực hành.', 'Track training schedule and practical sessions proactively.'),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: AcademyColors.textSecondary,
@@ -192,36 +171,6 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
             if (isShowingEmpty) ...[
               _buildEmptyScheduleState(),
             ] else ...[
-              if (_showDemoSchedule && !hasEnrolled)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFCD34D)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 20, color: Color(0xFF92400E)),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Đang xem lịch đào tạo mẫu (demo).',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF92400E)),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => _showDemoSchedule = false),
-                        child: const Text(
-                          'Đóng',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AcademyColors.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
               // 2. CalendarPicker / Tháng 10 năm 2026 [8116:26305]
               Container(
               width: double.infinity,

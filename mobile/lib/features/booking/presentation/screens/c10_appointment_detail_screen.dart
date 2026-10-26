@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/utils/launcher_helper.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
@@ -47,15 +48,21 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
             });
             if (success) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã hủy lịch hẹn theo yêu cầu'),
+                SnackBar(
+                  content: Text(
+                    context.tr('Đã hủy lịch hẹn theo yêu cầu', 'Appointment cancelled upon request'),
+                    style: const TextStyle(fontFamily: 'Montserrat'),
+                  ),
                   backgroundColor: AppColors.primary,
                 ),
               );
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Không thể hủy lịch hẹn. Vui lòng thử lại!'),
+                SnackBar(
+                  content: Text(
+                    context.tr('Không thể hủy lịch hẹn. Vui lòng thử lại!', 'Could not cancel appointment. Please try again!'),
+                    style: const TextStyle(fontFamily: 'Montserrat'),
+                  ),
                   backgroundColor: AppColors.error,
                 ),
               );
@@ -101,9 +108,17 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
-          title: const Text('Chi tiết lịch hẹn'),
+          title: Text(
+            context.tr('Chi tiết lịch hẹn', 'Appointment Details'),
+            style: const TextStyle(fontFamily: 'Montserrat', fontSize: 18, fontWeight: FontWeight.w700),
+          ),
         ),
-        body: const Center(child: Text('Không tìm thấy thông tin lịch hẹn.')),
+        body: Center(
+          child: Text(
+            context.tr('Không tìm thấy thông tin lịch hẹn.', 'Appointment information not found.'),
+            style: const TextStyle(fontFamily: 'Montserrat'),
+          ),
+        ),
       );
     }
 
@@ -120,9 +135,10 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Chi tiết lịch hẹn',
-          style: TextStyle(
+        title: Text(
+          context.tr('Chi tiết lịch hẹn', 'Appointment Details'),
+          style: const TextStyle(
+            fontFamily: 'Montserrat',
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -150,11 +166,15 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Mã lịch hẹn', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                        Text(
+                          context.tr('Mã lịch hẹn', 'Booking Code'),
+                          style: const TextStyle(fontFamily: 'Montserrat', fontSize: 11.5, color: AppColors.textSecondary),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           app.bookingCode,
                           style: const TextStyle(
+                            fontFamily: 'Montserrat',
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -183,20 +203,20 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Tiến trình',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      Text(
+                        context.tr('Tiến trình', 'Progress'),
+                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                       ),
                       const SizedBox(height: 14),
                       Row(
                         children: [
-                          _buildTimelineStep(1, 'Đã đặt', step >= 1),
+                          _buildTimelineStep(1, context.tr('Đã đặt', 'Booked'), step >= 1),
                           _buildTimelineConnector(step >= 2),
-                          _buildTimelineStep(2, 'Xác nhận', step >= 2),
+                          _buildTimelineStep(2, context.tr('Xác nhận', 'Confirmed'), step >= 2),
                           _buildTimelineConnector(step >= 3),
-                          _buildTimelineStep(3, 'Thực hiện', step >= 3),
+                          _buildTimelineStep(3, context.tr('Thực hiện', 'In Service'), step >= 3),
                           _buildTimelineConnector(step >= 4),
-                          _buildTimelineStep(4, 'Hoàn thành', step >= 4),
+                          _buildTimelineStep(4, context.tr('Hoàn thành', 'Completed'), step >= 4),
                         ],
                       ),
                     ],
@@ -218,19 +238,19 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Thông tin dịch vụ',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    Text(
+                      context.tr('Thông tin dịch vụ', 'Service Information'),
+                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 12),
-                    _buildDetailRow('Dịch vụ:', app.serviceName),
-                    _buildDetailRow('Chi nhánh:', app.branchName),
-                    _buildDetailRow('Địa chỉ:', app.branchAddress),
-                    _buildDetailRow('Thời gian:', '${app.timeSlot} · ${_formatDate(app.appointmentDate)}'),
+                    _buildDetailRow(context.tr('Dịch vụ:', 'Service:'), app.serviceName.tr(context)),
+                    _buildDetailRow(context.tr('Chi nhánh:', 'Branch:'), app.branchName.tr(context)),
+                    _buildDetailRow(context.tr('Địa chỉ:', 'Address:'), app.branchAddress.tr(context)),
+                    _buildDetailRow(context.tr('Thời gian:', 'Time:'), '${app.timeSlot} · ${_formatDate(app.appointmentDate)}'),
                     if (app.specialistName.isNotEmpty && !app.specialistName.contains('ngẫu nhiên'))
-                      _buildDetailRow('Chuyên viên:', app.specialistName),
+                      _buildDetailRow(context.tr('Chuyên viên:', 'Specialist:'), app.specialistName.tr(context)),
                     if (app.specialNotes.isNotEmpty)
-                      _buildDetailRow('Ghi chú:', app.specialNotes),
+                      _buildDetailRow(context.tr('Ghi chú:', 'Notes:'), app.specialNotes.tr(context)),
                   ],
                 ),
               ),
@@ -250,28 +270,29 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Thông tin chi phí',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    Text(
+                      context.tr('Thông tin chi phí', 'Cost Information'),
+                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 12),
-                    _buildDetailRow('Dịch vụ:', app.serviceName),
-                    _buildDetailRow('Đơn giá:', _formatPrice(app.totalAmount / 1.08)),
-                    _buildDetailRow('Thuế VAT (8%):', _formatPrice(app.totalAmount - (app.totalAmount / 1.08))),
+                    _buildDetailRow(context.tr('Dịch vụ:', 'Service:'), app.serviceName.tr(context)),
+                    _buildDetailRow(context.tr('Đơn giá:', 'Unit Price:'), _formatPrice(app.totalAmount / 1.08)),
+                    _buildDetailRow(context.tr('Thuế VAT (8%):', 'VAT (8%):'), _formatPrice(app.totalAmount - (app.totalAmount / 1.08))),
                     const Divider(color: AppColors.border, height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Tổng chi phí:',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                        Text(
+                          context.tr('Tổng chi phí:', 'Total Cost:'),
+                          style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                         ),
                         Text(
                           _formatPrice(app.totalAmount),
                           style: const TextStyle(
+                            fontFamily: 'Montserrat',
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF00693F),
+                            color: AppColors.servicePrice,
                           ),
                         ),
                       ],
@@ -282,8 +303,8 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                         const Icon(Icons.payment_rounded, size: 15, color: AppColors.textSecondary),
                         const SizedBox(width: 6),
                         Text(
-                          'Thanh toán: ${app.paymentMethod.isNotEmpty ? app.paymentMethod : "Tại cơ sở / QR"}',
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          '${context.tr('Thanh toán:', 'Payment:')} ${app.paymentMethod.isNotEmpty ? app.paymentMethod.tr(context) : context.tr("Tại cơ sở / QR", "At branch / QR")}',
+                          style: const TextStyle(fontFamily: 'Montserrat', fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -300,7 +321,10 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                 child: OutlinedButton.icon(
                   onPressed: () => AppLauncherHelper.makePhoneCall(context, '0967786399'),
                   icon: const Icon(Icons.phone_in_talk_rounded, size: 18, color: AppColors.primary),
-                  label: const Text('Hotline hỗ trợ: 096.7786.399', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                  label: Text(
+                    context.tr('Hotline hỗ trợ: 096.7786.399', 'Support Hotline: 096.7786.399'),
+                    style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+                  ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.primary),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -318,7 +342,10 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.error,
                     ),
-                    child: const Text('Hủy lịch hẹn này', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: Text(
+                      context.tr('Hủy lịch hẹn này', 'Cancel this appointment'),
+                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ],
@@ -337,12 +364,12 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
         children: [
           SizedBox(
             width: 90,
-            child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            child: Text(label, style: const TextStyle(fontFamily: 'Montserrat', fontSize: 12.5, color: AppColors.textSecondary)),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              style: const TextStyle(fontFamily: 'Montserrat', fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
           ),
         ],
@@ -367,13 +394,14 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
           child: Center(
             child: isCompleted
                 ? const Icon(Icons.check, size: 14, color: Colors.white)
-                : Text('$stepNum', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                : Text('$stepNum', style: const TextStyle(fontFamily: 'Montserrat', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           title,
           style: TextStyle(
+            fontFamily: 'Montserrat',
             fontSize: 10.5,
             fontWeight: isCompleted ? FontWeight.w700 : FontWeight.w500,
             color: isCompleted ? AppColors.primary : AppColors.textSecondary,

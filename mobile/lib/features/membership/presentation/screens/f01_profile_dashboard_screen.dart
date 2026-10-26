@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
@@ -74,18 +75,18 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Đăng xuất',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+        title: Text(
+          context.tr('Đăng xuất', 'Sign Out'),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
         ),
-        content: const Text(
-          'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản hiện tại không?',
-          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+        content: Text(
+          context.tr('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản hiện tại không?', 'Are you sure you want to sign out from your account?'),
+          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(context.tr('Hủy', 'Cancel'), style: const TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -104,7 +105,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 );
               }
             },
-            child: const Text('Đăng xuất'),
+            child: Text(context.tr('Đăng xuất', 'Sign Out')),
           ),
         ],
       ),
@@ -142,9 +143,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 onPressed: widget.onBackToHome,
               )
             : null,
-        title: const Text(
-          'Cá nhân',
-          style: TextStyle(
+        title: Text(
+          context.tr('Cá nhân', 'Profile'),
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -238,8 +239,8 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     child: _buildMetricItem(
                       icon: Icons.calendar_today_outlined,
                       count: upcomingAppointmentsCount.toString(),
-                      label: 'Lịch hẹn',
-                      subLabel: 'sắp tới',
+                      label: context.tr('Lịch hẹn', 'Appointments'),
+                      subLabel: context.tr('sắp tới', 'upcoming'),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -253,8 +254,8 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     child: _buildMetricItem(
                       icon: Icons.spa_outlined,
                       count: remainingSessions.toString(),
-                      label: 'Liệu trình',
-                      subLabel: 'buổi còn lại',
+                      label: context.tr('Liệu trình', 'Packages'),
+                      subLabel: context.tr('buổi còn lại', 'remaining'),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -268,8 +269,8 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     child: _buildMetricItem(
                       icon: Icons.school_outlined,
                       count: myCoursesCount.toString(),
-                      label: 'Khóa học',
-                      subLabel: 'đang học',
+                      label: context.tr('Khóa học', 'Courses'),
+                      subLabel: context.tr('đang học', 'active'),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -286,12 +287,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               // ==========================================
               // 3. NHÓM 1: DỊCH VỤ TRỊ LIỆU (ĐƯA LÊN TRÊN)
               // ==========================================
-              _buildSectionHeader('DỊCH VỤ TRỊ LIỆU'),
+              _buildSectionHeader(context.tr('DỊCH VỤ TRỊ LIỆU', 'THERAPY SERVICES')),
               const SizedBox(height: 8),
               _buildCardContainer([
                 _buildMenuItem(
                   icon: Icons.calendar_today_outlined,
-                  title: 'Lịch hẹn của tôi',
+                  title: context.tr('Lịch hẹn của tôi', 'My Appointments'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -302,7 +303,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.spa_outlined,
-                  title: 'Gói liệu trình',
+                  title: context.tr('Gói liệu trình', 'Treatment Packages'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -313,7 +314,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.menu_book_outlined,
-                  title: 'Nhật ký trị liệu',
+                  title: context.tr('Nhật ký trị liệu', 'Care Journal'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -328,12 +329,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               // ==========================================
               // 4. NHÓM 2: ĐÀO TẠO & KHÓA HỌC
               // ==========================================
-              _buildSectionHeader('ĐÀO TẠO & KHÓA HỌC'),
+              _buildSectionHeader(context.tr('ĐÀO TẠO & KHÓA HỌC', 'ACADEMY & COURSES')),
               const SizedBox(height: 8),
               _buildCardContainer([
                 _buildMenuItem(
                   icon: Icons.school_outlined,
-                  title: 'Khóa học của tôi',
+                  title: context.tr('Khóa học của tôi', 'My Courses'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -344,7 +345,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.event_note_outlined,
-                  title: 'Lịch học',
+                  title: context.tr('Lịch học', 'Class Schedule'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -355,7 +356,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.workspace_premium_outlined,
-                  title: 'Chứng nhận',
+                  title: context.tr('Chứng nhận', 'Certifications'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -370,12 +371,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               // ==========================================
               // 5. NHÓM 3: TÀI KHOẢN & HỆ THỐNG
               // ==========================================
-              _buildSectionHeader('TÀI KHOẢN & HỆ THỐNG'),
+              _buildSectionHeader(context.tr('TÀI KHOẢN & HỆ THỐNG', 'ACCOUNT & SETTINGS')),
               const SizedBox(height: 8),
               _buildCardContainer([
                 _buildMenuItem(
                   icon: Icons.person_outline_rounded,
-                  title: 'Thông tin cá nhân',
+                  title: context.tr('Thông tin cá nhân', 'Personal Information'),
                   onTap: () async {
                     await Navigator.push(
                       context,
@@ -387,7 +388,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.receipt_long_outlined,
-                  title: 'Lịch sử thanh toán',
+                  title: context.tr('Lịch sử thanh toán', 'Payment History'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -398,7 +399,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
-                  title: 'Cài đặt tài khoản',
+                  title: context.tr('Cài đặt tài khoản', 'Account Settings'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -410,7 +411,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.logout_rounded,
                   iconColor: AppColors.error,
-                  title: 'Đăng xuất',
+                  title: context.tr('Đăng xuất', 'Sign Out'),
                   titleColor: AppColors.error,
                   onTap: _handleLogout,
                   showChevron: false,

@@ -11,6 +11,7 @@ class AcademyColors {
   static const Color cardBorder = Color(0xFFE5E7EB);
   static const Color cardWhite = Colors.white;
   static const Color success = Color(0xFF10B981);
+  static const Color price = Color(0xFF00693F); // rgb(0, 105, 63)
 }
 
 class AcademyAppBar extends StatelessWidget implements PreferredSizeWidget {

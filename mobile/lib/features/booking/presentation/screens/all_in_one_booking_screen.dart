@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
@@ -125,9 +126,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Chọn chi nhánh',
-                      style: TextStyle(
+                    Text(
+                      context.tr('Chọn chi nhánh', 'Select Branch'),
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -172,7 +173,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  b.name,
+                                  b.name.tr(context),
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -181,7 +182,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  b.address,
+                                  b.address.tr(context),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: AppColors.textSecondary,
@@ -244,8 +245,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBranch == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn cơ sở/chi nhánh trị liệu'),
+        SnackBar(
+          content: Text(context.tr('Vui lòng chọn cơ sở/chi nhánh trị liệu', 'Please select a therapy branch / facility')),
           backgroundColor: AppColors.error,
         ),
       );
@@ -326,9 +327,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               child: const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 36),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Đặt lịch thành công!',
-              style: TextStyle(
+            Text(
+              context.tr('Đặt lịch thành công!', 'Booking Confirmed!'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
@@ -336,7 +337,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Lịch hẹn ($code) tại ${_selectedBranch?.name} vào lúc $_selectedTimeSlot ngày $dateString đã được ghi nhận.',
+              context.isEn
+                  ? 'Your appointment ($code) at ${_selectedBranch?.name.tr(context)} at $_selectedTimeSlot on $dateString has been booked.'
+                  : 'Lịch hẹn ($code) tại ${_selectedBranch?.name} vào lúc $_selectedTimeSlot ngày $dateString đã được ghi nhận.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -362,7 +365,10 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
                   );
                 },
-                child: const Text('Xem lịch hẹn của tôi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                child: Text(
+                  context.tr('Xem lịch hẹn của tôi', 'View My Appointments'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
           ],
@@ -392,9 +398,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             }
           },
         ),
-        title: const Text(
-          'Đặt lịch trị liệu',
-          style: TextStyle(
+        title: Text(
+          context.tr('Đặt lịch trị liệu', 'Book Therapy Session'),
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -431,13 +437,13 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Chi nhánh thực hiện',
-                              style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                            Text(
+                              context.tr('Chi nhánh thực hiện', 'Selected Branch'),
+                              style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              _selectedBranch?.name ?? 'Chọn chi nhánh',
+                              _selectedBranch != null ? _selectedBranch!.name.tr(context) : context.tr('Chọn chi nhánh', 'Select Branch'),
                               style: const TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
@@ -463,7 +469,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          _selectedBranch!.address,
+                          _selectedBranch!.address.tr(context),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
@@ -489,9 +495,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Thời gian hẹn',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    Text(
+                      context.tr('Thời gian hẹn', 'Appointment Time'),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 12),
 
@@ -516,9 +522,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                 style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                               ),
                             ),
-                            const Text(
-                              'Đổi ngày',
-                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary),
+                            Text(
+                              context.tr('Đổi ngày', 'Change date'),
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary),
                             ),
                           ],
                         ),
@@ -528,9 +534,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     const SizedBox(height: 12),
 
                     // Giờ hẹn
-                    const Text(
-                      'Giờ hẹn (60 phút/ca):',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                    Text(
+                      context.tr('Giờ hẹn (60 phút/ca):', 'Time slot (60 mins/slot):'),
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -581,9 +587,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Khách hàng',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    Text(
+                      context.tr('Khách hàng', 'Customer'),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 10),
 
@@ -612,12 +618,17 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                     color: _isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    'Bản thân',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: _isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
-                                      color: _isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
+                                  Flexible(
+                                    child: Text(
+                                      context.tr('Bản thân', 'Myself'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 12.5,
+                                        fontWeight: _isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
+                                        color: _isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -648,12 +659,17 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                     color: !_isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    'Đặt hộ',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: !_isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
-                                      color: !_isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
+                                  Flexible(
+                                    child: Text(
+                                      context.tr('Đặt hộ', 'Others'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 12.5,
+                                        fontWeight: !_isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
+                                        color: !_isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -668,12 +684,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Họ và tên',
-                        prefixIcon: Icon(Icons.person_outline, size: 20),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: InputDecoration(
+                        labelText: context.tr('Họ và tên', 'Full Name'),
+                        prefixIcon: const Icon(Icons.person_outline, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
-                      validator: (val) => (val == null || val.trim().isEmpty) ? 'Vui lòng nhập họ tên' : null,
+                      validator: (val) => (val == null || val.trim().isEmpty) ? context.tr('Vui lòng nhập họ tên', 'Please enter your name') : null,
                     ),
 
                     const SizedBox(height: 10),
@@ -681,14 +697,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Số điện thoại',
-                        prefixIcon: Icon(Icons.phone_outlined, size: 20),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: InputDecoration(
+                        labelText: context.tr('Số điện thoại', 'Phone Number'),
+                        prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Vui lòng nhập số điện thoại';
-                        if (val.trim().length < 9) return 'Số điện thoại không hợp lệ';
+                        if (val == null || val.trim().isEmpty) return context.tr('Vui lòng nhập số điện thoại', 'Please enter phone number');
+                        if (val.trim().length < 9) return context.tr('Số điện thoại không hợp lệ', 'Invalid phone number');
                         return null;
                       },
                     ),
@@ -699,11 +715,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     TextFormField(
                       controller: _noteController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Ghi chú',
-                        hintText: 'Nhập ghi chú cho chuyên viên nếu cần (không bắt buộc)',
-                        prefixIcon: Icon(Icons.note_alt_outlined, size: 20),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: InputDecoration(
+                        labelText: context.tr('Ghi chú', 'Notes'),
+                        hintText: context.tr('Nhập ghi chú cho chuyên viên nếu cần (không bắt buộc)', 'Add note for specialist if needed (optional)'),
+                        prefixIcon: const Icon(Icons.note_alt_outlined, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                     ),
                   ],
@@ -725,29 +741,29 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Thông tin đặt lịch',
-                      style: TextStyle(
+                    Text(
+                      context.tr('Thông tin đặt lịch', 'Booking Summary'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _buildInfoRow('Dịch vụ:', _serviceTitle),
-                    _buildInfoRow('Chi nhánh:', _selectedBranch?.name ?? '---'),
-                    _buildInfoRow('Ngày & Giờ:', '$dateDisplay lúc $_selectedTimeSlot'),
-                    _buildInfoRow('Khách hàng:', '${_nameController.text} (${_phoneController.text})'),
+                    _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), _serviceTitle.tr(context)),
+                    _buildInfoRow(context.tr('Chi nhánh:', 'Branch:'), _selectedBranch != null ? _selectedBranch!.name.tr(context) : '---'),
+                    _buildInfoRow(context.tr('Ngày & Giờ:', 'Date & Time:'), '$dateDisplay ${context.tr('lúc', 'at')} $_selectedTimeSlot'),
+                    _buildInfoRow(context.tr('Khách hàng:', 'Customer:'), '${_nameController.text} (${_phoneController.text})'),
                     if (_noteController.text.trim().isNotEmpty)
-                      _buildInfoRow('Ghi chú:', _noteController.text.trim()),
+                      _buildInfoRow(context.tr('Ghi chú:', 'Notes:'), _noteController.text.trim()),
                     const Divider(color: AppColors.border, height: 18),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Chi phí dự kiến:',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                            context.tr('Chi phí dự kiến:', 'Estimated Cost:'),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                           ),
                         ),
                         Text(
@@ -755,15 +771,15 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF00693F),
+                            color: AppColors.servicePrice,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Đã bao gồm 8% thuế VAT theo quy định',
-                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    Text(
+                      context.tr('Đã bao gồm 8% thuế VAT theo quy định', 'Includes 8% VAT as regulated'),
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -790,9 +806,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           height: 22,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Text(
-                          'Xác nhận đặt lịch',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      : Text(
+                          context.tr('Xác nhận đặt lịch', 'Confirm Booking'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                         ),
                 ),
               ),

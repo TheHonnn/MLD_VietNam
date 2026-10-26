@@ -1,8 +1,9 @@
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
-import 'e02_course_catalog_screen.dart';
+import 'e01_academy_home_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 
 /// Screen E12: Kết quả học tập (Learning Results & Certificate) [8116:26507]
@@ -42,9 +43,9 @@ class E12LearningResultsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text(
-                  'Xem chứng nhận',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                child: Text(
+                  context.tr('Xem chứng nhận', 'View Certificate'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -528,20 +529,20 @@ class E12LearningResultsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          const Text(
-            'Chưa có kết quả học tập & giấy chứng nhận',
+          Text(
+            context.tr('Chưa có kết quả học tập & giấy chứng nhận', 'No learning results & certificates yet'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: AcademyColors.heading,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Bạn hiện chưa tham gia khóa đào tạo nào tại Học viện MLD. Sau khi đăng ký và hoàn thành khóa học, toàn bộ kết quả đánh giá kỹ năng và chứng nhận số sẽ xuất hiện tại đây.',
+          Text(
+            context.tr('Bạn hiện chưa tham gia khóa đào tạo nào tại Học viện MLD. Sau khi đăng ký và hoàn thành khóa học, toàn bộ kết quả đánh giá kỹ năng và chứng nhận số sẽ xuất hiện tại đây.', 'You have not completed any course at MLD Academy yet. Once completed, your skill assessment results and digital certificates will be issued here.'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               color: AcademyColors.textSecondary,
               height: 1.45,
@@ -555,7 +556,7 @@ class E12LearningResultsScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()),
+                  MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -564,14 +565,14 @@ class E12LearningResultsScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.school_outlined, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.school_outlined, size: 20),
+                  const SizedBox(width: 8),
                   Text(
-                    'Đăng ký khóa học ngay',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    context.tr('Đăng ký khóa học ngay', 'Enroll in Course Now'),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
