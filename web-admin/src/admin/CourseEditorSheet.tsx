@@ -81,35 +81,35 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
   const [code, setCode] = useState(row.code || "");
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
 
-  // Level & Hours
-  const [level, setLevel] = useState(row.level || "BEGINNER");
-  const [theoryHours, setTheoryHours] = useState<number>(row.theory_hours !== undefined ? Number(row.theory_hours) : 20);
-  const [practiceHours, setPracticeHours] = useState<number>(row.practice_hours !== undefined ? Number(row.practice_hours) : 30);
-  const [totalHours, setTotalHours] = useState<number>(row.total_hours !== undefined ? Number(row.total_hours) : 50);
-  const [totalLessons, setTotalLessons] = useState<number>(row.total_lessons !== undefined ? Number(row.total_lessons) : 10);
+  // Level & Hours - Khởi tạo rỗng/0 khi thêm mới, không điền mẫu
+  const [level, setLevel] = useState(row.level || "");
+  const [theoryHours, setTheoryHours] = useState<number | "">(row.theory_hours !== undefined ? Number(row.theory_hours) : (isCreate ? "" : 0));
+  const [practiceHours, setPracticeHours] = useState<number | "">(row.practice_hours !== undefined ? Number(row.practice_hours) : (isCreate ? "" : 0));
+  const [totalHours, setTotalHours] = useState<number | "">(row.total_hours !== undefined ? Number(row.total_hours) : (isCreate ? "" : 0));
+  const [totalLessons, setTotalLessons] = useState<number | "">(row.total_lessons !== undefined ? Number(row.total_lessons) : (isCreate ? "" : 0));
 
-  // Fees
-  const [tuitionFee, setTuitionFee] = useState<number>(row.tuition_fee !== undefined ? Number(row.tuition_fee) : 15000000);
-  const [depositAmount, setDepositAmount] = useState<number>(row.deposit_amount !== undefined ? Number(row.deposit_amount) : 3000000);
+  // Fees - Khởi tạo rỗng/0 khi thêm mới
+  const [tuitionFee, setTuitionFee] = useState<number | "">(row.tuition_fee !== undefined ? Number(row.tuition_fee) : (isCreate ? "" : 0));
+  const [depositAmount, setDepositAmount] = useState<number | "">(row.deposit_amount !== undefined ? Number(row.deposit_amount) : (isCreate ? "" : 0));
 
-  // Learning Outcomes (Friendly fields instead of raw JSON)
+  // Learning Outcomes - Để trống khi tạo mới
   const existingOutcomes = typeof row.learning_outcomes === "object" && row.learning_outcomes !== null
     ? row.learning_outcomes
     : {};
-  const [courseGroup, setCourseGroup] = useState<string>(existingOutcomes.course_group || "Cơ bản nghề");
+  const [courseGroup, setCourseGroup] = useState<string>(existingOutcomes.course_group || "");
   const [targetAudience, setTargetAudience] = useState<string>(
-    existingOutcomes.target_audience || "Kỹ thuật viên, Y bác sĩ & Người quan tâm đến sức khỏe"
+    existingOutcomes.target_audience || ""
   );
   const [targetNeed, setTargetNeed] = useState<string>(
-    existingOutcomes.target_need || "Nâng cao tay nghề và chăm sóc hệ bạch huyết chuyên sâu"
+    existingOutcomes.target_need || ""
   );
 
-  // Certificate & Description
+  // Certificate & Description - Để trống khi tạo mới
   const [certificateTitle, setCertificateTitle] = useState(row.certificate_title || "");
   const [certificateManuallyEdited, setCertificateManuallyEdited] = useState(false);
   const [shortDescription, setShortDescription] = useState(row.short_description || "");
   const [fullDescription, setFullDescription] = useState(row.full_description || "");
-  const [imageUrl, setImageUrl] = useState(row.image_url || "assets/images/DaoTao/Dan luu bach huyet co ban cho nguoi lam nghe 15.000.000.jpg");
+  const [imageUrl, setImageUrl] = useState(row.image_url || "");
 
   // Status
   const [isFeatured, setIsFeatured] = useState<boolean>(row.is_featured !== undefined ? Boolean(row.is_featured) : false);
@@ -120,23 +120,23 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
   const [error, setError] = useState("");
 
   // Auto-calculate total hours when theory or practice changes
-  const handleTheoryChange = (val: number) => {
+  const handleTheoryChange = (val: number | "") => {
     setTheoryHours(val);
-    setTotalHours(val + practiceHours);
+    const numT = val === "" ? 0 : Number(val);
+    const numP = practiceHours === "" ? 0 : Number(practiceHours);
+    setTotalHours(numT + numP);
   };
 
-  const handlePracticeChange = (val: number) => {
+  const handlePracticeChange = (val: number | "") => {
     setPracticeHours(val);
-    setTotalHours(theoryHours + val);
+    const numT = theoryHours === "" ? 0 : Number(theoryHours);
+    const numP = val === "" ? 0 : Number(val);
+    setTotalHours(numT + numP);
   };
 
-  // Title changes auto-suggest code and certificate title
+  // Title changes auto-suggest certificate title
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    if (isCreate && !codeManuallyEdited) {
-      const generated = "DAO_TAO_" + String(Math.floor(10 + Math.random() * 90));
-      setCode(generated);
-    }
     if (isCreate && !certificateManuallyEdited && newTitle.trim()) {
       setCertificateTitle(`Chứng chỉ hoàn thành: ${newTitle.trim()}`);
     }
@@ -144,50 +144,43 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
 
   // Quick deposit calculation
   const handleDepositPercent = (percent: number) => {
+    const feeNum = tuitionFee === "" ? 0 : Number(tuitionFee);
     if (percent === 0) {
       setDepositAmount(0);
     } else {
-      const calc = Math.round((tuitionFee * percent) / 100);
+      const calc = Math.round((feeNum * percent) / 100);
       setDepositAmount(calc);
     }
   };
 
-  // Load categories and instructors
+  // Load categories and instructors (không tự động gán dữ liệu mẫu khi tạo mới)
   useEffect(() => {
     let mounted = true;
     const fetchLookups = async () => {
       setLoadingLookups(true);
       try {
-        const [catRes, instRes, countRes] = await Promise.all([
+        const [catRes, instRes] = await Promise.all([
           fetch(`${SUPABASE_URL}/rest/v1/course_categories?select=id,name,code&order=name.asc`, {
             headers: getSupabaseHeaders(),
           }),
           fetch(`${SUPABASE_URL}/rest/v1/instructors?select=id,full_name&order=full_name.asc`, {
             headers: getSupabaseHeaders(),
           }),
-          fetch(`${SUPABASE_URL}/rest/v1/courses?select=id`, {
-            headers: getSupabaseHeaders(),
-          }),
         ]);
 
-        const [catData, instData, countData] = await Promise.all([
+        const [catData, instData] = await Promise.all([
           catRes.json().catch(() => []),
           instRes.json().catch(() => []),
-          countRes.json().catch(() => []),
         ]);
 
         if (mounted) {
           if (Array.isArray(catData)) {
             setCategories(catData);
-            if (!categoryId && catData.length > 0) setCategoryId(catData[0].id);
+            if (!isCreate && !categoryId && catData.length > 0) setCategoryId(catData[0].id);
           }
           if (Array.isArray(instData)) {
             setInstructors(instData);
-            if (!instructorId && instData.length > 0) setInstructorId(instData[0].id);
-          }
-          if (isCreate && !code && Array.isArray(countData)) {
-            const nextIdx = countData.length + 1;
-            setCode(`DAO_TAO_${String(nextIdx).padStart(2, "0")}`);
+            if (!isCreate && !instructorId && instData.length > 0) setInstructorId(instData[0].id);
           }
         }
       } catch (err) {
@@ -216,6 +209,14 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
     }
     if (!categoryId) {
       setError("Vui lòng chọn Danh mục đào tạo.");
+      return;
+    }
+    if (!level) {
+      setError("Vui lòng chọn Trình độ chuyên môn.");
+      return;
+    }
+    if (!imageUrl.trim()) {
+      setError("Vui lòng nhập Đường dẫn ảnh bìa hoặc URL ảnh khóa học.");
       return;
     }
     if (!shortDescription.trim()) {
@@ -249,7 +250,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
         certificate_title: certificateTitle.trim() || `Chứng chỉ hoàn thành: ${title.trim()}`,
         short_description: shortDescription.trim(),
         full_description: fullDescription.trim(),
-        image_url: imageUrl.trim() || "assets/images/DaoTao/Dan luu bach huyet co ban cho nguoi lam nghe 15.000.000.jpg",
+        image_url: imageUrl.trim() || "assets/images/course_banner_clean.png",
         is_featured: isFeatured,
         is_active: isActive,
       };
@@ -348,12 +349,37 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#2C241E] mb-1.5">
-                Mã khóa học <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-[#2C241E]">
+                  Mã khóa học <span className="text-red-500">*</span>
+                </label>
+                {title.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const slug = title
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[đĐ]/g, "d")
+                        .replace(/[^a-z0-9]/g, "-")
+                        .replace(/-+/g, "-")
+                        .replace(/^-|-$/g, "")
+                        .toUpperCase();
+                      setCode(slug.substring(0, 20) || "MLD-K01");
+                      setCodeManuallyEdited(true);
+                    }}
+                    className="text-[10px] text-[#985018] hover:underline flex items-center gap-0.5 cursor-pointer font-medium"
+                    title="Tạo mã viết tắt từ tiêu đề khóa học"
+                  >
+                    <Sparkles size={11} />
+                    Tạo mã từ tên
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
-                placeholder="Ví dụ: DAO_TAO_01"
+                placeholder="Ví dụ: MLD-K01, VODDER-BASIC..."
                 disabled={isView}
                 value={code}
                 onChange={(e) => {
@@ -376,7 +402,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
                 required
               >
-                <option value="">-- Chọn danh mục --</option>
+                <option value="">-- Chọn danh mục đào tạo --</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -395,7 +421,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 onChange={(e) => setInstructorId(e.target.value)}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
               >
-                <option value="">-- Chọn giảng viên --</option>
+                <option value="">-- Chọn giảng viên (Không bắt buộc) --</option>
                 {instructors.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.full_name}
@@ -413,7 +439,9 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
+                required
               >
+                <option value="">-- Chọn trình độ chuyên môn --</option>
                 {LEVELS.map((l) => (
                   <option key={l.value} value={l.value}>
                     {l.label}
@@ -429,7 +457,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Nhập đường dẫn ảnh hoặc URL..."
+                  placeholder="Ví dụ: assets/images/course_banner_clean.png hoặc URL ảnh..."
                   disabled={isView}
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}

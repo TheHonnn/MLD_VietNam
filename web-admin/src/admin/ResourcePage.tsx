@@ -6,6 +6,7 @@ import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
 import { CourseEditorSheet } from "./CourseEditorSheet";
+import { EnrollmentEditorSheet } from "./EnrollmentEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
 import { InstructorFormEditor } from "./InstructorFormEditor";
@@ -2520,7 +2521,11 @@ function RecordDialog({
   };
   return (
     <dialog
-      className="admin-dialog"
+      className={`admin-dialog ${
+        ["staff_profiles", "courses", "course_enrollments"].includes(resource.name)
+          ? "!max-w-[880px] !w-[min(880px,calc(100%-32px))]"
+          : ""
+      }`}
       ref={dialog}
       onCancel={(e) => {
         if (busy) e.preventDefault();
@@ -2538,6 +2543,14 @@ function RecordDialog({
         />
       ) : resource.name === "courses" ? (
         <CourseEditorSheet
+          row={row}
+          mode={mode}
+          onClose={onClose}
+          onSaved={onSaved}
+          onSwitchMode={onSwitchMode}
+        />
+      ) : resource.name === "course_enrollments" ? (
+        <EnrollmentEditorSheet
           row={row}
           mode={mode}
           onClose={onClose}
