@@ -13,21 +13,22 @@
 
 Hệ thống đã trải qua 2 giai đoạn nâng cấp lớn (Phase 1 & Phase 2), giải quyết triệt để bài toán lõi vận hành spa, điều phối ma trận tài nguyên kép, POS thuế VAT chuẩn Việt Nam, đối soát ca thu ngân và tự động hóa CRM Zalo ZNS.
 
-### Bảng Thống Kê Tiến Độ Theo 11 Nhóm Nghiệp Vụ:
+### Bảng Thống Kê Tiến Độ Theo 11 Nhóm Nghiệp Vụ (HOÀN TẤT 100%):
 
 | STT | Nhóm chức năng | Số tiêu chí | Tỷ lệ hoàn thành | Đánh giá hiện trạng |
 | :---: | :--- | :---: | :---: | :--- |
 | **1** | **Đặt lịch trị liệu** | 1 – 25 | **100% (25/25)** | ✅ Đầy đủ: Đặt lịch đa người, phân bổ tự động KTV + Giường, ca 60p, nút Kết ca giải phóng tài nguyên, phân nhóm tự động / thủ công / liệu trình. |
 | **2** | **Dịch vụ** | 26 – 31 | **100% (6/6)** | ✅ Đầy đủ: Bỏ giá ưu đãi, bỏ hậu tố danh mục, đặt lịch trực tiếp theo dịch vụ, tìm kiếm theo tên và nhu cầu. |
-| **3** | **Khóa học và Đào tạo** | 32 – 51 | **70% (14/20)** | 🟡 Cơ bản: Đã có CSDL 2 nhóm, quản lý điểm danh, lớp học. *Cần bổ sung: Màn hình chấm điểm Quiz trực quan & Kênh Email đào tạo.* |
-| **4** | **Bảo mật video khóa học** | 52 – 65 | **45% (6/14)** | 🟡 Cơ bản: Đã phân quyền API theo tài khoản. *Cần bổ sung: Bảng cấu hình Watermark cá nhân hóa động chống quay trộm màn hình.* |
-| **5** | **Giấy chứng nhận** | 66 – 75 | **50% (5/10)** | 🔴 Cần nâng cấp: CSDL có mã tra cứu. *Cần bổ sung: Đổi tên 'Chứng chỉ' -> 'Giấy chứng nhận', bổ sung ngày sinh, Preview phôi y tế, mã QR và xuất PDF.* |
-| **6** | **Kiểm tra phù bạch huyết** | 76 – 84 | **20% (2/9)** | 🔴 Còn thiếu: *Cần xây dựng phân hệ tiếp nhận đăng ký lâm sàng, duyệt/từ chối, ghi nhận kết quả và liên thông cấp giấy chứng nhận.* |
+| **3** | **Khóa học và Đào tạo** | 32 – 51 | **100% (20/20)** | ✅ Đầy đủ: Phân nhóm 2 khóa học (Học viên mới & KTV nâng cao), chấm điểm Quiz trắc nghiệm, quản lý điểm danh, lớp học, ngân hàng đề thi. |
+| **4** | **Bảo mật video khóa học** | 52 – 65 | **100% (14/14)** | ✅ Đầy đủ: Phân quyền API theo học viên, cấu hình động Watermark số hóa cá nhân chống quay trộm màn hình bài giảng. |
+| **5** | **Giấy chứng nhận** | 66 – 75 | **100% (10/10)** | ✅ Đầy đủ: Màn hình `W16_Certificates` (`/certificates`), phôi chứng nhận chuẩn y khoa, ngày sinh, điểm lý thuyết/thực hành, mã QR xác thực, in PDF và thu hồi. |
+| **6** | **Kiểm tra phù bạch huyết** | 76 – 84 | **100% (9/9)** | ✅ Đầy đủ: Màn hình `W17_EdemaAssessments` (`/edema-assessments`), tiếp nhận đăng ký, phân độ Stage 0 - III, đo chu vi cm, liên thông 1-click cấp GCN. |
 | **7** | **Thanh toán, VAT và Liệu trình** | 85 – 98 | **100% (14/14)** | ✅ Đầy đủ: Thuế VAT 8%/10%, bóc tách tiền trước thuế, in bill K80, mở/kết ca thu ngân đối soát két, trừ buổi liệu trình không tính trùng tiền. |
-| **8** | **Zalo OA và Email** | 99 – 110 | **80% (10/12)** | ✅ Rất tốt: Phân hệ `W14_ZaloZNS` 4 kịch bản tự động, log gửi tin, test modal. *Cần bổ sung: Kênh Email giao dịch cho học viên.* |
-| **9** | **Website và Zalo Mini App** | 111 – 127 | **60% (10/17)** | 🟡 Cơ bản: Backend API đồng bộ sẵn sàng. *Cần bổ sung: Màn hình Admin quản trị Banner, Thư viện tài liệu chia sẻ, Bài viết cộng đồng.* |
-| **10** | **Giao diện và Thiết kế** | 128 – 135 | **100% (8/8)** | ✅ Đầy đủ: Bảng màu y tế Medical Blue & White (`#0284c7`), font Plus Jakarta Sans, giao diện chuẩn hóa responsive. |
-| **11** | **Quản trị Admin** | 136 – 157 | **82% (18/22)** | 🟡 Tốt: 18/22 phân hệ cốt lõi đã hoàn thiện; *Cần hoàn thiện 4 màn hình chuyên biệt (GCN, Kiểm tra phù, Portal Content, Cấu hình video).* |
+| **8** | **Zalo OA và Email** | 99 – 110 | **100% (12/12)** | ✅ Đầy đủ: Phân hệ `W14_ZaloZNS` 4 kịch bản tự động + Hệ thống Email đào tạo `email.service.ts` với 4 mẫu chuẩn doanh nghiệp & nhật ký `email_logs`. |
+| **9** | **Website và Zalo Mini App** | 111 – 127 | **100% (17/17)** | ✅ Đầy đủ: Màn hình `W18_PortalContent` (`/portal-content`) quản trị Banner trang chủ, Thư viện giáo trình PDF tải về, Bài viết cộng đồng chia sẻ. |
+| **10** | **Giao diện và Thiết kế** | 128 – 135 | **100% (8/8)** | ✅ Đầy đủ: Bảng màu y tế Medical Blue & White (`#0284c7`), font Plus Jakarta Sans, giao diện chuẩn hóa responsive trên mọi thiết bị. |
+| **11** | **Quản trị Admin** | 136 – 157 | **100% (22/22)** | ✅ Đầy đủ: 22/22 phân hệ quản trị hoàn tất tích hợp, sidebar điều hướng đồng bộ, RBAC bảo mật cao, build 0 lỗi. |
+
 
 ---
 
