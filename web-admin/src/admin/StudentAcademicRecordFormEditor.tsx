@@ -3,19 +3,11 @@ import {
   GraduationCap,
   Award,
   BookOpen,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
   Users,
   Search,
-  User,
   Clock,
-  Calendar,
-  Percent,
   TrendingUp,
   Stethoscope,
-  Smile,
-  ShieldCheck,
   Eye,
   Plus,
   Minus,
@@ -66,42 +58,6 @@ export function getGradeRank(gpa: number): { label: string; badgeClass: string; 
   }
   return { label: "Chưa đạt", badgeClass: "bg-red-100 text-red-800 border-red-300", icon: "❌" };
 }
-
-// Các mức điểm chọn nhanh
-const SCORE_CHIPS = [6.0, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0];
-
-// Gợi ý nhận xét nhanh 4 chiều
-const FEEDBACK_THEORY_SUGGESTIONS = [
-  "Nắm vững giải phẫu tuần hoàn và nguyên lý dẫn lưu bạch huyết Vodder.",
-  "Hiểu sâu phác đồ giảm phù nề y khoa và xử lý các ca lâm sàng phức tạp.",
-  "Nắm chắc lý thuyết chuyên môn, trả lời tốt câu hỏi tình huống.",
-  "Hiểu các nguyên lý cơ bản, cần ôn tập thêm về phân loại giai đoạn phù.",
-  "Cần đọc thêm tài liệu về chống chỉ định tuyệt đối và tương đối của MLD.",
-];
-
-const FEEDBACK_PRACTICAL_SUGGESTIONS = [
-  "Kỹ thuật thao tác tay xoay tròn và bơm đẩy chuẩn xác tuyệt đối, lực tay < 30 mmHg.",
-  "Thao tác thuần thục, tiếp xúc mô êm ái, đúng hướng dòng chảy hạch bạch huyết.",
-  "Đạt chuẩn kỹ năng thực hành lâm sàng, thao tác nhịp nhàng, đúng tần số.",
-  "Cần chú ý thả lỏng cổ tay và điều hòa nhịp thở khi thao tác vùng đầu mặt cổ.",
-  "Lực tay còn hơi mạnh, cần rèn luyện thêm kỹ thuật xoay tĩnh và điều chỉnh áp lực mô.",
-];
-
-const FEEDBACK_ATTENDANCE_SUGGESTIONS = [
-  "Tham gia đầy đủ 100% các buổi học lý thuyết và lab thực hành, luôn đúng giờ.",
-  "Chuyên cần tốt, chấp hành nghiêm túc quy định giờ giấc của Viện đào tạo.",
-  "Có ý thức tự giác học bù và hoàn thành đầy đủ các bài giảng thực hành.",
-  "Đạt tỷ lệ chuyên cần tối thiểu theo quy định cấp chứng chỉ.",
-  "Vắng quá số buổi quy định, cần tham gia học bổ sung trước khi sát hạch tốt nghiệp.",
-];
-
-const FEEDBACK_ATTITUDE_SUGGESTIONS = [
-  "Thái độ học tập nghiêm túc, tích cực tương tác và hỗ trợ đồng môn trong các ca thực hành.",
-  "Tác phong y tế chuẩn mực, chăm chỉ, cầu tiến và có tinh thần trách nhiệm cao.",
-  "Hòa đồng, tiếp thu nhanh các góp ý sửa đổi từ giảng viên hướng dẫn.",
-  "Tập trung trong giờ học, tích cực đặt câu hỏi chuyên môn.",
-  "Cần tập trung hơn trong các buổi thực hành thao tác trên người mẫu thực tế.",
-];
 
 export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordFormEditorProps> = ({
   values,
@@ -206,40 +162,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
       onChange("attendance_rate", rate);
     }
   };
-
-  // Tự sinh 4 nhận xét theo mức điểm hiện tại
-  const handleGenerateFeedbackByScores = () => {
-    const gpa = calculateGPA(values.theory_score, values.practical_score);
-    if (gpa >= 9.0) {
-      onChange("feedback_theory", FEEDBACK_THEORY_SUGGESTIONS[0]);
-      onChange("feedback_practical", FEEDBACK_PRACTICAL_SUGGESTIONS[0]);
-      onChange("feedback_attendance", FEEDBACK_ATTENDANCE_SUGGESTIONS[0]);
-      onChange("feedback_attitude", FEEDBACK_ATTITUDE_SUGGESTIONS[0]);
-      onChange("is_graduated", true);
-    } else if (gpa >= 8.0) {
-      onChange("feedback_theory", FEEDBACK_THEORY_SUGGESTIONS[1]);
-      onChange("feedback_practical", FEEDBACK_PRACTICAL_SUGGESTIONS[1]);
-      onChange("feedback_attendance", FEEDBACK_ATTENDANCE_SUGGESTIONS[1]);
-      onChange("feedback_attitude", FEEDBACK_ATTITUDE_SUGGESTIONS[1]);
-      onChange("is_graduated", true);
-    } else if (gpa >= 7.0) {
-      onChange("feedback_theory", FEEDBACK_THEORY_SUGGESTIONS[2]);
-      onChange("feedback_practical", FEEDBACK_PRACTICAL_SUGGESTIONS[2]);
-      onChange("feedback_attendance", FEEDBACK_ATTENDANCE_SUGGESTIONS[3]);
-      onChange("feedback_attitude", FEEDBACK_ATTITUDE_SUGGESTIONS[2]);
-      onChange("is_graduated", true);
-    } else {
-      onChange("feedback_theory", FEEDBACK_THEORY_SUGGESTIONS[4]);
-      onChange("feedback_practical", FEEDBACK_PRACTICAL_SUGGESTIONS[4]);
-      onChange("feedback_attendance", FEEDBACK_ATTENDANCE_SUGGESTIONS[4]);
-      onChange("feedback_attitude", FEEDBACK_ATTITUDE_SUGGESTIONS[4]);
-      onChange("is_graduated", false);
-    }
-    if (!values.graduation_date && gpa >= 5.0) {
-      onChange("graduation_date", new Date().toISOString().split("T")[0]);
-    }
-  };
-
   // Tính GPA và xếp hạng
   const currentGPA = calculateGPA(values.theory_score, values.practical_score);
   const currentRank = getGradeRank(currentGPA);
@@ -389,24 +311,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
                 <Plus size={13} />
               </button>
             </div>
-
-            {/* Chip chọn nhanh điểm lý thuyết */}
-            <div className="flex flex-wrap gap-1 pt-1">
-              {SCORE_CHIPS.map((sc) => (
-                <button
-                  type="button"
-                  key={sc}
-                  onClick={() => onChange("theory_score", sc)}
-                  className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
-                    Number(values.theory_score) === sc
-                      ? "bg-[#985018] text-white border-[#985018] font-bold"
-                      : "bg-white text-[#554536] border-[#E8DFD8] hover:border-[#B38A58]"
-                  }`}
-                >
-                  {sc.toFixed(1)}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Ô 2: Điểm thực hành */}
@@ -453,24 +357,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
               >
                 <Plus size={13} />
               </button>
-            </div>
-
-            {/* Chip chọn nhanh điểm thực hành */}
-            <div className="flex flex-wrap gap-1 pt-1">
-              {SCORE_CHIPS.map((sc) => (
-                <button
-                  type="button"
-                  key={sc}
-                  onClick={() => onChange("practical_score", sc)}
-                  className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
-                    Number(values.practical_score) === sc
-                      ? "bg-emerald-700 text-white border-emerald-700 font-bold"
-                      : "bg-white text-[#554536] border-[#E8DFD8] hover:border-emerald-600"
-                  }`}
-                >
-                  {sc.toFixed(1)}
-                </button>
-              ))}
             </div>
           </div>
         </div>
@@ -550,28 +436,16 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         </div>
       </div>
 
-      {/* 4. ĐÁNH GIÁ 4 CHIỀU & GỢI Ý NHANH */}
+      {/* 4. ĐÁNH GIÁ 4 CHIỀU CỦA GIẢNG VIÊN */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-4 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8DFD8]/60 pb-2.5">
-          <div>
-            <h4 className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
-              <Award size={14} className="text-[#985018]" />
-              Nhận xét đánh giá 4 chiều của Giảng viên
-            </h4>
-            <p className="text-[11px] text-[#766554]">
-              Nhận xét toàn diện theo tiêu chuẩn Y khoa Dr. Vodder
-            </p>
-          </div>
-
-          {/* Nút sinh nhận xét tự động theo điểm */}
-          <button
-            type="button"
-            onClick={handleGenerateFeedbackByScores}
-            className="text-xs px-3 py-1.5 rounded-xl bg-[#FAF6F2] hover:bg-[#F5ECE2] text-[#985018] border border-[#E8DFD8] font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-          >
-            <Sparkles size={13} className="text-[#B38A58]" />
-            ⚡ Điền nhận xét chuẩn theo điểm
-          </button>
+        <div className="border-b border-[#E8DFD8]/60 pb-2.5">
+          <h4 className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+            <Award size={14} className="text-[#985018]" />
+            Nhận xét đánh giá 4 chiều của Giảng viên
+          </h4>
+          <p className="text-[11px] text-[#766554]">
+            Ghi nhận xét chi tiết theo tiêu chuẩn Y khoa Dr. Vodder
+          </p>
         </div>
 
         {/* 1. Nhận xét Lý thuyết */}
@@ -589,18 +463,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
             placeholder="Nhận xét mức độ hiểu bài, kiến thức giải phẫu và xử lý tình huống..."
             className="w-full text-xs p-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58]"
           />
-          <div className="flex flex-wrap gap-1">
-            {FEEDBACK_THEORY_SUGGESTIONS.slice(0, 3).map((s, idx) => (
-              <button
-                type="button"
-                key={idx}
-                onClick={() => onChange("feedback_theory", s)}
-                className="text-[10px] px-2 py-0.5 rounded bg-[#FAF6F2] hover:bg-white border border-[#E8DFD8] text-[#554536] transition-colors"
-              >
-                + {s.substring(0, 45)}...
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* 2. Nhận xét Thực hành */}
@@ -618,18 +480,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
             placeholder="Nhận xét thao tác tay, kiểm soát áp lực mô dưới 30 mmHg, độ êm ái..."
             className="w-full text-xs p-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58]"
           />
-          <div className="flex flex-wrap gap-1">
-            {FEEDBACK_PRACTICAL_SUGGESTIONS.slice(0, 3).map((s, idx) => (
-              <button
-                type="button"
-                key={idx}
-                onClick={() => onChange("feedback_practical", s)}
-                className="text-[10px] px-2 py-0.5 rounded bg-[#FAF6F2] hover:bg-white border border-[#E8DFD8] text-[#554536] transition-colors"
-              >
-                + {s.substring(0, 45)}...
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* 3. Nhận xét Chuyên cần */}
@@ -647,18 +497,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
             placeholder="Nhận xét thời gian tham gia lớp, đi học đúng giờ, tinh thần học bù..."
             className="w-full text-xs p-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58]"
           />
-          <div className="flex flex-wrap gap-1">
-            {FEEDBACK_ATTENDANCE_SUGGESTIONS.slice(0, 3).map((s, idx) => (
-              <button
-                type="button"
-                key={idx}
-                onClick={() => onChange("feedback_attendance", s)}
-                className="text-[10px] px-2 py-0.5 rounded bg-[#FAF6F2] hover:bg-white border border-[#E8DFD8] text-[#554536] transition-colors"
-              >
-                + {s.substring(0, 45)}...
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* 4. Nhận xét Thái độ */}
@@ -676,18 +514,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
             placeholder="Nhận xét tinh thần cầu tiến, tác phong chuẩn mực y khoa, tương tác bạn học..."
             className="w-full text-xs p-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58]"
           />
-          <div className="flex flex-wrap gap-1">
-            {FEEDBACK_ATTITUDE_SUGGESTIONS.slice(0, 3).map((s, idx) => (
-              <button
-                type="button"
-                key={idx}
-                onClick={() => onChange("feedback_attitude", s)}
-                className="text-[10px] px-2 py-0.5 rounded bg-[#FAF6F2] hover:bg-white border border-[#E8DFD8] text-[#554536] transition-colors"
-              >
-                + {s.substring(0, 45)}...
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
