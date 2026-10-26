@@ -1826,44 +1826,7 @@ class SupabaseService {
       console.warn('[SupabaseService] recordStaffCommission error:', err);
     }
 
-    // Local fallback persistence
-    try {
-      const raw = localStorage.getItem('mld_local_staff_commissions');
-      const list = raw ? JSON.parse(raw) : [];
-      const localItem = {
-        id: `comm-${Date.now()}`,
-        staff_id: validStaffId,
-        branch_id: validBranchId,
-        booking_id: validBookingId,
-        invoice_id: data.invoiceId || null,
-        commission_type: data.commissionType || 'SERVICE_DIRECT',
-        base_amount: data.baseAmount,
-        percentage: pct,
-        commission_amount: commissionAmount,
-        status: 'APPROVED',
-        cycle_month: cycleMonth,
-        notes: data.notes || `Hoa hồng tự động ${pct}% từ đơn dịch vụ`,
-        created_at: now.toISOString(),
-      };
-      localStorage.setItem('mld_local_staff_commissions', JSON.stringify([localItem, ...list]));
-      return {
-        id: localItem.id,
-        staffId: localItem.staff_id,
-        branchId: localItem.branch_id,
-        bookingId: localItem.booking_id,
-        invoiceId: localItem.invoice_id,
-        commissionType: localItem.commission_type as any,
-        baseAmount: localItem.base_amount,
-        percentage: localItem.percentage,
-        commissionAmount: localItem.commission_amount,
-        status: (localItem.status || 'APPROVED') as any,
-        cycleMonth: localItem.cycle_month,
-        notes: localItem.notes,
-        createdAt: localItem.created_at,
-      };
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   async getStaffCommissions(staffId?: string, cycleMonth?: string): Promise<StaffCommission[]> {
@@ -1894,29 +1857,6 @@ class SupabaseService {
       console.warn('[SupabaseService] getStaffCommissions error:', err);
     }
 
-    try {
-      const raw = localStorage.getItem('mld_local_staff_commissions');
-      if (raw) {
-        let list = JSON.parse(raw);
-        if (staffId) list = list.filter((r: any) => r.staff_id === staffId);
-        if (cycleMonth) list = list.filter((r: any) => r.cycle_month === cycleMonth);
-        return list.map((r: any) => ({
-          id: r.id,
-          staffId: r.staff_id,
-          branchId: r.branch_id,
-          bookingId: r.booking_id,
-          invoiceId: r.invoice_id,
-          commissionType: r.commission_type as any,
-          baseAmount: Number(r.base_amount),
-          percentage: Number(r.percentage),
-          commissionAmount: Number(r.commission_amount),
-          status: (r.status || 'APPROVED') as any,
-          cycleMonth: r.cycle_month,
-          notes: r.notes,
-          createdAt: r.created_at,
-        }));
-      }
-    } catch {}
     return [];
   }
 
@@ -1971,38 +1911,7 @@ class SupabaseService {
       console.warn('[SupabaseService] recordInventoryConsumption error:', err);
     }
 
-    // Local fallback persistence
-    try {
-      const raw = localStorage.getItem('mld_local_inventory_consumption_logs');
-      const list = raw ? JSON.parse(raw) : [];
-      const localLog = {
-        id: `log-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        branch_id: validBranchId,
-        service_id: data.serviceId || null,
-        booking_id: validBookingId,
-        invoice_id: data.invoiceId || null,
-        technician_id: validTechId,
-        material_name: data.materialName,
-        quantity_deducted: data.quantityDeducted,
-        unit: data.unit || 'ml',
-        logged_at: new Date().toISOString(),
-      };
-      localStorage.setItem('mld_local_inventory_consumption_logs', JSON.stringify([localLog, ...list]));
-      return {
-        id: localLog.id,
-        branchId: localLog.branch_id,
-        serviceId: localLog.service_id,
-        bookingId: localLog.booking_id,
-        invoiceId: localLog.invoice_id,
-        technicianId: localLog.technician_id,
-        materialName: localLog.material_name,
-        quantityDeducted: Number(localLog.quantity_deducted),
-        unit: localLog.unit,
-        loggedAt: localLog.logged_at,
-      };
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   // ==========================================

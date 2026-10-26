@@ -118,31 +118,12 @@ export const posService = {
       };
       return await legacyWrite<Invoice>('invoices', sanitizedData);
     } catch (fallbackErr) {
-      console.warn('[posService] createInvoice fallback error, creating local invoice:', fallbackErr);
-      const mockInvoice: Invoice = {
-        id: `inv-${Date.now()}`,
-        invoiceCode,
-        branchId: validBranchId,
-        customerId: validCustomerId,
-        cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
-        bookingId: validBookingId || undefined,
-        userPackageId: validUserPackageId || undefined,
-        enrollmentId: validEnrollmentId || undefined,
-        subtotal: data.subtotal || data.totalAmount || 0,
-        discountAmount: data.discountAmount || 0,
-        pointsRedeemedAmount: data.pointsRedeemedAmount || 0,
-        vatAmount: data.vatAmount || 0,
-        totalAmount: data.totalAmount || 0,
-        refundAmount: 0,
-        paymentMethod: data.paymentMethod || PaymentMethod.CASH_AT_SPA,
-        paymentStatus: data.paymentStatus || PaymentStatus.PAID,
-        paidAt: data.paidAt || new Date().toISOString(),
-      };
+      console.error('[posService] createInvoice error:', fallbackErr);
       return {
-        success: true,
-        statusCode: 201,
-        message: 'Hóa đơn đã được ghi nhận cục bộ',
-        data: mockInvoice,
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi tạo hóa đơn trên hệ thống',
+        data: {} as Invoice,
       };
     }
   },

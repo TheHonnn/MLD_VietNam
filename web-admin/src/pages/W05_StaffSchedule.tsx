@@ -448,7 +448,7 @@ export const W05_StaffSchedule: React.FC = () => {
 
       const customerName = cust?.fullName || b.bookedForName || 'Khách hàng';
       const customerPhone = cust?.phone || b.bookedForPhone || '';
-      const techName = tech?.name || b.technician?.fullName || 'Kỹ thuật viên';
+      const techName = tech?.name || b.technician?.fullName || (b.technicianId ? 'Kỹ thuật viên' : 'Chưa phân công');
 
       const statusLabel =
         b.status === 'CONFIRMED'
@@ -523,20 +523,7 @@ export const W05_StaffSchedule: React.FC = () => {
     });
   }, [liveBookings, customers, branchTechnicians, services]);
 
-  // Local Custom Appointments resilience
-  const [customAppointments, setCustomAppointments] = useState<ScheduleAppointment[]>(() => {
-    try {
-      const saved = localStorage.getItem('mld_staff_appointments');
-      if (saved) return JSON.parse(saved);
-    } catch (err) {
-      console.error('Failed to parse saved appointments', err);
-    }
-    return [];
-  });
-
-  const allAppointments = useMemo(() => {
-    return [...customAppointments, ...appointments];
-  }, [customAppointments, appointments]);
+  const allAppointments = appointments;
 
   // Filtered appointments displayed on current date's schedule
   const displayedAppointments = useMemo(() => {
@@ -591,6 +578,119 @@ export const W05_StaffSchedule: React.FC = () => {
     selectedGroupFilter,
     searchTerm,
   ]);
+
+  // Phân loại lịch hẹn chưa có KTV hoặc KTV không thuộc ca trực chi nhánh hiện tại
+  const unassignedAppointments = useMemo(() => {
+    return displayedAppointments.filter((a) => {
+      if (!a.technicianId || a.technicianId.trim() === '') return true;
+      return !visibleTechnicians.some((t) => t.id === a.technicianId);
+    });
+  }, [displayedAppointments, visibleTechnicians]);
+
+  // Cấu hình các cột ma trận lịch hẹn (bao gồm cột Chờ phân công KTV nếu có lịch chưa gán)
+  interface TimetableColumn {
+    id: string;
+    name: string;
+    room: string;
+    role?: string;
+    avatar?: string;
+    branchId?: string;
+    isUnassignedColumn?: boolean;
+  }
+
+  const timetableColumns = useMemo<TimetableColumn[]>(() => {
+    const cols: TimetableColumn[] = visibleTechnicians.map((t) => ({
+      id: t.id,
+      name: t.name,
+      room: t.room,
+      role: t.role,
+      avatar: t.avatar,
+      branchId: t.branchId,
+      isUnassignedColumn: false,
+    }));
+
+    if (unassignedAppointments.length > 0) {
+      cols.push({
+        id: '__UNASSIGNED__',
+        name: 'Chờ gán KTV',
+        room: `${unassignedAppointments.length} lịch cần xếp ca`,
+        role: 'Chưa phân công KTV',
+        isUnassignedColumn: true,
+      });
+    }
+
+    return cols;
+  }, [visibleTechnicians, unassignedAppointments.length]);
+
+  const [quickAssignTechId, setQuickAssignTechId] = useState<string>('');
+  const [isAssigningTech, setIsAssigningTech] = useState<boolean>(false);
+
+  // Phân công KTV cho 1 lịch hẹn cụ thể
+  const handleAssignTechnicianToBooking = async (bookingId: string, techId: string) => {
+    if (!techId) {
+      toast.warning('Chưa chọn KTV', 'Vui lòng chọn một kỹ thuật viên phụ trách.');
+      return;
+    }
+    const chosenTech = branchTechnicians.find((t) => t.id === techId);
+    const chosenTechName = chosenTech?.name || liveTechnicians.find((t) => t.id === techId)?.fullName || 'KTV';
+    const chosenTechRoom = chosenTech?.room || 'Phòng Trị Liệu';
+    setIsAssigningTech(true);
+    try {
+      await bookingService.updateBooking(bookingId, {
+        technicianId: techId,
+        assignedBedNumber: chosenTechRoom,
+      });
+
+      // Cập nhật liveBookings
+      setLiveBookings((prev) =>
+        prev.map((b) => (b.id === bookingId || b.bookingCode === bookingId ? { ...b, technicianId: techId } : b))
+      );
+
+
+      toast.success(
+        'Phân công KTV thành công',
+        `Đã gán kỹ thuật viên "${chosenTechName}" cho lịch hẹn.`
+      );
+      setQuickAssignTechId('');
+    } catch (err) {
+      console.error('Assign technician error:', err);
+      toast.error('Lỗi phân công', 'Không thể gán kỹ thuật viên. Vui lòng thử lại.');
+    } finally {
+      setIsAssigningTech(false);
+    }
+  };
+
+  // Tự động gán KTV cho toàn bộ lịch hẹn chưa có KTV trong ngày
+  const handleAutoAssignUnassigned = async () => {
+    if (unassignedAppointments.length === 0 || branchTechnicians.length === 0) return;
+    setIsAssigningTech(true);
+    try {
+      let count = 0;
+      for (let i = 0; i < unassignedAppointments.length; i++) {
+        const app = unassignedAppointments[i];
+        const assignedTech = branchTechnicians[i % branchTechnicians.length];
+        await bookingService.updateBooking(app.id, {
+          technicianId: assignedTech.id,
+          assignedBedNumber: assignedTech.room,
+        });
+        count++;
+      }
+      // Nạp lại danh sách lịch hẹn
+      const bRes = await bookingService.getBookings({ branchId: selectedBranchId });
+      if (bRes.success && bRes.data) {
+        setLiveBookings(bRes.data);
+      }
+      toast.success(
+        'Đã tự động phân công KTV',
+        `Đã tự động gán KTV cho ${count} lịch hẹn theo danh sách chuyên viên trực chi nhánh.`
+      );
+    } catch (err) {
+      console.error('Auto assign error:', err);
+      toast.error('Lỗi tự động phân công', 'Vui lòng thử lại sau.');
+    } finally {
+      setIsAssigningTech(false);
+    }
+  };
 
   // Auto select active appointment when day or search changes
   useEffect(() => {
@@ -703,18 +803,6 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   };
 
-  // Delete Custom Appointment
-  const handleDeleteCustomAppointment = (id: string) => {
-    const updated = customAppointments.filter((a) => a.id !== id);
-    setCustomAppointments(updated);
-    try {
-      localStorage.setItem('mld_staff_appointments', JSON.stringify(updated));
-    } catch (err) {
-      console.error('Failed to update localStorage', err);
-    }
-    toast.success('Đã hủy lịch hẹn', 'Lịch hẹn đã được gỡ bỏ khỏi bảng phân công ca trực.');
-  };
-
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Xóa vĩnh viễn 1 lịch hẹn bất kỳ
@@ -724,15 +812,17 @@ export const W05_StaffSchedule: React.FC = () => {
     }
     setIsDeleting(true);
     try {
+      const targetApp = allAppointments.find((a) => a.id === id);
+      const bCode = targetApp?.customerCode?.split('·')[1]?.trim() || '';
+
       await bookingService.deleteBooking(id);
-      setLiveBookings((prev) => prev.filter((b) => b.id !== id && b.bookingCode !== id));
-      const updatedCustom = customAppointments.filter((a) => a.id !== id);
-      setCustomAppointments(updatedCustom);
-      try {
-        localStorage.setItem('mld_staff_appointments', JSON.stringify(updatedCustom));
-      } catch (e) {
-        console.error(e);
+      if (bCode && bCode !== id) {
+        await bookingService.deleteBooking(bCode);
       }
+
+      setLiveBookings((prev) =>
+        prev.filter((b) => b.id !== id && b.bookingCode !== id && (!bCode || b.bookingCode !== bCode))
+      );
       setSelectedAppId('');
       toast.success('Đã xóa lịch hẹn', 'Lịch hẹn đã được xóa hoàn toàn khỏi bảng phân công.');
     } catch (err) {
@@ -756,7 +846,6 @@ export const W05_StaffSchedule: React.FC = () => {
     try {
       await bookingService.deleteAllBookings();
       setLiveBookings([]);
-      setCustomAppointments([]);
       setSelectedAppId('');
       toast.success('Đã dọn sạch', 'Đã xóa toàn bộ lịch hẹn kỹ thuật viên thành công.');
     } catch (err) {
@@ -1333,6 +1422,36 @@ export const W05_StaffSchedule: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column (Matrix + Legend) - min-w-0 prevents grid blowout */}
         <div className="lg:col-span-8 space-y-3 min-w-0">
+          {/* Cảnh báo lịch hẹn chưa phân công KTV */}
+          {unassignedAppointments.length > 0 && (
+            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#FEF3C7] text-[#B45309] flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4 text-[#D97706]" />
+                </div>
+                <div>
+                  <div className="font-bold text-[#92400E] text-[13px]">
+                    Phát hiện {unassignedAppointments.length} lịch hẹn chưa phân công Kỹ thuật viên
+                  </div>
+                  <div className="text-[#B45309] text-[11px] mt-0.5">
+                    Lịch đã được gom vào cột <strong>"Chờ gán KTV"</strong> ở cuối bảng ca trực. Bạn có thể chọn để gán KTV ngay hoặc bấm tự động gán.
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleAutoAssignUnassigned}
+                  disabled={isAssigningTech}
+                  className="px-3.5 py-2 bg-[#985018] hover:bg-[#854412] text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isAssigningTech ? 'Đang phân công...' : 'Tự động gán KTV'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
             <div className="w-max min-w-full inline-block align-top">
               {/* Timetable Header Row */}
@@ -1343,18 +1462,31 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
 
                 {/* Technician Headers - Uniform fixed column width */}
-                {visibleTechnicians.map((t, idx) => (
+                {timetableColumns.map((col, idx) => (
                   <div
-                    key={t.id}
-                    className={`w-[200px] min-w-[200px] shrink-0 px-4 py-3 border-r border-[#EFE4D9] ${
-                      idx === visibleTechnicians.length - 1 ? 'border-r-0' : ''
-                    }`}
+                    key={col.id}
+                    className={`w-[200px] min-w-[200px] shrink-0 px-4 py-3 border-r ${
+                      col.isUnassignedColumn
+                        ? 'bg-[#FFFBEB] border-[#FDE68A]'
+                        : 'border-[#EFE4D9]'
+                    } ${idx === timetableColumns.length - 1 ? 'border-r-0' : ''}`}
                   >
-                    <div className="text-[13px] font-bold text-[#2C241E] truncate" title={t.name}>
-                      {t.name}
+                    <div
+                      className={`text-[13px] font-bold truncate flex items-center gap-1.5 ${
+                        col.isUnassignedColumn ? 'text-[#B45309]' : 'text-[#2C241E]'
+                      }`}
+                      title={col.name}
+                    >
+                      {col.isUnassignedColumn && <AlertTriangle className="w-3.5 h-3.5 text-[#D97706] shrink-0" />}
+                      <span>{col.name}</span>
                     </div>
-                    <div className="text-[11px] text-[#73675F] mt-0.5 truncate" title={t.room}>
-                      {t.room}
+                    <div
+                      className={`text-[11px] mt-0.5 truncate ${
+                        col.isUnassignedColumn ? 'text-[#92400E] font-semibold' : 'text-[#73675F]'
+                      }`}
+                      title={col.room}
+                    >
+                      {col.room}
                     </div>
                   </div>
                 ))}
@@ -1376,49 +1508,52 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
 
                 {/* Technician Columns - Exact same fixed width as header */}
-                {visibleTechnicians.map((t, colIdx) => {
-                  const colAppointments = displayedAppointments.filter(
-                    (a) => a.technicianId === t.id
-                  );
+                {timetableColumns.map((col, colIdx) => {
+                  const colAppointments = col.isUnassignedColumn
+                    ? unassignedAppointments
+                    : displayedAppointments.filter((a) => a.technicianId === col.id);
 
                   return (
                     <div
-                      key={t.id}
-                      className={`w-[200px] min-w-[200px] shrink-0 relative border-r border-[#EFE4D9] ${
-                        colIdx === visibleTechnicians.length - 1 ? 'border-r-0' : ''
-                      }`}
+                      key={col.id}
+                      className={`w-[200px] min-w-[200px] shrink-0 relative border-r ${
+                        col.isUnassignedColumn ? 'bg-[#FFFDF7] border-[#FDE68A]' : 'border-[#EFE4D9]'
+                      } ${colIdx === timetableColumns.length - 1 ? 'border-r-0' : ''}`}
                     >
                       {/* Background Grid Lines extending full width of column */}
                       {hours.map((hour) => (
                         <div
                           key={hour}
                           style={{ height: `${ROW_HEIGHT}px` }}
-                          className="border-b border-[#F0E6DC] w-full"
+                          className={`border-b ${col.isUnassignedColumn ? 'border-[#FEF3C7]' : 'border-[#F0E6DC]'} w-full`}
                         />
                       ))}
 
-                      {/* Shared Lunch Break Block: 12:00 to 13:00 */}
-                      <div
-                        style={{
-                          top: `${(12 - 9) * ROW_HEIGHT + 3}px`,
-                          height: `${ROW_HEIGHT - 6}px`,
-                        }}
-                        className="absolute inset-x-2 rounded-xl bg-[#F6EFE8] flex items-center justify-center text-center p-1 select-none pointer-events-none z-5"
-                      >
-                        <span className="text-[11px] text-[#73675F] font-medium">
-                          12:00–13:00 · Nghỉ trưa
-                        </span>
-                      </div>
+                      {/* Shared Lunch Break Block: 12:00 to 13:00 (only on regular technician columns) */}
+                      {!col.isUnassignedColumn && (
+                        <div
+                          style={{
+                            top: `${(12 - 9) * ROW_HEIGHT + 3}px`,
+                            height: `${ROW_HEIGHT - 6}px`,
+                          }}
+                          className="absolute inset-x-2 rounded-xl bg-[#F6EFE8] flex items-center justify-center text-center p-1 select-none pointer-events-none z-5"
+                        >
+                          <span className="text-[11px] text-[#73675F] font-medium">
+                            12:00–13:00 · Nghỉ trưa
+                          </span>
+                        </div>
+                      )}
 
                       {/* Dynamic Appointment Cards for this column */}
                       {colAppointments.map((app) => {
-                        const topOffset = (app.startHour - 9) * ROW_HEIGHT;
-                        const blockHeight = app.durationHours * ROW_HEIGHT;
+                        const topOffset = Math.max(0, (app.startHour - 9) * ROW_HEIGHT);
+                        const blockHeight = Math.max(36, app.durationHours * ROW_HEIGHT);
                         const isSelected = selectedApp?.id === app.id;
 
                         const isCompleted = app.statusRaw === 'COMPLETED';
                         const isInService = app.statusRaw === 'IN_SERVICE';
                         const isConfirmed = app.statusRaw === 'CONFIRMED';
+                        const isUnassigned = col.isUnassignedColumn || !app.technicianId;
 
                         return (
                           <div key={app.id}>
@@ -1430,10 +1565,14 @@ export const W05_StaffSchedule: React.FC = () => {
                                 height: `${blockHeight}px`,
                               }}
                               className={`absolute inset-x-2 p-2.5 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between ${
-                                app.hasCleaningBuffer ? 'rounded-t-xl' : 'rounded-xl'
+                                app.hasCleaningBuffer && !isUnassigned ? 'rounded-t-xl' : 'rounded-xl'
                               } ${
                                 isSelected
-                                  ? 'bg-[#FAF0E4] border-2 border-[#985018] shadow-md scale-[1.01]'
+                                  ? isUnassigned
+                                    ? 'bg-[#FEF3C7] border-2 border-[#D97706] shadow-md scale-[1.01]'
+                                    : 'bg-[#FAF0E4] border-2 border-[#985018] shadow-md scale-[1.01]'
+                                  : isUnassigned
+                                  ? 'bg-[#FFFBEB] border-2 border-dashed border-[#F59E0B] hover:border-[#D97706]'
                                   : isCompleted
                                   ? 'bg-[#EBF7EE] border border-[#BDE5C8] hover:border-[#2D7A4D]'
                                   : isInService
@@ -1453,7 +1592,9 @@ export const W05_StaffSchedule: React.FC = () => {
                               <div className="flex items-center justify-between gap-1 mt-1">
                                 <span
                                   className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold ${
-                                    isCompleted
+                                    isUnassigned
+                                      ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
+                                      : isCompleted
                                       ? 'bg-[#D1F2D9] text-[#0D6832]'
                                       : isInService
                                       ? 'bg-[#DBEAFE] text-[#1E40AF]'
@@ -1462,13 +1603,18 @@ export const W05_StaffSchedule: React.FC = () => {
                                       : 'bg-[#FEF3C7] text-[#92400E]'
                                   }`}
                                 >
-                                  {app.status}
+                                  {isUnassigned ? '⚠️ Chưa gán KTV' : app.status}
                                 </span>
+                                {isUnassigned && (
+                                  <span className="text-[9px] text-[#B45309] font-medium hidden sm:inline">
+                                    Chọn để gán
+                                  </span>
+                                )}
                               </div>
                             </div>
 
                             {/* Attached buffer cleaning strip */}
-                            {app.hasCleaningBuffer && (
+                            {app.hasCleaningBuffer && !isUnassigned && (
                               <div
                                 style={{
                                   top: `${topOffset + blockHeight}px`,
@@ -1625,7 +1771,18 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Kỹ thuật viên</span>
-                  <span className="font-semibold text-[#2C241E]">{selectedApp.technicianName}</span>
+                  <span
+                    className={`font-semibold flex items-center gap-1 ${
+                      !selectedApp.technicianId || !visibleTechnicians.some((t) => t.id === selectedApp.technicianId)
+                        ? 'text-[#B45309] font-bold'
+                        : 'text-[#2C241E]'
+                    }`}
+                  >
+                    {(!selectedApp.technicianId || !visibleTechnicians.some((t) => t.id === selectedApp.technicianId)) && (
+                      <AlertTriangle className="w-3.5 h-3.5 text-[#D97706]" />
+                    )}
+                    <span>{selectedApp.technicianName}</span>
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Nguồn lực phòng / giường</span>
@@ -1644,6 +1801,41 @@ export const W05_StaffSchedule: React.FC = () => {
                   <span className="font-bold text-[#0D6832]">{selectedApp.remaining}</span>
                 </div>
               </div>
+
+              {/* Box phân công KTV nếu lịch chưa có KTV */}
+              {(!selectedApp.technicianId || !visibleTechnicians.some((t) => t.id === selectedApp.technicianId)) && (
+                <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+                  <div className="flex items-center gap-2 text-[#92400E] font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 text-[#D97706] shrink-0" />
+                    <span>Lịch hẹn chưa có Kỹ thuật viên phụ trách</span>
+                  </div>
+                  <p className="text-[11px] text-[#B45309] leading-relaxed">
+                    Vui lòng chọn kỹ thuật viên để đưa lịch hẹn vào ca trực chuyên viên và tính hoa hồng chuẩn xác:
+                  </p>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <select
+                      value={quickAssignTechId}
+                      onChange={(e) => setQuickAssignTechId(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    >
+                      <option value="">-- Chọn kỹ thuật viên --</option>
+                      {branchTechnicians.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.room})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!quickAssignTechId || isAssigningTech}
+                      onClick={() => handleAssignTechnicianToBooking(selectedApp.id, quickAssignTechId)}
+                      className="px-3.5 py-1.5 bg-[#985018] hover:bg-[#854412] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shrink-0 shadow-2xs"
+                    >
+                      {isAssigningTech ? 'Đang lưu...' : 'Gán KTV'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Enterprise Trụ cột 2 & 3: Hoa hồng KTV & Zalo ZNS */}
               <div className="bg-[#FAF8F5] border border-[#E8DFD8] rounded-2xl p-3 space-y-2.5 text-xs animate-in fade-in">

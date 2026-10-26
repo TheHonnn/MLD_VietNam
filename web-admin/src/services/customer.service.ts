@@ -5,26 +5,11 @@ export const customerService = {
   async getCustomers(query?: { search?: string; tier?: MemberTier }): Promise<ApiResponse<User[]>> {
     try {
       const liveUsers = await supabaseService.getUsers(query?.search, query?.tier);
-      let list = liveUsers || [];
-
-      // Merge locally created customers from custom cache
-      try {
-        const stored = localStorage.getItem('mld_custom_customers');
-        if (stored) {
-          const customArr: User[] = JSON.parse(stored);
-          for (const cu of customArr) {
-            if (!list.some((u) => u.id === cu.id || u.phone === cu.phone)) {
-              list = [cu, ...list];
-            }
-          }
-        }
-      } catch {}
-
       return {
         success: true,
         statusCode: 200,
         message: 'Dữ liệu trực tiếp từ Supabase Cloud',
-        data: list,
+        data: liveUsers || [],
       };
     } catch (err) {
       console.error('[customerService] getCustomers error:', err);
@@ -144,40 +129,15 @@ export const customerService = {
       };
 
       const created = await supabaseService.createUser(payload);
-      const finalUser: User = created || {
-        id: `u-local-${Date.now()}`,
-        phone: payload.phone,
-        email: payload.email,
-        fullName: payload.full_name,
-        avatarUrl: payload.avatar_url,
-        gender: payload.gender,
-        dateOfBirth: payload.date_of_birth,
-        address: payload.address,
-        emergencyContactName: payload.emergency_contact_name,
-        emergencyContactPhone: payload.emergency_contact_phone,
-        purpose: payload.purpose,
-        role: payload.role,
-        membershipTier: payload.membership_tier,
-        rewardPoints: payload.reward_points,
-        totalSpent: payload.total_spent,
-        referralCode: payload.referral_code,
-        isActive: payload.is_active,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Persist to custom customers
-      try {
-        const stored = localStorage.getItem('mld_custom_customers');
-        const customArr: User[] = stored ? JSON.parse(stored) : [];
-        localStorage.setItem('mld_custom_customers', JSON.stringify([finalUser, ...customArr]));
-      } catch {}
+      if (!created) {
+        throw new Error('Không thể tạo người dùng trên Supabase Cloud');
+      }
 
       return {
         success: true,
         statusCode: 201,
         message: 'Tạo hồ sơ khách hàng mới thành công',
-        data: finalUser,
+        data: created,
       };
     } catch (err) {
       console.error('[customerService] createCustomer error:', err);

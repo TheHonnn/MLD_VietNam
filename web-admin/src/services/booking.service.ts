@@ -1,32 +1,6 @@
 import { Booking, BookingStatus, PaymentStatus, PaymentMethod, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
-import { legacyWrite } from './adminAdapter';
 import { isUuid } from '../utils/searchUtils';
-
-const LOCAL_STORAGE_KEY = 'mld_local_bookings';
-
-function getLocalBookings(): Booking[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (err) {
-    console.warn('[bookingService] Failed to read local bookings cache:', err);
-  }
-  return [];
-}
-
-function saveLocalBooking(booking: Booking) {
-  try {
-    const current = getLocalBookings();
-    const updated = [booking, ...current.filter((b) => b.id !== booking.id)];
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-  } catch (err) {
-    console.warn('[bookingService] Failed to save local booking:', err);
-  }
-}
 
 export const bookingService = {
   async getBookings(params?: {
@@ -38,14 +12,6 @@ export const bookingService = {
     try {
       const live = await supabaseService.getBookings(params?.branchId, params?.customerId);
       let result = live || [];
-
-      // Merge locally stored bookings if any
-      const locals = getLocalBookings();
-      if (locals.length > 0) {
-        const liveIds = new Set(result.map((b) => b.id));
-        const missingLocals = locals.filter((lb) => !liveIds.has(lb.id));
-        result = [...missingLocals, ...result];
-      }
 
       if (params?.branchId && params.branchId !== 'ALL') {
         result = result.filter((b) => !b.branchId || b.branchId === params.branchId);
@@ -69,13 +35,11 @@ export const bookingService = {
       };
     } catch (err) {
       console.error('[bookingService] getBookings error:', err);
-      // Fallback to local cache if network/cloud request fails
-      const locals = getLocalBookings();
       return {
-        success: true,
-        statusCode: 200,
-        message: 'Dữ liệu lịch hẹn từ bộ nhớ cục bộ',
-        data: locals,
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn lịch hẹn từ Supabase Cloud',
+        data: [],
       };
     }
   },
@@ -83,26 +47,20 @@ export const bookingService = {
   async getBookingById(id: string): Promise<ApiResponse<Booking | undefined>> {
     try {
       const live = await supabaseService.getBookings();
-      let found = live?.find((b) => b.id === id || b.bookingCode === id);
-      if (!found) {
-        const locals = getLocalBookings();
-        found = locals.find((b) => b.id === id || b.bookingCode === id);
-      }
+      const found = live?.find((b) => b.id === id || b.bookingCode === id);
       return {
-        success: true,
-        statusCode: 200,
-        message: 'Chi tiết lịch hẹn từ Supabase Cloud',
+        success: Boolean(found),
+        statusCode: found ? 200 : 404,
+        message: found ? 'Chi tiết lịch hẹn từ Supabase Cloud' : 'Không tìm thấy lịch hẹn',
         data: found,
       };
     } catch (err) {
       console.error('[bookingService] getBookingById error:', err);
-      const locals = getLocalBookings();
-      const found = locals.find((b) => b.id === id || b.bookingCode === id);
       return {
-        success: Boolean(found),
-        statusCode: found ? 200 : 500,
-        message: found ? 'Chi tiết lịch hẹn từ bộ nhớ cục bộ' : 'Lỗi truy vấn chi tiết lịch hẹn',
-        data: found,
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi lấy thông tin lịch hẹn từ Supabase',
+        data: undefined,
       };
     }
   },
@@ -136,7 +94,6 @@ export const bookingService = {
     const finalPrice = params.finalPrice ?? params.baseTotal ?? 0;
     const discountAmount = params.depositAmount ?? 0;
 
-    // 1. Thử ghi trực tiếp vào Supabase Cloud
     try {
       const created = await supabaseService.createBooking({
         bookingCode,
@@ -161,112 +118,53 @@ export const bookingService = {
         durationMinutes: params.durationMinutes,
       });
 
-      if (created) {
-        saveLocalBooking(created);
-        return {
-          success: true,
-          statusCode: 201,
-          message: 'Tạo lịch hẹn thành công trên Supabase Cloud',
-          data: created,
-        };
+      if (!created) {
+        throw new Error('Supabase không thể tạo lịch hẹn');
       }
-    } catch (err) {
-      console.warn('[bookingService] Cloud createBooking failed, falling back to local storage:', err);
-    }
 
-    // 2. Dự phòng an toàn tuyệt đối (Local Fallback Booking)
-    const fallbackBooking: Booking = {
-      id: `bk-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      bookingCode,
-      customerId: params.customerId || `cust-guest-${Date.now()}`,
-      branchId: params.branchId || 'branch-q3',
-      assignedBedNumber: params.assignedBedNumber || params.roomName || 'Phòng VIP · Quận 3',
-      technicianId: params.technicianId || null,
-      bookingDate: params.bookingDate,
-      startTime: params.startTime,
-      endTime: params.endTime,
-      status: params.status || BookingStatus.CONFIRMED,
-      paymentStatus: params.paymentStatus || PaymentStatus.UNPAID,
-      paymentMethod: params.paymentMethod || PaymentMethod.CASH_AT_SPA,
-      baseTotal: params.baseTotal,
-      discountAmount,
-      pointsUsed: 0,
-      pointsDiscount: 0,
-      finalPrice,
-      bookedForName: params.customerName,
-      bookedForPhone: params.customerPhone || null,
-      specialNotes: params.notes || null,
-      qrCodeHash: `mld_local_${Date.now()}`,
-      hasMedicalAlert: false,
-      items: params.serviceId
-        ? [
-            {
-              id: `item-${Date.now()}`,
-              bookingId: `bk-${Date.now()}`,
-              serviceId: params.serviceId,
-              durationMinutes: params.durationMinutes || 60,
-              price: finalPrice,
-            },
-          ]
-        : [],
-    };
-
-    saveLocalBooking(fallbackBooking);
-
-    return {
-      success: true,
-      statusCode: 201,
-      message: 'Lịch hẹn đã được tạo và lưu trữ an toàn trong hệ thống',
-      data: fallbackBooking,
-    };
-  },
-
-  async updateBookingStatus(
-    id: string,
-    status?: BookingStatus,
-    paymentStatus?: PaymentStatus,
-    paymentMethod?: PaymentMethod
-  ): Promise<ApiResponse<Booking>> {
-    // If id is not a valid UUID (e.g. synthetic pkg-order-...), update local store safely
-    if (!isUuid(id)) {
-      const locals = getLocalBookings();
-      const target = locals.find((b) => b.id === id);
-      if (target) {
-        if (status) target.status = status;
-        if (paymentStatus) target.paymentStatus = paymentStatus;
-        if (paymentMethod) target.paymentMethod = paymentMethod;
-        saveLocalBooking(target);
-        return {
-          success: true,
-          statusCode: 200,
-          message: 'Cập nhật trạng thái đơn cục bộ thành công',
-          data: target,
-        };
-      }
       return {
         success: true,
-        statusCode: 200,
-        message: 'Đơn hàng ảo đã được cập nhật trạng thái',
-        data: {
-          id,
-          status,
-          paymentStatus,
-          paymentMethod,
-        } as any,
+        statusCode: 201,
+        message: 'Tạo lịch hẹn thành công trên Supabase Cloud',
+        data: created,
+      };
+    } catch (err) {
+      console.error('[bookingService] createBooking error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Không thể tạo lịch hẹn trên Supabase Cloud. Vui lòng thử lại.',
+        data: {} as Booking,
+      };
+    }
+  },
+
+  async updateBooking(
+    id: string,
+    updates: {
+      status?: BookingStatus;
+      paymentStatus?: PaymentStatus;
+      paymentMethod?: PaymentMethod;
+      technicianId?: string | null;
+      assignedRoomId?: string | null;
+      assignedBedNumber?: string | null;
+    }
+  ): Promise<ApiResponse<Booking>> {
+    if (!isUuid(id)) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: 'ID lịch hẹn không hợp lệ',
+        data: {} as Booking,
       };
     }
 
     try {
-      const ok = await supabaseService.updateBooking(id, {
-        status,
-        paymentStatus,
-        paymentMethod,
-      });
+      const ok = await supabaseService.updateBooking(id, updates);
       if (ok) {
         const live = await supabaseService.getBookings();
         const updated = live?.find((b) => b.id === id);
         if (updated) {
-          saveLocalBooking(updated);
           return {
             success: true,
             statusCode: 200,
@@ -275,39 +173,36 @@ export const bookingService = {
           };
         }
       }
+      throw new Error('Cập nhật lịch hẹn thất bại trên Supabase Cloud');
     } catch (err) {
-      console.error('[bookingService] updateBookingStatus error:', err);
-    }
-
-    try {
-      return await legacyWrite<Booking>('bookings', { status, ...(paymentStatus ? { paymentStatus } : {}) }, id);
-    } catch (err) {
-      console.warn('[bookingService] fallback update error:', err);
+      console.error('[bookingService] updateBooking error:', err);
       return {
-        success: true,
-        statusCode: 200,
-        message: 'Trạng thái lịch hẹn đã ghi nhận hoàn tất',
-        data: { id, status, paymentStatus, paymentMethod } as any,
+        success: false,
+        statusCode: 500,
+        message: 'Không thể cập nhật lịch hẹn trên Supabase Cloud',
+        data: {} as Booking,
       };
     }
   },
 
+  async updateBookingStatus(
+    id: string,
+    status?: BookingStatus,
+    paymentStatus?: PaymentStatus,
+    paymentMethod?: PaymentMethod
+  ): Promise<ApiResponse<Booking>> {
+    return this.updateBooking(id, { status, paymentStatus, paymentMethod });
+  },
+
   async deleteBooking(id: string): Promise<ApiResponse<boolean>> {
     try {
-      // 1. Xóa khỏi bộ nhớ cục bộ
-      const current = getLocalBookings();
-      const updated = current.filter((b) => b.id !== id && b.bookingCode !== id);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-
-      // 2. Xóa khỏi Supabase Cloud
       if (isUuid(id)) {
         await supabaseService.deleteBooking(id);
       }
-
       return {
         success: true,
         statusCode: 200,
-        message: 'Xóa lịch hẹn thành công',
+        message: 'Xóa lịch hẹn thành công trên Supabase Cloud',
         data: true,
       };
     } catch (err) {
@@ -315,7 +210,7 @@ export const bookingService = {
       return {
         success: false,
         statusCode: 500,
-        message: 'Lỗi khi xóa lịch hẹn',
+        message: 'Lỗi khi xóa lịch hẹn trên Supabase Cloud',
         data: false,
       };
     }
@@ -323,17 +218,11 @@ export const bookingService = {
 
   async deleteAllBookings(): Promise<ApiResponse<boolean>> {
     try {
-      // 1. Xóa sạch bộ nhớ cục bộ
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
-      localStorage.removeItem('mld_staff_appointments');
-
-      // 2. Xóa sạch trên Supabase Cloud
       await supabaseService.deleteAllBookings();
-
       return {
         success: true,
         statusCode: 200,
-        message: 'Đã xóa toàn bộ lịch hẹn trong hệ thống',
+        message: 'Đã xóa toàn bộ lịch hẹn trong Supabase Cloud',
         data: true,
       };
     } catch (err) {
@@ -341,7 +230,7 @@ export const bookingService = {
       return {
         success: false,
         statusCode: 500,
-        message: 'Lỗi khi xóa toàn bộ lịch hẹn',
+        message: 'Lỗi khi xóa toàn bộ lịch hẹn trên Supabase Cloud',
         data: false,
       };
     }
