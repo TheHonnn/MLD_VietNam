@@ -5,19 +5,19 @@ import '../../data/models/booking_models.dart';
 /// Bảng màu & Quy chuẩn thiết kế chuẩn Figma Group C
 class BookingColors {
   static const Color background = Color(0xFFF5F7F7);
-  static const Color primary = Color(0xFF168477);
-  static const Color primaryDark = Color(0xFF145B55);
-  static const Color heading = Color(0xFF145B55);
+  static const Color primary = Color(0xFF002A6B);
+  static const Color primaryDark = Color(0xFF001B45);
+  static const Color heading = Color(0xFF002A6B);
   static const Color textPrimary = Color(0xFF1F2937);
   static const Color textSecondary = Color(0xFF475569);
-  static const Color cardWarm = Color(0xFFE8F5F1);
+  static const Color cardWarm = Color(0xFFEBF5FE);
   static const Color cardBorder = Color(0xFFE2E8F0);
   static const Color cardWhite = Colors.white;
-  static const Color successText = Color(0xFF168477);
-  static const Color successBg = Color(0xFFE8F5F1);
+  static const Color successText = Color(0xFF1995EB);
+  static const Color successBg = Color(0xFFEBF5FE);
   static const Color errorText = Color(0xFFB63131);
   static const Color errorBg = Color(0xFFFFF0ED);
-  static const Color qrBorder = Color(0xFF168477);
+  static const Color qrBorder = Color(0xFF002A6B);
   static const Color slotDisabledBg = Color(0xFFF1F5F9);
 }
 

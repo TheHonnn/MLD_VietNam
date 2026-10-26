@@ -226,7 +226,7 @@ class MockHomeRepository {
         durationMinutes: 60,
         price: 650000,
         vatRate: 0.08,
-        imageUrl: 'assets/images/logo_mld.png',
+        imageUrl: 'assets/images/logo.webp',
         isFeatured: true,
       ),
       SpaServiceModel(

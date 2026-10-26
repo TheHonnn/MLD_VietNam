@@ -225,7 +225,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                               ],
                             ),
                             child: Image.asset(
-                              'assets/images/logo_mld.png',
+                              'assets/images/logo.webp',
                               fit: BoxFit.contain,
                               errorBuilder: (_, __, ___) => const Center(
                                 child: Text(

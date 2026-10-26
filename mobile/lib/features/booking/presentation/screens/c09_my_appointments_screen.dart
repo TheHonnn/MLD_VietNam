@@ -583,8 +583,8 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
     return Container(
       height: 72,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: BookingColors.cardBorder, width: 1)),
+        color: Color(0xFF002A6B),
+        border: Border(top: BorderSide(color: Color(0xFF001B45), width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -610,7 +610,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? BookingColors.cardWarm : Colors.transparent,
+          color: isActive ? const Color(0xFF1995EB).withValues(alpha: 0.22) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -619,15 +619,15 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
             Icon(
               icon,
               size: 22,
-              color: isActive ? BookingColors.primary : const Color(0xFF80766E),
+              color: isActive ? const Color(0xFF1995EB) : Colors.white.withValues(alpha: 0.65),
             ),
             const SizedBox(height: 3),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? BookingColors.primary : BookingColors.textSecondary,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                color: isActive ? const Color(0xFF1995EB) : Colors.white.withValues(alpha: 0.65),
               ),
             ),
           ],

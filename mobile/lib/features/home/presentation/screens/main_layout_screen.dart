@@ -22,6 +22,7 @@ class MainLayoutScreen extends StatefulWidget {
 
 class _MainLayoutScreenState extends State<MainLayoutScreen> {
   late int _currentIndex;
+  final GlobalKey<E01AcademyHomeScreenState> _academyKey = GlobalKey<E01AcademyHomeScreenState>();
 
   @override
   void initState() {
@@ -30,9 +31,178 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   void _onTabTapped(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+    if (index == 2) {
+      // 1. Chuyển sang Tab 2 (Trang Đào tạo)
+      setState(() {
+        _currentIndex = 2;
+      });
+      // 2. Mở Dropdown lựa chọn nhanh (Người đang làm nghề / Người mới bắt đầu)
+      _showAcademyGroupDropdown();
+    } else {
+      setState(() {
+        _currentIndex = index;
+      });
+    }
+  }
+
+  /// Dropdown lựa chọn nhanh khi click vào icon/mục Đào tạo
+  Future<void> _showAcademyGroupDropdown() async {
+    final selectedGroup = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.35),
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.school, size: 20, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      'Khóa học đào tạo MLD',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textHeading,
+                      ),
+                    ),
+                  ],
+                ),
+                InkWell(
+                  onTap: () => Navigator.pop(ctx, null),
+                  borderRadius: BorderRadius.circular(20),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 20, color: AppColors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Chọn đối tượng để xem chương trình đào tạo phù hợp nhất với bạn:',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+
+            // Lựa chọn 1: Người đang làm nghề
+            InkWell(
+              onTap: () => Navigator.pop(ctx, 'Người đang làm nghề'),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.mintBackground,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.medical_services_outlined, size: 22, color: AppColors.primary),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Người đang làm nghề',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'KTV, Bác sĩ, Spa muốn nâng cao tay nghề hoặc tích hợp dịch vụ MLD',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, size: 20, color: AppColors.primary),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Lựa chọn 2: Người mới bắt đầu
+            InkWell(
+              onTap: () => Navigator.pop(ctx, 'Người mới bắt đầu'),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.mintBackground,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.eco_outlined, size: 22, color: AppColors.primary),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Người mới bắt đầu',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Khóa học cơ bản Level 0 và các workshop tự chăm sóc sức khỏe',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, size: 20, color: AppColors.primary),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (selectedGroup != null) {
+      _academyKey.currentState?.filterByGroup(selectedGroup);
+    } else {
+      // Bấm ra vùng trống ngoài menu -> menu ẩn đi và trang vẫn giữ nguyên hiển thị tất cả các khóa học
+      _academyKey.currentState?.filterByGroup('Tất cả');
+    }
   }
 
   @override
@@ -62,6 +232,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       ),
       // Tab 2: Đào tạo (Group E - Chuẩn MLD Academy)
       E01AcademyHomeScreen(
+        key: _academyKey,
         onBackToHome: () => _onTabTapped(0),
       ),
       // Tab 3: Tài liệu & Y khoa (D09 Documents Screen)
@@ -76,19 +247,19 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
     return Scaffold(
       body: screens[_currentIndex],
-      // Bottom Navigation Bar chuẩn 100% Figma: 5 mục (Trang chủ, Dịch vụ, Đặt lịch, Học viện, Cá nhân)
+      // Bottom Navigation Bar chuẩn Brand Color
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface, // white
+          color: AppColors.menuBackground, // rgb(0, 42, 107) #002A6B
           border: const Border(
             top: BorderSide(
-              color: AppColors.border, // #E3D1BF
+              color: Color(0xFF001B45),
               width: 1.0,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -123,17 +294,16 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Hộp icon active nền #F3E2CE, r=12 chuẩn Figma Node 8109:14563
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.surfaceSecondary : Colors.transparent,
+                color: isSelected ? AppColors.secondary.withValues(alpha: 0.22) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
                 size: 22,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                color: isSelected ? AppColors.secondary : Colors.white.withValues(alpha: 0.65),
               ),
             ),
             const SizedBox(height: 2),
@@ -141,8 +311,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               label,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                color: isSelected ? AppColors.secondary : Colors.white.withValues(alpha: 0.65),
               ),
             ),
           ],
@@ -151,4 +321,3 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     );
   }
 }
-

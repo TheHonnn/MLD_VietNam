@@ -48,8 +48,38 @@ class AcademyRepository {
     } catch (_) {}
   }
 
-  /// E01/E02: Lấy danh sách khóa học từ Backend
+  /// E01/E02: Lấy danh sách khóa học từ Supabase/Backend
   Future<List<CourseModel>> getCourses({String? category}) async {
+    // 1. Thử lấy dữ liệu trực tiếp từ Supabase REST API
+    try {
+      const path = '${ApiEndpoints.courses}?select=*,course_categories(name)&is_active=eq.true&order=created_at.asc';
+      final response = await _apiClient.dio.get(path);
+      if (response.statusCode == 200 && response.data != null) {
+        final rawData = response.data;
+        if (rawData is List && rawData.isNotEmpty) {
+          final courses = rawData.map((c) {
+            final map = Map<String, dynamic>.from(c as Map);
+            if (map['course_categories'] is Map) {
+              map['categoryName'] = map['course_categories']['name'];
+            }
+            return CourseModel.fromJson(map);
+          }).toList();
+
+          _cachedCourses = courses;
+          if (category != null && category.isNotEmpty && category != 'Tất cả') {
+            return courses.where((c) =>
+                c.category.toLowerCase().contains(category.toLowerCase()) ||
+                c.courseGroup.toLowerCase().contains(category.toLowerCase())
+            ).toList();
+          }
+          return courses;
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [AcademyRepository] Supabase courses fetch error, fallback to gateway: $e');
+    }
+
+    // 2. Thử lấy từ Backend Gateway
     try {
       String path = ApiEndpoints.academyCourses;
       if (category != null && category.isNotEmpty && category != 'Tất cả') {
@@ -70,11 +100,17 @@ class AcademyRepository {
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error fetching courses from Backend: $e');
+      debugPrint('>>> [AcademyRepository] Backend gateway error, using mock fallback: $e');
     }
 
-    // Fallback an toàn nếu mất mạng
+    // 3. Fallback an toàn nếu mất mạng
     _cachedCourses = MockAcademyData.courses;
+    if (category != null && category.isNotEmpty && category != 'Tất cả') {
+      return _cachedCourses.where((c) =>
+          c.category.toLowerCase().contains(category.toLowerCase()) ||
+          c.courseGroup.toLowerCase().contains(category.toLowerCase())
+      ).toList();
+    }
     return _cachedCourses;
   }
 

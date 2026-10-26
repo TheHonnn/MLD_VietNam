@@ -117,7 +117,7 @@ class F03MembershipCardScreen extends StatelessWidget {
                                   border: Border.all(color: const Color(0xFF145B55), width: 1.0),
                                 ),
                                 child: Image.asset(
-                                  'assets/images/logo_mld.png',
+                                  'assets/images/logo.webp',
                                   fit: BoxFit.contain,
                                   errorBuilder: (_, __, ___) => const Center(
                                     child: Text(

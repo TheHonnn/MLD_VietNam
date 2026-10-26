@@ -592,12 +592,8 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   height: 148,
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primaryDark, AppColors.primary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -609,29 +605,47 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   ),
                   child: Stack(
                     children: [
-                      Positioned(
-                        right: -18,
-                        bottom: -18,
-                        child: Container(
-                          width: 130,
-                          height: 130,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.08),
+                      // Ảnh nền banner: assets/images/banner.webp
+                      Positioned.fill(
+                        child: Image.asset(
+                          'assets/images/banner.webp',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            decoration: const BoxDecoration(
+                              gradient: AppColors.brandGradient,
+                            ),
                           ),
                         ),
                       ),
+                      // Lớp phủ gradient #002A6B tăng độ tương phản hiển thị chữ
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF002A6B).withValues(alpha: 0.86),
+                                const Color(0xFF002A6B).withValues(alpha: 0.40),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.65, 1.0],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Logo: assets/images/logo.webp
                       Positioned(
-                        right: 16,
-                        top: 24,
+                        right: 14,
+                        top: 20,
                         child: Image.asset(
-                          'assets/images/logo_mld.png',
-                          width: 72,
-                          height: 72,
+                          'assets/images/logo.webp',
+                          width: 70,
+                          height: 70,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => const Icon(
                             Icons.spa_rounded,
-                            size: 54,
+                            size: 50,
                             color: Colors.white24,
                           ),
                         ),

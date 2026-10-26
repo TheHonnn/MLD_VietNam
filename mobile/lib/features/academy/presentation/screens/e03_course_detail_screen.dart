@@ -181,9 +181,9 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                       color: Colors.white.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
-                      'Thực hành chuyên nghiệp',
-                      style: TextStyle(
+                    child: Text(
+                      course.courseGroup,
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AcademyColors.primary,
@@ -270,7 +270,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 4. Giới thiệu khóa học [8116:25413]
+            // 4. Giới thiệu khóa học
             const Text(
               'Giới thiệu khóa học',
               style: TextStyle(
@@ -280,13 +280,59 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
-              'Chương trình dành cho học viên muốn phát triển kỹ năng massage và tác phong nghề Spa. Kết hợp kiến thức nền tảng với thực hành có hướng dẫn, giúp bạn tự tin thực hiện quy trình dịch vụ và giao tiếp với khách hàng.',
-              style: TextStyle(
+            Text(
+              course.description.isNotEmpty
+                  ? course.description
+                  : 'Chương trình đào tạo chuẩn y khoa Quốc tế Vodder MLD, kết hợp lý thuyết giải phẫu tuần hoàn và thực hành lâm sàng.',
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: AcademyColors.textPrimary,
                 height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Đối tượng & Nhu cầu Card
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AcademyColors.cardBorder),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.people_outline, size: 18, color: AcademyColors.primary),
+                      const SizedBox(width: 8),
+                      const Text('Đối tượng:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          course.targetAudience,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16, color: AcademyColors.cardBorder),
+                  Row(
+                    children: [
+                      const Icon(Icons.track_changes, size: 18, color: AcademyColors.primary),
+                      const SizedBox(width: 8),
+                      const Text('Nhu cầu:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          course.targetNeed,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),

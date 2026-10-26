@@ -85,10 +85,10 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
                       ],
                     ),
                     child: Image.asset(
-                      'assets/images/logo_mld.png',
+                      'assets/images/logo.webp',
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => Image.asset(
-                        'assets/images/logo.png',
+                        'assets/images/logo.webp',
                         fit: BoxFit.contain,
                       ),
                     ),
