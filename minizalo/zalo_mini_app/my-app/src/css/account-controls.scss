@@ -14,7 +14,7 @@
 .account-session { padding: 16px 0; border-bottom: 1px solid #dbe8eb; }
 .account-session>div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .account-session strong { font-size: 15px; }
-.account-session span { background: #e8f4f7; color: #076985; font-size: 11px; padding: 4px 8px; border-radius: 4px; }
+.account-session span { background: #eff4fe; color: #076985; font-size: 11px; padding: 4px 8px; border-radius: 4px; }
 .account-session button,.account-sessions footer button,.account-confirm button { min-height: 44px; padding: 10px 12px; border: 1px solid #c8dde3; border-radius: 8px; font-size: 13px; color: #076985; }
 .account-sessions footer { display: grid; gap: 8px; padding: 12px 16px calc(12px + var(--app-safe-bottom,0px)); flex-shrink: 0; border-top: 1px solid #dbe8eb; }
 .account-sessions button:disabled { opacity: .5; }

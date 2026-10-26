@@ -87,9 +87,9 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
         </button>
       )}
       <div className="mx-auto my-auto w-full max-w-sm py-8 text-center">
-        <div className="mb-5 flex justify-center"><LeafIcon size={48} color="#087e9c" /></div>
-        <p className="mb-2 text-sm font-semibold text-[#087e9c]">MLD Việt Nam</p>
-        <h2 id="zalo-login-title" className="text-xl font-bold text-stone-800">Đăng nhập nhân viên</h2>
+        <div className="mb-5 flex justify-center"><LeafIcon size={48} color="#2860eb" /></div>
+        <p className="mb-2 text-sm font-semibold text-[#2860eb]">MLD Việt Nam</p>
+        <h2 id="zalo-login-title" className="text-xl font-bold text-stone-800">Kết nối tài khoản Zalo</h2>
         <p className="mt-3 text-sm leading-6 text-stone-600">Kết nối bằng số điện thoại Zalo. Tên và ảnh đại diện chỉ được sử dụng khi bạn đồng ý chia sẻ.</p>
         <ZaloAuthFeedback error={error} issue={authIssue} className="mt-4 break-words text-sm text-red-700"/>
         <LegalLinks />

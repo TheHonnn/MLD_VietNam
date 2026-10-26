@@ -228,7 +228,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     const total = count(plan.totalSessions), used = count(plan.completedSessions ?? plan.usedSessions);
     return <div className="space-y-2 text-xs">
       <p>Tổng buổi: {total ?? ''} · Đã dùng: {used ?? ''} · Còn lại: {total != null && used != null ? Math.max(0, total - used) : ''}</p>
-      {total != null && total > 0 && used != null && <progress aria-label="Tiến độ liệu trình" value={Math.min(used, total)} max={total} className="h-2 w-full accent-[#087e9c]" />}
+      {total != null && total > 0 && used != null && <progress aria-label="Tiến độ liệu trình" value={Math.min(used, total)} max={total} className="h-2 w-full accent-[#2860eb]" />}
       <p>Ngày mua: {careDate(plan.purchasedAt || plan.purchaseDate)}</p><p>Hạn sử dụng: {careDate(plan.expiresAt || plan.expiryDate)}</p>
     </div>;
   };
@@ -277,7 +277,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     {bookingError&&<p role="alert" className="text-xs text-red-700">{bookingError}</p>}
     <button disabled={loading.form||loading.send} onClick={form ? () => setForm(null) : articleId ? () => setArticleId(null) : selectedId ? () => setSelectedId(null) : onClose} aria-label="Quay lại" className={`${button} flex w-10 items-center justify-center p-0`}><ArrowLeftIcon size={18} color="#183b47" /></button>
     {!form && !selected && !article && <nav aria-label="Chăm sóc" className="flex gap-2 overflow-x-auto pb-1">
-      {tabs.map(tab => <button key={tab.id} disabled={saving} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(busy.current)return; if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#e8f4f7]' : ''}`}>{tab.label}</button>)}
+      {tabs.map(tab => <button key={tab.id} disabled={saving} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => { if(busy.current)return; if(tab.id==='notifications'&&onOpenInbox){onOpenInbox();return;} setActiveTab(tab.id); setNotice(''); }} className={`${button} shrink-0 ${activeTab === tab.id ? 'bg-[#eff4fe]' : ''}`}>{tab.label}</button>)}
     </nav>}
     {notice && <p role="status" className="text-sm">{notice}</p>}
 
@@ -326,7 +326,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <p className="text-xs">{reviewSession.bookingDate ? 'Ngày hẹn' : 'Ngày chăm sóc'}: {careDate(reviewSession.bookingDate || reviewSession.sessionDate || reviewSession.diagnosisDate)}</p>
       {reviewSession.branchName && <p className="text-xs">{reviewSession.branchName}</p>}
       {reviewSession.technicianName && <p className="text-xs">{reviewSession.technicianName}</p>}
-      <div role="group" aria-label="Mức độ hài lòng" className="flex gap-2">{[1, 2, 3, 4, 5].map(value => <button key={value} type="button" aria-label={`${value} sao`} aria-pressed={rating === value} onClick={() => setRating(value)} className={`${button} flex h-10 w-10 items-center justify-center p-0`}><StarIcon size={24} color={value <= rating ? '#087e9c' : '#aaa'} /></button>)}</div>
+      <div role="group" aria-label="Mức độ hài lòng" className="flex gap-2">{[1, 2, 3, 4, 5].map(value => <button key={value} type="button" aria-label={`${value} sao`} aria-pressed={rating === value} onClick={() => setRating(value)} className={`${button} flex h-10 w-10 items-center justify-center p-0`}><StarIcon size={24} color={value <= rating ? '#2860eb' : '#aaa'} /></button>)}</div>
       <p className="text-xs">{rating ? `${rating}/5` : 'Chưa chọn mức đánh giá'}</p>
       {(['comment', 'tags', 'photos'] as const).map((field, index) => <label key={field} className="block space-y-1 text-xs">{['Nhận xét', 'Nhãn đánh giá', 'Đường dẫn ảnh'][index]}<textarea className={input} rows={3} maxLength={field === 'comment' ? 10000 : undefined} value={field === 'comment' ? comment : field === 'tags' ? tags : photos} onChange={e => (field === 'comment' ? setComment : field === 'tags' ? setTags : setPhotos)(e.target.value)} /></label>)}
       {feedback('form')}<button type="submit" disabled={loading.form || !rating || !reviewable(reviewSession)} className={button}>Gửi đánh giá</button>
@@ -443,7 +443,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       <label className="block text-xs">Loại thông báo<select className={input} value={notifFilter} onChange={e => setNotifFilter(e.target.value)}><option value="">Tất cả</option>{Array.from(new Set(localNotifications?.map(item => item.type).filter(Boolean))).map(type => <option key={type} value={type}>{type}</option>)}</select></label>
       {!localNotifications && <p className="text-xs">Thông báo chưa khả dụng.</p>}
       {localNotifications && !localNotifications.filter(item => !notifFilter || item.type === notifFilter).length && <p className="text-xs"></p>}
-      {localNotifications?.filter(item => !notifFilter || item.type === notifFilter).map(item => <article key={item.id} className={`space-y-2 rounded-[8px] border p-3 text-xs ${item.isRead ? 'border-[#c8dde3]' : 'border-[#087e9c]'}`}>
+      {localNotifications?.filter(item => !notifFilter || item.type === notifFilter).map(item => <article key={item.id} className={`space-y-2 rounded-[8px] border p-3 text-xs ${item.isRead ? 'border-[#c8dde3]' : 'border-[#2860eb]'}`}>
         <h2 className="font-bold">{item.title}</h2><p>{careDate(item.createdAt)}</p><p className="whitespace-pre-wrap">{item.message}</p>
         {!item.isRead && <button className={button} disabled={loading.notifications} onClick={() => void markRead(item.id)}>Đánh dấu đã đọc</button>}
         {onOpenNotification && (item.data?.target || item.type.toUpperCase() === 'BOOKING') && <button className={button} disabled={loading.notifications} onClick={() => {

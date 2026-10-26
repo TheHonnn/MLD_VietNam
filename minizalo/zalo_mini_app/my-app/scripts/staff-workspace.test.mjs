@@ -14,6 +14,11 @@ test('staff appointment search finds the actual customer, group contact, code an
   for(const query of ['','nguyen thi huong','trần văn nam','SPA-ab12','0900123456','+84 900 123 456','0911111111','cham soc da'])assert.equal(matchesBookingSearch(booking,query),true,query);
   for(const query of ['Khách không tồn tại','0900999999','name0900123456'])assert.equal(matchesBookingSearch(booking,query),false,query);
 });
+test('work controls require a real server capability as well as an actual staff role',async()=>{
+  const {canUseStaffTools}=await bundled('../src/utils/staff.ts');
+  assert.equal(canUseStaffTools({role:'RECEPTIONIST',staffAccess:true}),true);
+  for(const account of [{role:'RECEPTIONIST'},{role:'RECEPTIONIST',staffAccess:false},{role:'RECEPTIONIST',staffAccess:'true'},{role:'CUSTOMER',staffAccess:true}])assert.equal(canUseStaffTools(account),false);
+});
 
 test('staff warmup does not fetch personal loyalty, payments or clinical records; unavailable dashboard stays an error',async()=>{
   const originalWindow=globalThis.window;

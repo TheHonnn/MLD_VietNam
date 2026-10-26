@@ -16,7 +16,7 @@ export function LegalLinks() {
   const privacy = publicUrl(import.meta.env.VITE_PRIVACY_POLICY_URL);
   const terms = publicUrl(import.meta.env.VITE_TERMS_URL);
   return <>
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 py-3 text-xs text-[#087e9c]">
+    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 py-3 text-xs text-[#2860eb]">
       {privacy ? <a href={privacy} target="_blank" rel="noopener noreferrer" className="underline">Chính sách bảo mật</a>
         : <button type="button" className="min-h-10 underline" onClick={()=>setDraft('privacy')}>Chính sách bảo mật</button>}
       {terms ? <a href={terms} target="_blank" rel="noopener noreferrer" className="underline">Điều khoản sử dụng</a>

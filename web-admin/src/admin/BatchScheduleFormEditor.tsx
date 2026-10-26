@@ -3,7 +3,6 @@ import {
   Calendar,
   CalendarDays,
   Clock,
-  Sparkles,
   MapPin,
   DoorOpen,
   BookOpen,
@@ -13,10 +12,8 @@ import {
   AlertCircle,
   ChevronRight,
   Info,
-  Check,
   Stethoscope,
   Eye,
-  Plus,
 } from "lucide-react";
 import { adminApi, Listing, Row } from "./api";
 
@@ -141,88 +138,6 @@ export const SHIFT_PRESETS = [
   { label: "🍵 Chiều Muộn", start: "14:00", end: "17:00", duration: "3 giờ" },
 ];
 
-// Các chủ đề bài giảng chuẩn Dr. Vodder
-export const TOPIC_PRESETS = [
-  {
-    code: "M1",
-    title: "Module 1: Giải phẫu sinh lý & Nguyên lý Hệ bạch huyết Dr. Vodder",
-    isPractice: false,
-    tag: "Lý thuyết",
-  },
-  {
-    code: "M2",
-    title: "Module 2: Kỹ thuật Thao tác Xoay tròn & Bơm đẩy Vodder Căn bản",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M3",
-    title: "Module 3: Thực hành Dẫn lưu Vùng Đầu - Mặt - Cổ chuyên sâu",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M4",
-    title: "Module 4: Phác đồ Trị liệu Phù Nề Chi Dưới & Chi Trên",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M5",
-    title: "Module 5: Ứng dụng Hồi phục Sau Phẫu thuật Thẩm mỹ & Chấn thương",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M6",
-    title: "Module 6: Thực hành Lâm sàng Toàn diện & Ôn tập Kỹ năng",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "EXAM",
-    title: "Buổi Tổng kết, Thi Đánh giá Tay nghề & Bế giảng Trao Bằng MLD",
-    isPractice: true,
-    tag: "Thi & Bế giảng",
-  },
-];
-
-// Hồ sơ mẫu buổi học 1 chạm
-export const SESSION_PRESETS = [
-  {
-    label: "🌅 Ca Sáng · Lý thuyết Vodder",
-    desc: "08:30 - 11:30 · Module 1 Lý thuyết",
-    start: "08:30",
-    end: "11:30",
-    topic: "Module 1: Giải phẫu sinh lý & Nguyên lý Hệ bạch huyết Dr. Vodder",
-    isPractice: false,
-  },
-  {
-    label: "💆 Ca Chiều · Thực hành Lâm sàng",
-    desc: "13:30 - 16:30 · Module 2 Thao tác xoay tròn",
-    start: "13:30",
-    end: "16:30",
-    topic: "Module 2: Kỹ thuật Thao tác Xoay tròn & Bơm đẩy Vodder Căn bản",
-    isPractice: true,
-  },
-  {
-    label: "⚡ Cả Ngày · Workshop Lâm sàng",
-    desc: "08:30 - 16:30 · Chuyên sâu Hậu phẫu",
-    start: "08:30",
-    end: "16:30",
-    topic: "Module 5: Ứng dụng Hồi phục Sau Phẫu thuật Thẩm mỹ & Chấn thương",
-    isPractice: true,
-  },
-  {
-    label: "🎓 Buổi Thi & Đánh giá Tay nghề",
-    desc: "08:30 - 12:00 · Thi sát hạch & Bế giảng",
-    start: "08:30",
-    end: "12:00",
-    topic: "Buổi Tổng kết, Thi Đánh giá Tay nghề & Bế giảng Trao Bằng MLD",
-    isPractice: true,
-  },
-];
-
 export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = ({
   values,
   onChange,
@@ -284,14 +199,6 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
     ? rooms.filter((r) => String(r.branch_id) !== String(selectedBatch.branch_id))
     : rooms;
 
-  // Xử lý khi chọn mẫu buổi học 1 chạm
-  const handleApplyPreset = (preset: typeof SESSION_PRESETS[0]) => {
-    onChange("start_time", preset.start);
-    onChange("end_time", preset.end);
-    onChange("topic", preset.topic);
-    onChange("is_practice_lab", preset.isPractice);
-  };
-
   // Xử lý khi đổi lớp học
   const handleBatchChange = (batchId: string) => {
     onChange("batch_id", batchId);
@@ -324,45 +231,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
 
   return (
     <div className="space-y-6">
-      {/* 1. MẪU BUỔI HỌC NHANH (1-CLICK SESSION PRESETS) */}
-      <div className="bg-gradient-to-r from-[#FAF6F2] to-[#F5ECE2] p-3.5 rounded-2xl border border-[#E8DFD8]">
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-[#985018] text-white rounded-lg shadow-xs">
-              <Sparkles size={14} />
-            </span>
-            <div>
-              <h4 className="text-xs font-bold text-[#2C241E]">
-                Điền nhanh theo mẫu buổi học chuẩn
-              </h4>
-              <p className="text-[11px] text-[#766554]">
-                1-Click tự động chọn khung giờ, loại thực hành và chủ đề bài giảng
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          {SESSION_PRESETS.map((preset, idx) => (
-            <button
-              type="button"
-              key={idx}
-              onClick={() => handleApplyPreset(preset)}
-              className="text-left p-2.5 bg-white hover:bg-[#FAF6F2] border border-[#E8DFD8] hover:border-[#B38A58] rounded-xl transition-all shadow-xs hover:shadow-sm group"
-            >
-              <div className="text-xs font-bold text-[#2C241E] group-hover:text-[#985018] flex items-center justify-between">
-                <span>{preset.label}</span>
-                <span className="text-[10px] text-[#B38A58] opacity-0 group-hover:opacity-100 transition-opacity">
-                  Áp dụng ⚡
-                </span>
-              </div>
-              <p className="text-[10px] text-[#766554] mt-1 line-clamp-1">{preset.desc}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 2. KHỐI THÔNG TIN LỚP HỌC & PHÒNG HỌC */}
+      {/* 1. KHỐI THÔNG TIN LỚP HỌC & PHÒNG HỌC */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Chọn Lớp học */}
         <div className="space-y-1.5">
@@ -499,7 +368,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
         </div>
       </div>
 
-      {/* 3. NGÀY HỌC & CÁC CHIP CHỌN NHANH */}
+      {/* 2. NGÀY HỌC & CÁC CHIP CHỌN NHANH */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -602,7 +471,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
         )}
       </div>
 
-      {/* 4. KHUNG GIỜ HỌC (START_TIME, END_TIME) & CA HỌC CHUẨN */}
+      {/* 3. KHUNG GIỜ HỌC (START_TIME, END_TIME) & CA HỌC CHUẨN */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3.5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -696,7 +565,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
         </div>
       </div>
 
-      {/* 5. PHÂN LOẠI BUỔI HỌC: THỰC HÀNH LÂM SÀNG VS LÝ THUYẾT */}
+      {/* 4. PHÂN LOẠI BUỔI HỌC: THỰC HÀNH LÂM SÀNG VS LÝ THUYẾT */}
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
           <Stethoscope size={14} className="text-[#985018]" />
@@ -772,7 +641,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
         </div>
       </div>
 
-      {/* 6. CHỦ ĐỀ BUỔI HỌC (TOPIC) & GỢI Ý MODULE */}
+      {/* 5. CHỦ ĐỀ BUỔI HỌC (TOPIC) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -792,41 +661,9 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
           required
           className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] focus:ring-1 focus:ring-[#B38A58] font-medium"
         />
-
-        {/* Gợi ý các Module chuẩn Dr. Vodder */}
-        <div>
-          <span className="text-[11px] text-[#766554] block mb-1.5">
-            Gợi ý các Module đào tạo Vodder chuẩn hóa (chọn nhanh 1 chạm):
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {TOPIC_PRESETS.map((t, idx) => {
-              const isSelected = values.topic === t.title;
-              return (
-                <button
-                  type="button"
-                  key={idx}
-                  onClick={() => {
-                    onChange("topic", t.title);
-                    onChange("is_practice_lab", t.isPractice);
-                  }}
-                  className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition-all text-left ${
-                    isSelected
-                      ? "bg-[#985018] text-white border-[#985018] font-bold shadow-xs"
-                      : "bg-[#FAF6F2] text-[#554536] border-[#E8DFD8] hover:border-[#B38A58] hover:bg-white"
-                  }`}
-                >
-                  <span className="font-semibold text-[#985018] mr-1">
-                    {isSelected ? "✓" : `[${t.code}]`}
-                  </span>
-                  <span>{t.title}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
-      {/* 7. XEM TRƯỚC THỜI KHÓA BIỂU THỜI GIAN THỰC (LIVE PREVIEW CARD) */}
+      {/* 6. XEM TRƯỚC THỜI KHÓA BIỂU THỜI GIAN THỰC (LIVE PREVIEW CARD) */}
       <div className="pt-2 border-t border-[#E8DFD8]">
         <div className="flex items-center gap-1.5 mb-2.5">
           <Eye size={14} className="text-[#985018]" />

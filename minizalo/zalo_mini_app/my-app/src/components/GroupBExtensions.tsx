@@ -30,7 +30,7 @@ export type BranchDetails = Omit<Branch, 'amenities'> & Partial<Pick<CanonicalBr
 
 const contentText = (item: ContentItem, field: string) => typeof item === 'string' ? item : typeof item[field] === 'string' ? item[field] as string : '';
 
-const buttonClass = 'rounded-[8px] border border-[#c8dde3] bg-white px-3 py-2 text-xs font-semibold text-[#087e9c] disabled:opacity-50';
+const buttonClass = 'rounded-[8px] border border-[#c8dde3] bg-white px-3 py-2 text-xs font-semibold text-[#2860eb] disabled:opacity-50';
 const inputClass = 'mt-1 h-10 w-full min-w-0 rounded-[8px] border border-[#c8dde3] bg-white px-3 text-xs text-[#183b47]';
 
 export const EntityImage: React.FC<{ src?: string | null; alt: string; className?: string }> = ({ src, alt, className = 'h-44 w-full' }) => {

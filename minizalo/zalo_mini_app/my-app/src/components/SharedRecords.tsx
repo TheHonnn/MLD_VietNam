@@ -4,6 +4,7 @@ import {useBackAction} from '@/hooks/useNavigationHistory';
 import {ArrowLeftIcon,FileTextIcon,SearchIcon} from './Icons';
 import {EntityImage} from './GroupBExtensions';
 import type {CustomerSection} from '@/types/staff';
+import {CareDocuments} from './CareDocuments';
 import '@/css/shared-records.scss';
 
 export type StaffRecordCustomer={id:string;fullName:string;phone:string|null;dateOfBirth?:string|null};
@@ -76,14 +77,14 @@ function DocumentDetail({id,shared=false}:{id:string;shared?:boolean}){
   return <>{loading&&<p role="status">Đang mở nội dung...</p>}{error&&<div role="alert">{error}<button type="button" onClick={()=>setVersion(value=>value+1)}>Thử lại</button></div>}{item&&<article className="document-reading">{item.imageUrl&&<EntityImage src={item.imageUrl} alt={item.title} className="shared-content-cover"/>}<h2>{item.title}</h2><p>{[item.courseTitle,item.chapterTitle,item.summary].filter(Boolean).join(' · ')}</p>{item.authorName&&<p>{item.authorName} · {date(item.publishedAt)}</p>}<div className="record-text">{item.contentText}</div>{item.attachments?.map((file,index)=><a key={file.url+index} href={file.url} target="_blank" rel="noopener noreferrer"><FileTextIcon size={18}/>{file.name}</a>)}</article>}</>;
 }
 export function DocumentLibrary({onBack}:{onBack:()=>void}){
-  const {value,setValue,query}=useSearch(),[selected,setSelected]=useState(''),[source,setSource]=useState<'course'|'shared'>('course');
+  const {value,setValue,query}=useSearch(),[selected,setSelected]=useState(''),[source,setSource]=useState<'care'|'course'|'shared'>('care');
   useBackAction(Boolean(selected),()=>setSelected(''),2);
-  return <section className="shared-records document-library"><Header title="Tài liệu" onBack={()=>selected?setSelected(''):onBack()}/>{selected?<DocumentDetail key={source+selected} id={selected} shared={source==='shared'}/>:<><div className="records-tabs records-tabs--two" role="tablist" aria-label="Nguồn tài liệu">{[['course','Khóa học'],['shared','Được chia sẻ']].map(([key,label])=><button key={key} type="button" role="tab" aria-selected={source===key} onClick={()=>setSource(key as typeof source)}>{label}</button>)}</div><label className="records-search"><SearchIcon size={20}/><input aria-label="Tìm tài liệu" value={value} maxLength={150} placeholder="Tìm tài liệu, khóa học..." onChange={event=>setValue(event.target.value)}/></label><DocumentsList key={source+query} query={query} onSelect={setSelected} kind={source==='shared'?'DOCUMENT':undefined}/></>}</section>;
+  return <section className="shared-records document-library"><Header title="Tài liệu" onBack={()=>selected?setSelected(''):onBack()}/>{!selected&&<><div className="records-tabs" role="tablist" aria-label="Nguồn tài liệu">{[['care','Cẩm nang'],['course','Khóa học'],['shared','Được chia sẻ']].map(([key,label])=><button key={key} type="button" role="tab" aria-selected={source===key} onClick={()=>setSource(key as typeof source)}>{label}</button>)}</div><label className="records-search"><SearchIcon size={20}/><input aria-label="Tìm tài liệu" value={value} maxLength={150} placeholder="Tìm tài liệu, tác giả..." onChange={event=>setValue(event.target.value)}/></label></>}{source==='care'?<CareDocuments query={query} selected={selected} onSelect={setSelected}/>:selected?<DocumentDetail key={source+selected} id={selected} shared={source==='shared'}/>:<DocumentsList key={source+query} query={query} onSelect={setSelected} kind={source==='shared'?'DOCUMENT':undefined}/>}</section>;
 }
-export function Community({onBack}:{onBack:()=>void}){
+export function Community({onBack,onExamination}:{onBack:()=>void;onExamination?:()=>void}){
   const {value,setValue,query}=useSearch(),[selected,setSelected]=useState('');
   useBackAction(Boolean(selected),()=>setSelected(''),2);
-  return <section className="shared-records community"><Header title="Cộng đồng" onBack={()=>selected?setSelected(''):onBack()}/>{selected?<DocumentDetail key={selected} id={selected} shared/>:<><label className="records-search"><SearchIcon size={20}/><input aria-label="Tìm bài viết" value={value} maxLength={150} placeholder="Tìm bài viết..." onChange={event=>setValue(event.target.value)}/></label><DocumentsList key={query} query={query} onSelect={setSelected} kind="COMMUNITY"/></>}</section>;
+  return <section className="shared-records community"><Header title="Cộng đồng" onBack={()=>selected?setSelected(''):onBack()}/>{selected?<DocumentDetail key={selected} id={selected} shared/>:<><label className="records-search"><SearchIcon size={20}/><input aria-label="Tìm bài viết" value={value} maxLength={150} placeholder="Tìm bài viết..." onChange={event=>setValue(event.target.value)}/></label><DocumentsList key={query} query={query} onSelect={setSelected} kind="COMMUNITY"/></>}{onExamination&&<button className="records-more" type="button" onClick={onExamination}>Đặt lịch kiểm tra phù bạch huyết</button>}</section>;
 }
 function CustomerHistory({customer,section,onAppointment,onBookPackage}:{customer:Customer;section:string;onAppointment:(id:string)=>void;onBookPackage:BookPackage}){
   const state=usePages<RecordEntry>((cursor,signal)=>apiClient.getStaffCustomerRecords(customer.id,section,cursor,signal),'records');

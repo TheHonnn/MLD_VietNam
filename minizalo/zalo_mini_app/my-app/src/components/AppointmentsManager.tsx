@@ -9,6 +9,7 @@ import { useBackAction } from '@/hooks/useNavigationHistory';
 import {matchesBookingSearch} from '@/utils/booking-search';
 
 interface AppointmentsManagerProps {
+  canManageSessions?: boolean;
   initialBookingId?: string;
   bookings: Booking[];
   branches?: Branch[];
@@ -29,7 +30,7 @@ const todayInVietnam = () => new Date(Date.now() + 7 * 60 * 60 * 1000).toISOStri
 const addDays = (date: string, days: number) => { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); };
 const isFutureSlot = (date: string, time: string, now=Date.now()) => Date.parse(`${date}T${time.slice(0, 5)}:00+07:00`) > now;
 
-export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookings, branches = [], loading = false, authenticated = true, onBusyChange, onRequireLogin, error, onRefresh, onClose, onUpdateBookings, onBookNewService, onRebookService, initialBookingId }) => {
+export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ canManageSessions=false, bookings, branches = [], loading = false, authenticated = true, onBusyChange, onRequireLogin, error, onRefresh, onClose, onUpdateBookings, onBookNewService, onRebookService, initialBookingId }) => {
   const [activeTab, setActiveTab] = useState<AppointmentTab>('upcoming');
   const [search,setSearch]=useState('');
   const [clockNow,setClockNow]=useState(Date.now);
@@ -210,7 +211,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ bookin
     const canEdit = ['confirmed', 'pending'].includes(selectedBooking.status) && isFutureSlot(toInputDate(selectedBooking.date),selectedBooking.timeSlot,clockNow);
     const canCancel = canEdit && !['paid', 'partial'].includes(selectedBooking.paymentStatus || '');
     const duration = bookingDuration(selectedBooking);
-    const sessionAction=selectedBooking.status==='confirmed'&&toInputDate(selectedBooking.date)===todayInVietnam()?{status:'CHECKED_IN',label:'Xác nhận khách đã đến'}:selectedBooking.status==='checked_in'&&!isFutureSlot(toInputDate(selectedBooking.date),selectedBooking.timeSlot,clockNow)?{status:'IN_SERVICE',label:'Bắt đầu trị liệu'}:selectedBooking.status==='in_service'?{status:'COMPLETED',label:'Kết ca trị liệu'}:null;
+    const sessionAction=!canManageSessions?null:selectedBooking.status==='confirmed'&&toInputDate(selectedBooking.date)===todayInVietnam()?{status:'CHECKED_IN',label:'Xác nhận khách đã đến'}:selectedBooking.status==='checked_in'&&!isFutureSlot(toInputDate(selectedBooking.date),selectedBooking.timeSlot,clockNow)?{status:'IN_SERVICE',label:'Bắt đầu trị liệu'}:selectedBooking.status==='in_service'?{status:'COMPLETED',label:'Kết ca trị liệu'}:null;
     return <section className="appointment-screen appointment-detail" aria-labelledby="appointment-detail-heading">
       <header className="appointment-header"><div className="appointment-topbar"><button type="button" title="Quay lại lịch hẹn khách hàng" disabled={submitting} className="appointment-back" onClick={() => { setSelectedBooking(null); setMessage(null); setConfirmCancel(false); }}><ArrowLeftIcon size={20} /></button><span>ĐẶT LỊCH</span></div><h1 id="appointment-detail-heading">Chi tiết lịch hẹn</h1></header>
       <main ref={detailBody} className="appointment-body" tabIndex={0} aria-label="Chi tiết lịch hẹn">{!confirmCancel && feedback}<BookingStatus booking={selectedBooking} /><p className="appointment-code">{selectedBooking.code}</p><article className="appointment-card"><EntityImage src={selectedBooking.serviceImage} alt={selectedBooking.serviceTitle} className="appointment-photo" /><h2>{selectedBooking.serviceTitle}</h2>{duration != null && <p className="appointment-duration">Thời lượng chăm sóc <strong>{duration} phút</strong></p>}<BookingRows booking={selectedBooking} branches={branches} />{selectedBooking.notes && <p className="appointment-notes">{selectedBooking.notes}</p>}</article>

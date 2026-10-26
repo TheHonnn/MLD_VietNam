@@ -13,10 +13,11 @@ const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',yea
 const addDays=(date:string,days:number)=>new Date(Date.parse(date+'T12:00:00Z')+days*86400000).toISOString().slice(0,10);
 const slotLabel=(slot:any)=>slot.startTime.slice(0,5)+' - '+slot.endTime.slice(0,5);
 
-export function StaffBooking({currentUser,initialService,initialBranch,initialCustomer,initialPackageId,allServices,branches,onClose,onBookingSuccess,onCatalogUpdate}:{currentUser:User;initialService:MedicalService;initialBranch:Branch|null;initialCustomer?:Customer|null;initialPackageId?:string;allServices:MedicalService[];branches:Branch[];onClose:()=>void;onBookingSuccess:(booking:Booking)=>void;onCatalogUpdate?:(items:MedicalService[])=>void}){
+export function StaffBooking({currentUser,initialService,initialBranch,initialCustomer,initialPackageId,initialNotes='',allServices,branches,onClose,onBookingSuccess,onCatalogUpdate}:{currentUser:User;initialService:MedicalService;initialBranch:Branch|null;initialCustomer?:Customer|null;initialPackageId?:string;initialNotes?:string;allServices:MedicalService[];branches:Branch[];onClose:()=>void;onBookingSuccess:(booking:Booking)=>void;onCatalogUpdate?:(items:MedicalService[])=>void}){
   const [scope,setScope]=useState<{branchId:string|null}|null>(null),[contextError,setContextError]=useState(''),[version,setVersion]=useState(0);
   const [catalog,setCatalog]=useState(allServices);
   const [people,setPeople]=useState(1);
+  const [notes,setNotes]=useState(initialNotes);
   const [identifyGuests,setIdentifyGuests]=useState(false),[guests,setGuests]=useState<{name:string;phone:string}[]>([]);
   const validGuests=!identifyGuests||(guests.length===people&&guests.every(guest=>guest.name.trim()&&(!guest.phone.trim()||contactPhone(guest.phone))));
   const [packages,setPackages]=useState<CustomerPackage[]>([]),[packagesFor,setPackagesFor]=useState(''),[packageId,setPackageId]=useState(''),[packageError,setPackageError]=useState(''),[packagesLoading,setPackagesLoading]=useState(false);
@@ -108,7 +109,7 @@ export function StaffBooking({currentUser,initialService,initialBranch,initialCu
   const submit=async()=>{
     if(lock.current||!scope||!service||!ready||!labels.includes(selectedTime)||!validCustomer||!validGuests||(packageId&&!chosenPackage))return;
     lock.current=true;setBusy(true);setError('');
-    const input={serviceId,branchId,date,people,timeSlot:selectedTime,expectedFinalPrice:packageId?0:service.price*people,...(identifyGuests?{guests:guests.map(guest=>({name:guest.name.trim(),phone:contactPhone(guest.phone)||''}))}:{}),...(packageId?{userPackageId:packageId}:{}),...(mode==='existing'?{customerId:customer!.id,customerPhone:contact}:{customer:{name:name.trim(),phone:contact}})};
+    const input={serviceId,branchId,date,people,timeSlot:selectedTime,specialNotes:notes.trim(),expectedFinalPrice:packageId?0:service.price*people,...(identifyGuests?{guests:guests.map(guest=>({name:guest.name.trim(),phone:contactPhone(guest.phone)||''}))}:{}),...(packageId?{userPackageId:packageId}:{}),...(mode==='existing'?{customerId:customer!.id,customerPhone:contact}:{customer:{name:name.trim(),phone:contact}})};
     try{
       const result=await apiClient.createStaffBooking(input,currentUser.id);
       if(!mounted.current||epoch.current!==apiClient.sessionVersion())return;
@@ -137,6 +138,7 @@ export function StaffBooking({currentUser,initialService,initialBranch,initialCu
       <div className="staff-slot-grid">{labels.map(label=><button type="button" key={label} aria-pressed={selectedTime===label} onClick={()=>{setSelectedTime(label);setError('');}}>{label}</button>)}</div>
       {ready&&!labels.length&&!datesLoading&&<p role="status">{reason==='NO_SERVICE_ASSIGNMENT'?'Cơ sở chưa được phân công chuyên viên cho dịch vụ này.':reason==='NO_PUBLISHED_SLOTS'?'Cơ sở chưa mở lịch nhận khách cho dịch vụ này.':`Ngày này chưa có khung giờ đủ giường và kỹ thuật viên cho ${people} người.`}</p>}
       <button type="button" className="staff-refresh" onClick={()=>setVersion(value=>value+1)}>Cập nhật giờ trống</button></section>
+      <label>Ghi chú đặt lịch<textarea aria-label="Ghi chú đặt lịch" value={notes} maxLength={10000} onChange={event=>setNotes(event.target.value)}/></label>
     </fieldset>{contextError&&<div role="alert">{contextError}<button type="button" disabled={busy} onClick={()=>setVersion(value=>value+1)}>Thử lại</button></div>}{!scope&&!contextError&&<p role="status">Đang kiểm tra quyền nhân viên...</p>}</main>
     <footer className="booking-footer">{error&&<p role="alert" className="booking-error">{error}</p>}<div className="booking-footer-summary">{service?`${people} người · ${service.durationMinutes} phút · ${packageId?'Đặt bằng liệu trình':(service.price*people).toLocaleString('vi-VN')+'đ'}`:''}</div><button type="button" disabled={busy||!scope||!ready||!labels.includes(selectedTime)||!validCustomer||!validGuests||Boolean(packageId&&!chosenPackage)||Boolean(requestedPackage.current)} onClick={()=>void submit()}>{busy?'Đang lưu lịch hẹn...':'Xác nhận đặt lịch'}</button></footer>
   </section>;

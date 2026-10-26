@@ -21,14 +21,14 @@
 .specialist-back { width: 34px; height: 34px; flex-shrink: 0; border: 1px solid #c8dde3; border-radius: 8px; background: #fff; display: grid; place-items: center; color: #334f5b; }
 .specialist-subtitle { font-size: 13px; line-height: 19px; margin: 10px 0 18px; }
 .specialist-search { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
-.specialist-search > span { display: grid; place-items: center; width: 40px; height: 44px; flex-shrink: 0; border-radius: 10px; background: #fff; color: #087e9c; }
+.specialist-search > span { display: grid; place-items: center; width: 40px; height: 44px; flex-shrink: 0; border-radius: 10px; background: #fff; color: #2860eb; }
 .specialist-search input { width: 0; flex: 1; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid #c8dde3; border-radius: 9px; background: #fff; font-size: 13px; }
 .specialist-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
 .specialist-filter-grid label, .specialist-sort { display: flex; min-width: 0; flex-direction: column; gap: 7px; font-size: 12px; line-height: 17px; }
 .specialist-filters select { width: 100%; min-width: 0; height: 44px; padding: 0 28px 0 12px; border: 1px solid #c8dde3; border-radius: 9px; background-color: #fff; color: #334f5b; font-size: 13px; text-overflow: ellipsis; }
 .specialist-filters select:disabled { color: #607780; background-color: #ffffff; opacity: 1; }
 .specialist-sort { margin-top: 14px; }
-.specialist-result-count { margin: 16px 0 12px; padding: 12px; border-radius: 9px; background: #e8f4f7; font-size: 12px; line-height: 18px; }
+.specialist-result-count { margin: 16px 0 12px; padding: 12px; border-radius: 9px; background: #eff4fe; font-size: 12px; line-height: 18px; }
 .specialist-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 16px; scrollbar-width: thin; }
 .specialist-card { display: flex; align-items: flex-start; gap: 12px; width: 100%; min-height: 112px; padding: 12px; margin-bottom: 12px; border-radius: 20px; background: #fff; text-align: left; }
 .specialist-card .specialist-card-photo { width: 76px; height: 96px; flex-shrink: 0; object-fit: cover; border-radius: 10px; }
@@ -42,7 +42,7 @@
 .specialist-detail-photo { width: 100%; aspect-ratio: 6 / 5; object-fit: cover; object-position: center 30%; border-radius: 14px !important; }
 .specialist-detail-body h1 { margin-top: 18px; font-size: 25px; line-height: 32px; font-weight: 700; color: #164e63; overflow-wrap: anywhere; }
 .specialist-role { margin-top: 10px; color: #b36226; font-size: 14px; line-height: 20px; font-weight: 600; }
-.specialist-experience { margin-top: 16px; padding: 12px; border-radius: 9px; background: #e8f4f7; font-size: 12px; line-height: 18px; }
+.specialist-experience { margin-top: 16px; padding: 12px; border-radius: 9px; background: #eff4fe; font-size: 12px; line-height: 18px; }
 .specialist-location { margin-top: 16px; font-size: 13px; line-height: 21px; }
 .specialist-location p + p { margin-top: 8px; color: #8a7b6c; }
 .specialist-introduction { margin: 22px 0; }
@@ -50,9 +50,9 @@
 .specialist-introduction p { font-size: 14px; line-height: 23px; white-space: pre-line; overflow-wrap: anywhere; }
 .specialist-rating { font-size: 13px; margin-bottom: 12px; }
 .specialist-booking-footer { flex-shrink: 0; padding: 10px 20px var(--specialist-safe-bottom, 12px); border-top: 1px solid #c8dde3; background: #fff; }
-.specialist-booking-footer > button { width: 100%; min-height: 50px; padding: 12px; border-radius: 12px; background: #087e9c; color: #fff; font-size: 14px; line-height: 20px; font-weight: 600; }
+.specialist-booking-footer > button { width: 100%; min-height: 50px; padding: 12px; border-radius: 12px; background: #2860eb; color: #fff; font-size: 14px; line-height: 20px; font-weight: 600; }
 .specialist-booking-footer > button:disabled { opacity: .5; cursor: not-allowed; }
-.specialist-directory button:focus-visible, .specialist-detail button:focus-visible { outline: 2px solid #087e9c; outline-offset: 2px; }
+.specialist-directory button:focus-visible, .specialist-detail button:focus-visible { outline: 2px solid #2860eb; outline-offset: 2px; }
 .mini-app-shell--specialists > .app-bottom-nav { padding-bottom: var(--specialist-safe-bottom); }
 .mini-app-shell--specialists > .app-bottom-nav > .app-home-indicator { display: none; }
 

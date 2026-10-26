@@ -12,6 +12,7 @@ interface HomeMetadata {
 }
 
 export interface GroupBHomeProps {
+  staffMode?: boolean;
   services: ServiceDetails[];
   doctors: DoctorDetails[];
   branches: BranchDetails[];
@@ -35,7 +36,7 @@ export interface GroupBHomeProps {
   onOpenSpecialists?: () => void;
 }
 
-const buttonClass = 'rounded-[8px] border border-[#c8dde3] bg-white px-3 py-2 text-xs font-semibold text-[#087e9c]';
+const buttonClass = 'rounded-[8px] border border-[#c8dde3] bg-white px-3 py-2 text-xs font-semibold text-[#2860eb]';
 const inputClass = 'h-10 w-full min-w-0 rounded-[8px] border border-[#c8dde3] bg-white px-2 text-xs';
 const bookingStatuses: Record<string, string> = {
   pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', checked_in: 'Đã đến',

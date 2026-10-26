@@ -46,6 +46,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
     INSERT INTO service_categories (id,name,code,icon_url) VALUES ('${ids.category}','Massage','MASSAGE','/icon.png');
     INSERT INTO branches (id,name,code,phone,address,district,latitude,longitude,image_url)
       VALUES ('${ids.branch}','Shared Branch','TEST','0900000000','Address','District',10,106,'/branch.png');
+    INSERT INTO branch_rooms(branch_id,name,bed_capacity) VALUES ('${ids.branch}','Shared treatment room',1);
     INSERT INTO services (id,category_id,name,slug,short_description,full_description,price,image_url)
       VALUES ('${ids.service}','${ids.category}','Shared Service','shared-service','Short','Full',100000,'/service.png');
     INSERT INTO technicians (id,branch_id,full_name,avatar_url) VALUES ('${ids.technician}','${ids.branch}','Shared Technician','/avatar.png');

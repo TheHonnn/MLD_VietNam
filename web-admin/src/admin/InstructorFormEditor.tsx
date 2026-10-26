@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Sparkles,
   Upload,
   User,
   GraduationCap,
@@ -10,7 +9,6 @@ import {
   Loader2,
   Plus,
   Minus,
-  Check,
   Briefcase,
   FileText,
   Star,
@@ -39,96 +37,6 @@ interface InstructorFormEditorProps {
   isCreate?: boolean;
 }
 
-// Avatar mẫu y khoa chuẩn bản quyền MLD (3 nam, 3 nữ chuyên nghiệp)
-export const PRESET_AVATARS = [
-  {
-    label: "Giảng viên Nữ 1",
-    url: "https://images.unsplash.com/photo-1594824813589-4b830d937077?w=200&auto=format&fit=crop&q=80",
-  },
-  {
-    label: "Giảng viên Nữ 2",
-    url: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&auto=format&fit=crop&q=80",
-  },
-  {
-    label: "Giảng viên Nữ 3",
-    url: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80",
-  },
-  {
-    label: "Giảng viên Nam 1",
-    url: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&auto=format&fit=crop&q=80",
-  },
-  {
-    label: "Giảng viên Nam 2",
-    url: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=200&auto=format&fit=crop&q=80",
-  },
-  {
-    label: "Giảng viên Nam 3",
-    url: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&auto=format&fit=crop&q=80",
-  },
-];
-
-// Các chức danh chuyên môn chuẩn của Học viện MLD
-export const PRESET_TITLES = [
-  "Chuyên gia MLD Vodder Quốc tế · Master Level 3",
-  "Bác sĩ Chuyên khoa Phục hồi Chức năng & Bạch huyết",
-  "Giảng viên Trưởng Kỹ thuật Thực hành Lâm sàng",
-  "Chuyên viên Dẫn lưu & Phục hồi Phù nề Hậu phẫu",
-  "Cố vấn Đào tạo & Khảo thí Chứng chỉ MLD",
-];
-
-// Các mẫu hồ sơ giảng viên tiêu biểu 1-chạm
-export const PRESET_INSTRUCTORS = [
-  {
-    label: "🎓 Chuyên gia Vodder Master Level 3",
-    full_name: "Nguyễn Thảo Ngọc",
-    title: "Chuyên gia MLD Vodder Quốc tế · Master Level 3",
-    avatar_url: "https://images.unsplash.com/photo-1594824813589-4b830d937077?w=200&auto=format&fit=crop&q=80",
-    experience_years: 8,
-    bio: "Chuyên gia đào tạo dẫn lưu bạch huyết chuẩn Dr. Vodder quốc tế, có hơn 8 năm giảng dạy kỹ thuật viên lâm sàng và kiểm soát phù nề sau phẫu thuật tại Việt Nam.",
-    achievements: [
-      "Chứng chỉ Dr. Vodder Master Level 3 (Áo)",
-      "Đào tạo hơn 500 KTV Dẫn lưu Bạch huyết",
-      "Cố vấn chuyên môn Viện Bạch huyết MLD",
-    ],
-  },
-  {
-    label: "🩺 Bác sĩ Cố vấn Y khoa",
-    full_name: "Bác sĩ Trần Đình Quân",
-    title: "Bác sĩ Chuyên khoa Phục hồi Chức năng & Bạch huyết",
-    avatar_url: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&auto=format&fit=crop&q=80",
-    experience_years: 12,
-    bio: "Bác sĩ chuyên khoa sâu về hệ mạch bạch huyết và tuần hoàn vi mạch. Trực tiếp xây dựng giáo trình dẫn lưu điều trị phù nề y khoa và chuyển giao phác đồ lâm sàng.",
-    achievements: [
-      "Bác sĩ Chuyên khoa Phục hồi Chức năng",
-      "Hơn 12 năm kinh nghiệm lâm sàng bệnh viện",
-      "Đồng tác giả Phác đồ Vodder Việt Nam hóa",
-    ],
-  },
-  {
-    label: "💆 Giảng viên Lâm sàng",
-    full_name: "Lê Minh Anh",
-    title: "Giảng viên Trưởng Kỹ thuật Thực hành Lâm sàng",
-    avatar_url: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&auto=format&fit=crop&q=80",
-    experience_years: 5,
-    bio: "Giảng viên thực hành trực tiếp kèm cặp học viên thao tác chuẩn xác từng vòng xoay tĩnh, kiểm soát áp lực mô dưới 30 mmHg đảm bảo dẫn lưu êm ái, an toàn.",
-    achievements: [
-      "Giảng viên Thực hành Xuất sắc MLD 2024",
-      "Chứng chỉ Chuyên gia MLD Trị liệu Hậu phẫu",
-      "100% Học viên đạt chuẩn sát hạch lâm sàng",
-    ],
-  },
-];
-
-// Gợi ý thành tích nhanh
-export const COMMON_ACHIEVEMENTS = [
-  "Chứng chỉ Dr. Vodder Master Level 3",
-  "Đào tạo hơn 500 KTV Dẫn lưu Bạch huyết",
-  "Bác sĩ Chuyên khoa Phục hồi Chức năng",
-  "Giảng viên Xuất sắc Học viện MLD",
-  "Hơn 8 năm kinh nghiệm lâm sàng thực tế",
-  "Cố vấn phác đồ dẫn lưu phù nề hậu phẫu",
-];
-
 export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
   values,
   onChange,
@@ -137,7 +45,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
   const [usersList, setUsersList] = useState<Row[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [avatarTab, setAvatarTab] = useState<"presets" | "upload" | "url">("presets");
+  const [avatarTab, setAvatarTab] = useState<"upload" | "url">("upload");
   const [newAchievementInput, setNewAchievementInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -190,16 +98,6 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
     }
   };
 
-  // Áp dụng mẫu hồ sơ nhanh
-  const handleApplyPreset = (preset: typeof PRESET_INSTRUCTORS[0]) => {
-    onChange("full_name", preset.full_name);
-    onChange("title", preset.title);
-    onChange("avatar_url", preset.avatar_url);
-    onChange("experience_years", preset.experience_years);
-    onChange("bio", preset.bio);
-    onChange("achievements", preset.achievements);
-  };
-
   // Thêm thành tích / chứng chỉ
   const handleAddAchievement = (item: string) => {
     const text = item.trim();
@@ -217,9 +115,29 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // 1. Kiểm tra định dạng tệp ảnh
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP, GIF).");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // 2. Kiểm tra dung lượng tối đa 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Dung lượng ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
+
+    // 3. Hiển thị ngay ảnh xem trước để người dùng thấy kết quả tức thì
+    const localBlob = URL.createObjectURL(file);
+    onChange("avatar_url", localBlob);
+
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
       const cleanFileName = `instructor_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
       const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
       const KEY =
@@ -237,56 +155,40 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
           body: file,
         }
       );
+
       if (!res.ok) {
-        throw new Error("Không thể tải ảnh chân dung lên đám mây.");
+        // Fallback sang Base64 nếu storage gặp trục trặc
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (reader.result) {
+            onChange("avatar_url", String(reader.result));
+          }
+        };
+        reader.readAsDataURL(file);
+        return;
       }
+
       const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/avatars/${cleanFileName}`;
       onChange("avatar_url", publicUrl);
     } catch (err: any) {
-      alert(err.message || "Lỗi khi tải ảnh chân dung");
+      console.warn("Lỗi tải ảnh lên Supabase Storage, chuyển sang lưu Base64:", err);
+      // Fallback an toàn sang Base64 để không làm gián đoạn người dùng
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result) {
+          onChange("avatar_url", String(reader.result));
+        }
+      };
+      reader.readAsDataURL(file);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  // Tạo bio tự động
-  const handleGenerateBio = () => {
-    const name = values.full_name || "Giảng viên";
-    const title = values.title || "Chuyên gia Dẫn lưu Bạch huyết MLD Vodder";
-    const years = values.experience_years || 5;
-    const autoBio = `${title} với hơn ${years} năm kinh nghiệm thực hành lâm sàng và giảng dạy phương pháp dẫn lưu bạch huyết Dr. Vodder. Chuyên sâu về phục hồi phù nề sau phẫu thuật, thải độc hệ bạch huyết và đào tạo kỹ thuật viên chuẩn Y khoa quốc tế.`;
-    onChange("bio", autoBio);
-  };
-
   return (
     <div className="admin-field-wide space-y-4">
-      {/* 1. MẪU GIẢNG VIÊN GỢI Ý 1-CHẠM (Dành cho thêm mới nhanh) */}
-      {isCreate && (
-        <div className="p-3 bg-[#FAF5EF] border border-[#EFE4D9] rounded-2xl space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#8A4F23] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#985018]" />
-              <span>Gợi ý mẫu giảng viên chuyên môn MLD:</span>
-            </span>
-            <span className="text-[10px] text-[#8C7A6B]">Bấm để điền mẫu nhanh</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {PRESET_INSTRUCTORS.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => handleApplyPreset(preset)}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-[#7A3E10] border border-[#BA7E4C]/30 hover:bg-[#F3E2CE] hover:border-[#985018] transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
-              >
-                <span>{preset.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 2. HAI CỘT: TÀI KHOẢN HỆ THỐNG & HỌ VÀ TÊN */}
+      {/* 1. HAI CỘT: TÀI KHOẢN HỆ THỐNG & HỌ VÀ TÊN */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -328,7 +230,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
         </div>
       </div>
 
-      {/* 3. CHỨC DANH / DANH XƯNG CHUYÊN MÔN */}
+      {/* 2. CHỨC DANH / DANH XƯNG CHUYÊN MÔN */}
       <div className="space-y-1.5">
         <label className="block text-xs font-bold text-[#2C241E]">
           Chức danh / Danh xưng chuyên môn
@@ -340,43 +242,16 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
           placeholder="VD: Chuyên gia MLD Vodder Quốc tế · Master Level 3..."
           className="w-full text-xs px-3.5 py-2.5 bg-white border border-[#E2D7CB] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018] shadow-2xs font-medium"
         />
-        {/* Quick Title Chips */}
-        <div className="flex flex-wrap gap-1 pt-1">
-          {PRESET_TITLES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onChange("title", t)}
-              className="text-[10.5px] px-2 py-0.5 rounded-lg bg-[#FAF0E4]/70 text-[#7A3E10] border border-[#BA7E4C]/30 hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer transition-all"
-            >
-              + {t}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* 4. ẢNH CHÂN DUNG ĐẠI DIỆN (AVATAR PICKER & UPLOADER) */}
+      {/* 3. ẢNH CHÂN DUNG ĐẠI DIỆN (AVATAR PICKER & UPLOADER) */}
       <div className="p-3.5 bg-white border border-[#E2D7CB] rounded-2xl space-y-3 shadow-2xs">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
             <User className="w-4 h-4 text-[#985018]" />
             <span>Ảnh chân dung đại diện</span>
-            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-semibold border border-emerald-200">
-              Có sẵn ảnh mẫu chuyên nghiệp
-            </span>
           </label>
           <div className="flex items-center gap-1 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setAvatarTab("presets")}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                avatarTab === "presets"
-                  ? "bg-[#985018] text-white shadow-2xs"
-                  : "text-[#73675F] hover:bg-[#FAF5EF]"
-              }`}
-            >
-              Ảnh mẫu
-            </button>
             <button
               type="button"
               onClick={() => setAvatarTab("upload")}
@@ -401,46 +276,6 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Tab 1: Chọn ảnh mẫu 1 chạm */}
-        {avatarTab === "presets" && (
-          <div>
-            <div className="text-[11px] text-[#73675F] mb-1.5">
-              Chọn ảnh đại diện chuyên gia y khoa/đào tạo phù hợp:
-            </div>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-              {PRESET_AVATARS.map((av) => {
-                const isSelected = values.avatar_url === av.url;
-                return (
-                  <button
-                    key={av.url}
-                    type="button"
-                    onClick={() => onChange("avatar_url", av.url)}
-                    className={`relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer group aspect-square flex flex-col items-center justify-center ${
-                      isSelected
-                        ? "border-[#985018] shadow-md ring-2 ring-[#BA7E4C]/50 scale-102"
-                        : "border-[#E8DFD8] hover:border-[#BA7E4C]"
-                    }`}
-                  >
-                    <img
-                      src={av.url}
-                      alt={av.label}
-                      className="w-full h-full object-cover"
-                    />
-                    <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 text-center font-medium">
-                      {av.label}
-                    </span>
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 bg-[#985018] text-white rounded-full flex items-center justify-center">
-                        <Check size={10} strokeWidth={3} />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Tab 2: Tải từ máy tính */}
         {avatarTab === "upload" && (
@@ -491,34 +326,80 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
         )}
 
         {/* Ô xem trước Ảnh chân dung đang áp dụng */}
-        <div className="flex items-center gap-3 pt-2 border-t border-[#EFE4D9]">
-          <div className="w-13 h-13 rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/50 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+        <div className="flex items-center gap-3.5 p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E8DFD8]">
+          <div
+            className="rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/50 flex items-center justify-center shrink-0 overflow-hidden shadow-xs relative"
+            style={{ width: 68, height: 68, minWidth: 68, minHeight: 68, maxWidth: 68, maxHeight: 68 }}
+          >
             {values.avatar_url ? (
               <img
                 src={values.avatar_url}
                 alt="Avatar Preview"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover block"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = "none";
                 }}
               />
             ) : (
-              <User className="w-7 h-7 text-[#985018]" />
+              <User className="w-8 h-8 text-[#985018]" />
+            )}
+            {uploading && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-xs">
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              </div>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-bold text-[#2C241E] block">
-              {values.full_name || "Chưa nhập họ tên"}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#2C241E] truncate block">
+                {values.full_name || "Chưa nhập họ tên"}
+              </span>
+              {values.avatar_url && !uploading && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#EBF7EE] text-[#059669] border border-[#CDEED5]">
+                  ✓ Đã có ảnh
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-[#8C7A6B] font-mono truncate block mt-0.5">
+              {uploading
+                ? "Đang tải ảnh lên máy chủ..."
+                : values.avatar_url || "Chưa có ảnh (sẽ dùng avatar mặc định)"}
             </span>
-            <span className="text-[10px] text-[#8C7A6B] font-mono truncate block">
-              {values.avatar_url || "Chưa có ảnh (hệ thống sẽ áp dụng avatar mặc định)"}
-            </span>
+            {values.avatar_url && !uploading && (
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-[10px] text-[#985018] hover:underline font-bold cursor-pointer"
+                >
+                  Đổi ảnh khác
+                </button>
+                <span className="text-[#D1C7BD] text-[10px]">·</span>
+                <a
+                  href={values.avatar_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] text-[#73675F] hover:underline cursor-pointer"
+                >
+                  Xem ảnh gốc
+                </a>
+                <span className="text-[#D1C7BD] text-[10px]">·</span>
+                <button
+                  type="button"
+                  onClick={() => onChange("avatar_url", "")}
+                  className="text-[10px] text-[#DC2626] hover:underline cursor-pointer"
+                >
+                  Gỡ ảnh
+                </button>
+              </div>
+            )}
           </div>
-          {values.avatar_url && (
+          {values.avatar_url && !uploading && (
             <button
               type="button"
               onClick={() => onChange("avatar_url", "")}
-              className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-red-600 hover:bg-red-50 cursor-pointer"
+              className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-red-600 hover:bg-red-50 cursor-pointer shrink-0"
               title="Gỡ ảnh này"
             >
               <X size={14} />
@@ -527,7 +408,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
         </div>
       </div>
 
-      {/* 5. KINH NGHIỆM GIẢNG DẠY (NĂM) */}
+      {/* 4. KINH NGHIỆM GIẢNG DẠY & ĐIỀU TRỊ */}
       <div className="p-3 bg-white border border-[#E2D7CB] rounded-2xl space-y-2 shadow-2xs">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -558,40 +439,14 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {[2, 3, 5, 8, 10, 15].map((yr) => (
-            <button
-              key={yr}
-              type="button"
-              onClick={() => onChange("experience_years", yr)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                Number(values.experience_years) === yr
-                  ? "bg-[#985018] text-white shadow-2xs"
-                  : "bg-[#FAF5EF] text-[#7A3E10] border border-[#BA7E4C]/30 hover:bg-[#F3E2CE]"
-              }`}
-            >
-              {yr} năm
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* 6. GIỚI THIỆU TIỂU SỬ & CHUYÊN MÔN */}
+      {/* 5. GIỚI THIỆU TIỂU SỬ & CHUYÊN MÔN */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
-            <FileText size={14} className="text-[#985018]" />
-            <span>Tiểu sử & Giới thiệu chuyên môn <b className="text-[#B6443C]">*</b></span>
-          </label>
-          <button
-            type="button"
-            onClick={handleGenerateBio}
-            className="text-[11px] font-semibold text-[#985018] hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <Sparkles size={11} />
-            <span>Điền mẫu giới thiệu chuẩn</span>
-          </button>
-        </div>
+        <label className="block text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+          <FileText size={14} className="text-[#985018]" />
+          <span>Tiểu sử & Giới thiệu chuyên môn <b className="text-[#B6443C]">*</b></span>
+        </label>
         <textarea
           rows={3}
           required
@@ -602,7 +457,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
         />
       </div>
 
-      {/* 7. THÀNH TÍCH & CHỨNG CHỈ (TAGS & CHIPS) */}
+      {/* 6. THÀNH TÍCH & CHỨNG CHỈ */}
       <div className="p-3.5 bg-white border border-[#E2D7CB] rounded-2xl space-y-2.5 shadow-2xs">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -664,25 +519,6 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
             <span>Thêm</span>
           </button>
         </div>
-
-        {/* Gợi ý thành tích nhanh */}
-        <div>
-          <span className="text-[10.5px] text-[#8C7A6B] block mb-1">
-            Gợi ý chứng chỉ phổ biến (bấm để thêm nhanh):
-          </span>
-          <div className="flex flex-wrap gap-1">
-            {COMMON_ACHIEVEMENTS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => handleAddAchievement(item)}
-                className="text-[10.5px] px-2 py-0.5 rounded-lg bg-[#FAF8F5] text-[#7A3E10] border border-[#E8DFD8] hover:bg-[#FAF0E4] hover:border-[#985018] cursor-pointer transition-all"
-              >
-                + {item}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* 8. TRẠNG THÁI HOẠT ĐỘNG */}
@@ -723,12 +559,16 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
           <span className="text-[10px] text-[#73675F]">{values.experience_years || 1} năm kinh nghiệm</span>
         </div>
         <div className="bg-white rounded-xl p-3.5 border border-[#EFE4D9] flex items-start gap-3.5 shadow-2xs">
-          <div className="w-14 h-14 rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/40 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+          <div
+            className="rounded-2xl bg-[#F5ECE3] border-2 border-[#BA7E4C]/40 flex items-center justify-center shrink-0 overflow-hidden shadow-xs"
+            style={{ width: 56, height: 56, minWidth: 56, minHeight: 56, maxWidth: 56, maxHeight: 56 }}
+          >
             {values.avatar_url ? (
               <img
                 src={values.avatar_url}
                 alt="Instructor"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover block"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = "none";
                 }}
