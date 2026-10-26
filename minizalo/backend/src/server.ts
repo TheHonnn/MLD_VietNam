@@ -16,7 +16,7 @@ import {reservePackage} from './package-booking.js';
 import {collectionPage} from './collection-page.js';
 import {customerRequest} from './customer-request.js';
 import {profileAvatar,profileBirthDate} from './profile-input.js';
-import {isStaffRole,staffScope,staffCustomers,staffCustomer,bookingAccess,staffSessionStatus,bookingGuests} from './staff-booking.js';
+import {isStaffRole,staffScope,optionalStaffScope,staffCustomers,staffCustomer,bookingAccess,staffSessionStatus,bookingGuests} from './staff-booking.js';
 import {bookingGroup,cancelBookingGroup} from './booking-groups.js';
 import {bookingPeople,reserveBed,filterResourceSlots} from './booking-resources.js';
 import {certificateSelect,certificateVerification,verifyCertificate,certificateVerificationPage} from './certificates.js';
@@ -27,6 +27,7 @@ import {staffDashboard,staffCustomerDirectory} from './staff-dashboard.js';
 import {sharedContent,sharedContentDetail,sharedContentEdit,manageSharedContent,saveSharedContent} from './shared-content.js';
 import {accountSession,accountSessions,revokeSession,revokeOtherSessions} from './account-sessions.js';
 import {lessonMedia} from './lesson-media.js';
+import {portalContent,portalContentDetail} from './portal-content.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,7 +50,8 @@ async function user(store: Store, id: string) {
   if (!record) throw new ApiError(401, 'Shared account is missing or inactive');
   const [schema]=await store.query(Prisma.sql`SELECT to_regclass('public.miniapp_customer_profiles') IS NOT NULL AS ready`);
   const [profile]=schema.ready?await store.query(Prisma.sql`SELECT preferred_branch_id AS preferred_branch,skin_type,health_notes FROM miniapp_customer_profiles WHERE user_id=${id}::uuid`):[];
-  return {...record,preferred_branch:null,skin_type:'',health_notes:'',...profile};
+  const staffScopeValue=isStaffRole(record.role)?await optionalStaffScope(store,id):null;
+  return {...record,preferred_branch:null,skin_type:'',health_notes:'',...profile,staff_access:Boolean(staffScopeValue),staff_branch_id:staffScopeValue?.branchId??null};
 }
 
 const bookingSelect = Prisma.sql`
@@ -289,7 +291,7 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
   }));
 
   app.get('/api/app-metadata', route(async (_req,res) => {
@@ -303,12 +305,20 @@ export function createApp(store: Store, options: AppOptions) {
   }));
   app.get('/api/support-faqs', route(async (_req,res) => success(res,{faqs:await store.query(Prisma.sql`SELECT id,category,question,answer,display_order FROM support_faqs WHERE is_active ORDER BY display_order`)})));
   app.get('/api/care-guidelines',route(async(_req,res)=>success(res,{guidelines:await store.query(Prisma.sql`SELECT * FROM home_care_guidelines WHERE is_published ORDER BY is_featured DESC,created_at DESC`)})));
+  app.get('/api/portal/content',route(async(req,res)=>{const page=await portalContent(store,req.query);return success(res,{items:page.rows,nextCursor:page.nextCursor});}));
+  app.get('/api/portal/content/:id',route(async(req,res)=>success(res,{item:await portalContentDetail(store,uuid(req.params.id))})));
+  app.get('/api/portal/banners',route(async(_req,res)=>success(res,{banners:await store.query(Prisma.sql`
+    SELECT c.id,c.title,c.summary,c.content_text,c.image_url,c.published_at,
+      to_jsonb(c)->>'target_link' AS target_link,to_jsonb(c)->>'category' AS category,to_jsonb(c)->>'author_name' AS author_name
+    FROM miniapp_shared_content c WHERE UPPER(c.kind)='BANNER' AND UPPER(c.status) IN ('PUBLISHED','APPROVED')
+      AND UPPER(COALESCE(NULLIF(to_jsonb(c)->>'access_level',''),'PUBLIC'))='PUBLIC'
+      AND (c.published_at IS NULL OR c.published_at<=CURRENT_TIMESTAMP)
+    ORDER BY COALESCE(NULLIF(to_jsonb(c)->>'sort_order','')::int,0),c.created_at DESC,c.id`)})));
 
   app.post('/api/auth/zalo', route(async (req, res) => {
     const profile = await authenticateZalo(req.body?.accessToken, req.body?.phoneToken, options);
-    const staffLogin=req.body?.audience==='staff';
-    const identity = await findZaloAccount(store, profile.phone,staffLogin?'staff':'customer');
-    if(staffLogin&&!identity)throw new ApiError(403,'No shared staff account matches the verified Zalo phone',{authIssue:'STAFF_ACCOUNT_NOT_FOUND'});
+    // Login identifies an active shared account; operational staff rights are checked separately.
+    const identity = await findZaloAccount(store, profile.phone,'auto');
     if (!identity) {
       if (!options.zaloAllowSignup) throw new ApiError(409, 'New customer signup is disabled; contact support');
       const registrationToken = jwt.sign({ purpose: 'zalo-registration', phone: profile.phone }, options.jwtSecret,
@@ -384,7 +394,7 @@ export function createApp(store: Store, options: AppOptions) {
       if(technicianId)throw new ApiError(400,'Staff bookings assign specialists automatically');
     }
     let slots = await availableSlots(store,branchId,req.query.date,service ? Number(service.duration_minutes) : 0,technicianId,customerId,null,[serviceId],datesOnly?req.query.throughDate:req.query.date);
-    if(staffOnly)slots=await filterResourceSlots(store,slots,branchId,people);
+    slots=await filterResourceSlots(store,slots,branchId,people);
     const availabilityReason=slots.length?'AVAILABLE':await emptyAvailabilityReason(store,branchId,serviceId,technicianId);
     return success(res,datesOnly?{dates:[...new Set(slots.map(slot=>String(slot.slot_date)))],availabilityReason}:{slots,availabilityReason});
   });
@@ -415,6 +425,8 @@ export function createApp(store: Store, options: AppOptions) {
     res.locals.sessionId=await accountSession(store,res.locals.userId,token!,payload,req.get('User-Agent')||'');
   }).then(()=>next()).catch(next); });
   const writeLimit=createRateLimiter(180,60000,(_req,res)=>res.locals.userId);
+  app.get('/api/portal/library',route(async(req,res)=>{const page=await portalContent(store,req.query,res.locals.userId);return success(res,{items:page.rows,nextCursor:page.nextCursor});}));
+  app.get('/api/portal/library/:id',route(async(req,res)=>success(res,{item:await portalContentDetail(store,uuid(req.params.id),res.locals.userId)})));
   app.use('/api',(req,res,next)=>['GET','HEAD','OPTIONS'].includes(req.method)?next():writeLimit(req,res,next));
   app.get('/api/auth/sessions',route(async(_req,res)=>success(res,await accountSessions(store,res.locals.userId,res.locals.sessionId))));
   app.post('/api/auth/logout',route(async(_req,res)=>success(res,await revokeSession(store,res.locals.userId,res.locals.sessionId,res.locals.sessionId))));
@@ -575,11 +587,11 @@ export function createApp(store: Store, options: AppOptions) {
     if (!['PENDING','CONFIRMED'].includes(current.status)) throw new ApiError(409,'This booking cannot be rescheduled');
     const [snapshot] = await store.query(Prisma.sql`SELECT sum(duration_minutes)::int AS minutes,array_agg(DISTINCT service_id) AS service_ids FROM booking_items WHERE booking_id=${current.id}::uuid`);
     let slots=await availableSlots(store,String(current.branch_id),req.query.date,Number(snapshot.minutes),isStaffRole(res.locals.user.role)?null:current.technician_id?String(current.technician_id):null,String(current.customer_id),String(current.id),snapshot.service_ids||[]);
-    if(isStaffRole(res.locals.user.role))slots=await filterResourceSlots(store,slots,current.branch_id,1,current.id);
+    slots=await filterResourceSlots(store,slots,current.branch_id,1,current.id);
     return success(res,{slots});
   }));
   app.post(['/api/bookings','/api/staff/bookings'], route(async (req,res) => {
-    const actorId=res.locals.userId,staffMode=isStaffRole(res.locals.user.role)||req.path.startsWith('/api/staff/');
+    const actorId=res.locals.userId,staffMode=req.path.startsWith('/api/staff/');
     if(staffMode)await staffScope(store,actorId);
     else if(req.body.customerId||req.body.customer)throw new ApiError(403,'Staff booking access is required');
     if(staffMode&&(req.body.doctorId||req.body.technicianId))throw new ApiError(400,'Staff bookings assign specialists automatically');
@@ -636,7 +648,7 @@ export function createApp(store: Store, options: AppOptions) {
       if (req.body.pointsToUse) throw new ApiError(400,'Point redemption must use the shared payment workflow');
       let firstId='';const groupId=randomUUID();
       for(let member=1;member<=people;member++){
-      const bed=staffMode?await reserveBed(tx,branchId,time.day,time.start,time.end):null;
+      const bed=await reserveBed(tx,branchId,time.day,time.start,time.end);
       const assigned = await reserveSlot(tx,customerId,branchId,technicianId,time,null,ids);
       const [saved] = await tx.query(Prisma.sql`INSERT INTO bookings
         (booking_code,customer_id,branch_id,technician_id,assigned_room_id,booking_date,start_time,end_time,status,base_total,coupon_id,discount_amount,final_price,
@@ -647,9 +659,9 @@ export function createApp(store: Store, options: AppOptions) {
       if(!firstId)firstId=String(saved.id);
       if(staffMode){
         await tx.query(Prisma.sql`INSERT INTO miniapp_staff_bookings(booking_id,staff_id,branch_id) VALUES(${saved.id}::uuid,${actorId}::uuid,${branchId}::uuid) RETURNING booking_id`);
-        await tx.query(Prisma.sql`INSERT INTO miniapp_booking_beds(booking_id,room_id,bed_number) VALUES(${saved.id}::uuid,${bed!.room_id}::uuid,${bed!.bed_number}) RETURNING booking_id`);
         await tx.query(Prisma.sql`INSERT INTO miniapp_booking_group_members(booking_id,group_id,member_number) VALUES(${saved.id}::uuid,${groupId}::uuid,${member}) RETURNING booking_id`);
       }
+      await tx.query(Prisma.sql`INSERT INTO miniapp_booking_beds(booking_id,room_id,bed_number) VALUES(${saved.id}::uuid,${bed.room_id}::uuid,${bed.bed_number}) RETURNING booking_id`);
       for (const service of services) await tx.query(Prisma.sql`INSERT INTO booking_items (booking_id,service_id,technician_id,duration_minutes,price)
         VALUES (${saved.id}::uuid,${service.id}::uuid,${assigned}::uuid,${service.duration_minutes},${userPackageId?0:(service.discount_price ?? service.price)}) RETURNING id`);
       if(userPackageId) await tx.query(Prisma.sql`INSERT INTO miniapp_booking_packages(booking_id,user_package_id) VALUES(${saved.id}::uuid,${userPackageId}::uuid) RETURNING booking_id`);
@@ -678,7 +690,7 @@ export function createApp(store: Store, options: AppOptions) {
       const [packageLink]=await tx.query(Prisma.sql`SELECT p.user_package_id,i.service_id FROM miniapp_booking_packages p JOIN booking_items i ON i.booking_id=p.booking_id WHERE p.booking_id=${id}::uuid`);
       if(packageLink) await reservePackage(tx,String(current.customer_id),packageLink.user_package_id,packageLink.service_id,time.day,time.end,id);
       if (time.day === current.booking_date && time.start === current.start_time) return booking(tx,id,customerId);
-      const bed=isStaffRole(res.locals.user.role)?await reserveBed(tx,current.branch_id,time.day,time.start,time.end,id):null;
+      const bed=await reserveBed(tx,current.branch_id,time.day,time.start,time.end,id);
       const assigned = await reserveSlot(tx,String(current.customer_id),current.branch_id,isStaffRole(res.locals.user.role)?null:current.technician_id,time,id,duration.service_ids||[]);
       await tx.query(Prisma.sql`UPDATE technician_slots SET status = 'AVAILABLE' WHERE technician_id = ${current.technician_id}::uuid AND slot_date = ${current.booking_date}::date AND start_time = ${current.start_time}::time AND status = 'BOOKED' RETURNING id`);
       await tx.query(Prisma.sql`UPDATE bookings SET booking_date = ${time.day}::date,start_time = ${time.start}::time,end_time = ${time.end}::time,technician_id=${assigned}::uuid,assigned_room_id=COALESCE(${bed?.room_id??null}::uuid,assigned_room_id),assigned_bed_number=COALESCE(${bed?String(bed.bed_number):null},assigned_bed_number) WHERE id = ${id}::uuid RETURNING id`);

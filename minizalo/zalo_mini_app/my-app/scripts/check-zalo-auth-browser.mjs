@@ -14,14 +14,34 @@ const useWebKit=process.env.BROWSER_ENGINE==='webkit';
 const browser=await(useWebKit?webkit:chromium).launch({...(useWebKit?{}:{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),headless:true});
 try{
   for(const viewport of [{width:320,height:640},{width:390,height:844},{width:1366,height:900}]){
-    const page=await browser.newPage({viewport,userAgent:'Mozilla/5.0 (iPhone) Zalo'}),errors=[];let requests=0,reason='Staff booking access is required';
+    const page=await browser.newPage({viewport,userAgent:'Mozilla/5.0 (iPhone) Zalo'}),errors=[];let requests=0,staffRequests=0,reason='Staff booking access is required',allowLogin=false,signedIn=false;
+    const account={id:'10000000-0000-0000-0000-000000000090',fullName:'Tài khoản Zalo kiểm thử',phone:'0900000090',role:'RECEPTIONIST',staffAccess:false,membershipTier:'STANDARD',rewardPoints:0,totalSpent:0,purpose:'BOTH'};
     page.on('pageerror',error=>errors.push(error.message));
     try{
       await page.addInitScript(()=>window.addEventListener('unhandledrejection',event=>{if(event.reason?.code===-2000&&event.reason?.api==='login')event.preventDefault();}));
       await page.route('**/api/client.ts*',route=>route.fulfill({status:200,contentType:'text/javascript',body:output.outputFiles[0].text}));
       await page.route('https://fixture.invalid/api/**',async route=>{
         const request=route.request(),path=new URL(request.url()).pathname;let data={},status=200,message='OK';
-        if(path==='/api/auth/zalo'){requests++;assert.equal(request.postDataJSON().audience,'staff');status=403;message=reason;}
+        if(path.startsWith('/api/staff/'))staffRequests++;
+        if(path==='/api/auth/zalo'){
+          requests++;assert.equal(request.postDataJSON().audience,undefined);
+          if(allowLogin){signedIn=true;data={user:account,token:'fixture-unified-session'};}else{status=403;message=reason;}
+        }
+        else if(path==='/api/auth/me'&&signedIn)data={user:account};
+        else if(path==='/api/staff/dashboard'){status=403;message='Active staff profile and branch are required';}
+        else if(path==='/api/bookings')data={bookings:[],nextCursor:null};
+        else if(path==='/api/notifications')data={notifications:[],nextCursor:null,unreadCount:0,totalCount:0};
+        else if(path==='/api/auth/settings')data={settings:null};
+        else if(path==='/api/search/history')data={history:[]};
+        else if(path==='/api/course-enrollments')data={enrollments:[]};
+        else if(path==='/api/records')data={records:[]};
+        else if(path==='/api/treatment-plans')data={treatmentPlans:[],nextCursor:null};
+        else if(path==='/api/membership')data={user:account,summary:{upcomingBookings:0,remainingTreatmentSessions:0,activeCourses:0},vouchers:[]};
+        else if(path==='/api/transactions')data={invoices:[],pointTransactions:[],totalSpent:0};
+        else if(path==='/api/support-tickets')data={tickets:[],nextCursor:null};
+        else if(path==='/api/consultation-surveys')data={surveys:[],nextCursor:null};
+        else if(path==='/api/reviews/mine')data={reviews:[]};
+        else if(path==='/api/portal/banners')data={banners:[]};
         else if(path==='/api/app-metadata')data={serviceCategories:[],courseCategories:[],instructors:[],membershipTiers:[],faqs:[],loyaltySettings:null};
         else{
           const field={'/api/services':'services','/api/doctors':'doctors','/api/branches':'branches','/api/courses':'courses','/api/care-guidelines':'guidelines','/api/support-faqs':'faqs','/api/search/popular':'popularSearches'}[path];
@@ -29,9 +49,10 @@ try{
         }
         await route.fulfill({status,contentType:'application/json',body:JSON.stringify({success:status===200,statusCode:status,message,data})});
       });
-      await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5182/',{waitUntil:'domcontentloaded'});
+      await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5184/',{waitUntil:'domcontentloaded'});
       await page.getByRole('button',{name:'Bỏ qua',exact:true}).click();
       const consent=page.locator('.zalo-consent-screen');await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).waitFor();
+      assert.equal(await consent.getByRole('radio').count(),0);
       assert.equal(await page.evaluate(()=>window.authFixture.phones),0);
       await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).evaluate(button=>{button.click();button.click();});
       await consent.locator('[data-auth-issue="STAFF_ACCESS_REQUIRED"]').waitFor();assert.equal(requests,1);
@@ -50,7 +71,16 @@ try{
       await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).waitFor();await page.waitForTimeout(100);assert.equal(requests,3);
       assert.equal(await page.evaluate(()=>window.authFixture.reads),1);assert.deepEqual(errors,[]);
       assert.equal(await consent.evaluate(el=>el.scrollWidth>el.clientWidth+1),false);
-      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,staff403Preserved:true,inactiveProfileDistinct:true,missingAccountDistinct:true,storageCallsBounded:true,denialAndCancel:true,noDoubleClick:true,nativeBridgeSimulated:true,noBackendOrDatabaseChanges:true}));
+      allowLogin=true;await page.evaluate(()=>{window.authFixture.delay=false;});
+      await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).click();
+      await page.locator('.home-greeting h1').filter({hasText:account.fullName}).waitFor();
+      await consent.waitFor({state:'detached'});
+      assert.equal(await page.getByRole('radio',{name:'Nhân viên',exact:true}).count(),0);
+      await page.locator('.app-bottom-nav').getByRole('button',{name:'Cá nhân',exact:true}).click();
+      await page.getByText('Dịch vụ của tôi',{exact:true}).waitFor();
+      assert.equal(await page.locator('.staff-workspace').count(),0);assert.equal(staffRequests,0);
+      await page.screenshot({path:fileURLToPath(new URL(`unified-login-${useWebKit?'webkit':'chrome'}-${viewport.width}.png`,folder))});
+      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,unifiedLogin:true,personalProfileWithoutStaffActivation:true,noAccountTypeSelector:true,storageCallsBounded:true,denialAndCancel:true,noDoubleClick:true,nativeBridgeSimulated:true}));
     }finally{await page.close();}
   }
 }finally{await browser.close();}

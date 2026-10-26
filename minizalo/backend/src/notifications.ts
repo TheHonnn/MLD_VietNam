@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import type { Store, Row } from './store.js';
 import {inboxPage} from './notification-inbox.js';
-import {isStaffRole,staffScope} from './staff-booking.js';
+import {isStaffRole,optionalStaffScope} from './staff-booking.js';
 
 const labels: Record<string, string> = {
   PENDING: 'Chờ xử lý', CONFIRMED: 'Đã xác nhận', CHECKED_IN: 'Đã check-in', IN_SERVICE: 'Đang thực hiện',
@@ -24,7 +24,7 @@ export async function syncNotifications(store: Store, userId: string) {
   const [schema]=await store.query(Prisma.sql`SELECT to_regclass('public.miniapp_schema_versions') IS NOT NULL AS ready`);
   if(schema.ready) {
     const [actor]=await store.query(Prisma.sql`SELECT role FROM users WHERE id=${userId}::uuid AND is_active`);
-    const scope=isStaffRole(actor?.role)?await staffScope(store,userId):null;
+    const scope=isStaffRole(actor?.role)?await optionalStaffScope(store,userId):null;
     const reminders=await store.query(Prisma.sql`SELECT b.id,b.branch_id,b.booking_code,to_char(b.booking_date,'YYYY-MM-DD') AS day,to_char(b.start_time,'HH24:MI:SS') AS time,
       EXTRACT(EPOCH FROM ((b.booking_date+b.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'-clock_timestamp())) AS seconds
       FROM bookings b WHERE (b.customer_id=${userId}::uuid OR (${Boolean(scope)} AND (${scope?.branchId??null}::uuid IS NULL OR b.branch_id=${scope?.branchId??null}::uuid)

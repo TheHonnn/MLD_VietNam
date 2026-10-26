@@ -36,7 +36,7 @@ export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
   onOpenAuth,
 }) => {
   return (
-    <Box className="bg-gradient-to-r from-[#087e9c] via-[#884218] to-[#6E3514] text-white px-4 pt-3 pb-4 rounded-b-3xl shadow-lg relative overflow-hidden">
+    <Box className="bg-gradient-to-r from-[#2860eb] via-[#884218] to-[#6E3514] text-white px-4 pt-3 pb-4 rounded-b-3xl shadow-lg relative overflow-hidden">
       {/* Decorative background glow */}
       <div className="absolute -top-10 -right-10 w-44 h-44 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
       <div className="absolute top-12 -left-12 w-32 h-32 bg-amber-300/10 rounded-full blur-xl pointer-events-none" />
@@ -44,16 +44,16 @@ export const HeaderFigma: React.FC<HeaderFigmaProps> = ({
       {/* Top Branding & Mode Switches */}
       <Box className="flex items-center justify-between gap-2 mb-3 relative z-10">
         <Box className="flex flex-1 min-w-0 items-center space-x-2.5">
-          <Box className="w-10 h-10 shrink-0 rounded-2xl bg-white text-[#087e9c] flex items-center justify-center shadow-md border border-white/40">
-            <LeafIcon size={22} color="#087e9c" />
+          <Box className="w-10 h-10 shrink-0 rounded-2xl bg-white text-[#2860eb] flex items-center justify-center shadow-md border border-white/40">
+            <LeafIcon size={22} color="#2860eb" />
           </Box>
           <Box className="min-w-0 break-words">
             <Box className="flex items-center space-x-1.5">
               <Text className="font-bold text-sm text-white tracking-wide leading-none">
                 {brandName || ''}
               </Text>
-              {brandVerified === true && <span className="w-4 h-4 rounded-full bg-amber-400 text-[#087e9c] flex items-center justify-center text-[10px]">
-                <CheckIcon size={10} color="#087e9c" />
+              {brandVerified === true && <span className="w-4 h-4 rounded-full bg-amber-400 text-[#2860eb] flex items-center justify-center text-[10px]">
+                <CheckIcon size={10} color="#2860eb" />
               </span>}
             </Box>
             <Box className="flex items-center space-x-1 mt-0.5">

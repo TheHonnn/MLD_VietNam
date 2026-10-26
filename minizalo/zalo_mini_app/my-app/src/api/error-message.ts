@@ -1,4 +1,6 @@
 const messages:Record<string,string>={
+  'This account is not a customer account':'Máy chủ đang dùng luồng đăng nhập cũ. Cần cập nhật BE Mini App để đăng nhập chung bằng Zalo.',
+  'This account cannot access the Mini App':'Tài khoản hiện tại không được phép truy cập Mini App. Vui lòng liên hệ quản trị viên.',
   'No shared staff account matches the verified Zalo phone':'Số điện thoại Zalo chưa khớp tài khoản trong hệ thống. Vui lòng nhờ quản trị viên kiểm tra số điện thoại của hồ sơ nhân viên.',
   'Certificate is unavailable':'Giấy chứng nhận không còn khả dụng hoặc không thuộc tài khoản này.',
   'Invalid course audience':'Nhóm khóa học không hợp lệ. Vui lòng chọn lại.',

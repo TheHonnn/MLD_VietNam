@@ -17,10 +17,14 @@ export async function staffScope(store:Store,actorId:string){
 export async function bookingAccess(store:Store,viewerId:string){
   const [actor]=await store.query(Prisma.sql`SELECT role FROM users WHERE id=${viewerId}::uuid AND is_active`);
   if(isStaffRole(actor?.role)){
-    const scope=await staffScope(store,viewerId);
-    return scope.branchId?Prisma.sql`b.branch_id=${scope.branchId}::uuid`:Prisma.sql`true`;
+    const scope=await optionalStaffScope(store,viewerId);
+    if(scope)return scope.branchId?Prisma.sql`(b.customer_id=${viewerId}::uuid OR b.branch_id=${scope.branchId}::uuid)`:Prisma.sql`true`;
   }
   return Prisma.sql`b.customer_id=${viewerId}::uuid`;
+}
+export async function optionalStaffScope(store:Store,actorId:string){
+  try{return await staffScope(store,actorId);}
+  catch(error){if(error instanceof ApiError&&error.status===403)return null;throw error;}
 }
 const canonicalPhone=(input:unknown)=>{
   const phone=localPhone(input);

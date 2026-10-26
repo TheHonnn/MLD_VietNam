@@ -21,7 +21,7 @@
 .community-row { display: block; }
 .record-row:not(.community-row) > .shared-content-cover { flex: 0 0 72px; width: 72px; aspect-ratio: 1; margin-bottom: 0; }
 .records-tabs button { padding: 8px 4px; font-size: 13px; border-bottom: 2px solid transparent; }
-.records-tabs [aria-selected=true] { color: #07596e; border-bottom-color: #087e9c; font-weight: 600; }
+.records-tabs [aria-selected=true] { color: #07596e; border-bottom-color: #2860eb; font-weight: 600; }
 .customer-record { padding: 16px 0; border-bottom: 1px solid #dbe8eb; }
 .customer-record dt { margin-top: 12px; font-size: 13px; font-weight: 600; }
 .customer-record dd { margin: 4px 0 0; }
@@ -33,3 +33,8 @@
 .customer-package-information summary { min-height: 40px; padding: 10px 0; cursor: pointer; font-weight: 600; }
 .customer-package-information ol { padding-left: 20px; list-style: decimal; }
 .customer-package-information p, .customer-package-information li { margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.care-document-category { display: grid; gap: 8px; font-size: 13px; }
+.care-document-category select { width: 100%; min-height: 44px; padding: 8px; border: 1px solid #c8dde3; border-radius: 8px; background: white; }
+.care-document-row > strong { display: block; margin-top: 8px; }
+.care-document-steps { padding-left: 22px; list-style: decimal; }
+.care-document-steps li { margin: 12px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.7; }

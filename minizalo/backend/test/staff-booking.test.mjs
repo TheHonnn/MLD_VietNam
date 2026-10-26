@@ -81,7 +81,8 @@ test('staff booking keeps the actual customer, creator, branch and permissions s
     });
     await t.test('revoking a staff profile immediately removes access despite a valid JWT',async()=>{
       await db.query('UPDATE staff_profiles SET is_active=false WHERE user_id=$1',[id(90)]);
-      assert.equal((await read('/staff/context')).status,403);assert.equal((await read('/bookings')).status,403);
+      assert.equal((await read('/staff/context')).status,403);
+      const personal=await read('/bookings');assert.equal(personal.status,200);assert.deepEqual(personal.data.bookings,[]);
       assert.equal((await post(body,id(998))).status,403);
     });
     await t.test('migration is repeatable and public roles cannot read the staff audit table',async()=>{
