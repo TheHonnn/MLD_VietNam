@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/home_models.dart';
 
 /// Thẻ Dịch vụ Chuẩn Y khoa MLD Việt Nam:
@@ -35,7 +36,8 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
   Widget build(BuildContext context) {
     final service = widget.service;
     final priceWithVat = service?.priceWithVat ?? 702000.0;
-    final title = service?.name ?? 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
+    final rawTitle = service?.name ?? 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
+    final title = context.tr(rawTitle);
 
     return Container(
       decoration: BoxDecoration(
@@ -153,7 +155,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Đặt lịch',
+                                context.tr('Đặt lịch', 'Book Now'),
                                 style: TextStyle(
                                   fontFamily: 'Montserrat',
                                   fontSize: 13.5,

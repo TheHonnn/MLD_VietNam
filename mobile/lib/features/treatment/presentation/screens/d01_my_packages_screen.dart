@@ -1,13 +1,13 @@
-import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../l10n/app_localizations.dart';
+import '../../../../core/localization/app_translation.dart';
+import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
-
 import 'd02_package_details_screen.dart';
-import '../../../membership/data/repositories/membership_repository.dart';
 
+/// Screen D01: Gói liệu trình của tôi - Đồng bộ Design System (#2860EB), Font Montserrat, 100% English translation
 class D01MyPackagesScreen extends StatefulWidget {
   final VoidCallback? onBack;
 
@@ -23,323 +23,251 @@ class D01MyPackagesScreen extends StatefulWidget {
 class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
   final TreatmentRepository _repo = TreatmentRepository.instance;
   int _selectedStatusIndex = 0; // 0: Đang sử dụng, 1: Đã hoàn thành, 2: Hết hạn
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    TreatmentRepository.instance.fetchPackages().then((_) {
-      if (mounted) setState(() {});
-    });
+    _loadPackages();
+  }
+
+  Future<void> _loadPackages() async {
+    setState(() => _isLoading = true);
+    await _repo.fetchPackages();
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final canGoBack = widget.onBack != null || Navigator.of(context).canPop();
 
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: canGoBack
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
+                onPressed: () {
+                  if (widget.onBack != null) {
+                    widget.onBack!();
+                  } else {
+                    Navigator.of(context).pop();
+                  }
+                },
+              )
+            : null,
+        title: Text(
+          context.tr('Gói liệu trình của tôi', 'My Treatment Packages'),
+          style: const TextStyle(
+            fontFamily: 'Montserrat',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- 1. ĐIỀU HƯỚNG / TIÊU ĐỀ (GIỚI THIỆU) ---
-              if (canGoBack) ...[
+        child: RefreshIndicator(
+          onRefresh: _loadPackages,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. THẺ THÔNG TIN KHÁCH HÀNG
+                Builder(
+                  builder: (context) {
+                    final profile = MembershipRepository.instance.profile;
+                    final activePackages = _repo.packages.where((p) => p.status == PackageStatus.active).toList();
+                    final remainingSessions = activePackages.fold<int>(0, (sum, p) => sum + (p.totalSessions - p.completedSessions));
+                    final usedSessions = _repo.packages.fold<int>(0, (sum, p) => sum + p.completedSessions);
+
+                    final displayName = profile.fullName.trim().isNotEmpty ? profile.fullName : context.tr('Khách hàng', 'Customer');
+                    final memberTier = profile.memberTier.trim().isNotEmpty ? profile.memberTier.tr(context) : context.tr('Thành viên', 'Member');
+
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEFF4FE),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 24),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      displayName,
+                                      style: const TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      memberTier,
+                                      style: const TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.workspace_premium_rounded, color: AppColors.primary, size: 24),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${activePackages.length} ${context.tr("gói đang dùng", "active packages")}   ·   $remainingSessions ${context.tr("buổi còn lại", "sessions left")}   ·   $usedSessions ${context.tr("đã dùng", "used")}',
+                            style: const TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // 2. BỘ LỌC TRẠNG THÁI GÓI
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    InkWell(
-                      onTap: () {
-                        if (widget.onBack != null) {
-                          widget.onBack!();
-                        } else {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppColors.surface, // #FFFFFF
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border, width: 1.0),
-                        ),
-                        child: const Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 20),
-                      ),
-                    ),
-                    const Text(
-                      'CHĂM SÓC & TRỊ LIỆU',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.primary, // #985018
-                      ),
-                    ),
+                    _buildFilterTab(0, context.tr('Đang sử dụng', 'Active')),
+                    const SizedBox(width: 8),
+                    _buildFilterTab(1, context.tr('Đã hoàn thành', 'Completed')),
+                    const SizedBox(width: 8),
+                    _buildFilterTab(2, context.tr('Hết hạn', 'Expired')),
                   ],
                 ),
+
                 const SizedBox(height: 16),
-              ],
 
-              Text(
-                l10n?.myPackages ?? 'Gói liệu trình của tôi',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                  height: 36.4 / 28,
-                  color: AppColors.textHeading, // #693B20
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // --- 2. THẺ THÔNG TIN KHÁCH HÀNG (350x132, r=20, #F3E2CE) ---
-              Builder(
-                builder: (context) {
-                  final profile = MembershipRepository.instance.profile;
-                  final activePackages = _repo.packages.where((p) => p.status == PackageStatus.active).toList();
-                  final remainingSessions = activePackages.fold<int>(0, (sum, p) => sum + (p.totalSessions - p.completedSessions));
-                  final usedSessions = _repo.packages.fold<int>(0, (sum, p) => sum + p.completedSessions);
-
-                  final displayName = profile.fullName.trim().isNotEmpty ? profile.fullName : 'Khách hàng';
-                  final memberTier = profile.memberTier.trim().isNotEmpty ? profile.memberTier : 'Thành viên';
-
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary, // #F3E2CE
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border, width: 1.0),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 24),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    displayName,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary, // #40352F
-                                    ),
+                // 3. DANH SÁCH GÓI LIỆU TRÌNH THEO TRẠNG THÁI
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  )
+                else if (_selectedStatusIndex == 0) ...[
+                  if (_repo.packages.where((p) => p.status == PackageStatus.active).isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.spa_outlined,
+                      title: context.tr('Bạn chưa có gói liệu trình nào đang hoạt động', 'You have no active treatment packages'),
+                      subtitle: context.tr('Khám phá các dịch vụ & gói chăm sóc sức khỏe hệ bạch huyết để bắt đầu phục hồi cơ thể.', 'Explore lymphatic health services & treatment packages to start your recovery journey.'),
+                    )
+                  else
+                    ..._repo.packages.where((p) => p.status == PackageStatus.active).map(
+                          (pkg) => Padding(
+                            padding: const EdgeInsets.only(bottom: 14.0),
+                            child: _buildPackageCard(
+                              package: pkg,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => D02PackageDetailsScreen(package: pkg),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    memberTier,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
-                                      color: AppColors.primary, // #985018
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
-                            const Icon(Icons.workspace_premium_rounded, color: Color(0xFF0284C7), size: 24),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '${activePackages.length} gói đang dùng   ·   $remainingSessions buổi còn lại   ·   $usedSessions đã dùng',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          '',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
+                ] else if (_selectedStatusIndex == 1) ...[
+                  if (_repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.history_rounded,
+                      title: context.tr('Bạn chưa có gói liệu trình nào đã hoàn thành.', 'You have no completed treatment packages.'),
+                      subtitle: context.tr('Các gói liệu trình đã hoàn thành sẽ xuất hiện tại đây.', 'Your completed treatment packages will appear here.'),
+                      showBookButton: false,
+                    )
+                  else
+                    ..._repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).map(
+                          (pkg) => Padding(
+                            padding: const EdgeInsets.only(bottom: 14.0),
+                            child: _buildPackageCard(
+                              package: pkg,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => D02PackageDetailsScreen(package: pkg),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 20),
-
-              // --- 3. BỘ LỌC TRẠNG THÁI GÓI (350x44) ---
-              Row(
-                children: [
-                  _buildFilterTab(0, l10n?.activePackages ?? 'Đang sử dụng'),
-                  const SizedBox(width: 8),
-                  _buildFilterTab(1, l10n?.completedPackages ?? 'Đã hoàn thành'),
-                  const SizedBox(width: 8),
-                  _buildFilterTab(2, l10n?.expiredPackages ?? 'Hết hạn'),
+                ] else ...[
+                  if (_repo.packages.where((p) => p.status == PackageStatus.expired).isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.event_busy_rounded,
+                      title: context.tr('Không có gói liệu trình nào hết hạn.', 'No expired treatment packages.'),
+                      subtitle: context.tr('Các gói liệu trình hết hạn sẽ hiển thị tại đây.', 'Expired treatment packages will be displayed here.'),
+                      showBookButton: false,
+                    )
+                  else
+                    ..._repo.packages.where((p) => p.status == PackageStatus.expired).map(
+                          (pkg) => Padding(
+                            padding: const EdgeInsets.only(bottom: 14.0),
+                            child: _buildPackageCard(
+                              package: pkg,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => D02PackageDetailsScreen(package: pkg),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                 ],
-              ),
 
-              const SizedBox(height: 20),
-
-              // --- 4. DANH SÁCH GÓI LIỆU TRÌNH ---
-              if (_selectedStatusIndex == 0) ...[
-                if (_repo.packages.where((p) => p.status == PackageStatus.active).isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.spa_outlined, size: 48, color: AppColors.textSecondary),
-                        const SizedBox(height: 12),
-                        Text(
-                          l10n?.noActivePackages ?? 'Bạn chưa có gói liệu trình nào đang hoạt động',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textHeading),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          '.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
-                        ),
-                        const SizedBox(height: 18),
-                        SizedBox(
-                          height: 44,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 0,
-                            ),
-                            child: Text(l10n?.exploreServicesAndBook ?? 'Khám phá dịch vụ & đặt lịch', style: const TextStyle(fontWeight: FontWeight.w600)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  ..._repo.packages.where((p) => p.status == PackageStatus.active).map(
-                    (pkg) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: _buildPackageCard(
-                        package: pkg,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => D02PackageDetailsScreen(package: pkg),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-              ] else if (_selectedStatusIndex == 1) ...[
-                if (_repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Bạn chưa có gói liệu trình nào đã hoàn thành.',
-                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                      ),
-                    ),
-                  )
-                else
-                  ..._repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).map(
-                    (pkg) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: _buildPackageCard(
-                        package: pkg,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => D02PackageDetailsScreen(package: pkg),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-              ] else ...[
-                if (_repo.packages.where((p) => p.status == PackageStatus.expired).isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Không có gói liệu trình nào hết hạn.',
-                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                      ),
-                    ),
-                  )
-                else
-                  ..._repo.packages.where((p) => p.status == PackageStatus.expired).map(
-                    (pkg) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: _buildPackageCard(
-                        package: pkg,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => D02PackageDetailsScreen(package: pkg),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+                const SizedBox(height: 24),
               ],
-
-              const SizedBox(height: 28),
-
-              // 2 Thẻ gợi ý
-              ..._repo.suggestedPackages.map((sug) => Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: _buildSuggestedCard(sug),
-              )),
-              const SizedBox(height: 32),
-            ],
+            ),
           ),
         ),
       ),
@@ -355,27 +283,108 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
             _selectedStatusIndex = index;
           });
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          height: 44,
+          height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary : AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
+            color: isSelected ? AppColors.primary : const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected ? AppColors.primary : AppColors.border,
-              width: 1.0,
             ),
           ),
           child: Text(
             title,
             style: TextStyle(
+              fontFamily: 'Montserrat',
               fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? Colors.white : AppColors.textPrimary,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    bool showBookButton = true,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEFF4FE),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 28, color: AppColors.primary),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
+              fontSize: 15.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          if (showBookButton) ...[
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                ),
+                child: Text(
+                  context.tr('Khám phá dịch vụ & đặt lịch', 'Explore Services & Book'),
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -389,117 +398,103 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surface, // #FFFFFF
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Ảnh chăm sóc (r=16)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: Image.asset(
-              package.imageUrl,
-              height: 144,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                height: 144,
-                color: AppColors.surfaceSecondary,
-                child: const Icon(Icons.spa, size: 48, color: AppColors.primary),
-              ),
-            ),
-          ),
-
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  package.packageName,
+                  package.packageName.tr(context),
                   style: const TextStyle(
+                    fontFamily: 'Montserrat',
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary, // #40352F
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  package.branchName,
+                  package.branchName.tr(context),
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.textSecondary, // #6B6158
+                    fontFamily: 'Montserrat',
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 14),
 
-                // PackageProgressBar (318x90)
+                // Thống kê tiến độ
                 Row(
                   children: [
-                    _buildStatCol(package.totalSessions.toString(), 'Tổng buổi'),
-                    _buildStatCol(package.completedSessions.toString(), 'Đã dùng'),
-                    _buildStatCol(package.remainingSessions.toString(), 'Còn lại'),
+                    _buildStatCol(package.totalSessions.toString(), context.tr('Tổng buổi', 'Total Sessions')),
+                    _buildStatCol(package.completedSessions.toString(), context.tr('Đã dùng', 'Used')),
+                    _buildStatCol(package.remainingSessions.toString(), context.tr('Còn lại', 'Remaining')),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
-                // Thanh tiến trình (height 6, r=3, #F3E2CE track, #985018 fill)
+                // Thanh tiến trình
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
                     value: package.progressPercent,
                     minHeight: 6,
-                    backgroundColor: AppColors.surfaceSecondary, // #F3E2CE
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary), // #985018
+                    backgroundColor: const Color(0xFFEFF4FE),
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Đã hoàn thành $percentText% liệu trình',
+                  context.tr('Đã hoàn thành $percentText% liệu trình', 'Completed $percentText% of package'),
                   style: const TextStyle(
+                    fontFamily: 'Montserrat',
                     fontSize: 12,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.textSecondary,
                   ),
                 ),
 
                 const SizedBox(height: 12),
                 Text(
-                  'Hạn sử dụng: ${package.expiryDate}',
+                  '${context.tr("Hạn sử dụng:", "Expiration Date:")} ${package.expiryDate}',
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Montserrat',
+                    fontSize: 12.5,
                     color: AppColors.textPrimary,
                   ),
                 ),
 
                 const SizedBox(height: 14),
-                // Nút xem chi tiết & Nút đặt lịch buổi tiếp theo trong liệu trình (Mục 22, 23)
                 Row(
                   children: [
                     Expanded(
                       child: SizedBox(
-                        height: 44,
+                        height: 40,
                         child: OutlinedButton(
                           onPressed: onTap,
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.primary, width: 1.2),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          child: const Text(
-                            'Xem chi tiết',
-                            style: TextStyle(
-                              fontSize: 14,
+                          child: Text(
+                            context.tr('Xem chi tiết', 'View Details'),
+                            style: const TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
                             ),
@@ -511,7 +506,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: SizedBox(
-                          height: 44,
+                          height: 40,
                           child: ElevatedButton(
                             onPressed: () {
                               Navigator.push(
@@ -524,14 +519,15 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               elevation: 0,
                             ),
-                            child: const Text(
-                              'Đặt buổi tiếp',
-                              style: TextStyle(
+                            child: Text(
+                              context.tr('Đặt buổi tiếp', 'Book Next Session'),
+                              style: const TextStyle(
+                                fontFamily: 'Montserrat',
                                 fontSize: 13,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
@@ -556,150 +552,20 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
           Text(
             val,
             style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary, // #985018
+              fontFamily: 'Montserrat',
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
+              fontFamily: 'Montserrat',
               fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuggestedCard(SuggestedPackageModel sug) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.surface, // #FFFFFF
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border, width: 1.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Image.asset(
-                  sug.imageUrl,
-                  height: 172,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 172,
-                    color: AppColors.surfaceSecondary,
-                    child: const Icon(Icons.spa, size: 48, color: AppColors.primary),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _repo.toggleSuggestedFavorite(sug.id);
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      sug.isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: sug.isFavorite ? Colors.red : AppColors.primary,
-                      size: 22,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  sug.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Chuyên viên: ${sug.specialistName}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    Text(
-                      sug.priceText,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary, // #985018
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  sug.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AllInOneBookingScreen(),
-                        ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 1.0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text(
-                      'Xem chi tiết',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
             ),
           ),
         ],

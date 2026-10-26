@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/service_repository.dart';
@@ -101,9 +102,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text(
-          'Dịch vụ trị liệu',
-          style: TextStyle(
+        title: Text(
+          context.tr('Dịch vụ trị liệu', 'Therapy Services'),
+          style: const TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -140,7 +141,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Tìm kiếm dịch vụ dẫn lưu bạch huyết...',
+                    hintText: context.tr('Tìm kiếm dịch vụ dẫn lưu bạch huyết...', 'Search lymphatic drainage services...'),
                     hintStyle: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
@@ -188,7 +189,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         ),
                       ),
                       child: Text(
-                        cat,
+                        cat.tr(context),
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontSize: 13.5,
@@ -223,9 +224,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 children: [
                                   const Icon(Icons.find_in_page_outlined, size: 64, color: AppColors.border),
                                   const SizedBox(height: 12),
-                                  const Text(
-                                    'Không tìm thấy dịch vụ phù hợp',
-                                    style: TextStyle(
+                                  Text(
+                                    context.tr('Không tìm thấy dịch vụ phù hợp', 'No matching services found'),
+                                    style: const TextStyle(
                                       fontFamily: 'Montserrat',
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
@@ -233,9 +234,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 6),
-                                  const Text(
-                                    'Vui lòng thử từ khóa khác hoặc chọn danh mục khác',
-                                    style: TextStyle(
+                                  Text(
+                                    context.tr('Vui lòng thử từ khóa khác hoặc chọn danh mục khác', 'Please try another keyword or category'),
+                                    style: const TextStyle(
                                       fontFamily: 'Montserrat',
                                       fontSize: 13,
                                       color: AppColors.textPlaceholder,
@@ -255,9 +256,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    child: const Text(
-                                      'Đặt lại bộ lọc',
-                                      style: TextStyle(
+                                    child: Text(
+                                      context.tr('Đặt lại bộ lọc', 'Reset filter'),
+                                      style: const TextStyle(
                                         fontFamily: 'Montserrat',
                                         color: Colors.white,
                                         fontSize: 13,

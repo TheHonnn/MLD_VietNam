@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/supabase_data_service.dart';
 import 'd11_community_screen.dart';
 
@@ -141,13 +142,16 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
   }
 
   void _showDocumentDetail(Map<String, dynamic> doc) {
-    final title = doc['title'] as String? ?? '';
-    final category = doc['category'] as String? ?? 'Tài liệu Y khoa';
+    final rawTitle = doc['title'] as String? ?? '';
+    final title = context.tr(rawTitle);
+    final rawCategory = doc['category'] as String? ?? 'Tài liệu Y khoa';
+    final category = context.tr(rawCategory);
     final date = _formatDate(doc['created_at']);
-    final readTime = '${doc['read_time_minutes'] ?? 5} phút đọc';
-    final author = doc['author_name'] as String? ?? 'Hội đồng Y khoa MLD';
-    final summary = doc['summary'] as String? ?? '';
-    final content = doc['content'] as String? ?? '';
+    final readTime = '${doc['read_time_minutes'] ?? 5} ${context.tr('phút đọc', 'mins read')}';
+    final rawAuthor = doc['author_name'] as String? ?? 'Hội đồng Y khoa MLD';
+    final author = context.tr(rawAuthor);
+    final summary = context.tr(doc['summary'] as String? ?? '');
+    final content = context.tr(doc['content'] as String? ?? '');
     final imageUrl = doc['image_url'] as String?;
     final steps = doc['steps'];
 
@@ -418,9 +422,9 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text(
-          'Tài liệu & Y khoa MLD',
-          style: TextStyle(
+        title: Text(
+          context.tr('Tài liệu & Y khoa MLD', 'Documents & Medical MLD'),
+          style: const TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -437,7 +441,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.forum_outlined, color: AppColors.primary),
-            tooltip: 'Cộng đồng MLD',
+            tooltip: context.tr('Cộng đồng MLD', 'MLD Community'),
             onPressed: () {
               Navigator.push(
                 context,
@@ -469,7 +473,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Tìm tài liệu, nghiên cứu lâm sàng, bài viết...',
+                    hintText: context.tr('Tìm tài liệu, nghiên cứu lâm sàng, bài viết...', 'Search documents, clinical studies, articles...'),
                     hintStyle: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
@@ -518,7 +522,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                           ),
                         ),
                         child: Text(
-                          cat,
+                          cat.tr(context),
                           style: TextStyle(
                             fontFamily: 'Montserrat',
                             fontSize: 13.5,
@@ -545,27 +549,27 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                       onRefresh: _loadDocuments,
                       child: filtered.isEmpty
                           ? ListView(
-                              children: const [
-                                SizedBox(height: 100),
+                              children: [
+                                const SizedBox(height: 100),
                                 Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.find_in_page_outlined, size: 64, color: AppColors.border),
-                                      SizedBox(height: 12),
+                                      const Icon(Icons.find_in_page_outlined, size: 64, color: AppColors.border),
+                                      const SizedBox(height: 12),
                                       Text(
-                                        'Không tìm thấy tài liệu phù hợp',
-                                        style: TextStyle(
+                                        context.tr('Không tìm thấy tài liệu phù hợp', 'No matching documents found'),
+                                        style: const TextStyle(
                                           fontFamily: 'Montserrat',
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.textSecondary,
                                         ),
                                       ),
-                                      SizedBox(height: 4),
+                                      const SizedBox(height: 4),
                                       Text(
-                                        'Vui lòng thử từ khóa khác hoặc chọn danh mục khác',
-                                        style: TextStyle(
+                                        context.tr('Vui lòng thử từ khóa khác hoặc chọn danh mục khác', 'Please try another keyword or category'),
+                                        style: const TextStyle(
                                           fontFamily: 'Montserrat',
                                           fontSize: 13,
                                           color: AppColors.textPlaceholder,
@@ -614,7 +618,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                         Padding(
                                           padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
                                           child: Text(
-                                            title,
+                                            title.tr(context),
                                             style: const TextStyle(
                                               fontFamily: 'Montserrat',
                                               fontSize: 17,

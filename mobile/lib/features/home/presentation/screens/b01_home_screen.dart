@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
@@ -448,9 +449,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Xin chào,',
-                            style: TextStyle(
+                          Text(
+                            context.tr('Xin chào,', 'Hello,'),
+                            style: const TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w400,
                               color: AppColors.textSecondary,
@@ -628,9 +629,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Text(
-                                'TRUNG TÂM Y KHOA BẠCH HUYẾT',
-                                style: TextStyle(
+                              child: Text(
+                                context.tr('TRUNG TÂM Y KHOA BẠCH HUYẾT', 'LYMPHATIC MEDICAL CENTER'),
+                                style: const TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
@@ -638,10 +639,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                 ),
                               ),
                             ),
-                            const Column(
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'MLD VIỆT NAM',
                                   style: TextStyle(
                                     fontSize: 22,
@@ -650,23 +651,23 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
-                                  'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder',
-                                  style: TextStyle(
+                                  context.tr('Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder', 'Medical Vodder Manual Lymphatic Drainage'),
+                                  style: const TextStyle(
                                     fontSize: 13.5,
                                     color: Colors.white70,
                                   ),
                                 ),
                               ],
                             ),
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
-                                SizedBox(width: 4),
+                                const Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'Bấm để xem Website & Facebook chính thức ↗',
-                                  style: TextStyle(
+                                  context.tr('Bấm để xem Website & Facebook chính thức ↗', 'Tap to visit official Website & Facebook ↗'),
+                                  style: const TextStyle(
                                     fontSize: 12.5,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -713,13 +714,13 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Chi nhánh trị liệu hiện tại',
-                              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                            Text(
+                              context.tr('Chi nhánh trị liệu hiện tại', 'Current Therapy Branch'),
+                              style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              _selectedBranch,
+                              _selectedBranch.tr(context),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -786,21 +787,21 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           child: const Icon(Icons.menu_book_outlined, color: Colors.white, size: 16),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
-                          'CỘNG ĐỒNG CHUYÊN GIA MLD',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
+                        Text(
+                          context.tr('CỘNG ĐỒNG CHUYÊN GIA MLD', 'MLD SPECIALIST COMMUNITY'),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Chia sẻ ca lâm sàng & Hướng dẫn phục hồi Vodder',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3),
+                    Text(
+                      context.tr('Chia sẻ ca lâm sàng & Hướng dẫn phục hồi Vodder', 'Clinical Case Sharing & Vodder Recovery Guide'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Theo dõi các tài liệu trị liệu và bài viết chuyên môn do đội ngũ Bác sĩ, Giảng viên MLD trực tiếp biên soạn.',
-                      style: TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.4),
+                    Text(
+                      context.tr('Theo dõi các tài liệu trị liệu và bài viết chuyên môn do đội ngũ Bác sĩ, Giảng viên MLD trực tiếp biên soạn.', 'Follow specialized therapy articles compiled directly by MLD Doctors & Master Trainers.'),
+                      style: const TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.4),
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -817,7 +818,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
                           );
                         },
-                        child: const Text('Xem bài viết chuyên môn', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                        child: Text(
+                          context.tr('Xem bài viết chuyên môn', 'Read specialized articles'),
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                   ],

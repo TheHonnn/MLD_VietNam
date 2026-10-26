@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/booking_models.dart';
 
 /// ComponentFamily / BookingStatusBadge [8111:28882]
@@ -61,10 +62,11 @@ class BookingStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        label,
+        label.tr(context),
         style: TextStyle(
+          fontFamily: 'Montserrat',
           fontSize: 12,
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w600,
           color: textColor,
         ),
       ),

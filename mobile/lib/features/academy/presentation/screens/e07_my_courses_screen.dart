@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../widgets/academy_widgets.dart';
 import 'e01_academy_home_screen.dart';
 import '../../data/models/academy_models.dart';
@@ -67,9 +68,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Khóa học của tôi',
-              style: TextStyle(
+            Text(
+              context.tr('Khóa học của tôi', 'My Courses'),
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
@@ -77,9 +78,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Theo dõi quá trình học tập và phát triển kỹ năng.',
-              style: TextStyle(
+            Text(
+              context.tr('Theo dõi quá trình học tập và phát triển kỹ năng.', 'Track your learning journey and skill advancement.'),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: AcademyColors.textSecondary,
@@ -102,14 +103,16 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                 children: [
                   Row(
                     children: [
-                      _buildMetricColumn('${allCourses.length}', 'đã ghi danh'),
-                      _buildMetricColumn('${inProgressCourses.length}', 'đang học'),
-                      _buildMetricColumn('${completedCourses.length}', 'hoàn thành'),
+                      _buildMetricColumn('${allCourses.length}', context.tr('đã ghi danh', 'enrolled')),
+                      _buildMetricColumn('${inProgressCourses.length}', context.tr('đang học', 'in progress')),
+                      _buildMetricColumn('${completedCourses.length}', context.tr('hoàn thành', 'completed')),
                     ],
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '${allCourses.fold<int>(0, (acc, c) => acc + c.totalHours)} giờ học · ${allCourses.length} khóa đang tham gia',
+                    context.isEn
+                        ? '${allCourses.fold<int>(0, (acc, c) => acc + c.totalHours)} learning hours · ${allCourses.length} active courses'
+                        : '${allCourses.fold<int>(0, (acc, c) => acc + c.totalHours)} giờ học · ${allCourses.length} khóa đang tham gia',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -117,9 +120,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Tổng số giờ tích lũy thực hành và lý thuyết.',
-                    style: TextStyle(
+                  Text(
+                    context.tr('Tổng số giờ tích lũy thực hành và lý thuyết.', 'Total accumulated theory and practice hours.'),
+                    style: const TextStyle(
                       fontSize: 12,
                       color: AcademyColors.textSecondary,
                       height: 1.4,
@@ -140,9 +143,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               ),
               child: Row(
                 children: [
-                  _buildNavTab(0, 'Đang học (${inProgressCourses.length})'),
-                  _buildNavTab(1, 'Sắp học (${upcomingCourses.length})'),
-                  _buildNavTab(2, 'Đã hoàn thành (${completedCourses.length})'),
+                  _buildNavTab(0, '${context.tr('Đang học', 'In Progress')} (${inProgressCourses.length})'),
+                  _buildNavTab(1, '${context.tr('Sắp học', 'Upcoming')} (${upcomingCourses.length})'),
+                  _buildNavTab(2, '${context.tr('Đã hoàn thành', 'Completed')} (${completedCourses.length})'),
                 ],
               ),
             ),
@@ -242,7 +245,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           const Icon(Icons.school_outlined, size: 48, color: AcademyColors.textSecondary),
           const SizedBox(height: 14),
           Text(
-            'Chưa có khóa học $tabTitle',
+            context.isEn ? 'No $tabTitle courses yet' : 'Chưa có khóa học $tabTitle',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
@@ -251,10 +254,10 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Khám phá danh mục các khóa đào tạo nghề Spa & Trị liệu dưỡng sinh của Học viện MLD để nâng cao tay nghề.',
+          Text(
+            context.tr('Khám phá danh mục các khóa đào tạo nghề Spa & Trị liệu dưỡng sinh của Học viện MLD để nâng cao tay nghề.', 'Explore MLD Academy vocational training courses to advance your skills.'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               color: AcademyColors.textSecondary,
               height: 1.45,
@@ -276,9 +279,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
               ),
-              child: const Text(
-                'Khám phá khóa học ngay',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              child: Text(
+                context.tr('Khám phá khóa học ngay', 'Explore Courses Now'),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -329,9 +332,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                         color: AcademyColors.cardWarm,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
-                        'ĐANG HỌC · ĐÃ GHI DANH',
-                        style: TextStyle(
+                      child: Text(
+                        context.tr('ĐANG HỌC · ĐÃ GHI DANH', 'IN PROGRESS · ENROLLED'),
+                        style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: AcademyColors.primary,
@@ -340,7 +343,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      course.title,
+                      course.title.tr(context),
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -350,7 +353,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${course.totalHours} giờ · ${course.branch}',
+                      '${course.totalHours} ${context.tr('giờ', 'hours')} · ${course.branch.tr(context)}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AcademyColors.textSecondary,

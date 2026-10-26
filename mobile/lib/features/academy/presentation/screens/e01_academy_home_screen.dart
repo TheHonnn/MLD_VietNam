@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import 'e03_course_detail_screen.dart';
@@ -109,9 +110,9 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text(
-          'Đào tạo & Khóa học',
-          style: TextStyle(
+        title: Text(
+          context.tr('Đào tạo & Khóa học', 'Academy & Courses'),
+          style: const TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -148,7 +149,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Tìm kiếm khóa học dẫn lưu...',
+                    hintText: context.tr('Tìm kiếm khóa học dẫn lưu...', 'Search drainage courses...'),
                     hintStyle: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
@@ -196,7 +197,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                         ),
                       ),
                       child: Text(
-                        cat,
+                        cat.tr(context),
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontSize: 13.5,
@@ -222,27 +223,27 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                       onRefresh: _loadCourses,
                       child: filtered.isEmpty
                           ? ListView(
-                              children: const [
-                                SizedBox(height: 80),
+                              children: [
+                                const SizedBox(height: 80),
                                 Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.find_in_page_outlined, size: 64, color: AppColors.border),
-                                      SizedBox(height: 12),
+                                      const Icon(Icons.find_in_page_outlined, size: 64, color: AppColors.border),
+                                      const SizedBox(height: 12),
                                       Text(
-                                        'Không tìm thấy khóa học phù hợp',
-                                        style: TextStyle(
+                                        context.tr('Không tìm thấy khóa học phù hợp', 'No matching courses found'),
+                                        style: const TextStyle(
                                           fontFamily: 'Montserrat',
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.textHeading,
                                         ),
                                       ),
-                                      SizedBox(height: 4),
+                                      const SizedBox(height: 4),
                                       Text(
-                                        'Vui lòng thử từ khóa khác hoặc chọn danh mục khác',
-                                        style: TextStyle(
+                                        context.tr('Vui lòng thử từ khóa khác hoặc chọn danh mục khác', 'Please try another keyword or category'),
+                                        style: const TextStyle(
                                           fontFamily: 'Montserrat',
                                           fontSize: 13,
                                           color: AppColors.textPlaceholder,
@@ -397,7 +398,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                           const Icon(Icons.play_circle_fill, color: Colors.white, size: 14),
                           const SizedBox(width: 4),
                           Text(
-                            '$sessionsCount buổi học',
+                            '$sessionsCount ${context.tr('buổi học', 'sessions')}',
                             style: const TextStyle(
                               fontFamily: 'Montserrat',
                               color: Colors.white,
@@ -428,7 +429,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                         color: _isPressed ? AppColors.primary : const Color(0xFF0F172A),
                         height: 1.35,
                       ),
-                      child: Text(course.title),
+                      child: Text(course.title.tr(context)),
                     ),
 
                     const SizedBox(height: 12),
@@ -501,7 +502,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Chi tiết',
+                                context.tr('Chi tiết', 'Details'),
                                 style: TextStyle(
                                   fontFamily: 'Montserrat',
                                   fontSize: 13,
