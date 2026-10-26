@@ -526,30 +526,6 @@ export interface CourseBatch {
   branch?: Branch;
 }
 
-export interface CourseLesson {
-  id: string;
-  chapterId: string;
-  lessonOrder: number;
-  title: string;
-  lessonType: 'VIDEO' | 'DOCUMENT' | 'QUIZ';
-  durationMinutes: number;
-  videoUrl?: string | null;
-  contentText?: string | null;
-  attachments?: any[];
-  isFreePreview: boolean;
-  createdAt?: string;
-}
-
-export interface CourseChapter {
-  id: string;
-  courseId: string;
-  chapterOrder: number;
-  title: string;
-  description?: string | null;
-  lessons?: CourseLesson[];
-  createdAt?: string;
-}
-
 export interface CourseEnrollment {
   id: string;
   studentId: string;
