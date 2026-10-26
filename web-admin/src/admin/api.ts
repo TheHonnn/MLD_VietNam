@@ -149,6 +149,7 @@ const TABLE_SELECTS: Record<string, string> = {
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
   services: "*,service_categories(name,code)",
   treatment_packages: "*,services(name)",
+  courses: "*,course_categories(name,code),primary_instructor:instructors!primary_instructor_id(full_name)",
   staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
 };
 
@@ -648,6 +649,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.courses) {
         r.course_title = r.course_title || r.courses.title;
+      }
+      if (r.primary_instructor) {
+        r.instructor_name = r.instructor_name || r.primary_instructor.full_name;
       }
       if (r.course_chapters) {
         r.chapter_title = r.chapter_title || r.course_chapters.title;
