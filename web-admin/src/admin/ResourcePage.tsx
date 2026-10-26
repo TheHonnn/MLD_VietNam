@@ -11,6 +11,7 @@ import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeE
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
 import { InstructorFormEditor } from "./InstructorFormEditor";
 import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
+import { StudentAcademicRecordFormEditor } from "./StudentAcademicRecordFormEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -2502,6 +2503,22 @@ function RecordDialog({
           payload.topic = "Buổi học chuyên đề Dẫn lưu Bạch huyết Vodder";
         }
       }
+      if (resource.name === "student_academic_records") {
+        if (!payload.enrollment_id && values.enrollment_id) payload.enrollment_id = values.enrollment_id;
+        payload.theory_score = Number(payload.theory_score ?? values.theory_score ?? 0);
+        payload.practical_score = Number(payload.practical_score ?? values.practical_score ?? 0);
+        payload.attended_sessions = Number(payload.attended_sessions ?? values.attended_sessions ?? 0);
+        payload.total_batch_sessions = Number(payload.total_batch_sessions ?? values.total_batch_sessions ?? 10);
+        payload.attendance_rate = Number(payload.attendance_rate ?? values.attendance_rate ?? 100);
+        payload.is_graduated = Boolean(payload.is_graduated ?? values.is_graduated ?? true);
+        if (payload.is_graduated && !payload.graduation_date) {
+          payload.graduation_date = values.graduation_date || new Date().toISOString().split("T")[0];
+        }
+        if (values.feedback_theory !== undefined) payload.feedback_theory = values.feedback_theory;
+        if (values.feedback_practical !== undefined) payload.feedback_practical = values.feedback_practical;
+        if (values.feedback_attendance !== undefined) payload.feedback_attendance = values.feedback_attendance;
+        if (values.feedback_attitude !== undefined) payload.feedback_attitude = values.feedback_attitude;
+      }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -2660,6 +2677,27 @@ function RecordDialog({
                 end_time: String(values.end_time ?? (columns.find((x) => x.name === "end_time") ? current(columns.find((x) => x.name === "end_time")!) : "")),
                 topic: String(values.topic ?? (columns.find((x) => x.name === "topic") ? current(columns.find((x) => x.name === "topic")!) : "")),
                 is_practice_lab: Boolean(values.is_practice_lab ?? (columns.find((x) => x.name === "is_practice_lab") ? current(columns.find((x) => x.name === "is_practice_lab")!) : true) ?? true),
+              }}
+              onChange={(field, val) => set(field, val)}
+              isCreate={mode === "create"}
+            />
+          </div>
+        ) : resource.name === "student_academic_records" && mode !== "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
+            <StudentAcademicRecordFormEditor
+              values={{
+                enrollment_id: String(values.enrollment_id ?? (columns.find((x) => x.name === "enrollment_id") ? current(columns.find((x) => x.name === "enrollment_id")!) : "")),
+                theory_score: values.theory_score !== undefined ? values.theory_score : (columns.find((x) => x.name === "theory_score") ? (current(columns.find((x) => x.name === "theory_score")!) ?? "") : ""),
+                practical_score: values.practical_score !== undefined ? values.practical_score : (columns.find((x) => x.name === "practical_score") ? (current(columns.find((x) => x.name === "practical_score")!) ?? "") : ""),
+                attended_sessions: values.attended_sessions !== undefined ? values.attended_sessions : (columns.find((x) => x.name === "attended_sessions") ? (current(columns.find((x) => x.name === "attended_sessions")!) ?? 10) : 10),
+                total_batch_sessions: values.total_batch_sessions !== undefined ? values.total_batch_sessions : (columns.find((x) => x.name === "total_batch_sessions") ? (current(columns.find((x) => x.name === "total_batch_sessions")!) ?? 10) : 10),
+                attendance_rate: values.attendance_rate !== undefined ? values.attendance_rate : (columns.find((x) => x.name === "attendance_rate") ? (current(columns.find((x) => x.name === "attendance_rate")!) ?? 100) : 100),
+                feedback_theory: String(values.feedback_theory ?? (columns.find((x) => x.name === "feedback_theory") ? (current(columns.find((x) => x.name === "feedback_theory")!) || "") : "")),
+                feedback_practical: String(values.feedback_practical ?? (columns.find((x) => x.name === "feedback_practical") ? (current(columns.find((x) => x.name === "feedback_practical")!) || "") : "")),
+                feedback_attendance: String(values.feedback_attendance ?? (columns.find((x) => x.name === "feedback_attendance") ? (current(columns.find((x) => x.name === "feedback_attendance")!) || "") : "")),
+                feedback_attitude: String(values.feedback_attitude ?? (columns.find((x) => x.name === "feedback_attitude") ? (current(columns.find((x) => x.name === "feedback_attitude")!) || "") : "")),
+                is_graduated: Boolean(values.is_graduated ?? (columns.find((x) => x.name === "is_graduated") ? current(columns.find((x) => x.name === "is_graduated")!) : true) ?? true),
+                graduation_date: values.graduation_date !== undefined ? (values.graduation_date ? String(values.graduation_date) : null) : (columns.find((x) => x.name === "graduation_date") && current(columns.find((x) => x.name === "graduation_date")!) ? String(current(columns.find((x) => x.name === "graduation_date")!)) : null),
               }}
               onChange={(field, val) => set(field, val)}
               isCreate={mode === "create"}
