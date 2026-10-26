@@ -29,6 +29,7 @@ import {
 } from '../services';
 import { toast } from '../components/common';
 import { matchSearch } from '../utils/searchUtils';
+import { supabaseService } from '../services/supabaseService';
 import {
   TreatmentPackage as SharedTreatmentPackage,
   UserPackage,
@@ -36,6 +37,7 @@ import {
   TreatmentJournal,
   User,
   Branch,
+  Technician,
   BookingStatus,
   PaymentStatus,
   PaymentMethod,
@@ -124,7 +126,9 @@ export const W06_TreatmentManagement: React.FC = () => {
   });
   const [bookingTime, setBookingTime] = useState('09:00');
   const [bookingBranchId, setBookingBranchId] = useState('');
+  const [bookingTechnicianId, setBookingTechnicianId] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
 
   // Clinical Session Form
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -142,13 +146,14 @@ export const W06_TreatmentManagement: React.FC = () => {
   const fetchTreatmentData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes] = await Promise.all([
+      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList] = await Promise.all([
         treatmentService.getTreatmentPackages(),
         treatmentService.getUserPackagesByCustomer(),
         treatmentService.getServices(),
         treatmentService.getTreatmentJournalsByCustomer(),
         customerService.getCustomers(),
         branchService.getAllBranches(),
+        supabaseService.getTechnicians(),
       ]);
 
       if (pkgRes.success) setLivePackages(pkgRes.data);
@@ -159,6 +164,9 @@ export const W06_TreatmentManagement: React.FC = () => {
       if (brRes.success && brRes.data.length > 0) {
         setBranches(brRes.data);
         setBookingBranchId(brRes.data[0].id);
+      }
+      if (techList && techList.length > 0) {
+        setTechnicians(techList);
       }
     } catch (err) {
       console.error('Failed to load treatment data:', err);
@@ -174,6 +182,11 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   const custMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
   const branchMap = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
+
+  const availableBranchTechnicians = useMemo(() => {
+    const list = technicians.filter((t) => !bookingBranchId || t.branchId === bookingBranchId);
+    return list.length > 0 ? list : technicians;
+  }, [technicians, bookingBranchId]);
 
   const packages: TreatmentPackageUI[] = useMemo(() => {
     if (!liveUserPackages || liveUserPackages.length === 0) return [];
@@ -368,6 +381,9 @@ export const W06_TreatmentManagement: React.FC = () => {
     const tomorrow = new Date(Date.now() + 86400000);
     setBookingDate(tomorrow.toISOString().split('T')[0]);
     setBookingTime('09:00');
+    const targetBranchId = bookingBranchId || branches[0]?.id || '';
+    const branchTechs = technicians.filter((t) => !targetBranchId || t.branchId === targetBranchId);
+    setBookingTechnicianId(branchTechs[0]?.id || technicians[0]?.id || '');
     setBookingNotes(`Buổi ${selectedPkg.usedSessions + 1}/${selectedPkg.sessionsTotal} - ${selectedPkg.name}`);
     setIsBookNextModalOpen(true);
   };
@@ -382,11 +398,15 @@ export const W06_TreatmentManagement: React.FC = () => {
     setIsSubmittingBooking(true);
     try {
       const selectedBranch = branchMap.get(bookingBranchId) || branches[0];
+      const selectedTech = technicians.find((t) => t.id === bookingTechnicianId) || availableBranchTechnicians[0];
       const res = await bookingService.createBooking({
         customerId: selectedCustomer.id,
         customerName: selectedCustomer.fullName,
         customerPhone: selectedCustomer.phone,
         branchId: selectedBranch?.id,
+        technicianId: selectedTech?.id || null,
+        technicianName: selectedTech?.fullName || 'KTV MLD',
+        roomName: selectedTech?.title || 'Phòng Trị Liệu',
         bookingDate,
         startTime: `${bookingTime}:00`,
         endTime: `${bookingTime.slice(0, 2)}:50:00`,
@@ -403,7 +423,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       if (res.success) {
         toast.success(
           'Đặt lịch thành công',
-          `Đã tạo lịch hẹn ${res.data.bookingCode} cho khách hàng ${selectedCustomer.fullName} vào ngày ${bookingDate}.`
+          `Đã tạo lịch hẹn ${res.data.bookingCode} cho khách hàng ${selectedCustomer.fullName} vào ngày ${bookingDate} (KTV: ${selectedTech?.fullName || 'MLD Clinic'}).`
         );
         setIsBookNextModalOpen(false);
       } else {
@@ -1220,7 +1240,14 @@ export const W06_TreatmentManagement: React.FC = () => {
                 </label>
                 <select
                   value={bookingBranchId}
-                  onChange={(e) => setBookingBranchId(e.target.value)}
+                  onChange={(e) => {
+                    const nextBId = e.target.value;
+                    setBookingBranchId(nextBId);
+                    const matchingTechs = technicians.filter((t) => t.branchId === nextBId);
+                    if (matchingTechs.length > 0) {
+                      setBookingTechnicianId(matchingTechs[0].id);
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
                 >
                   {branches.map((b) => (
@@ -1228,6 +1255,27 @@ export const W06_TreatmentManagement: React.FC = () => {
                       {b.name} - {b.district}, {b.city}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Kỹ thuật viên phụ trách <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={bookingTechnicianId}
+                  onChange={(e) => setBookingTechnicianId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
+                >
+                  {availableBranchTechnicians.length === 0 ? (
+                    <option value="">-- Kỹ thuật viên mặc định chi nhánh --</option>
+                  ) : (
+                    availableBranchTechnicians.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.fullName} {t.title ? `(${t.title})` : ''}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
