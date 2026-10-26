@@ -1,9 +1,7 @@
 import React, { useState, useRef } from "react";
 import {
-  Sparkles,
   Upload,
   Image as ImageIcon,
-  Check,
   Plus,
   Minus,
   RefreshCw,
@@ -46,45 +44,6 @@ export function slugifyCategoryCode(name: string): string {
   str = str.replace(/\s+/g, "-").replace(/-+/g, "-");
   return str.toUpperCase();
 }
-
-// Các mẫu danh mục gợi ý nhanh chuẩn Y khoa Học viện MLD
-export const PRESET_CATEGORIES = [
-  {
-    name: "Dẫn lưu Bạch huyết Vodder Cơ bản",
-    code: "MLD-BASIC",
-    icon_url: "https://api.iconify.design/lucide:graduation-cap.svg?color=%23985018",
-    emoji: "🎓",
-    description: "Khóa đào tạo nền tảng lý thuyết & thao tác dẫn lưu bạch huyết chuẩn Dr. Vodder quốc tế.",
-  },
-  {
-    name: "Phù nề Hậu phẫu & Trị liệu Y khoa",
-    code: "MLD-POSTOP",
-    icon_url: "https://api.iconify.design/lucide:hospital.svg?color=%23985018",
-    emoji: "🏥",
-    description: "Phác đồ kiểm soát và phục hồi biến chứng phù nề sau phẫu thuật tạo hình, chấn thương mô.",
-  },
-  {
-    name: "Kỹ thuật Chuyên sâu & Thực hành Lâm sàng",
-    code: "MLD-ADVANCED",
-    icon_url: "https://api.iconify.design/lucide:activity.svg?color=%23985018",
-    emoji: "💆",
-    description: "Kỹ thuật nắn bóp chuyên sâu, giải phóng xơ hóa và hỗ trợ bệnh lý phù bạch huyết mạn tính.",
-  },
-  {
-    name: "Đào tạo Giảng viên & Master Vodder",
-    code: "MLD-MASTER",
-    icon_url: "https://api.iconify.design/lucide:award.svg?color=%23985018",
-    emoji: "🩺",
-    description: "Chương trình phát triển giảng viên sư phạm và chuyển giao phác đồ MLD độc quyền.",
-  },
-  {
-    name: "Chăm sóc Tự nhiên & Phục hồi Tại nhà",
-    code: "MLD-HOMECARE",
-    icon_url: "https://api.iconify.design/lucide:leaf.svg?color=%23985018",
-    emoji: "🌿",
-    description: "Cẩm nang hướng dẫn tự chăm sóc tuần hoàn bạch huyết và duy trì hiệu quả tại gia.",
-  },
-];
 
 // Danh sách biểu tượng icon/SVG chuẩn để chọn 1 chạm
 export const PRESET_ICONS = [
@@ -149,14 +108,6 @@ export const CourseCategoryFormEditor: React.FC<CourseCategoryFormEditorProps> =
   const [customIconTab, setCustomIconTab] = useState<"preset" | "upload" | "url">("preset");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Áp dụng mẫu danh mục có sẵn
-  const handleApplyPreset = (preset: typeof PRESET_CATEGORIES[0]) => {
-    onChange("name", preset.name);
-    onChange("code", preset.code);
-    onChange("icon_url", preset.icon_url);
-    onChange("description", preset.description);
-  };
-
   // Tự động sinh mã khi nhập tên
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value;
@@ -206,33 +157,7 @@ export const CourseCategoryFormEditor: React.FC<CourseCategoryFormEditorProps> =
 
   return (
     <div className="admin-field-wide space-y-4">
-      {/* 1. THANH GỢI Ý MẪU 1-CHẠM (Dành cho việc tạo mới nhanh) */}
-      {isCreate && (
-        <div className="p-3 bg-[#FAF5EF] border border-[#EFE4D9] rounded-2xl space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#8A4F23] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#985018]" />
-              <span>Gợi ý mẫu danh mục đào tạo MLD chuẩn:</span>
-            </span>
-            <span className="text-[10px] text-[#8C7A6B]">Bấm để điền mẫu tự động</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {PRESET_CATEGORIES.map((preset) => (
-              <button
-                key={preset.code}
-                type="button"
-                onClick={() => handleApplyPreset(preset)}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-[#7A3E10] border border-[#BA7E4C]/30 hover:bg-[#F3E2CE] hover:border-[#985018] transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 text-left"
-              >
-                <span>{preset.emoji}</span>
-                <span>{preset.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 2. HAI CỘT: TÊN DANH MỤC & MÃ DANH MỤC */}
+      {/* 1. HAI CỘT: TÊN DANH MỤC & MÃ DANH MỤC */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div>
           <label className="block text-xs font-bold text-[#2C241E] mb-1">

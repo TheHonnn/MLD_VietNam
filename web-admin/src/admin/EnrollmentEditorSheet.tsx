@@ -760,36 +760,22 @@ export const EnrollmentEditorSheet: React.FC<EnrollmentEditorSheetProps> = ({
             </div>
 
             {/* Trạng thái học tập */}
-            <div className="col-span-full">
-              <label className="block text-xs font-bold text-[#4A3E31] mb-2">
+            <div className="col-span-full md:col-span-1">
+              <label className="block text-xs font-bold text-[#4A3E31] mb-1">
                 Trạng thái học tập & Tuyển sinh <span className="text-[#DC2626]">*</span>
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                {STATUS_OPTIONS.map((opt) => {
-                  const isSelected = status === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      disabled={isView}
-                      onClick={() => setStatus(opt.value)}
-                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                        isSelected
-                          ? `${opt.badgeClass} ring-2 ring-[#985018] font-bold shadow-xs`
-                          : "bg-[#FDFBF7] border-[#E8DFD8] text-[#4A3E31] hover:bg-white"
-                      } disabled:opacity-80 disabled:cursor-default`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${opt.dotClass}`} />
-                        <span className="text-xs">{opt.label}</span>
-                      </div>
-                      <p className="text-[10px] text-[#7F6E60] mt-1 leading-tight line-clamp-2">
-                        {opt.desc}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+              <select
+                disabled={isView}
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA] font-medium"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
