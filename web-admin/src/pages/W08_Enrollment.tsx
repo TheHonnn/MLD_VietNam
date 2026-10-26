@@ -958,9 +958,9 @@ export const W08_Enrollment: React.FC = () => {
                     ))
                   ) : (
                     <>
-                      <option value="cccccccc-0001-0001-0001-000000000001">Kỹ thuật Massage Chuyên Nghiệp</option>
-                      <option value="cccccccc-0001-0001-0001-000000000002">Kỹ thuật Spa Cơ bản</option>
-                      <option value="cccccccc-0001-0001-0001-000000000003">Chăm sóc da cơ bản</option>
+                      <option value="cccccccc-0001-0001-0001-000000000001">Đào tạo Dẫn lưu Bạch huyết MLD Vodder Chuyên sâu</option>
+                      <option value="cccccccc-0001-0001-0001-000000000002">Dẫn lưu Bạch huyết Phù nề Sau Phẫu Thuật</option>
+                      <option value="cccccccc-0001-0001-0001-000000000003">Chăm sóc Phục hồi Hệ Bạch Huyết Chuẩn Y Khoa</option>
                     </>
                   )}
                 </select>

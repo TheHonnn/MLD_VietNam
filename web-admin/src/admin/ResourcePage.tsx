@@ -5,6 +5,7 @@ import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurve
 import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
+import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -1344,8 +1345,7 @@ function ReferenceInput({
   onChange: (v: string) => void;
   required: boolean;
 }) {
-  const [search, setSearch] = useState(""),
-    [rows, setRows] = useState<Row[]>([]),
+  const [rows, setRows] = useState<Row[]>([]),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0),
     [error, setError] = useState(""),
@@ -1355,7 +1355,7 @@ function ReferenceInput({
     setBusy(true);
     const timer = setTimeout(() => {
       adminApi<Listing>(
-        `${column.reference!.table}?limit=25&page=${page}&search=${encodeURIComponent(search)}`,
+        `${column.reference!.table}?limit=100&page=${page}`,
         undefined,
         controller.signal,
       )
@@ -1370,24 +1370,14 @@ function ReferenceInput({
         .finally(() => {
           if (!controller.signal.aborted) setBusy(false);
         });
-    }, 200);
+    }, 150);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [column.reference!.table, search, page]);
+  }, [column.reference!.table, page]);
   return (
     <div className="admin-reference">
-      <input
-        type="search"
-        aria-label={`Tìm ${label(column.name)}`}
-        placeholder="Tìm bản ghi liên kết…"
-        value={search}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          setPage(1);
-        }}
-      />
       <select
         aria-label={label(column.name)}
         value={value}
@@ -1411,7 +1401,7 @@ function ReferenceInput({
         ))}
       </select>
       {error && <span className="admin-field-error">{error}</span>}
-      {total > 25 && (
+      {total > 100 && (
         <div className="admin-reference-pages">
           <button
             type="button"
@@ -1422,12 +1412,12 @@ function ReferenceInput({
             <ChevronLeft size={14} />
           </button>
           <span>
-            {page} / {Math.ceil(total / 25)}
+            {page} / {Math.ceil(total / 100)}
           </span>
           <button
             type="button"
             title="Trang sau"
-            disabled={page * 25 >= total || busy}
+            disabled={page * 100 >= total || busy}
             onClick={() => setPage(page + 1)}
           >
             <ChevronRight size={14} />
@@ -2366,6 +2356,11 @@ function RecordDialog({
       if (c.name === "booking_date" || c.name === "session_date" || c.name === "start_date") {
         return formatDateForInput(new Date());
       }
+      if (c.name === "end_date") {
+        const base = new Date();
+        const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 13);
+        return formatDateForInput(d);
+      }
       return "";
     }
     const val = row[c.name];
@@ -2435,6 +2430,13 @@ function RecordDialog({
       }
       if (resource.name === "services" && !payload.slug) {
         payload.slug = toServiceSlug(String(payload.name || values.name || row.name || "dich-vu"));
+      }
+      if (resource.name === "course_batches") {
+        const sDate = payload.start_date || mergedValues.start_date;
+        const eDate = payload.end_date || mergedValues.end_date;
+        if (sDate && eDate && eDate < sDate) {
+          throw new Error("Ngày kết thúc / bế giảng phải diễn ra sau ngày bắt đầu nhập học.");
+        }
       }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
@@ -2542,6 +2544,43 @@ function RecordDialog({
                 structured && typeof value === "object"
                   ? JSON.stringify(value, null, 2)
                   : String(value);
+
+              // Custom Date Range Picker for course_batches
+              if (resource.name === "course_batches" && c.name === "end_date" && mode !== "view") {
+                // Handled together inside BatchDateRangeEditor when start_date is rendered
+                return null;
+              }
+
+              if (resource.name === "course_batches" && c.name === "start_date" && mode !== "view") {
+                const endCol = columns.find((x) => x.name === "end_date");
+                const currentEndVal = endCol ? current(endCol) : "";
+                return (
+                  <BatchDateRangeEditor
+                    key="course_batches_date_range"
+                    startDate={String(value || "")}
+                    endDate={String(currentEndVal || "")}
+                    onStartDateChange={(newStart) => set("start_date", newStart)}
+                    onEndDateChange={(newEnd) => set("end_date", newEnd)}
+                    required={required}
+                  />
+                );
+              }
+
+              // Custom quick Schedule Text chips for course_batches
+              if (resource.name === "course_batches" && c.name === "schedule_text" && mode !== "view") {
+                return (
+                  <div key={c.name} className="admin-field-wide space-y-1.5">
+                    <span className="text-xs font-bold text-[#2C241E]">
+                      {label(c.name)} {required && <b className="admin-required">*</b>}
+                    </span>
+                    <BatchScheduleTextEditor
+                      value={String(value || "")}
+                      onChange={(newSchedule) => set("schedule_text", newSchedule)}
+                      required={required}
+                    />
+                  </div>
+                );
+              }
 
               if (
                 resource.name === "consultation_surveys" &&
