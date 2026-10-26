@@ -3,15 +3,27 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
+import '../../../treatment/data/repositories/treatment_repository.dart';
+import '../../../treatment/data/models/treatment_models.dart';
+import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
+import '../../../treatment/presentation/screens/d03_care_journal_screen.dart';
+import '../../../academy/data/repositories/academy_repository.dart';
+import '../../../academy/data/models/academy_models.dart';
+import '../../../academy/presentation/screens/e07_my_courses_screen.dart';
+import '../../../academy/presentation/screens/e11_attendance_schedule_screen.dart';
+import '../../../academy/presentation/screens/e12_learning_results_screen.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
+import 'f06_payment_history_screen.dart';
 import 'f08_settings_screen.dart';
 
-/// Screen F01: Trang Cá nhân tối giản theo chuẩn Design System (#2860EB)
-/// Loại bỏ toàn bộ các mục dư thừa: Hội viên, phiếu trước dịch vụ, hướng dẫn chăm sóc, v.v.
-/// Chỉ giữ lại: Thông tin cá nhân, Lịch hẹn của tôi, Cài đặt tài khoản và Đăng xuất.
+/// Screen F01: Trang Cá nhân chuẩn Design System (#2860EB)
+/// Tối ưu trải nghiệm:
+/// - Giữ đầy đủ các nghiệp vụ quan trọng: Khóa học của tôi, Lịch học, Chứng chỉ, Lịch hẹn, Gói liệu trình, v.v.
+/// - Đã loại bỏ các mục rườm rà theo yêu cầu: Thẻ hội viên, điểm tích lũy, voucher, phiếu trước khám, hướng dẫn chăm sóc, icon phân loại.
 class F01ProfileDashboardScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
 
@@ -38,6 +50,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           _profile = p;
         });
       }
+    });
+    AcademyRepository.instance.getMyCourses().then((_) {
+      if (mounted) setState(() {});
     });
   }
 
@@ -102,8 +117,16 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
         ? _profile.phone
         : (AuthService.instance.lastLoginPhone ?? 'Chưa cập nhật số điện thoại');
 
+    final upcomingAppointmentsCount = BookingRepository.instance.getUpcomingAppointments().length;
+    final myCoursesCount = AcademyRepository.instance.enrolledCourses.isNotEmpty
+        ? AcademyRepository.instance.enrolledCourses.length
+        : MockAcademyData.courses.length;
+    final remainingSessions = TreatmentRepository.instance.packages
+        .where((p) => p.status == PackageStatus.active)
+        .fold<int>(0, (acc, p) => acc + (p.totalSessions - p.completedSessions));
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -126,17 +149,18 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ==========================================
-              // 1. THẺ HỒ SƠ NGƯỜI DÙNG (Minimalist Profile Header)
+              // 1. THẺ HỒ SƠ NGƯỜI DÙNG
               // ==========================================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.border),
                   boxShadow: [
@@ -198,57 +222,34 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // ==========================================
-              // 2. DANH SÁCH MENU TỐI GIẢN (4 Mục duy nhất)
+              // 2. CHỈ SỐ NHANH (Khóa học, Lịch hẹn, Liệu trình)
               // ==========================================
-              const Text(
-                'Tài khoản & Dịch vụ',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Mục 1: Thông tin cá nhân
-                    _buildMenuItem(
-                      icon: Icons.person_outline_rounded,
-                      title: 'Thông tin cá nhân',
-                      subtitle: 'Hồ sơ, hình ảnh và thông tin liên hệ',
-                      onTap: () async {
-                        await Navigator.push(
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricItem(
+                      icon: Icons.school_outlined,
+                      count: myCoursesCount.toString(),
+                      label: 'Khóa học',
+                      subLabel: 'đang học',
+                      onTap: () {
+                        Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
+                          MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
                         );
-                        _refreshProfile();
                       },
                     ),
-
-                    const Divider(height: 1, indent: 56, color: AppColors.border),
-
-                    // Mục 2: Lịch hẹn của tôi (Đồng bộ với C09)
-                    _buildMenuItem(
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildMetricItem(
                       icon: Icons.calendar_today_outlined,
-                      title: 'Lịch hẹn của tôi',
-                      subtitle: 'Quản lý lịch hẹn sắp tới và đã hoàn thành',
+                      count: upcomingAppointmentsCount.toString(),
+                      label: 'Lịch hẹn',
+                      subLabel: 'sắp tới',
                       onTap: () {
                         Navigator.push(
                           context,
@@ -256,41 +257,176 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         );
                       },
                     ),
-
-                    const Divider(height: 1, indent: 56, color: AppColors.border),
-
-                    // Mục 3: Cài đặt tài khoản
-                    _buildMenuItem(
-                      icon: Icons.settings_outlined,
-                      title: 'Cài đặt tài khoản',
-                      subtitle: 'Ngôn ngữ, thông báo và bảo mật',
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildMetricItem(
+                      icon: Icons.spa_outlined,
+                      count: remainingSessions.toString(),
+                      label: 'Liệu trình',
+                      subLabel: 'buổi còn lại',
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const F08SettingsScreen()),
+                          MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
                         );
                       },
                     ),
-
-                    const Divider(height: 1, indent: 56, color: AppColors.border),
-
-                    // Mục 4: Đăng xuất
-                    _buildMenuItem(
-                      icon: Icons.logout_rounded,
-                      iconColor: AppColors.error,
-                      title: 'Đăng xuất',
-                      titleColor: AppColors.error,
-                      subtitle: 'Thoát tài khoản khỏi thiết bị này',
-                      onTap: _handleLogout,
-                      showChevron: false,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
-              // Thông tin phiên bản & Hotline
+              // ==========================================
+              // 3. NHÓM ĐÀO TẠO & KHÓA HỌC
+              // ==========================================
+              _buildSectionHeader('ĐÀO TẠO & KHÓA HỌC'),
+              const SizedBox(height: 8),
+              _buildCardContainer([
+                _buildMenuItem(
+                  icon: Icons.school_outlined,
+                  title: 'Khóa học của tôi',
+                  subtitle: 'Video bài giảng, tài liệu học và tiến độ đào tạo',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.event_note_outlined,
+                  title: 'Lịch học & Điểm danh',
+                  subtitle: 'Thời khóa biểu các lớp lý thuyết và thực hành',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'Chứng chỉ & Kết quả học tập',
+                  subtitle: 'Bằng chứng nhận tốt nghiệp chuẩn Y khoa MLD',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const E12LearningResultsScreen()),
+                    );
+                  },
+                ),
+              ]),
+
+              const SizedBox(height: 20),
+
+              // ==========================================
+              // 4. NHÓM DỊCH VỤ & TRỊ LIỆU
+              // ==========================================
+              _buildSectionHeader('DỊCH VỤ & TRỊ LIỆU'),
+              const SizedBox(height: 8),
+              _buildCardContainer([
+                _buildMenuItem(
+                  icon: Icons.calendar_today_outlined,
+                  title: 'Lịch hẹn của tôi',
+                  subtitle: 'Lịch hẹn sắp tới và lịch sử đã hoàn thành',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.spa_outlined,
+                  title: 'Gói liệu trình của tôi',
+                  subtitle: 'Các gói trị liệu Vodder MLD và số buổi',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.menu_book_outlined,
+                  title: 'Nhật ký trị liệu',
+                  subtitle: 'Hồ sơ theo dõi tiến trình giảm phù định kỳ',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const D03CareJournalScreen()),
+                    );
+                  },
+                ),
+              ]),
+
+              const SizedBox(height: 20),
+
+              // ==========================================
+              // 5. NHÓM TÀI KHOẢN & HỆ THỐNG
+              // ==========================================
+              _buildSectionHeader('TÀI KHOẢN & HỆ THỐNG'),
+              const SizedBox(height: 8),
+              _buildCardContainer([
+                _buildMenuItem(
+                  icon: Icons.person_outline_rounded,
+                  title: 'Thông tin cá nhân',
+                  subtitle: 'Hồ sơ, họ tên và số điện thoại liên hệ',
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
+                    );
+                    _refreshProfile();
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Lịch sử thanh toán',
+                  subtitle: 'Hóa đơn dịch vụ và học phí khóa học',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const F06PaymentHistoryScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.settings_outlined,
+                  title: 'Cài đặt tài khoản',
+                  subtitle: 'Ngôn ngữ, bảo mật và thông báo',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const F08SettingsScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.logout_rounded,
+                  iconColor: AppColors.error,
+                  title: 'Đăng xuất',
+                  titleColor: AppColors.error,
+                  subtitle: 'Thoát tài khoản khỏi thiết bị này',
+                  onTap: _handleLogout,
+                  showChevron: false,
+                ),
+              ]),
+
+              const SizedBox(height: 28),
+
+              // ==========================================
+              // 6. THÔNG TIN PHIÊN BẢN & HOTLINE
+              // ==========================================
               const Center(
                 child: Column(
                   children: [
@@ -317,6 +453,97 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textSecondary,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _buildMetricItem({
+    required IconData icon,
+    required String count,
+    required String label,
+    required String subLabel,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 22, color: AppColors.primary),
+            const SizedBox(height: 8),
+            Text(
+              count,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              subLabel,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardContainer(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children,
       ),
     );
   }
