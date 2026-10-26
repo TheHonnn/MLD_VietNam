@@ -1,6 +1,124 @@
 import { EmailTemplate, EmailLog, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 
+const DEFAULT_TEMPLATES: EmailTemplate[] = [
+  {
+    id: 'CONFIRMATION_ENROLLMENT',
+    name: 'Xác nhận đăng ký & đặt cọc khóa học MLD',
+    subject: 'MLD Việt Nam - Xác nhận đăng ký khóa học thành công: {{course_name}}',
+    description: 'Gửi tự động khi học viên đăng ký hoặc đặt cọc giữ chỗ khóa học thành công',
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2C241E; line-height: 1.6;">
+    <div style="background: linear-gradient(135deg, #985018 0%, #723F1A 100%); padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">VIỆN TRỊ LIỆU & ĐÀO TẠO MLD VIỆT NAM</h1>
+      <p style="color: #FAF0E4; margin: 8px 0 0 0; font-size: 13px;">Học viện Đào tạo Kỹ thuật Dẫn lưu Bạch huyết Chuẩn Quốc tế</p>
+    </div>
+    <div style="background: #ffffff; padding: 30px 25px; border: 1px solid #E8DFD8; border-top: none; border-radius: 0 0 12px 12px;">
+      <p style="font-size: 16px; font-weight: bold; color: #2C241E;">Kính gửi Anh/Chị {{student_name}},</p>
+      <p>Học viện MLD Việt Nam xin trân trọng thông báo đã ghi nhận thủ tục đăng ký tham gia khóa đào tạo chuyên môn của Anh/Chị.</p>
+      <div style="background: #FAF8F5; border-left: 4px solid #985018; padding: 16px 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <p style="margin: 4px 0;"><strong>Khóa học:</strong> {{course_name}}</p>
+        <p style="margin: 4px 0;"><strong>Mã học viên:</strong> <span style="font-family: monospace; font-weight: bold; color: #985018;">{{student_code}}</span></p>
+        <p style="margin: 4px 0;"><strong>Thời gian khai giảng:</strong> {{start_date}}</p>
+        <p style="margin: 4px 0;"><strong>Địa điểm đào tạo:</strong> {{branch_address}}</p>
+        <p style="margin: 4px 0;"><strong>Học phí / Tiền cọc ghi nhận:</strong> <span style="color: #137333; font-weight: bold;">{{paid_amount}} VNĐ</span></p>
+      </div>
+      <p>Giảng viên phụ trách và bộ phận tuyển sinh sẽ liên hệ trước ngày khai giảng 03 ngày để hướng dẫn đồng phục và chuẩn bị tài liệu thực hành.</p>
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px dashed #E8DFD8; font-size: 12px; color: #73675F; text-align: center;">
+        Hotline Hỗ trợ Đào tạo: <strong>1900 6868</strong> | Website: <strong>mldvietnam.edu.vn</strong>
+      </div>
+    </div>
+  </div>`,
+    variables: ['student_name', 'course_name', 'student_code', 'start_date', 'branch_address', 'paid_amount'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'REMINDER_CLASS_SESSION',
+    name: 'Nhắc lịch học thực hành & thi lâm sàng',
+    subject: 'MLD Việt Nam - Nhắc lịch buổi học: {{class_title}} vào ngày {{study_date}}',
+    description: 'Gửi tự động trước 24 giờ trước các buổi thực hành kỹ thuật chuyên sâu hoặc thi lâm sàng',
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2C241E; line-height: 1.6;">
+    <div style="background: #FAF8F5; padding: 25px 20px; border-left: 6px solid #BA7E4C; border-radius: 8px; border: 1px solid #E8DFD8;">
+      <h2 style="color: #985018; margin: 0 0 10px 0; font-size: 18px;">LỊCH HỌC THỰC HÀNH SẮP DIỄN RA</h2>
+      <p style="margin: 0; font-size: 14px;">Xin chào <strong>{{student_name}}</strong>,</p>
+      <p style="font-size: 14px; margin: 10px 0;">Bạn có lịch học thực hành chuyên sâu theo thời gian biểu như sau:</p>
+      <div style="background: #ffffff; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #E8DACB;">
+        <p style="margin: 4px 0;"><strong>Buổi học:</strong> {{class_title}}</p>
+        <p style="margin: 4px 0;"><strong>Thời gian:</strong> <span style="color: #985018; font-weight: bold;">{{time_slot}}</span> ngày <strong>{{study_date}}</strong></p>
+        <p style="margin: 4px 0;"><strong>Phòng thực hành:</strong> {{room_name}}</p>
+        <p style="margin: 4px 0;"><strong>Giảng viên đứng lớp:</strong> {{instructor_name}}</p>
+      </div>
+      <p style="font-size: 13px; color: #73675F;">* Vui lòng có mặt trước 15 phút, trang bị đúng đồng phục y tế và mang theo giáo trình chuyên khoa MLD.</p>
+    </div>
+  </div>`,
+    variables: ['student_name', 'class_title', 'time_slot', 'study_date', 'room_name', 'instructor_name'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'EXAM_RESULTS_NOTIFICATION',
+    name: 'Thông báo kết quả thi & Tốt nghiệp khóa học',
+    subject: 'MLD Việt Nam - Chúc mừng bạn đã hoàn thành khóa thi: {{course_name}}',
+    description: 'Gửi khi giảng viên công bố điểm thi Lý thuyết và Thực hành lâm sàng',
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2C241E; line-height: 1.6;">
+    <div style="background: linear-gradient(135deg, #137333 0%, #0d5324 100%); padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold;">KẾT QUẢ ĐÁNH GIÁ CHUYÊN MÔN</h1>
+      <p style="color: #e6f4ea; margin: 6px 0 0 0; font-size: 13px;">Hội đồng Khảo thí & Đào tạo MLD Việt Nam</p>
+    </div>
+    <div style="background: #ffffff; padding: 30px 25px; border: 1px solid #E8DFD8; border-top: none; border-radius: 0 0 12px 12px;">
+      <p style="font-size: 15px;">Chúc mừng học viên <strong>{{student_name}}</strong>,</p>
+      <p>Hội đồng chuyên môn đã hoàn tất chấm điểm kỳ thi đánh giá năng lực Dẫn lưu Bạch huyết MLD của bạn:</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr style="background: #FAF8F5;">
+          <th style="padding: 10px; border: 1px solid #E8DFD8; text-align: left;">Hạng mục đánh giá</th>
+          <th style="padding: 10px; border: 1px solid #E8DFD8; text-align: center;">Điểm đạt</th>
+          <th style="padding: 10px; border: 1px solid #E8DFD8; text-align: center;">Xếp loại</th>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #E8DFD8;">Lý thuyết Giải phẫu & Sinh lý hệ mạch</td>
+          <td style="padding: 10px; border: 1px solid #E8DFD8; text-align: center; font-weight: bold; color: #985018;">{{theory_score}}/100</td>
+          <td style="padding: 10px; border: 1px solid #E8DFD8; text-align: center;">ĐẠT</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #E8DFD8;">Kỹ năng Thực hành Thao tác tay Vodder</td>
+          <td style="padding: 10px; border: 1px solid #E8DFD8; text-align: center; font-weight: bold; color: #985018;">{{practice_score}}/100</td>
+          <td style="padding: 10px; border: 1px solid #E8DFD8; text-align: center; font-weight: bold; color: #137333;">XUẤT SẮC</td>
+        </tr>
+      </table>
+      <p style="font-size: 13px; color: #554B42;">Giấy chứng nhận chuyên môn bản cứng kèm mã xác thực QR điện tử đang được hoàn thiện và chuyển phát tới bạn.</p>
+    </div>
+  </div>`,
+    variables: ['student_name', 'course_name', 'theory_score', 'practice_score'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'CERTIFICATE_ISSUED_VERIFICATION',
+    name: 'Cấp chứng nhận điện tử & Mã QR tra cứu',
+    subject: 'MLD Việt Nam - Tra cứu Chứng nhận điện tử hợp lệ: {{certificate_code}}',
+    description: 'Gửi kèm đường link tra cứu và mã QR chứng nhận độc quyền sau khi học viên tốt nghiệp',
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2C241E; line-height: 1.6;">
+    <div style="background: #2C241E; padding: 25px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+      <h2 style="color: #FAF0E4; margin: 0; font-size: 20px; font-serif: serif;">CHỨNG NHẬN ĐIỆN TỬ MLD CHÍNH THỨC</h2>
+    </div>
+    <div style="background: #FAF8F5; padding: 30px 25px; border: 1px solid #BA7E4C; border-top: none; border-radius: 0 0 12px 12px; text-align: center;">
+      <p style="font-size: 15px; margin-bottom: 20px;">Chứng nhận hoàn thành kỹ thuật Dẫn lưu Bạch huyết Quốc tế cấp cho:</p>
+      <h3 style="font-size: 22px; color: #985018; margin: 0 0 10px 0; font-family: serif;">{{student_name}}</h3>
+      <p style="font-size: 13px; color: #554B42; margin-bottom: 25px;">Mã số Chứng chỉ: <strong style="font-family: monospace; color: #2C241E; font-size: 15px;">{{certificate_code}}</strong></p>
+      <a href="{{verification_url}}" style="display: inline-block; background: #985018; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 14px;">TRA CỨU & XÁC THỰC MÃ QR</a>
+      <p style="font-size: 11px; color: #73675F; margin-top: 25px;">Chứng nhận có giá trị đối chiếu trên Cổng Dữ Liệu Quốc Gia MLD Việt Nam.</p>
+    </div>
+  </div>`,
+    variables: ['student_name', 'certificate_code', 'verification_url'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 export const emailService = {
   /**
    * Lấy danh sách các mẫu Email đào tạo & vận hành
@@ -8,8 +126,8 @@ export const emailService = {
   async getTemplates(): Promise<ApiResponse<EmailTemplate[]>> {
     try {
       const raw = await supabaseService.query<any[]>('email_templates?select=*&order=created_at.asc');
-      if (!raw) {
-        return { success: true, statusCode: 200, message: 'Danh sách mẫu Email', data: [] };
+      if (!raw || raw.length === 0) {
+        return { success: true, statusCode: 200, message: 'Danh sách mẫu Email (mặc định)', data: DEFAULT_TEMPLATES };
       }
 
       const list: EmailTemplate[] = raw.map((t) => ({
@@ -27,7 +145,7 @@ export const emailService = {
       return { success: true, statusCode: 200, message: 'Tải danh sách mẫu Email thành công', data: list };
     } catch (err) {
       console.error('[emailService] getTemplates error:', err);
-      return { success: false, statusCode: 500, message: 'Lỗi tải danh sách mẫu Email', data: [] };
+      return { success: true, statusCode: 200, message: 'Dùng mẫu mặc định khi lỗi kết nối', data: DEFAULT_TEMPLATES };
     }
   },
 
@@ -180,6 +298,37 @@ export const emailService = {
     } catch (err: any) {
       console.error('[emailService] sendEmail error:', err);
       return { success: false, statusCode: 500, message: err.message || 'Lỗi gửi email', data: false };
+    }
+  },
+
+  /**
+   * Xem trước mẫu email với các biến truyền vào
+   */
+  previewEmail(template: EmailTemplate, variables: Record<string, string>): { subject: string; bodyHtml: string } {
+    let finalSubject = template.subject;
+    let finalHtml = template.bodyHtml;
+
+    Object.entries(variables).forEach(([key, val]) => {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      finalSubject = finalSubject.replace(regex, val || '');
+      finalHtml = finalHtml.replace(regex, val || '');
+    });
+
+    return { subject: finalSubject, bodyHtml: finalHtml };
+  },
+
+  /**
+   * Xóa log gửi email
+   */
+  async deleteLog(logId: string): Promise<ApiResponse<boolean>> {
+    try {
+      await supabaseService.query(`email_logs?id=eq.${logId}`, {
+        method: 'DELETE',
+      });
+      return { success: true, statusCode: 200, message: 'Đã xóa bản ghi nhật ký', data: true };
+    } catch (err) {
+      console.error('[emailService] deleteLog error:', err);
+      return { success: false, statusCode: 500, message: 'Lỗi xóa nhật ký email', data: false };
     }
   },
 };
