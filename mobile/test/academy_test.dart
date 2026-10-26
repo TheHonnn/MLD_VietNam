@@ -5,7 +5,7 @@ import 'package:medical_healthcare_app/features/treatment/presentation/screens/d
 import 'package:medical_healthcare_app/features/home/presentation/screens/main_layout_screen.dart';
 
 void main() {
-  testWidgets('Test E01AcademyHomeScreen rendering', (WidgetTester tester) async {
+  testWidgets('Test E01AcademyHomeScreen rendering and course cards', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: E01AcademyHomeScreen(),
@@ -13,12 +13,18 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(E01AcademyHomeScreen), findsOneWidget);
-    // Bỏ chữ "Xin chào", "Học viện đào tạo" nhỏ, thay bằng "Đào tạo & Khóa học"
+    // Bỏ chữ "Xin chào", thay bằng "Đào tạo & Khóa học"
     expect(find.text('Đào tạo & Khóa học'), findsOneWidget);
     expect(find.text('Xin chào'), findsNothing);
+
+    // Kiểm tra các thành phần của thẻ khóa học theo yêu cầu
+    expect(find.text('DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU - Level 0'), findsOneWidget);
+    expect(find.text('6 buổi học'), findsOneWidget);
+    expect(find.text('-90%'), findsOneWidget);
+    expect(find.text('Chi tiết'), findsWidgets);
   });
 
-  testWidgets('Test MainLayoutScreen tab 2 rendering for Academy', (WidgetTester tester) async {
+  testWidgets('Test MainLayoutScreen tab 2 rendering for Academy directly without modal popup', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: MainLayoutScreen(initialIndex: 2),
@@ -27,6 +33,8 @@ void main() {
     await tester.pump();
     expect(find.byType(E01AcademyHomeScreen), findsOneWidget);
     expect(find.text('Đào tạo & Khóa học'), findsOneWidget);
+    // Không có modal popup 2 lựa chọn
+    expect(find.text('Chọn đối tượng để xem chương trình đào tạo phù hợp nhất với bạn:'), findsNothing);
   });
 
   testWidgets('Test MainLayoutScreen tab 3 rendering for Documents', (WidgetTester tester) async {

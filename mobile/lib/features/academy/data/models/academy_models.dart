@@ -130,6 +130,26 @@ class CourseModel {
     'progressPercentage': progressPercentage,
     'status': status,
   };
+
+  int get sessionCount {
+    final match = RegExp(r'(\\d+)\\s*buổi').firstMatch(schedule);
+    if (match != null) {
+      return int.tryParse(match.group(1)!) ?? (totalHours ~/ 4 > 0 ? totalHours ~/ 4 : 1);
+    }
+    if (totalHours <= 8) return 2;
+    if (totalHours <= 16) return 4;
+    if (totalHours <= 24) return 6;
+    if (totalHours <= 48) return 12;
+    if (totalHours <= 72) return 18;
+    return (totalHours ~/ 4 > 0 ? totalHours ~/ 4 : 1);
+  }
+
+  int? get discountPercentage {
+    if (originalPrice != null && originalPrice! > tuitionFee && originalPrice! > 0) {
+      return (((originalPrice! - tuitionFee) / originalPrice!) * 100).round();
+    }
+    return null;
+  }
 }
 
 class InstructorModel {
@@ -212,7 +232,7 @@ class MockAcademyData {
       tuitionFee: 599000,
       depositFee: 200000,
       originalPrice: 6000000,
-      image: 'assets/images/specialist_hero_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'ThS. Nguyễn Thu Hà',
       instructorTitle: 'Giảng viên chuyên môn MLD',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
@@ -236,7 +256,7 @@ class MockAcademyData {
       tuitionFee: 350000,
       depositFee: 100000,
       originalPrice: 350000,
-      image: 'assets/images/branch_room_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'Trần Minh Phương',
       instructorTitle: 'Chuyên gia Trị liệu & Phục hồi',
       instructorAvatar: 'assets/images/tran_minh_phuong.png',
@@ -260,7 +280,7 @@ class MockAcademyData {
       tuitionFee: 350000,
       depositFee: 100000,
       originalPrice: 350000,
-      image: 'assets/images/branch_hero_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'ThS. Nguyễn Thu Hà',
       instructorTitle: 'Chuyên gia Dinh dưỡng & Miễn dịch',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
@@ -284,7 +304,7 @@ class MockAcademyData {
       tuitionFee: 350000,
       depositFee: 100000,
       originalPrice: 350000,
-      image: 'assets/images/specialist_avatar_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'Lê Hoài An',
       instructorTitle: 'Kỹ thuật viên Trưởng',
       instructorAvatar: 'assets/images/le_hoai_an.png',
@@ -310,7 +330,7 @@ class MockAcademyData {
       tuitionFee: 15000000,
       depositFee: 3000000,
       originalPrice: 30000000,
-      image: 'assets/images/specialist_hero_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'Nguyễn Thanh Hương',
       instructorTitle: 'Giảng viên kỹ thuật MLD Vodder',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
@@ -334,7 +354,7 @@ class MockAcademyData {
       tuitionFee: 25000000,
       depositFee: 5000000,
       originalPrice: 30000000,
-      image: 'assets/images/branch_room_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'Nguyễn Thanh Hương',
       instructorTitle: 'Giảng viên kỹ thuật MLD Vodder',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',
@@ -358,7 +378,7 @@ class MockAcademyData {
       tuitionFee: 30000000,
       depositFee: 6000000,
       originalPrice: 35000000,
-      image: 'assets/images/branch_hero_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'BS. Lê Hoài An',
       instructorTitle: 'Chuyên gia Y học Phục hồi & CDT',
       instructorAvatar: 'assets/images/le_hoai_an.png',
@@ -382,7 +402,7 @@ class MockAcademyData {
       tuitionFee: 350000000,
       depositFee: 50000000,
       originalPrice: 350000000,
-      image: 'assets/images/specialist_avatar_1.png',
+      image: 'assets/images/course_banner_clean.png',
       instructorName: 'Ban Cố Vấn Y Khoa MLD',
       instructorTitle: 'Hội đồng Chuyên gia Quốc tế',
       instructorAvatar: 'assets/images/nguyen_thu_ha.png',

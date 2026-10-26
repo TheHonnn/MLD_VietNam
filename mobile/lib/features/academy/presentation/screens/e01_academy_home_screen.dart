@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e03_course_detail_screen.dart';
 
 /// Screen E01: Trang Đào tạo & Danh mục khóa học chuẩn Y khoa
-/// Dựa theo thực tế từ https://hebachhuyet.vn/dao-tao
-/// - Bỏ "Xin chào", nút thông báo, và chữ nhỏ "Học viện đào tạo"
-/// - Thanh tìm kiếm nằm ngang hàng với 2 bộ lọc: Đối tượng (5 danh mục) & Nhu cầu (4 danh mục)
-/// - Mặc định hiển thị toàn bộ khóa học cả 2 nhóm kèm giá tiền rõ ràng
+/// Phong cách thiết kế: Modern Medical, Clean, Professional
+/// - Màu sắc đồng bộ toàn diện với hệ thống App (#F5F7FA, #FFFFFF, #168477)
+/// - Tiêu đề đen in đậm, chuyển sang xanh lá khi bấm
+/// - Thẻ khóa học hiển thị chuẩn: Ảnh, Badge giảm giá, Buổi học, Giá sau giảm & Giá gốc gạch ngang
+/// - Nút "Chi tiết →" màu trắng xám, chuyển sang xanh lá khi bấm
 class E01AcademyHomeScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
   final String? initialGroup;
@@ -30,7 +32,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   List<CourseModel> _allCourses = MockAcademyData.courses;
   bool _isLoading = false;
 
-  // Nhóm chính (Menu lựa chọn nhanh): 'Tất cả', 'Người mới bắt đầu', 'Người đang làm nghề'
+  // Nhóm phân loại chính: 'Tất cả', 'Người mới bắt đầu', 'Người đang làm nghề'
   String _selectedGroup = 'Tất cả';
 
   // 5 danh mục Bộ lọc Đối tượng
@@ -67,7 +69,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     super.dispose();
   }
 
-  /// Cho phép Bottom Navigation Bar hoặc trang cha gọi cập nhật nhanh nhóm
+  /// Cho phép cập nhật nhanh nhóm từ bên ngoài
   void filterByGroup(String group) {
     setState(() {
       _selectedGroup = group;
@@ -89,7 +91,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     return _allCourses.where((c) {
-      // 1. Lọc theo Nhóm đối tượng nhanh (Người mới bắt đầu / Người đang làm nghề)
+      // 1. Lọc theo Nhóm đối tượng (Tất cả / Người mới bắt đầu / Người đang làm nghề)
       if (_selectedGroup != 'Tất cả') {
         final matchesGroup = c.courseGroup.toLowerCase().contains(_selectedGroup.toLowerCase()) ||
             c.category.toLowerCase().contains(_selectedGroup.toLowerCase());
@@ -125,6 +127,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   void _showAudiencePicker() {
     showModalBottomSheet<String>(
       context: context,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -142,11 +145,11 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AcademyColors.heading,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, color: AppColors.border),
               ...audienceOptions.map((opt) {
                 final isSel = _selectedAudience == opt;
                 return ListTile(
@@ -155,11 +158,11 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                      color: isSel ? AcademyColors.primary : AcademyColors.textPrimary,
+                      color: isSel ? const Color(0xFF168477) : AppColors.textPrimary,
                     ),
                   ),
                   trailing: isSel
-                      ? const Icon(Icons.check_circle_rounded, color: AcademyColors.primary)
+                      ? const Icon(Icons.check_circle_rounded, color: Color(0xFF168477))
                       : null,
                   onTap: () {
                     setState(() => _selectedAudience = opt);
@@ -177,6 +180,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   void _showNeedPicker() {
     showModalBottomSheet<String>(
       context: context,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -194,11 +198,11 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AcademyColors.heading,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, color: AppColors.border),
               ...needOptions.map((opt) {
                 final isSel = _selectedNeed == opt;
                 return ListTile(
@@ -207,11 +211,11 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                      color: isSel ? AcademyColors.primary : AcademyColors.textPrimary,
+                      color: isSel ? const Color(0xFF168477) : AppColors.textPrimary,
                     ),
                   ),
                   trailing: isSel
-                      ? const Icon(Icons.check_circle_rounded, color: AcademyColors.primary)
+                      ? const Icon(Icons.check_circle_rounded, color: Color(0xFF168477))
                       : null,
                   onTap: () {
                     setState(() => _selectedNeed = opt);
@@ -231,48 +235,76 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     final filtered = _filteredCourses;
 
     return Scaffold(
-      backgroundColor: AcademyColors.background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadCourses,
-          color: AcademyColors.primary,
+          color: const Color(0xFF168477),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. TIÊU ĐỀ TRANG GỌN GÀNG (Chuẩn Y khoa, không có Xin chào/Chuông/Chữ nhỏ)
-                const Text(
-                  'Đào tạo & Khóa học',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: AcademyColors.heading,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam (hebachhuyet.vn)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AcademyColors.textSecondary,
-                  ),
+                // 1. HEADER TRANG GỌN GÀNG (Đồng bộ với các trang khác)
+                Row(
+                  children: [
+                    if (widget.onBackToHome != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: InkWell(
+                          onTap: widget.onBackToHome,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: const Icon(Icons.arrow_back, size: 20, color: Color(0xFF0F172A)),
+                          ),
+                        ),
+                      ),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Đào tạo & Khóa học',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Trung tâm Ứng dụng Khoa học Bạch huyết Việt Nam (hebachhuyet.vn)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
-                // 2. KHUNG THANH TÌM KIẾM VÀ 2 BỘ LỌC (Ngang hàng / Đồng bộ theo web)
+                // 2. KHUNG TÌM KIẾM VÀ 2 BỘ LỌC NGANG HÀNG
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AcademyColors.cardBorder),
+                    border: Border.all(color: AppColors.border),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
+                        color: Colors.black.withValues(alpha: 0.03),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -280,27 +312,27 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                   ),
                   child: Column(
                     children: [
-                      // Hàng tìm kiếm
+                      // Thanh tìm kiếm
                       Container(
                         height: 44,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: AcademyColors.background,
+                          color: AppColors.background,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AcademyColors.cardBorder),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.search, size: 20, color: AcademyColors.primary),
+                            const Icon(Icons.search, size: 20, color: Color(0xFF168477)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: _searchController,
                                 onChanged: (_) => setState(() {}),
-                                style: const TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
+                                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                                 decoration: const InputDecoration(
-                                  hintText: 'Từ khóa tìm kiếm khóa học...',
-                                  hintStyle: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                                  hintText: 'Tìm kiếm khóa học...',
+                                  hintStyle: TextStyle(fontSize: 13, color: AppColors.textPlaceholder),
                                   border: InputBorder.none,
                                   isDense: true,
                                   contentPadding: EdgeInsets.zero,
@@ -313,7 +345,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                   _searchController.clear();
                                   setState(() {});
                                 },
-                                child: const Icon(Icons.close, size: 18, color: AcademyColors.textSecondary),
+                                child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
                               ),
                           ],
                         ),
@@ -329,21 +361,21 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                               onTap: _showAudiencePicker,
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
                                 decoration: BoxDecoration(
                                   color: _selectedAudience != 'Tất cả đối tượng'
-                                      ? AcademyColors.cardWarm
-                                      : AcademyColors.background,
+                                      ? const Color(0xFFE8F5F1)
+                                      : AppColors.background,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: _selectedAudience != 'Tất cả đối tượng'
-                                        ? AcademyColors.primary
-                                        : AcademyColors.cardBorder,
+                                        ? const Color(0xFF168477)
+                                        : AppColors.border,
                                   ),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.people_outline, size: 16, color: AcademyColors.primary),
+                                    const Icon(Icons.people_outline, size: 16, color: Color(0xFF168477)),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
@@ -358,12 +390,12 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                               ? FontWeight.w700
                                               : FontWeight.w500,
                                           color: _selectedAudience != 'Tất cả đối tượng'
-                                              ? AcademyColors.primaryDark
-                                              : AcademyColors.textPrimary,
+                                              ? const Color(0xFF145B55)
+                                              : AppColors.textPrimary,
                                         ),
                                       ),
                                     ),
-                                    const Icon(Icons.keyboard_arrow_down, size: 16, color: AcademyColors.textSecondary),
+                                    const Icon(Icons.keyboard_arrow_down, size: 16, color: AppColors.textSecondary),
                                   ],
                                 ),
                               ),
@@ -377,21 +409,21 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                               onTap: _showNeedPicker,
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
                                 decoration: BoxDecoration(
                                   color: _selectedNeed != 'Tất cả nhu cầu'
-                                      ? AcademyColors.cardWarm
-                                      : AcademyColors.background,
+                                      ? const Color(0xFFE8F5F1)
+                                      : AppColors.background,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: _selectedNeed != 'Tất cả nhu cầu'
-                                        ? AcademyColors.primary
-                                        : AcademyColors.cardBorder,
+                                        ? const Color(0xFF168477)
+                                        : AppColors.border,
                                   ),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.track_changes, size: 16, color: AcademyColors.primary),
+                                    const Icon(Icons.track_changes, size: 16, color: Color(0xFF168477)),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
@@ -406,12 +438,12 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                               ? FontWeight.w700
                                               : FontWeight.w500,
                                           color: _selectedNeed != 'Tất cả nhu cầu'
-                                              ? AcademyColors.primaryDark
-                                              : AcademyColors.textPrimary,
+                                              ? const Color(0xFF145B55)
+                                              : AppColors.textPrimary,
                                         ),
                                       ),
                                     ),
-                                    const Icon(Icons.keyboard_arrow_down, size: 16, color: AcademyColors.textSecondary),
+                                    const Icon(Icons.keyboard_arrow_down, size: 16, color: AppColors.textSecondary),
                                   ],
                                 ),
                               ),
@@ -440,12 +472,12 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // 4. DANH SÁCH CÁC KHÓA HỌC KÈM GIÁ RÕ RÀNG
+                // 4. DANH SÁCH CÁC KHÓA HỌC THEO THIẾT KẾ CHUẨN
                 if (_isLoading)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
-                      child: CircularProgressIndicator(color: AcademyColors.primary),
+                      child: CircularProgressIndicator(color: Color(0xFF168477)),
                     ),
                   )
                 else if (filtered.isEmpty)
@@ -453,23 +485,23 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AcademyColors.cardBorder),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.school_outlined, size: 48, color: AcademyColors.textSecondary),
+                        const Icon(Icons.school_outlined, size: 48, color: AppColors.textSecondary),
                         const SizedBox(height: 12),
                         const Text(
                           'Không tìm thấy khóa học phù hợp',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AcademyColors.heading),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
                         ),
                         const SizedBox(height: 6),
                         const Text(
                           'Vui lòng thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc đối tượng, nhu cầu.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
@@ -482,7 +514,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                             });
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AcademyColors.primary,
+                            backgroundColor: const Color(0xFF168477),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: const Text('Đặt lại bộ lọc', style: TextStyle(color: Colors.white, fontSize: 13)),
@@ -495,10 +527,10 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 14),
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
                     itemBuilder: (context, index) {
                       final course = filtered[index];
-                      return _buildCourseCard(course);
+                      return _CourseCardItem(course: course);
                     },
                   ),
               ],
@@ -518,10 +550,10 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AcademyColors.primary : Colors.white,
+          color: isSelected ? const Color(0xFF168477) : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AcademyColors.primary : AcademyColors.cardBorder,
+            color: isSelected ? const Color(0xFF168477) : AppColors.border,
           ),
         ),
         child: Text(
@@ -529,141 +561,207 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AcademyColors.textPrimary,
+            color: isSelected ? Colors.white : const Color(0xFF0F172A),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildCourseCard(CourseModel course) {
+/// Thẻ Khóa học hiển thị đúng theo ảnh mô tả:
+/// - Ảnh trên cùng kèm Badge giảm giá (-90%) và Số lượng buổi học (▶ 6 buổi học)
+/// - Tiêu đề đen in đậm, bấm vào chuyển sang xanh lá
+/// - Giá tiền sau giảm (xanh lá, đậm) và Giá gốc gạch ngang (xám)
+/// - Nút "Chi tiết →" màu trắng xám, bấm vào chuyển sang xanh lá
+class _CourseCardItem extends StatefulWidget {
+  final CourseModel course;
+
+  const _CourseCardItem({required this.course});
+
+  @override
+  State<_CourseCardItem> createState() => _CourseCardItemState();
+}
+
+class _CourseCardItemState extends State<_CourseCardItem> {
+  bool _isPressed = false;
+
+  void _navigateToDetail() {
+    setState(() => _isPressed = true);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => E03CourseDetailScreen(course: widget.course),
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() => _isPressed = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final course = widget.course;
     final hasDiscount = course.originalPrice != null && course.originalPrice! > course.tuitionFee;
+    final discount = course.discountPercentage;
+    final sessionsCount = course.sessionCount;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AcademyColors.cardBorder),
+        border: Border.all(color: AppColors.border, width: 1.0),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => E03CourseDetailScreen(course: course),
-              ),
-            );
-          },
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapCancel: () => setState(() => _isPressed = false),
+          onTap: _navigateToDetail,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Thẻ nhóm & Tag
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AcademyColors.cardWarm,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        course.courseGroup,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AcademyColors.primaryDark,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. KHỐI ẢNH KÈM CÁC HUY HIỆU (BADGE) TRÊN ẢNH
+              Stack(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 195,
+                    child: Image.asset(
+                      course.image,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: const Color(0xFFE8F5F1),
+                        child: const Center(
+                          child: Icon(Icons.school, size: 48, color: Color(0xFF168477)),
                         ),
                       ),
                     ),
-                    Text(
-                      course.level,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AcademyColors.textSecondary,
+                  ),
+
+                  // Huy hiệu Giảm giá góc trên bên phải (Đỏ, chữ trắng: -90%)
+                  if (discount != null)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '-$discount%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
 
-                // Tên khóa học
-                Text(
-                  course.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AcademyColors.heading,
-                    height: 1.3,
+                  // Huy hiệu Số lượng buổi học góc dưới bên trái (Đen bán trong suốt: ▶ 6 buổi học)
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xCC000000),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.play_circle_fill, color: Colors.white, size: 14),
+                          const SizedBox(width: 5),
+                          Text(
+                            '$sessionsCount buổi học',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
+                ],
+              ),
 
-                // Mô tả tóm tắt
-                Text(
-                  course.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AcademyColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Chi tiết đối tượng & nhu cầu
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
+              // 2. KHỐI NỘI DUNG DƯỚI ẢNH
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildMetaChip(Icons.people_outline, course.targetAudience),
-                    _buildMetaChip(Icons.track_changes, course.targetNeed),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Divider(height: 1, color: AcademyColors.cardBorder),
-                const SizedBox(height: 10),
+                    // Tiêu đề khóa học (Bình thường: Đen in đậm | Khi bấm: Xanh lá)
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 150),
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: _isPressed ? const Color(0xFF168477) : const Color(0xFF0F172A),
+                        height: 1.35,
+                      ),
+                      child: Text(course.title),
+                    ),
 
-                // Hàng Giá tiền và Nút Chi tiết
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 14),
+                    const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 14),
+
+                    // Hàng Giá tiền và Nút Chi tiết
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
+                        // Cột Giá tiền: Giá sau giảm & Giá gốc gạch ngang
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${formatCurrency(course.tuitionFee)} ₫',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: AcademyColors.primary,
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '${formatCurrency(course.tuitionFee)} ',
+                                    style: const TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF00693F),
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text: 'đ',
+                                    style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF00693F),
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             if (hasDiscount) ...[
-                              const SizedBox(width: 8),
+                              const SizedBox(height: 2),
                               Text(
-                                '${formatCurrency(course.originalPrice!)} ₫',
+                                '${formatCurrency(course.originalPrice!)} đ',
                                 style: const TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF94A3B8),
                                   decoration: TextDecoration.lineThrough,
@@ -672,70 +770,47 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                             ],
                           ],
                         ),
-                        Text(
-                          course.schedule,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AcademyColors.textSecondary,
+
+                        // Nút "Chi tiết →" (Bình thường: Màu trắng xám | Khi bấm: Đổi xanh lá)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.5),
+                          decoration: BoxDecoration(
+                            color: _isPressed ? const Color(0xFF168477) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _isPressed ? const Color(0xFF168477) : const Color(0xFFE2E8F0),
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Chi tiết',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _isPressed ? Colors.white : const Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: _isPressed ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => E03CourseDetailScreen(course: course),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AcademyColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: const Text('Chi tiết', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                      label: const Icon(Icons.arrow_forward_rounded, size: 14),
-                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildMetaChip(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AcademyColors.background,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AcademyColors.cardBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: AcademyColors.primary),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AcademyColors.textPrimary,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
