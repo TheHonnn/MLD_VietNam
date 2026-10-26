@@ -491,6 +491,44 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
+    if (targetLink.contains('branch') || targetLink.contains('co-so')) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const B05BranchListingScreen()),
+      );
+      return;
+    }
+
+    if (targetLink.contains('profile') ||
+        targetLink.contains('voucher') ||
+        targetLink.contains('tai-khoan') ||
+        targetLink.contains('user')) {
+      if (widget.onNavigateToProfile != null) {
+        widget.onNavigateToProfile!.call();
+      } else {
+        _showBannerDetailModal(context, banner);
+      }
+      return;
+    }
+
+    if (targetLink.contains('notification') || targetLink.contains('thong-bao')) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const D08NotificationsScreen()),
+      );
+      return;
+    }
+
+    if (targetLink.contains('document') ||
+        targetLink.contains('cam-nang') ||
+        targetLink.contains('community')) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
+      );
+      return;
+    }
+
     _showBannerDetailModal(context, banner);
   }
 

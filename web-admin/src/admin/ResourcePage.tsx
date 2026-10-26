@@ -4,6 +4,7 @@ import { QuizOptions, quizOptions } from "./QuizOptions";
 import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
 import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
+import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -2462,7 +2463,16 @@ function RecordDialog({
       }}
       aria-labelledby="record-heading"
     >
-      <form onSubmit={save}>
+      {resource.name === "staff_profiles" ? (
+        <StaffProfileEditorSheet
+          row={row}
+          mode={mode}
+          onClose={onClose}
+          onSaved={onSaved}
+          onSwitchMode={onSwitchMode}
+        />
+      ) : (
+        <form onSubmit={save}>
         <header>
           <div>
             <p className="admin-eyebrow">
@@ -2981,7 +2991,8 @@ function RecordDialog({
           </footer>
         )}
       </form>
-    </dialog>
+    )}
+  </dialog>
   );
 }
 

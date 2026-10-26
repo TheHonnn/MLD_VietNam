@@ -42,6 +42,7 @@ import {
   User,
   Home,
   GraduationCap,
+  Compass,
 } from 'lucide-react';
 import { portalService, emailService } from '../services';
 import {
@@ -294,6 +295,159 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
 };
 
 // ==========================================
+// AVAILABLE MOBILE APP NAVIGATION ROUTES
+// ==========================================
+export interface BannerRouteOption {
+  label: string;
+  path: string;
+  badge: string;
+  description: string;
+}
+
+export const AVAILABLE_BANNER_ROUTES: {
+  group: string;
+  items: BannerRouteOption[];
+}[] = [
+  {
+    group: '1. Học viện & Đào tạo (MLD Academy)',
+    items: [
+      {
+        label: 'Trang chủ Học viện Đào tạo',
+        path: '/academy',
+        badge: 'Học viện',
+        description: 'Trang chủ cổng đào tạo chuyên môn MLD',
+      },
+      {
+        label: 'Danh mục tất cả Khóa học Đào tạo',
+        path: '/academy/courses',
+        badge: 'Khóa học',
+        description: 'Danh sách các khóa học MLD Vodder, cơ bản & chuyên sâu',
+      },
+      {
+        label: 'Khóa học của tôi (Học liệu & Video)',
+        path: '/academy/my-courses',
+        badge: 'Bài giảng',
+        description: 'Danh sách khóa học đã đăng ký và video bài giảng trực tuyến',
+      },
+      {
+        label: 'Đăng ký ghi danh khóa học mới',
+        path: '/academy/enrollment',
+        badge: 'Ghi danh',
+        description: 'Mẫu đăng ký nhập học và tư vấn tuyển sinh khóa mới',
+      },
+    ],
+  },
+  {
+    group: '2. Dịch vụ & Trị liệu Y khoa',
+    items: [
+      {
+        label: 'Danh mục Dịch vụ Trị liệu Y khoa',
+        path: '/services',
+        badge: 'Dịch vụ',
+        description: 'Bảng giá và các gói phác đồ trị liệu dẫn lưu bạch huyết',
+      },
+      {
+        label: 'Dịch vụ Trọng tâm Vodder MLD',
+        path: '/services/vodder',
+        badge: 'Trọng tâm',
+        description: 'Dẫn lưu phù bạch huyết chuẩn Y khoa Dr. Vodder',
+      },
+      {
+        label: 'Gói liệu trình trị liệu của tôi',
+        path: '/treatment/packages',
+        badge: 'Gói của tôi',
+        description: 'Quản lý số buổi trị liệu còn lại và lịch sử sử dụng',
+      },
+      {
+        label: 'Nhật ký Chăm sóc & Tiến trình',
+        path: '/treatment/journal',
+        badge: 'Nhật ký',
+        description: 'Hồ sơ theo dõi tiến trình hồi phục phù nề sau phẫu thuật',
+      },
+    ],
+  },
+  {
+    group: '3. Đặt lịch hẹn Khám & Trị liệu',
+    items: [
+      {
+        label: 'Đặt lịch hẹn khám & trị liệu trực tuyến',
+        path: '/booking',
+        badge: 'Đặt lịch',
+        description: 'Đặt hẹn nhanh chọn chi nhánh, phòng trị liệu và KTV',
+      },
+      {
+        label: 'Danh sách lịch hẹn của tôi',
+        path: '/booking/appointments',
+        badge: 'Lịch hẹn',
+        description: 'Xem các lịch hẹn đã đặt và trạng thái xác nhận',
+      },
+    ],
+  },
+  {
+    group: '4. Cẩm nang Y khoa & Kiến thức',
+    items: [
+      {
+        label: 'Cẩm nang Y khoa MLD & Chăm sóc tại nhà',
+        path: '/documents',
+        badge: 'Cẩm nang',
+        description: 'Kho bài viết chuyên môn, phác đồ và tài liệu hướng dẫn',
+      },
+    ],
+  },
+  {
+    group: '5. Hệ thống Cơ sở & Chi nhánh',
+    items: [
+      {
+        label: 'Danh sách 2 Cơ sở Chi nhánh điều trị',
+        path: '/branches',
+        badge: 'Cơ sở',
+        description: 'Cơ sở Liễu Giai (Hà Nội) & Nam Kỳ Khởi Nghĩa (TP.HCM)',
+      },
+    ],
+  },
+  {
+    group: '6. Tài khoản & Quyền lợi Hội viên',
+    items: [
+      {
+        label: 'Hồ sơ tài khoản & Hạng hội viên',
+        path: '/profile',
+        badge: 'Tài khoản',
+        description: 'Thông tin cá nhân, tích điểm và cấp bậc thành viên',
+      },
+      {
+        label: 'Ví Voucher & Ưu đãi đặc quyền',
+        path: '/profile/vouchers',
+        badge: 'Voucher',
+        description: 'Kho mã ưu đãi giảm giá và voucher trị liệu',
+      },
+      {
+        label: 'Hộp thư thông báo hệ thống',
+        path: '/profile/notifications',
+        badge: 'Thông báo',
+        description: 'Tin nhắn nhắc lịch hẹn và thông báo đào tạo',
+      },
+    ],
+  },
+  {
+    group: '7. Kênh Truyền thông & Website ngoài',
+    items: [
+      {
+        label: 'Website chính thức MLD Việt Nam',
+        path: 'https://mldvietnam.com',
+        badge: 'Website',
+        description: 'Cổng thông tin chính thức mldvietnam.com',
+      },
+      {
+        label: 'Fanpage Facebook MLD Việt Nam',
+        path: 'https://facebook.com/mldvietnam',
+        badge: 'Facebook',
+        description: 'Trang Facebook tư vấn trực tiếp 24/7',
+      },
+    ],
+  },
+];
+
+// ==========================================
 // MOBILE HOME APP MOCKUP (CHUẨN FLUTTER MLD)
 // ==========================================
 interface MobileHomeMockupProps {
@@ -337,9 +491,21 @@ const MobileHomeMockup: React.FC<MobileHomeMockupProps> = ({
   const titleText = currentBanner?.title?.trim() || 'MLD VIỆT NAM';
   const summaryText =
     currentBanner?.summary?.trim() || 'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder';
-  const targetLinkText = currentBanner?.targetLink?.trim()
-    ? `Liên kết: ${currentBanner.targetLink} ↗`
-    : 'Bấm để xem Website & Facebook chính thức ↗';
+
+  const getCtaText = (link?: string) => {
+    if (!link || !link.trim()) return 'Bấm để xem chi tiết →';
+    const trimmed = link.trim();
+    const matched = AVAILABLE_BANNER_ROUTES.flatMap((g) => g.items).find((i) => i.path === trimmed);
+    if (matched) {
+      return `Xem: ${matched.label} →`;
+    }
+    if (trimmed.startsWith('http')) {
+      return `Truy cập: ${trimmed.replace(/^https?:\/\//, '')} ↗`;
+    }
+    return `Điều hướng: ${trimmed} ↗`;
+  };
+
+  const targetLinkText = getCtaText(currentBanner?.targetLink);
   const categoryLabel = getCategoryLabel(currentBanner?.category);
 
   return (
@@ -2132,20 +2298,145 @@ export const W18_PortalContent: React.FC = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#2C241E] mb-1">Link điều hướng khi bấm</label>
-                      <input
-                        type="text"
-                        value={editingBanner.targetLink || ''}
-                        onChange={(e) => setEditingBanner({ ...editingBanner, targetLink: e.target.value })}
-                        placeholder="/academy hoặc /services..."
-                        className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                      />
+                  {/* Cấu hình link điều hướng thông minh */}
+                  <div className="p-3.5 bg-white border border-[#E8DFD8] rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+                        <Compass className="w-3.5 h-3.5 text-[#985018]" />
+                        <span>Trang đích khi bấm vào Banner (Mobile App & Web)</span>
+                      </label>
+                      <span className="text-[10px] text-[#8C7A6B]">Tự động đồng bộ sang Mobile</span>
                     </div>
 
+                    {/* Quick Pick Pills */}
                     <div>
-                      <label className="block text-xs font-bold text-[#2C241E] mb-1">Thứ tự hiển thị (#1, #2...)</label>
+                      <div className="text-[11px] font-semibold text-[#73675F] mb-1.5 flex items-center gap-1">
+                        <span>⚡ Chọn nhanh trang phổ biến:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { label: '🎓 Học viện', path: '/academy' },
+                          { label: '📖 Khóa học', path: '/academy/courses' },
+                          { label: '💆 Dịch vụ', path: '/services' },
+                          { label: '📅 Đặt lịch', path: '/booking' },
+                          { label: '📚 Cẩm nang', path: '/documents' },
+                          { label: '🏥 Cơ sở', path: '/branches' },
+                          { label: '👤 Hội viên', path: '/profile' },
+                          { label: '🌐 Website', path: 'https://mldvietnam.com' },
+                        ].map((pill) => {
+                          const isActive = editingBanner.targetLink === pill.path;
+                          return (
+                            <button
+                              key={pill.path}
+                              type="button"
+                              onClick={() => setEditingBanner({ ...editingBanner, targetLink: pill.path })}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-[#985018] text-white shadow-xs font-bold scale-[1.02]'
+                                  : 'bg-[#FAF0E4]/70 text-[#7A3E10] hover:bg-[#FAF0E4] border border-[#BA7E4C]/30'
+                              }`}
+                            >
+                              {pill.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Categorized Dropdown Selector */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#73675F] mb-1">
+                        Hoặc chọn từ danh mục tất cả trang & mục con đang có:
+                      </label>
+                      <select
+                        value={
+                          AVAILABLE_BANNER_ROUTES.some((g) => g.items.some((i) => i.path === editingBanner.targetLink))
+                            ? editingBanner.targetLink
+                            : ''
+                        }
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setEditingBanner({ ...editingBanner, targetLink: e.target.value });
+                          }
+                        }}
+                        className="w-full text-xs px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018] focus:bg-white font-medium"
+                      >
+                        <option value="">-- Bấm để chọn danh mục trang con có sẵn --</option>
+                        {AVAILABLE_BANNER_ROUTES.map((group) => (
+                          <optgroup key={group.group} label={group.group} className="font-bold text-[#8A4F23]">
+                            {group.items.map((item) => (
+                              <option key={item.path} value={item.path} className="font-normal text-[#2C241E]">
+                                [{item.badge}] {item.label} ({item.path})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Direct link input & Preview badge */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#73675F] mb-1">
+                        Đường dẫn (URL / Route) đang được áp dụng:
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editingBanner.targetLink || ''}
+                          onChange={(e) => setEditingBanner({ ...editingBanner, targetLink: e.target.value })}
+                          placeholder="/academy, /services, hoặc https://..."
+                          className="flex-1 text-xs px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-[#2C241E] font-mono focus:outline-none focus:border-[#985018] focus:bg-white"
+                        />
+                        {editingBanner.targetLink && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingBanner({ ...editingBanner, targetLink: '' })}
+                            className="p-2 text-[#8C7A6B] hover:text-red-600 rounded-lg hover:bg-red-50 border border-transparent hover:border-red-200 cursor-pointer"
+                            title="Xóa link"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Matched Route Helper Badge */}
+                      {(() => {
+                        const allRoutes = AVAILABLE_BANNER_ROUTES.flatMap((g) => g.items);
+                        const matched = allRoutes.find((r) => r.path === editingBanner.targetLink);
+                        if (matched) {
+                          return (
+                            <div className="mt-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-800 flex items-start gap-2 text-[11px]">
+                              <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-bold">Đích đến: [{matched.badge}] {matched.label}</span>
+                                <p className="text-[10px] text-emerald-700/85 mt-0.5">{matched.description}</p>
+                              </div>
+                            </div>
+                          );
+                        } else if (editingBanner.targetLink?.startsWith('http')) {
+                          return (
+                            <div className="mt-2 p-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 flex items-center gap-2 text-[11px]">
+                              <ExternalLink size={14} className="text-blue-600 shrink-0" />
+                              <span className="font-medium">Link website ngoài: Sẽ mở trình duyệt Web của thiết bị khi bấm.</span>
+                            </div>
+                          );
+                        } else if (editingBanner.targetLink) {
+                          return (
+                            <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-2 text-[11px]">
+                              <Sparkles size={14} className="text-amber-600 shrink-0" />
+                              <span className="font-medium">Đường dẫn tùy chỉnh ({editingBanner.targetLink}).</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Cấu hình Thứ tự, Chuyên mục, Trạng thái */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1">Thứ tự (#1, #2...)</label>
                       <input
                         type="number"
                         min="1"
@@ -2154,9 +2445,7 @@ export const W18_PortalContent: React.FC = () => {
                         className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-[#2C241E] mb-1">Chuyên mục</label>
                       <select
