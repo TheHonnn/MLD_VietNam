@@ -482,7 +482,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
               </h3>
             </div>
             <span className="text-xs font-bold text-[#059669] bg-[#EBF7EE] px-2.5 py-1 rounded-full border border-[#CDEED5]">
-              Tổng: {totalHours} giờ học ({totalLessons} buổi)
+              Tổng: {Number(totalHours) || 0} giờ học ({Number(totalLessons) || 0} buổi)
             </span>
           </div>
 
@@ -495,8 +495,9 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 type="number"
                 min="0"
                 disabled={isView}
+                placeholder="0"
                 value={theoryHours}
-                onChange={(e) => handleTheoryChange(Number(e.target.value) || 0)}
+                onChange={(e) => handleTheoryChange(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
               />
             </div>
@@ -509,8 +510,9 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 type="number"
                 min="0"
                 disabled={isView}
+                placeholder="0"
                 value={practiceHours}
-                onChange={(e) => handlePracticeChange(Number(e.target.value) || 0)}
+                onChange={(e) => handlePracticeChange(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
               />
             </div>
@@ -523,8 +525,9 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 type="number"
                 min="0"
                 disabled={isView}
+                placeholder="0"
                 value={totalHours}
-                onChange={(e) => setTotalHours(Number(e.target.value) || 0)}
+                onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full text-xs px-3 py-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-lg font-bold text-[#985018] focus:outline-none"
               />
             </div>
@@ -535,10 +538,11 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
               </label>
               <input
                 type="number"
-                min="1"
+                min="0"
                 disabled={isView}
+                placeholder="0"
                 value={totalLessons}
-                onChange={(e) => setTotalLessons(Number(e.target.value) || 0)}
+                onChange={(e) => setTotalLessons(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
               />
             </div>
@@ -572,8 +576,9 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 step="500000"
                 min="0"
                 disabled={isView}
+                placeholder="0"
                 value={tuitionFee}
-                onChange={(e) => setTuitionFee(Number(e.target.value) || 0)}
+                onChange={(e) => setTuitionFee(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] font-medium focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
                 required
               />
@@ -593,8 +598,9 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 step="500000"
                 min="0"
                 disabled={isView}
+                placeholder="0"
                 value={depositAmount}
-                onChange={(e) => setDepositAmount(Number(e.target.value) || 0)}
+                onChange={(e) => setDepositAmount(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] font-medium focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
               />
 
