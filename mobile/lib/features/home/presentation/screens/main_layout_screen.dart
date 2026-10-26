@@ -115,7 +115,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Container(
                       padding: EdgeInsets.all(10),
@@ -160,7 +160,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Container(
                       padding: EdgeInsets.all(10),

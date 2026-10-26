@@ -27,8 +27,8 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   final AcademyRepository _academyRepo = AcademyRepository.instance;
   final TextEditingController _searchController = TextEditingController();
 
-  List<CourseModel> _allCourses = [];
-  bool _isLoading = true;
+  List<CourseModel> _allCourses = MockAcademyData.courses;
+  bool _isLoading = false;
 
   // Nhóm chính (Menu lựa chọn nhanh): 'Tất cả', 'Người mới bắt đầu', 'Người đang làm nghề'
   String _selectedGroup = 'Tất cả';

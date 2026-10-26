@@ -13,7 +13,9 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(E01AcademyHomeScreen), findsOneWidget);
-    expect(find.text('Học viện đào tạo'), findsWidgets);
+    // Bỏ chữ "Xin chào", "Học viện đào tạo" nhỏ, thay bằng "Đào tạo & Khóa học"
+    expect(find.text('Đào tạo & Khóa học'), findsOneWidget);
+    expect(find.text('Xin chào'), findsNothing);
   });
 
   testWidgets('Test MainLayoutScreen tab 2 rendering for Academy', (WidgetTester tester) async {
@@ -24,7 +26,7 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(E01AcademyHomeScreen), findsOneWidget);
-    expect(find.text('Học viện đào tạo'), findsWidgets);
+    expect(find.text('Đào tạo & Khóa học'), findsOneWidget);
   });
 
   testWidgets('Test MainLayoutScreen tab 3 rendering for Documents', (WidgetTester tester) async {
