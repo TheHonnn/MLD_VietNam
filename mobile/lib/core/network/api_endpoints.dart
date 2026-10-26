@@ -60,6 +60,7 @@ class ApiEndpoints {
   static const String courses = '/rest/v1/courses';
   static String courseDetail(String id) => '/rest/v1/courses?id=eq.$id&select=*,course_chapters(*,course_lessons(*))';
   static const String courseEnrollments = '/rest/v1/course_enrollments';
+  static const String courseQuizzes = '/rest/v1/course_quizzes';
 
   // --- Supabase Edge Functions ---
   static const String vietQrPayment = '/functions/v1/vietqr-payment';

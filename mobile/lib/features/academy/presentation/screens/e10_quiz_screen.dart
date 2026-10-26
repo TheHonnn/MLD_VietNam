@@ -5,7 +5,18 @@ import 'e12_learning_results_screen.dart';
 /// Screen E10: Kiểm tra kiến thức (Quiz Assessment) [8116:26228]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
 class E10QuizScreen extends StatefulWidget {
-  const E10QuizScreen({super.key});
+  final String? quizTitle;
+  final String? courseTitle;
+  final int? totalQuestions;
+  final int? timeLimitMinutes;
+
+  const E10QuizScreen({
+    super.key,
+    this.quizTitle,
+    this.courseTitle,
+    this.totalQuestions,
+    this.timeLimitMinutes,
+  });
 
   @override
   State<E10QuizScreen> createState() => _E10QuizScreenState();
@@ -42,10 +53,10 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Tiêu đề trang [8116:26233]
-            const Text(
-              'Kiểm tra kiến thức',
-              style: TextStyle(
+            // 1. Tiêu đề trang
+            Text(
+              widget.quizTitle ?? 'Kiểm tra kiến thức',
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
@@ -54,10 +65,10 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2. Thông tin kiểm tra [8116:26236]
-            const Text(
-              'Kỹ thuật Massage Chuyên Nghiệp',
-              style: TextStyle(
+            // 2. Thông tin kiểm tra
+            Text(
+              widget.courseTitle ?? 'Khóa học Đào tạo MLD',
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.primary,
@@ -340,7 +351,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'Nhận xét của giảng viên · Không phải kết quả bài đang làm.',
+                    'Đánh giá chuyên môn Học viện MLD',
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),
                 ],

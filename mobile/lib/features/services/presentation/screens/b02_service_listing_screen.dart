@@ -247,15 +247,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.medical_services_outlined,
-                              size: 16,
-                              color: _expandedFilter == ServiceFilterExpanded.service ||
-                                      (_selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả')
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 _selectedServiceCategory == 'Tất cả dịch vụ' || _selectedServiceCategory == 'Tất cả'
@@ -318,15 +309,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.location_on_outlined,
-                              size: 16,
-                              color: _expandedFilter == ServiceFilterExpanded.branch ||
-                                      (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả')
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 _selectedBranch == 'Tất cả cơ sở' || _selectedBranch == 'Tất cả'

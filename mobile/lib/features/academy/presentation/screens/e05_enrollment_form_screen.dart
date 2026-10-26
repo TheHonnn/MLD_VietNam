@@ -140,17 +140,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             }
             if (context.mounted) {
               _submitConsultation(phone);
-                // MaterialPageRoute(
-                  // builder: (_) => E06TuitionPaymentScreen(
-                    // course: course,
-                    // studentName: _nameController.text.trim(),
-                    // studentPhone: phone,
-                    // studentEmail: _emailController.text.trim(),
-                    // selectedBranch: _selectedBranch,
-                    /* selectedShift: 'Thứ 6–7–Chủ nhật · 13:00–17:00',
-                  ),
-                ),
-              // ); */
+                
             }
           }
         },

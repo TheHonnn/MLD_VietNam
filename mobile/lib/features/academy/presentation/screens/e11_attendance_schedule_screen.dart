@@ -116,12 +116,17 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.school_outlined, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    context.tr('Khám phá khóa đào tạo ngay', 'Explore Courses Now'),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  Flexible(
+                    child: Text(
+                      context.tr('Khám phá khóa đào tạo ngay', 'Explore Courses Now'),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -342,7 +347,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Giảng viên Nguyễn Thanh Hương',
+                    'Ban Đào tạo MLD',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AcademyColors.textSecondary),
                   ),
                 ],
@@ -473,7 +478,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Quét mã QR được giảng viên hoặc ban đào tạo trình chiếu tại lớp.',
+                    'Quét mã QR được Ban Đào tạo trình chiếu tại lớp.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),

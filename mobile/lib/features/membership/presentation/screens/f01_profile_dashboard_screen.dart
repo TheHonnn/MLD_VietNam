@@ -17,7 +17,6 @@ import '../../../academy/presentation/screens/e12_learning_results_screen.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
-import 'f06_payment_history_screen.dart';
 import 'f08_settings_screen.dart';
 
 /// Screen F01: Trang Cá nhân chuẩn Design System (#2860EB)
@@ -383,17 +382,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
                     );
                     _refreshProfile();
-                  },
-                ),
-                const Divider(height: 1, indent: 56, color: AppColors.border),
-                _buildMenuItem(
-                  icon: Icons.receipt_long_outlined,
-                  title: context.tr('Lịch sử thanh toán', 'Payment History'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const F06PaymentHistoryScreen()),
-                    );
                   },
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.border),

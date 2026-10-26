@@ -284,7 +284,7 @@ class E12LearningResultsScreen extends StatelessWidget {
 
             // 6. Nhận xét của giảng viên [8116:26544]
             const Text(
-              'Nhận xét của giảng viên',
+              'Đánh giá kết quả đào tạo',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,

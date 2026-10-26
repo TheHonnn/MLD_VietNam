@@ -49,8 +49,8 @@ class CourseModel {
     required this.schedule,
     required this.description,
     this.tag = 'Thực hành chuyên nghiệp',
-    this.progressPercentage = 45,
-    this.status = 'IN_PROGRESS',
+    this.progressPercentage = 0,
+    this.status = 'UPCOMING',
   });
 
   factory CourseModel.fromJson(Map<String, dynamic> json) {
@@ -100,7 +100,61 @@ class CourseModel {
       description: json['fullDescription']?.toString() ?? json['shortDescription']?.toString() ?? json['full_description']?.toString() ?? json['description']?.toString() ?? '',
       tag: json['tag']?.toString() ?? 'Chứng nhận Y khoa',
       progressPercentage: (json['progressPercentage'] as num?)?.toInt() ?? (json['progress_percentage'] as num?)?.toInt() ?? 0,
-      status: json['status']?.toString() ?? 'IN_PROGRESS',
+      status: json['status']?.toString() ?? 'UPCOMING',
+    );
+  }
+
+  CourseModel copyWith({
+    String? id,
+    String? title,
+    String? category,
+    String? level,
+    int? durationWeeks,
+    int? totalHours,
+    int? theoryHours,
+    int? practiceHours,
+    double? tuitionFee,
+    double? depositFee,
+    double? originalPrice,
+    String? targetAudience,
+    String? targetNeed,
+    String? courseGroup,
+    String? image,
+    String? instructorName,
+    String? instructorTitle,
+    String? instructorAvatar,
+    String? branch,
+    String? schedule,
+    String? description,
+    String? tag,
+    int? progressPercentage,
+    String? status,
+  }) {
+    return CourseModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      category: category ?? this.category,
+      level: level ?? this.level,
+      durationWeeks: durationWeeks ?? this.durationWeeks,
+      totalHours: totalHours ?? this.totalHours,
+      theoryHours: theoryHours ?? this.theoryHours,
+      practiceHours: practiceHours ?? this.practiceHours,
+      tuitionFee: tuitionFee ?? this.tuitionFee,
+      depositFee: depositFee ?? this.depositFee,
+      originalPrice: originalPrice ?? this.originalPrice,
+      targetAudience: targetAudience ?? this.targetAudience,
+      targetNeed: targetNeed ?? this.targetNeed,
+      courseGroup: courseGroup ?? this.courseGroup,
+      image: image ?? this.image,
+      instructorName: instructorName ?? this.instructorName,
+      instructorTitle: instructorTitle ?? this.instructorTitle,
+      instructorAvatar: instructorAvatar ?? this.instructorAvatar,
+      branch: branch ?? this.branch,
+      schedule: schedule ?? this.schedule,
+      description: description ?? this.description,
+      tag: tag ?? this.tag,
+      progressPercentage: progressPercentage ?? this.progressPercentage,
+      status: status ?? this.status,
     );
   }
 
@@ -192,18 +246,37 @@ class LessonModel {
   });
 
   factory LessonModel.fromJson(Map<String, dynamic> json) {
+    final vUrl = json['video_url']?.toString() ?? json['videoUrl']?.toString();
+    int dMin = (json['duration_minutes'] as num?)?.toInt() ??
+        (json['durationMinutes'] as num?)?.toInt() ??
+        18;
+    if (vUrl != null && vUrl.contains('mDhpMX4EeY8')) {
+      dMin = 95;
+    }
+
     return LessonModel(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
-      durationMinutes: (json['duration_minutes'] as num?)?.toInt() ??
-          (json['durationMinutes'] as num?)?.toInt() ??
-          18,
+      durationMinutes: dMin,
       isCompleted: json['is_completed'] == true || json['isCompleted'] == true,
-      videoUrl: json['video_url']?.toString() ?? json['videoUrl']?.toString(),
+      videoUrl: vUrl,
       contentText: json['content_text']?.toString() ?? json['contentText']?.toString(),
-      isFreePreview: json['is_free_preview'] == true || json['isFreePreview'] == true,
+      isFreePreview: false, // Mọi bài học đều bắt buộc đăng ký khóa học
       lessonOrder: (json['lesson_order'] as num?)?.toInt() ?? 1,
     );
+  }
+
+  /// Định dạng chuẩn thời lượng hiển thị khớp chính xác với độ dài thực tế của clip
+  String get formattedDuration {
+    if (videoUrl != null && videoUrl!.contains('mDhpMX4EeY8')) {
+      return '94:48';
+    }
+    if (durationMinutes >= 60) {
+      final hours = durationMinutes ~/ 60;
+      final mins = durationMinutes % 60;
+      return '$hours:${mins.toString().padLeft(2, '0')}:00';
+    }
+    return '${durationMinutes.toString().padLeft(2, '0')}:00';
   }
 }
 
@@ -575,21 +648,21 @@ class MockAcademyData {
     ChapterModel(
       id: 'ch_01',
       title: 'Chương 1: Giải phẫu & Sinh lý hệ bạch huyết',
-      isCompleted: true,
+      isCompleted: false,
       lessons: [
         LessonModel(
           id: 'les_01',
-          title: 'Bài 1: Tổng quan và nguồn gốc phương pháp Emil Vodder',
-          durationMinutes: 15,
-          isCompleted: true,
-          videoUrl: 'https://www.youtube.com/watch?v=QA-xR_E24G8',
-          isFreePreview: true,
+          title: 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
+          durationMinutes: 95,
+          isCompleted: false,
+          videoUrl: 'https://youtu.be/mDhpMX4EeY8?si=Hd_z_npg-loMZEx8',
+          isFreePreview: false,
         ),
         LessonModel(
           id: 'les_02',
           title: 'Bài 2: Cấu tạo mao mạch và hạch bạch huyết',
           durationMinutes: 20,
-          isCompleted: true,
+          isCompleted: false,
           videoUrl: 'https://www.youtube.com/watch?v=0h9sC3wK-yA',
           isFreePreview: false,
         ),
@@ -597,7 +670,7 @@ class MockAcademyData {
           id: 'les_03',
           title: 'Bài 3: Áp lực mô và cơ chế hình thành dịch phù',
           durationMinutes: 25,
-          isCompleted: true,
+          isCompleted: false,
           videoUrl: 'https://www.youtube.com/watch?v=2r1pZ3Wf2lA',
           isFreePreview: false,
         ),
@@ -612,7 +685,7 @@ class MockAcademyData {
           id: 'les_04',
           title: 'Bài 4: Thao tác xoay tròn tĩnh (Stationary Circles)',
           durationMinutes: 20,
-          isCompleted: true,
+          isCompleted: false,
           videoUrl: 'https://www.youtube.com/watch?v=Zz1X1U0v6g0',
           isFreePreview: false,
         ),

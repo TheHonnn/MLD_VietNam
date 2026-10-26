@@ -243,15 +243,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.people_alt_outlined,
-                              size: 16,
-                              color: _expandedFilter == AcademyFilterExpanded.audience ||
-                                      (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả')
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 _selectedAudience == 'Tất cả đối tượng' || _selectedAudience == 'Tất cả'
@@ -314,15 +305,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.lightbulb_outline,
-                              size: 16,
-                              color: _expandedFilter == AcademyFilterExpanded.need ||
-                                      (_selectedNeed != 'Tất cả nhu cầu' && _selectedNeed != 'Tất cả')
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 _selectedNeed == 'Tất cả nhu cầu' || _selectedNeed == 'Tất cả'
