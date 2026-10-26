@@ -35,6 +35,13 @@ import {
   ChevronLeft,
   FileCheck,
   Code2,
+  Bell,
+  MapPin,
+  Calendar,
+  Play,
+  User,
+  Home,
+  GraduationCap,
 } from 'lucide-react';
 import { portalService, emailService } from '../services';
 import {
@@ -1001,8 +1008,8 @@ export const W18_PortalContent: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-5 h-5 text-[#BA7E4C]" />
                   <div>
-                    <h3 className="font-serif font-bold text-sm">Xem trước Banner trên ứng dụng Mini App Khách hàng</h3>
-                    <p className="text-[11px] text-neutral-300">Giao diện điện thoại thời gian thực</p>
+                    <h3 className="font-serif font-bold text-sm">Xem trước Banner trên Trang chủ Ứng dụng Khách hàng</h3>
+                    <p className="text-[11px] text-neutral-300">Vị trí: Ngay dưới mục tên tài khoản ("Hello, Bui The Hoang")</p>
                   </div>
                 </div>
                 <button
@@ -1016,60 +1023,160 @@ export const W18_PortalContent: React.FC = () => {
 
               {activeBanners.length > 0 ? (
                 <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-                  {/* Phone frame */}
-                  <div className="w-[300px] h-[480px] bg-black rounded-[40px] p-3 border-4 border-neutral-700 shadow-2xl relative overflow-hidden flex flex-col justify-between">
-                    {/* Speaker notch */}
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-4 bg-black rounded-b-xl z-20" />
+                  {/* Phone frame with authentic app layout */}
+                  <div className="w-[310px] h-[550px] bg-[#F8FAFC] text-slate-800 rounded-[38px] p-3 border-[6px] border-neutral-900 shadow-2xl relative overflow-hidden flex flex-col justify-between select-none">
+                    {/* Top Speaker Notch / Dynamic Island */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-3.5 bg-black rounded-full z-30" />
 
-                    {/* App Header */}
-                    <div className="pt-5 px-3 pb-2 flex items-center justify-between border-b border-neutral-800">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 rounded-full bg-[#BA7E4C] flex items-center justify-center text-[10px] font-bold">M</div>
-                        <span className="text-[11px] font-bold tracking-wider">MLD VIETNAM</span>
+                    {/* Status bar */}
+                    <div className="pt-2 px-3 pb-1 flex items-center justify-between text-[10px] font-bold text-slate-700 z-10">
+                      <span>14:36</span>
+                      <div className="flex items-center gap-1.5 text-[9px]">
+                        <span>5G</span>
+                        <div className="w-4 h-2 border border-slate-700 rounded-xs p-0.5 flex items-center">
+                          <div className="h-full w-full bg-slate-700 rounded-2xs" />
+                        </div>
                       </div>
-                      <span className="text-[10px] text-neutral-400">9:41 AM</span>
                     </div>
 
-                    {/* Banner Carousel inside app */}
-                    <div className="flex-1 py-4 flex flex-col justify-center">
-                      <div className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-lg border border-neutral-800">
-                        <img
-                          src={activeBanners[currentMockupIndex % activeBanners.length]?.imageUrl || ''}
-                          alt="Banner Preview"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3">
-                          <span className="text-[9px] font-bold bg-[#BA7E4C] text-white px-2 py-0.5 rounded-md w-fit mb-1">
-                            {activeBanners[currentMockupIndex % activeBanners.length]?.category || 'ĐÀO TẠO'}
+                    {/* App Content Scrollable area */}
+                    <div className="flex-1 overflow-y-auto px-1 py-1 space-y-3 no-scrollbar">
+                      {/* 1. Header: Greeting & Account Name */}
+                      <div className="flex items-center justify-between py-1">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-full border border-blue-500 bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                            <User className="w-5 h-5 stroke-[2]" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block leading-tight">Hello,</span>
+                            <span className="text-xs font-bold text-slate-900 leading-tight">Bui The Hoang</span>
+                          </div>
+                        </div>
+                        <div className="relative p-1.5 rounded-full text-blue-600 hover:bg-blue-50 cursor-pointer">
+                          <Bell className="w-5 h-5" />
+                          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                        </div>
+                      </div>
+
+                      {/* 2. THE BANNER (VỊ TRÍ ĐẦU TIÊN DƯỚI MỤC TÊN TÀI KHOẢN) */}
+                      <div className="relative rounded-2xl overflow-hidden shadow-md text-white bg-gradient-to-r from-[#002A6B] to-[#1E40AF] min-h-[142px] flex flex-col justify-between p-3.5 border border-blue-900/40">
+                        {/* Background Image with Overlay */}
+                        {activeBanners[currentMockupIndex % activeBanners.length]?.imageUrl && (
+                          <img
+                            src={activeBanners[currentMockupIndex % activeBanners.length]?.imageUrl}
+                            alt="Banner background"
+                            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60 pointer-events-none"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#002A6B]/90 via-[#002A6B]/60 to-transparent pointer-events-none" />
+
+                        {/* Top Banner Tag & Logo */}
+                        <div className="relative z-10 flex items-start justify-between">
+                          <span className="text-[8.5px] font-extrabold uppercase tracking-wider bg-white/20 backdrop-blur-md px-2 py-0.5 rounded-md text-white">
+                            {activeBanners[currentMockupIndex % activeBanners.length]?.category === 'TRI_LIEU'
+                              ? 'LYMPHATIC MEDICAL CENTER'
+                              : activeBanners[currentMockupIndex % activeBanners.length]?.category === 'DAO_TAO'
+                              ? 'MLD ACADEMY & EDUCATION'
+                              : activeBanners[currentMockupIndex % activeBanners.length]?.category || 'LYMPHATIC MEDICAL CENTER'}
                           </span>
-                          <h4 className="text-xs font-bold text-white line-clamp-1">
-                            {activeBanners[currentMockupIndex % activeBanners.length]?.title}
+                          <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
+                            <Play className="w-3 h-3 fill-white ml-0.5" />
+                          </div>
+                        </div>
+
+                        {/* Middle: Title & Subtitle */}
+                        <div className="relative z-10 my-1 space-y-0.5">
+                          <h4 className="text-[13px] font-extrabold tracking-wide text-white line-clamp-1">
+                            {activeBanners[currentMockupIndex % activeBanners.length]?.title || 'MLD VIỆT NAM'}
                           </h4>
+                          <p className="text-[9.5px] text-white/80 line-clamp-1">
+                            {activeBanners[currentMockupIndex % activeBanners.length]?.summary || 'Medical Vodder Manual Lymphatic Drainage'}
+                          </p>
+                        </div>
+
+                        {/* Bottom: CTA Link */}
+                        <div className="relative z-10 flex items-center gap-1 text-[9px] font-semibold text-white/95 underline decoration-white/50">
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          <span>
+                            {activeBanners[currentMockupIndex % activeBanners.length]?.targetLink
+                              ? 'Tap to visit official link ↗'
+                              : 'Tap to visit official Website & Facebook ↗'}
+                          </span>
                         </div>
                       </div>
 
                       {/* Dots Indicator */}
-                      <div className="flex items-center justify-center gap-1.5 mt-3">
-                        {activeBanners.map((_, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => setCurrentMockupIndex(idx)}
-                            className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                              idx === currentMockupIndex % activeBanners.length
-                                ? 'w-5 bg-[#BA7E4C]'
-                                : 'w-1.5 bg-neutral-600'
-                            }`}
-                          />
-                        ))}
+                      {activeBanners.length > 1 && (
+                        <div className="flex items-center justify-center gap-1 pt-0.5">
+                          {activeBanners.map((_, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => setCurrentMockupIndex(idx)}
+                              className={`h-1 rounded-full transition-all cursor-pointer ${
+                                idx === currentMockupIndex % activeBanners.length ? 'w-4 bg-blue-600' : 'w-1.5 bg-slate-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 3. Current Therapy Branch */}
+                      <div className="bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-[8.5px] text-slate-500 block leading-none">Current Therapy Branch</span>
+                            <span className="text-[10.5px] font-bold text-slate-800 block truncate max-w-[170px] mt-0.5">
+                              MLD Vietnam Headquarters (5 Mast...
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+
+                      {/* 4. Core Service Peek */}
+                      <div className="bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs space-y-1.5">
+                        <div className="h-16 rounded-lg bg-amber-50 overflow-hidden relative border border-amber-100 flex items-center justify-center">
+                          <span className="text-[9px] font-extrabold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-md">
+                            DẪN LƯU BẠCH HUYẾT NỀN TẢNG (LEVEL 0)
+                          </span>
+                        </div>
+                        <h5 className="text-[10.5px] font-bold text-slate-800 line-clamp-1">
+                          Intensive Manual Lymphatic Drainage Therapy (Vodder MLD)
+                        </h5>
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-xs font-extrabold text-blue-600">702.000 đ</span>
+                          <span className="text-[9.5px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200">
+                            Book Now <Calendar className="w-2.5 h-2.5" />
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Mock Nav Bottom */}
-                    <div className="py-2.5 px-4 bg-neutral-900/90 rounded-2xl flex items-center justify-between text-[9px] text-neutral-400 border border-neutral-800">
-                      <span className="text-[#BA7E4C] font-bold">Trang chủ</span>
-                      <span>Liệu trình</span>
-                      <span>Học viện</span>
-                      <span>Tài khoản</span>
+                    {/* App Bottom Navigation Bar */}
+                    <div className="py-2 px-3 bg-white rounded-2xl flex items-center justify-between text-[8px] font-semibold text-slate-400 border border-slate-200 shadow-xs mt-1">
+                      <div className="flex flex-col items-center gap-0.5 text-blue-600 font-bold">
+                        <Home className="w-3.5 h-3.5 fill-blue-600" />
+                        <span>Home</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Services</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>Academy</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Documents</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <User className="w-3.5 h-3.5" />
+                        <span>Profile</span>
+                      </div>
                     </div>
                   </div>
 
