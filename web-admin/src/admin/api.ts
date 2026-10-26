@@ -140,7 +140,7 @@ const TABLE_SELECTS: Record<string, string> = {
   branch_rooms: "*,branches(name)",
   technician_shifts: "*,technicians(full_name),branches(name)",
   course_batches: "*,courses(title)",
-  course_chapters: "*,courses(title)",
+  course_chapters: "*,courses(title,code)",
   course_lessons: "*,course_chapters(title)",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
@@ -875,6 +875,17 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       delete payload.values.notes;
     }
 
+    if (table === "course_chapters") {
+      if (payload.values.chapter_order === undefined || payload.values.chapter_order === null || isNaN(Number(payload.values.chapter_order))) {
+        payload.values.chapter_order = 1;
+      } else {
+        payload.values.chapter_order = Number(payload.values.chapter_order);
+      }
+      delete payload.values.courses;
+      delete payload.values.course_title;
+      delete payload.values.course_code;
+    }
+
     const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -970,6 +981,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       delete payload.values.batch_code;
       delete payload.values.batch_name;
       delete payload.values.notes;
+    }
+
+    if (table === "course_chapters") {
+      if (payload.values.chapter_order !== undefined && payload.values.chapter_order !== null) {
+        payload.values.chapter_order = Number(payload.values.chapter_order);
+      }
+      delete payload.values.courses;
+      delete payload.values.course_title;
+      delete payload.values.course_code;
     }
 
     const key = payload.key || {};
