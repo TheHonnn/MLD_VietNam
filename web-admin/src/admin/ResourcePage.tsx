@@ -9,6 +9,7 @@ import { CourseEditorSheet } from "./CourseEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
 import { InstructorFormEditor } from "./InstructorFormEditor";
+import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -2467,6 +2468,39 @@ function RecordDialog({
               : [];
         }
       }
+      if (resource.name === "batch_schedules") {
+        if (!payload.batch_id && values.batch_id) payload.batch_id = values.batch_id;
+        if (!payload.session_date && values.session_date) payload.session_date = values.session_date;
+        if (!payload.start_time && values.start_time) payload.start_time = values.start_time;
+        if (!payload.end_time && values.end_time) payload.end_time = values.end_time;
+        if (!payload.topic && values.topic) payload.topic = values.topic;
+
+        // Clean time format to HH:mm:ss if it is HH:mm
+        if (typeof payload.start_time === "string" && payload.start_time.length === 5) {
+          payload.start_time += ":00";
+        }
+        if (typeof payload.end_time === "string" && payload.end_time.length === 5) {
+          payload.end_time += ":00";
+        }
+
+        // Validate time
+        if (payload.start_time && payload.end_time && payload.end_time <= payload.start_time) {
+          throw new Error("Giờ kết thúc buổi học phải diễn ra sau giờ bắt đầu.");
+        }
+
+        // Clean assigned_room_id: if empty string, set to null
+        if (!payload.assigned_room_id && values.assigned_room_id) {
+          payload.assigned_room_id = values.assigned_room_id;
+        }
+        if (payload.assigned_room_id === "" || payload.assigned_room_id === "null" || payload.assigned_room_id === undefined) {
+          payload.assigned_room_id = null;
+        }
+
+        // Default topic fallback if empty
+        if (!payload.topic) {
+          payload.topic = "Buổi học chuyên đề Dẫn lưu Bạch huyết Vodder";
+        }
+      }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -2597,6 +2631,22 @@ function RecordDialog({
                 bio: String(values.bio ?? (columns.find((x) => x.name === "bio") ? current(columns.find((x) => x.name === "bio")!) : "")),
                 achievements: values.achievements ?? (columns.find((x) => x.name === "achievements") ? current(columns.find((x) => x.name === "achievements")!) : []),
                 is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
+              }}
+              onChange={(field, val) => set(field, val)}
+              isCreate={mode === "create"}
+            />
+          </div>
+        ) : resource.name === "batch_schedules" && mode !== "view" ? (
+          <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
+            <BatchScheduleFormEditor
+              values={{
+                batch_id: String(values.batch_id ?? (columns.find((x) => x.name === "batch_id") ? current(columns.find((x) => x.name === "batch_id")!) : "")),
+                assigned_room_id: values.assigned_room_id !== undefined ? (values.assigned_room_id ? String(values.assigned_room_id) : null) : (columns.find((x) => x.name === "assigned_room_id") && current(columns.find((x) => x.name === "assigned_room_id")!) ? String(current(columns.find((x) => x.name === "assigned_room_id")!)) : null),
+                session_date: String(values.session_date ?? (columns.find((x) => x.name === "session_date") ? current(columns.find((x) => x.name === "session_date")!) : "")),
+                start_time: String(values.start_time ?? (columns.find((x) => x.name === "start_time") ? current(columns.find((x) => x.name === "start_time")!) : "")),
+                end_time: String(values.end_time ?? (columns.find((x) => x.name === "end_time") ? current(columns.find((x) => x.name === "end_time")!) : "")),
+                topic: String(values.topic ?? (columns.find((x) => x.name === "topic") ? current(columns.find((x) => x.name === "topic")!) : "")),
+                is_practice_lab: Boolean(values.is_practice_lab ?? (columns.find((x) => x.name === "is_practice_lab") ? current(columns.find((x) => x.name === "is_practice_lab")!) : true) ?? true),
               }}
               onChange={(field, val) => set(field, val)}
               isCreate={mode === "create"}
