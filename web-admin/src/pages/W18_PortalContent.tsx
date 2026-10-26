@@ -313,9 +313,11 @@ export const W18_PortalContent: React.FC = () => {
   // Modals
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Partial<PortalContentItem> | null>(null);
+  const [isSavingBanner, setIsSavingBanner] = useState(false);
 
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<Partial<PortalContentItem> | null>(null);
+  const [isSavingDoc, setIsSavingDoc] = useState(false);
 
   const [isPreviewDocModalOpen, setIsPreviewDocModalOpen] = useState(false);
   const [previewingDoc, setPreviewingDoc] = useState<PortalContentItem | null>(null);
@@ -412,6 +414,20 @@ export const W18_PortalContent: React.FC = () => {
     [emailLogs]
   );
 
+  // Filtered Banners
+  const filteredBanners = useMemo(() => {
+    return banners.filter((b) => {
+      if (statusFilter !== 'ALL') {
+        const isLive = b.status === 'PUBLISHED' || b.status === 'APPROVED';
+        if (statusFilter === 'PUBLISHED' && !isLive) return false;
+        if (statusFilter === 'DRAFT' && isLive) return false;
+      }
+      if (categoryFilter !== 'ALL' && b.category !== categoryFilter) return false;
+      if (searchTerm && !b.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      return true;
+    });
+  }, [banners, statusFilter, categoryFilter, searchTerm]);
+
   // ==========================================
   // HANDLERS: BANNER ACTIONS & REORDERING
   // ==========================================
@@ -438,19 +454,30 @@ export const W18_PortalContent: React.FC = () => {
       return;
     }
 
+    setIsSavingBanner(true);
     try {
       if (editingBanner.id) {
-        await portalService.updateContent(editingBanner.id, editingBanner);
+        const res = await portalService.updateContent(editingBanner.id, editingBanner);
+        if (!res.success) {
+          toast.error('Lỗi cập nhật', res.message || 'Không thể cập nhật Banner.');
+          return;
+        }
         toast.success('Thành công', 'Đã cập nhật thông tin Banner.');
       } else {
-        await portalService.createContent(editingBanner);
+        const res = await portalService.createContent(editingBanner);
+        if (!res.success) {
+          toast.error('Lỗi thêm mới', res.message || 'Không thể thêm Banner mới.');
+          return;
+        }
         toast.success('Thành công', 'Đã thêm Banner mới lên hệ thống.');
       }
       setIsBannerModalOpen(false);
       setEditingBanner(null);
-      loadData();
-    } catch {
-      toast.error('Lỗi', 'Không thể lưu Banner vào lúc này.');
+      await loadData();
+    } catch (err: any) {
+      toast.error('Lỗi', err.message || 'Không thể lưu Banner vào lúc này.');
+    } finally {
+      setIsSavingBanner(false);
     }
   };
 
@@ -537,19 +564,30 @@ export const W18_PortalContent: React.FC = () => {
       return;
     }
 
+    setIsSavingDoc(true);
     try {
       if (editingDoc.id) {
-        await portalService.updateContent(editingDoc.id, editingDoc);
+        const res = await portalService.updateContent(editingDoc.id, editingDoc);
+        if (!res.success) {
+          toast.error('Lỗi cập nhật', res.message || 'Không thể cập nhật tài liệu.');
+          return;
+        }
         toast.success('Thành công', 'Đã cập nhật thông tin tài liệu PDF.');
       } else {
-        await portalService.createContent(editingDoc);
+        const res = await portalService.createContent(editingDoc);
+        if (!res.success) {
+          toast.error('Lỗi đăng tải', res.message || 'Không thể đăng tài liệu mới.');
+          return;
+        }
         toast.success('Thành công', 'Đã đăng tài liệu mới lên thư viện.');
       }
       setIsDocModalOpen(false);
       setEditingDoc(null);
-      loadData();
-    } catch {
-      toast.error('Lỗi', 'Không thể lưu tài liệu.');
+      await loadData();
+    } catch (err: any) {
+      toast.error('Lỗi', err.message || 'Không thể lưu tài liệu.');
+    } finally {
+      setIsSavingDoc(false);
     }
   };
 
@@ -1081,9 +1119,67 @@ export const W18_PortalContent: React.FC = () => {
             </div>
           )}
 
+          {/* Banner Toolbar & Filters */}
+          <div className="bg-white p-4 rounded-2xl border border-[#E8DFD8] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8C7A6B]" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm banner..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018] text-[#2C241E]"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8C7A6B] hover:text-[#2C241E]"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap justify-end">
+              <select
+                aria-label="Lọc theo trạng thái"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:outline-none font-medium cursor-pointer"
+              >
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="PUBLISHED">Đang hiển thị</option>
+                <option value="DRAFT">Tạm ẩn</option>
+              </select>
+
+              <select
+                aria-label="Lọc theo chuyên mục banner"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:outline-none font-medium cursor-pointer"
+              >
+                <option value="ALL">Tất cả chuyên mục</option>
+                <option value="DAO_TAO">Đào tạo Học viện</option>
+                <option value="DICH_VU">Dịch vụ Trị liệu</option>
+                <option value="KHUYEN_MAI">Ưu đãi / Chiến dịch</option>
+                <option value="SU_KIEN">Sự kiện Chuyên ngành</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={handleOpenAddBanner}
+                className="px-3.5 py-1.5 bg-[#985018] hover:bg-[#804213] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Thêm Banner mới</span>
+              </button>
+            </div>
+          </div>
+
           {/* Banner Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {banners.map((banner, index) => {
+            {filteredBanners.map((banner, index) => {
               const isLive = banner.status === 'PUBLISHED' || banner.status === 'APPROVED';
               return (
                 <div
@@ -1211,16 +1307,26 @@ export const W18_PortalContent: React.FC = () => {
             })}
           </div>
 
-          {banners.length === 0 && (
-            <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-[#D8C9BA] space-y-3">
+          {filteredBanners.length === 0 && (
+            <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-[#D8C9BA] space-y-3 shadow-xs">
               <ImageIcon className="w-10 h-10 text-[#A69788] mx-auto" />
-              <p className="font-serif font-bold text-base text-[#2C241E]">Chưa có banner trang chủ nào</p>
+              <p className="font-serif font-bold text-base text-[#2C241E]">
+                {searchTerm || categoryFilter !== 'ALL' || statusFilter !== 'ALL'
+                  ? 'Không tìm thấy banner nào phù hợp với bộ lọc'
+                  : 'Chưa có banner trang chủ nào trên hệ thống'}
+              </p>
+              <p className="text-xs text-[#73675F] max-w-sm mx-auto">
+                {searchTerm || categoryFilter !== 'ALL' || statusFilter !== 'ALL'
+                  ? 'Vui lòng xóa bộ lọc tìm kiếm hoặc thử với từ khóa khác.'
+                  : 'Hãy tạo banner đầu tiên để hiển thị trên ứng dụng Mini App cho khách hàng!'}
+              </p>
               <button
                 type="button"
                 onClick={handleOpenAddBanner}
-                className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#804213] cursor-pointer"
+                className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#804213] cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
               >
-                + Thêm Banner đầu tiên
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Thêm Banner mới</span>
               </button>
             </div>
           )}
@@ -1812,15 +1918,18 @@ export const W18_PortalContent: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsBannerModalOpen(false)}
-                  className="px-4 py-2 border border-[#E8DFD8] bg-white rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5]"
+                  disabled={isSavingBanner}
+                  className="px-4 py-2 border border-[#E8DFD8] bg-white rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#985018] hover:bg-[#804213] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                  disabled={isSavingBanner}
+                  className="px-5 py-2 bg-[#985018] hover:bg-[#804213] disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Lưu Banner
+                  {isSavingBanner && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{editingBanner.id ? 'Cập nhật Banner' : 'Lưu Banner'}</span>
                 </button>
               </div>
             </form>

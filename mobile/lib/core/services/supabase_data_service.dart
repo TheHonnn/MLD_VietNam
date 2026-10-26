@@ -194,7 +194,8 @@ class SupabaseDataService {
   }
 
   // ==========================================
-  // 9. BANNER QUẢNG CÁO & TRANG CHỦ (BANNERS)
+  // ==========================================
+  // 9. BANNERS & NỘI DUNG TRANG CHỦ (PORTAL BANNERS)
   // Quản trị viên (Admin) cấu hình từ xa qua web-admin / Supabase
   // ==========================================
   Future<List<Map<String, dynamic>>> fetchBanners() async {
@@ -206,25 +207,18 @@ class SupabaseDataService {
 
     try {
       final response = await _client.get<List<dynamic>>(
-        ApiEndpoints.miniappSharedContent,
+        ApiEndpoints.portalContent,
         queryParameters: {
           'kind': 'eq.BANNER',
-          'status': 'eq.PUBLISHED',
+          'status': 'in.(PUBLISHED,APPROVED)',
           'select': '*',
           'order': 'sort_order.asc,created_at.desc',
         },
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
-          },
-        ),
       );
-      if (response.data != null) {
-        return List<Map<String, dynamic>>.from(response.data!);
-      }
-    } catch (_) {}
-    return [];
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
   }
 }
-

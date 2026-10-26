@@ -226,14 +226,32 @@ export const portalService = {
    * Upload file ảnh hoặc tài liệu PDF trực tiếp lên Supabase Storage
    */
   async uploadFileToStorage(file: File | Blob, nameHint = 'portal_file.pdf'): Promise<string> {
-    const ext = nameHint.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'pdf';
+    const ext = nameHint.split('.').pop()?.toLowerCase().replace(/[^a-zA-Z0-9]/g, '') || 'png';
     const cleanFileName = `portal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
     const SUPABASE_URL = 'https://wstvwushpwcdsmhpunvh.supabase.co';
     const KEY =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
 
-    let targetBucket = 'services';
-    let res = await fetch(`${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`, {
+    const isDoc = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar'].includes(ext);
+    const primaryBucket = isDoc ? 'documents' : 'services';
+    const fallbackBucket = isDoc ? 'services' : 'avatars';
+
+    let res = await fetch(`${SUPABASE_URL}/storage/v1/object/${primaryBucket}/${cleanFileName}`, {
+      method: 'POST',
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`,
+        'Content-Type': file.type || (isDoc ? 'application/pdf' : 'image/png'),
+      },
+      body: file,
+    });
+
+    if (res.ok) {
+      return `${SUPABASE_URL}/storage/v1/object/public/${primaryBucket}/${cleanFileName}`;
+    }
+
+    // Fallback bucket
+    res = await fetch(`${SUPABASE_URL}/storage/v1/object/${fallbackBucket}/${cleanFileName}`, {
       method: 'POST',
       headers: {
         apikey: KEY,
@@ -243,23 +261,11 @@ export const portalService = {
       body: file,
     });
 
-    if (!res.ok) {
-      targetBucket = 'avatars';
-      res = await fetch(`${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`, {
-        method: 'POST',
-        headers: {
-          apikey: KEY,
-          Authorization: `Bearer ${KEY}`,
-          'Content-Type': file.type || 'application/octet-stream',
-        },
-        body: file,
-      });
+    if (res.ok) {
+      return `${SUPABASE_URL}/storage/v1/object/public/${fallbackBucket}/${cleanFileName}`;
     }
 
-    if (!res.ok) {
-      throw new Error('Không thể tải file lên đám mây Supabase.');
-    }
-
-    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Không thể tải tệp lên máy chủ: ${errText || res.statusText}`);
   },
 };

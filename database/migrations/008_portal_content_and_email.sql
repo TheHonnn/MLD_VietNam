@@ -324,3 +324,9 @@ INSERT INTO public.miniapp_shared_content (
   NULL
 )
 ON CONFLICT DO NOTHING;
+
+-- Grant table privileges to public roles (anon, authenticated, service_role)
+GRANT ALL ON TABLE public.miniapp_shared_content TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.email_templates TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.email_logs TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
