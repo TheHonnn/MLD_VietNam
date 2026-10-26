@@ -622,7 +622,7 @@ export const W08_Enrollment: React.FC = () => {
 
                         {/* 3. Học phí / Khoản thu */}
                         <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="text-xs font-bold text-[#00693F] whitespace-nowrap">
+                          <div className="text-xs font-semibold text-[#2C241E] whitespace-nowrap">
                             {candidate.tuitionTotal}
                           </div>
                           <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
@@ -787,7 +787,7 @@ export const W08_Enrollment: React.FC = () => {
             </div>
             <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
               <span className="shrink-0 whitespace-nowrap">Học phí hợp đồng</span>
-              <span className="text-[#00693F] font-bold text-right shrink-0">{selectedCandidate.contractTuition}</span>
+              <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.contractTuition}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
               <span className="shrink-0 whitespace-nowrap">Cọc cần thu</span>
