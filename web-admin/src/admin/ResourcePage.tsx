@@ -5,6 +5,7 @@ import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurve
 import { ServiceDetailSheet } from "./ServiceDetailView";
 import { TreatmentPackageDetailSheet } from "./TreatmentPackageDetailView";
 import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
+import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -1344,8 +1345,7 @@ function ReferenceInput({
   onChange: (v: string) => void;
   required: boolean;
 }) {
-  const [search, setSearch] = useState(""),
-    [rows, setRows] = useState<Row[]>([]),
+  const [rows, setRows] = useState<Row[]>([]),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0),
     [error, setError] = useState(""),
@@ -1355,7 +1355,7 @@ function ReferenceInput({
     setBusy(true);
     const timer = setTimeout(() => {
       adminApi<Listing>(
-        `${column.reference!.table}?limit=25&page=${page}&search=${encodeURIComponent(search)}`,
+        `${column.reference!.table}?limit=100&page=${page}`,
         undefined,
         controller.signal,
       )
@@ -1370,24 +1370,14 @@ function ReferenceInput({
         .finally(() => {
           if (!controller.signal.aborted) setBusy(false);
         });
-    }, 200);
+    }, 150);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [column.reference!.table, search, page]);
+  }, [column.reference!.table, page]);
   return (
     <div className="admin-reference">
-      <input
-        type="search"
-        aria-label={`Tìm ${label(column.name)}`}
-        placeholder="Tìm bản ghi liên kết…"
-        value={search}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          setPage(1);
-        }}
-      />
       <select
         aria-label={label(column.name)}
         value={value}
@@ -1411,7 +1401,7 @@ function ReferenceInput({
         ))}
       </select>
       {error && <span className="admin-field-error">{error}</span>}
-      {total > 25 && (
+      {total > 100 && (
         <div className="admin-reference-pages">
           <button
             type="button"
@@ -1422,12 +1412,12 @@ function ReferenceInput({
             <ChevronLeft size={14} />
           </button>
           <span>
-            {page} / {Math.ceil(total / 25)}
+            {page} / {Math.ceil(total / 100)}
           </span>
           <button
             type="button"
             title="Trang sau"
-            disabled={page * 25 >= total || busy}
+            disabled={page * 100 >= total || busy}
             onClick={() => setPage(page + 1)}
           >
             <ChevronRight size={14} />
