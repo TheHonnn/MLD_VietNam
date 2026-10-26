@@ -998,16 +998,24 @@ function formatCell(row: Row, c: Column): React.ReactNode {
       row.student_name ||
       row.student?.full_name ||
       row.users?.full_name ||
-      (typeof row[c.name] === "string" ? null : null);
-    const phone = row.student_phone || row.student?.phone || row.users?.phone;
+      row.full_name;
+    const phone = row.student_phone || row.student?.phone || row.users?.phone || row.phone;
+    const email = row.student_email || row.student?.email || row.email;
     if (sName) {
       return (
         <div>
-          <div className="font-bold text-[#2C241E] text-xs flex items-center gap-1">
+          <div className="font-bold text-[#2C241E] text-xs flex items-center gap-1.5">
             <span>🎓</span>
-            <span>{sName}</span>
+            <span className="truncate max-w-[190px]">{sName}</span>
           </div>
-          {phone && <div className="text-[10px] text-[#8C7A6B]">{phone}</div>}
+          <div className="flex items-center gap-2 mt-0.5 text-[10.5px]">
+            {phone && <span className="text-[#8A4F23] font-medium">{phone}</span>}
+            {email && (
+              <span className="text-[#8C7A6B] truncate max-w-[140px]" title={email}>
+                {email}
+              </span>
+            )}
+          </div>
         </div>
       );
     }
@@ -1309,6 +1317,122 @@ function formatCell(row: Row, c: Column): React.ReactNode {
         />
         <span>{enums[s] || s}</span>
       </span>
+    );
+  }
+  if (
+    c.name === "status" &&
+    (row.tuition_total !== undefined ||
+      row.student_id !== undefined ||
+      row.enrolled_at !== undefined ||
+      row.batch_id !== undefined)
+  ) {
+    const s = String(row[c.name] || "ENROLLED");
+    const stMap: Record<string, { label: string; badge: string; dot: string }> = {
+      ENROLLED: {
+        label: "Đã ghi danh",
+        badge: "bg-[#EBF3FC] text-[#1E40AF] border-[#BFDBFE]",
+        dot: "bg-[#2563EB]",
+      },
+      DEPOSITED: {
+        label: "Đã đặt cọc",
+        badge: "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]",
+        dot: "bg-[#D97706]",
+      },
+      CONSULTING: {
+        label: "Tư vấn",
+        badge: "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+        dot: "bg-[#9CA3AF]",
+      },
+      STUDYING: {
+        label: "Đang học",
+        badge: "bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]",
+        dot: "bg-[#059669]",
+      },
+      GRADUATED: {
+        label: "Tốt nghiệp",
+        badge: "bg-[#FAF5FF] text-[#6B21A8] border-[#E9D5FF]",
+        dot: "bg-[#9333EA]",
+      },
+      DROPPED: {
+        label: "Bảo lưu / Thôi học",
+        badge: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+        dot: "bg-[#DC2626]",
+      },
+    };
+    const opt = stMap[s];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          opt?.badge || "bg-[#FAF0E4] text-[#8A4F23] border-[#E8DFD8]"
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
+        <span>{opt?.label || enums[s] || s}</span>
+      </span>
+    );
+  }
+  if (c.name === "tuition_total") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="font-extrabold text-[#2C241E] text-xs">
+        {val > 0 ? `${val.toLocaleString("vi-VN")} ₫` : "0 ₫"}
+      </span>
+    );
+  }
+  if (c.name === "amount_paid") {
+    const paid = Number(row[c.name] || 0);
+    const total = Number(row.tuition_total || 0);
+    const isFull = total > 0 && paid >= total;
+    const isPartial = paid > 0 && paid < total;
+    return (
+      <div className="text-xs">
+        <span
+          className={`font-extrabold ${
+            isFull
+              ? "text-[#0D6832]"
+              : isPartial
+                ? "text-[#C2410C]"
+                : "text-[#73675F]"
+          }`}
+        >
+          {paid.toLocaleString("vi-VN")} ₫
+        </span>
+        {isFull ? (
+          <span className="ml-1.5 text-[10px] font-bold bg-[#E8F6ED] text-[#0D6832] px-1.5 py-0.5 rounded-md border border-[#BDE8CD]">
+            Đã đủ
+          </span>
+        ) : isPartial ? (
+          <span className="ml-1.5 text-[10px] font-bold bg-[#FFF7ED] text-[#C2410C] px-1.5 py-0.5 rounded-md border border-[#FFEDD5]">
+            Một phần
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+  if (c.name === "progress_percent") {
+    const p = Math.min(100, Math.max(0, Number(row[c.name] || 0)));
+    const lessons = Number(row.completed_lessons_count || 0);
+    return (
+      <div className="min-w-[110px] max-w-[150px]">
+        <div className="flex items-center justify-between text-[11px] mb-1">
+          <span className="font-bold text-[#8A4F23]">{p}%</span>
+          {lessons > 0 && (
+            <span className="text-[10px] text-[#8C7A6B]">({lessons} bài)</span>
+          )}
+        </div>
+        <div className="w-full h-1.5 bg-[#FAF0E4] rounded-full overflow-hidden border border-[#E8DFD8]">
+          <div
+            className={`h-full rounded-full transition-all ${
+              p >= 100
+                ? "bg-[#0D6832]"
+                : p > 50
+                  ? "bg-[#8A4F23]"
+                  : "bg-[#BA7E4C]"
+            }`}
+            style={{ width: `${p}%` }}
+          />
+        </div>
+      </div>
     );
   }
   if (c.name === "booking_id") {
@@ -3503,12 +3627,30 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
 
-  // Dữ liệu phục vụ bộ lọc liên kết giữa Khóa học & Danh mục khóa học
+  // Dữ liệu phục vụ bộ lọc liên kết giữa Khóa học & Danh mục khóa học & Lớp học
   const [coursesForFilter, setCoursesForFilter] = useState<
     Array<{ id: string; title: string; code: string; category_id?: string }>
   >([]);
   const [categoriesForFilter, setCategoriesForFilter] = useState<
     Array<{ id: string; name: string; code: string }>
+  >([]);
+  const [batchesForFilter, setBatchesForFilter] = useState<
+    Array<{
+      id: string;
+      batch_code: string;
+      course_id: string;
+      branch_id?: string;
+      instructor_id?: string;
+      start_date?: string;
+      end_date?: string;
+      schedule_text?: string;
+      max_students?: number;
+      enrolled_count?: number;
+      status?: string;
+      courses?: { id?: string; title?: string; code?: string };
+      branches?: { id?: string; name?: string; code?: string };
+      instructor?: { id?: string; full_name?: string };
+    }>
   >([]);
 
   useEffect(() => {
@@ -3529,6 +3671,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         .then((r) => r.json())
         .then((data) => {
           if (active && Array.isArray(data)) setCategoriesForFilter(data);
+        })
+        .catch(() => {});
+    } else if (table === "course_enrollments") {
+      fetch(
+        `${SUPABASE_URL}/rest/v1/course_batches?select=*,courses(id,title,code),branches(id,name,code),instructor:instructors!instructor_id(id,full_name)&order=start_date.desc,created_at.desc`,
+        {
+          headers: getSupabaseHeaders(),
+        }
+      )
+        .then((r) => r.json())
+        .then((data) => {
+          if (active && Array.isArray(data)) setBatchesForFilter(data);
         })
         .catch(() => {});
     }
