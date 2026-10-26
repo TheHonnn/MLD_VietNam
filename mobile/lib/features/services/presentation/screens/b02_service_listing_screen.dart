@@ -3,17 +3,13 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/service_repository.dart';
+import '../../../home/presentation/widgets/vodder_service_card.dart';
 
 /// Screen B02: Trang Danh mục dịch vụ chuẩn Y khoa MLD Việt Nam
-/// Giao diện được tối ưu chuẩn theo yêu cầu:
-/// - Màu xanh trạng thái chọn: #2860EB
-/// - Nền chính: #FFFFFF (Nền dropdown, ô tìm kiếm và danh sách)
-/// - Màu chữ nội dung: #616161 (Xám trung tính)
-/// - Viền và phân cách: #E5E7EB
-/// - 2 mục lọc:
-///   1) Danh mục dịch vụ (7 lựa chọn)
-///   2) Cơ sở (2 lựa chọn)
-/// - Bên dưới: Duy nhất 1 dịch vụ điều trị phù bạch huyết lấy giá từ CSDL Database.
+/// Thiết kế đồng bộ 100% với Trang Chủ và Trang Đào Tạo:
+/// - Ít chữ, không thêm chữ thừa, không giải thích, không note chi tiết
+/// - Chỉ gồm: Tên dịch vụ, Giá tiền và Chữ Đặt lịch
+/// - 2 mục lọc: Loại dịch vụ (7 lựa chọn) và Cơ sở (2 lựa chọn) + Ô tìm kiếm
 class B02ServiceListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final String? initialQuery;
@@ -29,12 +25,12 @@ class B02ServiceListingScreen extends StatefulWidget {
 }
 
 class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
-  // Bảng màu chuẩn theo phân tích UI
-  static const Color kSelectBlue = Color(0xFF2860EB);
+  static const Color kPrimary = Color(0xFF168477);
+  static const Color kMintBg = Color(0xFFE8F5F1);
   static const Color kMainBg = Color(0xFFFFFFFF);
-  static const Color kTextNeutral = Color(0xFF616161);
-  static const Color kBorderLine = Color(0xFFE5E7EB);
-  static const Color kTextHeading = Color(0xFF1F2937);
+  static const Color kBorderLine = Color(0xFFE2E8F0);
+  static const Color kTextHeading = Color(0xFF0F172A);
+  static const Color kTextNeutral = Color(0xFF475569);
 
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = false;
@@ -101,13 +97,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         'phù'.contains(query);
   }
 
-  String _formatCurrency(double amount) {
-    final integerAmount = amount.toInt();
-    final str = integerAmount.toString();
-    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    return str.replaceAllMapped(reg, (Match m) => '${m[1]}.');
-  }
-
   void _showServiceFilterPicker() {
     showModalBottomSheet(
       context: context,
@@ -148,11 +137,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                          color: isSel ? kSelectBlue : kTextNeutral,
+                          color: isSel ? kPrimary : kTextNeutral,
                         ),
                       ),
                       trailing: isSel
-                          ? const Icon(Icons.check_circle_rounded, color: kSelectBlue, size: 20)
+                          ? const Icon(Icons.check_circle_rounded, color: kPrimary, size: 20)
                           : null,
                       onTap: () {
                         setState(() => _selectedServiceFilter = opt);
@@ -203,11 +192,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                      color: isSel ? kSelectBlue : kTextNeutral,
+                      color: isSel ? kPrimary : kTextNeutral,
                     ),
                   ),
                   trailing: isSel
-                      ? const Icon(Icons.check_circle_rounded, color: kSelectBlue, size: 20)
+                      ? const Icon(Icons.check_circle_rounded, color: kPrimary, size: 20)
                       : null,
                   onTap: () {
                     setState(() => _selectedBranchFilter = opt);
@@ -240,7 +229,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadCoreServiceFromDb,
-          color: kSelectBlue,
+          color: kPrimary,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -296,7 +285,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // 2. KHUNG Ô TÌM KIẾM VÀ 2 BỘ LỌC (Nền #FFFFFF, Viền #E5E7EB)
+                // 2. KHUNG Ô TÌM KIẾM VÀ 2 BỘ LỌC
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -324,7 +313,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.search, size: 20, color: kSelectBlue),
+                            const Icon(Icons.search, size: 20, color: kPrimary),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
@@ -365,12 +354,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
                                 decoration: BoxDecoration(
                                   color: _selectedServiceFilter != 'Tất cả dịch vụ'
-                                      ? const Color(0xFFF0F4FE)
+                                      ? kMintBg
                                       : kMainBg,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: _selectedServiceFilter != 'Tất cả dịch vụ'
-                                        ? kSelectBlue
+                                        ? kPrimary
                                         : kBorderLine,
                                   ),
                                 ),
@@ -387,7 +376,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                               ? FontWeight.w700
                                               : FontWeight.w500,
                                           color: _selectedServiceFilter != 'Tất cả dịch vụ'
-                                              ? kSelectBlue
+                                              ? kPrimary
                                               : kTextNeutral,
                                         ),
                                       ),
@@ -396,7 +385,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                       Icons.keyboard_arrow_down,
                                       size: 16,
                                       color: _selectedServiceFilter != 'Tất cả dịch vụ'
-                                          ? kSelectBlue
+                                          ? kPrimary
                                           : kTextNeutral,
                                     ),
                                   ],
@@ -415,12 +404,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
                                 decoration: BoxDecoration(
                                   color: _selectedBranchFilter != 'Tất cả'
-                                      ? const Color(0xFFF0F4FE)
+                                      ? kMintBg
                                       : kMainBg,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: _selectedBranchFilter != 'Tất cả'
-                                        ? kSelectBlue
+                                        ? kPrimary
                                         : kBorderLine,
                                   ),
                                 ),
@@ -439,7 +428,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                               ? FontWeight.w700
                                               : FontWeight.w500,
                                           color: _selectedBranchFilter != 'Tất cả'
-                                              ? kSelectBlue
+                                              ? kPrimary
                                               : kTextNeutral,
                                         ),
                                       ),
@@ -448,7 +437,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                       Icons.keyboard_arrow_down,
                                       size: 16,
                                       color: _selectedBranchFilter != 'Tất cả'
-                                          ? kSelectBlue
+                                          ? kPrimary
                                           : kTextNeutral,
                                     ),
                                   ],
@@ -478,16 +467,16 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0F4FE),
+                        color: kMintBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: kSelectBlue.withValues(alpha: 0.3)),
+                        border: Border.all(color: kPrimary.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         _isServiceMatch ? '1 dịch vụ cốt lõi' : '0 dịch vụ',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: kSelectBlue,
+                          color: kPrimary,
                         ),
                       ),
                     ),
@@ -496,11 +485,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                 const SizedBox(height: 12),
 
                 // 4. DUY NHẤT 1 DỊCH VỤ ĐIỀU TRỊ PHÙ BẠCH HUYẾT
+                // Đồng bộ 100% với Trang Chủ và Trang Đào Tạo
                 if (_isLoading)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
-                      child: CircularProgressIndicator(color: kSelectBlue),
+                      child: CircularProgressIndicator(color: kPrimary),
                     ),
                   )
                 else if (!_isServiceMatch)
@@ -536,7 +526,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             });
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: kSelectBlue,
+                            backgroundColor: kPrimary,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: const Text('Đặt lại bộ lọc', style: TextStyle(color: Colors.white, fontSize: 13)),
@@ -545,235 +535,13 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                     ),
                   )
                 else
-                  _buildSingleCoreServiceCard(),
+                  VodderServiceCard(
+                    service: _coreService,
+                    onBooking: _handleBooking,
+                  ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  /// Thẻ dịch vụ duy nhất: Điều trị dẫn lưu phù bạch huyết (Lấy giá từ Database)
-  Widget _buildSingleCoreServiceCard() {
-    final servicePrice = _coreService?.price ?? 650000;
-    final vatRate = _coreService?.vatRate ?? 0.08;
-    final vatAmount = servicePrice * vatRate;
-    final priceWithVat = servicePrice + vatAmount;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: kMainBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorderLine, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Ảnh minh họa dịch vụ
-            Stack(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: 180,
-                  child: Image.asset(
-                    'assets/images/course_banner_clean.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFFF0F4FE),
-                      child: const Center(
-                        child: Icon(Icons.spa_rounded, size: 48, color: kSelectBlue),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: kSelectBlue,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      _selectedServiceFilter == 'Tất cả dịch vụ'
-                          ? 'Dẫn lưu Bạch huyết Giảm phù'
-                          : _selectedServiceFilter,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'Chuẩn Y khoa Vodder',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            // Nội dung chi tiết dịch vụ
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: kTextHeading,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-
-                  const Text(
-                    'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ mao mạch bạch huyết dưới bề mặt da, hỗ trợ giải phóng dịch ứ đọng, tiêu phù nề sau phẫu thuật và giảm đau nhức cơ xương khớp.',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: kTextNeutral,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Địa điểm cơ sở tiếp nhận
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: kBorderLine),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on_rounded, size: 16, color: kSelectBlue),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _selectedBranchFilter == 'Tất cả'
-                                ? 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399'
-                                : _selectedBranchFilter,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: kTextHeading,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  const Divider(height: 1, color: kBorderLine),
-                  const SizedBox(height: 12),
-
-                  // Hàng giá tiền (Lấy từ Database) và Nút đặt lịch
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Đơn giá dịch vụ:',
-                            style: TextStyle(fontSize: 11, color: kTextNeutral),
-                          ),
-                          const SizedBox(height: 2),
-                          Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: '${_formatCurrency(priceWithVat)} ',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: kSelectBlue,
-                                  ),
-                                ),
-                                const TextSpan(
-                                  text: 'đ',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: kSelectBlue,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: ' (VAT ${(vatRate * 100).toInt()}%)',
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: kTextNeutral,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      ElevatedButton(
-                        onPressed: _handleBooking,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kSelectBlue,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Đặt lịch ngay',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_rounded, size: 14),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

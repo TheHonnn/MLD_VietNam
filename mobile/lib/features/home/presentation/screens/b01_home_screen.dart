@@ -14,6 +14,7 @@ import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/branch_repository.dart';
+import '../widgets/vodder_service_card.dart';
 
 /// Màn hình Trang chủ MLD Việt Nam (Mobile-First)
 /// Tuân thủ chuẩn đặc tả: Giao diện trang chủ.docx & Website Trang chủ, dịch vụ, đặt lịch.txt
@@ -115,12 +116,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     setState(() => _coreService = srv);
   }
 
-  String _formatCurrency(double amount) {
-    return amount.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]}.',
-    );
-  }
 
   void _showBranchPicker() async {
     List<BranchModel> branches = BranchRepository.instance.cachedBranches;
@@ -747,117 +742,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
               // ==========================================
               // 5. DỊCH VỤ CỐT LÕI DUY NHẤT (Vodder MLD)
+              // Thiết kế chuẩn như trang Đào tạo: Ít chữ, không giải thích,
+              // chỉ có tên dịch vụ, giá tiền và nút Đặt lịch
               // ==========================================
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.mintBackground,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.healing_rounded,
-                            color: AppColors.primary,
-                            size: 26,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                  height: 1.3,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Phương pháp chuẩn Y khoa Quốc tế',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Ứng dụng kỹ thuật Vodder MLD nhẹ nhàng kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật, giảm đau nhức cơ xương khớp và hỗ trợ thải độc tế bào chuyên sâu.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Divider(color: AppColors.border, height: 1),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Đơn giá (đã gồm VAT ${((_coreService?.vatRate ?? 0.08) * 100).toInt()}%):',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                            ),
-                            Text(
-                              '${_formatCurrency(_coreService?.priceWithVat ?? 702000)}đ',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
-                            ),
-                          ],
-                        ),
-                        SizedBox(
-                          height: 40,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            onPressed: _handleBooking,
-                            child: const Text(
-                              'Đặt lịch ngay',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              VodderServiceCard(
+                service: _coreService,
+                onBooking: _handleBooking,
               ),
 
               const SizedBox(height: 18),
