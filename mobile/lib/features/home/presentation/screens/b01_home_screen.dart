@@ -11,8 +11,6 @@ import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../treatment/data/repositories/treatment_repository.dart';
 import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
-import '../../../treatment/presentation/screens/d09_documents_screen.dart';
-import '../../../treatment/presentation/screens/d10_lymph_examination_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/branch_repository.dart';
@@ -42,33 +40,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   String _selectedBranch = 'Chi nhánh Đống Đa - Hà Nội';
   SpaServiceModel? _coreService;
 
-  // Danh mục Icon tiện ích trang chủ
-  final List<Map<String, dynamic>> _shortcuts = [
-    {
-      'title': 'Dịch vụ',
-      'icon': Icons.spa_outlined,
-    },
-    {
-      'title': 'Đặt lịch',
-      'icon': Icons.calendar_month_outlined,
-    },
-    {
-      'title': 'Đào tạo',
-      'icon': Icons.school_outlined,
-    },
-    {
-      'title': 'Tài liệu',
-      'icon': Icons.menu_book_outlined,
-    },
-    {
-      'title': 'Khám phù',
-      'icon': Icons.medical_services_outlined,
-    },
-    {
-      'title': 'Cá nhân',
-      'icon': Icons.person_outline_rounded,
-    },
-  ];
 
   @override
   void initState() {
@@ -773,74 +744,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
               const SizedBox(height: 20),
 
-              // ==========================================
-              // 4. ICON TIỆN ÍCH (Dịch vụ, Đặt lịch, Đào tạo, Tài liệu, Khám phù, Cá nhân)
-              // ==========================================
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                runSpacing: 14,
-                children: _shortcuts.map((item) {
-                  return InkWell(
-                    onTap: () {
-                      final title = item['title'] as String;
-                      if (title == 'Dịch vụ') {
-                        widget.onNavigateToServices?.call();
-                      } else if (title == 'Đặt lịch') {
-                        _handleBooking();
-                      } else if (title == 'Đào tạo') {
-                        widget.onNavigateToAcademy?.call();
-                      } else if (title == 'Tài liệu') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const D09DocumentsScreen()),
-                        );
-                      } else if (title == 'Khám phù') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
-                        );
-                      } else if (title == 'Cá nhân') {
-                        widget.onNavigateToProfile?.call();
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      width: 52,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppColors.border, width: 0.8),
-                            ),
-                            child: Icon(
-                              item['icon'] as IconData,
-                              size: 22,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item['title'] as String,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 22),
 
               // ==========================================
               // 5. DỊCH VỤ CỐT LÕI DUY NHẤT (Vodder MLD)
@@ -920,19 +823,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Thời lượng ca:',
-                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                            ),
-                            Text(
-                              '${_coreService?.durationMinutes ?? 60} phút / ca',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                            ),
-                          ],
-                        ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

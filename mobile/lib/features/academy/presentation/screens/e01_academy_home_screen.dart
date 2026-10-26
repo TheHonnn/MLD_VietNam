@@ -375,8 +375,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.people_outline, size: 16, color: Color(0xFF168477)),
-                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         _selectedAudience == 'Tất cả đối tượng'
@@ -423,8 +421,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.track_changes, size: 16, color: Color(0xFF168477)),
-                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         _selectedNeed == 'Tất cả nhu cầu'
