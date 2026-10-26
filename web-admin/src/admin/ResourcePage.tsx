@@ -2356,6 +2356,11 @@ function RecordDialog({
       if (c.name === "booking_date" || c.name === "session_date" || c.name === "start_date") {
         return formatDateForInput(new Date());
       }
+      if (c.name === "end_date") {
+        const base = new Date();
+        const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 13);
+        return formatDateForInput(d);
+      }
       return "";
     }
     const val = row[c.name];
@@ -2425,6 +2430,13 @@ function RecordDialog({
       }
       if (resource.name === "services" && !payload.slug) {
         payload.slug = toServiceSlug(String(payload.name || values.name || row.name || "dich-vu"));
+      }
+      if (resource.name === "course_batches") {
+        const sDate = payload.start_date || mergedValues.start_date;
+        const eDate = payload.end_date || mergedValues.end_date;
+        if (sDate && eDate && eDate < sDate) {
+          throw new Error("Ngày kết thúc / bế giảng phải diễn ra sau ngày bắt đầu nhập học.");
+        }
       }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
@@ -2532,6 +2544,43 @@ function RecordDialog({
                 structured && typeof value === "object"
                   ? JSON.stringify(value, null, 2)
                   : String(value);
+
+              // Custom Date Range Picker for course_batches
+              if (resource.name === "course_batches" && c.name === "end_date" && mode !== "view") {
+                // Handled together inside BatchDateRangeEditor when start_date is rendered
+                return null;
+              }
+
+              if (resource.name === "course_batches" && c.name === "start_date" && mode !== "view") {
+                const endCol = columns.find((x) => x.name === "end_date");
+                const currentEndVal = endCol ? current(endCol) : "";
+                return (
+                  <BatchDateRangeEditor
+                    key="course_batches_date_range"
+                    startDate={String(value || "")}
+                    endDate={String(currentEndVal || "")}
+                    onStartDateChange={(newStart) => set("start_date", newStart)}
+                    onEndDateChange={(newEnd) => set("end_date", newEnd)}
+                    required={required}
+                  />
+                );
+              }
+
+              // Custom quick Schedule Text chips for course_batches
+              if (resource.name === "course_batches" && c.name === "schedule_text" && mode !== "view") {
+                return (
+                  <div key={c.name} className="admin-field-wide space-y-1.5">
+                    <span className="text-xs font-bold text-[#2C241E]">
+                      {label(c.name)} {required && <b className="admin-required">*</b>}
+                    </span>
+                    <BatchScheduleTextEditor
+                      value={String(value || "")}
+                      onChange={(newSchedule) => set("schedule_text", newSchedule)}
+                      required={required}
+                    />
+                  </div>
+                );
+              }
 
               if (
                 resource.name === "consultation_surveys" &&
