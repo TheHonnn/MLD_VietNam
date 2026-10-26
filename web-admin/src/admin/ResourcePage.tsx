@@ -3158,9 +3158,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     setEdit({
       mode: "create",
       row:
-        table === "course_lessons" && params.get("lesson_type") === "VIDEO"
-          ? { lesson_type: "VIDEO" }
-          : {},
+        table === "users"
+          ? { role: "CUSTOMER", membership_tier: "STANDARD", is_active: true }
+          : table === "course_lessons" && params.get("lesson_type") === "VIDEO"
+            ? { lesson_type: "VIDEO" }
+            : {},
     });
   }, [listing, resource, table, params]);
   const updateParam = (name: string, value: string) => {
@@ -3174,7 +3176,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     filter = JSON.parse(params.get("filter") || "{}");
   } catch {}
   const filterColumns =
-    listing?.columns.filter((c) => c.options.length || c.type === "bool") || [];
+    listing?.columns.filter(
+      (c) => (c.options.length || c.type === "bool") && !(table === "users" && c.name === "role")
+    ) || [];
   const preferred = [
     "name",
     "full_name",

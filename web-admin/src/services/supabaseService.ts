@@ -545,7 +545,7 @@ class SupabaseService {
 
   // 3. TÀI KHOẢN KHÁCH HÀNG / NGƯỜI DÙNG (USERS)
   async getUsers(search?: string, tier?: MemberTier): Promise<User[] | null> {
-    let path = 'users?select=*&order=created_at.desc';
+    let path = 'users?select=*&role=eq.CUSTOMER&order=created_at.desc';
     if (tier) {
       path += `&membership_tier=eq.${tier}`;
     }
