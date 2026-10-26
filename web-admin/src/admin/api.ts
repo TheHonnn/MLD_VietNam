@@ -134,7 +134,7 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
 }
 
 const TABLE_SELECTS: Record<string, string> = {
-  staff_profiles: "*,users(full_name,phone,email),branches(name,code)",
+  staff_profiles: "*,users(full_name,phone,email,role),branches(name,code)",
   technicians: "*,branches(name)",
   bookings: "*,customer:users!customer_id(full_name,phone),branches(name)",
   branch_rooms: "*,branches(name)",
@@ -217,12 +217,12 @@ function buildColumns(table: string, rows: Row[]): Column[] {
       cols.unshift({
         name: "full_name",
         type: "varchar",
-        required: false,
+        required: true,
         hasDefault: false,
         maxLength: 150,
         options: [],
         primary: false,
-        writable: false,
+        writable: true,
         reference: null,
       });
     }
@@ -230,12 +230,38 @@ function buildColumns(table: string, rows: Row[]): Column[] {
       cols.push({
         name: "phone",
         type: "varchar",
-        required: false,
+        required: true,
         hasDefault: false,
         maxLength: 50,
         options: [],
         primary: false,
-        writable: false,
+        writable: true,
+        reference: null,
+      });
+    }
+    if (!cols.some((c) => c.name === "email")) {
+      cols.push({
+        name: "email",
+        type: "varchar",
+        required: false,
+        hasDefault: false,
+        maxLength: 150,
+        options: [],
+        primary: false,
+        writable: true,
+        reference: null,
+      });
+    }
+    if (!cols.some((c) => c.name === "role")) {
+      cols.push({
+        name: "role",
+        type: "varchar",
+        required: false,
+        hasDefault: true,
+        maxLength: 50,
+        options: ["TECHNICIAN", "RECEPTIONIST", "CASHIER", "INSTRUCTOR", "BRANCH_MANAGER", "ADMIN"],
+        primary: false,
+        writable: true,
         reference: null,
       });
     }
@@ -589,6 +615,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         r.full_name = r.full_name || r.users.full_name;
         r.phone = r.phone || r.users.phone;
         r.email = r.email || r.users.email;
+        r.role = r.role || r.users.role;
+        r.user_role = r.users.role;
       }
       if (r.branches) {
         r.branch_name = r.branch_name || r.branches.name || r.branches.code;
@@ -662,6 +690,87 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         payload.values.referral_code = `REF${Date.now().toString().slice(-6)}`;
       }
     }
+
+    if (table === "staff_profiles") {
+      let userId = payload.values.user_id;
+      const staffFullName = payload.values.full_name ? String(payload.values.full_name).trim() : "";
+      const staffPhone = payload.values.phone ? String(payload.values.phone).trim() : "";
+      const staffEmail = payload.values.email ? String(payload.values.email).trim() : null;
+      const staffRole = payload.values.role || "TECHNICIAN";
+
+      if (!userId) {
+        if (!staffPhone || !staffFullName) {
+          throw new Error("Vui lòng nhập Họ và tên và Số điện thoại nhân sự để khởi tạo tài khoản.");
+        }
+        // Check if a user already exists with this phone
+        const checkRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/users?phone=eq.${encodeURIComponent(staffPhone)}&select=id,full_name,role`,
+          {
+            headers: getSupabaseHeaders(),
+            signal,
+          }
+        );
+        const existing = await checkRes.json().catch(() => []);
+        if (Array.isArray(existing) && existing.length > 0) {
+          userId = existing[0].id;
+          // Update user info and ensure staff role
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+              full_name: staffFullName,
+              ...(staffEmail ? { email: staffEmail } : {}),
+              role: staffRole,
+            }),
+            signal,
+          });
+        } else {
+          // Create new user account for employee
+          const createURes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+            method: "POST",
+            headers: getSupabaseHeaders({
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            }),
+            body: JSON.stringify({
+              full_name: staffFullName,
+              phone: staffPhone,
+              email: staffEmail,
+              role: staffRole,
+              referral_code: `NV${Date.now().toString().slice(-6)}`,
+              membership_tier: "STANDARD",
+              is_active: true,
+            }),
+            signal,
+          });
+          if (!createURes.ok) {
+            const uErr = await createURes.json().catch(() => null);
+            throw new Error(uErr?.message || "Không thể tạo tài khoản người dùng cho nhân viên.");
+          }
+          const newUser = await createURes.json();
+          userId = Array.isArray(newUser) ? newUser[0].id : newUser.id;
+        }
+        payload.values.user_id = userId;
+      }
+
+      if (!payload.values.employee_code || !String(payload.values.employee_code).trim()) {
+        payload.values.employee_code = `NV-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+      if (!payload.values.hire_date) {
+        payload.values.hire_date = new Date().toISOString().slice(0, 10);
+      }
+
+      // Remove virtual/joined keys so Supabase schema cache does not error
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.role;
+      delete payload.values.users;
+      delete payload.values.branches;
+      delete payload.values.branch_name;
+      delete payload.values.user_role;
+    }
+
     const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -687,6 +796,41 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
   }
 
   if (action === "update" && payload?.values) {
+    if (table === "staff_profiles") {
+      const staffFullName = payload.values.full_name ? String(payload.values.full_name).trim() : undefined;
+      const staffPhone = payload.values.phone ? String(payload.values.phone).trim() : undefined;
+      const staffEmail = payload.values.email !== undefined ? (payload.values.email ? String(payload.values.email).trim() : null) : undefined;
+      const staffRole = payload.values.role;
+      const targetUserId = payload.values.user_id || payload.key?.user_id;
+
+      if (targetUserId && (staffFullName !== undefined || staffPhone !== undefined || staffEmail !== undefined || staffRole !== undefined)) {
+        const userPatch: Record<string, any> = {};
+        if (staffFullName !== undefined) userPatch.full_name = staffFullName;
+        if (staffPhone !== undefined) userPatch.phone = staffPhone;
+        if (staffEmail !== undefined) userPatch.email = staffEmail;
+        if (staffRole !== undefined) userPatch.role = staffRole;
+
+        if (Object.keys(userPatch).length > 0) {
+          await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(targetUserId)}`, {
+            method: "PATCH",
+            headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify(userPatch),
+            signal,
+          });
+        }
+      }
+
+      // Remove virtual/joined keys so Supabase schema cache does not error
+      delete payload.values.full_name;
+      delete payload.values.phone;
+      delete payload.values.email;
+      delete payload.values.role;
+      delete payload.values.users;
+      delete payload.values.branches;
+      delete payload.values.branch_name;
+      delete payload.values.user_role;
+    }
+
     const key = payload.key || {};
     const primaryColumns = SCHEMA_COLUMNS[table]?.filter((column) => column.primary).map((column) => column.name);
     if (!Object.keys(key).length || primaryColumns?.some((name) => key[name] == null || key[name] === "") || Object.entries(key).some(([name, value]) =>
