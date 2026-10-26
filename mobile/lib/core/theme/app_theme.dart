@@ -8,7 +8,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
-      fontFamily: GoogleFonts.montserrat().fontFamily,
+      fontFamily: 'Montserrat',
       fontFamilyFallback: const ['Montserrat', 'sans-serif'],
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: const ColorScheme(
@@ -31,71 +31,86 @@ class AppTheme {
         displayLarge: baseTextTheme.displayLarge?.copyWith(
           color: AppColors.textHeading,
           fontWeight: FontWeight.w700,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         displayMedium: baseTextTheme.displayMedium?.copyWith(
           color: AppColors.textHeading,
           fontWeight: FontWeight.w700,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         displaySmall: baseTextTheme.displaySmall?.copyWith(
           color: AppColors.textHeading,
           fontWeight: FontWeight.w700,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         headlineLarge: baseTextTheme.headlineLarge?.copyWith(
           color: AppColors.textHeading,
           fontWeight: FontWeight.w700,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         headlineMedium: baseTextTheme.headlineMedium?.copyWith(
           color: AppColors.textHeading,
           fontWeight: FontWeight.w700,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         headlineSmall: baseTextTheme.headlineSmall?.copyWith(
           color: AppColors.textHeading,
           fontWeight: FontWeight.w700,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         titleLarge: baseTextTheme.titleLarge?.copyWith(
           color: AppColors.textHeading,
           fontWeight: FontWeight.w700,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         titleMedium: baseTextTheme.titleMedium?.copyWith(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         titleSmall: baseTextTheme.titleSmall?.copyWith(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         bodyLarge: baseTextTheme.bodyLarge?.copyWith(
           color: AppColors.textPrimary,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         bodyMedium: baseTextTheme.bodyMedium?.copyWith(
           color: AppColors.textPrimary,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         bodySmall: baseTextTheme.bodySmall?.copyWith(
           color: AppColors.textSecondary,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         labelLarge: baseTextTheme.labelLarge?.copyWith(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         labelMedium: baseTextTheme.labelMedium?.copyWith(
           color: AppColors.textSecondary,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
         labelSmall: baseTextTheme.labelSmall?.copyWith(
           color: AppColors.textSecondary,
+          fontFamily: 'Montserrat',
           fontFamilyFallback: const ['Montserrat', 'sans-serif'],
         ),
       ),
@@ -117,10 +132,10 @@ class AppTheme {
           foregroundColor: AppColors.textInverse,
           disabledBackgroundColor: AppColors.border,
           disabledForegroundColor: AppColors.textPlaceholder,
-          minimumSize: const Size(0, 52),
+          minimumSize: const Size(0, 50),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14), // Rule: 12-16px
+            borderRadius: BorderRadius.circular(8), // Bo vuông tròn nhẹ
           ),
           elevation: 0,
           textStyle: const TextStyle(
@@ -134,7 +149,7 @@ class AppTheme {
         color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14), // Rule: 12-16px
+          borderRadius: BorderRadius.circular(8), // Bo vuông tròn nhẹ
           side: const BorderSide(color: AppColors.border, width: 1.0),
         ),
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -144,27 +159,27 @@ class AppTheme {
         fillColor: AppColors.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14), // Rule: 12-16px
+          borderRadius: BorderRadius.circular(8), // Bo vuông tròn nhẹ
           borderSide: const BorderSide(color: AppColors.border, width: 1.0),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.border, width: 1.0),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.error, width: 1.0),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
         disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.border, width: 1.0),
         ),
         hintStyle: const TextStyle(

@@ -6,6 +6,7 @@ import 'd11_community_screen.dart';
 /// Screen D09: Trang Tài liệu & Cẩm nang Y khoa MLD
 /// Tối giản giao diện - Tải 100% dữ liệu thực từ Database (home_care_guidelines)
 /// Thiết kế thẻ: Chỉ có ảnh và tên tài liệu, không có văn bản thừa bên dưới.
+/// Bo viền vuông tròn nhẹ 8px, đồng bộ phông chữ 100% Montserrat
 class D09DocumentsScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
 
@@ -101,7 +102,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       return Container(
         height: height,
         width: double.infinity,
-        color: const Color(0xFFEFF4FE),
+        color: AppColors.primaryLight,
         child: const Center(
           child: Icon(Icons.menu_book_rounded, size: 48, color: AppColors.primary),
         ),
@@ -116,7 +117,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         errorBuilder: (_, __, ___) => Container(
           height: height,
           width: double.infinity,
-          color: const Color(0xFFEFF4FE),
+          color: AppColors.primaryLight,
           child: const Center(
             child: Icon(Icons.menu_book_rounded, size: 48, color: AppColors.primary),
           ),
@@ -131,7 +132,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       errorBuilder: (_, __, ___) => Container(
         height: height,
         width: double.infinity,
-        color: const Color(0xFFEFF4FE),
+        color: AppColors.primaryLight,
         child: const Center(
           child: Icon(Icons.menu_book_rounded, size: 48, color: AppColors.primary),
         ),
@@ -161,7 +162,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         builder: (_, scrollController) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: ListView(
@@ -182,7 +183,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               // Banner ảnh trong chi tiết
               if (imageUrl != null && imageUrl.isNotEmpty) ...[
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8),
                   child: _buildDocImage(imageUrl, height: 200),
                 ),
                 const SizedBox(height: 16),
@@ -195,11 +196,12 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       category.toUpperCase(),
                       style: const TextStyle(
+                        fontFamily: 'Montserrat',
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
@@ -210,7 +212,11 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                   if (date.isNotEmpty)
                     Text(
                       date,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                 ],
               ),
@@ -220,6 +226,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               Text(
                 title,
                 style: const TextStyle(
+                  fontFamily: 'Montserrat',
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textHeading,
@@ -232,6 +239,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               Text(
                 '$readTime · $author',
                 style: const TextStyle(
+                  fontFamily: 'Montserrat',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -246,6 +254,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 Text(
                   summary,
                   style: const TextStyle(
+                    fontFamily: 'Montserrat',
                     fontSize: 15.5,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textHeading,
@@ -260,6 +269,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 Text(
                   content,
                   style: const TextStyle(
+                    fontFamily: 'Montserrat',
                     fontSize: 14.5,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textPrimary,
@@ -274,6 +284,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 const Text(
                   'Các bước thực hiện chuẩn hóa:',
                   style: TextStyle(
+                    fontFamily: 'Montserrat',
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textHeading,
@@ -296,7 +307,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceSecondary,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppColors.border),
                     ),
                     child: Row(
@@ -307,7 +318,12 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                           backgroundColor: AppColors.primary,
                           child: Text(
                             '$idx',
-                            style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -318,12 +334,22 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                               if (stepTitle.isNotEmpty)
                                 Text(
                                   stepTitle,
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textHeading),
+                                  style: const TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textHeading,
+                                  ),
                                 ),
                               if (stepDesc.isNotEmpty)
                                 Text(
                                   stepDesc,
-                                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4),
+                                  style: const TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 13,
+                                    color: AppColors.textPrimary,
+                                    height: 1.4,
+                                  ),
                                 ),
                             ],
                           ),
@@ -339,8 +365,8 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF4FE),
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFCCE0FF)),
                 ),
                 child: const Column(
@@ -353,6 +379,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                         Text(
                           'Tài liệu chuẩn Y khoa MLD Vietnam',
                           style: TextStyle(
+                            fontFamily: 'Montserrat',
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primaryDark,
@@ -364,6 +391,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     Text(
                       'Tài liệu này được biên soạn và kiểm chứng theo tiêu chuẩn Dẫn lưu bạch huyết y khoa quốc tế (MLD Vodder Method).',
                       style: TextStyle(
+                        fontFamily: 'Montserrat',
                         fontSize: 13,
                         color: AppColors.textPrimary,
                         height: 1.5,
@@ -393,6 +421,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         title: const Text(
           'Tài liệu & Y khoa MLD',
           style: TextStyle(
+            fontFamily: 'Montserrat',
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: AppColors.textHeading,
@@ -428,15 +457,24 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.border),
                 ),
                 child: TextField(
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Tìm tài liệu, nghiên cứu lâm sàng, bài viết...',
-                    hintStyle: const TextStyle(fontSize: 14, color: AppColors.textPlaceholder),
+                    hintStyle: const TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 14,
+                      color: AppColors.textPlaceholder,
+                    ),
                     prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 20),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -469,12 +507,12 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     final isSelected = cat == _selectedCategory;
                     return InkWell(
                       onTap: () => setState(() => _selectedCategory = cat),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: isSelected ? AppColors.primary : AppColors.border,
                           ),
@@ -482,6 +520,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                         child: Text(
                           cat,
                           style: TextStyle(
+                            fontFamily: 'Montserrat',
                             fontSize: 13.5,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                             color: isSelected ? Colors.white : AppColors.textSecondary,
@@ -517,6 +556,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                       Text(
                                         'Không tìm thấy tài liệu phù hợp',
                                         style: TextStyle(
+                                          fontFamily: 'Montserrat',
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.textSecondary,
@@ -525,7 +565,11 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                       SizedBox(height: 4),
                                       Text(
                                         'Vui lòng thử từ khóa khác hoặc chọn danh mục khác',
-                                        style: TextStyle(fontSize: 13, color: AppColors.textPlaceholder),
+                                        style: TextStyle(
+                                          fontFamily: 'Montserrat',
+                                          fontSize: 13,
+                                          color: AppColors.textPlaceholder,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -543,17 +587,17 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
 
                                 return InkWell(
                                   onTap: () => _showDocumentDetail(doc),
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(8),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(8),
                                       border: Border.all(color: AppColors.border),
                                       boxShadow: [
                                         BoxShadow(
                                           color: Colors.black.withValues(alpha: 0.04),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
@@ -562,7 +606,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                       children: [
                                         // 1. Ảnh tài liệu
                                         ClipRRect(
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                                           child: _buildDocImage(imageUrl, height: 185),
                                         ),
 
