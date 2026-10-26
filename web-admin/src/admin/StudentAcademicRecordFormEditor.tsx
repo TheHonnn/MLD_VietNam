@@ -103,66 +103,6 @@ const FEEDBACK_ATTITUDE_SUGGESTIONS = [
   "Cần tập trung hơn trong các buổi thực hành thao tác trên người mẫu thực tế.",
 ];
 
-// Mẫu đánh giá 1-chạm
-export const PRESET_PROFILES = [
-  {
-    label: "🏆 Học viên Xuất sắc",
-    desc: "GPA 9.6 · 100% Chuyên cần · Tốt nghiệp",
-    theory: 9.5,
-    practical: 9.8,
-    attended: 10,
-    total: 10,
-    rate: 100,
-    graduated: true,
-    feedback_theory: "Nắm vững giải phẫu tuần hoàn và cơ chế dẫn lưu Vodder. Hiểu sâu phác đồ giảm phù nề y khoa.",
-    feedback_practical: "Kỹ thuật thao tác tay xoay tròn và bơm đẩy chuẩn xác tuyệt đối. Lực tay kiểm soát hoàn hảo dưới 30 mmHg, êm ái, nhịp nhàng.",
-    feedback_attendance: "Tham gia đầy đủ 100% số buổi học lý thuyết và lab thực hành, luôn đúng giờ.",
-    feedback_attitude: "Thái độ học tập nghiêm túc, tích cực tương tác và hỗ trợ đồng môn trong các ca thực hành.",
-  },
-  {
-    label: "🎖️ Học viên Giỏi",
-    desc: "GPA 8.7 · 90% Chuyên cần · Tốt nghiệp",
-    theory: 8.5,
-    practical: 8.8,
-    attended: 9,
-    total: 10,
-    rate: 90,
-    graduated: true,
-    feedback_theory: "Nắm chắc lý thuyết chuyên môn, trả lời lưu loát các câu hỏi tình huống lâm sàng.",
-    feedback_practical: "Thao tác thuần thục, tiếp xúc mô mềm mại, đúng hướng dẫn lưu hạch bạch huyết.",
-    feedback_attendance: "Chuyên cần tốt (9/10 buổi), có xin phép chu đáo và hoàn thành bài tập bù.",
-    feedback_attitude: "Chăm chỉ, cầu tiến, có tinh thần trách nhiệm và tác phong y tế chuẩn mực.",
-  },
-  {
-    label: "🌟 Học viên Khá (Đạt chuẩn)",
-    desc: "GPA 7.5 · 80% Chuyên cần · Tốt nghiệp",
-    theory: 7.5,
-    practical: 7.5,
-    attended: 8,
-    total: 10,
-    rate: 80,
-    graduated: true,
-    feedback_theory: "Hiểu rõ các nguyên lý cơ bản, cần ôn tập thêm phân biệt các giai đoạn phù nề mô.",
-    feedback_practical: "Đạt chuẩn kỹ năng cơ bản, cần chú ý thả lỏng cổ tay và điều hòa nhịp thở khi thao tác.",
-    feedback_attendance: "Đạt ngưỡng chuyên cần quy định của Viện đào tạo (80%).",
-    feedback_attitude: "Hòa đồng, tiếp thu nhanh các góp ý sửa đổi từ giảng viên hướng dẫn.",
-  },
-  {
-    label: "⚠️ Cần Ôn tập Thực hành",
-    desc: "GPA 5.4 · Chưa tốt nghiệp",
-    theory: 6.0,
-    practical: 5.0,
-    attended: 7,
-    total: 10,
-    rate: 70,
-    graduated: false,
-    feedback_theory: "Lý thuyết mức trung bình, cần đọc thêm tài liệu giải phẫu mạch bạch huyết.",
-    feedback_practical: "Lực tay còn hơi mạnh (vượt ngưỡng 30 mmHg), cần rèn luyện thêm kỹ thuật xoay tĩnh và thi sát hạch lại.",
-    feedback_attendance: "Chưa đạt tỷ lệ chuyên cần tối thiểu (70%), cần học bù các buổi lab còn thiếu.",
-    feedback_attitude: "Cần tập trung hơn trong các giờ thực hành lâm sàng trực tiếp trên người mẫu.",
-  },
-];
-
 export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordFormEditorProps> = ({
   values,
   onChange,
@@ -246,23 +186,6 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
     }
   };
 
-  // Áp dụng Profile mẫu 1-chạm
-  const handleApplyPreset = (preset: typeof PRESET_PROFILES[0]) => {
-    onChange("theory_score", preset.theory);
-    onChange("practical_score", preset.practical);
-    onChange("attended_sessions", preset.attended);
-    onChange("total_batch_sessions", preset.total);
-    onChange("attendance_rate", preset.rate);
-    onChange("feedback_theory", preset.feedback_theory);
-    onChange("feedback_practical", preset.feedback_practical);
-    onChange("feedback_attendance", preset.feedback_attendance);
-    onChange("feedback_attitude", preset.feedback_attitude);
-    onChange("is_graduated", preset.graduated);
-    if (preset.graduated && !values.graduation_date) {
-      onChange("graduation_date", new Date().toISOString().split("T")[0]);
-    }
-  };
-
   // Tự động tính tỷ lệ chuyên cần khi thay đổi số buổi
   const handleAttendedChange = (attended: number | string) => {
     onChange("attended_sessions", attended);
@@ -324,45 +247,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
 
   return (
     <div className="space-y-6">
-      {/* 1. MẪU ĐÁNH GIÁ 1-CHẠM (PRESET PROFILES) */}
-      <div className="bg-gradient-to-r from-[#FAF6F2] to-[#F5ECE2] p-3.5 rounded-2xl border border-[#E8DFD8]">
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-[#985018] text-white rounded-lg shadow-xs">
-              <Sparkles size={14} />
-            </span>
-            <div>
-              <h4 className="text-xs font-bold text-[#2C241E]">
-                Điền nhanh bảng điểm theo hồ sơ mẫu
-              </h4>
-              <p className="text-[11px] text-[#766554]">
-                1-Click tự động chọn điểm lý thuyết, thực hành, chuyên cần và nhận xét 4 chiều
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          {PRESET_PROFILES.map((preset, idx) => (
-            <button
-              type="button"
-              key={idx}
-              onClick={() => handleApplyPreset(preset)}
-              className="text-left p-2.5 bg-white hover:bg-[#FAF6F2] border border-[#E8DFD8] hover:border-[#B38A58] rounded-xl transition-all shadow-xs hover:shadow-sm group cursor-pointer"
-            >
-              <div className="text-xs font-bold text-[#2C241E] group-hover:text-[#985018] flex items-center justify-between">
-                <span>{preset.label}</span>
-                <span className="text-[10px] text-[#B38A58] opacity-0 group-hover:opacity-100 transition-opacity">
-                  Áp dụng ⚡
-                </span>
-              </div>
-              <p className="text-[10px] text-[#766554] mt-1 line-clamp-1">{preset.desc}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 2. CHỌN HỒ SƠ GHI DANH HỌC VIÊN */}
+      {/* 1. CHỌN HỒ SƠ GHI DANH HỌC VIÊN */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -438,7 +323,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         )}
       </div>
 
-      {/* 3. NHẬP ĐIỂM SỐ & TỔNG KẾT GPA */}
+      {/* 2. NHẬP ĐIỂM SỐ & TỔNG KẾT GPA */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-4 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8DFD8]/60 pb-3">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -591,7 +476,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         </div>
       </div>
 
-      {/* 4. CHUYÊN CẦN & SỐ BUỔI THAM DỰ */}
+      {/* 3. CHUYÊN CẦN & SỐ BUỔI THAM DỰ */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3.5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8DFD8]/60 pb-2.5">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -665,7 +550,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         </div>
       </div>
 
-      {/* 5. ĐÁNH GIÁ 4 CHIỀU & GỢI Ý NHANH */}
+      {/* 4. ĐÁNH GIÁ 4 CHIỀU & GỢI Ý NHANH */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-4 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8DFD8]/60 pb-2.5">
           <div>
@@ -806,7 +691,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         </div>
       </div>
 
-      {/* 6. XÁC NHẬN TỐT NGHIỆP & NGÀY CẤP */}
+      {/* 5. XÁC NHẬN TỐT NGHIỆP & NGÀY CẤP */}
       <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3 shadow-xs">
         <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
           <GraduationCap size={14} className="text-[#985018]" />
@@ -863,7 +748,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         </div>
       </div>
 
-      {/* 7. XEM TRƯỚC BẢNG ĐIỂM THỜI GIAN THỰC (LIVE PREVIEW CARD) */}
+      {/* 6. XEM TRƯỚC BẢNG ĐIỂM THỜI GIAN THỰC (LIVE PREVIEW CARD) */}
       <div className="pt-2 border-t border-[#E8DFD8]">
         <div className="flex items-center gap-1.5 mb-2.5">
           <Eye size={14} className="text-[#985018]" />
