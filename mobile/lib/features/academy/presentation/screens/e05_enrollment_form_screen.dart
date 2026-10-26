@@ -30,7 +30,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   late final TextEditingController _addressController;
 
   int _selectedExperience = 1; // 0: Chưa có, 1: Cơ bản / tự học (chuẩn Figma đang chọn), 2: Đang làm nghề
-  String _selectedBranch = 'Chi nhánh Quận 3';
+  String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   String _selectedBatch = '23/10/2026 · MCN-1026';
   String _selectedFormat = 'Học trực tiếp';
 
@@ -346,12 +346,12 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                   const SizedBox(height: 6),
                   _buildDropdownContainer(
                     value: _selectedBranch,
-                    items: const ['Chi nhánh Quận 3', 'Chi nhánh mẫu 02 — Quận 1'],
+                    items: const ['Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399'],
                     onChanged: (val) => setState(() => _selectedBranch = val!),
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
+                    'Trụ sở chính MLD Việt Nam · Hotline: 096.7786.399',
                     style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                   ),
                   const SizedBox(height: 14),

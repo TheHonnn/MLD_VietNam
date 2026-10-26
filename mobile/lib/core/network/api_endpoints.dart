@@ -36,6 +36,7 @@ class ApiEndpoints {
   static const String userPackages = '/rest/v1/user_packages';
   static const String treatmentJournal = '/rest/v1/treatment_journal';
   static const String homeCareGuidelines = '/rest/v1/home_care_guidelines';
+  static const String miniappSharedContent = '/rest/v1/miniapp_shared_content';
 
   static const String bookings = '/rest/v1/bookings';
   static String bookingDetail(String id) => '/rest/v1/bookings?id=eq.$id&select=*,branches(name,address,phone)';

@@ -108,20 +108,20 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5F1),
+                      color: const Color(0xFFEFF4FE),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: const Color(0xFFBFDBFE)),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.schedule, size: 14, color: Color(0xFF168477)),
+                        Icon(Icons.schedule, size: 14, color: Color(0xFF2860EB)),
                         SizedBox(width: 6),
                         Text(
                           'Thời hạn truy cập: Còn 45 ngày (Hạn đến: 31/12/2026)',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF168477),
+                            color: Color(0xFF2860EB),
                           ),
                         ),
                       ],

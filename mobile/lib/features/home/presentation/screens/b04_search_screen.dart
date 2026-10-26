@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
-import '../../../academy/presentation/screens/e02_course_catalog_screen.dart';
+import '../../../academy/presentation/screens/e01_academy_home_screen.dart';
 
 class B04SearchScreen extends StatefulWidget {
   const B04SearchScreen({super.key});
@@ -56,9 +57,10 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
@@ -68,20 +70,20 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               // --- 1. BACK BUTTON ---
               InkWell(
                 onTap: () => Navigator.pop(context),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppColors.border),
                   ),
                   alignment: Alignment.center,
                   child: const Icon(
-                    Icons.arrow_back,
+                    Icons.arrow_back_ios_new_rounded,
                     color: AppColors.textPrimary,
-                    size: 22,
+                    size: 18,
                   ),
                 ),
               ),
@@ -89,13 +91,14 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               const SizedBox(height: 20),
 
               // --- 2. TITLE ---
-              const Text(
-                'Bạn đang tìm kiếm\nđiều gì?',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                  height: 36.40 / 28,
-                  color: AppColors.textHeading, // #693B20
+              Text(
+                context.tr('Bạn đang tìm kiếm\nđiều gì?', 'What are you\nlooking for?'),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                  color: AppColors.textPrimary,
                 ),
               ),
 
@@ -105,27 +108,27 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               Row(
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFEFF4FE),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.border),
                     ),
                     alignment: Alignment.center,
                     child: const Icon(
                       Icons.search_rounded,
                       color: AppColors.primary,
-                      size: 24,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Container(
-                      height: 52,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -133,11 +136,13 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                       child: TextField(
                         controller: _searchController,
                         onSubmitted: _onSearchSubmit,
-                        decoration: const InputDecoration(
-                          hintText: 'Tìm dịch vụ, khóa học, chuyên viên...',
-                          hintStyle: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
+                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: context.tr('Tìm dịch vụ, khóa học, chuyên viên...', 'Search services, courses, specialists...'),
+                          hintStyle: const TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 13.5,
+                            color: AppColors.textPlaceholder,
                             fontWeight: FontWeight.w400,
                           ),
                           border: InputBorder.none,
@@ -161,10 +166,11 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                       _searchController.clear();
                     });
                   },
-                  child: const Text(
-                    'Xóa tìm kiếm',
-                    style: TextStyle(
-                      fontSize: 14,
+                  child: Text(
+                    context.tr('Xóa tìm kiếm', 'Clear search'),
+                    style: const TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
                     ),
@@ -191,7 +197,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                       } else if (chip == 'Chuyên viên') {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()));
                       } else if (chip == 'Khóa học') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()));
                       } else if (chip == 'Dịch vụ') {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const B02ServiceListingScreen()));
                       }
@@ -200,18 +206,19 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : AppColors.surface,
+                        color: isSelected ? AppColors.primary : const Color(0xFFF9FAFB),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: isSelected ? AppColors.primary : AppColors.border,
                         ),
                       ),
                       child: Text(
-                        _typeChips[index],
+                        _typeChips[index].tr(context),
                         style: TextStyle(
+                          fontFamily: 'Montserrat',
                           fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                          color: isSelected ? AppColors.textInverse : AppColors.textPrimary,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                     ),
@@ -223,12 +230,13 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
 
               // --- 5. TÌM KIẾM GẦN ĐÂY ---
               if (_recentSearches.isNotEmpty) ...[
-                const Text(
-                  'Tìm kiếm gần đây',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textHeading,
+                Text(
+                  context.tr('Tìm kiếm gần đây', 'Recent Searches'),
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -249,8 +257,9 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                               ),
                               const SizedBox(width: 12),
                               Text(
-                                search,
+                                search.tr(context),
                                 style: const TextStyle(
+                                  fontFamily: 'Montserrat',
                                   fontSize: 14,
                                   color: AppColors.textPrimary,
                                 ),
@@ -274,12 +283,13 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               ],
 
               // --- 6. TÌM KIẾM PHỔ BIẾN ---
-              const Text(
-                'Tìm kiếm phổ biến',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textHeading,
+              Text(
+                context.tr('Tìm kiếm phổ biến', 'Popular Searches'),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 12),
@@ -293,15 +303,16 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
+                        color: const Color(0xFFF9FAFB),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppColors.border),
                       ),
                       child: Text(
-                        query,
+                        query.tr(context),
                         style: const TextStyle(
+                          fontFamily: 'Montserrat',
                           fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary,
                         ),
                       ),
@@ -313,18 +324,19 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               const SizedBox(height: 28),
 
               // --- 7. KHÁM PHÁ THEO NHU CẦU ---
-              const Text(
-                'Khám phá theo nhu cầu',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textHeading,
+              Text(
+                context.tr('Khám phá theo nhu cầu', 'Explore by Category'),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 12),
               _buildDiscoveryRow(
                 icon: Icons.spa_outlined,
-                title: 'Dịch vụ thư giãn',
+                title: context.tr('Dịch vụ thư giãn', 'Relaxation Services'),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const B02ServiceListingScreen()),
@@ -332,16 +344,15 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               ),
               _buildDiscoveryRow(
                 icon: Icons.school_outlined,
-                title: 'Khóa học nghề spa',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Khóa học nghề spa sắp ra mắt!')),
-                  );
-                },
+                title: context.tr('Khóa học nghề spa', 'Spa Vocational Courses'),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()),
+                ),
               ),
               _buildDiscoveryRow(
                 icon: Icons.store_mall_directory_outlined,
-                title: 'Hệ thống chi nhánh',
+                title: context.tr('Hệ thống chi nhánh', 'Branch Network'),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const B05BranchListingScreen()),
@@ -349,7 +360,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               ),
               _buildDiscoveryRow(
                 icon: Icons.people_outline_rounded,
-                title: 'Đội ngũ chuyên viên',
+                title: context.tr('Đội ngũ chuyên viên', 'Specialist Team'),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()),
@@ -359,11 +370,12 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               const SizedBox(height: 24),
 
               // --- 8. FOOTNOTE ---
-              const Center(
+              Center(
                 child: Text(
-                  'Tìm kiếm dịch vụ, chuyên viên hoặc chi nhánh',
+                  context.tr('Tìm kiếm dịch vụ, chuyên viên hoặc chi nhánh', 'Search services, specialists or branches'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textSecondary,
@@ -399,7 +411,8 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontFamily: 'Montserrat',
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary,
                 ),

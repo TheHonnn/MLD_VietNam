@@ -35,6 +35,8 @@ flutter:
   generate: true
   assets:
     - assets/images/
+    - assets/images/DaoTao/
+    - assets/images/Dichvu/
     - assets/icons/
 
 
