@@ -496,7 +496,7 @@ class _E06TuitionPaymentScreenState extends State<E06TuitionPaymentScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Học viện MLD Việt Nam đã ghi nhận hồ sơ đăng ký của bạn. Khóa học đã được thêm vào mục "Khóa học của tôi".',
+              'Khóa học đã được thêm vào mục "Khóa học của tôi".',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,

@@ -119,10 +119,10 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
           ),
         ),
         centerTitle: false,
-        leading: widget.onBackToHome != null
+        leading: (widget.onBackToHome != null || Navigator.canPop(context))
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                onPressed: widget.onBackToHome,
+                onPressed: widget.onBackToHome ?? () => Navigator.pop(context),
               )
             : null,
       ),

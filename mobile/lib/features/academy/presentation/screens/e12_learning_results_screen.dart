@@ -2,7 +2,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/material.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
-import 'e02_course_catalog_screen.dart';
+import 'e01_academy_home_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 
 /// Screen E12: Kết quả học tập (Learning Results & Certificate) [8116:26507]
@@ -555,7 +555,7 @@ class E12LearningResultsScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()),
+                  MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(

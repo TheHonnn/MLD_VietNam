@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/academy_widgets.dart';
-import 'e02_course_catalog_screen.dart';
+import 'e01_academy_home_screen.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import 'e08_class_detail_screen.dart';
@@ -58,7 +58,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           children: [
             // 1. Giới thiệu [8116:25871]
             const Text(
-              'HỌC VIỆN ĐÀO TẠO MLD',
+              'MLD VietNam',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -267,7 +267,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()),
+                  MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(

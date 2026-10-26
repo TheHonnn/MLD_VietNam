@@ -92,16 +92,6 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   color: AppColors.textHeading, // #693B20
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                l10n?.managePackagesSubtitle ?? 'Quản lý các gói chăm sóc sức khỏe và liệu trình đã đăng ký.',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textSecondary, // #6B6158
-                ),
-              ),
-
               const SizedBox(height: 20),
 
               // --- 2. THẺ THÔNG TIN KHÁCH HÀNG (350x132, r=20, #F3E2CE) ---
@@ -178,7 +168,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'Hồ sơ chăm sóc & liệu trình',
+                          '',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -228,7 +218,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Đăng ký gói dịch vụ để tận hưởng trải nghiệm chăm sóc định kỳ và tiết kiệm chi phí.',
+                          '.',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
                         ),
@@ -343,67 +333,11 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
 
               const SizedBox(height: 28),
 
-              // --- 6. KHÁM PHÁ THÊM GÓI CHĂM SÓC ---
-              const Text(
-                'Khám phá thêm gói chăm sóc',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textHeading, // #693B20
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Một lựa chọn mới cho khoảng thời gian dành riêng cho bạn.',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 16),
-
               // 2 Thẻ gợi ý
               ..._repo.suggestedPackages.map((sug) => Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
                 child: _buildSuggestedCard(sug),
               )),
-
-              const SizedBox(height: 12),
-
-              // --- 7. THẺ THÔNG TIN CUỐI TRANG (#F3E2CE, r=20) ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border, width: 1.0),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Đặt buổi chăm sóc tiếp theo',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Chọn gói phù hợp rồi tiếp tục trong phần Đặt lịch hiện có.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 32),
             ],
           ),
