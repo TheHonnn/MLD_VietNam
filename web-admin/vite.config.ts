@@ -20,11 +20,13 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
-            }
             if (id.includes('lucide-react')) {
               return 'vendor-icons';
+            }
+            if (
+              /[\\/]node_modules[\\/](react|react-dom|react-router-dom|@remix-run)[\\/]/.test(id)
+            ) {
+              return 'vendor-react';
             }
             if (id.includes('@supabase')) {
               return 'vendor-supabase';
