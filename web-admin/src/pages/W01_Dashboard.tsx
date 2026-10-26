@@ -43,6 +43,10 @@ import {
   MultiColorLineChart,
   DailyRevenueItem,
 } from '../components/dashboard/MultiColorLineChart';
+import {
+  RevenueBreakdownChart,
+  RevenueBreakdownData,
+} from '../components/dashboard/RevenueBreakdownChart';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { matchSearch } from '../utils/searchUtils';
 
@@ -404,28 +408,57 @@ export const W01_Dashboard: React.FC = () => {
   );
   const totalNeedToCollect = pendingBookingAmount + pendingTuitionAmount;
 
-  // Breakdown of collections
-  const serviceRevenue = filteredInvoices
-    .filter((inv) => inv.paymentStatus === 'PAID' && inv.bookingId)
-    .reduce((s, i) => s + i.totalAmount, 0);
+  // 3-Pillar Revenue Structure (1 Đào tạo, 2 Dịch vụ trị liệu, 3 Sản phẩm mang về)
+  const trainingRevenue = useMemo(() => {
+    const invTraining = filteredInvoices
+      .filter(
+        (inv) =>
+          inv.paymentStatus === 'PAID' &&
+          (Boolean(inv.enrollmentId) || inv.serviceCategory === 'ACADEMY')
+      )
+      .reduce((s, i) => s + i.totalAmount, 0);
+    return invTraining + totalTuitionCollected;
+  }, [filteredInvoices, totalTuitionCollected]);
 
-  const packageRevenue = filteredInvoices
-    .filter(
-      (inv) =>
-        inv.paymentStatus === 'PAID' &&
-        (inv.userPackageId || (!inv.bookingId && !inv.enrollmentId))
-    )
-    .reduce((s, i) => s + i.totalAmount, 0);
+  const treatmentRevenue = useMemo(() => {
+    return filteredInvoices
+      .filter(
+        (inv) =>
+          inv.paymentStatus === 'PAID' &&
+          (Boolean(inv.bookingId) ||
+            Boolean(inv.userPackageId) ||
+            inv.serviceCategory === 'SERVICE' ||
+            inv.serviceCategory === 'PACKAGE')
+      )
+      .reduce((s, i) => s + i.totalAmount, 0);
+  }, [filteredInvoices]);
 
-  const tuitionRevenue =
-    filteredInvoices
-      .filter((inv) => inv.paymentStatus === 'PAID' && inv.enrollmentId)
-      .reduce((s, i) => s + i.totalAmount, 0) + totalTuitionCollected;
+  const productRevenue = useMemo(() => {
+    return filteredInvoices
+      .filter((inv) => {
+        if (inv.paymentStatus !== 'PAID') return false;
+        if (inv.serviceCategory === 'OTHER') return true;
+        // Retail POS invoices: no bookingId, no userPackageId, no enrollmentId
+        return (
+          !inv.bookingId &&
+          !inv.userPackageId &&
+          !inv.enrollmentId &&
+          inv.serviceCategory !== 'ACADEMY' &&
+          inv.serviceCategory !== 'SERVICE' &&
+          inv.serviceCategory !== 'PACKAGE'
+        );
+      })
+      .reduce((s, i) => s + i.totalAmount, 0);
+  }, [filteredInvoices]);
 
-  const grandTotal = serviceRevenue + packageRevenue + tuitionRevenue || 1;
-  const servicePct = ((serviceRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
-  const packagePct = ((packageRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
-  const tuitionPct = ((tuitionRevenue / grandTotal) * 100).toFixed(1).replace('.', ',');
+  const revenueBreakdown: RevenueBreakdownData = useMemo(
+    () => ({
+      training: trainingRevenue,
+      treatment: treatmentRevenue,
+      product: productRevenue,
+    }),
+    [trainingRevenue, treatmentRevenue, productRevenue]
+  );
 
   const handleKpiClick = useCallback((route?: string) => {
     if (!route) return;
@@ -530,26 +563,41 @@ export const W01_Dashboard: React.FC = () => {
         (t) => t.paymentStatus === 'PAID' && t.paidAt && t.paidAt.startsWith(isoDate)
       );
 
-      // 1. Dịch vụ Spa (bookingId)
-      const serviceAmount = dayInvoices
-        .filter((inv) => inv.bookingId)
-        .reduce((sum, inv) => sum + inv.totalAmount, 0);
-
-      // 2. Gói liệu trình & SP lẻ (userPackageId or retail)
-      const packageAmount = dayInvoices
-        .filter((inv) => inv.userPackageId || (!inv.bookingId && !inv.enrollmentId))
-        .reduce((sum, inv) => sum + inv.totalAmount, 0);
-
-      // 3. Học phí đào tạo (enrollmentId invoice or tuition transaction)
+      // 1. Học phí Đào tạo (Stream 1)
       const tuitionInvoiceAmount = dayInvoices
-        .filter((inv) => inv.enrollmentId)
+        .filter((inv) => Boolean(inv.enrollmentId) || inv.serviceCategory === 'ACADEMY')
         .reduce((sum, inv) => sum + inv.totalAmount, 0);
 
       const tuitionTxAmount = dayTuitions.reduce((sum, t) => sum + t.amount, 0);
       const tuitionAmount = tuitionInvoiceAmount + tuitionTxAmount;
 
+      // 2. Dịch vụ trị liệu (Stream 2)
+      const serviceAmount = dayInvoices
+        .filter(
+          (inv) =>
+            Boolean(inv.bookingId) ||
+            Boolean(inv.userPackageId) ||
+            inv.serviceCategory === 'SERVICE' ||
+            inv.serviceCategory === 'PACKAGE'
+        )
+        .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+      // 3. Sản phẩm mang về (Stream 3)
+      const packageAmount = dayInvoices
+        .filter(
+          (inv) =>
+            inv.serviceCategory === 'OTHER' ||
+            (!inv.bookingId &&
+              !inv.userPackageId &&
+              !inv.enrollmentId &&
+              inv.serviceCategory !== 'ACADEMY' &&
+              inv.serviceCategory !== 'SERVICE' &&
+              inv.serviceCategory !== 'PACKAGE')
+        )
+        .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
       // Total
-      const totalAmount = serviceAmount + packageAmount + tuitionAmount;
+      const totalAmount = tuitionAmount + serviceAmount + packageAmount;
 
       return {
         date: displayDate,
@@ -1258,67 +1306,13 @@ export const W01_Dashboard: React.FC = () => {
 
         {/* Right Column (4 of 12 cols on desktop) */}
         <div className="xl:col-span-4 space-y-4">
-          {/* Card: Cơ cấu khoản đã thu */}
-          <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] space-y-3.5 shadow-xs">
-            <h3 className="text-sm font-bold text-[#2C241E]">Cơ cấu khoản đã thu</h3>
-
-            <div className="space-y-3.5">
-              {/* Dịch vụ */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-[#5C5046] font-medium">Dịch vụ</span>
-                  <span className="font-bold text-[#2C241E]">
-                    {serviceRevenue.toLocaleString('vi-VN')}đ • {servicePct}%
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#783D19] rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(Number(servicePct.replace(',', '.')), 3)}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Liệu trình */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-[#5C5046] font-medium">Liệu trình</span>
-                  <span className="font-bold text-[#2C241E]">
-                    {packageRevenue.toLocaleString('vi-VN')}đ • {packagePct}%
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#783D19] rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(Number(packagePct.replace(',', '.')), 3)}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Học phí */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-[#5C5046] font-medium">Học phí</span>
-                  <span className="font-bold text-[#2C241E]">
-                    {tuitionRevenue.toLocaleString('vi-VN')}đ • {tuitionPct}%
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-[#EBE4DC] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#783D19] rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(Number(tuitionPct.replace(',', '.')), 3)}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-[10px] text-[#8A796B] pt-2 border-t border-[#EFE4D9] leading-relaxed">
-              Dịch vụ & liệu trình: {(serviceRevenue + packageRevenue).toLocaleString('vi-VN')}đ • Học
-              viện: {tuitionRevenue.toLocaleString('vi-VN')}đ.
-            </p>
-          </div>
-
-
+          {/* Biểu đồ cơ cấu doanh thu 3 phần: 1 Đào tạo, 2 Dịch vụ trị liệu, 3 Sản phẩm mang về */}
+          <RevenueBreakdownChart
+            data={revenueBreakdown}
+            branchName={selectedBranchLabel}
+            dateRangeLabel={`${labelLine1} ${labelLine2}`}
+            isLoading={isLoading}
+          />
         </div>
       </div>
 

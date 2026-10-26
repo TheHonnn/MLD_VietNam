@@ -57,33 +57,33 @@ const SERIES_CONFIG: SeriesDefinition[] = [
     isPrimary: true,
   },
   {
+    key: 'tuition',
+    name: '1. Đào tạo',
+    shortName: 'Đào tạo',
+    color: '#2860EB', // Brand Medical Blue
+    lightColor: 'rgba(40, 96, 235, 0.12)',
+    bgBadge: 'bg-[#EFF5FF]',
+    textColor: 'text-[#1D4ED8]',
+    strokeWidth: 2.0,
+  },
+  {
     key: 'service',
-    name: 'Dịch vụ Spa',
-    shortName: 'Dịch vụ',
-    color: '#059669', // Emerald Green
-    lightColor: 'rgba(5, 150, 105, 0.12)',
-    bgBadge: 'bg-[#ECFDF5]',
-    textColor: 'text-[#065F46]',
+    name: '2. Dịch vụ trị liệu',
+    shortName: 'Trị liệu',
+    color: '#16A34A', // Clinical Emerald Green
+    lightColor: 'rgba(22, 163, 74, 0.12)',
+    bgBadge: 'bg-[#F0FDF4]',
+    textColor: 'text-[#15803D]',
     strokeWidth: 2.0,
   },
   {
     key: 'package',
-    name: 'Gói liệu trình & SP',
-    shortName: 'Liệu trình',
-    color: '#2563EB', // Royal Blue
-    lightColor: 'rgba(37, 99, 235, 0.12)',
-    bgBadge: 'bg-[#EFF6FF]',
-    textColor: 'text-[#1E40AF]',
-    strokeWidth: 2.0,
-  },
-  {
-    key: 'tuition',
-    name: 'Học phí Đào tạo',
-    shortName: 'Học viện',
-    color: '#7C3AED', // Violet/Purple
-    lightColor: 'rgba(124, 58, 237, 0.12)',
-    bgBadge: 'bg-[#F5F3FF]',
-    textColor: 'text-[#5B21B6]',
+    name: '3. Sản phẩm mang về',
+    shortName: 'Sản phẩm',
+    color: '#EA580C', // Amber Sunset
+    lightColor: 'rgba(234, 88, 12, 0.12)',
+    bgBadge: 'bg-[#FFF7ED]',
+    textColor: 'text-[#C2410C]',
     strokeWidth: 2.0,
   },
 ];
