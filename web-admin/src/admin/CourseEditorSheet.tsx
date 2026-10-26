@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   GraduationCap,
   BookOpen,
@@ -15,6 +15,10 @@ import {
   Check,
   Target,
   Users,
+  Upload,
+  Loader2,
+  Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { adminApi, Row } from "./api";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
@@ -110,6 +114,97 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
   const [shortDescription, setShortDescription] = useState(row.short_description || "");
   const [fullDescription, setFullDescription] = useState(row.full_description || "");
   const [imageUrl, setImageUrl] = useState(row.image_url || "");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Tải ảnh bìa khóa học từ máy tính lên Supabase Storage
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP, GIF).");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Dung lượng ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setUploadingImage(true);
+
+    // Hiển thị ngay ảnh xem trước từ máy
+    const localBlob = URL.createObjectURL(file);
+    setImageUrl(localBlob);
+
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const cleanFileName = `course_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+      const STORAGE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
+      const KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
+
+      // Thử tải lên bucket 'services' trước, nếu thất bại thử sang bucket 'avatars'
+      let targetBucket = "services";
+      let res = await fetch(
+        `${STORAGE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+        {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${KEY}`,
+            "Content-Type": file.type || "image/png",
+          },
+          body: file,
+        }
+      );
+
+      if (!res.ok) {
+        targetBucket = "avatars";
+        res = await fetch(
+          `${STORAGE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+          {
+            method: "POST",
+            headers: {
+              apikey: KEY,
+              Authorization: `Bearer ${KEY}`,
+              "Content-Type": file.type || "image/png",
+            },
+            body: file,
+          }
+        );
+      }
+
+      if (res.ok) {
+        const publicUrl = `${STORAGE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+        setImageUrl(publicUrl);
+      } else {
+        // Fallback sang Base64
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (reader.result) {
+            setImageUrl(String(reader.result));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err: any) {
+      console.warn("Lỗi tải ảnh lên Supabase Storage, chuyển sang lưu Base64:", err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result) {
+          setImageUrl(String(reader.result));
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   // Status
   const [isFeatured, setIsFeatured] = useState<boolean>(row.is_featured !== undefined ? Boolean(row.is_featured) : false);
@@ -450,21 +545,145 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
               </select>
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-[#2C241E] mb-1.5">
-                Đường dẫn ảnh bìa khóa học <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ví dụ: assets/images/course_banner_clean.png hoặc URL ảnh..."
-                  disabled={isView}
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="flex-1 text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
-                  required
-                />
+            <div className="sm:col-span-2 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#2C241E] flex items-center gap-1.5">
+                  <ImageIcon size={14} className="text-[#B38A58]" />
+                  <span>Ảnh bìa khóa học</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                {!isView && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8A4F23] hover:text-[#6E3C17] bg-[#FAF5EF] hover:bg-[#F3EAE0] border border-[#E8DFD8] px-3 py-1.5 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin text-[#8A4F23]" />
+                        <span>Đang tải ảnh lên...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={13} />
+                        <span>Tải ảnh từ máy lên</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              {/* Input URL / Path */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: assets/images/course_banner_clean.png hoặc URL ảnh..."
+                    disabled={isView || uploadingImage}
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5]"
+                    required
+                  />
+                </div>
+                {!isView && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="px-3.5 py-2.5 bg-[#FAF5EF] hover:bg-[#F3EAE0] border border-[#E8DFD8] text-[#8A4F23] rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Chọn tệp ảnh từ máy tính"
+                  >
+                    <Upload size={14} />
+                    <span className="hidden sm:inline">Chọn tệp</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Banner Preview Card */}
+              {imageUrl && (
+                <div className="border border-[#E8DFD8] bg-[#FAF8F5] rounded-xl p-3 flex flex-col sm:flex-row items-center gap-3.5">
+                  <div className="relative w-full sm:w-44 h-24 rounded-lg overflow-hidden bg-[#EAE2D9] border border-[#E0D5CA] flex-shrink-0 group">
+                    <img
+                      src={imageUrl}
+                      alt="Ảnh bìa khóa học"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='60' viewBox='0 0 100 60'%3E%3Crect width='100' height='60' fill='%23F4EFEA'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%239E8E81'%3EẢnh không tải được%3C/text%3E%3C/svg%3E";
+                      }}
+                    />
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 w-full space-y-1.5 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <Check size={11} />
+                        Ảnh bìa khóa học
+                      </span>
+                      {uploadingImage && (
+                        <span className="text-[11px] text-[#B38A58] animate-pulse">
+                          Đang tải lên Supabase Storage...
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#73675F] truncate font-mono">
+                      {imageUrl}
+                    </p>
+                    {!isView && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          className="text-xs text-[#8A4F23] hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Upload size={12} />
+                          Đổi ảnh khác
+                        </button>
+                        <span className="text-[#D3C7BD]">•</span>
+                        {(imageUrl.startsWith("http") || imageUrl.startsWith("blob:")) && (
+                          <>
+                            <a
+                              href={imageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-[#73675F] hover:text-[#2C241E] hover:underline inline-flex items-center gap-1"
+                            >
+                              <ExternalLink size={12} />
+                              Xem ảnh gốc
+                            </a>
+                            <span className="text-[#D3C7BD]">•</span>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl("")}
+                          disabled={uploadingImage}
+                          className="text-xs text-red-600 hover:text-red-700 hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 size={12} />
+                          Gỡ ảnh
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
