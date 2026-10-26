@@ -96,6 +96,59 @@ export const academyService = {
     }
   },
 
+  async updateCourseBatch(
+    batchId: string,
+    updates: {
+      instructorId?: string | null;
+      scheduleText?: string;
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+    }
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.updateCourseBatch(batchId, updates);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Cập nhật phân công lớp học thành công' : 'Lỗi cập nhật lớp học',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[academyService] updateCourseBatch failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi máy chủ khi cập nhật lớp học',
+        data: false,
+      };
+    }
+  },
+
+  async assignInstructorToBatch(
+    batchId: string,
+    instructorId: string | null,
+    scheduleText?: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.assignInstructorToBatch(batchId, instructorId, scheduleText);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Phân công lớp thành công' : 'Lỗi khi phân công lớp',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[academyService] assignInstructorToBatch failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi máy chủ khi phân công lớp',
+        data: false,
+      };
+    }
+  },
+
   // --- Tuyển sinh & Ghi danh (Enrollment) ---
   async getEnrollments(params?: {
     status?: EnrollmentStatus;

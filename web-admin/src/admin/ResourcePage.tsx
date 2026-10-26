@@ -46,6 +46,11 @@ import {
   Layers,
   CreditCard,
   Clipboard,
+  Users,
+  GraduationCap,
+  MapPin,
+  UserCheck,
+  BookOpen,
 } from "lucide-react";
 import {
   adminApi,
@@ -998,16 +1003,24 @@ function formatCell(row: Row, c: Column): React.ReactNode {
       row.student_name ||
       row.student?.full_name ||
       row.users?.full_name ||
-      (typeof row[c.name] === "string" ? null : null);
-    const phone = row.student_phone || row.student?.phone || row.users?.phone;
+      row.full_name;
+    const phone = row.student_phone || row.student?.phone || row.users?.phone || row.phone;
+    const email = row.student_email || row.student?.email || row.email;
     if (sName) {
       return (
         <div>
-          <div className="font-bold text-[#2C241E] text-xs flex items-center gap-1">
+          <div className="font-bold text-[#2C241E] text-xs flex items-center gap-1.5">
             <span>🎓</span>
-            <span>{sName}</span>
+            <span className="truncate max-w-[190px]">{sName}</span>
           </div>
-          {phone && <div className="text-[10px] text-[#8C7A6B]">{phone}</div>}
+          <div className="flex items-center gap-2 mt-0.5 text-[10.5px]">
+            {phone && <span className="text-[#8A4F23] font-medium">{phone}</span>}
+            {email && (
+              <span className="text-[#8C7A6B] truncate max-w-[140px]" title={email}>
+                {email}
+              </span>
+            )}
+          </div>
         </div>
       );
     }
@@ -1310,6 +1323,190 @@ function formatCell(row: Row, c: Column): React.ReactNode {
         <span>{enums[s] || s}</span>
       </span>
     );
+  }
+  if (
+    c.name === "status" &&
+    (row.tuition_total !== undefined ||
+      row.student_id !== undefined ||
+      row.enrolled_at !== undefined ||
+      row.batch_id !== undefined)
+  ) {
+    const s = String(row[c.name] || "ENROLLED");
+    const stMap: Record<string, { label: string; badge: string; dot: string }> = {
+      ENROLLED: {
+        label: "Đã ghi danh",
+        badge: "bg-[#EBF3FC] text-[#1E40AF] border-[#BFDBFE]",
+        dot: "bg-[#2563EB]",
+      },
+      DEPOSITED: {
+        label: "Đã đặt cọc",
+        badge: "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]",
+        dot: "bg-[#D97706]",
+      },
+      CONSULTING: {
+        label: "Tư vấn",
+        badge: "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+        dot: "bg-[#9CA3AF]",
+      },
+      STUDYING: {
+        label: "Đang học",
+        badge: "bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]",
+        dot: "bg-[#059669]",
+      },
+      GRADUATED: {
+        label: "Tốt nghiệp",
+        badge: "bg-[#FAF5FF] text-[#6B21A8] border-[#E9D5FF]",
+        dot: "bg-[#9333EA]",
+      },
+      DROPPED: {
+        label: "Bảo lưu / Thôi học",
+        badge: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+        dot: "bg-[#DC2626]",
+      },
+    };
+    const opt = stMap[s];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          opt?.badge || "bg-[#FAF0E4] text-[#8A4F23] border-[#E8DFD8]"
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
+        <span>{opt?.label || enums[s] || s}</span>
+      </span>
+    );
+  }
+  if (c.name === "tuition_total") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="font-extrabold text-[#2C241E] text-xs">
+        {val > 0 ? `${val.toLocaleString("vi-VN")} ₫` : "0 ₫"}
+      </span>
+    );
+  }
+  if (c.name === "amount_paid") {
+    const paid = Number(row[c.name] || 0);
+    const total = Number(row.tuition_total || 0);
+    const isFull = total > 0 && paid >= total;
+    const isPartial = paid > 0 && paid < total;
+    return (
+      <div className="text-xs">
+        <span
+          className={`font-extrabold ${
+            isFull
+              ? "text-[#0D6832]"
+              : isPartial
+                ? "text-[#C2410C]"
+                : "text-[#73675F]"
+          }`}
+        >
+          {paid.toLocaleString("vi-VN")} ₫
+        </span>
+        {isFull ? (
+          <span className="ml-1.5 text-[10px] font-bold bg-[#E8F6ED] text-[#0D6832] px-1.5 py-0.5 rounded-md border border-[#BDE8CD]">
+            Đã đủ
+          </span>
+        ) : isPartial ? (
+          <span className="ml-1.5 text-[10px] font-bold bg-[#FFF7ED] text-[#C2410C] px-1.5 py-0.5 rounded-md border border-[#FFEDD5]">
+            Một phần
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+  if (c.name === "progress_percent") {
+    const p = Math.min(100, Math.max(0, Number(row[c.name] || 0)));
+    const lessons = Number(row.completed_lessons_count || 0);
+    return (
+      <div className="min-w-[110px] max-w-[150px]">
+        <div className="flex items-center justify-between text-[11px] mb-1">
+          <span className="font-bold text-[#8A4F23]">{p}%</span>
+          {lessons > 0 && (
+            <span className="text-[10px] text-[#8C7A6B]">({lessons} bài)</span>
+          )}
+        </div>
+        <div className="w-full h-1.5 bg-[#FAF0E4] rounded-full overflow-hidden border border-[#E8DFD8]">
+          <div
+            className={`h-full rounded-full transition-all ${
+              p >= 100
+                ? "bg-[#0D6832]"
+                : p > 50
+                  ? "bg-[#8A4F23]"
+                  : "bg-[#BA7E4C]"
+            }`}
+            style={{ width: `${p}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
+  if (c.name === "student_id") {
+    const sName =
+      row.student_name ||
+      row.student?.full_name ||
+      row.users?.full_name ||
+      (typeof row[c.name] === "object" ? row[c.name]?.full_name : null);
+    const phone =
+      row.student_phone ||
+      row.student?.phone ||
+      row.users?.phone ||
+      (typeof row[c.name] === "object" ? row[c.name]?.phone : null);
+    const email =
+      row.student_email ||
+      row.student?.email ||
+      row.users?.email ||
+      (typeof row[c.name] === "object" ? row[c.name]?.email : null);
+    if (sName || phone || email) {
+      return (
+        <div className="min-w-0 max-w-[210px]">
+          <div className="font-bold text-[#2C241E] text-xs leading-snug flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center text-[10px] font-bold border border-[#EAD8C7] shrink-0">
+              👤
+            </span>
+            <span className="truncate">{sName || "Học viên"}</span>
+          </div>
+          {(phone || email) && (
+            <div className="text-[10px] text-[#8C7A6B] mt-0.5 pl-6 truncate">
+              {phone ? phone : email}
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
+  if (c.name === "course_id") {
+    const title =
+      row.course_title ||
+      row.courses?.title ||
+      (typeof row[c.name] === "object" ? row[c.name]?.title : null);
+    const code =
+      row.course_code ||
+      row.courses?.code ||
+      (typeof row[c.name] === "object" ? row[c.name]?.code : null);
+    if (title) {
+      return (
+        <div className="min-w-0 max-w-[200px]">
+          <div className="font-medium text-[#2C241E] text-xs truncate" title={title}>
+            {title}
+          </div>
+          {code && <div className="text-[10px] text-[#8A4F23] font-mono mt-0.5">{code}</div>}
+        </div>
+      );
+    }
+  }
+  if (c.name === "batch_id") {
+    const bCode =
+      row.batch_code ||
+      row.course_batches?.batch_code ||
+      (typeof row[c.name] === "object" ? row[c.name]?.batch_code : null);
+    if (bCode) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7]">
+          <span>🎓</span>
+          <span>{bCode}</span>
+        </span>
+      );
+    }
   }
   if (c.name === "booking_id") {
     const bCode = row.booking_code || row.bookings?.booking_code || (typeof row[c.name] === "string" ? row[c.name] : null);
@@ -3503,12 +3700,30 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
 
-  // Dữ liệu phục vụ bộ lọc liên kết giữa Khóa học & Danh mục khóa học
+  // Dữ liệu phục vụ bộ lọc liên kết giữa Khóa học & Danh mục khóa học & Lớp học
   const [coursesForFilter, setCoursesForFilter] = useState<
     Array<{ id: string; title: string; code: string; category_id?: string }>
   >([]);
   const [categoriesForFilter, setCategoriesForFilter] = useState<
     Array<{ id: string; name: string; code: string }>
+  >([]);
+  const [batchesForFilter, setBatchesForFilter] = useState<
+    Array<{
+      id: string;
+      batch_code: string;
+      course_id: string;
+      branch_id?: string;
+      instructor_id?: string;
+      start_date?: string;
+      end_date?: string;
+      schedule_text?: string;
+      max_students?: number;
+      enrolled_count?: number;
+      status?: string;
+      courses?: { id?: string; title?: string; code?: string };
+      branches?: { id?: string; name?: string; code?: string };
+      instructor?: { id?: string; full_name?: string };
+    }>
   >([]);
 
   useEffect(() => {
@@ -3529,6 +3744,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         .then((r) => r.json())
         .then((data) => {
           if (active && Array.isArray(data)) setCategoriesForFilter(data);
+        })
+        .catch(() => {});
+    } else if (table === "course_enrollments") {
+      fetch(
+        `${SUPABASE_URL}/rest/v1/course_batches?select=*,courses(id,title,code),branches(id,name,code),instructor:instructors!instructor_id(id,full_name)&order=start_date.desc,created_at.desc`,
+        {
+          headers: getSupabaseHeaders(),
+        }
+      )
+        .then((r) => r.json())
+        .then((data) => {
+          if (active && Array.isArray(data)) setBatchesForFilter(data);
         })
         .catch(() => {});
     }
@@ -3584,6 +3811,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   useEffect(() => {
     if (confirmation) confirmDialog.current?.showModal();
   }, [confirmation]);
+  let filter: Row = {};
+  try {
+    filter = JSON.parse(params.get("filter") || "{}");
+  } catch {}
+  const selectedBatchId =
+    filter.batch_id !== undefined
+      ? String(filter.batch_id)
+      : params.get("batch_id") || "";
+  const selectedBatch = batchesForFilter.find(
+    (b) => String(b.id) === String(selectedBatchId)
+  );
+
   useEffect(() => {
     if (
       !listing ||
@@ -3598,19 +3837,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           ? { role: "CUSTOMER", membership_tier: "STANDARD", is_active: true }
           : table === "course_lessons" && params.get("lesson_type") === "VIDEO"
             ? { lesson_type: "VIDEO" }
-            : {},
+            : table === "course_enrollments" && selectedBatch
+              ? { batch_id: selectedBatch.id, course_id: selectedBatch.course_id }
+              : {},
     });
-  }, [listing, resource, table, params]);
+  }, [listing, resource, table, params, selectedBatch]);
   const updateParam = (name: string, value: string) => {
     const next = new URLSearchParams(params);
     value ? next.set(name, value) : next.delete(name);
     if (name !== "page") next.delete("page");
     setParams(next);
   };
-  let filter: Row = {};
-  try {
-    filter = JSON.parse(params.get("filter") || "{}");
-  } catch {}
   const filterColumns =
     listing?.columns.filter(
       (c) => (c.options.length || c.type === "bool") && !(table === "users" && c.name === "role")
@@ -3815,10 +4052,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "course_id",
       "batch_id",
       "enrolled_at",
-      "tuition_fee",
-      "deposit_amount",
+      "tuition_total",
+      "amount_paid",
+      "progress_percent",
       "status",
-      "payment_status",
     ],
     instructors: [
       "avatar_url",
@@ -3927,7 +4164,19 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           {resource?.actions?.includes("create") && listing && (
             <button
               className="admin-primary"
-              onClick={() => setEdit({ row: {}, mode: "create" })}
+              onClick={() => {
+                if (table === "course_enrollments" && selectedBatch) {
+                  setEdit({
+                    row: {
+                      batch_id: selectedBatch.id,
+                      course_id: selectedBatch.course_id,
+                    },
+                    mode: "create",
+                  });
+                } else {
+                  setEdit({ row: {}, mode: "create" });
+                }
+              }}
             >
               <Plus />
               Thêm mới
@@ -3965,6 +4214,38 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {table === "course_enrollments" && (
+          <select
+            aria-label="Chọn Lớp học"
+            className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7]"
+            value={selectedBatchId}
+            onChange={(e) => {
+              const bId = e.target.value;
+              const next = { ...filter };
+              const p = new URLSearchParams(params);
+              if (!bId) {
+                delete next.batch_id;
+                p.delete("batch_id");
+              } else {
+                next.batch_id = bId;
+                p.set("batch_id", bId);
+              }
+              Object.keys(next).length
+                ? p.set("filter", JSON.stringify(next))
+                : p.delete("filter");
+              p.delete("page");
+              setParams(p);
+            }}
+          >
+            <option value="">🎓 Chọn lớp học ({batchesForFilter.length} lớp có sẵn)</option>
+            <option value="__ALL__">🌐 Toàn bộ học viên tất cả các lớp</option>
+            {batchesForFilter.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.batch_code} · {b.courses?.title || "Khóa học"} {b.branches?.name ? `(${b.branches.name})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
         {table === "course_categories" && (
           <select
             aria-label="Lọc theo Khóa học"
@@ -4049,13 +4330,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             ))}
           </select>
         ))}
-        {(Object.keys(filter).length > 0 || Boolean(params.get("course_id"))) && (
+        {(Object.keys(filter).length > 0 || Boolean(params.get("course_id")) || Boolean(params.get("batch_id"))) && (
           <button
             className="admin-secondary"
             onClick={() => {
               const p = new URLSearchParams(params);
               p.delete("filter");
               p.delete("course_id");
+              p.delete("batch_id");
               p.delete("page");
               setParams(p);
             }}
@@ -4084,7 +4366,270 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 {notice}
               </p>
             )}
-            <div className="admin-table-wrap">
+            {table === "course_enrollments" && !selectedBatchId && !params.get("search") ? (
+              <div className="space-y-6 my-2 font-['Plus_Jakarta_Sans',sans-serif]">
+                <div className="p-6 md:p-8 bg-gradient-to-br from-[#FFFDF9] via-[#FAF4EE] to-[#F5E9DC] rounded-3xl border-2 border-[#EAD8C7] shadow-sm">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-[#8A4F23] text-white flex items-center justify-center text-2xl shadow-md shrink-0">
+                        <GraduationCap size={28} />
+                      </div>
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#8A4F23]/10 text-[#8A4F23] mb-1">
+                          Quy trình ghi danh chuẩn
+                        </div>
+                        <h2 className="text-xl md:text-2xl font-black text-[#2D1B08] tracking-tight">
+                          Chọn Lớp Học Để Quản Lý Học Viên
+                        </h2>
+                        <p className="text-xs md:text-sm text-[#7D6E63] mt-1 max-w-2xl leading-relaxed">
+                          Để bảo đảm dữ liệu điểm danh, lịch học và học phí chính xác, vui lòng chọn một lớp học bên dưới để xem danh sách học viên hoặc ghi danh mới.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const p = new URLSearchParams(params);
+                        p.set("batch_id", "__ALL__");
+                        const next = { ...filter, batch_id: "__ALL__" };
+                        p.set("filter", JSON.stringify(next));
+                        p.delete("page");
+                        setParams(p);
+                      }}
+                      className="self-start md:self-center px-4 py-2.5 rounded-xl text-xs font-bold text-[#8A4F23] bg-white hover:bg-[#FAF0E4] border border-[#EAD8C7] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <span>🌐 Xem toàn bộ học viên tất cả các lớp</span>
+                    </button>
+                  </div>
+                </div>
+
+                {batchesForFilter.length === 0 ? (
+                  <div className="p-12 text-center bg-white rounded-2xl border border-[#EAD8C7] space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center text-2xl mx-auto border border-[#EAD8C7]">
+                      🎓
+                    </div>
+                    <h3 className="text-base font-bold text-[#2D1B08]">Chưa có lớp học nào trong hệ thống</h3>
+                    <p className="text-xs text-[#7D6E63] max-w-md mx-auto">
+                      Cần có ít nhất một lớp học (Course Batch) trước khi có thể ghi danh học viên. Vui lòng tạo lớp học mới trước.
+                    </p>
+                    <Link
+                      to="/manage/course_batches?create=1"
+                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-colors shadow-sm cursor-pointer"
+                    >
+                      <Plus size={15} />
+                      <span>+ Tạo lớp học mới ngay</span>
+                    </Link>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-[#2D1B08] flex items-center gap-2">
+                        <span>Danh sách các lớp học hiện có</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7]">
+                          {batchesForFilter.length} lớp
+                        </span>
+                      </h3>
+                      <span className="text-xs text-[#8C7A6B]">Bấm vào một lớp để mở danh sách học viên</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {batchesForFilter.map((b) => (
+                        <div
+                          key={b.id}
+                          onClick={() => {
+                            const next = { ...filter, batch_id: b.id };
+                            const p = new URLSearchParams(params);
+                            p.set("batch_id", b.id);
+                            p.set("filter", JSON.stringify(next));
+                            p.delete("page");
+                            setParams(p);
+                          }}
+                          className="bg-white hover:bg-[#FFFDF9] border-2 border-[#EAD8C7] hover:border-[#8A4F23] rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden text-left"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7] flex items-center gap-1">
+                                <span>🎓</span>
+                                <span>{b.batch_code}</span>
+                              </span>
+                              {b.status && (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                                    b.status === "ONGOING"
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                      : b.status === "PLANNED"
+                                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                                      : b.status === "COMPLETED"
+                                      ? "bg-slate-50 text-slate-700 border-slate-200"
+                                      : "bg-[#FAF0E4] text-[#8A4F23] border-[#EAD8C7]"
+                                  }`}
+                                >
+                                  {b.status === "ONGOING"
+                                    ? "Đang học"
+                                    : b.status === "PLANNED"
+                                    ? "Sắp khai giảng"
+                                    : b.status === "COMPLETED"
+                                    ? "Đã bế giảng"
+                                    : enums[b.status] || b.status}
+                                </span>
+                              )}
+                            </div>
+
+                            <div>
+                              <h4 className="text-base font-bold text-[#2D1B08] group-hover:text-[#8A4F23] transition-colors leading-snug line-clamp-2">
+                                {b.courses?.title || "Khóa đào tạo MLD"}
+                              </h4>
+                              {b.courses?.code && (
+                                <span className="text-[11px] text-[#8A4F23] font-mono mt-0.5 block font-semibold">
+                                  Mã khóa: {b.courses.code}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="space-y-1.5 text-xs text-[#7D6E63] pt-2 border-t border-[#F2E7DC]">
+                              <div className="flex items-center gap-2">
+                                <MapPin size={13} className="text-[#8A4F23] shrink-0" />
+                                <span className="truncate">
+                                  Chi nhánh: <b>{b.branches?.name || "Toàn hệ thống"}</b>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <UserCheck size={13} className="text-[#8A4F23] shrink-0" />
+                                <span className="truncate">
+                                  Giảng viên: <b>{b.instructor?.full_name || "Chưa phân công"}</b>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Calendar size={13} className="text-[#8A4F23] shrink-0" />
+                                <span>
+                                  Khai giảng: <b>{b.start_date ? new Date(b.start_date).toLocaleDateString("vi-VN") : "Chưa xác định"}</b>
+                                </span>
+                              </div>
+                              {b.schedule_text && (
+                                <div className="flex items-center gap-2">
+                                  <Clock size={13} className="text-[#8A4F23] shrink-0" />
+                                  <span className="truncate">
+                                    Lịch: <b>{b.schedule_text}</b>
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-[#F2E7DC] flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-[#8A4F23] bg-[#FAF0E4] px-2.5 py-1 rounded-lg">
+                              <Users size={13} />
+                              <span>{b.enrolled_count || 0} học viên</span>
+                            </span>
+                            <span className="text-xs font-bold text-[#8A4F23] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                              <span>Mở danh sách</span>
+                              <span>→</span>
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {table === "course_enrollments" && selectedBatch && (
+                  <div className="bg-gradient-to-r from-[#FAF0E4] via-[#F8ECE0] to-[#F5E5D3] border-2 border-[#EAD8C7] rounded-2xl p-5 mb-5 shadow-xs font-['Plus_Jakarta_Sans',sans-serif]">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider bg-[#8A4F23] text-white px-2.5 py-0.5 rounded-md shadow-2xs">
+                            Lớp học đang chọn
+                          </span>
+                          <span className="text-base font-extrabold text-[#2D1B08] bg-white px-2.5 py-0.5 rounded-md border border-[#EAD8C7]">
+                            🎓 {selectedBatch.batch_code}
+                          </span>
+                          {selectedBatch.branches?.name && (
+                            <span className="text-xs font-medium text-[#7D6E63] bg-white/80 px-2 py-0.5 rounded-md border border-[#EAD8C7]">
+                              📍 {selectedBatch.branches.name}
+                            </span>
+                          )}
+                          {selectedBatch.instructor?.full_name && (
+                            <span className="text-xs font-medium text-[#7D6E63] bg-white/80 px-2 py-0.5 rounded-md border border-[#EAD8C7]">
+                              👨‍🏫 {selectedBatch.instructor.full_name}
+                            </span>
+                          )}
+                        </div>
+                        <h2 className="text-lg md:text-xl font-extrabold text-[#2D1B08]">
+                          {selectedBatch.courses?.title || "Khóa đào tạo"} {selectedBatch.courses?.code ? `(${selectedBatch.courses.code})` : ""}
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#7D6E63]">
+                          <span>📅 Khai giảng: <b>{selectedBatch.start_date ? new Date(selectedBatch.start_date).toLocaleDateString("vi-VN") : "Chưa xác định"}</b></span>
+                          {selectedBatch.schedule_text && (
+                            <span>⏰ Lịch: <b>{selectedBatch.schedule_text}</b></span>
+                          )}
+                          <span className="bg-[#8A4F23]/10 text-[#8A4F23] font-bold px-2 py-0.5 rounded-md">
+                            👥 {listing.total.toLocaleString("vi-VN")} học viên trong lớp
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const p = new URLSearchParams(params);
+                            p.delete("batch_id");
+                            const next = { ...filter };
+                            delete next.batch_id;
+                            Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                            p.delete("page");
+                            setParams(p);
+                          }}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#8A4F23] bg-white hover:bg-[#FAF0E4] border border-[#EAD8C7] transition-all cursor-pointer shadow-2xs"
+                        >
+                          ⇄ Đổi lớp khác
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEdit({
+                              row: {
+                                batch_id: selectedBatch.id,
+                                course_id: selectedBatch.course_id,
+                              },
+                              mode: "create",
+                            });
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-all cursor-pointer shadow-sm inline-flex items-center gap-1.5"
+                        >
+                          <Plus size={15} />
+                          <span>+ Ghi danh học viên</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {table === "course_enrollments" && selectedBatchId === "__ALL__" && (
+                  <div className="bg-[#FAF8F5] border border-[#EAD8C7] rounded-2xl p-4 mb-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-['Plus_Jakarta_Sans',sans-serif]">
+                    <div className="flex items-center gap-2.5 text-xs font-bold text-[#2D1B08]">
+                      <span className="text-lg">🌐</span>
+                      <span>Đang hiển thị toàn bộ học viên ghi danh của tất cả các lớp ({listing.total.toLocaleString("vi-VN")} học viên)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const p = new URLSearchParams(params);
+                        p.delete("batch_id");
+                        const next = { ...filter };
+                        delete next.batch_id;
+                        Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                        p.delete("page");
+                        setParams(p);
+                      }}
+                      className="self-start sm:self-auto px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#8A4F23] bg-white border border-[#EAD8C7] hover:bg-[#FAF0E4] cursor-pointer"
+                    >
+                      ← Quay lại chọn theo từng lớp
+                    </button>
+                  </div>
+                )}
+                <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -4276,12 +4821,43 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 </tbody>
               </table>
               {!listing.rows.length && (
-                <div className="admin-empty">
-                  <p>
-                    {params.get("search") || params.get("filter")
-                      ? "Không có kết quả phù hợp."
-                      : "Chưa có dữ liệu."}
-                  </p>
+                <div className="admin-empty py-10 text-center">
+                  {table === "course_enrollments" && selectedBatch ? (
+                    <div className="max-w-md mx-auto space-y-3 font-['Plus_Jakarta_Sans',sans-serif]">
+                      <div className="w-14 h-14 rounded-2xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center text-2xl mx-auto border border-[#EAD8C7] shadow-xs">
+                        🎓
+                      </div>
+                      <h3 className="text-base font-bold text-[#2D1B08]">
+                        Lớp "{selectedBatch.batch_code}" hiện chưa có học viên nào ghi danh
+                      </h3>
+                      <p className="text-xs text-[#7D6E63] leading-relaxed">
+                        Khóa học: <b className="text-[#8A4F23]">{selectedBatch.courses?.title || selectedBatch.batch_code}</b>.
+                        Hãy ghi danh học viên mới hoặc tiếp nhận học viên đã đặt cọc vào lớp học này.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEdit({
+                            row: {
+                              batch_id: selectedBatch.id,
+                              course_id: selectedBatch.course_id,
+                            },
+                            mode: "create",
+                          });
+                        }}
+                        className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-colors shadow-sm cursor-pointer"
+                      >
+                        <Plus size={15} />
+                        <span>Ghi danh học viên đầu tiên vào lớp này</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <p>
+                      {params.get("search") || params.get("filter")
+                        ? "Không có kết quả phù hợp."
+                        : "Chưa có dữ liệu."}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -4321,6 +4897,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 </button>
               </div>
             </div>
+              </>
+            )}
           </>
         )
       )}

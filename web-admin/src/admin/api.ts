@@ -466,11 +466,20 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       try {
         const parsedFilter = JSON.parse(filterParam);
         for (const [col, val] of Object.entries(parsedFilter)) {
-          if (val !== undefined && val !== null && val !== "") {
+          if (val !== undefined && val !== null && val !== "" && val !== "__ALL__") {
             url += `&${col}=eq.${encodeURIComponent(String(val))}`;
           }
         }
       } catch {}
+    }
+
+    const directBatchId = q.get("batch_id");
+    if (directBatchId && directBatchId !== "__ALL__" && !url.includes("batch_id=")) {
+      url += `&batch_id=eq.${encodeURIComponent(directBatchId)}`;
+    }
+    const directCourseId = q.get("course_id");
+    if (directCourseId && directCourseId !== "__ALL__" && !url.includes("course_id=")) {
+      url += `&course_id=eq.${encodeURIComponent(directCourseId)}`;
     }
 
     // Search handling

@@ -21,7 +21,6 @@ const W11_Curriculum = lazy(() => import('./pages/W11_Curriculum').then((m) => (
 const W12_FinancialReports = lazy(() => import('./pages/W12_FinancialReports').then((m) => ({ default: m.W12_FinancialReports })));
 const W13_StaffCommissions = lazy(() => import('./pages/W13_StaffCommissions').then((m) => ({ default: m.W13_StaffCommissions })));
 const W14_ZaloZNS = lazy(() => import('./pages/W14_ZaloZNS').then((m) => ({ default: m.W14_ZaloZNS })));
-const W15_InventoryBOM = lazy(() => import('./pages/W15_InventoryBOM').then((m) => ({ default: m.W15_InventoryBOM })));
 const W16_Certificates = lazy(() => import('./pages/W16_Certificates').then((m) => ({ default: m.W16_Certificates })));
 const W17_EdemaAssessments = lazy(() => import('./pages/W17_EdemaAssessments').then((m) => ({ default: m.W17_EdemaAssessments })));
 const W18_PortalContent = lazy(() => import('./pages/W18_PortalContent').then((m) => ({ default: m.W18_PortalContent })));
@@ -261,22 +260,8 @@ const AppContent: React.FC = () => {
                 </RoleRoute>
               }
             />
-            <Route
-              path="inventory-bom"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
-                  <W15_InventoryBOM />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="dinh-muc-vat-tu"
-              element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER']}>
-                  <W15_InventoryBOM />
-                </RoleRoute>
-              }
-            />
+            <Route path="inventory-bom" element={<Navigate to="/" replace />} />
+            <Route path="dinh-muc-vat-tu" element={<Navigate to="/" replace />} />
             <Route
               path="certificates"
               element={
