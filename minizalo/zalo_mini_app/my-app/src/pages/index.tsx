@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import {useLocale} from '@/i18n';
 import { Box, Text } from 'zmp-ui';
 import { HeaderFigma } from '@/components/HeaderFigma';
 import { GroupBHome } from '@/components/HomeDashboard';
@@ -71,6 +72,7 @@ const StaffCustomers = deferredScreen(() => import('@/components/SharedRecords')
 const Community = deferredScreen(() => import('@/components/SharedRecords').then(module => ({default:module.Community})));
 
 function MasterHomePage() {
+  useLocale();
   const [showLaunchScreen, setShowLaunchScreen] = useState(true);
   const [showCareIntro, setShowCareIntro] = useState(true);
   const [sharedServiceId]=useState(launchServiceId);

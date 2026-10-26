@@ -45,7 +45,7 @@ const results = await Promise.all(checks.map(async ([path, key, fields]) => {
       failures.push('Backend is not the phone-only registration version; deploy all backend changes first');
     }
     if (path === '/health' && body.data?.contentContract !== 'shared-admin-v1') failures.push('Deploy the shared-admin content backend before this frontend');
-    for(const feature of ['unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1']) {
+    for(const feature of ['unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1','class-attendance-v1']) {
       if(path==='/health'&&!body.data?.features?.includes(feature))failures.push(`Backend is outdated: missing ${feature}. Deploy minizalo/backend from develop first.`);
     }
     if(path==='/health'&&!body.data?.features?.includes('staff-booking-v1'))failures.push('Deploy the staff-booking migration and backend before the employee frontend');
