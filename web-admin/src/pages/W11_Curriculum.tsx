@@ -98,6 +98,7 @@ export const W11_Curriculum: React.FC = () => {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [courseGroupFilter, setCourseGroupFilter] = useState<'all' | 'new_learner' | 'advanced_ktv'>('all');
+  const [courseFilter, setCourseFilter] = useState<string>('all');
   const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
   const [isVideoSecurityModalOpen, setIsVideoSecurityModalOpen] = useState<boolean>(false);
   const [isWatermarkActive, setIsWatermarkActive] = useState<boolean>(true);
@@ -225,7 +226,9 @@ export const W11_Curriculum: React.FC = () => {
   const hasActiveFilter =
     searchTerm.trim().length > 0 ||
     branchFilter !== 'all' ||
-    statusFilter !== 'all';
+    statusFilter !== 'all' ||
+    courseGroupFilter !== 'all' ||
+    courseFilter !== 'all';
 
   const filteredClasses = trainingClasses.filter((c) => {
     const isMatched = matchSearch(
@@ -245,7 +248,11 @@ export const W11_Curriculum: React.FC = () => {
         (!c.courseTitle.toLowerCase().includes('cơ bản') &&
           !c.courseTitle.toLowerCase().includes('nhập môn')));
 
-    return isMatched && matchBranch && matchStatus && matchGroup;
+    const matchCourse =
+      courseFilter === 'all' ||
+      c.courseTitle.toLowerCase() === courseFilter.toLowerCase();
+
+    return isMatched && matchBranch && matchStatus && matchGroup && matchCourse;
   });
 
   return (
@@ -325,6 +332,23 @@ export const W11_Curriculum: React.FC = () => {
             <option value="all">Tất cả nhóm khóa học</option>
             <option value="new_learner">Khóa cho người mới bắt đầu làm nghề</option>
             <option value="advanced_ktv">Khóa chuyên sâu cho KTV đang làm nghề</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        {/* Filter: Khóa học cụ thể */}
+        <div className="relative shrink-0 flex-1 sm:flex-none">
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+          >
+            <option value="all">Khóa học · Tất cả ({liveCourses.length})</option>
+            {liveCourses.map((c) => (
+              <option key={c.id} value={c.title}>
+                {c.title}
+              </option>
+            ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -585,6 +609,8 @@ export const W11_Curriculum: React.FC = () => {
                             setSearchTerm('');
                             setBranchFilter('all');
                             setStatusFilter('all');
+                            setCourseGroupFilter('all');
+                            setCourseFilter('all');
                           }}
                           className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                         >

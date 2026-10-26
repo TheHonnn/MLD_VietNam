@@ -64,6 +64,7 @@ import {
   HISTORICAL_TO_2026_PROVINCE,
   HISTORICAL_PROVINCE_NAMES,
 } from "../data/vietnamLocations";
+import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 const toSlug = (str: string) =>
   str
@@ -946,10 +947,27 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     return row.service_name || row.services?.name || display(row[c.name]);
   }
   if (c.name === "category_id") {
-    const catName = row.category_name || row.service_categories?.name || display(row[c.name]);
+    const catName =
+      row.category_name ||
+      row.course_categories?.name ||
+      row.service_categories?.name ||
+      display(row[c.name]);
     if (!catName || catName === "—") return "—";
     const lower = String(catName).toLowerCase();
-    const icon = lower.includes("da") ? "✨" : lower.includes("gội") || lower.includes("đầu") ? "💆" : lower.includes("massage") || lower.includes("body") ? "🌿" : lower.includes("thẩm mỹ") || lower.includes("cao") ? "⚡" : "🌸";
+    const icon =
+      lower.includes("mld") || lower.includes("bạch huyết") || lower.includes("vodder")
+        ? "💆"
+        : lower.includes("nghề") || lower.includes("học") || lower.includes("đào tạo")
+        ? "🎓"
+        : lower.includes("da")
+        ? "✨"
+        : lower.includes("gội") || lower.includes("đầu")
+        ? "💆"
+        : lower.includes("massage") || lower.includes("body")
+        ? "🌿"
+        : lower.includes("thẩm mỹ") || lower.includes("cao")
+        ? "⚡"
+        : "🌸";
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
         <span>{icon}</span>
@@ -1257,7 +1275,12 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     );
   }
   if (c.name === "primary_instructor_id" || c.name === "instructor_id") {
-    return row.instructor_name || row.instructor?.full_name || display(row[c.name]);
+    return (
+      row.instructor_name ||
+      row.instructor?.full_name ||
+      row.primary_instructor?.full_name ||
+      display(row[c.name])
+    );
   }
   if (c.name === "rating") {
     const val = Number(row[c.name]);
@@ -3327,6 +3350,40 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
+
+  // Dữ liệu phục vụ bộ lọc liên kết giữa Khóa học & Danh mục khóa học
+  const [coursesForFilter, setCoursesForFilter] = useState<
+    Array<{ id: string; title: string; code: string; category_id?: string }>
+  >([]);
+  const [categoriesForFilter, setCategoriesForFilter] = useState<
+    Array<{ id: string; name: string; code: string }>
+  >([]);
+
+  useEffect(() => {
+    let active = true;
+    if (table === "course_categories") {
+      fetch(`${SUPABASE_URL}/rest/v1/courses?select=id,title,code,category_id&order=title.asc`, {
+        headers: getSupabaseHeaders(),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (active && Array.isArray(data)) setCoursesForFilter(data);
+        })
+        .catch(() => {});
+    } else if (table === "courses") {
+      fetch(`${SUPABASE_URL}/rest/v1/course_categories?select=id,name,code&order=display_order.asc,name.asc`, {
+        headers: getSupabaseHeaders(),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (active && Array.isArray(data)) setCategoriesForFilter(data);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [table, version]);
   useEffect(() => {
     const c = new AbortController();
     adminApi<Resource[]>("resources", undefined, c.signal)
@@ -3556,6 +3613,24 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "correct_option",
       "quiz_id",
     ],
+    course_categories: [
+      "icon_url",
+      "name",
+      "code",
+      "description",
+      "display_order",
+      "is_active",
+    ],
+    courses: [
+      "image_url",
+      "title",
+      "code",
+      "category_id",
+      "primary_instructor_id",
+      "level",
+      "tuition_fee",
+      "is_active",
+    ],
   };
   const visible = listing
     ? columnOrder[table]
@@ -3694,6 +3769,62 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {table === "course_categories" && (
+          <select
+            aria-label="Lọc theo Khóa học"
+            value={params.get("course_id") || ""}
+            onChange={(e) => {
+              const cId = e.target.value;
+              const next = { ...filter };
+              const p = new URLSearchParams(params);
+              if (!cId) {
+                delete next.id;
+                p.delete("course_id");
+              } else {
+                const matched = coursesForFilter.find((c) => c.id === cId);
+                if (matched?.category_id) {
+                  next.id = matched.category_id;
+                } else {
+                  next.id = "00000000-0000-0000-0000-000000000000";
+                }
+                p.set("course_id", cId);
+              }
+              Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+              p.delete("page");
+              setParams(p);
+            }}
+          >
+            <option value="">Khóa học · Tất cả ({coursesForFilter.length})</option>
+            {coursesForFilter.map((crs) => (
+              <option key={crs.id} value={crs.id}>
+                {crs.title} {crs.code ? `(${crs.code})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
+        {table === "courses" && (
+          <select
+            aria-label="Lọc theo Danh mục khóa học"
+            value={filter.category_id === undefined ? "" : String(filter.category_id)}
+            onChange={(e) => {
+              const catId = e.target.value;
+              const next = { ...filter };
+              if (!catId) {
+                delete next.category_id;
+              } else {
+                next.category_id = catId;
+              }
+              updateParam("filter", Object.keys(next).length ? JSON.stringify(next) : "");
+            }}
+          >
+            <option value="">Danh mục khóa học · Tất cả ({categoriesForFilter.length})</option>
+            {categoriesForFilter.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name} {cat.code ? `(${cat.code})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
         {filterColumns.slice(0, 3).map((c) => (
           <select
             key={c.name}
@@ -3722,10 +3853,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             ))}
           </select>
         ))}
-        {Object.keys(filter).length > 0 && (
+        {(Object.keys(filter).length > 0 || Boolean(params.get("course_id"))) && (
           <button
             className="admin-secondary"
-            onClick={() => updateParam("filter", "")}
+            onClick={() => {
+              const p = new URLSearchParams(params);
+              p.delete("filter");
+              p.delete("course_id");
+              p.delete("page");
+              setParams(p);
+            }}
           >
             <X size={14} />
             Xóa bộ lọc
@@ -3807,6 +3944,30 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                             >
                               {formatCell(row, c)}
                             </span>
+                          )}
+                          {table === "course_categories" && c.name === "name" && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {(() => {
+                                const matched = coursesForFilter.filter(
+                                  (crs) => crs.category_id === row.id
+                                );
+                                if (matched.length === 0) {
+                                  return (
+                                    <span className="text-[10px] text-[#A69788] italic">
+                                      Chưa có khóa học
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md"
+                                    title={matched.map((m) => m.title).join(", ")}
+                                  >
+                                    📚 {matched.length} khóa: {matched.map((m) => m.title).join(", ")}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                           )}
                         </td>
                       ))}

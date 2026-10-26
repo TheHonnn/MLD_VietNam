@@ -128,61 +128,6 @@ function cleanTime(t: string | undefined | null): string {
   return String(t).substring(0, 5);
 }
 
-// Các ca học đào tạo chuẩn MLD
-export const SHIFT_PRESETS = [
-  { label: "🌅 Ca Sáng", start: "08:30", end: "11:30", duration: "3 giờ" },
-  { label: "☀️ Ca Chiều", start: "13:30", end: "16:30", duration: "3 giờ" },
-  { label: "🌙 Ca Tối", start: "18:00", end: "21:00", duration: "3 giờ" },
-  { label: "⚡ Cả Ngày", start: "08:30", end: "16:30", duration: "8 giờ" },
-  { label: "☕ Sáng Sớm", start: "09:00", end: "12:00", duration: "3 giờ" },
-  { label: "🍵 Chiều Muộn", start: "14:00", end: "17:00", duration: "3 giờ" },
-];
-
-// Các chủ đề bài giảng chuẩn Dr. Vodder
-export const TOPIC_PRESETS = [
-  {
-    code: "M1",
-    title: "Module 1: Giải phẫu sinh lý & Nguyên lý Hệ bạch huyết Dr. Vodder",
-    isPractice: false,
-    tag: "Lý thuyết",
-  },
-  {
-    code: "M2",
-    title: "Module 2: Kỹ thuật Thao tác Xoay tròn & Bơm đẩy Vodder Căn bản",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M3",
-    title: "Module 3: Thực hành Dẫn lưu Vùng Đầu - Mặt - Cổ chuyên sâu",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M4",
-    title: "Module 4: Phác đồ Trị liệu Phù Nề Chi Dưới & Chi Trên",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M5",
-    title: "Module 5: Ứng dụng Hồi phục Sau Phẫu thuật Thẩm mỹ & Chấn thương",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "M6",
-    title: "Module 6: Thực hành Lâm sàng Toàn diện & Ôn tập Kỹ năng",
-    isPractice: true,
-    tag: "Thực hành",
-  },
-  {
-    code: "EXAM",
-    title: "Buổi Tổng kết, Thi Đánh giá Tay nghề & Bế giảng Trao Bằng MLD",
-    isPractice: true,
-    tag: "Thi & Bế giảng",
-  },
-];
 
 export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = ({
   values,
@@ -538,45 +483,6 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
           )}
         </div>
 
-        {/* Các ca học gợi ý chọn nhanh */}
-        <div>
-          <span className="text-[11px] text-[#766554] block mb-1.5">
-            Chọn nhanh ca học tiêu chuẩn Học viện:
-          </span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-            {SHIFT_PRESETS.map((shift, idx) => {
-              const isSelected =
-                startTimeClean === shift.start && endTimeClean === shift.end;
-              return (
-                <button
-                  type="button"
-                  key={idx}
-                  onClick={() => {
-                    onChange("start_time", shift.start);
-                    onChange("end_time", shift.end);
-                  }}
-                  className={`p-2 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? "bg-[#985018] text-white border-[#985018] shadow-xs"
-                      : "bg-[#FAF6F2] text-[#2C241E] border-[#E8DFD8] hover:border-[#B38A58]"
-                  }`}
-                >
-                  <div className="text-[11px] font-bold flex items-center justify-between">
-                    <span>{shift.label}</span>
-                    {isSelected && <span>✓</span>}
-                  </div>
-                  <div
-                    className={`text-[10px] mt-0.5 ${
-                      isSelected ? "text-amber-100" : "text-[#766554]"
-                    }`}
-                  >
-                    {shift.start} - {shift.end}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* 2 Ô nhập giờ tùy chỉnh */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -687,7 +593,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
         </div>
       </div>
 
-      {/* 5. CHỦ ĐỀ BUỔI HỌC (TOPIC) & GỢI Ý MODULE */}
+      {/* 5. CHỦ ĐỀ BUỔI HỌC (TOPIC) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
@@ -703,42 +609,10 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
           type="text"
           value={values.topic || ""}
           onChange={(e) => onChange("topic", e.target.value)}
-          placeholder="Ví dụ: Module 2: Kỹ thuật Thao tác Xoay tròn & Bơm đẩy Vodder Căn bản"
+          placeholder="Nhập chủ đề hoặc nội dung đào tạo..."
           required
           className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] focus:ring-1 focus:ring-[#B38A58] font-medium"
         />
-
-        {/* Gợi ý các Module chuẩn Dr. Vodder */}
-        <div>
-          <span className="text-[11px] text-[#766554] block mb-1.5">
-            Gợi ý các Module đào tạo Vodder chuẩn hóa (chọn nhanh 1 chạm):
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {TOPIC_PRESETS.map((t, idx) => {
-              const isSelected = values.topic === t.title;
-              return (
-                <button
-                  type="button"
-                  key={idx}
-                  onClick={() => {
-                    onChange("topic", t.title);
-                    onChange("is_practice_lab", t.isPractice);
-                  }}
-                  className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition-all text-left ${
-                    isSelected
-                      ? "bg-[#985018] text-white border-[#985018] font-bold shadow-xs"
-                      : "bg-[#FAF6F2] text-[#554536] border-[#E8DFD8] hover:border-[#B38A58] hover:bg-white"
-                  }`}
-                >
-                  <span className="font-semibold text-[#985018] mr-1">
-                    {isSelected ? "✓" : `[${t.code}]`}
-                  </span>
-                  <span>{t.title}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* 6. XEM TRƯỚC THỜI KHÓA BIỂU THỜI GIAN THỰC (LIVE PREVIEW CARD) */}
