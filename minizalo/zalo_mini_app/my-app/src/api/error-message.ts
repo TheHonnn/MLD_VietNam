@@ -1,4 +1,10 @@
 const messages:Record<string,string>={
+  'Attendance session is unavailable':'Buổi học không còn khả dụng hoặc ngoài phạm vi quản lý.',
+  'Attendance is outside the session window':'Chỉ điểm danh từ 30 phút trước giờ học đến khi kết thúc buổi học.',
+  'Invalid attendance QR code':'Mã QR điểm danh không hợp lệ.',
+  'Attendance QR code has expired or is invalid':'Mã QR đã hết hạn hoặc không hợp lệ. Hãy quét mã mới tại lớp.',
+  'Attendance QR does not match your class':'Mã QR không thuộc lớp bạn đã ghi danh.',
+  'Attendance was already marked by staff':'Giảng viên đã ghi nhận điểm danh. Vui lòng liên hệ giảng viên để điều chỉnh.',
   'This account is not a customer account':'Máy chủ đang dùng luồng đăng nhập cũ. Cần cập nhật BE Mini App để đăng nhập chung bằng Zalo.',
   'This account cannot access the Mini App':'Tài khoản hiện tại không được phép truy cập Mini App. Vui lòng liên hệ quản trị viên.',
   'No shared staff account matches the verified Zalo phone':'Số điện thoại Zalo chưa khớp tài khoản trong hệ thống. Vui lòng nhờ quản trị viên kiểm tra số điện thoại của hồ sơ nhân viên.',

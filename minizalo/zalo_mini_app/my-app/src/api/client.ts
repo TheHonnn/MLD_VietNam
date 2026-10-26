@@ -8,6 +8,7 @@ import { abortable } from '../utils/async-control';
 import { OwnerWriteQueue } from '../utils/owner-write-queue';
 import {isMiniAppRole,isCustomerRole} from '../utils/staff';
 import {certificateVerificationUrl as verificationLink} from '../utils/certificate-verification';
+import {setLocale} from '../i18n';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SESSION_KEY = 'mld_miniapp_session_v2';
@@ -17,6 +18,7 @@ let verifiedZaloSessionThisPage=false;
 let verifiedContext='';
 const accountContext=(account:{role?:unknown;staffAccess?:unknown;staffBranchId?:unknown})=>JSON.stringify([account.role,account.staffAccess===true,account.staffBranchId??null]);
 let sessionEpoch = 0;
+let localeRevision=0;
 let authController: AbortController | null = null;
 type ReadResponse = { status: number; payload: Record<string, any>; cacheable?: boolean };
 const readCache = new ReadCache<ReadResponse>(60000, 256, value => value.status === 200 && !value.payload.error && value.cacheable === true);
@@ -81,6 +83,7 @@ const session = {
     const needsNativeRemoval=memoryToken!=='';
     sessionEpoch++;
     verifiedZaloSessionThisPage=false;
+    localeRevision++;setLocale('vi');
     readCache.invalidate(key => key.startsWith('private:'));
     memoryToken = '';
     try { if(needsNativeRemoval&&nativeSessionStorageAvailable)nativeStorage.removeItem(SESSION_KEY); } catch { nativeSessionStorageAvailable=false; }
@@ -171,6 +174,18 @@ const createCustomerRecord=async(scope:'support-tickets'|'consultation-surveys',
 const searchWrites = new OwnerWriteQueue(() => String(sessionEpoch));
 
 export const apiClient = {
+  async getClassSchedules(signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/class-schedules`,{signal}));}
+    catch{return {error:'Không thể tải lịch lớp. Vui lòng thử lại.'};}
+  },
+  async getAttendanceCode(id:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/class-schedules/${encodeURIComponent(id)}/attendance-code`,{signal}));}
+    catch{return {error:'Không thể tạo mã điểm danh. Vui lòng thử lại.'};}
+  },
+  async checkInClass(courseId:string,enrollmentId:string,content:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/courses/${encodeURIComponent(courseId)}/attendance`,{method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({enrollmentId,content})}));}
+    catch{return {error:'Chưa xác nhận được điểm danh. Vui lòng kiểm tra lịch học hoặc thử lại.'};}
+  },
   getSessionDiagnostics(){return {nativeStorageAvailable:nativeSessionStorageAvailable,verifiedZaloSessionThisPage};},
   certificateVerificationUrl(path:unknown){return verificationLink(path,API_BASE_URL);},
   async getServiceFavorite(id:string){
@@ -235,11 +250,13 @@ export const apiClient = {
     catch { return { error: 'Không thể tải danh mục và cấu hình ứng dụng.' }; }
   },
   async getSettings() {
-    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`)); }
+    const revision=localeRevision,epoch=sessionEpoch;
+    try { const result=await responseJson(await fetch(`${API_BASE_URL}/auth/settings`));if(!result.error&&result.settings&&revision===localeRevision&&epoch===sessionEpoch)await setLocale(result.settings.language);return result; }
     catch { return { error: 'Không thể tải thiết lập.' }; }
   },
   async updateSettings(settings: Record<string, unknown>) {
-    try { return await responseJson(await fetch(`${API_BASE_URL}/auth/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) })); }
+    const revision=++localeRevision,epoch=sessionEpoch;
+    try { const result=await responseJson(await fetch(`${API_BASE_URL}/auth/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }));if(!result.error&&result.settings&&revision===localeRevision&&epoch===sessionEpoch){const ready=await setLocale(result.settings.language);if(!ready&&epoch===sessionEpoch)result.localeError='Đã lưu lựa chọn nhưng chưa tải được ngôn ngữ. Kiểm tra mạng và chọn lại.';}return result; }
     catch { return { error: 'Không thể lưu thiết lập.' }; }
   },
   async getSupportFaqs() {

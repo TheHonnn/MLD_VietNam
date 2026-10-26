@@ -32,7 +32,7 @@ try{
     page.on('pageerror',error=>errors.push({message:error.message,stack:error.stack}));
     await page.route('**/node_modules/.vite/deps/zmp-sdk.js*',route=>route.fulfill({contentType:'application/javascript',body:`${sdk}
       export const getRouteParams=()=>({});export const getShareableLink=async()=> 'https://fixture.invalid/shared';
-      export const openShareSheet=async()=>{};export const closeApp=async()=>{};
+      export const scanQRCode=async()=>({content:''});export const openShareSheet=async()=>{};export const closeApp=async()=>{};
       export const events={on(){},off(){}};export const EventName={OnAppPaused:'paused',OnAppResumed:'resumed'};`}));
     await page.route('**/api/client.ts*',route=>route.fulfill({contentType:'application/javascript',body:built.outputFiles[0].text}));
     await page.route('https://fixture.invalid/api/**',async route=>{

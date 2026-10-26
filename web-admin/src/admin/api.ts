@@ -139,7 +139,8 @@ const TABLE_SELECTS: Record<string, string> = {
   bookings: "*,customer:users!customer_id(full_name,phone),branches(name)",
   branch_rooms: "*,branches(name)",
   technician_shifts: "*,technicians(full_name),branches(name)",
-  course_batches: "*,courses(title)",
+  course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
+  batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
   course_chapters: "*,courses(title,code)",
   course_lessons: "*,course_chapters(title)",
   course_quizzes: "*,courses(title)",
@@ -151,6 +152,8 @@ const TABLE_SELECTS: Record<string, string> = {
   treatment_packages: "*,services(name)",
   courses: "*,course_categories(name,code),primary_instructor:instructors!primary_instructor_id(full_name)",
   course_enrollments: "*,student:users!student_id(full_name,phone,email),courses(title,code,tuition_fee,deposit_amount),course_batches(batch_code,start_date,schedule_text)",
+  instructors: "*,user:users!user_id(full_name,phone,email,avatar_url)",
+  student_certificates: "*,student:users!student_id(full_name,phone),courses(title,code)",
   staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
 };
 
@@ -623,8 +626,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         r.role = r.role || r.users.role;
         r.user_role = r.users.role;
       }
+      if (r.user) {
+        r.full_name = r.full_name || r.user.full_name;
+        r.phone = r.phone || r.user.phone;
+        r.email = r.email || r.user.email;
+        r.avatar_url = r.avatar_url || r.user.avatar_url;
+      }
       if (r.branches) {
         r.branch_name = r.branch_name || r.branches.name || r.branches.code;
+        r.branch_code = r.branch_code || r.branches.code;
       }
       if (r.customer) {
         r.customer_name = r.customer_name || r.customer.full_name;
@@ -653,6 +663,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.courses) {
         r.course_title = r.course_title || r.courses.title;
+        r.course_code = r.course_code || r.courses.code;
       }
       if (r.student) {
         r.student_name = r.student_name || r.student.full_name;
@@ -665,8 +676,17 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         r.batch_code = r.batch_code || r.course_batches.batch_code;
         r.batch_name = r.batch_name || r.course_batches.batch_code;
       }
+      if (r.instructor) {
+        r.instructor_name = r.instructor_name || r.instructor.full_name;
+      }
       if (r.primary_instructor) {
         r.instructor_name = r.instructor_name || r.primary_instructor.full_name;
+      }
+      if (r.assigned_room) {
+        r.room_name = r.room_name || r.assigned_room.name;
+      }
+      if (r.branch_rooms) {
+        r.room_name = r.room_name || r.branch_rooms.name;
       }
       if (r.course_chapters) {
         r.chapter_title = r.chapter_title || r.course_chapters.title;

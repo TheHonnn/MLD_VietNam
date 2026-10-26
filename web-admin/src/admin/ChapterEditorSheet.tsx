@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   BookOpen,
   Layers,
-  Sparkles,
   Save,
   Pencil,
   X,
@@ -14,7 +13,6 @@ import {
   FileText,
   ChevronRight,
   GraduationCap,
-  ArrowRight,
   Info,
 } from "lucide-react";
 import { adminApi, Row } from "./api";
@@ -28,53 +26,6 @@ export interface ChapterEditorSheetProps {
   onSwitchMode?: (newMode: "create" | "update" | "view", targetRow?: Row) => void;
 }
 
-// Gợi ý tiêu đề chương chuẩn chuyên môn Vodder / Học viện MLD
-const CHAPTER_TITLE_SUGGESTIONS = [
-  {
-    category: "Lý thuyết & Cơ sở",
-    title: "Tổng quan về Giải phẫu Sinh lý Hệ Bạch Huyết",
-    desc: "Cấu tạo mao mạch, hạch bạch huyết và cơ chế hồi lưu dịch kẽ",
-  },
-  {
-    category: "Nguyên lý Vodder",
-    title: "Nguyên lý và Kỹ thuật Dẫn lưu Bạch huyết (Dr. Vodder)",
-    desc: "Kỹ thuật xoay tròn (Rotary), bơm (Pump) và miết tĩnh mạch chuẩn áp lực 30-40 mmHg",
-  },
-  {
-    category: "Thực hành Vùng",
-    title: "Quy trình Dẫn lưu Bạch huyết Vùng Mặt, Cổ & Vai gáy",
-    desc: "Trị liệu giảm phù nề, kích thích tuần hoàn vi mạch vùng đầu mặt cổ",
-  },
-  {
-    category: "Thực hành Vùng",
-    title: "Trị liệu Dẫn lưu Bạch huyết Vùng Thân mình, Bụng & Lưng",
-    desc: "Khai thông hạch nách, hạch bẹn và dẫn lưu khoang bụng sâu",
-  },
-  {
-    category: "Phục hồi Chuyên sâu",
-    title: "Dẫn lưu Chuyên sâu Chi trên & Chi dưới",
-    desc: "Phục hồi tình trạng nặng chân, ứ đọng tĩnh mạch và phù bạch huyết chi",
-  },
-  {
-    category: "Lâm sàng & Thẩm mỹ",
-    title: "Ứng dụng Lâm sàng, Chăm sóc Sau Phẫu thuật Thẩm mỹ (CDT)",
-    desc: "Phác đồ chống co thắt bao xơ, giảm sưng bầm và đẩy nhanh tốc độ liền sẹo",
-  },
-  {
-    category: "Đánh giá & Tốt nghiệp",
-    title: "Thực hành Tổng hợp, Kiểm tra Tay nghề & Thi Chứng chỉ",
-    desc: "Đánh giá thao tác kỹ thuật, xử lý ca lâm sàng thực tế và cấp bằng tốt nghiệp",
-  },
-];
-
-// Gợi ý mô tả / mục tiêu chương học
-const DESCRIPTION_SUGGESTIONS = [
-  "Trang bị nền tảng lý thuyết vững chắc về giải phẫu sinh lý học, hiểu rõ đường đi và cơ chế của hệ bạch huyết trong cơ thể người.",
-  "Hướng dẫn kỹ thuật cầm tay chỉ việc, chuẩn hóa các động tác xoay tròn, ép nhịp nhàng theo chiều dòng chảy sinh học.",
-  "Phân tích các chỉ định và chống chỉ định trong điều trị, đảm bảo an toàn tuyệt đối cho khách hàng và học viên.",
-  "Thực hành lâm sàng trên người thật dưới sự kèm cặp sát sao của Giảng viên Master, chỉnh sửa tư thế và lực tay chuẩn xác.",
-  "Tổng kết kiến thức toàn khóa, thi sát hạch lý thuyết trắc nghiệm và thực hành thao tác để đủ điều kiện nhận chứng chỉ tốt nghiệp MLD.",
-];
 
 export const ChapterEditorSheet: React.FC<ChapterEditorSheetProps> = ({
   row,
@@ -197,13 +148,6 @@ export const ChapterEditorSheet: React.FC<ChapterEditorSheetProps> = ({
     }
   };
 
-  // Quick Chapter Suggestion click
-  const handleSelectSuggestion = (s: typeof CHAPTER_TITLE_SUGGESTIONS[0]) => {
-    setTitle(`Chương ${chapterOrder}: ${s.title}`);
-    if (!description.trim() && s.desc) {
-      setDescription(s.desc);
-    }
-  };
 
   // Handle Quick Order Change
   const handleSetOrder = (newOrder: number) => {
@@ -517,47 +461,10 @@ export const ChapterEditorSheet: React.FC<ChapterEditorSheetProps> = ({
               disabled={isView}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={`Ví dụ: Chương ${chapterOrder}: Tổng quan về Giải phẫu Sinh lý Hệ Bạch Huyết`}
+              placeholder={`Ví dụ: Chương ${chapterOrder}: Tên chương học...`}
               className="w-full text-xs px-3.5 py-2.5 rounded-lg border border-[#E8DFD8] bg-white font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA]"
             />
           </div>
-
-          {/* 1-Click Suggestions List */}
-          {!isView && (
-            <div className="pt-1 space-y-2">
-              <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#7F6E60] uppercase tracking-wider">
-                <Sparkles size={13} className="text-[#985018]" />
-                Gợi ý chuyên đề chuẩn Giáo trình Vodder MLD:
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {CHAPTER_TITLE_SUGGESTIONS.map((s, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSelectSuggestion(s)}
-                    className="p-2.5 rounded-lg border border-[#E8DFD8] bg-[#FDFBF7] hover:bg-[#FAF0E4] hover:border-[#D1BFA8] text-left transition-all cursor-pointer group flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] font-bold text-[#985018] mb-0.5">
-                        <span className="px-1.5 py-0.2 rounded bg-white border border-[#E8DFD8]">
-                          {s.category}
-                        </span>
-                        <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[#985018] font-bold flex items-center gap-0.5">
-                          Chọn <ArrowRight size={11} />
-                        </span>
-                      </div>
-                      <div className="text-xs font-bold text-[#2C241E] leading-snug group-hover:text-[#985018] transition-colors">
-                        {s.title}
-                      </div>
-                    </div>
-                    <div className="text-[11px] text-[#7F6E60] mt-1 line-clamp-1">
-                      {s.desc}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* SECTION 3: MÔ TẢ & MỤC TIÊU BÀI HỌC */}
@@ -593,25 +500,6 @@ export const ChapterEditorSheet: React.FC<ChapterEditorSheetProps> = ({
             />
           </div>
 
-          {!isView && (
-            <div className="pt-0.5">
-              <span className="block text-[11px] font-bold text-[#7F6E60] mb-1.5 uppercase tracking-wider">
-                ⚡ Đoạn văn mẫu gợi ý:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {DESCRIPTION_SUGGESTIONS.map((descText, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setDescription(descText)}
-                    className="px-2.5 py-1 rounded-md bg-[#FDFBF7] text-[#4A3E31] border border-[#E8DFD8] hover:bg-[#FAF0E4] hover:text-[#985018] text-[11px] text-left transition-colors cursor-pointer"
-                  >
-                    + {descText.slice(0, 48)}...
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* SECTION 4: SƠ ĐỒ LỘ TRÌNH KHÓA HỌC HIỆN TẠI */}

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import zaloMiniApp from "zmp-vite-plugin";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import localizeJsx from './scripts/localize-jsx.mjs';
 
 // https://vitejs.dev/config/
 export default () => {
@@ -9,7 +10,7 @@ export default () => {
     root: "./src",
     envDir: path.resolve(__dirname),
     base: "",
-    plugins: [zaloMiniApp(), react()],
+    plugins: [zaloMiniApp(), react({babel:{plugins:[localizeJsx]}})],
     server: {
       host: "0.0.0.0",
       port: 3000,
