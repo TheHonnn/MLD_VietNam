@@ -430,61 +430,73 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               ],
               const SizedBox(height: 24),
 
-              // 5. Bài học tiếp theo [8116:26047]
-              const Text(
-                'Bài học tiếp theo',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AcademyColors.heading,
-                ),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const E09LessonScreen()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AcademyColors.cardWarm,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
+              // 5. Bài học tiếp theo (Dữ liệu động theo bài giảng thực tế)
+              Builder(
+                builder: (context) {
+                  LessonModel? nextLesson;
+                  for (final ch in _chapters) {
+                    if (ch.lessons.isNotEmpty) {
+                      nextLesson = ch.lessons.first;
+                      break;
+                    }
+                  }
+                  if (nextLesson == null) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.play_circle_fill, color: AcademyColors.primary, size: 26),
-                      SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Bài 05: Kỹ thuật Massage cơ bản',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: AcademyColors.textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Video · 18 phút · Tiếp theo',
-                              style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
-                            ),
-                          ],
+                      const Text(
+                        'Bài học tiếp theo',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AcademyColors.heading,
                         ),
                       ),
-                      Icon(Icons.chevron_right, color: AcademyColors.primary, size: 22),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () => _onLessonTap(nextLesson!),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AcademyColors.cardWarm,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.play_circle_fill, color: AcademyColors.primary, size: 26),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      nextLesson.title,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: AcademyColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Video · ${nextLesson.durationMinutes} phút · Tiếp theo',
+                                      style: const TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right, color: AcademyColors.primary, size: 22),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                     ],
-                  ),
-                ),
+                  );
+                },
               ),
-              const SizedBox(height: 24),
 
               // 6. Buổi thực hành sắp tới [8116:26056]
               Container(
@@ -555,7 +567,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'Thực hành kỹ thuật massage cơ bản',
+                                'Thực hành dẫn lưu hạch bạch huyết Vodder',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: AcademyColors.textPrimary,

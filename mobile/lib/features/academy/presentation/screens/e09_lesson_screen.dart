@@ -280,9 +280,9 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
               ),
               const SizedBox(height: 12),
               ...[
-                'Nhận biết tư thế và thao tác massage cơ bản.',
-                'Chuẩn bị vệ sinh, khăn và không gian thực hành.',
-                'Điều chỉnh lực theo phản hồi và sự thoải mái của khách hàng.',
+                'Nắm vững vị trí giải phẫu hệ bạch huyết và hướng dòng chảy.',
+                'Chuẩn bị vệ sinh, khăn và không gian thực hành lâm sàng.',
+                'Điều chỉnh lực nhẹ nhàng chuẩn Vodder (dưới 30 mmHg).',
               ].map((item) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
@@ -367,7 +367,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Tiến độ khóa học vẫn là 20% · 4/20 bài hoàn thành. Bài 05 chưa hoàn thành.',
+                      'Tiến độ bài học được cập nhật tự động khi xem video.',
                       style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
                     ),
                   ],
@@ -376,7 +376,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             ] else if (_selectedTab == 1) ...[
               _buildDocumentCard(
                 icon: Icons.description_outlined,
-                title: 'Slide bài giảng: Kỹ thuật cơ bản (PDF)',
+                title: 'Slide bài giảng: Dẫn lưu bạch huyết Vodder (PDF)',
                 subtitle: '2.4 MB · Cập nhật 15/09/2026',
               ),
               const SizedBox(height: 8),
