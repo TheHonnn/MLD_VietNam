@@ -2804,9 +2804,7 @@ function RecordDialog({
                     onChange={(e) => set(c.name, e.target.value)}
                     required={required}
                   >
-                    <option value="">
-                      {c.hasDefault ? "Theo cấu hình database" : "Chưa chọn"}
-                    </option>
+                    <option value="">Chưa chọn</option>
                     {c.options.map((o) => (
                       <option key={o} value={o}>
                         {enums[o] || o}
