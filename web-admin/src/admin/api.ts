@@ -552,6 +552,11 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     const selectParam = TABLE_SELECTS[table] || "*";
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(selectParam)}`;
 
+    // Resource "users" in "Khách hàng" module only shows customers
+    if (table === "users") {
+      url += "&role=eq.CUSTOMER";
+    }
+
     // Filter handling
     if (filterParam) {
       try {
@@ -778,6 +783,12 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
   const payload = body as any;
 
   if (action === "create" && payload?.values) {
+    if (table === "users") {
+      if (!payload.values.role) payload.values.role = "CUSTOMER";
+      if (!payload.values.referral_code) {
+        payload.values.referral_code = `REF${Date.now().toString().slice(-6)}`;
+      }
+    }
     const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
