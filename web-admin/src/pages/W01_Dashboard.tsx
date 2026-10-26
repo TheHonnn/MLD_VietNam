@@ -1318,65 +1318,7 @@ export const W01_Dashboard: React.FC = () => {
             </p>
           </div>
 
-          {/* Card: Cần xử lý */}
-          <div className="bg-[#F3E2CE] p-5 rounded-xl border border-[#ECD9C6] space-y-3.5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-[#2C241E]">Cần xử lý</h3>
-                <p className="text-[11px] font-bold text-[#985018] mt-0.5">
-                  Cần thu ngay • {totalNeedToCollect.toLocaleString('vi-VN')}đ
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleKpiClick('/cashier-pos')}
-                className="px-2.5 py-1 text-[11px] font-bold text-[#985018] bg-white hover:bg-[#FAF4EE] border border-[#D7BBA6] rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
-                title="Đến trang thu ngân để thanh toán & đối soát hóa đơn"
-              >
-                <span>Thu ngân</span>
-                <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
-              </button>
-            </div>
 
-            <div className="space-y-3 text-xs">
-              {pendingBookings.length > 0 ? (
-                <div>
-                  <h4 className="font-bold text-[#2C241E]">
-                    {pendingBookings.length} khoản cọc dịch vụ chờ thanh toán
-                  </h4>
-                  <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
-                    {pendingBookings[0].bookingCode} •{' '}
-                    {pendingBookingAmount.toLocaleString('vi-VN')}đ chờ quyết toán tại cơ sở.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <h4 className="font-bold text-[#2C241E]">Lịch dịch vụ</h4>
-                  <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
-                    Đã thanh toán đủ toàn bộ các lịch hẹn đang xử lý.
-                  </p>
-                </div>
-              )}
-
-              {pendingEnrollments.length > 0 ? (
-                <div>
-                  <h4 className="font-bold text-[#2C241E]">
-                    {pendingEnrollments.length} hồ sơ tuyển sinh chờ hoàn tất học phí
-                  </h4>
-                  <p className="text-[10.5px] text-[#695A4E] mt-0.5 leading-relaxed">
-                    Còn {pendingTuitionAmount.toLocaleString('vi-VN')}đ chưa thu theo tiến độ đào tạo.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="pt-2.5 border-t border-[#E8DACB] flex items-center justify-between text-xs font-bold text-[#2C241E]">
-              <span>Số dư chưa thu</span>
-              <span className="font-black text-[#2C241E]">
-                {totalNeedToCollect.toLocaleString('vi-VN')}đ
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 
