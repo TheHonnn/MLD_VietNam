@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e01_academy_home_screen.dart';
+import 'package:medical_healthcare_app/features/academy/presentation/screens/e05_enrollment_form_screen.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e07_my_courses_screen.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e10_quiz_screen.dart';
 import 'package:medical_healthcare_app/features/academy/data/models/academy_models.dart';
@@ -158,5 +159,53 @@ void main() {
     // Đạt tiêu chuẩn vì trả lời đúng 1/1 (10.0/10 >= 8.0)
     expect(find.text('CHÚC MỪNG: ĐẠT TIÊU CHUẨN'), findsOneWidget);
     expect(find.text('10.0 / 10.0'), findsWidgets);
+  });
+
+  testWidgets('Test E05EnrollmentFormScreen: Chỉ hiện Thông tin cá nhân, Cơ sở, Phân nhóm (Người mới bắt đầu/Đang làm nghề), Học phí và chuyển trạng thái Chờ duyệt', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(420, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final course = MockAcademyData.courses.first;
+
+    await tester.pumpWidget(_buildTestApp(
+      home: E05EnrollmentFormScreen(course: course),
+      locale: const Locale('vi'),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Kiểm tra tiêu đề và thông tin cá nhân
+    expect(find.text('Đăng ký khóa học'), findsWidgets);
+    expect(find.text('1. Thông tin cá nhân học viên'), findsOneWidget);
+    expect(find.text('Họ và tên *'), findsOneWidget);
+    expect(find.text('Số điện thoại *'), findsOneWidget);
+    expect(find.text('Địa chỉ Email *'), findsOneWidget);
+
+    // 2. Cơ sở đào tạo
+    expect(find.text('2. Cơ sở đào tạo'), findsOneWidget);
+    expect(find.textContaining('Chi nhánh Quận 3, TP.HCM'), findsOneWidget);
+
+    // 3. Phân nhóm đối tượng học viên (1: Người mới bắt đầu, 2: Đang làm nghề)
+    expect(find.text('3. Bạn thuộc nhóm đối tượng nào?'), findsOneWidget);
+    expect(find.text('Người mới bắt đầu'), findsOneWidget);
+    expect(find.text('Đang làm nghề'), findsOneWidget);
+
+    // 4. Học phí và cam kết không có thanh toán trực tuyến
+    expect(find.text('Học phí trọn gói:'), findsWidgets);
+    expect(find.textContaining('Không yêu cầu thanh toán trực tuyến'), findsOneWidget);
+
+    // Không chứa bất kỳ trường thanh toán nào (không có QR, không có đặt cọc)
+    expect(find.textContaining('Thanh toán ngay:'), findsNothing);
+    expect(find.textContaining('Tiền cọc là một phần'), findsNothing);
+    expect(find.textContaining('VietQR'), findsNothing);
+
+    // 5. Bấm nút Đăng ký khóa học
+    await tester.tap(find.byKey(const Key('submit_enrollment_button')));
+    await tester.pumpAndSettle();
+
+    // 6. Hiển thị thông báo trạng thái "Chờ nhân viên duyệt"
+    expect(find.text('Đăng ký thành công'), findsOneWidget);
+    expect(find.text('Trạng thái: Chờ nhân viên duyệt'), findsOneWidget);
+    expect(find.textContaining('Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ thủ công'), findsOneWidget);
   });
 }

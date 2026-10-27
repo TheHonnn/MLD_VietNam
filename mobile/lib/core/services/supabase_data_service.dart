@@ -440,17 +440,23 @@ class SupabaseDataService {
     }
   }
 
-  /// Ghi danh khóa học mới lên Supabase Cloud
+  /// Ghi danh khóa học mới lên Supabase Cloud (với các trường duyệt thủ công và phân loại học viên)
   Future<Map<String, dynamic>?> createCourseEnrollment({
     required String courseId,
     required String studentId,
+    String? studentName,
+    String? studentPhone,
+    String? studentEmail,
+    String? selectedBranch,
+    String? studentType,
     double? tuitionTotal,
     double? amountPaid,
-    String status = 'ENROLLED',
+    String status = 'PENDING_APPROVAL',
+    String approvalStatus = 'PENDING_APPROVAL',
   }) async {
     try {
       if (Platform.environment.containsKey('FLUTTER_TEST')) {
-        return {'id': 'enroll_test', 'course_id': courseId, 'status': status};
+        return {'id': 'enroll_test', 'course_id': courseId, 'status': status, 'approval_status': approvalStatus};
       }
     } catch (_) {}
 
@@ -460,9 +466,15 @@ class SupabaseDataService {
         data: {
           'course_id': courseId,
           'student_id': studentId,
+          if (studentName != null) 'student_name': studentName,
+          if (studentPhone != null) 'student_phone': studentPhone,
+          if (studentEmail != null) 'student_email': studentEmail,
+          if (selectedBranch != null) 'selected_branch': selectedBranch,
+          if (studentType != null) 'student_type': studentType,
           'tuition_total': tuitionTotal ?? 9000000.00,
           'amount_paid': amountPaid ?? 0.00,
           'status': status,
+          'approval_status': approvalStatus,
         },
         options: Options(
           headers: {
