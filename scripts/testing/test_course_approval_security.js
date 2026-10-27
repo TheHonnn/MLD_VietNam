@@ -10,13 +10,10 @@
  * 4. Dữ liệu thực tế trên Supabase Cloud: Bảng course_enrollments đồng bộ đúng student_status, payment_status, approval_status.
  */
 
-const { Client } = require('pg');
-const dotenv = require('dotenv');
 const path = require('path');
+const { Client } = require(path.join(__dirname, '../../backend/node_modules/pg'));
 
-dotenv.config({ path: path.join(__dirname, '../../backend/.env') });
-
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const connectionString = 'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres';
 
 function assert(condition, message) {
   if (!condition) {
@@ -243,7 +240,7 @@ async function runCourseApprovalSecurityTests() {
     ]);
 
     const testEnr = createEnrRes.rows[0];
-    assert(testEnr.student_status === 'NOT_APPROVED', `Bản ghi mới tạo có student_status = NOT_APPROVED (Mã: ${testEnr.orderCode || testOrderCode})`);
+    assert(testEnr.student_status === 'NOT_APPROVED', `Bản ghi mới tạo có student_status = NOT_APPROVED (Mã: ${testEnr.order_code || testOrderCode})`);
     assert(testEnr.payment_status === 'UNPAID', 'Bản ghi mới tạo có payment_status = UNPAID');
 
     // 4. Kiểm tra quyền truy cập của bản ghi chưa duyệt
@@ -255,6 +252,9 @@ async function runCourseApprovalSecurityTests() {
 
     // 5. Mô phỏng Admin xác nhận đối soát hoặc duyệt thủ công
     console.log('\n[Bước 3.2] Admin duyệt và xác nhận thanh toán học phí:');
+    const adminRes = await client.query("SELECT id FROM public.users WHERE role IN ('ADMIN', 'SUPER_ADMIN') LIMIT 1;");
+    const adminId = adminRes.rows[0]?.id || student.id;
+
     await client.query(`
       UPDATE public.course_enrollments
       SET status = 'ENROLLED',
@@ -263,9 +263,9 @@ async function runCourseApprovalSecurityTests() {
           payment_status = 'PAID',
           amount_paid = tuition_total,
           approved_at = NOW(),
-          approved_by = 'ADMIN_TEST'
-      WHERE id = $1;
-    `, [testEnr.id]);
+          approved_by = $1
+      WHERE id = $2;
+    `, [adminId, testEnr.id]);
 
     const updatedRes = await client.query('SELECT status, student_status, approval_status, payment_status FROM public.course_enrollments WHERE id = $1;', [testEnr.id]);
     const updatedEnr = updatedRes.rows[0];

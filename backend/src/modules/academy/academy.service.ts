@@ -416,7 +416,7 @@ export class AcademyService {
             payment_status: 'PAID',
             amount_paid: matchedAmount,
             approved_at: new Date().toISOString(),
-            approved_by: 'HỆ THỐNG TỰ ĐỘNG',
+            approved_by: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
             approval_notes: `Đã tự động duyệt: Nhận thanh toán ${matchedAmount.toLocaleString('vi-VN')}đ khớp mã KH ${customerCode}`,
           })
           .eq('id', enrollmentId);
@@ -470,6 +470,9 @@ export class AcademyService {
         .maybeSingle();
 
       const finalPaid = amountPaid !== undefined ? amountPaid : (enr?.tuition_total || 9000000);
+      const adminUuid = (adminUser && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(adminUser))
+        ? adminUser
+        : 'f0dc713a-56fc-4347-9fb3-240528726ba3';
 
       await this.supabaseService.adminClient
         .from('course_enrollments')
@@ -480,7 +483,7 @@ export class AcademyService {
           payment_status: 'PAID',
           amount_paid: finalPaid,
           approved_at: new Date().toISOString(),
-          approved_by: adminUser || 'ADMIN',
+          approved_by: adminUuid,
           approval_notes: notes || `Admin duyệt tại quầy, thu ${finalPaid.toLocaleString('vi-VN')}đ`,
         })
         .eq('id', enrollmentId);
