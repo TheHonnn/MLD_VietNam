@@ -224,3 +224,5 @@ Mọi thay đổi code sau mỗi bước bắt buộc phải tuân thủ nghiêm
 | **Lưới điểm danh buổi học theo lịch lớp K26** | `W10_Attendance.tsx` & `student_attendance` | **P2** | ✅ Đã xong 100% |
 | **Tích hợp Zalo Cloud API thật cho ZNS** | `W14_ZaloZNS.tsx` & `zns.service.ts` | **P2** | ✅ Đã xong 100% |
 | **Xuất file PDF & Excel nhị phân tải về máy** | `W07`, `W16`, `W12` | **P2** | ✅ Đã xong 100% |
+| **Bảo mật phân quyền khóa học & Chặn học viên chưa duyệt** | `AcademyRepository`, `E03`, `E07`, `E08`, `E09` | **P0** | ✅ Đã xong 100% |
+| **Bộ kiểm thử tự động 9 giai đoạn E2E & Build Production** | `scripts/testing`, `web-admin`, `backend` | **P0** | ✅ Đã xong 100% |
