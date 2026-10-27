@@ -420,7 +420,19 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
     const found = allEnrollments.find((e) =>
-      matchSearch([e.studentName, e.studentPhone, e.orderCode, e.courseTitle, e.batchCode, e.approvalNotes], queryStr)
+      matchSearch(
+        [
+          e.studentName,
+          e.studentPhone,
+          e.orderCode,
+          e.course?.title,
+          e.batch?.batchCode,
+          (e as any).courseTitle,
+          (e as any).batchCode,
+          e.approvalNotes,
+        ],
+        queryStr
+      )
     );
     if (found) {
       setSelectedEnrollment(found);
@@ -478,7 +490,19 @@ export const W07_CashierPOS: React.FC = () => {
 
     if (posMode === 'tuition') {
       const found = allEnrollments.find((e) =>
-        matchSearch([e.studentName, e.studentPhone, e.orderCode, e.courseTitle, e.batchCode, e.approvalNotes], searchTerm)
+        matchSearch(
+          [
+            e.studentName,
+            e.studentPhone,
+            e.orderCode,
+            e.course?.title,
+            e.batch?.batchCode,
+            (e as any).courseTitle,
+            (e as any).batchCode,
+            e.approvalNotes,
+          ],
+          searchTerm
+        )
       );
       if (found) {
         setSelectedEnrollment(found);
@@ -487,7 +511,8 @@ export const W07_CashierPOS: React.FC = () => {
         const balance = Math.max(0, total - paid);
         setTuitionPaymentAmount(balance > 0 ? balance : total);
         setIsPaid(found.approvalStatus === 'APPROVED' && paid >= total);
-        toast.success('Tìm thấy học viên', `Đã chọn hồ sơ: ${found.studentName} - Khóa ${found.courseTitle || ''}.`);
+        const displayTitle = found.course?.title || (found as any).courseTitle || '';
+        toast.success('Tìm thấy học viên', `Đã chọn hồ sơ: ${found.studentName} - Khóa ${displayTitle}.`);
       } else {
         toast.warning('Không tìm thấy', `Không tìm thấy hồ sơ học viên khớp với từ khóa "${searchTerm}".`);
       }
@@ -623,6 +648,8 @@ export const W07_CashierPOS: React.FC = () => {
         });
 
         // 5. Tự động trích hoa hồng tư vấn tuyển sinh (5%) nếu có nhân viên tư vấn phụ trách
+        const enrollmentCourseTitle = selectedEnrollment.course?.title || (selectedEnrollment as any).courseTitle || '';
+        const enrollmentBatchCode = selectedEnrollment.batch?.batchCode || (selectedEnrollment as any).batchCode || '';
         if (selectedEnrollment.assignedStaffId && isUuid(selectedEnrollment.assignedStaffId)) {
           try {
             await commissionService.createCommission({
@@ -632,7 +659,7 @@ export const W07_CashierPOS: React.FC = () => {
               commissionType: 'PACKAGE_UPSELL',
               baseAmount: amount,
               percentage: 5,
-              notes: `Hoa hồng 5% tư vấn tuyển sinh khóa học ${selectedEnrollment.courseTitle || ''} cho học viên ${selectedEnrollment.studentName || ''}`,
+              notes: `Hoa hồng 5% tư vấn tuyển sinh khóa học ${enrollmentCourseTitle} cho học viên ${selectedEnrollment.studentName || ''}`,
             });
           } catch (commErr) {
             console.warn('Lỗi ghi hoa hồng tuyển sinh:', commErr);
@@ -653,7 +680,7 @@ export const W07_CashierPOS: React.FC = () => {
           customerName: selectedEnrollment.studentName || 'Học viên',
           customerPhone: selectedEnrollment.studentPhone || '--',
           branchName: primaryBranch?.name || 'MLD Academy — Cơ sở Nam Kỳ Khởi Nghĩa',
-          serviceName: `Học phí: ${selectedEnrollment.courseTitle || 'Khóa học MLD'} (${selectedEnrollment.batchCode || 'Khóa mới'})`,
+          serviceName: `Học phí: ${enrollmentCourseTitle || 'Khóa học MLD'} (${enrollmentBatchCode || 'Khóa mới'})`,
           category: 'ACADEMY',
           method: methodLabel,
           amount: formattedAmount,
@@ -1390,6 +1417,42 @@ export const W07_CashierPOS: React.FC = () => {
             </div>
           </div>
 
+          {/* Chuyển đổi chế độ POS: Spa vs Học viện */}
+          <div className="flex items-center gap-2 p-1.5 bg-[#FAF6F0] rounded-2xl border border-[#EFE4D9]">
+            <button
+              type="button"
+              onClick={() => {
+                setPosMode('spa');
+                setSearchTerm('');
+                setIsPaid(booking?.paymentStatus === 'PAID');
+              }}
+              className={`flex-1 py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                posMode === 'spa'
+                  ? 'bg-[#8A4F23] text-white shadow-xs'
+                  : 'text-[#73675F] hover:text-[#2C241E] hover:bg-white/60'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Đơn dịch vụ Spa & Trị liệu ({allBookings.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPosMode('tuition');
+                setSearchTerm('');
+                setIsPaid(Boolean(selectedEnrollment && selectedEnrollment.approvalStatus === 'APPROVED' && (selectedEnrollment.amountPaid || 0) >= (selectedEnrollment.tuitionTotal || 9000000)));
+              }}
+              className={`flex-1 py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                posMode === 'tuition'
+                  ? 'bg-[#8A4F23] text-white shadow-xs'
+                  : 'text-[#73675F] hover:text-[#2C241E] hover:bg-white/60'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>Phiếu thu Học phí Học viện ({allEnrollments.length})</span>
+            </button>
+          </div>
+
           {/* 2. Filter Toolbar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Customer / Booking code input */}
@@ -1398,17 +1461,30 @@ export const W07_CashierPOS: React.FC = () => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => handleSearchBooking(e.target.value)}
+            onChange={(e) => {
+              if (posMode === 'tuition') {
+                handleSearchEnrollment(e.target.value);
+              } else {
+                handleSearchBooking(e.target.value);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleLookupClick();
             }}
-            placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
+            placeholder={
+              posMode === 'tuition'
+                ? "Tìm theo mã học viên, SĐT hoặc họ tên học viên..."
+                : "Tìm theo mã đơn hoặc tên khách hàng..."
+            }
             className="w-full pl-10 pr-9 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
           />
           {searchTerm && (
             <button
               type="button"
-              onClick={() => handleSearchBooking('')}
+              onClick={() => {
+                if (posMode === 'tuition') handleSearchEnrollment('');
+                else handleSearchBooking('');
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
               title="Xóa tìm kiếm"
             >
@@ -1454,6 +1530,322 @@ export const W07_CashierPOS: React.FC = () => {
       </div>
 
       {/* 3. Middle Section: Two Columns (Service Details & Payment Breakdown) */}
+      {posMode === 'tuition' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left Column: Hồ sơ học viên & khóa học */}
+          <div className="lg:col-span-6 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
+            {!selectedEnrollment ? (
+              <div className="py-12 px-4 text-center space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-[#FAF6F0] border border-[#EFE4D9] flex items-center justify-center mx-auto text-[#8A4F23]">
+                  <GraduationCap className="w-7 h-7 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2C241E]">
+                    Chưa chọn hồ sơ học viên nào
+                  </h3>
+                  <p className="text-xs text-[#73675F] max-w-sm mx-auto mt-1 leading-relaxed">
+                    Nhập mã học viên, SĐT hoặc họ tên học viên tại thanh tìm kiếm phía trên để tra cứu hồ sơ và xuất phiếu thu học phí.
+                  </p>
+                </div>
+                {allEnrollments.length > 0 && (
+                  <div className="pt-2">
+                    <div className="text-[11px] font-semibold text-[#8A4F23] mb-2">
+                      Học viên tuyển sinh trong hệ thống:
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-md mx-auto">
+                      {allEnrollments.slice(0, 6).map((enr) => {
+                        const total = enr.tuitionTotal || 9000000;
+                        const paid = enr.amountPaid || 0;
+                        const balance = Math.max(0, total - paid);
+                        return (
+                          <button
+                            key={enr.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedEnrollment(enr);
+                              setTuitionPaymentAmount(balance > 0 ? balance : total);
+                              setIsPaid(enr.approvalStatus === 'APPROVED' && paid >= total);
+                              setSearchTerm(`${enr.studentName || 'Học viên'} / ${enr.orderCode || enr.id.slice(-4)}`);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-[#FAF6F0] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer flex items-center gap-1.5"
+                          >
+                            <GraduationCap className="w-3.5 h-3.5" />
+                            <span>{enr.studentName} · {balance > 0 ? `Còn nợ ${balance.toLocaleString('vi-VN')}đ` : 'Đã tất toán'}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-bold text-[#2C241E]">
+                      Hồ sơ học viên tuyển sinh
+                    </h2>
+                    <div className="mt-1">
+                      <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F5E9DB] text-[#8A4F23]">
+                        Học viện Đào tạo MLD
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEnrollment(undefined);
+                      setTuitionPaymentAmount(0);
+                      setIsPaid(false);
+                      setSearchTerm('');
+                    }}
+                    className="text-xs text-[#8A4F23] hover:underline font-bold cursor-pointer"
+                  >
+                    Đổi học viên khác
+                  </button>
+                </div>
+
+                {/* Academy Course Banner */}
+                <div className="w-full h-24 rounded-2xl overflow-hidden bg-gradient-to-r from-[#8A4F23] to-[#A46332] p-4 text-white flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold tracking-wider uppercase bg-white/20 px-2 py-0.5 rounded-full">
+                      {selectedEnrollment.batch?.batchCode || (selectedEnrollment as any).batchCode || 'Lớp K26'}
+                    </span>
+                    <h3 className="text-sm font-bold mt-1 text-white">
+                      {selectedEnrollment.course?.title || (selectedEnrollment as any).courseTitle || 'Khóa Đào Tạo MLD Chuyên Sâu'}
+                    </h3>
+                    <p className="text-[11px] text-white/80 mt-0.5">
+                      Cơ sở: {primaryBranch?.name || 'MLD Academy Nam Kỳ Khởi Nghĩa'}
+                    </p>
+                  </div>
+                  <GraduationCap className="w-12 h-12 text-white/30" />
+                </div>
+
+                {/* Student Profile Specs */}
+                <div className="space-y-2.5 text-xs text-[#73675F] bg-[#FAF8F5] p-3.5 rounded-2xl border border-[#EFE4D9]">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Họ và tên học viên</span>
+                    <span className="font-bold text-[#2C241E] text-sm">{selectedEnrollment.studentName || 'Học viên'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Số điện thoại</span>
+                    <span className="font-bold text-[#2C241E]">{selectedEnrollment.studentPhone || '--'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Mã hồ sơ / Mã KH</span>
+                    <span className="font-mono font-bold text-[#8A4F23]">{selectedEnrollment.orderCode || selectedEnrollment.id.slice(-6)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Trạng thái hồ sơ</span>
+                    <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${
+                      selectedEnrollment.approvalStatus === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {selectedEnrollment.approvalStatus === 'APPROVED' ? 'Đã duyệt nhập học' : 'Chờ đóng phí để duyệt'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tuition Breakdown Card */}
+                <div className="space-y-2 p-3.5 rounded-2xl bg-white border border-[#E8DFD8]">
+                  <div className="text-xs font-bold text-[#2C241E] mb-1">Chi tiết học phí khóa đào tạo</div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#73675F]">Tổng học phí niêm yết:</span>
+                    <span className="font-bold text-slate-800">
+                      {(selectedEnrollment.tuitionTotal || 9000000).toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#73675F]">Số tiền đã đóng trước đó:</span>
+                    <span className="font-bold text-emerald-600">
+                      {(selectedEnrollment.amountPaid || 0).toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs pt-1.5 border-t border-slate-100">
+                    <span className="font-bold text-[#8A4F23]">Số tiền còn phải nộp:</span>
+                    <span className="font-extrabold text-sm text-red-600">
+                      {Math.max(0, (selectedEnrollment.tuitionTotal || 9000000) - (selectedEnrollment.amountPaid || 0)).toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Amount Selector */}
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Chọn số tiền thu tại quầy:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(() => {
+                      const total = selectedEnrollment.tuitionTotal || 9000000;
+                      const paid = selectedEnrollment.amountPaid || 0;
+                      const balance = Math.max(0, total - paid);
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setTuitionPaymentAmount(balance > 0 ? balance : total)}
+                            className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                              tuitionPaymentAmount === (balance > 0 ? balance : total)
+                                ? 'bg-[#8A4F23] text-white border-[#8A4F23]'
+                                : 'bg-[#FAF8F5] text-[#8A4F23] border-[#E8DFD8] hover:bg-[#F3E2CE]'
+                            }`}
+                          >
+                            {balance > 0 ? `Nộp nốt: ${balance.toLocaleString('vi-VN')}đ` : `Toàn bộ: ${total.toLocaleString('vi-VN')}đ`}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTuitionPaymentAmount(total)}
+                            className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                              tuitionPaymentAmount === total
+                                ? 'bg-[#8A4F23] text-white border-[#8A4F23]'
+                                : 'bg-[#FAF8F5] text-[#8A4F23] border-[#E8DFD8] hover:bg-[#F3E2CE]'
+                            }`}
+                          >
+                            Toàn khóa ({total.toLocaleString('vi-VN')}đ)
+                          </button>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Right Column: Quyết toán học phí */}
+          <div className="lg:col-span-6 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
+            <h2 className="text-base font-bold text-[#2C241E]">
+              Quyết toán học phí học viên
+            </h2>
+
+            {/* Payment Method Selector */}
+            <div>
+              <label className="block text-xs font-bold text-[#2C241E] mb-2">
+                Phương thức thu học phí <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethod('onsite')}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedMethod === 'onsite'
+                      ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
+                      : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  <span>Tiền mặt tại quầy</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethod('transfer')}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedMethod === 'transfer'
+                      ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
+                      : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Chuyển khoản VietQR</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethod('online')}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedMethod === 'online'
+                      ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
+                      : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Quẹt thẻ / Ví</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tuition Amount Summary */}
+            <div className="bg-[#FAF7F2] p-4 rounded-2xl border border-[#EFE4D9] space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#73675F]">Số tiền thu đợt này:</span>
+                <span className="font-bold text-slate-800 text-sm">
+                  {tuitionPaymentAmount.toLocaleString('vi-VN')}đ
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#73675F]">Thuế VAT đào tạo:</span>
+                <span className="font-semibold text-emerald-600">0% (Theo luật thuế GTGT)</span>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-[#E8DFD8] text-sm">
+                <span className="font-bold text-[#2C241E]">Tổng thực thu:</span>
+                <span className="font-extrabold text-base text-[#8A4F23]">
+                  {tuitionPaymentAmount.toLocaleString('vi-VN')}đ
+                </span>
+              </div>
+            </div>
+
+            {/* Checkout Button */}
+            {!selectedEnrollment ? (
+              <button
+                type="button"
+                disabled
+                className="w-full py-3 bg-[#E8DFD8] text-[#8C7A6B] text-xs font-bold rounded-xl cursor-not-allowed text-center"
+              >
+                Vui lòng chọn hồ sơ học viên để thanh toán
+              </button>
+            ) : isPaid ? (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReceiptModal(true)}
+                  className="w-full py-3 bg-[#0D6832] hover:bg-[#0A5C2C] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>Xem biên lai học phí</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedEnrollment(undefined);
+                    setTuitionPaymentAmount(0);
+                    setIsPaid(false);
+                    setSearchTerm('');
+                  }}
+                  className="w-full py-2 bg-white hover:bg-[#FAF8F5] border border-[#E8DFD8] text-[#73675F] hover:text-[#2C241E] text-xs font-semibold rounded-xl transition-colors cursor-pointer text-center"
+                >
+                  Tiếp nhận học viên mới
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={isProcessing || tuitionPaymentAmount <= 0}
+                onClick={handleProcessPayment}
+                className={`w-full py-3.5 ${
+                  isProcessing || tuitionPaymentAmount <= 0
+                    ? 'bg-[#A88874] cursor-wait'
+                    : 'bg-[#985018] hover:bg-[#854412] cursor-pointer'
+                } text-white text-xs font-bold rounded-xl transition-all shadow-xs text-center flex items-center justify-center gap-2`}
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Đang ghi nhận học phí & xuất hóa đơn...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Xác nhận thu học phí & Xuất phiếu thu ({tuitionPaymentAmount.toLocaleString('vi-VN')}đ)</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Explanatory Note */}
+            <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
+              Khoản thu học phí sẽ tự động cập nhật vào Báo cáo tài chính W12 và kích hoạt quyền học tập của học viên.
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Đơn dịch vụ đang chọn */}
         <div className="lg:col-span-6 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
@@ -1834,6 +2226,7 @@ export const W07_CashierPOS: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
           {/* Quick link to Invoices Tab */}
           <div className="bg-[#FAF6F0] rounded-2xl border border-[#EFE4D9] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
