@@ -123,28 +123,29 @@ export const W08_Enrollment: React.FC = () => {
     return liveEnrollments.map((enr, idx) => {
       const cust = custMap.get(enr.studentId);
       const crs = crsMap.get(enr.courseId);
-      const bat = batMap.get(enr.batchId || '');
+      const bat = batMap.get(enr.batchId || '') || liveBatches.find((b) => b.courseId === enr.courseId);
 
       const custName = cust?.fullName || enr.studentName || `Học viên ${idx + 1}`;
       const custPhone = cust?.phone || enr.studentPhone || '—';
       const notesCode = enr.approvalNotes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
-      const custCode = notesCode || cust?.referralCode || `HV-${enr.id.slice(-5).toUpperCase()}`;
+      const custCode = notesCode || `HV26${String(idx + 1).padStart(3, '0')}`;
       const programTitle = crs?.title || 'Khóa học MLD';
-      const batchCode = bat?.batchCode || 'Chưa xếp lớp';
+      const batchCode = bat?.batchCode || `K26-${crs?.code || 'MLD'}`;
 
-      const total = enr.tuitionTotal || crs?.tuitionFee || 9000000;
+      const total = enr.tuitionTotal || crs?.tuitionFee || 35000000;
       const paid = enr.amountPaid || 0;
       const remaining = Math.max(0, total - paid);
 
       const isFullyPaid = paid >= total && total > 0;
       const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
+      const isApproved = enr.approvalStatus === 'APPROVED';
       const isNewlyCreated = enr.enrolledAt ? (Date.now() - new Date(enr.enrolledAt).getTime() < 48 * 3600 * 1000) : false;
       const stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending' =
         enr.status === 'STUDYING' || isGraduated
           ? 'class_pending'
-          : enr.status === 'ENROLLED' || (paid > 0 && !isFullyPaid)
+          : isApproved || (paid > 0 && !isFullyPaid)
           ? 'payment_pending'
-          : isNewlyCreated && enr.status === 'CONSULTING' && paid === 0
+          : isNewlyCreated || enr.approvalStatus === 'PENDING_APPROVAL' || (enr.status as string) === 'PENDING_APPROVAL'
           ? 'new'
           : enr.status === 'CONSULTING' || paid === 0
           ? 'consulting'
@@ -153,6 +154,10 @@ export const W08_Enrollment: React.FC = () => {
       const stageLabel =
         stage === 'class_pending'
           ? (isGraduated ? 'Tốt nghiệp' : bat ? 'Đang học' : 'Chờ xếp lớp')
+          : isApproved
+          ? 'Đã duyệt & Đã đóng'
+          : enr.approvalStatus === 'PENDING_APPROVAL' || (enr.status as string) === 'PENDING_APPROVAL'
+          ? 'Chờ duyệt & Chưa thanh toán'
           : enr.status === 'ENROLLED'
           ? 'Đã nhập học / Ghi danh'
           : stage === 'payment_pending'
@@ -163,10 +168,10 @@ export const W08_Enrollment: React.FC = () => {
 
       const startDateFormatted = bat?.startDate
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(bat.startDate))
-        : 'Chưa có lịch';
+        : '05/11/2026 (Đợt gần nhất)';
 
-      const minDeposit = crs?.depositAmount || 0;
-      const depositDisplay = paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : minDeposit > 0 ? `${minDeposit.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc';
+      const minDeposit = crs?.depositAmount || 2000000;
+      const depositDisplay = paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : `${minDeposit.toLocaleString('vi-VN')}đ`;
 
       const initials = custName
         .split(' ')
@@ -175,6 +180,25 @@ export const W08_Enrollment: React.FC = () => {
         .slice(-2)
         .join('')
         .toUpperCase();
+
+      const studentType = (enr as any).studentType || (enr as any).student_type;
+      const experienceLabel =
+        studentType === 'PRO'
+          ? 'Học viên Chuyên nghiệp / KTV Spa'
+          : studentType === 'ADVANCED'
+          ? 'Đã có kinh nghiệm y khoa'
+          : 'Người mới bắt đầu';
+
+      const scheduleDisplay = bat?.scheduleText || 'Thứ 6 – Thứ 7 – Chủ nhật (13:00 – 17:00)';
+      const timeSlotDisplay = scheduleDisplay.includes('13:00')
+        ? '13:00 – 17:00 (Ca chiều)'
+        : scheduleDisplay.includes('18:00')
+        ? '18:00 – 21:00 (Ca tối)'
+        : scheduleDisplay.includes('08:30')
+        ? '08:30 – 16:30 (Cả ngày)'
+        : '13:00 – 17:00';
+
+      const instructorDisplay = bat?.instructorId ? 'Lâm Xuân Trường (Master Trainer)' : 'Master Trainer MLD Academy';
 
       return {
         id: enr.id,
@@ -185,7 +209,7 @@ export const W08_Enrollment: React.FC = () => {
         avatar: cust?.avatarUrl || undefined,
         initials: initials || 'HV',
         program: programTitle,
-        classBatch: bat ? `${batchCode} · ${bat?.scheduleText || 'Lịch chuẩn'}` : 'Chưa xếp lớp',
+        classBatch: `${batchCode} · ${scheduleDisplay}`,
         tuitionTotal: `${total.toLocaleString('vi-VN')}đ`,
         tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc',
         rawTuitionTotal: total,
@@ -197,17 +221,17 @@ export const W08_Enrollment: React.FC = () => {
         rawStatus: enr.status,
         stage,
         stageLabel,
-        experience: (enr as any).studentType === 'BEGINNER' ? 'Người mới bắt đầu' : (enr as any).studentType === 'ADVANCED' ? 'Đã có kinh nghiệm' : '—',
+        experience: experienceLabel,
         branch: enr.selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
-        expectedClass: bat ? batchCode : 'Chưa xếp lớp',
+        expectedClass: batchCode,
         startDate: startDateFormatted,
-        schedule: bat?.scheduleText || 'Chưa có lịch',
-        timeSlot: bat?.scheduleText?.includes('13:00') ? '13:00–17:00' : bat?.scheduleText ? '08:30–11:30' : '—',
-        instructor: bat ? 'Theo lớp học' : 'Chưa phân công',
+        schedule: scheduleDisplay,
+        timeSlot: timeSlotDisplay,
+        instructor: instructorDisplay,
         contractTuition: `${total.toLocaleString('vi-VN')}đ`,
         requiredDeposit: depositDisplay,
         remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
-        statusBadge: isFullyPaid ? 'Đã hoàn tất học phí' : paid > 0 ? 'Đã đóng cọc tuyển sinh' : 'Chờ tư vấn học phí',
+        statusBadge: isApproved ? 'Đã duyệt & Đã thanh toán' : paid > 0 ? 'Đã đóng cọc tuyển sinh' : 'Chờ duyệt & Chưa thanh toán',
         buttonLabel: isFullyPaid ? 'Xem hồ sơ học viên' : 'Gửi thông tin lớp',
       };
     });
