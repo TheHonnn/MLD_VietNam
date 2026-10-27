@@ -24,6 +24,7 @@ class AllInOneBookingScreen extends StatefulWidget {
 
 class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   // 1. Dịch vụ duy nhất & Thuế giá lấy động từ Admin backend
+  String _serviceId = '235166f2-66c9-4231-bbe1-af91b48fc67c';
   String _serviceTitle = 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
   int _serviceDuration = 60;
   double _pricePerPerson = 650000;
@@ -88,6 +89,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
     if (mounted) {
       setState(() {
+        _serviceId = coreService.id.isNotEmpty && !coreService.id.startsWith('srv-')
+            ? coreService.id
+            : '235166f2-66c9-4231-bbe1-af91b48fc67c';
         _serviceTitle = coreService.name;
         _serviceDuration = coreService.durationMinutes;
         _pricePerPerson = coreService.displayPrice;
@@ -278,6 +282,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     final appointment = AppointmentItemModel(
       id: appointmentCode,
       bookingCode: appointmentCode,
+      branchId: _selectedBranch?.id ?? 'aaaaaaaa-0001-0001-0001-000000000001',
+      serviceId: _serviceId,
       serviceName: _serviceTitle,
       serviceImage: 'assets/images/logo.webp',
       durationMinutes: _serviceDuration,

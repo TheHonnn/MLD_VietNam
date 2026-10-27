@@ -234,13 +234,22 @@ class AcademyRepository {
     String? selectedShift,
     double? depositAmount,
   }) async {
-    // Lưu local cache với status PENDING_APPROVAL
-    final pendingCourse = course.copyWith(status: 'PENDING_APPROVAL');
+    final codeSuffix = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+    final customerCode = 'HV-$codeSuffix';
+    final approvalNotes = 'Mã KH: $customerCode';
+
+    // Lưu local cache với status PENDING_APPROVAL và mã khách hàng
+    final pendingCourse = course.copyWith(
+      status: 'PENDING_APPROVAL',
+      customerCode: customerCode,
+      approvalStatus: 'PENDING_APPROVAL',
+    );
     enrollCourseLocal(pendingCourse);
 
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       return {
         'enrollmentCode': 'MLD-EDU-TEST',
+        'customerCode': customerCode,
         'courseTitle': course.title,
         'studentName': studentName,
         'status': 'PENDING_APPROVAL',
@@ -249,7 +258,6 @@ class AcademyRepository {
     }
 
     // Gửi bản ghi ghi danh thực tế lên Supabase Cloud (bảng course_enrollments)
-    final customerCode = 'HV${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
     try {
       final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
       await SupabaseDataService.instance.createCourseEnrollment(
@@ -260,7 +268,7 @@ class AcademyRepository {
         studentEmail: studentEmail,
         selectedBranch: selectedBranch ?? 'Học viện MLD Việt Nam - Chi nhánh Quận 3, TP.HCM (Trụ sở chính)',
         studentType: studentType ?? 'BEGINNER',
-        approvalNotes: 'Mã KH: $customerCode',
+        approvalNotes: approvalNotes,
         tuitionTotal: course.tuitionFee,
         amountPaid: 0.00,
         status: 'PENDING_APPROVAL',
@@ -293,10 +301,58 @@ class AcademyRepository {
 
     return {
       'enrollmentCode': 'MLD-EDU-' + DateTime.now().millisecondsSinceEpoch.toString().substring(7),
+      'customerCode': customerCode,
       'courseTitle': course.title,
       'studentName': studentName,
       'status': 'PENDING_APPROVAL',
       'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
+    };
+  }
+
+
+  /// Tự động kiểm tra đối soát tiền về theo mã KH & tự động duyệt học viên
+  Future<Map<String, dynamic>> checkEnrollmentPayment(String enrollmentId) async {
+    // 1. Kiểm tra qua Backend Gateway
+    try {
+      final response = await _apiClient.dio.get(ApiEndpoints.academyCheckEnrollmentPayment(enrollmentId));
+      if (response.statusCode == 200 && response.data != null) {
+        final res = response.data as Map<String, dynamic>;
+        final isPaid = res['data']?['approved'] == true || res['data']?['isPaid'] == true;
+        if (isPaid) {
+          await syncUserEnrollmentFromSupabase();
+          enrollmentNotifier.value++;
+        }
+        return res;
+      }
+    } catch (e) {
+      debugPrint('>>> [AcademyRepository] Gateway check payment: $e');
+    }
+
+    // 2. Kiểm tra trực tiếp qua Supabase Cloud
+    try {
+      final response = await _apiClient.get<List<dynamic>>(
+        '${ApiEndpoints.courseEnrollments}?id=eq.$enrollmentId&select=*',
+      );
+      if (response.data != null && (response.data as List).isNotEmpty) {
+        final enr = (response.data as List).first as Map<String, dynamic>;
+        final isApproved = enr['approval_status'] == 'APPROVED' ||
+            (enr['amount_paid'] != null && (enr['amount_paid'] as num) > 0);
+        if (isApproved) {
+          await syncUserEnrollmentFromSupabase();
+          enrollmentNotifier.value++;
+          return {
+            'success': true,
+            'data': {'isPaid': true, 'approved': true},
+            'message': 'Đã đối soát tiền về thành công! Khóa học đã được duyệt.',
+          };
+        }
+      }
+    } catch (_) {}
+
+    return {
+      'success': true,
+      'data': {'isPaid': false, 'approved': false},
+      'message': 'Hệ thống chưa nhận được khoản tiền khớp với mã khách hàng.',
     };
   }
 
@@ -314,8 +370,15 @@ class AcademyRepository {
             if (cMap['course_categories'] is Map) {
               cMap['categoryName'] = cMap['course_categories']['name'];
             }
+            final notes = e['approval_notes']?.toString() ?? '';
+            final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
+            final customerCode = notesCode ?? 'HV-${e['id'].toString().substring(0, 4).toUpperCase()}';
             final model = CourseModel.fromJson(cMap).copyWith(
               progressPercentage: (e['progress_percent'] as num?)?.toInt() ?? 0,
+              status: e['status']?.toString() ?? 'PENDING_APPROVAL',
+              enrollmentId: e['id']?.toString(),
+              customerCode: customerCode,
+              approvalStatus: e['approval_status']?.toString() ?? 'PENDING_APPROVAL',
             );
             list.add(model);
           }

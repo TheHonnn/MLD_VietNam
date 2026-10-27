@@ -75,7 +75,7 @@ export class MembershipService {
       try {
         const { data: user } = await this.supabaseService.adminClient
           .from('users')
-          .select('id, full_name, phone, email, avatar_url, membership_tier, reward_points, referral_code')
+          .select('id, full_name, phone, email, avatar_url, gender, date_of_birth, address, emergency_contact_name, emergency_contact_phone, membership_tier, reward_points, referral_code')
           .eq('id', resolvedId)
           .maybeSingle();
 
@@ -92,12 +92,12 @@ export class MembershipService {
               phone: phone,
               isPhoneVerified: phone.trim().length > 0,
               email: user.email || '',
-              dateOfBirth: '',
-              gender: '',
-              address: '',
+              dateOfBirth: user.date_of_birth ? String(user.date_of_birth) : '',
+              gender: user.gender === 'MALE' ? 'Nam' : (user.gender === 'FEMALE' ? 'Nữ' : (user.gender || '')),
+              address: user.address || '',
               occupation: '',
-              emergencyContactName: '',
-              emergencyContactPhone: '',
+              emergencyContactName: user.emergency_contact_name || '',
+              emergencyContactPhone: user.emergency_contact_phone || '',
               avatarUrl: user.avatar_url || '',
               memberTier: tier,
               memberCode: user.referral_code || (phone ? `MLD-${phone.slice(-6)}` : `MLD-${user.id.substring(0, 6).toUpperCase()}`),
@@ -146,6 +146,28 @@ export class MembershipService {
         if (dto.fullName) updateData.full_name = dto.fullName;
         if (dto.phone) updateData.phone = dto.phone;
         if (dto.avatarUrl) updateData.avatar_url = dto.avatarUrl;
+        if (dto.email) updateData.email = dto.email;
+        if (dto.address !== undefined) updateData.address = dto.address;
+        if (dto.emergencyContactName !== undefined) updateData.emergency_contact_name = dto.emergencyContactName;
+        if (dto.emergencyContactPhone !== undefined) updateData.emergency_contact_phone = dto.emergencyContactPhone;
+        if (dto.gender) {
+          const g = dto.gender.toUpperCase();
+          if (g === 'NAM' || g === 'MALE') updateData.gender = 'MALE';
+          else if (g === 'NỮ' || g === 'NU' || g === 'FEMALE') updateData.gender = 'FEMALE';
+          else updateData.gender = 'OTHER';
+        }
+        if (dto.dateOfBirth) {
+          try {
+            const parts = dto.dateOfBirth.split('/');
+            if (parts.length === 3) {
+              updateData.date_of_birth = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            } else {
+              updateData.date_of_birth = dto.dateOfBirth;
+            }
+          } catch (_) {
+            updateData.date_of_birth = dto.dateOfBirth;
+          }
+        }
 
         if (Object.keys(updateData).length > 0) {
           await this.supabaseService.adminClient
