@@ -6,7 +6,6 @@ import "./admin/admin.css";
 
 // Lazy-loaded code-split modules for peak performance & minimal initial bundle
 const LoginPage = lazy(() => import('./admin/LoginPage').then((m) => ({ default: m.LoginPage })));
-const TrainingActions = lazy(() => import('./admin/TrainingActions').then((m) => ({ default: m.TrainingActions })));
 const W01_Dashboard = lazy(() => import('./pages/W01_Dashboard').then((m) => ({ default: m.W01_Dashboard })));
 const W02_Branches = lazy(() => import('./pages/W02_Branches').then((m) => ({ default: m.W02_Branches })));
 const W03_Customers = lazy(() => import('./pages/W03_Customers').then((m) => ({ default: m.W03_Customers })));
@@ -207,7 +206,6 @@ const AppContent: React.FC = () => {
               path="curriculum"
               element={
                 <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <TrainingActions />
                   <W11_Curriculum />
                 </RoleRoute>
               }

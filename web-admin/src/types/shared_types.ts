@@ -564,6 +564,10 @@ export interface CourseEnrollment {
   completedLessonsCount: number;
   progressPercent: number;
   enrolledAt: string;
+  studentName?: string;
+  studentPhone?: string;
+  studentEmail?: string;
+  selectedBranch?: string;
   student?: User;
   course?: Course;
   batch?: CourseBatch;

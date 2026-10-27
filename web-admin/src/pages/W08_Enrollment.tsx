@@ -106,8 +106,8 @@ export const W08_Enrollment: React.FC = () => {
       const crs = crsMap.get(enr.courseId);
       const bat = batMap.get(enr.batchId || '');
 
-      const custName = cust?.fullName || `Học viên ${idx + 1}`;
-      const custPhone = cust?.phone || '0900000000';
+      const custName = cust?.fullName || enr.studentName || `Học viên ${idx + 1}`;
+      const custPhone = cust?.phone || enr.studentPhone || '0900000000';
       const custCode = cust?.referralCode || `HV-2026-${String(idx + 1).padStart(3, '0')}`;
       const programTitle = crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên';
       const batchCode = bat?.batchCode || 'K26-SPA-Q1';
@@ -118,11 +118,14 @@ export const W08_Enrollment: React.FC = () => {
 
       const isFullyPaid = paid >= total && total > 0;
       const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
+      const isNewlyCreated = enr.enrolledAt ? (Date.now() - new Date(enr.enrolledAt).getTime() < 48 * 3600 * 1000) : false;
       const stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending' =
         enr.status === 'STUDYING' || isGraduated
           ? 'class_pending'
           : enr.status === 'ENROLLED' || (paid > 0 && !isFullyPaid)
           ? 'payment_pending'
+          : isNewlyCreated && enr.status === 'CONSULTING' && paid === 0
+          ? 'new'
           : enr.status === 'CONSULTING' || paid === 0
           ? 'consulting'
           : 'class_pending';
@@ -134,6 +137,8 @@ export const W08_Enrollment: React.FC = () => {
           ? 'Đã nhập học / Ghi danh'
           : stage === 'payment_pending'
           ? 'Chờ thanh toán'
+          : stage === 'new'
+          ? 'Hồ sơ mới'
           : 'Chờ tư vấn';
 
       const startDateFormatted = bat?.startDate
@@ -143,12 +148,21 @@ export const W08_Enrollment: React.FC = () => {
       const minDeposit = crs?.depositAmount || 2000000;
       const depositDisplay = paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : `${minDeposit.toLocaleString('vi-VN')}đ`;
 
+      const initials = custName
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .slice(-2)
+        .join('')
+        .toUpperCase();
+
       return {
         id: enr.id,
         name: custName,
         code: custCode,
         phone: custPhone,
         avatar: cust?.avatarUrl || undefined,
+        initials: initials || 'HV',
         program: programTitle,
         classBatch: `${batchCode} · ${bat?.scheduleText || 'Lịch chuẩn'}`,
         tuitionTotal: `${total.toLocaleString('vi-VN')}đ`,
@@ -157,7 +171,7 @@ export const W08_Enrollment: React.FC = () => {
         stage,
         stageLabel,
         experience: 'Đào tạo chuẩn nghề MLD',
-        branch: 'Quận 3',
+        branch: enr.selectedBranch || 'Quận 3',
         expectedClass: batchCode,
         startDate: startDateFormatted,
         schedule: bat?.scheduleText || 'Thứ 2 - 4 - 6',

@@ -190,9 +190,11 @@ export class AcademyService {
     const depositAmount = dto.depositAmount || 2000000;
     const enrollmentCode = `MLD-EDU-${Date.now().toString().slice(-6)}`;
 
+    let studentId = (userId && userId !== 'default-user') ? userId : null;
+
     try {
-      // 1. Kiểm tra tài khoản người dùng và cập nhật số điện thoại nếu chưa có
-      if (userId && userId !== 'default-user') {
+      // 1. Kiểm tra tài khoản người dùng hoặc tìm theo SĐT/Email
+      if (studentId) {
         await this.supabaseService.adminClient
           .from('users')
           .update({
@@ -201,17 +203,75 @@ export class AcademyService {
             is_phone_verified: true,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', userId);
+          .eq('id', studentId);
+      } else {
+        // Tìm theo số điện thoại
+        if (studentPhone) {
+          const { data: userByPhone } = await this.supabaseService.adminClient
+            .from('users')
+            .select('id')
+            .eq('phone', studentPhone)
+            .maybeSingle();
+          if (userByPhone?.id) studentId = userByPhone.id;
+        }
+
+        // Tìm theo email nếu chưa tìm thấy
+        if (!studentId && studentEmail) {
+          const { data: userByEmail } = await this.supabaseService.adminClient
+            .from('users')
+            .select('id')
+            .eq('email', studentEmail)
+            .maybeSingle();
+          if (userByEmail?.id) studentId = userByEmail.id;
+        }
+
+        // Nếu vẫn chưa có tài khoản, tạo mới trong bảng users
+        if (!studentId) {
+          const { data: newUser } = await this.supabaseService.adminClient
+            .from('users')
+            .insert({
+              full_name: studentName || 'Học viên MLD',
+              phone: studentPhone || '0900000000',
+              email: studentEmail || null,
+              role: 'CUSTOMER',
+              is_phone_verified: true,
+            })
+            .select('id')
+            .maybeSingle();
+
+          if (newUser?.id) {
+            studentId = newUser.id;
+          } else {
+            studentId = '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e'; // Default customer fallback
+          }
+        }
       }
 
-      // 2. Ghi nhận vào bảng course_enrollments
+      // 2. Lấy thông tin học phí khóa học
+      let tuitionTotal = 15000000;
+      try {
+        const { data: cData } = await this.supabaseService.adminClient
+          .from('courses')
+          .select('tuition_fee, deposit_amount')
+          .eq('id', courseId)
+          .maybeSingle();
+        if (cData?.tuition_fee) {
+          tuitionTotal = Number(cData.tuition_fee);
+        }
+      } catch (_) {}
+
+      // 3. Ghi nhận vào bảng course_enrollments
       await this.supabaseService.adminClient.from('course_enrollments').insert({
-        student_id: userId !== 'default-user' ? userId : 'bbbbbbbb-0001-0001-0001-000000000001',
+        student_id: studentId,
         course_id: courseId,
         batch_id: batchId || null,
-        status: 'ENROLLED',
-        tuition_total: 15000000,
-        amount_paid: depositAmount,
+        status: 'CONSULTING',
+        tuition_total: tuitionTotal,
+        amount_paid: 0,
+        student_name: studentName,
+        student_phone: studentPhone,
+        student_email: studentEmail || null,
+        selected_branch: selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
       });
     } catch (e: any) {
       this.logger.warn(`Lưu enrollment vào DB thất bại: ${e.message}`);
