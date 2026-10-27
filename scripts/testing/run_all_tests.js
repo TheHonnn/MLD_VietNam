@@ -8,6 +8,7 @@ const scripts = [
   { name: 'Giai đoạn 4: Kho Định mức Tiêu hao BOM & Hoa hồng KTV (W15, W13)', file: 'test_phase4_bom_commissions.js' },
   { name: 'Giai đoạn 5: Quản trị Nội dung Portal CMS & Kênh Email Tự động (W18, Email)', file: 'test_phase5_portal_email.js' },
   { name: 'Giai đoạn 6: Mobile Flutter & Dữ liệu Thực Cẩm nang Y khoa (D09, Supabase)', file: 'test_phase6_mobile_guidelines.js' },
+  { name: 'Giai đoạn 7: E2E Nghiệp vụ Admin Đặt Khóa học & Đặt lịch Spa Thực địa (W08, W05, W06, W07, W13, W15)', file: 'test_e2e_admin_course_and_spa.js' },
 ];
 
 console.log('╔════════════════════════════════════════════════════════════════════════════════════╗');
@@ -33,7 +34,7 @@ scripts.forEach((s, idx) => {
 });
 
 if (allSuccess) {
-  console.log('🎉 TOÀN BỘ 6 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
+  console.log('🎉 TOÀN BỘ 7 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
 } else {
   console.log('⚠️ CÓ GIAI ĐOẠN CHƯA ĐẠT CHUẨN. CẦN KIỂM TRA LẠI.');
 }
