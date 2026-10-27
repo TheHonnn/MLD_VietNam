@@ -6,12 +6,11 @@ import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e05_enrollment_form_screen.dart';
 import 'e09_lesson_screen.dart';
-import 'e10_quiz_screen.dart';
 import 'e11_attendance_schedule_screen.dart';
 
 /// Screen E08: Chi tiết lớp học [8116:25997]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
-/// Khóa học đã đăng ký: hiển thị chương đang học, tiến độ hoàn thành, và phần kiểm tra đánh giá khóa học.
+/// Khóa học đã đăng ký: hiển thị chương đang học và tiến độ hoàn thành các video bài giảng.
 class E08ClassDetailScreen extends StatefulWidget {
   final CourseModel? course;
 
@@ -25,8 +24,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
   int _selectedTab = 0; // 0: Nội dung học, 1: Lịch học, 2: Tài liệu
   List<ChapterModel> _chapters = [];
   bool _isLoading = false;
-  List<Map<String, dynamic>> _quizzes = [];
-  bool _isLoadingQuizzes = false;
+
   final Set<int> _expandedChapterIndices = {0}; // Mở chương đầu tiên theo mặc định
 
   String get _courseId => widget.course?.id ?? '30303030-0001-0001-0001-000000000001';
@@ -47,11 +45,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
 
   int get _completedLessonsCount =>
       _allLessons.where((l) => AcademyRepository.instance.isLessonCompleted(_courseId, l.id)).length;
-
-  double get _progressValue =>
-      _totalLessonsCount > 0 ? (_completedLessonsCount / _totalLessonsCount) : 0.0;
-
-  int get _progressPercent => (_progressValue * 100).round();
 
   bool get _isCourseCompleted => _totalLessonsCount > 0 && _completedLessonsCount >= _totalLessonsCount;
 
@@ -94,29 +87,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
     super.initState();
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       _chapters = MockAcademyData.syllabusChapters;
-      _quizzes = [
-        {
-          'title': 'Bài kiểm tra cuối khóa Vodder MLD',
-          'total_questions': 10,
-          'time_limit_minutes': 15,
-          'passing_score': 80,
-        }
-      ];
       _isLoading = false;
-      _isLoadingQuizzes = false;
     } else {
       _loadCurriculum();
-      _loadQuizzes();
-    }
-  }
-
-  Future<void> _loadQuizzes() async {
-    setState(() => _isLoadingQuizzes = true);
-    try {
-      final list = await AcademyRepository.instance.getCourseQuizzes(_courseId);
-      if (mounted) setState(() => _quizzes = list);
-    } catch (_) {} finally {
-      if (mounted) setState(() => _isLoadingQuizzes = false);
     }
   }
 
@@ -179,37 +152,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
     if (mounted) setState(() {});
   }
 
-  void _openQuiz([Map<String, dynamic>? quiz]) {
-    if (!_isCourseCompleted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '🔒 Bạn cần hoàn thành tất cả $_totalLessonsCount bài học video trước khi làm bài kiểm tra! (Hiện tại: $_completedLessonsCount/$_totalLessonsCount bài)',
-          ),
-          backgroundColor: const Color(0xFFD97706),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-      return;
-    }
-
-    final target = quiz ?? (_quizzes.isNotEmpty ? _quizzes.first : null);
-    final qTitle = target?['title'] as String? ?? 'Bài kiểm tra đánh giá khóa học';
-    final totalQ = target?['total_questions'] as int? ?? 10;
-    final timeLimit = target?['time_limit_minutes'] as int? ?? 15;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => E10QuizScreen(
-          quizTitle: qTitle,
-          courseTitle: widget.course?.title,
-          totalQuestions: totalQ,
-          timeLimitMinutes: timeLimit,
-        ),
-      ),
-    );
-  }
 
   void _showEnrollRequiredModal(LessonModel lesson) {
     showModalBottomSheet(
@@ -331,7 +273,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
         buttonText: !_isApproved
             ? 'Chờ duyệt'
             : (_isCourseCompleted
-                ? 'Làm bài kiểm tra đánh giá'
+                ? 'Đã hoàn thành khóa học'
                 : (_completedLessonsCount == 0 ? 'Bắt đầu học ngay' : 'Tiếp tục bài học')),
         onPressed: () {
           if (!_isApproved) {
@@ -344,7 +286,12 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
             return;
           }
           if (_isCourseCompleted) {
-            _openQuiz();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🎉 Chúc mừng! Bạn đã hoàn thành 100% video bài giảng của khóa học này.'),
+                backgroundColor: Color(0xFF059669),
+              ),
+            );
           } else if (_nextLessonToStudy != null) {
             _onLessonTap(_nextLessonToStudy!);
           }
@@ -646,10 +593,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                 ],
               ],
 
-              // 4.1 Phần kiểm tra đánh giá khóa học (Theo đúng yêu cầu: nằm trong khóa học đã đăng ký, khóa nếu chưa học xong, mở khi 100%)
-              _buildQuizzesSection(),
 
-              const SizedBox(height: 16),
 
               // 5. Thẻ bài học tiếp theo (hoặc thông báo hoàn thành)
               _buildNextLessonCard(),
@@ -699,7 +643,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      'Bao gồm slide bài giảng, phiếu kiểm tra kỹ thuật và quy chuẩn vệ sinh Spa.',
+                      'Bao gồm slide bài giảng, tài liệu kỹ thuật và quy chuẩn vệ sinh Spa.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
                     ),
@@ -778,7 +722,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Bạn đã hoàn thành $_totalLessonsCount/$_totalLessonsCount bài giảng. Hãy làm bài kiểm tra để hoàn tất chứng chỉ.',
+                    'Bạn đã hoàn thành $_totalLessonsCount/$_totalLessonsCount bài giảng video của khóa học.',
                     style: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 12,
@@ -891,217 +835,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
     );
   }
 
-  Widget _buildQuizzesSection() {
-    final isUnlocked = _isCourseCompleted;
-
-    return Container(
-      margin: const EdgeInsets.only(top: 12, bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isUnlocked ? const Color(0xFFBFDBFE) : const Color(0xFFFDE68A),
-          width: 1.0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isUnlocked ? const Color(0xFFEFF6FF) : const Color(0xFFFFFBEB),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isUnlocked ? const Color(0xFF2563EB) : const Color(0xFFD97706),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    isUnlocked ? Icons.assignment_turned_in_outlined : Icons.lock_outline_rounded,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    isUnlocked
-                        ? 'Phần kiểm tra đánh giá khóa học'
-                        : 'Phần kiểm tra đánh giá khóa học',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AcademyColors.heading,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isUnlocked ? const Color(0xFFDBEAFE) : const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isUnlocked
-                        ? '${_quizzes.isNotEmpty ? _quizzes.length : 1} bài sẵn sàng'
-                        : 'Khóa ($_completedLessonsCount/$_totalLessonsCount bài)',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isUnlocked ? const Color(0xFF1E40AF) : const Color(0xFFB45309),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!isUnlocked)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Bài kiểm tra chỉ mở khóa khi học viên đã xem hết toàn bộ $_totalLessonsCount video bài học (Tiến độ: $_progressPercent%).',
-                      style: const TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: 12,
-                        color: Color(0xFF92400E),
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (_isLoadingQuizzes)
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else if (_quizzes.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(Icons.assignment_outlined, size: 18, color: Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isUnlocked
-                          ? 'Đang chuẩn bị đề kiểm tra đánh giá cho khóa học này.'
-                          : 'Đề kiểm tra sẽ xuất hiện tại đây sau khi hoàn thành khóa học.',
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: 12.5,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _quizzes.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 56, endIndent: 16, color: AcademyColors.cardBorder),
-              itemBuilder: (context, index) {
-                final quiz = _quizzes[index];
-                final qTitle = quiz['title'] as String? ?? 'Bài kiểm tra cuối khóa';
-                final totalQ = quiz['total_questions'] as int? ?? 10;
-                final timeLimit = quiz['time_limit_minutes'] as int? ?? 15;
-                final passing = quiz['passing_score'] as int? ?? 80;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: isUnlocked ? const Color(0xFFEFF6FF) : const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          isUnlocked ? Icons.quiz_outlined : Icons.lock_outline_rounded,
-                          color: isUnlocked ? const Color(0xFF2563EB) : Colors.grey[500],
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              qTitle,
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                                color: isUnlocked ? AcademyColors.textPrimary : Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '$totalQ câu hỏi · $timeLimit phút · Điểm đạt: $passing%',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 11.5,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () => _openQuiz(quiz),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isUnlocked ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB),
-                          foregroundColor: isUnlocked ? Colors.white : const Color(0xFF6B7280),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          isUnlocked ? 'Làm bài' : 'Khóa',
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isUnlocked ? Colors.white : const Color(0xFF6B7280),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildChapterCard({
     required String title,

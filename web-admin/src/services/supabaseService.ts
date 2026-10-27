@@ -1495,7 +1495,7 @@ class SupabaseService {
       title: ins.title || 'Master Trainer Thẩm mỹ & Dưỡng sinh',
       avatarUrl: ins.avatar_url || ins.user?.avatar_url || 'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848',
       experienceYears: Number(ins.experience_years || 10),
-      bio: ins.bio || 'Giám đốc Đào tạo MLD Academy',
+      bio: ins.bio || 'Giám đốc Đào tạo MLD',
       achievements: Array.isArray(ins.achievements) ? ins.achievements : [],
       isActive: Boolean(ins.is_active),
       createdAt: ins.created_at,

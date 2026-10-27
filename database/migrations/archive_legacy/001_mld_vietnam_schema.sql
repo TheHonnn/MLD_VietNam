@@ -1,4 +1,4 @@
--- ==============================================================================
+﻿-- ==============================================================================
 -- MLD VIỆT NAM - HỆ SINH THÁI CHĂM SÓC SẮC ĐẸP, SPA DƯỠNG SINH & HỌC VIỆN ĐÀO TẠO
 -- DATABASE INITIALIZATION SCHEMA (PRODUCTION READY)
 -- Version: 3.0.0 (Clean Architecture & 100% Figma Standard)
@@ -489,7 +489,7 @@ CREATE TABLE IF NOT EXISTS courses (
     tuition_fee NUMERIC(12, 2) NOT NULL,           -- Học phí chính thức
     discount_fee NUMERIC(12, 2),                   -- Ưu đãi đăng ký sớm
     syllabus JSONB DEFAULT '[]'::jsonb,            -- Khung chương trình học từng buổi
-    certificate_title VARCHAR(200) DEFAULT 'Chứng chỉ Chuyên môn MLD Academy',
+    certificate_title VARCHAR(200) DEFAULT 'Chứng chỉ Chuyên môn MLD',
     image_url TEXT NOT NULL,
     is_hot BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,

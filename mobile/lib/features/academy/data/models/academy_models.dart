@@ -28,6 +28,7 @@ class CourseModel {
   final String? enrollmentId;
   final String? customerCode;
   final String? approvalStatus;
+  final int totalVideos;
 
   const CourseModel({
     required this.id,
@@ -57,6 +58,7 @@ class CourseModel {
     this.enrollmentId,
     this.customerCode,
     this.approvalStatus,
+    this.totalVideos = 4,
   });
 
   factory CourseModel.fromJson(Map<String, dynamic> json) {
@@ -81,6 +83,22 @@ class CourseModel {
         (json['categoryName']?.toString() ?? json['category']?.toString() ?? 'Người mới bắt đầu');
     final orig = (json['originalPrice'] as num?)?.toDouble() ??
         (outcomes['original_price'] as num?)?.toDouble();
+
+    int videoCount = 0;
+    if (json['course_chapters'] is List) {
+      for (final chapter in json['course_chapters']) {
+        if (chapter is Map && chapter['course_lessons'] is List) {
+          videoCount += (chapter['course_lessons'] as List).length;
+        }
+      }
+    }
+    if (videoCount == 0) {
+      videoCount = (json['total_lessons'] as num?)?.toInt() ??
+          (json['totalLessons'] as num?)?.toInt() ??
+          (json['total_videos'] as num?)?.toInt() ??
+          (json['totalVideos'] as num?)?.toInt() ??
+          4;
+    }
 
     return CourseModel(
       id: json['id']?.toString() ?? '',
@@ -110,6 +128,7 @@ class CourseModel {
       enrollmentId: json['enrollment_id']?.toString() ?? json['enrollmentId']?.toString(),
       customerCode: json['customer_code']?.toString() ?? json['customerCode']?.toString(),
       approvalStatus: json['approval_status']?.toString() ?? json['approvalStatus']?.toString(),
+      totalVideos: videoCount,
     );
   }
 
@@ -141,6 +160,7 @@ class CourseModel {
     String? enrollmentId,
     String? customerCode,
     String? approvalStatus,
+    int? totalVideos,
   }) {
     return CourseModel(
       id: id ?? this.id,
@@ -170,6 +190,7 @@ class CourseModel {
       enrollmentId: enrollmentId ?? this.enrollmentId,
       customerCode: customerCode ?? this.customerCode,
       approvalStatus: approvalStatus ?? this.approvalStatus,
+      totalVideos: totalVideos ?? this.totalVideos,
     );
   }
 
@@ -201,6 +222,8 @@ class CourseModel {
     'enrollmentId': enrollmentId,
     'customerCode': customerCode,
     'approvalStatus': approvalStatus,
+    'total_lessons': totalVideos,
+    'totalVideos': totalVideos,
   };
 
   int get sessionCount {

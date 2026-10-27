@@ -36,9 +36,12 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     AcademyRepository.instance.enrollmentNotifier.addListener(_onEnrollmentUpdate);
     _selectedTab = widget.initialTabIndex;
     final enrolled = AcademyRepository.instance.enrolledCourses;
+    for (final c in enrolled) {
+      _courseQuizzesCache[c.id] = MockAcademyData.getQuizzesForCourse(c.id, c.title);
+      _loadQuizzesForCourse(c);
+    }
     if (enrolled.isNotEmpty) {
       _expandedCourseIdForQuiz = enrolled.first.id;
-      _loadQuizzesForCourse(enrolled.first);
     }
     _refreshCourses();
   }
@@ -47,9 +50,14 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     AcademyRepository.instance.getMyCourses().then((courses) {
       if (mounted) {
         setState(() {
+          for (final c in courses) {
+            if (!_courseQuizzesCache.containsKey(c.id) || _courseQuizzesCache[c.id]!.isEmpty) {
+              _courseQuizzesCache[c.id] = MockAcademyData.getQuizzesForCourse(c.id, c.title);
+            }
+            _loadQuizzesForCourse(c);
+          }
           if (courses.isNotEmpty && _expandedCourseIdForQuiz == null) {
             _expandedCourseIdForQuiz = courses.first.id;
-            _loadQuizzesForCourse(courses.first);
           }
         });
       }
@@ -320,7 +328,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           Text(
             context.tr(
               'Khám phá danh mục các khóa đào tạo nghề Spa & Trị liệu dưỡng sinh của Học viện MLD để nâng cao tay nghề.',
-              'Explore MLD Academy vocational training courses to advance your skills.',
+              'Explore vocational training courses to advance your skills.',
             ),
             textAlign: TextAlign.center,
             style: const TextStyle(
@@ -404,25 +412,14 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: const Color(0xFFFDE68A)),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.hourglass_top_rounded, size: 11, color: Color(0xFFB45309)),
-                                SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    'CHỜ DUYỆT & CHƯA THANH TOÁN',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: 'Montserrat',
-                                      fontSize: 8.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFFB45309),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            child: const Text(
+                              'CHỜ DUYỆT',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFB45309),
+                              ),
                             ),
                           );
                         }
@@ -433,25 +430,14 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF059669)),
-                              SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  'ĐÃ DUYỆT · ĐANG HỌC',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: 'Montserrat',
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF059669),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: const Text(
+                            'ĐANG HỌC',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF059669),
+                            ),
                           ),
                         );
                       },
@@ -498,68 +484,37 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
             builder: (ctx) {
               final isPending = course.status == 'PENDING_APPROVAL' || course.approvalStatus == 'PENDING_APPROVAL';
               if (isPending) {
-                return Column(
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Mã KH: ${course.customerCode ?? 'HV-XXXX'}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                return SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            context.tr(
+                              'Khóa học đang chờ duyệt.',
+                              'Course is pending approval.',
+                            ),
                           ),
-                          Text(
-                            '${formatCurrency(course.tuitionFee)}đ',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AcademyColors.price),
-                          ),
-                        ],
+                          backgroundColor: const Color(0xFFD97706),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      context.tr('Chờ duyệt', 'Pending Approval'),
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
                       ),
                     ),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 42,
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final enrollId = course.enrollmentId ?? course.id;
-                          final res = await AcademyRepository.instance.checkEnrollmentPayment(enrollId);
-                          final isPaid = res['data']?['approved'] == true || res['data']?['isPaid'] == true;
-                          if (!context.mounted) return;
-                          if (isPaid) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res['message']?.toString() ?? '🎉 Đã nhận được tiền! Hệ thống đã tự động duyệt bạn vào khóa học.'),
-                                backgroundColor: const Color(0xFF059669),
-                              ),
-                            );
-                            _refreshCourses();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res['message']?.toString() ?? 'Hệ thống chưa nhận được tiền khớp với mã ${course.customerCode}.'),
-                                backgroundColor: const Color(0xFFD97706),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.sync_rounded, size: 16, color: AppColors.primary),
-                        label: const Text(
-                          'Kiểm tra tiền về / Đối soát ngay',
-                          style: TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primary, width: 1.2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 );
               }
 
@@ -579,9 +534,9 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Vào học ngay ▶',
-                    style: TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, fontWeight: FontWeight.w700),
+                  child: Text(
+                    context.tr('Vào học ngay', 'Start Learning'),
+                    style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, fontWeight: FontWeight.w700),
                   ),
                 ),
               );
@@ -611,7 +566,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
         // Danh sách các khóa học đã đăng ký để học viên chọn
         ...enrolledCourses.map((course) {
           final isSelected = _expandedCourseIdForQuiz == course.id;
-          final quizzes = _courseQuizzesCache[course.id] ?? [];
+          final quizzes = _courseQuizzesCache[course.id] ?? MockAcademyData.getQuizzesForCourse(course.id, course.title);
 
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -822,7 +777,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Tiêu chí đạt: ≥ ${quiz.passingScore.toStringAsFixed(1)} / 10 điểm (≥ 80% theo quy định Admin)',
+            'Tiêu chí đạt: ≥ ${quiz.passingScore.toStringAsFixed(1)} / 10 điểm (đạt từ 80% trở lên)',
             style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,

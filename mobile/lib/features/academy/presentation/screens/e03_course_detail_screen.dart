@@ -86,9 +86,9 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     if (!isApproved) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('🔒 Khóa học đang chờ duyệt & thanh toán. Bạn chỉ có thể xem bài học sau khi hồ sơ được phê duyệt!'),
+          content: Text('Khóa học đang chờ duyệt.'),
           backgroundColor: Color(0xFFD97706),
-          duration: Duration(seconds: 3),
+          duration: Duration(seconds: 2),
         ),
       );
       return;

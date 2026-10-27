@@ -59,7 +59,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       B02ServiceListingScreen(
         onBack: () => _onTabTapped(0),
       ),
-      // Tab 2: Đào tạo (Group E - Chuẩn MLD Academy)
+      // Tab 2: Đào tạo (Group E)
       E01AcademyHomeScreen(
         key: _academyKey,
         onBackToHome: () => _onTabTapped(0),

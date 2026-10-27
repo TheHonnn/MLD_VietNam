@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { supabaseApi } from '@/api/supabase';
 import { Course, Chapter, Lesson, QuizQuestion } from '@/core/types';
 import {
@@ -374,17 +374,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                               : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
                           }`}
                         >
-                          {isEnrolled ? (
-                            <>
-                              <PlayCircle className="w-3.5 h-3.5" />
-                              <span>Đã đăng ký · Vào học</span>
-                            </>
-                          ) : (
-                            <>
-                              <BookOpen className="w-3.5 h-3.5" />
-                              <span>Đăng ký học</span>
-                            </>
-                          )}
+                          {isEnrolled ? (<span>Đã đăng ký · Vào học</span>) : (<span>Đăng ký học</span>)}
                         </button>
                       </div>
                     </div>
@@ -483,12 +473,8 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                             <div
                               key={lesson.id}
                               onClick={() => {
-                                if (!isEnrolled) {
-                                  setShowEnrollModal(true);
-                                  return;
-                                }
-                                setActiveVideoLesson(lesson);
-                              }}
+    setActiveVideoLesson(lesson);
+  }}
                               className="p-3 flex items-center space-x-3 hover:bg-blue-50/40 cursor-pointer transition"
                             >
                               {/* BÊN TRÁI: Video Thumbnail 16:9 với Nút Phát tròn ở giữa và Badge thời lượng */}
@@ -599,48 +585,17 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                     <Calendar className="w-4 h-4 text-blue-600 mr-1.5" />
                     Lịch học trực tiếp tại Học viện
                   </h3>
-                  <button
-                    onClick={() => {
-                      setIsScannerOpen(true);
-                      setScannerSuccess(false);
-                    }}
-                    className="py-1.5 px-3 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 shadow"
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>Quét QR điểm danh</span>
-                  </button>
+                  
                 </div>
 
-                <div className="space-y-2.5">
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
-                    <div>
-                      <span className="text-xs font-bold text-blue-900 block">Buổi 1: Lý thuyết giải phẫu bạch huyết</span>
-                      <span className="text-[11px] text-blue-700">Thứ Bảy, 13:00 - 17:00 · Phòng Lab 201</span>
-                    </div>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                      Đã điểm danh
-                    </span>
+                <div className="py-8 text-center space-y-2.5 bg-slate-50 rounded-xl border border-dashed border-slate-200 p-6">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                    <Calendar className="w-6 h-6 text-blue-600" />
                   </div>
-
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center">
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 block">Buổi 2: Kỹ thuật thao tác Stationary Circles</span>
-                      <span className="text-[11px] text-slate-500">Chủ Nhật, 13:00 - 17:00 · Phòng Thực hành 3</span>
-                    </div>
-                    <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                      Sắp tới
-                    </span>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center">
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 block">Buổi 3: Dẫn lưu vùng mặt & cổ sau phẫu thuật</span>
-                      <span className="text-[11px] text-slate-500">Tuần sau · Phòng Thực hành 3</span>
-                    </div>
-                    <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded">
-                      Chưa mở
-                    </span>
-                  </div>
+                  <h4 className="text-xs font-bold text-slate-800">Chưa có lịch học thực hành trực tiếp tại cơ sở</h4>
+                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                    Khóa học hiện được đào tạo trực tuyến qua hệ thống video bài giảng. Bạn có thể xem và thực hành toàn bộ bài giảng trong tab "Nội dung bài giảng".
+                  </p>
                 </div>
               </div>
             </div>
@@ -914,4 +869,6 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
     </div>
   );
 };
+
+
 

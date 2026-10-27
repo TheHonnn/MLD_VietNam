@@ -205,7 +205,7 @@ export const W08_Enrollment: React.FC = () => {
         ? '08:30 – 16:30 (Cả ngày)'
         : '13:00 – 17:00';
 
-      const instructorDisplay = bat?.instructorId ? 'Lâm Xuân Trường (Master Trainer)' : 'Master Trainer MLD Academy';
+      const instructorDisplay = bat?.instructorId ? 'Lâm Xuân Trường (Master Trainer)' : 'Master Trainer MLD';
 
       return {
         id: enr.id,

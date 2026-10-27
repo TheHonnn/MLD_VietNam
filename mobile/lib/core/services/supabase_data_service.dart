@@ -85,7 +85,7 @@ class SupabaseDataService {
       ApiEndpoints.courses,
       queryParameters: {
         'is_active': 'eq.true',
-        'select': '*,course_categories(id,name)',
+        'select': '*,course_categories(id,name),course_chapters(id,course_lessons(id))',
         'order': 'created_at.desc',
       },
     );

@@ -692,7 +692,7 @@ export const LessonEditorSheet: React.FC<LessonEditorSheetProps> = ({
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
               <BookOpen size={13} />
-              MLD Academy · Giáo trình đào tạo & Bài giảng
+              Học viện MLD · Giáo trình đào tạo & Bài giảng
             </span>
             <span className="text-xs text-[#7F6E60]">
               {isCreate ? "Tạo bài học mới" : isView ? "Xem chi tiết" : "Chỉnh sửa bài học"}

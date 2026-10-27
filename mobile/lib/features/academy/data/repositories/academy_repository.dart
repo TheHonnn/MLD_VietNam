@@ -278,7 +278,7 @@ class AcademyRepository {
         approvalStatus: 'PENDING_APPROVAL',
       );
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: ' + e.toString());
+      debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: $e');
     }
 
     // Gửi lên Backend Gateway
@@ -299,11 +299,11 @@ class AcademyRepository {
         return (response.data['data'] ?? response.data) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error posting course enrollment to Backend: ' + e.toString());
+      debugPrint('>>> [AcademyRepository] Error posting course enrollment to Backend: $e');
     }
 
     return {
-      'enrollmentCode': 'MLD-EDU-' + DateTime.now().millisecondsSinceEpoch.toString().substring(7),
+      'enrollmentCode': 'MLD-EDU-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
       'customerCode': customerCode,
       'courseTitle': course.title,
       'studentName': studentName,
@@ -651,7 +651,7 @@ class AcademyRepository {
 
   /// Lấy danh sách bài kiểm tra Model có đầy đủ câu hỏi và tiêu chí của Admin từ Supabase
   /// Hoàn toàn động: map từ bảng course_quizzes và quiz_questions
-  Future<List<CourseQuizModel>> getCourseQuizModels(String courseId, [String? courseTitle]) async {
+    Future<List<CourseQuizModel>> getCourseQuizModels(String courseId, [String? courseTitle]) async {
     try {
       final rawList = await SupabaseDataService.instance.fetchCourseQuizzes(courseId);
       if (rawList.isNotEmpty) {
@@ -659,20 +659,21 @@ class AcademyRepository {
         for (final raw in rawList) {
           final qId = raw['id']?.toString() ?? '';
           final rawQuestions = await SupabaseDataService.instance.fetchQuizQuestions(qId);
-          final questions = rawQuestions.map((j) => QuizQuestionModel.fromJson(j)).toList();
+          List<QuizQuestionModel> questions = rawQuestions.map((j) => QuizQuestionModel.fromJson(j)).toList();
+          if (questions.isEmpty) {
+            questions = MockAcademyData.getStandardVodderQuestions(qId);
+          }
           result.add(CourseQuizModel.fromJson(raw, questions));
         }
-        return result;
+        if (result.isNotEmpty) {
+          return result;
+        }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error fetching quizzes from Supabase: ');
+      debugPrint('>>> [AcademyRepository] Error fetching quizzes from Supabase: $e');
     }
 
-    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
-      return MockAcademyData.getQuizzesForCourse(courseId, courseTitle);
-    }
-
-    return [];
+    return MockAcademyData.getQuizzesForCourse(courseId, courseTitle);
   }
 
   /// Lấy danh sách bài kiểm tra dạng Map để tương thích các widget cũ

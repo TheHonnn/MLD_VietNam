@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -351,7 +351,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
     String categoryLabel = 'THÔNG BÁO Y KHOA';
     if (category == 'DAO_TAO') {
-      categoryLabel = 'MLD ACADEMY & ĐÀO TẠO';
+      categoryLabel = 'ĐÀO TẠO';
     } else if (category == 'DICH_VU' || category == 'TRI_LIEU') {
       categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
     } else if (category == 'KHUYEN_MAI') {
@@ -767,7 +767,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
                           String categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
                           if (category == 'DAO_TAO') {
-                            categoryLabel = 'MLD ACADEMY & ĐÀO TẠO';
+                            categoryLabel = 'ĐÀO TẠO';
                           } else if (category == 'DICH_VU' || category == 'TRI_LIEU') {
                             categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
                           } else if (category == 'KHUYEN_MAI') {
@@ -778,13 +778,17 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             categoryLabel = category;
                           }
 
-                          String ctaText = 'Bấm để xem chi tiết →';
+                                                    String ctaText = 'Bấm để xem chi tiết';
                           if (targetLink.contains('academy') || targetLink.contains('curriculum') || targetLink.contains('enrollment')) {
-                            ctaText = 'Xem khóa đào tạo ngay →';
+                            ctaText = 'Xem khóa đào tạo ngay';
+                          } else if (targetLink.contains('treatment') || targetLink.contains('service')) {
+                            ctaText = 'Khám phá dịch vụ trị liệu';
+                          } else if (targetLink.startsWith('http')) {
+                            ctaText = 'Nhấn để truy cập';
                           } else if (targetLink.contains('treatment') || targetLink.contains('service')) {
                             ctaText = 'Khám phá dịch vụ trị liệu →';
                           } else if (targetLink.startsWith('http')) {
-                            ctaText = 'Truy cập cổng thông tin ↗';
+                            ctaText = 'Nhấn để truy cập';
                           }
 
                           return Padding(
@@ -1119,3 +1123,4 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   );
   }
 }
+

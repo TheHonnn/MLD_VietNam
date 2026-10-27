@@ -358,7 +358,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
               <HelpCircle size={13} />
-              MLD Academy · Ngân hàng câu hỏi trắc nghiệm
+              Học viện MLD · Ngân hàng câu hỏi trắc nghiệm
             </span>
             <span className="text-xs text-[#7F6E60]">
               {isCreate

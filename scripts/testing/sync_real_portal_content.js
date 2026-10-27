@@ -1,4 +1,4 @@
-const path = require('path');
+﻿const path = require('path');
 const { Client } = require(path.join(__dirname, '../../backend/node_modules/pg'));
 require(path.join(__dirname, '../../backend/node_modules/dotenv')).config({ path: path.join(__dirname, '../../backend/.env') });
 
@@ -37,7 +37,7 @@ async function syncRealPortalContent() {
         true,
         0,
         248,
-        'Học viện MLD Academy',
+        'Học viện MLD',
         CURRENT_TIMESTAMP
       ),
       (
@@ -97,7 +97,7 @@ async function syncRealPortalContent() {
         true,
         486,
         152,
-        'Học viện MLD Academy',
+        'Học viện MLD',
         CURRENT_TIMESTAMP
       ),
       (

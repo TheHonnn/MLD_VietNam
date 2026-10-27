@@ -8,7 +8,7 @@ import 'mock_home_repository.dart';
 /// With automatic resilient fallback to MockHomeRepository when offline.
 class ServiceRepository {
   /// Thuế suất VAT toàn hệ thống do Admin thiết lập (8%, 10% hoặc tùy chỉnh)
-  double _systemVatRate = 0.08;
+  double _systemVatRate = 0.0;
   double get systemVatRate => _systemVatRate;
   void updateAdminVatRate(double rate) {
     _systemVatRate = rate;
@@ -22,8 +22,8 @@ class ServiceRepository {
     shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
     fullDescription: 'Dẫn lưu phù bạch huyết chuẩn kỹ thuật Vodder chuyên sâu...',
     durationMinutes: 60,
-    price: 650000,
-    vatRate: 0.08,
+    price: 700000,
+    vatRate: 0.0,
     imageUrl: 'assets/images/logo.webp',
     isFeatured: true,
   );

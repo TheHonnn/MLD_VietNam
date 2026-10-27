@@ -1444,7 +1444,7 @@ export const W03_Customers: React.FC = () => {
             <p className="text-xs text-[#73675F] leading-relaxed mt-4">
               Phân nhóm dữ liệu thực: {selectedCustomer?.fullName || 'Khách hàng'}{' '}
               {isDualRole
-                ? 'đồng thời sử dụng dịch vụ chăm sóc sắc đẹp và ghi danh học nghề tại MLD Academy.'
+                ? 'đồng thời sử dụng dịch vụ chăm sóc sắc đẹp và ghi danh học nghề tại Học viện MLD.'
                 : isStudentOnly
                 ? 'hiện đang theo học các chương trình chuyên môn tại viện đào tạo.'
                 : (selectedCustomer?.totalSpent || 0) > 0

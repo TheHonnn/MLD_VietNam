@@ -3000,7 +3000,7 @@ function RecordDialog({
         }
         if (!payload.bio && values.bio) payload.bio = values.bio;
         if (!payload.bio) {
-          payload.bio = "Chuyên gia đào tạo dẫn lưu bạch huyết chuẩn Dr. Vodder quốc tế tại Học viện MLD Academy.";
+          payload.bio = "Chuyên gia đào tạo dẫn lưu bạch huyết chuẩn Dr. Vodder quốc tế tại Học viện MLD.";
         }
         if (values.achievements !== undefined) {
           payload.achievements = Array.isArray(values.achievements)

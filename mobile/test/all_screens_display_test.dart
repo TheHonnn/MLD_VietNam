@@ -19,7 +19,6 @@ import 'package:medical_healthcare_app/features/academy/presentation/screens/e12
 
 // Screens Home & Navigation
 import 'package:medical_healthcare_app/features/home/presentation/screens/main_layout_screen.dart';
-import 'package:medical_healthcare_app/features/home/presentation/screens/b01_home_screen.dart';
 import 'package:medical_healthcare_app/features/home/presentation/screens/b04_search_screen.dart';
 
 // Screens Auth
@@ -81,7 +80,7 @@ void main() {
     bio: 'Bác sĩ với hơn 12 năm kinh nghiệm trong lĩnh vực Y học cổ truyền và dẫn lưu hệ bạch huyết.',
   );
 
-  final sampleLesson = LessonModel(
+  const sampleLesson = LessonModel(
     id: 'lesson-001',
     title: 'Bài 1: Giới thiệu hệ bạch huyết và nguyên lý Vodder MLD',
     durationMinutes: 15,

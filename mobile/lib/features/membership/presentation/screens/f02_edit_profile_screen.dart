@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../../core/widgets/vietnamese_dob_picker.dart';
@@ -42,7 +43,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
     _occupationController = TextEditingController(text: p.occupation);
     _emergencyNameController = TextEditingController(text: p.emergencyContactName);
     _emergencyPhoneController = TextEditingController(text: p.emergencyContactPhone);
-    _gender = p.gender;
+    _gender = p.gender.isNotEmpty ? p.gender : 'Nữ';
   }
 
   @override
@@ -57,7 +58,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
     super.dispose();
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -66,7 +67,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
       _isLoading = true;
     });
 
-    Future.delayed(const Duration(milliseconds: 500), () {
+    try {
       final updated = _repo.profile.copyWith(
         avatarUrl: _currentAvatarUrl,
         fullName: _fullNameController.text.trim(),
@@ -78,21 +79,34 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
         emergencyContactName: _emergencyNameController.text.trim(),
         emergencyContactPhone: _emergencyPhoneController.text.trim(),
       );
-      _repo.updateProfile(updated);
+      await _repo.updateProfile(updated);
 
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cập nhật thông tin cá nhân thành công!'),
-            backgroundColor: Color(0xFF236B42),
+          SnackBar(
+            content: Text(context.tr('Cập nhật thông tin cá nhân thành công!', 'Profile updated successfully!')),
+            backgroundColor: const Color(0xFF059669),
           ),
         );
         Navigator.pop(context);
       }
-    });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('Đã lưu thông tin vào thiết bị.', 'Saved profile locally.')),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -105,9 +119,9 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
         _currentAvatarUrl = newPath;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã chọn ảnh đại diện mới. Nhấn "Lưu thay đổi" để áp dụng.'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(context.tr('Đã chọn ảnh đại diện mới. Nhấn "Lưu thay đổi" để áp dụng.', 'New avatar selected. Tap "Save changes" to apply.')),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -146,382 +160,293 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
     final p = _repo.profile;
 
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          context.tr('Thông tin cá nhân', 'Personal Information'),
+          style: const TextStyle(
+            fontFamily: 'Montserrat',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: Column(
           children: [
-            // Top Scrollable Form
             Expanded(
               child: Form(
                 key: _formKey,
                 child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // --- 1. HEADER & BACK BUTTON ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        InkWell(
-                          onTap: () => Navigator.pop(context),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border, width: 1.0),
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- 1. AVATAR LỚN & ĐỔI ẢNH ---
+                      Center(
+                        child: Column(
+                          children: [
+                            AppProfileAvatar(
+                              avatarUrl: _currentAvatarUrl,
+                              size: 88,
+                              isEditable: true,
+                              borderWidth: 2,
+                              onEditTap: _pickAvatar,
                             ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                size: 20,
+                            const SizedBox(height: 12),
+                            Text(
+                              p.fullName.isNotEmpty ? p.fullName : context.tr('Học viên MLD', 'MLD Student'),
+                              style: const TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    const Text(
-                      'Thông tin cá nhân',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textHeading, // #693B20
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Quản lý và cập nhật thông tin tài khoản của bạn.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // --- 2. AVATAR LỚN & ĐỔI ẢNH (88x88, r=44) ---
-                    Center(
-                      child: Column(
-                        children: [
-                          AppProfileAvatar(
-                            avatarUrl: _currentAvatarUrl,
-                            size: 88,
-                            isEditable: true,
-                            borderWidth: 2,
-                            onEditTap: _pickAvatar,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            p.fullName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                            const SizedBox(height: 4),
+                            Text(
+                              p.phone.isNotEmpty
+                                  ? '${p.phone} · ${context.tr('Đã xác thực', 'Verified')}'
+                                  : (AuthService.instance.currentPhone ?? context.tr('Chưa cập nhật số điện thoại', 'No phone set')),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${p.phone} · Đã xác thực',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primary, // #985018
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Ảnh và thông tin mẫu · Không lưu thay đổi thực',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // --- 3. BIỂU MẪU HỒ SƠ ---
-                    _buildTextField(
-                      label: 'Họ và tên *',
-                      controller: _fullNameController,
-                      hint: 'Nhập họ và tên',
-                      validator: AppValidators.fullName,
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Số điện thoại đã xác thực (Chỉ đọc, fill #F3E2CE)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Số điện thoại đã xác thực',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textPrimary,
-                          ),
+                          ],
                         ),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final updated = await UpdatePhoneModal.show(context);
-                            if (updated == true && mounted) {
-                              setState(() {});
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            height: 52,
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            alignment: Alignment.centerLeft,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary, // #F3E2CE
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border, width: 1.0),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    (AuthService.instance.currentPhone != null && AuthService.instance.currentPhone!.isNotEmpty)
-                                        ? AuthService.instance.currentPhone!
-                                        : (p.phone.isNotEmpty ? p.phone : 'Chưa cập nhật — Nhấn để thêm'),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
-                                          ? AppColors.textPrimary
-                                          : AppColors.primary,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
-                                      ? Icons.verified_rounded
-                                      : Icons.edit_outlined,
-                                  size: 18,
-                                  color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
-                                      ? const Color(0xFF236B42)
-                                      : AppColors.primary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Số điện thoại tài khoản. Quản lý số liên kết trong phần Cài đặt.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    _buildTextField(
-                      label: 'Email',
-                      controller: _emailController,
-                      hint: 'Chưa cập nhật email (tùy chọn)',
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (val) => AppValidators.email(val, isOptional: true),
-                    ),
-                    const SizedBox(height: 14),
-
-                    _buildTextField(
-                      label: 'Ngày sinh',
-                      controller: _dobController,
-                      hint: 'Chọn ngày sinh (Năm / Tháng / Ngày)',
-                      readOnly: true,
-                      onTap: _pickDob,
-                      suffixIcon: const Icon(Icons.calendar_month_rounded, size: 20, color: AppColors.primary),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Giới tính (Dropdown)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Giới tính',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          height: 52,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border, width: 1.0),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _gender,
-                              isExpanded: true,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
-                              items: const [
-                                DropdownMenuItem(value: 'Nữ', child: Text('Nữ')),
-                                DropdownMenuItem(value: 'Nam', child: Text('Nam')),
-                                DropdownMenuItem(value: 'Khác', child: Text('Khác')),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) setState(() => _gender = val);
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    _buildTextField(
-                      label: 'Địa chỉ liên hệ',
-                      controller: _addressController,
-                      hint: 'Chưa cập nhật địa chỉ liên hệ',
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 14),
-
-                    _buildTextField(
-                      label: 'Nghề nghiệp (không bắt buộc)',
-                      controller: _occupationController,
-                      hint: 'Chưa cập nhật nghề nghiệp',
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // --- 4. THÔNG TIN LIÊN HỆ KHẨN CẤP ---
-                    const Text(
-                      'Thông tin liên hệ',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textHeading,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Liên hệ khẩn cấp · Không bắt buộc',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
+
+                      const SizedBox(height: 24),
+
+                      // --- 2. BIỂU MẪU HỒ SƠ ---
+                      _buildTextField(
+                        label: '${context.tr('Họ và tên', 'Full Name')} *',
+                        controller: _fullNameController,
+                        hint: context.tr('Nhập họ và tên', 'Enter full name'),
+                        validator: AppValidators.fullName,
                       ),
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 14),
 
-                    _buildTextField(
-                      label: 'Tên người liên hệ',
-                      controller: _emergencyNameController,
-                      hint: 'Nhập tên người liên hệ',
-                    ),
-                    const SizedBox(height: 14),
-
-                    _buildTextField(
-                      label: 'Số điện thoại người liên hệ',
-                      controller: _emergencyPhoneController,
-                      hint: 'Nhập số điện thoại',
-                      keyboardType: TextInputType.phone,
-                      validator: (val) => val == null || val.trim().isEmpty ? null : AppValidators.phone(val),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Bạn có thể để trống và bổ sung khi cần.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // --- 5. THẺ THÔNG TIN QUYỀN RIÊNG TƯ (#F3E2CE, r=20) ---
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceSecondary, // #F3E2CE
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border, width: 1.0),
-                      ),
-                      child: const Column(
+                      // Số điện thoại (Chỉ đọc)
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Quyền riêng tư',
-                            style: TextStyle(
-                              fontSize: 18,
+                            context.tr('Số điện thoại tài khoản', 'Account Phone Number'),
+                            style: const TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textHeading,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Thông tin được dùng để hỗ trợ liên hệ, đặt lịch và chăm sóc khách hàng tốt hơn.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                              height: 1.45,
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          SizedBox(height: 6),
-                          Text(
-                            'Bạn chủ động cập nhật thông tin tùy chọn và quản lý quyền bảo mật trong phần Cài đặt.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                              height: 1.45,
-                              color: AppColors.textPrimary,
+                          const SizedBox(height: 6),
+                          InkWell(
+                            onTap: () async {
+                              final updated = await UpdatePhoneModal.show(context);
+                              if (updated == true && mounted) {
+                                setState(() {});
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              height: 52,
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              alignment: Alignment.centerLeft,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.border, width: 1.0),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      (AuthService.instance.currentPhone != null && AuthService.instance.currentPhone!.isNotEmpty)
+                                          ? AuthService.instance.currentPhone!
+                                          : (p.phone.isNotEmpty ? p.phone : context.tr('Chưa cập nhật — Nhấn để thêm', 'Not set — Tap to add')),
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
+                                            ? AppColors.textPrimary
+                                            : AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
+                                        ? Icons.verified_rounded
+                                        : Icons.edit_outlined,
+                                    size: 18,
+                                    color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
+                                        ? const Color(0xFF059669)
+                                        : AppColors.primary,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
 
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
-                    const Center(
-                      child: Text(
-                        'Thông tin liên hệ của bạn',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textSecondary,
+                      _buildTextField(
+                        label: 'Email',
+                        controller: _emailController,
+                        hint: context.tr('Chưa cập nhật email (tùy chọn)', 'Enter email (optional)'),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (val) => AppValidators.email(val, isOptional: true),
+                      ),
+                      const SizedBox(height: 14),
+
+                      _buildTextField(
+                        label: context.tr('Ngày sinh', 'Date of Birth'),
+                        controller: _dobController,
+                        hint: context.tr('Chọn ngày sinh (Ngày/Tháng/Năm)', 'Select date of birth (DD/MM/YYYY)'),
+                        readOnly: true,
+                        onTap: _pickDob,
+                        suffixIcon: const Icon(Icons.calendar_month_rounded, size: 20, color: AppColors.primary),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Giới tính (Dropdown)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.tr('Giới tính', 'Gender'),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            height: 52,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border, width: 1.0),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _gender,
+                                isExpanded: true,
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+                                items: [
+                                  DropdownMenuItem(value: 'Nữ', child: Text(context.tr('Nữ', 'Female'))),
+                                  DropdownMenuItem(value: 'Nam', child: Text(context.tr('Nam', 'Male'))),
+                                  DropdownMenuItem(value: 'Khác', child: Text(context.tr('Khác', 'Other'))),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _gender = val);
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      _buildTextField(
+                        label: context.tr('Địa chỉ liên hệ', 'Address'),
+                        controller: _addressController,
+                        hint: context.tr('Chưa cập nhật địa chỉ liên hệ', 'Enter address'),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 14),
+
+                      _buildTextField(
+                        label: context.tr('Nghề nghiệp (không bắt buộc)', 'Occupation (optional)'),
+                        controller: _occupationController,
+                        hint: context.tr('Chưa cập nhật nghề nghiệp', 'Enter occupation'),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // --- 3. THÔNG TIN LIÊN HỆ KHẨN CẤP ---
+                      Text(
+                        context.tr('Liên hệ khẩn cấp', 'Emergency Contact'),
+                        style: const TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 12),
 
-                    const SizedBox(height: 20),
-                  ],
+                      _buildTextField(
+                        label: context.tr('Tên người liên hệ', 'Contact Name'),
+                        controller: _emergencyNameController,
+                        hint: context.tr('Nhập tên người liên hệ', 'Enter contact name'),
+                      ),
+                      const SizedBox(height: 14),
+
+                      _buildTextField(
+                        label: context.tr('Số điện thoại người liên hệ', 'Contact Phone'),
+                        controller: _emergencyPhoneController,
+                        hint: context.tr('Nhập số điện thoại', 'Enter phone number'),
+                        keyboardType: TextInputType.phone,
+                        validator: (val) => val == null || val.trim().isEmpty ? null : AppValidators.phone(val),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // --- 4. THẺ BẢO MẬT & QUYỀN RIÊNG TƯ ---
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border, width: 1.0),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.shield_outlined, size: 20, color: AppColors.primary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                context.tr(
+                                  'Thông tin cá nhân của bạn được bảo mật tuyệt đối theo tiêu chuẩn mã hóa và bảo vệ dữ liệu y khoa của MLD Vietnam.',
+                                  'Your personal information is securely encrypted and protected in accordance with MLD Vietnam medical data standards.',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.45,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
-            ),
 
-            // --- 6. HÀNH ĐỘNG CỐ ĐỊNH (Bottom bar, 350x56 button #985018, r=14) ---
+            // --- 5. NÚT LƯU THAY ĐỔI DƯỚI CÙNG ---
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
@@ -532,31 +457,32 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
               ),
               child: SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary, // #985018
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   onPressed: _isLoading ? null : _handleSave,
                   child: _isLoading
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
+                          width: 22,
+                          height: 22,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
+                            strokeWidth: 2.2,
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          'Lưu thay đổi',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                      : Text(
+                          context.tr('Lưu thay đổi', 'Save Changes'),
+                          style: const TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                 ),
@@ -586,7 +512,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
           label,
           style: const TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
           ),
         ),
@@ -606,15 +532,15 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
             readOnly: readOnly,
             onTap: onTap,
             style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w500,
               color: AppColors.textPrimary,
             ),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(
-                fontSize: 15,
-                color: AppColors.textSecondary,
+                fontSize: 14,
+                color: AppColors.textPlaceholder,
               ),
               suffixIcon: suffixIcon,
               border: InputBorder.none,
@@ -622,7 +548,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
               focusedBorder: InputBorder.none,
               errorBorder: InputBorder.none,
               disabledBorder: InputBorder.none,
-              errorStyle: const TextStyle(fontSize: 12),
+              errorStyle: const TextStyle(fontSize: 11.5),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
             ),

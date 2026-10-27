@@ -32,9 +32,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(tomorrowStr);
 
-  // Time Slots
-  const timeSlots = ['09:00', '10:30', '14:00', '15:30', '17:00', '18:30'];
-  const [selectedSlot, setSelectedSlot] = useState<string>('09:00');
+  
 
   // Customer form
   const [customerName, setCustomerName] = useState<string>(currentUser.fullName || 'Khách hàng MLD');
@@ -46,10 +44,8 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const [confirmedBooking, setConfirmedBooking] = useState<Appointment | null>(null);
 
   // Pricing calculations
-  const price = selectedService?.price || 650000;
-  const vatRate = selectedService?.vatRate || 0.08;
-  const vatAmount = price * vatRate;
-  const totalAmount = price + vatAmount;
+  const price = selectedService?.price || 700000;
+  const totalAmount = price;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +70,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       specialistTitle: 'Chuyên viên Vodder tự động phân bổ',
       specialistAvatar: 'https://images.unsplash.com/photo-1594824813633-4f90bf4a8585',
       appointmentDate: selectedDate,
-      timeSlot: `${selectedSlot} - ${selectedSlot.split(':')[0]}:45`,
+      timeSlot: 'Trong ngày',
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       specialNotes: note.trim(),
@@ -247,11 +243,6 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
             <span>{price.toLocaleString('vi-VN')}đ</span>
           </div>
 
-          <div className="flex justify-between text-xs text-gray-600">
-            <span>Thuế VAT ({vatRate * 100}%):</span>
-            <span>{vatAmount.toLocaleString('vi-VN')}đ</span>
-          </div>
-
           <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-2 border-t border-gray-100">
             <span>Tổng thanh toán:</span>
             <span className="text-emerald-700">{totalAmount.toLocaleString('vi-VN')}đ</span>
@@ -285,7 +276,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               <h3 className="text-lg font-extrabold text-gray-900">Đặt lịch thành công!</h3>
               <p className="text-xs text-gray-500 mt-1">
                 Lịch hẹn ({confirmedBooking.bookingCode}) tại {confirmedBooking.branchName} vào lúc{' '}
-                {confirmedBooking.timeSlot} ngày {confirmedBooking.appointmentDate} đã được ghi nhận.
+                ngày {confirmedBooking.appointmentDate} đã được ghi nhận.
               </p>
             </div>
 

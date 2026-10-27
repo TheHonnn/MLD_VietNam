@@ -1,4 +1,4 @@
-import {
+﻿import {
   Branch,
   SpaService,
   Specialist,
@@ -28,7 +28,7 @@ export const DEFAULT_BRANCHES: Branch[] = [
     id: 'aaaaaaaa-0001-0001-0001-000000000001',
     name: 'Trụ sở MLD Việt Nam (5 Master LV3)',
     phone: '096.7786.399',
-    address: 'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu, Quận 3',
+    address: 'Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội, Phường Khương Đình, Thành phố Hà Nội',
     city: 'TP. Hồ Chí Minh',
     district: 'Quận 3',
     distanceKm: '0.0',
@@ -39,7 +39,7 @@ export const DEFAULT_BRANCHES: Branch[] = [
   },
   {
     id: 'bbbbbbbb-0002-0002-0002-000000000002',
-    name: 'Chi nhánh Hà Nội - MLD Academy',
+    name: 'Chi nhánh Hà Nội - MLD',
     phone: '096.7786.399',
     address: 'Tòa nhà Charmvit, 117 Trần Duy Hưng, Cầu Giấy',
     city: 'Hà Nội',
@@ -60,7 +60,7 @@ export const DEFAULT_CORE_SERVICE: SpaService = {
   shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
   fullDescription: 'Ứng dụng kỹ thuật Vodder MLD nhẹ nhàng kích hoạt hệ mao mạch bạch huyết dưới bề mặt da, hỗ trợ giải phóng dịch ứ đọng, tăng cường miễn dịch và thải độc tế bào.',
   durationMinutes: 60,
-  price: 650000,
+  price: 700000,
   vatRate: 0.08,
   imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef',
   isFeatured: true,
@@ -84,7 +84,7 @@ export const DEFAULT_SPECIALISTS: Specialist[] = [
     avatarUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2',
     branchName: 'Chi nhánh Cầu Giấy - Hà Nội',
     experienceYears: 7,
-    bio: 'Giảng viên thực hành MLD Academy, trên 7 năm kinh nghiệm dẫn lưu giải độc hệ bạch huyết.',
+    bio: 'Giảng viên thực hành MLD, trên 7 năm kinh nghiệm dẫn lưu giải độc hệ bạch huyết.',
   },
 ];
 
@@ -595,7 +595,7 @@ export const SupabaseDataService = {
     try {
       const raw = localStorage.getItem('mld_appointments');
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch { }
     return [];
   },
 
@@ -646,7 +646,7 @@ export const SupabaseDataService = {
         }
         return allKeys;
       }
-    } catch {}
+    } catch { }
     return [];
   },
 
@@ -655,7 +655,7 @@ export const SupabaseDataService = {
     let list: string[] = [];
     try {
       if (raw) list = JSON.parse(raw);
-    } catch {}
+    } catch { }
     const key = `${courseId}_${lessonId}`;
     if (!list.includes(key)) {
       list.push(key);
@@ -678,7 +678,7 @@ export const SupabaseDataService = {
     try {
       const raw = localStorage.getItem('mld_enrolled_courses');
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch { }
     return ['30303030-0001-0001-0001-000000000001']; // Mở khóa Khóa 1 (Level 0) để trải nghiệm
   },
 
@@ -699,7 +699,7 @@ export const SupabaseDataService = {
     try {
       const raw = localStorage.getItem('mld_user_profile');
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch { }
     return {
       id: 'usr-001',
       fullName: 'Khách hàng MLD',

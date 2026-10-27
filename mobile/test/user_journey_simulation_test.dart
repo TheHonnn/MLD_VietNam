@@ -159,9 +159,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Chưa học bài nào: Hiển thị 0 bài hoàn thành và bài kiểm tra bị khóa
+      // Chưa học bài nào
       expect(find.text(testCourse.title), findsOneWidget);
-      expect(find.text('Phần kiểm tra đánh giá khóa học'), findsOneWidget);
 
       // Đánh dấu hoàn thành toàn bộ bài học của khóa
       const chapters = MockAcademyData.syllabusChapters;
@@ -179,14 +178,10 @@ void main() {
 
       // 1. Thông báo banner chúc mừng hoàn thành xuất hiện
       expect(find.text('Đã hoàn thành tất cả video!'), findsOneWidget);
-      expect(find.textContaining('Hãy làm bài kiểm tra để hoàn tất chứng chỉ'), findsOneWidget);
+      expect(find.textContaining('bài giảng video của khóa học'), findsOneWidget);
 
-      // 2. Bài kiểm tra chuyển sang trạng thái ĐÃ MỞ KHÓA
-      expect(find.text('Phần kiểm tra đánh giá khóa học'), findsOneWidget);
-      expect(find.text('Làm bài'), findsWidgets);
-
-      // 3. Thanh nút cố định dưới màn hình đổi thành nút làm bài kiểm tra
-      expect(find.text('Làm bài kiểm tra đánh giá'), findsOneWidget);
+      // 2. Thanh nút cố định dưới màn hình đổi thành thông báo hoàn thành
+      expect(find.text('Đã hoàn thành khóa học'), findsOneWidget);
       expect(find.text('Đã hoàn thành 100% video bài giảng ✓'), findsOneWidget);
     });
   });

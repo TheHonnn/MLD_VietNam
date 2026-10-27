@@ -273,7 +273,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
           return "";
         };
 
-        const parsed: ParsedExcelQuestion[] = rawRows.map((rowObj, index) => {
+        const parsed: ParsedExcelQuestion[] = rawRows.map((rowObj: Record<string, any>, index: number) => {
           const qNum =
             Number(findVal(rowObj, ["stt", "số tt", "no", "number", "câu số"])) ||
             index + 1;
