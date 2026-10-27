@@ -23,7 +23,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { academyService, staffService, StaffWithProfile } from '../services';
-import { Course, CourseBatch, BatchStatus } from '../types/shared_types';
+import { Course, CourseBatch, BatchStatus, CourseLesson } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 interface PracticalSession {
@@ -149,18 +149,21 @@ export const W11_Curriculum: React.FC = () => {
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
   const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
+  const [liveLessons, setLiveLessons] = useState<CourseLesson[]>([]);
 
   useEffect(() => {
     const fetchCurriculum = async () => {
       try {
-        const [crsRes, batRes, instRes] = await Promise.all([
+        const [crsRes, batRes, instRes, lesRes] = await Promise.all([
           academyService.getCourses(),
           academyService.getCourseBatches(),
           staffService.getInstructors(),
+          academyService.getCourseLessons(),
         ]);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
         if (instRes.success) setInstructors(instRes.data);
+        if (lesRes.success) setLiveLessons(lesRes.data);
       } catch (err) {
         console.error('Failed to load curriculum data:', err);
       }
@@ -218,6 +221,13 @@ export const W11_Curriculum: React.FC = () => {
       const dateLabel = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateKey;
       const timeRange = bat.scheduleText?.includes('13:00') ? '13:00–17:00' : '08:30–11:30';
 
+      const matchedLesson =
+        liveLessons.find((l) => (l as any).chapter?.courseId === bat.courseId) ||
+        liveLessons[idx % (liveLessons.length || 1)];
+
+      const videoTopic = matchedLesson?.title || `Thực hành kỹ thuật chuyên sâu - ${bat.batchCode}`;
+      const videoDuration = matchedLesson?.durationMinutes ? `${matchedLesson.durationMinutes} phút` : '25 phút';
+
       return {
         id: `ps-${bat.id}`,
         room,
@@ -228,14 +238,14 @@ export const W11_Curriculum: React.FC = () => {
         instructorName: inst?.fullName || 'Nguyễn Thảo Ngọc',
         className: `${bat.batchCode} · ${room}`,
         status: (bat.status as any) === 'IN_PROGRESS' ? 'Đang diễn ra' : (bat.status as any) === 'UPCOMING' ? 'Sắp diễn ra' : 'Chưa diễn ra',
-        videoTopic: `Thực hành kỹ thuật chuyên sâu - ${bat.batchCode}`,
-        videoDuration: '25 phút',
+        videoTopic,
+        videoDuration,
         practiceDuration: '150 phút',
         prepTime: timeRange.startsWith('13:00') ? '12:45–13:00' : '08:15–08:30',
         note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học theo chuẩn học viện MLD.',
       };
     });
-  }, [liveBatches, liveCourses, instructors]);
+  }, [liveBatches, liveCourses, instructors, liveLessons]);
 
   // Timetable State & Filters
   const [selectedDate, setSelectedDate] = useState<string>(() => {
