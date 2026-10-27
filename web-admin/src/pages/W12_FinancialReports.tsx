@@ -13,6 +13,7 @@ import {
   Download,
 } from 'lucide-react';
 import { posService, academyService, bookingService, branchService } from '../services';
+import * as XLSX from 'xlsx';
 import {
   Invoice,
   TuitionTransaction,
@@ -402,89 +403,68 @@ export const W12_FinancialReports: React.FC = () => {
       }));
 
       if (exportFormat === 'excel') {
-        const tableHeader = `
-          <tr style="background-color: #8A4F23; color: #ffffff; font-weight: bold; text-align: center;">
-            <th style="border: 1px solid #cccccc; padding: 10px;">STT</th>
-            <th style="border: 1px solid #cccccc; padding: 10px;">Mã chứng từ / Hóa đơn</th>
-            <th style="border: 1px solid #cccccc; padding: 10px;">Ngày ghi nhận</th>
-            <th style="border: 1px solid #cccccc; padding: 10px;">Nội dung quyết toán</th>
-            <th style="border: 1px solid #cccccc; padding: 10px;">Phân loại</th>
-            <th style="border: 1px solid #cccccc; padding: 10px;">Hình thức thanh toán</th>
-            <th style="border: 1px solid #cccccc; padding: 10px;">Số tiền thực thu (VNĐ)</th>
-            <th style="border: 1px solid #cccccc; padding: 10px;">Trạng thái</th>
-          </tr>`;
+        const exportData = filteredInvoices.map((inv, idx) => ({
+          'STT': idx + 1,
+          'Mã chứng từ / Hóa đơn': inv.code,
+          'Ngày ghi nhận': inv.date,
+          'Nội dung quyết toán': inv.description,
+          'Phân loại':
+            inv.category === 'service'
+              ? 'Dịch vụ Spa'
+              : inv.category === 'package'
+              ? 'Gói liệu trình'
+              : 'Học phí học viện',
+          'Hình thức thanh toán': inv.method,
+          'Số tiền thực thu (VNĐ)': inv.amountNumber,
+          'Trạng thái': inv.statusText,
+        }));
 
-        const tableBody = rows
-          .map(
-            (r) => `
-          <tr>
-            <td style="border: 1px solid #cccccc; padding: 8px; text-align: center;">${r.stt}</td>
-            <td style="border: 1px solid #cccccc; padding: 8px; font-weight: bold;">${r.code}</td>
-            <td style="border: 1px solid #cccccc; padding: 8px; text-align: center;">${r.date}</td>
-            <td style="border: 1px solid #cccccc; padding: 8px;">${r.description}</td>
-            <td style="border: 1px solid #cccccc; padding: 8px;">${r.category}</td>
-            <td style="border: 1px solid #cccccc; padding: 8px;">${r.method}</td>
-            <td style="border: 1px solid #cccccc; padding: 8px; text-align: right; font-weight: bold;">${r.amount.toLocaleString('vi-VN')}</td>
-            <td style="border: 1px solid #cccccc; padding: 8px; text-align: center; color: #166534;">${r.status}</td>
-          </tr>`
-          )
-          .join('');
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
 
-        const excelTemplate = `
-          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-          <head>
-            <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
-          </head>
-          <body>
-            <h2>BÁO CÁO DOANH THU & ĐỐI SOÁT TÀI CHÍNH - MLD VIETNAM</h2>
-            <p>Khoảng thời gian: ${dateRange} | Xuất lúc: ${new Date().toLocaleString('vi-VN')}</p>
-            <table style="border-collapse: collapse; width: 100%;">
-              <thead>${tableHeader}</thead>
-              <tbody>${tableBody}</tbody>
-            </table>
-          </body>
-          </html>`;
+        // Đặt độ rộng cột tối ưu cho file Excel
+        ws['!cols'] = [
+          { wch: 6 },
+          { wch: 24 },
+          { wch: 15 },
+          { wch: 40 },
+          { wch: 18 },
+          { wch: 22 },
+          { wch: 24 },
+          { wch: 16 },
+        ];
 
-        const blob = new Blob(['\uFEFF' + excelTemplate], {
-          type: 'application/vnd.ms-excel;charset=utf-8;',
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `MLD_BaoCaoDoanhThu_${fileDateStr}.xls`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        XLSX.utils.book_append_sheet(wb, ws, 'DoanhThu');
+        XLSX.writeFile(wb, `Bao_Cao_Doanh_Thu_MLD_${fileDateStr}.xlsx`);
       } else {
         const headers = [
           'STT',
-          'Mã hóa đơn',
+          'Mã chứng từ / Hóa đơn',
           'Ngày ghi nhận',
-          'Nội dung',
+          'Nội dung quyết toán',
           'Phân loại',
-          'Hình thức',
-          'Số tiền (VNĐ)',
+          'Hình thức thanh toán',
+          'Số tiền thực thu (VNĐ)',
           'Trạng thái',
         ];
-        const csvRows = rows.map((r) => [
-          r.stt,
-          `"${r.code}"`,
-          `"${r.date}"`,
-          `"${r.description.replace(/"/g, '""')}"`,
-          `"${r.category}"`,
-          `"${r.method}"`,
-          r.amount,
-          `"${r.status}"`,
+        const csvRows = filteredInvoices.map((inv, idx) => [
+          idx + 1,
+          `"${inv.code}"`,
+          `"${inv.date}"`,
+          `"${(inv.description || '').replace(/"/g, '""')}"`,
+          `"${inv.category === 'service' ? 'Dịch vụ Spa' : inv.category === 'package' ? 'Gói liệu trình' : 'Học phí học viện'}"`,
+          `"${inv.method}"`,
+          inv.amountNumber,
+          `"${inv.statusText}"`,
         ]);
         const csvContent =
-          '\uFEFFsep=,\n' +
-          [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n');
+          '\uFEFF' +
+          [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\r\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `MLD_BaoCaoDoanhThu_${fileDateStr}.csv`);
+        link.setAttribute('download', `Bao_Cao_Doanh_Thu_MLD_${fileDateStr}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1039,7 +1019,7 @@ export const W12_FinancialReports: React.FC = () => {
                       onChange={() => setExportFormat('excel')}
                       className="accent-[#8D4B1A]"
                     />
-                    <span className="font-semibold text-[#2C241E]">Bảng tính Excel (.xls)</span>
+                    <span className="font-semibold text-[#2C241E]">Bảng tính Excel (.xlsx)</span>
                   </label>
                   <label
                     onClick={() => setExportFormat('csv')}

@@ -21,12 +21,37 @@ import {
   ArrowRight,
   ExternalLink,
   AlertCircle,
-  Plus,
   FileText,
+  Download,
+  GraduationCap,
+  Plus,
 } from 'lucide-react';
-import { posService, bookingService, customerService, notificationService, supabaseService, branchService, treatmentService } from '../services';
+import { exportElementToPdf } from '../utils/pdfExport';
+import {
+  posService,
+  bookingService,
+  customerService,
+  notificationService,
+  supabaseService,
+  branchService,
+  treatmentService,
+  academyService,
+  commissionService,
+} from '../services';
 import { toast } from '../components/common';
-import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus, Branch, CashierShift } from '../types/shared_types';
+import {
+  Invoice,
+  Booking,
+  User,
+  PaymentMethod,
+  PaymentStatus,
+  BookingStatus,
+  Branch,
+  CashierShift,
+  CourseEnrollment,
+  StudentAdmissionStatus,
+  EnrollmentStatus,
+} from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { useAdmin } from '../admin/Auth';
 
@@ -105,6 +130,12 @@ export const W07_CashierPOS: React.FC = () => {
       window.removeEventListener('mld_branches_updated' as any, handleBranchesUpdated);
     };
   }, []);
+
+  // POS Mode: 'spa' (Dịch vụ Spa & Gói) hoặc 'tuition' (Học phí Học viện)
+  const [posMode, setPosMode] = useState<'spa' | 'tuition'>('spa');
+  const [allEnrollments, setAllEnrollments] = useState<CourseEnrollment[]>([]);
+  const [selectedEnrollment, setSelectedEnrollment] = useState<CourseEnrollment | undefined>(undefined);
+  const [tuitionPaymentAmount, setTuitionPaymentAmount] = useState<number>(0);
 
   const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>('onsite');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -193,19 +224,21 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
-      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes] = await Promise.all([
+      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes] = await Promise.all([
         posService.getInvoices(),
         bookingService.getBookings(),
         customerService.getCustomers(),
         branchService.getAllBranches(),
         treatmentService.getTreatmentPackages(),
         posService.getActiveShift(selectedBranchId !== 'ALL' ? selectedBranchId : undefined),
+        academyService.getEnrollments(),
       ]);
       if (invRes.success) setInvoices(invRes.data);
       if (brRes.success && brRes.data) setBranches(brRes.data);
       if (custRes.success && custRes.data) setAllCustomers(custRes.data);
       if (pkgRes.success && pkgRes.data) setTreatmentPackages(pkgRes.data);
       if (shiftRes.success && shiftRes.data) setCurrentShift(shiftRes.data);
+      if (enrRes.success && enrRes.data) setAllEnrollments(enrRes.data);
       
       const bks = bkRes.success ? bkRes.data : [];
       setAllBookings(bks);
@@ -352,6 +385,57 @@ export const W07_CashierPOS: React.FC = () => {
     }
   };
 
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+
+  const handleDownloadReceiptPdf = async () => {
+    const el = document.getElementById('pos-receipt-card');
+    if (!el) {
+      toast.error('Lỗi', 'Không tìm thấy thông tin biên lai để xuất PDF.');
+      return;
+    }
+    const code = selectedReceiptData?.id || booking?.bookingCode || 'HOA_DON_POS';
+    try {
+      setIsExportingPdf(true);
+      await exportElementToPdf(el, {
+        fileName: `HoaDon_MLD_${code}`,
+        orientation: 'portrait',
+        format: 'a5',
+        scale: 2.5,
+      });
+      toast.success('Xuất file thành công', `Đã tải về hóa đơn điện tử HoaDon_MLD_${code}.pdf`);
+    } catch (err) {
+      console.error('Lỗi xuất hóa đơn PDF:', err);
+      toast.error('Lỗi xuất PDF', 'Không thể tạo file PDF hóa đơn.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleSearchEnrollment = (queryStr: string) => {
+    setSearchTerm(queryStr);
+    if (!queryStr.trim()) {
+      setSelectedEnrollment(undefined);
+      setTuitionPaymentAmount(0);
+      setIsPaid(false);
+      return;
+    }
+    const found = allEnrollments.find((e) =>
+      matchSearch([e.studentName, e.studentPhone, e.orderCode, e.courseTitle, e.batchCode, e.approvalNotes], queryStr)
+    );
+    if (found) {
+      setSelectedEnrollment(found);
+      const total = found.tuitionTotal || 9000000;
+      const paid = found.amountPaid || 0;
+      const balance = Math.max(0, total - paid);
+      setTuitionPaymentAmount(balance > 0 ? balance : total);
+      setIsPaid(found.approvalStatus === 'APPROVED' && paid >= total);
+    } else {
+      setSelectedEnrollment(undefined);
+      setTuitionPaymentAmount(0);
+      setIsPaid(false);
+    }
+  };
+
   const handleSearchBooking = (queryStr: string) => {
     setSearchTerm(queryStr);
     if (!queryStr.trim()) {
@@ -378,12 +462,38 @@ export const W07_CashierPOS: React.FC = () => {
 
   const handleLookupClick = () => {
     if (!searchTerm.trim()) {
-      setBooking(undefined);
-      setCustomer(undefined);
-      setIsPaid(false);
-      toast.info('Tra cứu đơn dịch vụ', 'Vui lòng nhập mã đơn hoặc tên khách hàng để tìm kiếm.');
+      if (posMode === 'tuition') {
+        setSelectedEnrollment(undefined);
+        setTuitionPaymentAmount(0);
+        setIsPaid(false);
+        toast.info('Tra cứu hồ sơ học viên', 'Vui lòng nhập tên học viên, SĐT hoặc mã học viên để tìm kiếm.');
+      } else {
+        setBooking(undefined);
+        setCustomer(undefined);
+        setIsPaid(false);
+        toast.info('Tra cứu đơn dịch vụ', 'Vui lòng nhập mã đơn hoặc tên khách hàng để tìm kiếm.');
+      }
       return;
     }
+
+    if (posMode === 'tuition') {
+      const found = allEnrollments.find((e) =>
+        matchSearch([e.studentName, e.studentPhone, e.orderCode, e.courseTitle, e.batchCode, e.approvalNotes], searchTerm)
+      );
+      if (found) {
+        setSelectedEnrollment(found);
+        const total = found.tuitionTotal || 9000000;
+        const paid = found.amountPaid || 0;
+        const balance = Math.max(0, total - paid);
+        setTuitionPaymentAmount(balance > 0 ? balance : total);
+        setIsPaid(found.approvalStatus === 'APPROVED' && paid >= total);
+        toast.success('Tìm thấy học viên', `Đã chọn hồ sơ: ${found.studentName} - Khóa ${found.courseTitle || ''}.`);
+      } else {
+        toast.warning('Không tìm thấy', `Không tìm thấy hồ sơ học viên khớp với từ khóa "${searchTerm}".`);
+      }
+      return;
+    }
+
     const found = allBookings.find((b) =>
       matchSearch([b.bookingCode, b.customer?.fullName, b.customer?.phone, b.bookedForName], searchTerm)
     );
@@ -426,6 +536,179 @@ export const W07_CashierPOS: React.FC = () => {
   const customerPhone = customer?.phone || booking?.customer?.phone || booking?.bookedForPhone || (booking ? '--' : 'Chưa có SĐT');
 
   const handleProcessPayment = async () => {
+    // -------------------------------------------------------------
+    // LUỒNG 1: QUYẾT TOÁN HỌC PHÍ HỌC VIỆN TẠI QUẦY
+    // -------------------------------------------------------------
+    if (posMode === 'tuition') {
+      if (!selectedEnrollment) {
+        toast.error('Lỗi', 'Chưa chọn hồ sơ học viên để thanh toán học phí.');
+        return;
+      }
+      setIsProcessing(true);
+      try {
+        const paymentMethodEnum =
+          selectedMethod === 'onsite'
+            ? PaymentMethod.CASH_AT_SPA
+            : selectedMethod === 'online'
+            ? PaymentMethod.MOMO
+            : PaymentMethod.BANK_TRANSFER;
+
+        const amount = tuitionPaymentAmount || Math.max(0, (selectedEnrollment.tuitionTotal || 9000000) - (selectedEnrollment.amountPaid || 0));
+        const formattedAmount = `${amount.toLocaleString('vi-VN')}đ`;
+        const datePart = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+        const randPart = Math.floor(1000 + Math.random() * 9000);
+        const generatedInvoiceCode = `HD-HP-${datePart}-${randPart}`;
+
+        const validCustomerId = isUuid(selectedEnrollment.studentId) ? selectedEnrollment.studentId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e';
+        const validBranchId = isUuid(selectedEnrollment.batchId) ? selectedEnrollment.batchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+
+        // 1. Tạo hóa đơn học phí trên Supabase Cloud
+        const resInvoice = await posService.createInvoice({
+          invoiceCode: generatedInvoiceCode,
+          branchId: validBranchId,
+          customerId: validCustomerId,
+          cashierId: adminUser?.id || undefined,
+          enrollmentId: isUuid(selectedEnrollment.id) ? selectedEnrollment.id : undefined,
+          shiftId: currentShift?.id || null,
+          subtotal: amount,
+          discountAmount: 0,
+          pointsRedeemedAmount: 0,
+          preTaxAmount: amount,
+          vatRate: 0,
+          vatAmount: 0,
+          totalAmount: amount,
+          paymentMethod: paymentMethodEnum,
+          paymentStatus: PaymentStatus.PAID,
+          paidAt: new Date().toISOString(),
+        });
+
+        // 2. Cập nhật doanh thu ca thu ngân hiện tại
+        if (currentShift) {
+          const isCash = selectedMethod === 'onsite';
+          const isTransfer = selectedMethod === 'transfer' || selectedMethod === 'online';
+          const updatedShift = {
+            ...currentShift,
+            totalSales: (currentShift.totalSales || 0) + amount,
+            systemCash: (currentShift.systemCash || currentShift.openingCash) + (isCash ? amount : 0),
+            transferSales: (currentShift.transferSales || 0) + (isTransfer ? amount : 0),
+          };
+          setCurrentShift(updatedShift);
+          localStorage.setItem('mld_current_shift', JSON.stringify(updatedShift));
+        }
+
+        // 3. Ghi nhận giao dịch học phí vào bảng tuition_transactions
+        await academyService.recordTuitionPayment({
+          transactionCode: `TT-POS-${Date.now().toString().slice(-6)}`,
+          enrollmentId: selectedEnrollment.id,
+          studentId: validCustomerId,
+          courseId: selectedEnrollment.courseId,
+          branchId: validBranchId,
+          cashierId: adminUser?.id || undefined,
+          amount,
+          paymentMethod: paymentMethodEnum,
+          paymentStatus: PaymentStatus.PAID,
+          notes: `Thu ngân quyết toán học phí tại quầy cho học viên ${selectedEnrollment.studentName || ''} (${generatedInvoiceCode})`,
+        });
+
+        // 4. Cập nhật hồ sơ học viên sang đã duyệt & đóng học phí
+        const newPaid = (selectedEnrollment.amountPaid || 0) + amount;
+        await supabaseService.updateEnrollment(selectedEnrollment.id, {
+          amountPaid: newPaid,
+          approvalStatus: 'APPROVED',
+          studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
+          status: EnrollmentStatus.ENROLLED,
+          approvedBy: adminUser?.id || 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+          approvedAt: new Date().toISOString(),
+          approvalNotes: `Thu ngân đã thu ${formattedAmount} tại quầy POS (${generatedInvoiceCode})`,
+        });
+
+        // 5. Tự động trích hoa hồng tư vấn tuyển sinh (5%) nếu có nhân viên tư vấn phụ trách
+        if (selectedEnrollment.assignedStaffId && isUuid(selectedEnrollment.assignedStaffId)) {
+          try {
+            await commissionService.createCommission({
+              staffId: selectedEnrollment.assignedStaffId,
+              branchId: validBranchId,
+              invoiceId: generatedInvoiceCode,
+              commissionType: 'PACKAGE_UPSELL',
+              baseAmount: amount,
+              percentage: 5,
+              notes: `Hoa hồng 5% tư vấn tuyển sinh khóa học ${selectedEnrollment.courseTitle || ''} cho học viên ${selectedEnrollment.studentName || ''}`,
+            });
+          } catch (commErr) {
+            console.warn('Lỗi ghi hoa hồng tuyển sinh:', commErr);
+          }
+        }
+
+        setIsPaid(true);
+
+        const methodLabel =
+          selectedMethod === 'onsite'
+            ? 'Tiền mặt tại cơ sở'
+            : selectedMethod === 'online'
+            ? 'Quẹt thẻ / Ví điện tử'
+            : 'Chuyển khoản VietQR';
+
+        setSelectedReceiptData({
+          id: generatedInvoiceCode,
+          customerName: selectedEnrollment.studentName || 'Học viên',
+          customerPhone: selectedEnrollment.studentPhone || '--',
+          branchName: primaryBranch?.name || 'MLD Academy — Cơ sở Nam Kỳ Khởi Nghĩa',
+          serviceName: `Học phí: ${selectedEnrollment.courseTitle || 'Khóa học MLD'} (${selectedEnrollment.batchCode || 'Khóa mới'})`,
+          category: 'ACADEMY',
+          method: methodLabel,
+          amount: formattedAmount,
+          subtotal: formattedAmount,
+          preTaxAmount: formattedAmount,
+          vatRateText: '0%',
+          vatAmountText: '0đ',
+          shiftCode: currentShift?.shiftCode,
+          date: new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }).format(new Date()),
+          status: 'Đã thanh toán',
+          materialsText: 'Giáo trình MLD & Bộ Kit thực hành đào tạo',
+        });
+
+        setShowReceiptModal(true);
+
+        // Cập nhật lại danh sách enrollments
+        setAllEnrollments((prev) =>
+          prev.map((e) =>
+            e.id === selectedEnrollment.id
+              ? { ...e, amountPaid: newPaid, approvalStatus: 'APPROVED', status: EnrollmentStatus.ENROLLED }
+              : e
+          )
+        );
+
+        setSelectedEnrollment((prev) =>
+          prev ? { ...prev, amountPaid: newPaid, approvalStatus: 'APPROVED', status: EnrollmentStatus.ENROLLED } : undefined
+        );
+
+        if (resInvoice.success && resInvoice.data) {
+          setInvoices((prev) => [resInvoice.data, ...prev]);
+        }
+
+        toast.success(
+          'Thu học phí thành công!',
+          `Đã quyết toán ${formattedAmount} cho học viên ${selectedEnrollment.studentName || ''}. Mã HĐ: ${generatedInvoiceCode}`
+        );
+      } catch (err: any) {
+        console.error('Lỗi thu học phí tại quầy:', err);
+        toast.error('Lỗi thanh toán học phí', err?.message || 'Không thể ghi nhận hóa đơn học phí.');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // LUỒNG 2: QUYẾT TOÁN ĐƠN DỊCH VỤ SPA / GÓI LIỆU TRÌNH
+    // -------------------------------------------------------------
     if (!booking) {
       toast.error('Lỗi', 'Không tìm thấy thông tin đơn đặt lịch để thanh toán.');
       return;
@@ -564,23 +847,33 @@ export const W07_CashierPOS: React.FC = () => {
         console.warn('Lỗi ghi audit log:', auditErr);
       }
 
-      // TRỤ CỘT 2: HOA HỒNG KTV & LƯƠNG THƯỞNG (10% Dịch vụ)
-      const targetTechId = isUuid(booking.technicianId) ? booking.technicianId : 'cccccccc-0001-0001-0001-000000000001';
-      const assignedTechName = technicianName !== 'Chưa phân công' ? technicianName : 'Trần Lan Anh';
-      const techCommissionAmount = Math.round(amount * 0.1); // 10% ca dịch vụ
-      try {
-        await supabaseService.recordStaffCommission({
-          staffId: targetTechId,
-          branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
-          bookingId: validBookingId || null,
-          invoiceId: generatedInvoiceCode,
-          commissionType: 'SERVICE_DIRECT',
-          baseAmount: amount,
-          percentage: 10,
-          notes: `Hoa hồng 10% dịch vụ ${serviceName} (Hóa đơn ${generatedInvoiceCode})`,
-        });
-      } catch (commErr) {
-        console.warn('Lỗi ghi hoa hồng KTV:', commErr);
+      // TRỤ CỘT 2: HOA HỒNG KTV & LƯƠNG THƯỞNG (10% Dịch vụ lẻ, 5% Gói)
+      const isPackage = Boolean(packageIdParam || booking.bookingCode?.startsWith('VIP-PKG-'));
+      const commPercentage = isPackage ? 5 : 10;
+      const targetTechId = isUuid(booking.technicianId)
+        ? booking.technicianId
+        : isUuid(booking.technician?.id)
+        ? booking.technician.id
+        : undefined;
+
+      const assignedTechName = technicianName !== 'Chưa phân công' ? technicianName : 'Kỹ thuật viên';
+      const techCommissionAmount = Math.round(amount * (commPercentage / 100));
+
+      if (targetTechId) {
+        try {
+          await commissionService.createCommission({
+            staffId: targetTechId,
+            branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+            bookingId: validBookingId || null,
+            invoiceId: generatedInvoiceCode,
+            commissionType: isPackage ? 'PACKAGE_UPSELL' : 'SERVICE_DIRECT',
+            baseAmount: amount,
+            percentage: commPercentage,
+            notes: `Hoa hồng ${commPercentage}% ${isPackage ? 'gói liệu trình' : 'dịch vụ'} ${serviceName} (Hóa đơn ${generatedInvoiceCode})`,
+          });
+        } catch (commErr) {
+          console.warn('Lỗi ghi hoa hồng KTV:', commErr);
+        }
       }
 
       // TRỤ CỘT 4: QUẢN LÝ ĐỊNH MỨC TIÊU HAO VẬT TƯ (BOM)
@@ -2005,7 +2298,7 @@ export const W07_CashierPOS: React.FC = () => {
             </div>
 
             {/* Receipt Card Body */}
-            <div className="px-6 py-5 space-y-4">
+            <div id="pos-receipt-card" className="px-6 py-5 space-y-4">
               <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#EFE4D9] space-y-3 text-xs">
                 <div className="flex items-center justify-between pb-2 border-b border-dashed border-[#E0D4C7]">
                   <span className="text-[#73675F]">Mã hóa đơn / Phiếu thu:</span>
@@ -2145,18 +2438,28 @@ export const W07_CashierPOS: React.FC = () => {
                   toast.info('In biên lai', 'Đang kết nối lệnh in biên lai nhiệt POS...');
                   window.print();
                 }}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-[#D7BBA6] hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-2.5 px-3 rounded-xl border border-[#D7BBA6] hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>In biên lai</span>
               </button>
               <button
                 type="button"
+                onClick={handleDownloadReceiptPdf}
+                disabled={isExportingPdf}
+                className="flex-1 py-2.5 px-3 rounded-xl border border-sky-300 hover:bg-sky-50 text-sky-700 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Tải hóa đơn VAT / Phiếu thu điện tử định dạng PDF"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isExportingPdf ? 'Đang tạo...' : 'Tải hóa đơn PDF'}</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleCloseReceiptModal}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Hoàn tất & Đóng</span>
+                <span>Hoàn tất</span>
               </button>
             </div>
           </div>
