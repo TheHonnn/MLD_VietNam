@@ -200,7 +200,16 @@ async function seed() {
   // Clear existing courses (cascades to chapters, lessons, quizzes)
   await client.query('DELETE FROM public.courses;');
 
-  const instructorId = '10101010-0001-0001-0001-000000000001';
+  const instRes = await client.query('SELECT id FROM public.instructors LIMIT 1;');
+  let instructorId = instRes.rows[0]?.id;
+  if (!instructorId) {
+    const newInst = await client.query(`
+      INSERT INTO public.instructors (id, full_name, title, avatar_url, experience_years, is_active, created_at)
+      VALUES ('10101010-0001-0001-0001-000000000001', 'Master Vodder MLD', 'Giảng viên Chuyên môn Quốc tế', 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2', 8, true, NOW())
+      RETURNING id;
+    `);
+    instructorId = newInst.rows[0].id;
+  }
 
   for (let i = 0; i < coursesData.length; i++) {
     const c = coursesData[i];

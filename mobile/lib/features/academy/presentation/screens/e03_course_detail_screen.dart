@@ -210,7 +210,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         summaryText: _isEnrolled
             ? 'Đã đăng ký khóa học'
             : 'Học phí · ${formatCurrency(course.tuitionFee)}đ',
-        buttonText: _isEnrolled ? 'Vào học ngay ▶' : 'Đăng ký khóa học ngay',
+        buttonText: _isEnrolled ? 'Đã đăng ký' : 'Đăng ký học',
         onPressed: () {
           if (_isEnrolled) {
             Navigator.push(

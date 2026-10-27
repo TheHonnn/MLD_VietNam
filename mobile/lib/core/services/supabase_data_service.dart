@@ -407,7 +407,7 @@ class SupabaseDataService {
   // ==========================================
   // 12. GHI DANH KHÓA HỌC (COURSE ENROLLMENTS)
   // ==========================================
-  Future<List<Map<String, dynamic>>> fetchUserEnrollments({String? studentId}) async {
+  Future<List<Map<String, dynamic>>> fetchUserEnrollments({String? studentId, String? studentPhone}) async {
     try {
       if (Platform.environment.containsKey('FLUTTER_TEST')) {
         return [];
@@ -419,8 +419,12 @@ class SupabaseDataService {
         'select': '*,courses(*,course_categories(name))',
         'order': 'enrolled_at.desc',
       };
-      if (studentId != null && studentId.isNotEmpty) {
+      if (studentId != null && studentId.isNotEmpty && studentPhone != null && studentPhone.isNotEmpty) {
+        query['or'] = '(student_id.eq.' + studentId + ',student_phone.eq.' + studentPhone + ')';
+      } else if (studentId != null && studentId.isNotEmpty) {
         query['student_id'] = 'eq.' + studentId;
+      } else if (studentPhone != null && studentPhone.isNotEmpty) {
+        query['student_phone'] = 'eq.' + studentPhone;
       }
 
       final response = await _client.get<List<dynamic>>(
@@ -444,11 +448,13 @@ class SupabaseDataService {
   Future<Map<String, dynamic>?> createCourseEnrollment({
     required String courseId,
     required String studentId,
+    String? batchId,
     String? studentName,
     String? studentPhone,
     String? studentEmail,
     String? selectedBranch,
     String? studentType,
+    String? approvalNotes,
     double? tuitionTotal,
     double? amountPaid,
     String status = 'PENDING_APPROVAL',
@@ -466,11 +472,13 @@ class SupabaseDataService {
         data: {
           'course_id': courseId,
           'student_id': studentId,
+          if (batchId != null) 'batch_id': batchId,
           if (studentName != null) 'student_name': studentName,
           if (studentPhone != null) 'student_phone': studentPhone,
           if (studentEmail != null) 'student_email': studentEmail,
           if (selectedBranch != null) 'selected_branch': selectedBranch,
           if (studentType != null) 'student_type': studentType,
+          if (approvalNotes != null) 'approval_notes': approvalNotes,
           'tuition_total': tuitionTotal ?? 9000000.00,
           'amount_paid': amountPaid ?? 0.00,
           'status': status,

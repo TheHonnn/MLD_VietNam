@@ -89,6 +89,9 @@ class BookingRepository {
                 AppointmentItemModel(
                   id: item['id']?.toString() ?? 'apt-${DateTime.now().millisecondsSinceEpoch}',
                   bookingCode: item['booking_code']?.toString() ?? 'MLD-BK-0001',
+                  branchId: item['branch_id']?.toString(),
+                  serviceId: firstItem?['service_id']?.toString(),
+                  technicianId: item['technician_id']?.toString(),
                   serviceName: svc?['name']?.toString() ?? 'Dịch vụ Massage & Trị liệu',
                   serviceImage: svc?['image_url']?.toString() ?? 'assets/images/specialist_hero_1.png',
                   durationMinutes: (firstItem?['duration_minutes'] as num?)?.toInt() ?? 60,
@@ -286,9 +289,20 @@ class BookingRepository {
       final startTime = slotParts.first.trim();
       final endTime = slotParts.length > 1 ? slotParts.last.trim() : '15:00';
 
+      final effectiveBranchId = (appointment.branchId != null && appointment.branchId!.isNotEmpty)
+          ? appointment.branchId!
+          : 'aaaaaaaa-0001-0001-0001-000000000001';
+      final effectiveServiceId = (appointment.serviceId != null && appointment.serviceId!.isNotEmpty)
+          ? appointment.serviceId!
+          : '235166f2-66c9-4231-bbe1-af91b48fc67c';
+
       final res = await _apiClient.dio.post(
         ApiEndpoints.bookingCreate,
         data: {
+          'bookingCode': appointment.bookingCode,
+          'branchId': effectiveBranchId,
+          'serviceId': effectiveServiceId,
+          if (appointment.technicianId != null) 'technicianId': appointment.technicianId,
           'bookingDate': dateStr,
           'startTime': startTime,
           'endTime': endTime,

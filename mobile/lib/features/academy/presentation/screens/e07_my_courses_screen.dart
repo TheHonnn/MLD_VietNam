@@ -33,6 +33,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
   @override
   void initState() {
     super.initState();
+    AcademyRepository.instance.enrollmentNotifier.addListener(_onEnrollmentUpdate);
     _selectedTab = widget.initialTabIndex;
     final enrolled = AcademyRepository.instance.enrolledCourses;
     if (enrolled.isNotEmpty) {
@@ -69,6 +70,16 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     } catch (_) {
       if (mounted) setState(() => _isLoadingQuizzes = false);
     }
+  }
+
+  @override
+  void dispose() {
+    AcademyRepository.instance.enrollmentNotifier.removeListener(_onEnrollmentUpdate);
+    super.dispose();
+  }
+
+  void _onEnrollmentUpdate() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -382,21 +393,60 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'ĐÃ ĐĂNG KÝ · ĐANG HỌC',
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
-                      ),
+                    Builder(
+                      builder: (ctx) {
+                        final isPending = course.status == 'PENDING_APPROVAL' || course.approvalStatus == 'PENDING_APPROVAL';
+                        if (isPending) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFFDE68A)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.hourglass_top_rounded, size: 11, color: Color(0xFFB45309)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'CHỜ DUYỆT & CHƯA THANH TOÁN',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFB45309),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF059669)),
+                              SizedBox(width: 4),
+                              Text(
+                                'ĐÃ DUYỆT · ĐANG HỌC',
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -436,27 +486,98 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => E08ClassDetailScreen(course: course)),
+          Builder(
+            builder: (ctx) {
+              final isPending = course.status == 'PENDING_APPROVAL' || course.approvalStatus == 'PENDING_APPROVAL';
+              if (isPending) {
+                return Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Mã KH: ${course.customerCode ?? 'HV-XXXX'}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                          ),
+                          Text(
+                            '${formatCurrency(course.tuitionFee)}đ',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AcademyColors.price),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final enrollId = course.enrollmentId ?? course.id;
+                          final res = await AcademyRepository.instance.checkEnrollmentPayment(enrollId);
+                          final isPaid = res['data']?['approved'] == true || res['data']?['isPaid'] == true;
+                          if (!context.mounted) return;
+                          if (isPaid) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message']?.toString() ?? '🎉 Đã nhận được tiền! Hệ thống đã tự động duyệt bạn vào khóa học.'),
+                                backgroundColor: const Color(0xFF059669),
+                              ),
+                            );
+                            _refreshCourses();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message']?.toString() ?? 'Hệ thống chưa nhận được tiền khớp với mã ${course.customerCode}.'),
+                                backgroundColor: const Color(0xFFD97706),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.sync_rounded, size: 16, color: AppColors.primary),
+                        label: const Text(
+                          'Kiểm tra tiền về / Đối soát ngay',
+                          style: TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primary, width: 1.2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
                 );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AcademyColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Vào học ngay',
-                style: TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, fontWeight: FontWeight.w700),
-              ),
-            ),
+              }
+
+              return SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => E08ClassDetailScreen(course: course)),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Vào học ngay ▶',
+                    style: TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

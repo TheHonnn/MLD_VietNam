@@ -102,7 +102,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
       }
 
       // 2. Gửi đăng ký lên Supabase Cloud với trạng thái CHỜ DUYỆT THỦ CÔNG
-      await AcademyRepository.instance.enrollCourse(
+      final enrollResult = await AcademyRepository.instance.enrollCourse(
         course: widget.course,
         studentName: name,
         studentPhone: phone,
@@ -111,11 +111,14 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         studentType: studentType,
       );
 
+      final customerCode = enrollResult['customerCode']?.toString() ??
+          'HV-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+
       if (!mounted) return;
       setState(() => _isSubmitting = false);
 
-      // 3. Hiển thị thông báo xác nhận trạng thái Chờ duyệt
-      _showPendingApprovalDialog(name, phone);
+      // 3. Hiển thị thông báo xác nhận trạng thái Chờ duyệt kèm mã KH
+      _showPendingApprovalDialog(name, phone, customerCode);
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -129,7 +132,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     }
   }
 
-  void _showPendingApprovalDialog(String studentName, String studentPhone) {
+  void _showPendingApprovalDialog(String studentName, String studentPhone, String customerCode) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -190,14 +193,50 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Hồ sơ đăng ký của học viên $studentName cho khóa học "${widget.course.title}" đã được gửi lên hệ thống tuyển sinh của MLD Việt Nam.',
-              style: const TextStyle(fontSize: 13.5, height: 1.45, color: AcademyColors.textPrimary),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.badge_outlined, size: 20, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Mã học viên / Mã thanh toán:',
+                          style: TextStyle(fontSize: 11, color: AcademyColors.textSecondary),
+                        ),
+                        Text(
+                          customerCode,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AcademyColors.heading,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
-              'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ thủ công và liên hệ với bạn qua số điện thoại $studentPhone để xác nhận nhập học.',
-              style: const TextStyle(fontSize: 13, height: 1.45, color: AcademyColors.textSecondary),
+              'Hồ sơ của học viên $studentName cho khóa học "${widget.course.title}" đã được chuyển vào mục Tuyển sinh của Ban Quản Trị.',
+              style: const TextStyle(fontSize: 13, height: 1.45, color: AcademyColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ thủ công và xuất phiếu thu (Bill) kèm mã QR. Khi bạn chuyển khoản vào tài khoản Học viện với nội dung "MLD $customerCode" đúng số tiền học phí, hệ thống sẽ tự động đối soát và tự động duyệt bạn vào khóa học!',
+              style: const TextStyle(fontSize: 12.5, height: 1.45, color: AcademyColors.textSecondary),
             ),
           ],
         ),
@@ -228,6 +267,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   @override
   Widget build(BuildContext context) {
     final course = widget.course;
+    final isAlreadyEnrolled = AcademyRepository.instance.isCourseEnrolled(course.id, course.title);
 
     return Scaffold(
       backgroundColor: AcademyColors.background,
@@ -271,20 +311,20 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 child: ElevatedButton(
                   key: const Key('submit_enrollment_button'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: isAlreadyEnrolled ? const Color(0xFF9CA3AF) : AppColors.primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
-                  onPressed: _isSubmitting ? null : _handleEnrollmentSubmit,
+                  onPressed: (_isSubmitting || isAlreadyEnrolled) ? null : _handleEnrollmentSubmit,
                   child: _isSubmitting
                       ? const SizedBox(
                           width: 22,
                           height: 22,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                         )
-                      : const Text(
-                          'Đăng ký khóa học',
-                          style: TextStyle(
+                      : Text(
+                          isAlreadyEnrolled ? 'Đã đăng ký khóa học này' : 'Đăng ký khóa học',
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -325,6 +365,35 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 ),
               ),
               const SizedBox(height: 18),
+
+              if (isAlreadyEnrolled) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded, color: Color(0xFFB45309), size: 22),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Khóa học này đã được gửi đăng ký (Trạng thái: Chờ nhân viên duyệt). Bạn không thể đăng ký lại.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFB45309),
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               // 2. Thẻ khóa học & Giá tiền (Học phí)
               Container(
@@ -520,28 +589,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Ghi chú cam kết
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.shield_outlined, size: 18, color: Color(0xFF6B7280)),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Không yêu cầu thanh toán trực tuyến. Sau khi đăng ký, hồ sơ sẽ được chuyển vào hàng đợi xét duyệt thủ công bởi nhân viên tuyển sinh.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), height: 1.45),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+
             ],
           ),
         ),

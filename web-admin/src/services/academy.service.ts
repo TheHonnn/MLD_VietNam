@@ -368,6 +368,22 @@ export const academyService = {
           approvedBy: 'HỆ THỐNG TỰ ĐỘNG',
           approvalNotes: `Đã tự động duyệt: Nhận thanh toán ${matchedAmount.toLocaleString('vi-VN')}đ khớp mã KH ${customerCode}`,
         });
+
+        // Tự động tạo bản ghi tuition_transactions để ghi nhận doanh thu
+        try {
+          await supabaseService.recordTuitionPayment({
+            transactionCode: `TT-${customerCode}-${Date.now().toString().slice(-4)}`,
+            enrollmentId,
+            studentId: enr.studentId,
+            courseId: enr.courseId,
+            branchId: enr.batchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+            amount: matchedAmount,
+            paymentMethod: 'BANK_TRANSFER' as any,
+            paymentStatus: 'PAID' as any,
+            notes: `Tự động đối soát ngân hàng khớp mã KH ${customerCode}`,
+          });
+        } catch (_) {}
+
         return {
           success: true,
           statusCode: 200,
@@ -407,6 +423,25 @@ export const academyService = {
         approvedBy: options?.adminUser || 'Admin Tuyển Sinh',
         approvalNotes: options?.notes || `Admin duyệt tại quầy, thu ${finalPaid.toLocaleString('vi-VN')}đ`,
       });
+
+      // Tự động ghi nhận giao dịch vào bảng tuition_transactions để hiển thị tức thì trên Dashboard doanh thu
+      if (finalPaid > 0 && enr) {
+        try {
+          await supabaseService.recordTuitionPayment({
+            transactionCode: `TT-DESK-${Date.now().toString().slice(-6)}`,
+            enrollmentId,
+            studentId: enr.studentId,
+            courseId: enr.courseId,
+            branchId: enr.batchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+            amount: finalPaid,
+            paymentMethod: 'CASH_AT_SPA' as any,
+            paymentStatus: 'PAID' as any,
+            notes: options?.notes || `Admin duyệt và thu học phí tại quầy cho học viên ${enr.studentName || ''}`,
+          });
+        } catch (tErr) {
+          console.warn('[approveEnrollment] Lỗi tự động ghi nhận giao dịch học phí:', tErr);
+        }
+      }
 
       const updated = (await supabaseService.getEnrollments())?.find((e) => e.id === enrollmentId);
       return {
