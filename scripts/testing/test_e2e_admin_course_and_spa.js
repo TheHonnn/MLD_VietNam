@@ -47,9 +47,11 @@ async function runE2EAdminTests() {
     const branchRes = await client.query('SELECT id, name FROM public.branches LIMIT 2;');
     const branch = branchRes.rows[0];
 
-    const staffRes = await client.query('SELECT id, full_name FROM public.users WHERE role IN (\'ADMIN\', \'SUPER_ADMIN\', \'INSTRUCTOR\', \'TECHNICIAN\') LIMIT 2;');
+    const staffRes = await client.query('SELECT id, full_name FROM public.users WHERE role IN (\'ADMIN\', \'SUPER_ADMIN\') LIMIT 1;');
     const staff = staffRes.rows[0];
-    const technician = staffRes.rows[1] || staffRes.rows[0];
+
+    const techRes = await client.query('SELECT id, user_id, full_name FROM public.technicians WHERE is_active = true LIMIT 1;');
+    const technician = techRes.rows[0];
 
     const customerRes = await client.query('SELECT id, full_name, phone FROM public.users WHERE role = \'CUSTOMER\' OR role = \'STUDENT\' LIMIT 1;');
     const customer = customerRes.rows[0] || staff;
@@ -344,14 +346,14 @@ async function runE2EAdminTests() {
     console.log('\n[Bước 2.3] Khách đến Spa, Lễ tân thực hiện Check-in & Bắt đầu liệu trình (W06):');
     await client.query(`
       UPDATE public.bookings
-      SET status = 'IN_PROGRESS',
+      SET status = 'IN_SERVICE',
           checked_in_at = NOW(),
           checked_in_by_id = $1
       WHERE id = $2;
     `, [staff.id, booking.id]);
 
     const checkinCheck = await client.query('SELECT status, checked_in_at FROM public.bookings WHERE id = $1;', [booking.id]);
-    assert(checkinCheck.rows[0].status === 'IN_PROGRESS', 'Trạng thái lịch hẹn chuyển sang IN_PROGRESS (Đang phục vụ)');
+    assert(checkinCheck.rows[0].status === 'IN_SERVICE', 'Trạng thái lịch hẹn chuyển sang IN_SERVICE (Đang phục vụ)');
     assert(Boolean(checkinCheck.rows[0].checked_in_at), 'Ghi nhận thời điểm check-in thực tế của khách hàng');
 
     // BƯỚC 4: Khách hoàn thành liệu trình & Thanh toán tại Quầy thu ngân POS (W07)
@@ -411,7 +413,7 @@ async function runE2EAdminTests() {
         'APPROVED', $8, 'Hoa hồng tự động 10% từ dịch vụ MLD Test'
       ) RETURNING id, commission_amount, status;
     `, [
-      technician.id,
+      technician.user_id || technician.id,
       branch.id,
       booking.id,
       invoice.id,
@@ -426,21 +428,27 @@ async function runE2EAdminTests() {
 
     // BƯỚC 6: Trừ định mức tiêu hao kho vật tư BOM y khoa (W15)
     console.log('\n[Bước 2.6] Ghi nhận tiêu hao vật tư y khoa theo định mức BOM (W15):');
-    const materialRes = await client.query('SELECT id, name FROM public.warehouse_materials LIMIT 1;');
-    if (materialRes.rows.length > 0) {
-      const material = materialRes.rows[0];
-      const consRes = await client.query(`
-        INSERT INTO public.inventory_consumptions (
-          booking_id, material_id, branch_id, quantity_used, recorded_by, created_at
-        ) VALUES (
-          $1, $2, $3, 1, $4, NOW()
-        ) RETURNING id;
-      `, [booking.id, material.id, branch.id, staff.id]);
-      testConsumptionIds.push(consRes.rows[0].id);
-      assert(Boolean(consRes.rows[0].id), `Trừ kho vật tư tiêu hao (${material.name}) gắn với lịch hẹn ${booking.booking_code}`);
-    } else {
-      assert(true, 'Bảng kho vật tư sẵn sàng ghi nhận tiêu hao khi có vật tư thực tế');
-    }
+    const serviceRes = await client.query('SELECT id, name FROM public.services LIMIT 1;');
+    const serviceItem = serviceRes.rows[0];
+    const serviceId = serviceItem ? serviceItem.id : null;
+
+    const consRes = await client.query(`
+      INSERT INTO public.inventory_consumption_logs (
+        branch_id, service_id, booking_id, invoice_id, technician_id,
+        material_name, quantity_deducted, unit, logged_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        'Tinh dầu Vodder Hỗ trợ Dẫn lưu Bạch huyết', 10, 'ml', NOW()
+      ) RETURNING id, material_name, quantity_deducted, unit;
+    `, [
+      branch.id,
+      serviceId,
+      booking.id,
+      invoice.id,
+      technician.id
+    ]);
+    testConsumptionIds.push(consRes.rows[0].id);
+    assert(Boolean(consRes.rows[0].id), `Ghi nhận tiêu hao định mức BOM vật tư (${consRes.rows[0].material_name} - ${consRes.rows[0].quantity_deducted} ${consRes.rows[0].unit}) gắn với hóa đơn ${invoice.invoice_code}`);
 
   } catch (err) {
     console.error('\n❌ XẢY RA LỖI TRONG QUÁ TRÌNH KIỂM THỬ E2E:', err);
@@ -450,7 +458,7 @@ async function runE2EAdminTests() {
     console.log('🧹 DỌN DẸP CÁC BẢN GHI KIỂM THỬ TRÁNH GÂY RÁC DATABASE...');
     try {
       if (testConsumptionIds.length > 0) {
-        await client.query('DELETE FROM public.inventory_consumptions WHERE id = ANY($1::uuid[]);', [testConsumptionIds]);
+        await client.query('DELETE FROM public.inventory_consumption_logs WHERE id = ANY($1::uuid[]);', [testConsumptionIds]);
       }
       if (testCommissionIds.length > 0) {
         await client.query('DELETE FROM public.staff_commissions WHERE id = ANY($1::uuid[]);', [testCommissionIds]);
