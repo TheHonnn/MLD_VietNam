@@ -13,12 +13,14 @@ import {
   RefreshCw,
   QrCode,
   FileText,
+  GraduationCap,
 } from 'lucide-react';
-import { academyService, customerService, supabaseService } from '../services';
+import { academyService, customerService, staffService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
 import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus, UserRole, PurposeInterest, PaymentMethod, PaymentStatus } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 import { EnrollmentBillModal, CandidateBillInfo } from '../components/enrollment/EnrollmentBillModal';
+import { AssignBatchModal, AssignCandidateInfo } from '../components/enrollment/AssignBatchModal';
 
 export type EnrollmentSubTab = 'PENDING_APPROVAL' | 'APPROVED_PAID' | 'ALL';
 
@@ -68,6 +70,8 @@ export const W08_Enrollment: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBillModalOpen, setIsBillModalOpen] = useState(false);
   const [billModalCandidate, setBillModalCandidate] = useState<CandidateBillInfo | null>(null);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assignCandidate, setAssignCandidate] = useState<AssignCandidateInfo | null>(null);
   const [checkingCandidateId, setCheckingCandidateId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
@@ -92,20 +96,23 @@ export const W08_Enrollment: React.FC = () => {
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
+  const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
     const fetchAcademyData = async () => {
       try {
-        const [enrRes, crsRes, batRes, custRes] = await Promise.all([
+        const [enrRes, crsRes, batRes, custRes, instRes] = await Promise.all([
           academyService.getEnrollments(),
           academyService.getCourses(),
           academyService.getCourseBatches(),
           customerService.getCustomers(),
+          staffService.getInstructors(),
         ]);
         if (enrRes.success) setLiveEnrollments(enrRes.data);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
         if (custRes.success) setCustomers(custRes.data);
+        if (instRes.success) setInstructors(instRes.data);
       } catch (err) {
         console.error('Failed to load academy data:', err);
       }
