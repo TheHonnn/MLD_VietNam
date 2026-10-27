@@ -142,7 +142,7 @@ const TABLE_SELECTS: Record<string, string> = {
   course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
   batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
   course_chapters: "*,courses(title,code)",
-  course_lessons: "*,course_chapters(title)",
+  course_lessons: "*,course_chapters(title,course_id,courses(title,code))",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
   consultation_surveys: "*,customer:users!customer_id(full_name,phone,avatar_url),bookings(booking_code,booking_date,start_time,status)",
@@ -470,6 +470,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           if (val !== undefined && val !== null && val !== "" && val !== "__ALL__") {
             if (table === "student_attendance" && col === "batch_id") {
               url += `&batch_schedules.batch_id=eq.${encodeURIComponent(String(val))}`;
+            } else if (table === "course_lessons" && col === "course_id") {
+              url += `&course_chapters.course_id=eq.${encodeURIComponent(String(val))}`;
             } else {
               url += `&${col}=eq.${encodeURIComponent(String(val))}`;
             }
@@ -492,7 +494,11 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     }
     const directCourseId = q.get("course_id");
     if (directCourseId && directCourseId !== "__ALL__" && !url.includes("course_id=")) {
-      url += `&course_id=eq.${encodeURIComponent(directCourseId)}`;
+      if (table === "course_lessons") {
+        url += `&course_chapters.course_id=eq.${encodeURIComponent(directCourseId)}`;
+      } else {
+        url += `&course_id=eq.${encodeURIComponent(directCourseId)}`;
+      }
     }
 
     // Search handling
@@ -712,6 +718,10 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.course_chapters) {
         r.chapter_title = r.chapter_title || r.course_chapters.title;
+        if (r.course_chapters.courses) {
+          r.course_title = r.course_title || r.course_chapters.courses.title;
+          r.course_code = r.course_code || r.course_chapters.courses.code;
+        }
       }
       if (r.course_quizzes) {
         r.quiz_title = r.quiz_title || r.course_quizzes.title;
@@ -928,6 +938,13 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       delete payload.values.course_code;
     }
 
+    if (table === "course_lessons") {
+      delete payload.values.course_chapters;
+      delete payload.values.chapter_title;
+      delete payload.values.course_title;
+      delete payload.values.course_code;
+    }
+
     const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -1030,6 +1047,13 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         payload.values.chapter_order = Number(payload.values.chapter_order);
       }
       delete payload.values.courses;
+      delete payload.values.course_title;
+      delete payload.values.course_code;
+    }
+
+    if (table === "course_lessons") {
+      delete payload.values.course_chapters;
+      delete payload.values.chapter_title;
       delete payload.values.course_title;
       delete payload.values.course_code;
     }

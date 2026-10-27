@@ -510,6 +510,33 @@ export interface Course {
   isActive: boolean;
 }
 
+export interface CourseChapter {
+  id: string;
+  courseId: string;
+  chapterOrder: number;
+  title: string;
+  description?: string | null;
+  createdAt?: string;
+  course?: Course;
+  lessons?: CourseLesson[];
+}
+
+export interface CourseLesson {
+  id: string;
+  chapterId: string;
+  lessonOrder: number;
+  title: string;
+  lessonType: LessonType | string;
+  durationMinutes: number;
+  videoUrl?: string | null;
+  contentText?: string | null;
+  attachments?: { name: string; url: string }[];
+  learningGoals?: string[];
+  isFreePreview: boolean;
+  createdAt?: string;
+  chapter?: CourseChapter;
+}
+
 export interface CourseBatch {
   id: string;
   courseId: string;
