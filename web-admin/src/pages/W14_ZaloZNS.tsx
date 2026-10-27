@@ -40,6 +40,7 @@ export const W14_ZaloZNS: React.FC = () => {
   const [zaloConfig, setZaloConfig] = useState<ZaloCloudConfig>(() => znsService.getZaloConfig());
   const [showToken, setShowToken] = useState<boolean>(false);
   const [isTestingConnection, setIsTestingConnection] = useState<boolean>(false);
+  const [isRefreshingToken, setIsRefreshingToken] = useState<boolean>(false);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Search & Filters for Logs
@@ -53,6 +54,13 @@ export const W14_ZaloZNS: React.FC = () => {
   const [testName, setTestName] = useState<string>('Chị Thu Trang');
   const [testTemplateCode, setTestTemplateCode] = useState<string>('BOOKING_CONFIRMATION');
   const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
+
+  // Tải cấu hình từ Supabase Cloud khi mở trang
+  useEffect(() => {
+    znsService.loadZaloConfigFromCloud().then((cfg) => {
+      if (cfg) setZaloConfig(cfg);
+    });
+  }, []);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -158,6 +166,30 @@ export const W14_ZaloZNS: React.FC = () => {
       toast.error('Lỗi', 'Không thể kết nối đến máy chủ Zalo.');
     } finally {
       setIsTestingConnection(false);
+    }
+  };
+
+  const handleAutoRefreshToken = async () => {
+    setIsRefreshingToken(true);
+    try {
+      const res = await znsService.refreshZaloToken(zaloConfig);
+      if (res.success && res.data) {
+        setZaloConfig((prev) => ({
+          ...prev,
+          accessToken: res.data.accessToken,
+          refreshToken: res.data.refreshToken,
+          expiresAt: res.data.expiresAt,
+        }));
+        setConnectionResult({ success: true, message: res.message });
+        toast.success('Làm mới Token thành công', res.message);
+      } else {
+        toast.error('Làm mới thất bại', res.message);
+        setConnectionResult({ success: false, message: res.message });
+      }
+    } catch (err: any) {
+      toast.error('Lỗi', `Không thể làm mới Zalo token: ${err.message}`);
+    } finally {
+      setIsRefreshingToken(false);
     }
   };
 
@@ -482,6 +514,16 @@ export const W14_ZaloZNS: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={handleAutoRefreshToken}
+                disabled={isRefreshingToken}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                title="Tự động gia hạn Access Token qua Zalo OAuth v4"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isRefreshingToken ? 'animate-spin' : ''}`} />
+                <span>{isRefreshingToken ? 'Đang làm mới...' : 'Tự động làm mới Token (OAuth v4)'}</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleTestConnection}
                 disabled={isTestingConnection}
                 className="px-4 py-2 bg-white border border-[#CBD5E1] hover:bg-gray-50 text-[#0F172A] rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
@@ -561,17 +603,34 @@ export const W14_ZaloZNS: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#334155] mb-1.5">
-                  Zalo App Secret (Khóa bí mật ứng dụng)
-                </label>
-                <input
-                  type="password"
-                  value={zaloConfig.appSecret}
-                  onChange={(e) => setZaloConfig({ ...zaloConfig, appSecret: e.target.value })}
-                  placeholder="Nhập App Secret để hệ thống tự động gia hạn Refresh Token"
-                  className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                    Zalo App Secret (Khóa bí mật ứng dụng)
+                  </label>
+                  <input
+                    type="password"
+                    value={zaloConfig.appSecret}
+                    onChange={(e) => setZaloConfig({ ...zaloConfig, appSecret: e.target.value })}
+                    placeholder="Nhập App Secret từ Zalo Developers..."
+                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                  <p className="text-[11px] text-[#94A3B8] mt-1">Dùng để ký xác thực tự động gia hạn token.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                    Zalo Refresh Token (Để tự động gia hạn Access Token)
+                  </label>
+                  <input
+                    type="password"
+                    value={zaloConfig.refreshToken || ''}
+                    onChange={(e) => setZaloConfig({ ...zaloConfig, refreshToken: e.target.value })}
+                    placeholder="Nhập Refresh Token từ cổng Zalo OAuth..."
+                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                  <p className="text-[11px] text-[#94A3B8] mt-1">Hệ thống dùng token này để tự động refresh mỗi 6 giờ.</p>
+                </div>
               </div>
 
               <div>
@@ -595,9 +654,19 @@ export const W14_ZaloZNS: React.FC = () => {
                   rows={3}
                   className="w-full px-3.5 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
                 />
-                <p className="text-[11px] text-[#94A3B8] mt-1">
-                  Được dùng để gọi trực tiếp tới endpoint: <code>https://business.openapi.zalo.me/message/template</code>
-                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-1">
+                  <p className="text-[11px] text-[#94A3B8]">
+                    Được dùng để gọi trực tiếp tới endpoint: <code>https://business.openapi.zalo.me/message/template</code>
+                  </p>
+                  {zaloConfig.expiresAt && (
+                    <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 shrink-0">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        Hết hạn: {new Date(zaloConfig.expiresAt).toLocaleTimeString('vi-VN')}, {new Date(zaloConfig.expiresAt).toLocaleDateString('vi-VN')}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>

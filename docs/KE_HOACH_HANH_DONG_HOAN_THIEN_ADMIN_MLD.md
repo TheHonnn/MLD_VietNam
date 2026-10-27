@@ -227,7 +227,38 @@ Mọi thay đổi code sau mỗi bước bắt buộc phải tuân thủ nghiêm
 | **Tự động trích Hoa hồng KTV khi thanh toán POS** | `W07_CashierPOS.tsx` & `W13_StaffCommissions.tsx`| **P1** | ✅ Đã xong 100% |
 | **Lưới điểm danh buổi học theo lịch lớp K26** | `W10_Attendance.tsx` & `student_attendance` | **P2** | ✅ Đã xong 100% |
 | **Tích hợp Zalo Cloud API thật cho ZNS** | `W14_ZaloZNS.tsx` & `zns.service.ts` | **P2** | ✅ Đã xong 100% |
-| **Xuất file PDF & Excel nhị phân tải về máy** | `W07`, `W16`, `W12` | **P2** | ✅ Đã xong 100% |
-| **Bảo mật phân quyền khóa học & Chặn học viên chưa duyệt** | `AcademyRepository`, `E03`, `E07`, `E08`, `E09` | **P0** | ✅ Đã xong 100% |
 | **Nghiệm thu Thực địa Đầu cuối Bước 3 (Master UAT)** | `test_step3_uat_acceptance.js` (Học viện & Spa) | **P0** | ✅ Đã xong 100% |
-| **Bộ kiểm thử tự động 10 giai đoạn & Build Production** | `scripts/testing`, `web-admin`, `backend` | **P0** | ✅ Đã xong 100% |
+| **Tự động Refresh Zalo Token (OAuth v4) & Webhook Ngân Hàng** | `payments.service.ts`, `tasks.service.ts`, `W14_ZaloZNS.tsx` | **P0** | ✅ Đã xong 100% |
+| **Khóa bảo vệ khẩn cấp RLS Bước 1 (ZNS & Y khoa/Tài chính)** | Migration 010 (`zns_config`, `edema`, `journal`, `invoices`) | **P0** | ✅ Đã xong 100% |
+| **Bộ kiểm thử tự động 11 giai đoạn & Build Production** | `scripts/testing` (11/11 phases), `web-admin`, `backend` | **P0** | ✅ Đã xong 100% |
+
+---
+
+## ⚡ HỆ THỐNG TỰ ĐỘNG HÓA ENTERPRISE: ZALO OAUTH V4 & WEBHOOK NGÂN HÀNG
+
+### 1. Cơ chế Tự Động Refresh Zalo Access Token (OAuth v4)
+- **Kiến trúc lưu trữ:** Bảng `public.zns_config` (id: `'default'`) trên Supabase Cloud lưu giữ `app_id`, `app_secret`, `access_token`, `refresh_token`, `expires_at`.
+- **Cron Job Backend (`TasksService`):**
+  - Chạy định kỳ mỗi 6 giờ (`@Cron('0 */6 * * *')`).
+  - Kiểm tra nếu `expires_at` còn dưới 6 giờ, tự động gọi endpoint chính thức của Zalo:
+    `POST https://oauth.zaloapp.com/v4/oa/access_token`
+    Header: `secret_key: <app_secret>`, Body: `refresh_token=<token>&app_id=<app_id>&grant_type=refresh_token`.
+  - Cập nhật token mới và `expires_at` vào CSDL.
+- **Thực thi On-demand:**
+  - Endpoint: `POST /payments/zalo-refresh-token`.
+  - Nút bấm trực tiếp tại giao diện `W14_ZaloZNS.tsx` ("Tự động làm mới Token (OAuth v4)") kèm huy hiệu đếm ngược thời gian hết hạn trực quan.
+
+### 2. Cổng Webhook Ngân Hàng Đa Năng (Universal Bank Webhook)
+- **Các Endpoint tiếp nhận:**
+  - `POST /payments/bank-transfer-webhook` (Universal payload: SePay, MBBank, Casso, PayOS, Techcombank, v.v.)
+  - `POST /payments/sepay-webhook`
+  - `POST /payments/casso-webhook`
+- **Cơ chế phân loại & khớp nội dung (Regex Smart Parsing):**
+  - **Học viện (Học phí):** Khớp các mẫu `UAT-EDU-...`, `SEC-ENR-...`, `HV-...`. Tự động:
+    1. Cập nhật `course_enrollments`: `status = 'ENROLLED'`, `student_status = 'APPROVED'`, `approval_status = 'APPROVED'`, `payment_status = 'PAID'`, `amount_paid = amount`.
+    2. Ghi nhận giao dịch `tuition_transactions` (`payment_method = 'BANK_TRANSFER'`).
+    3. Trích 5% hoa hồng tuyển sinh vào `staff_commissions` (`PACKAGE_UPSELL`).
+  - **Spa Trị Liệu (Dịch vụ & Lịch hẹn):** Khớp các mẫu `HD-SPA-...`, `HD-HP-...`, `INV-...`, `BK-...`, `MLD-...`. Tự động:
+    1. Cập nhật `invoices`: `payment_status = 'PAID'`, `paid_at = NOW()`.
+    2. Cập nhật `bookings`: `payment_status = 'PAID'`, `status = 'COMPLETED'`.
+    3. Trích 10% hoa hồng ca trực vào `staff_commissions` (`SERVICE_DIRECT`).
