@@ -28,8 +28,10 @@ import { posService, bookingService, customerService, notificationService, supab
 import { toast } from '../components/common';
 import { Invoice, Booking, User, PaymentMethod, PaymentStatus, BookingStatus, Branch, CashierShift } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
+import { useAdmin } from '../admin/Auth';
 
 export const W07_CashierPOS: React.FC = () => {
+  const { user: adminUser } = useAdmin();
   const [searchParams, setSearchParams] = useSearchParams();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
@@ -393,53 +395,6 @@ export const W07_CashierPOS: React.FC = () => {
       }
       toast.success('Tìm thấy đơn dịch vụ', `Đã chuyển sang đơn ${found.bookingCode} - ${found.customer?.fullName || 'Khách hàng'}.`);
     } else {
-      // Check fallback for demo booking code if searched
-      if (matchSearch(['BK-20261016-003', 'Xuân Trường'], searchTerm)) {
-        setSearchTerm('Xuân Trường / BK-20261016-003');
-        setCustomer({
-          id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-          fullName: 'Xuân Trường',
-          phone: '0334750241',
-        } as any);
-        setBooking({
-          id: 'bk-demo-003',
-          bookingCode: 'BK-20261016-003',
-          branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
-          customerId: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-          technicianId: 'bbbbbbbb-0001-0001-0001-000000000002',
-          bookingDate: '2026-10-16',
-          startTime: '10:00:00',
-          endTime: '11:15:00',
-          status: BookingStatus.COMPLETED,
-          paymentStatus: PaymentStatus.PAID,
-          paymentMethod: PaymentMethod.BANK_TRANSFER,
-          baseTotal: 390000,
-          discountAmount: 0,
-          finalPrice: 390000,
-          customer: {
-            id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-            fullName: 'Xuân Trường',
-            phone: '0334750241',
-          } as any,
-          items: [
-            {
-              id: 'item-1',
-              serviceId: 'srv-1',
-              service: {
-                id: 'srv-1',
-                name: 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy',
-                durationMinutes: 60,
-                price: 390000,
-              } as any,
-              quantity: 1,
-              unitPrice: 390000,
-            } as any,
-          ],
-        } as any);
-        setIsPaid(true);
-        toast.success('Tìm thấy đơn dịch vụ', 'Đã tải thông tin đơn BK-20261016-003 - Xuân Trường.');
-        return;
-      }
       toast.warning('Không tìm thấy', `Không tìm thấy đơn dịch vụ khớp với từ khóa "${searchTerm}".`);
     }
   };
@@ -506,7 +461,7 @@ export const W07_CashierPOS: React.FC = () => {
         invoiceCode: generatedInvoiceCode,
         branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
         customerId: isUuid(customer?.id) ? customer?.id : isUuid(booking.customerId) ? booking.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-        cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
+        cashierId: adminUser?.id || undefined,
         bookingId: validBookingId,
         userPackageId: validPackageId,
         shiftId: currentShift?.id || null,
