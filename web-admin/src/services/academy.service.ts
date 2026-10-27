@@ -303,7 +303,7 @@ export const academyService = {
   }>> {
     try {
       // 1. Thử gọi backend API
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiBase = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000');
       const res = await fetch(`${apiBase}/academy/enrollments/${enrollmentId}/check-payment`, {
         headers: { 'Content-Type': 'application/json' },
       });
@@ -393,7 +393,7 @@ export const academyService = {
   async approveEnrollment(
     enrollmentId: string,
     options?: { adminUser?: string; amountPaid?: number; notes?: string }
-  ): Promise<ApiResponse<CourseEnrollment>> {
+  ): Promise<ApiResponse<CourseEnrollment | null>> {
     try {
       const enrollments = await supabaseService.getEnrollments();
       const enr = enrollments?.find((e) => e.id === enrollmentId);
@@ -413,13 +413,14 @@ export const academyService = {
         success: true,
         statusCode: 200,
         message: 'Đã duyệt học viên vào khóa học thành công!',
-        data: updated,
+        data: updated || null,
       };
     } catch (err: any) {
       return {
         success: false,
         statusCode: 500,
         message: err?.message || 'Lỗi khi duyệt học viên',
+        data: null,
       };
     }
   },
