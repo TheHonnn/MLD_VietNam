@@ -8,6 +8,7 @@ import { StaffProfileEditorSheet } from "./StaffProfileEditorSheet";
 import { CourseEditorSheet } from "./CourseEditorSheet";
 import { EnrollmentEditorSheet } from "./EnrollmentEditorSheet";
 import { ChapterEditorSheet } from "./ChapterEditorSheet";
+import { LessonEditorSheet } from "./LessonEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
 import { InstructorFormEditor } from "./InstructorFormEditor";
@@ -3111,6 +3112,14 @@ function RecordDialog({
         />
       ) : resource.name === "course_chapters" ? (
         <ChapterEditorSheet
+          row={row}
+          mode={mode}
+          onClose={onClose}
+          onSaved={onSaved}
+          onSwitchMode={onSwitchMode}
+        />
+      ) : resource.name === "course_lessons" ? (
+        <LessonEditorSheet
           row={row}
           mode={mode}
           onClose={onClose}
