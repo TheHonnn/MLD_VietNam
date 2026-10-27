@@ -9,6 +9,7 @@ export interface ZaloCloudConfig {
   refreshToken?: string;
   webhookUrl?: string;
   isLiveMode: boolean;
+  expiresAt?: string;
 }
 
 export const znsService = {
@@ -30,8 +31,110 @@ export const znsService = {
     };
   },
 
+  async loadZaloConfigFromCloud(): Promise<ZaloCloudConfig> {
+    try {
+      const rows = await supabaseService.query<any[]>('zns_config?id=eq.default');
+      if (rows && rows.length > 0) {
+        const row = rows[0];
+        const config: ZaloCloudConfig = {
+          oaId: row.oa_id || '2849182390192830192',
+          appId: row.app_id || '4928109283019283',
+          appSecret: row.app_secret || '',
+          accessToken: row.access_token || '',
+          refreshToken: row.refresh_token || '',
+          webhookUrl: 'https://wstvwushpwcdsmhpunvh.supabase.co/functions/v1/zalo-webhook',
+          isLiveMode: Boolean(row.access_token),
+          expiresAt: row.expires_at,
+        };
+        this.saveZaloConfig(config);
+        return config;
+      }
+    } catch (e) {
+      console.warn('Error reading zns_config from Supabase:', e);
+    }
+    return this.getZaloConfig();
+  },
+
   saveZaloConfig(config: ZaloCloudConfig): void {
     localStorage.setItem('mld_zalo_cloud_config', JSON.stringify(config));
+    // Đồng bộ đồng thời lên Supabase Cloud
+    try {
+      supabaseService.query('zns_config?id=eq.default', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          oa_id: config.oaId,
+          app_id: config.appId,
+          app_secret: config.appSecret,
+          access_token: config.accessToken,
+          refresh_token: config.refreshToken,
+          updated_at: new Date().toISOString(),
+        }),
+      }).catch(() => {});
+    } catch (_) {}
+  },
+
+  async refreshZaloToken(config?: ZaloCloudConfig): Promise<{ success: boolean; message: string; data?: any }> {
+    const target = config || this.getZaloConfig();
+    if (!target.appId || !target.appSecret || !target.refreshToken) {
+      return {
+        success: false,
+        message: 'Vui lòng nhập đầy đủ App ID, App Secret và Refresh Token để làm mới Access Token.',
+      };
+    }
+
+    try {
+      const bodyParams = new URLSearchParams({
+        refresh_token: target.refreshToken.trim(),
+        app_id: target.appId.trim(),
+        grant_type: 'refresh_token',
+      });
+
+      const res = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
+        method: 'POST',
+        headers: {
+          'secret_key': target.appSecret.trim(),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: bodyParams.toString(),
+      });
+
+      const data = await res.json();
+
+      if (data.access_token) {
+        const expiresInSeconds = Number(data.expires_in) || 90000;
+        const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+
+        const updatedConfig: ZaloCloudConfig = {
+          ...target,
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token || target.refreshToken,
+          expiresAt,
+        };
+
+        this.saveZaloConfig(updatedConfig);
+
+        return {
+          success: true,
+          message: `Làm mới Access Token thành công! Hiệu lực 25h (đến ${new Date(expiresAt).toLocaleTimeString('vi-VN')} ${new Date(expiresAt).toLocaleDateString('vi-VN')}).`,
+          data: {
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token || target.refreshToken,
+            expiresAt,
+          },
+        };
+      } else {
+        return {
+          success: false,
+          message: `Zalo Cloud báo lỗi ${data.error || 'ERROR'}: ${data.message || 'Không thể làm mới token.'}`,
+          data,
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Lỗi kết nối tới máy chủ Zalo OAuth: ${err.message}`,
+      };
+    }
   },
 
   async testZaloConnection(token?: string): Promise<{ success: boolean; message: string; details?: any }> {

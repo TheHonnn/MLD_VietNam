@@ -151,5 +151,66 @@ export class TasksService {
       this.logger.warn(`Lỗi trong cron job gửi email nhắc lịch: ${err.message}`);
     }
   }
+
+  /**
+   * CRON JOB 3: Tự động gia hạn Access Token Zalo Cloud trước khi hết hạn (chạy định kỳ mỗi 6 giờ)
+   */
+  @Cron('0 */6 * * *')
+  async handleAutoRefreshZaloToken(): Promise<void> {
+    try {
+      const { data: cfg } = await this.supabaseService.adminClient
+        .from('zns_config')
+        .select('*')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      if (!cfg || !cfg.refresh_token || !cfg.app_secret || !cfg.app_id) {
+        return;
+      }
+
+      const expiresAt = cfg.expires_at ? new Date(cfg.expires_at).getTime() : 0;
+      const hoursRemaining = (expiresAt - Date.now()) / (1000 * 60 * 60);
+
+      // Nếu còn dưới 6 tiếng hoặc đã quá hạn -> Tự động gọi làm mới token
+      if (hoursRemaining <= 6) {
+        this.logger.log(`⏱️ [CRON JOB] Zalo Access Token còn ${hoursRemaining.toFixed(1)}h hiệu lực. Đang tự động làm mới...`);
+
+        const bodyParams = new URLSearchParams({
+          refresh_token: cfg.refresh_token.trim(),
+          app_id: cfg.app_id.trim(),
+          grant_type: 'refresh_token',
+        });
+
+        const res = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
+          method: 'POST',
+          headers: {
+            'secret_key': cfg.app_secret.trim(),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: bodyParams.toString(),
+        });
+        const data = await res.json();
+        if (data.access_token) {
+          const expiresInSeconds = Number(data.expires_in) || 90000;
+          const newExpiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+          await this.supabaseService.adminClient
+            .from('zns_config')
+            .upsert({
+              id: 'default',
+              access_token: data.access_token,
+              refresh_token: data.refresh_token || cfg.refresh_token,
+              expires_at: newExpiresAt,
+              updated_at: new Date().toISOString(),
+            });
+          this.logger.log(`✅ [CRON JOB] Đã tự động làm mới Zalo Access Token thành công! Hiệu lực đến ${newExpiresAt}`);
+        } else {
+          this.logger.warn(`[CRON JOB Zalo Error]: ${JSON.stringify(data)}`);
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron job tự động refresh Zalo token: ${err.message}`);
+    }
+  }
 }
+
 

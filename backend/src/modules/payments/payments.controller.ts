@@ -57,5 +57,35 @@ export class PaymentsController {
   async handleGeneralWebhook(@Body() body: any) {
     return this.paymentsService.handleWebhook(body);
   }
+
+  @Post('bank-transfer-webhook')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Webhook tự động đối soát biến động số dư ngân hàng (SePay / Casso / MBBank)' })
+  @ApiResponse({ status: 200, description: 'Đối soát và cập nhật thanh toán tự động thành công' })
+  async handleBankTransferWebhook(@Body() body: any) {
+    return this.paymentsService.handleBankTransferWebhook(body);
+  }
+
+  @Post('sepay-webhook')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Endpoint Webhook tích hợp trực tiếp SePay' })
+  async handleSepayWebhook(@Body() body: any) {
+    return this.paymentsService.handleBankTransferWebhook(body);
+  }
+
+  @Post('casso-webhook')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Endpoint Webhook tích hợp trực tiếp Casso' })
+  async handleCassoWebhook(@Body() body: any) {
+    return this.paymentsService.handleBankTransferWebhook(body);
+  }
+
+  @Post('zalo-refresh-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cơ chế làm mới Zalo OA Access Token tự động (Zalo OAuth v4)' })
+  @ApiResponse({ status: 200, description: 'Làm mới token thành công' })
+  async refreshZaloToken(@Body() body: any) {
+    return this.paymentsService.refreshZaloAccessToken(body);
+  }
 }
 

@@ -12,6 +12,8 @@ const scripts = [
   { name: 'Giai đoạn 8: Vận hành Thật Doanh nghiệp - Zalo Cloud API, PDF Ký số & Excel XLSX (W14, W07, W16, W12)', file: 'test_step2_real_operations.js' },
   { name: 'Giai đoạn 9: Bảo mật Phân quyền Khóa học - Chặn Tuyệt đối Học viên Chưa Duyệt (Academy Security)', file: 'test_course_approval_security.js' },
   { name: 'Giai đoạn 10: Nghiệm thu Đầu cuối UAT 2 Kịch bản Thực địa (Học viện & Spa 100% Live DB)', file: 'test_step3_uat_acceptance.js' },
+  { name: 'Giai đoạn 11: Kiểm thử An ninh RLS - Chặn Tuyệt đối Anon Key Đọc/Ghi Dữ liệu Nhạy cảm (PostgREST Security Audit)', file: 'test_step1_rls_security_verification.js' },
+  { name: 'Giai đoạn 12: Tự động Refresh Zalo Token (OAuth v4) & Webhook Ngân Hàng Tự Động (E2E Bank Reconcile)', file: 'test_bank_webhook_and_zalo_refresh.js' },
 ];
 
 console.log('╔════════════════════════════════════════════════════════════════════════════════════╗');
@@ -37,7 +39,7 @@ scripts.forEach((s, idx) => {
 });
 
 if (allSuccess) {
-  console.log('🎉 TOÀN BỘ 10 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
+  console.log('🎉 TOÀN BỘ 12 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
 } else {
   console.log('⚠️ CÓ GIAI ĐOẠN CHƯA ĐẠT CHUẨN. CẦN KIỂM TRA LẠI.');
 }
