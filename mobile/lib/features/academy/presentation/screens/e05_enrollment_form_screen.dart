@@ -88,8 +88,45 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     super.dispose();
   }
 
-  void _submitConsultation(String phone) {
+  bool _isSubmitting = false;
+
+  Future<void> _submitConsultation(String phone) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    final name = _nameController.text.trim().isNotEmpty
+        ? _nameController.text.trim()
+        : 'Học viên MLD';
+    final email = _emailController.text.trim();
+
+    // 1. Lưu local để học viên có trải nghiệm mở khóa ngay
     AcademyRepository.instance.enrollCourseLocal(widget.course);
+
+    // 2. Gửi API lên Backend Gateway & Supabase Cloud
+    Map<String, dynamic>? result;
+    try {
+      result = await AcademyRepository.instance.enrollCourse(
+        course: widget.course,
+        studentName: name,
+        studentPhone: phone,
+        studentEmail: email,
+        selectedBranch: _selectedBranch,
+        selectedShift: _selectedBatch,
+        depositAmount: widget.course.depositFee,
+      );
+    } catch (e) {
+      debugPrint('>>> [E05] Lỗi gửi đăng ký khóa học: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+
+    if (!mounted) return;
+
+    final enrollmentCode = result?['enrollmentCode'] ??
+        'MLD-EDU-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -101,9 +138,44 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             Text('Đăng ký thành công', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Text(
-          'Chúc mừng! Bạn đã đăng ký khóa học thành công.\n\nToàn bộ video bài giảng và học liệu chuyên sâu đã được mở khóa. Đội ngũ đào tạo MLD Vietnam sẽ liên hệ hỗ trợ bạn trong suốt quá trình học tập.',
-          style: TextStyle(fontSize: 14, height: 1.5),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Chúc mừng $name! Hồ sơ ghi danh đã được ghi nhận vào hệ thống.',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, height: 1.4),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAF4EE),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFEFE4D9)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Mã hồ sơ: $enrollmentCode',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF8A4F23)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Khóa học: ${widget.course.title}', style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text('Cơ sở: $_selectedBranch', style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text('Lịch học: $_selectedBatch', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Toàn bộ video bài giảng và học liệu đã được mở khóa. Đội ngũ đào tạo MLD Vietnam sẽ liên hệ hỗ trợ bạn trong suốt quá trình học tập.',
+              style: TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF73675F)),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -111,7 +183,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               Navigator.of(ctx).pop();
               Navigator.of(context).pop();
             },
-            child: const Text('Bắt đầu học ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Bắt đầu học ngay', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF8A4F23))),
           ),
         ],
       ),
@@ -129,21 +201,23 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
       ),
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: 'Tư vấn & Giữ chỗ miễn phí',
-        buttonText: 'Xác nhận đăng ký tư vấn',
-        onPressed: () async {
-          if (_formKey.currentState?.validate() ?? false) {
-            final phone = _phoneController.text.trim().replaceAll(' ', '');
-            if (phone.isNotEmpty) {
-              await AuthService.instance.updatePhone(phone);
-              final repo = MembershipRepository.instance;
-              repo.updateProfile(repo.profile.copyWith(phone: phone, isPhoneVerified: true));
-            }
-            if (context.mounted) {
-              _submitConsultation(phone);
-                
-            }
-          }
-        },
+        buttonText: _isSubmitting ? 'Đang gửi đăng ký...' : 'Xác nhận đăng ký tư vấn',
+        isEnabled: !_isSubmitting,
+        onPressed: _isSubmitting
+            ? () {}
+            : () async {
+                if (_formKey.currentState?.validate() ?? false) {
+                  final phone = _phoneController.text.trim().replaceAll(' ', '');
+                  if (phone.isNotEmpty) {
+                    await AuthService.instance.updatePhone(phone);
+                    final repo = MembershipRepository.instance;
+                    repo.updateProfile(repo.profile.copyWith(phone: phone, isPhoneVerified: true));
+                  }
+                  if (context.mounted) {
+                    await _submitConsultation(phone);
+                  }
+                }
+              },
       ),
       body: Form(
         key: _formKey,
