@@ -1612,7 +1612,10 @@ class SupabaseService {
       if (updates.progressPercent !== undefined) payload.progress_percent = updates.progressPercent;
       if (updates.completedLessonsCount !== undefined) payload.completed_lessons_count = updates.completedLessonsCount;
       if (updates.approvalStatus !== undefined) payload.approval_status = updates.approvalStatus;
-      if (updates.approvedBy !== undefined) payload.approved_by = updates.approvedBy;
+      if (updates.approvedBy !== undefined) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(updates.approvedBy);
+        payload.approved_by = isUuid ? updates.approvedBy : 'f0dc713a-56fc-4347-9fb3-240528726ba3';
+      }
       if (updates.approvedAt !== undefined) payload.approved_at = updates.approvedAt;
       if (updates.approvalNotes !== undefined) payload.approval_notes = updates.approvalNotes;
 

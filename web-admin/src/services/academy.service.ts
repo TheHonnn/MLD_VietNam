@@ -269,7 +269,14 @@ export const academyService = {
   async updateEnrollmentStatus(
     id: string,
     status: EnrollmentStatus,
-    extraUpdates?: { amountPaid?: number; batchId?: string | null }
+    extraUpdates?: {
+      amountPaid?: number;
+      batchId?: string | null;
+      approvalStatus?: string;
+      approvedBy?: string;
+      approvedAt?: string;
+      approvalNotes?: string;
+    }
   ): Promise<ApiResponse<CourseEnrollment>> {
     try {
       const ok = await supabaseService.updateEnrollment(id, { status, ...extraUpdates });

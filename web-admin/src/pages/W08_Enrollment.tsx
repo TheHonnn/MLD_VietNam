@@ -145,10 +145,12 @@ export const W08_Enrollment: React.FC = () => {
 
       const isFullyPaid = paid >= total && total > 0;
       const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
-      const isApproved = enr.approvalStatus === 'APPROVED';
+      const isStudying = enr.status === 'STUDYING';
+      const isApproved = enr.approvalStatus === 'APPROVED' || isStudying || isGraduated || isFullyPaid;
       const isNewlyCreated = enr.enrolledAt ? (Date.now() - new Date(enr.enrolledAt).getTime() < 48 * 3600 * 1000) : false;
+      
       const stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending' =
-        enr.status === 'STUDYING' || isGraduated
+        isGraduated || isStudying
           ? 'class_pending'
           : isApproved || (paid > 0 && !isFullyPaid)
           ? 'payment_pending'
@@ -159,10 +161,12 @@ export const W08_Enrollment: React.FC = () => {
           : 'class_pending';
 
       const stageLabel =
-        stage === 'class_pending'
-          ? (isGraduated ? 'Tốt nghiệp' : bat ? 'Đang học' : 'Chờ xếp lớp')
-          : isApproved
-          ? 'Đã duyệt & Đã đóng'
+        isGraduated
+          ? 'Đã tốt nghiệp'
+          : isStudying
+          ? 'Đang theo học'
+          : isApproved || isFullyPaid
+          ? (enr.batchId ? 'Đã xếp lớp' : 'Chờ xếp lớp')
           : enr.approvalStatus === 'PENDING_APPROVAL' || (enr.status as string) === 'PENDING_APPROVAL'
           ? 'Chờ duyệt & Chưa thanh toán'
           : enr.status === 'ENROLLED'
@@ -207,6 +211,17 @@ export const W08_Enrollment: React.FC = () => {
 
       const instructorDisplay = bat?.instructorId ? 'Lâm Xuân Trường (Master Trainer)' : 'Master Trainer MLD Academy';
 
+      const statusBadge =
+        isGraduated
+          ? 'Đã tốt nghiệp xuất sắc'
+          : isStudying
+          ? 'Đang theo học'
+          : isApproved || isFullyPaid
+          ? 'Đã duyệt & Đã thanh toán 100%'
+          : paid > 0
+          ? `Đã đóng cọc (${paid.toLocaleString('vi-VN')}đ)`
+          : 'Chờ duyệt & Chưa thanh toán';
+
       return {
         id: enr.id,
         name: custName,
@@ -221,7 +236,7 @@ export const W08_Enrollment: React.FC = () => {
         tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc',
         rawTuitionTotal: total,
         rawAmountPaid: paid,
-        approvalStatus: enr.approvalStatus,
+        approvalStatus: isApproved ? 'APPROVED' : enr.approvalStatus,
         approvedBy: enr.approvedBy,
         approvedAt: enr.approvedAt,
         approvalNotes: enr.approvalNotes,
@@ -238,7 +253,7 @@ export const W08_Enrollment: React.FC = () => {
         contractTuition: `${total.toLocaleString('vi-VN')}đ`,
         requiredDeposit: depositDisplay,
         remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
-        statusBadge: isApproved ? 'Đã duyệt & Đã thanh toán' : paid > 0 ? 'Đã đóng cọc tuyển sinh' : 'Chờ duyệt & Chưa thanh toán',
+        statusBadge,
         buttonLabel: isFullyPaid ? 'Xem hồ sơ học viên' : 'Gửi thông tin lớp',
       };
     });
@@ -510,7 +525,7 @@ export const W08_Enrollment: React.FC = () => {
     const target = candidatesData.find((c) => c.id === enrollmentId);
     try {
       const res = await academyService.approveEnrollment(enrollmentId, {
-        adminUser: 'Admin Tuyển Sinh',
+        adminUser: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
         amountPaid: target?.rawTuitionTotal || 9000000,
         notes: `Admin duyệt trực tiếp tại quầy cho học viên ${target?.name} (${target?.code})`,
       });
@@ -523,6 +538,8 @@ export const W08_Enrollment: React.FC = () => {
                   status: EnrollmentStatus.ENROLLED,
                   approvalStatus: 'APPROVED',
                   amountPaid: target?.rawTuitionTotal || 9000000,
+                  approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+                  approvedAt: new Date().toISOString(),
                 }
               : e
           )
@@ -562,7 +579,12 @@ export const W08_Enrollment: React.FC = () => {
       const res = await academyService.updateEnrollmentStatus(
         enrollmentId,
         EnrollmentStatus.STUDYING,
-        { batchId }
+        {
+          batchId,
+          approvalStatus: 'APPROVED',
+          approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+          approvedAt: new Date().toISOString(),
+        }
       );
       if (res.success) {
         setLiveEnrollments((prev) =>
@@ -572,6 +594,9 @@ export const W08_Enrollment: React.FC = () => {
                   ...e,
                   batchId,
                   status: EnrollmentStatus.STUDYING,
+                  approvalStatus: 'APPROVED',
+                  approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+                  approvedAt: new Date().toISOString(),
                 }
               : e
           )
@@ -597,9 +622,10 @@ export const W08_Enrollment: React.FC = () => {
   const countPendingApproval = useMemo(() => {
     return candidatesData.filter(
       (c) =>
-        c.approvalStatus === 'PENDING_APPROVAL' ||
-        (c.approvalStatus !== 'APPROVED' && c.rawAmountPaid === 0) ||
-        (c.rawAmountPaid < c.rawTuitionTotal && c.approvalStatus !== 'APPROVED')
+        c.rawStatus !== EnrollmentStatus.STUDYING &&
+        c.rawStatus !== EnrollmentStatus.GRADUATED &&
+        c.approvalStatus !== 'APPROVED' &&
+        (c.rawAmountPaid === 0 || c.rawAmountPaid < c.rawTuitionTotal)
     ).length;
   }, [candidatesData]);
 
@@ -607,6 +633,8 @@ export const W08_Enrollment: React.FC = () => {
     return candidatesData.filter(
       (c) =>
         c.approvalStatus === 'APPROVED' ||
+        c.rawStatus === EnrollmentStatus.STUDYING ||
+        c.rawStatus === EnrollmentStatus.GRADUATED ||
         (c.rawAmountPaid > 0 && c.rawAmountPaid >= c.rawTuitionTotal)
     ).length;
   }, [candidatesData]);
@@ -621,12 +649,15 @@ export const W08_Enrollment: React.FC = () => {
     let matchSubTab = true;
     if (activeSubTab === 'PENDING_APPROVAL') {
       matchSubTab =
-        c.approvalStatus === 'PENDING_APPROVAL' ||
-        (c.approvalStatus !== 'APPROVED' && c.rawAmountPaid === 0) ||
-        (c.rawAmountPaid < c.rawTuitionTotal && c.approvalStatus !== 'APPROVED');
+        c.rawStatus !== EnrollmentStatus.STUDYING &&
+        c.rawStatus !== EnrollmentStatus.GRADUATED &&
+        c.approvalStatus !== 'APPROVED' &&
+        (c.rawAmountPaid === 0 || c.rawAmountPaid < c.rawTuitionTotal);
     } else if (activeSubTab === 'APPROVED_PAID') {
       matchSubTab =
         c.approvalStatus === 'APPROVED' ||
+        c.rawStatus === EnrollmentStatus.STUDYING ||
+        c.rawStatus === EnrollmentStatus.GRADUATED ||
         (c.rawAmountPaid > 0 && c.rawAmountPaid >= c.rawTuitionTotal);
     }
 
@@ -989,7 +1020,17 @@ export const W08_Enrollment: React.FC = () => {
 
                         {/* 4. Giai đoạn */}
                         <td className="py-3 px-3.5 whitespace-nowrap">
-                          {candidate.approvalStatus === 'APPROVED' ? (
+                          {candidate.rawStatus === EnrollmentStatus.GRADUATED ? (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#E8F6ED] text-[#0D6832] whitespace-nowrap border border-[#C2E8D1]">
+                              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2]" />
+                              <span>Đã tốt nghiệp</span>
+                            </div>
+                          ) : candidate.rawStatus === EnrollmentStatus.STUDYING ? (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#EBF5FB] text-[#1B4F72] whitespace-nowrap border border-[#A9CCE3]">
+                              <GraduationCap className="w-3.5 h-3.5 stroke-[2]" />
+                              <span>Đang theo học</span>
+                            </div>
+                          ) : candidate.approvalStatus === 'APPROVED' || (candidate.rawAmountPaid >= candidate.rawTuitionTotal && candidate.rawTuitionTotal > 0) ? (
                             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#E8F6ED] text-[#0D6832] whitespace-nowrap border border-[#C2E8D1]">
                               <CheckCircle2 className="w-3.5 h-3.5 stroke-[2]" />
                               <span>Đã duyệt & Đã đóng</span>
@@ -1222,7 +1263,11 @@ export const W08_Enrollment: React.FC = () => {
                 <Clock className="w-4 h-4 stroke-[2]" />
                 <span>
                   Trạng thái:{' '}
-                  {selectedCandidate.approvalStatus === 'APPROVED'
+                  {selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED
+                    ? 'Đã tốt nghiệp'
+                    : selectedCandidate.rawStatus === EnrollmentStatus.STUDYING
+                    ? 'Đang theo học'
+                    : selectedCandidate.approvalStatus === 'APPROVED' || selectedCandidate.rawAmountPaid >= selectedCandidate.rawTuitionTotal
                     ? 'Đã duyệt & Đã thanh toán'
                     : selectedCandidate.stageLabel}
                 </span>
@@ -1252,16 +1297,19 @@ export const W08_Enrollment: React.FC = () => {
                     </button>
                   )}
 
-                  {selectedCandidate.approvalStatus !== 'APPROVED' && (
-                    <button
-                      type="button"
-                      onClick={() => handleApproveAtDesk(selectedCandidate.id)}
-                      className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Duyệt & Thu tiền tại quầy</span>
-                    </button>
-                  )}
+                  {selectedCandidate.approvalStatus !== 'APPROVED' &&
+                    selectedCandidate.rawAmountPaid < selectedCandidate.rawTuitionTotal &&
+                    selectedCandidate.rawStatus !== EnrollmentStatus.STUDYING &&
+                    selectedCandidate.rawStatus !== EnrollmentStatus.GRADUATED && (
+                      <button
+                        type="button"
+                        onClick={() => handleApproveAtDesk(selectedCandidate.id)}
+                        className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Duyệt & Thu tiền tại quầy</span>
+                      </button>
+                    )}
                 </div>
               )}
 
