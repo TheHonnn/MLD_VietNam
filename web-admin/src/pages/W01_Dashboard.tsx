@@ -36,6 +36,7 @@ import {
   UserPackage,
   CourseEnrollment,
   TuitionTransaction,
+  TuitionTransType,
   Technician,
   User as CustomerUser,
 } from '../types/shared_types';
@@ -353,13 +354,48 @@ export const W01_Dashboard: React.FC = () => {
   }, [invoices, selectedBranchId, datePreset, startDateStr, endDateStr]);
 
   const filteredTuitions = useMemo(() => {
-    return tuitions.filter((t) => {
+    // 1. Các giao dịch từ bảng tuition_transactions
+    const explicitTxs = tuitions.filter((t) => {
       const matchBranch = selectedBranchId === 'ALL' || t.branchId === selectedBranchId;
       if (!matchBranch) return false;
       if (datePreset === 'ALL') return true;
       return isDateInRange(t.paidAt);
     });
-  }, [tuitions, selectedBranchId, datePreset, startDateStr, endDateStr]);
+
+    // 2. Dự phòng: Các hồ sơ học viên đã thu tiền (amountPaid > 0)
+    // nhưng chưa có bản ghi trong tuition_transactions
+    const existingEnrollmentIds = new Set(explicitTxs.map((t) => t.enrollmentId));
+    const implicitTxs: TuitionTransaction[] = [];
+
+    enrollments.forEach((e) => {
+      if (e.amountPaid > 0 && !existingEnrollmentIds.has(e.id)) {
+        const matchBranch =
+          selectedBranchId === 'ALL' ||
+          !e.batch?.branchId ||
+          e.batch?.branchId === selectedBranchId;
+        if (!matchBranch) return;
+        if (datePreset !== 'ALL' && !isDateInRange(e.approvedAt || e.enrolledAt)) return;
+
+        implicitTxs.push({
+          id: `tx-${e.id}`,
+          transactionCode: `TT-${e.id.slice(-6).toUpperCase()}`,
+          enrollmentId: e.id,
+          studentId: e.studentId,
+          courseId: e.courseId,
+          branchId: e.batch?.branchId || selectedBranchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+          transactionType: e.amountPaid >= e.tuitionTotal ? TuitionTransType.FULL_PAYMENT : TuitionTransType.DEPOSIT,
+          amount: e.amountPaid,
+          paymentMethod: 'BANK_TRANSFER' as any,
+          paymentStatus: 'PAID' as any,
+          receiptNumber: `REC-${e.id.slice(-6).toUpperCase()}`,
+          paidAt: e.approvedAt || e.enrolledAt || new Date().toISOString(),
+          notes: e.approvalNotes || `Học phí đã thu của học viên ${e.studentName || ''}`,
+        });
+      }
+    });
+
+    return [...explicitTxs, ...implicitTxs];
+  }, [tuitions, enrollments, selectedBranchId, datePreset, startDateStr, endDateStr]);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
