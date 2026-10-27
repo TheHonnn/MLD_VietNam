@@ -26,10 +26,8 @@ interface AcademyScreenProps {
 
 const AUDIENCE_OPTIONS = [
   'Tất cả',
-  'Bác sĩ/Y sĩ',
-  'KTV Spa/Thẩm mỹ',
-  'Người bệnh Lymphedema',
-  'Mẹ bỉm & Đại chúng',
+  'Người mới bắt đầu',
+  'Người đang làm nghề',
 ];
 
 const NEED_OPTIONS = [
@@ -479,7 +477,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                           const isDone = completedLessonIds.includes(lesson.id);
                           const isEnrolled = selectedCourse ? supabaseApi.isCourseEnrolled(selectedCourse.id) : false;
                           const durationDisplay = lesson.durationMinutes === 95 ? '94:48' : `${lesson.durationMinutes}:00`;
-                          const ytid = lesson.videoUrl?.includes('mDhpMX4EeY8') ? 'mDhpMX4EeY8' : null;
+                          const ytid = lesson.youtubeId || (lesson.videoUrl ? (lesson.videoUrl.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] || null) : null);
 
                           return (
                             <div
@@ -710,7 +708,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
             >
               <iframe
                 className="w-full h-full"
-                src={`https://www.youtube.com/embed/${activeVideoLesson.youtubeId || 'mDhpMX4EeY8'}?autoplay=1&rel=0&modestbranding=1`}
+                src={`https://www.youtube.com/embed/${activeVideoLesson.youtubeId || (activeVideoLesson.videoUrl ? (activeVideoLesson.videoUrl.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] || '1F2b2Uf0a88') : '1F2b2Uf0a88')}?autoplay=1&rel=0&modestbranding=1`}
                 title={activeVideoLesson.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

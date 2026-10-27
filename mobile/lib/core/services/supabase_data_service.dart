@@ -459,6 +459,7 @@ class SupabaseDataService {
     double? amountPaid,
     String status = 'PENDING_APPROVAL',
     String approvalStatus = 'PENDING_APPROVAL',
+    String? approvalNotes,
   }) async {
     try {
       if (Platform.environment.containsKey('FLUTTER_TEST')) {
@@ -483,6 +484,7 @@ class SupabaseDataService {
           'amount_paid': amountPaid ?? 0.00,
           'status': status,
           'approval_status': approvalStatus,
+          if (approvalNotes != null) 'approval_notes': approvalNotes,
         },
         options: Options(
           headers: {

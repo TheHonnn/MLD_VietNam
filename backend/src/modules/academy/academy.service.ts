@@ -278,7 +278,7 @@ export class AcademyService {
         student_id: studentId,
         course_id: courseId,
         batch_id: batchId || null,
-        status: 'CONSULTING',
+        status: 'PENDING_APPROVAL',
         tuition_total: tuitionTotal,
         amount_paid: 0,
         student_name: studentName,

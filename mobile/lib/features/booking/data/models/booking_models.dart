@@ -86,6 +86,9 @@ class BookingTimelineEvent {
 class AppointmentItemModel {
   final String id;
   final String bookingCode; // 'SPA-DEMO-000128'
+  final String? branchId;
+  final String? serviceId;
+  final String? technicianId;
   final String serviceName; // 'Massage thư giãn toàn thân'
   final String serviceImage;
   final int durationMinutes; // 60
@@ -112,6 +115,9 @@ class AppointmentItemModel {
   const AppointmentItemModel({
     required this.id,
     required this.bookingCode,
+    this.branchId,
+    this.serviceId,
+    this.technicianId,
     required this.serviceName,
     required this.serviceImage,
     this.durationMinutes = 60,
@@ -139,6 +145,9 @@ class AppointmentItemModel {
   AppointmentItemModel copyWith({
     String? id,
     String? bookingCode,
+    String? branchId,
+    String? serviceId,
+    String? technicianId,
     String? serviceName,
     String? serviceImage,
     int? durationMinutes,
@@ -165,6 +174,9 @@ class AppointmentItemModel {
     return AppointmentItemModel(
       id: id ?? this.id,
       bookingCode: bookingCode ?? this.bookingCode,
+      branchId: branchId ?? this.branchId,
+      serviceId: serviceId ?? this.serviceId,
+      technicianId: technicianId ?? this.technicianId,
       serviceName: serviceName ?? this.serviceName,
       serviceImage: serviceImage ?? this.serviceImage,
       durationMinutes: durationMinutes ?? this.durationMinutes,

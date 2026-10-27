@@ -100,6 +100,7 @@ class ApiEndpoints {
   static const String academyMyCourses = '/academy/my-courses';
   static const String academySchedule = '/academy/schedule';
   static const String academyResults = '/academy/results';
+  static String academyCheckEnrollmentPayment(String id) => '/academy/enrollments/$id/check-payment';
 
   // --- Treatment (Group D) Endpoints ---
   static const String treatmentMyPackages = '/treatment/packages/my';

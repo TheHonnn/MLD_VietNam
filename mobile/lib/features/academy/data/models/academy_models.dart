@@ -24,7 +24,10 @@ class CourseModel {
   final String description;
   final String tag;
   final int progressPercentage;
-  final String status; // 'IN_PROGRESS', 'UPCOMING', 'COMPLETED'
+  final String status; // 'IN_PROGRESS', 'UPCOMING', 'COMPLETED', 'PENDING_APPROVAL'
+  final String? enrollmentId;
+  final String? customerCode;
+  final String? approvalStatus;
 
   const CourseModel({
     required this.id,
@@ -51,6 +54,9 @@ class CourseModel {
     this.tag = 'Thực hành chuyên nghiệp',
     this.progressPercentage = 0,
     this.status = 'UPCOMING',
+    this.enrollmentId,
+    this.customerCode,
+    this.approvalStatus,
   });
 
   factory CourseModel.fromJson(Map<String, dynamic> json) {
@@ -101,6 +107,9 @@ class CourseModel {
       tag: json['tag']?.toString() ?? 'Chứng nhận Y khoa',
       progressPercentage: (json['progressPercentage'] as num?)?.toInt() ?? (json['progress_percentage'] as num?)?.toInt() ?? 0,
       status: json['status']?.toString() ?? 'UPCOMING',
+      enrollmentId: json['enrollment_id']?.toString() ?? json['enrollmentId']?.toString(),
+      customerCode: json['customer_code']?.toString() ?? json['customerCode']?.toString(),
+      approvalStatus: json['approval_status']?.toString() ?? json['approvalStatus']?.toString(),
     );
   }
 
@@ -129,6 +138,9 @@ class CourseModel {
     String? tag,
     int? progressPercentage,
     String? status,
+    String? enrollmentId,
+    String? customerCode,
+    String? approvalStatus,
   }) {
     return CourseModel(
       id: id ?? this.id,
@@ -155,6 +167,9 @@ class CourseModel {
       tag: tag ?? this.tag,
       progressPercentage: progressPercentage ?? this.progressPercentage,
       status: status ?? this.status,
+      enrollmentId: enrollmentId ?? this.enrollmentId,
+      customerCode: customerCode ?? this.customerCode,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
     );
   }
 
@@ -183,6 +198,9 @@ class CourseModel {
     'tag': tag,
     'progressPercentage': progressPercentage,
     'status': status,
+    'enrollmentId': enrollmentId,
+    'customerCode': customerCode,
+    'approvalStatus': approvalStatus,
   };
 
   int get sessionCount {
