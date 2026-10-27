@@ -407,7 +407,7 @@ class SupabaseDataService {
   // ==========================================
   // 12. GHI DANH KHÓA HỌC (COURSE ENROLLMENTS)
   // ==========================================
-  Future<List<Map<String, dynamic>>> fetchUserEnrollments({String? studentId}) async {
+  Future<List<Map<String, dynamic>>> fetchUserEnrollments({String? studentId, String? studentPhone}) async {
     try {
       if (Platform.environment.containsKey('FLUTTER_TEST')) {
         return [];
@@ -419,8 +419,12 @@ class SupabaseDataService {
         'select': '*,courses(*,course_categories(name))',
         'order': 'enrolled_at.desc',
       };
-      if (studentId != null && studentId.isNotEmpty) {
+      if (studentId != null && studentId.isNotEmpty && studentPhone != null && studentPhone.isNotEmpty) {
+        query['or'] = '(student_id.eq.' + studentId + ',student_phone.eq.' + studentPhone + ')';
+      } else if (studentId != null && studentId.isNotEmpty) {
         query['student_id'] = 'eq.' + studentId;
+      } else if (studentPhone != null && studentPhone.isNotEmpty) {
+        query['student_phone'] = 'eq.' + studentPhone;
       }
 
       final response = await _client.get<List<dynamic>>(

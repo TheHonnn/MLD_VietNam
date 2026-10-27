@@ -28,6 +28,7 @@ class AcademyRepository {
 
   List<CourseModel> _cachedCourses = [];
   final List<CourseModel> _enrolledCourses = [];
+  final ValueNotifier<int> enrollmentNotifier = ValueNotifier<int>(0);
 
   List<CourseModel> get cachedCourses => List.unmodifiable(_cachedCourses);
   List<CourseModel> get enrolledCourses => List.unmodifiable(_enrolledCourses);
@@ -64,7 +65,8 @@ class AcademyRepository {
   Future<void> syncUserEnrollmentFromSupabase() async {
     try {
       final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
-      final rawList = await SupabaseDataService.instance.fetchUserEnrollments(studentId: userId);
+      final phone = AuthService.instance.phoneNotifier.value;
+      final rawList = await SupabaseDataService.instance.fetchUserEnrollments(studentId: userId, studentPhone: phone);
       if (rawList.isNotEmpty) {
         bool changed = false;
         for (final item in rawList) {
@@ -317,9 +319,18 @@ class AcademyRepository {
           }
         }
         if (list.isNotEmpty) {
-          _enrolledCourses.clear();
-          _enrolledCourses.addAll(list);
+          for (final item in list) {
+            final idx = _enrolledCourses.indexWhere((c) =>
+                c.id.trim().toLowerCase() == item.id.trim().toLowerCase() ||
+                c.title.trim().toLowerCase() == item.title.trim().toLowerCase());
+            if (idx >= 0) {
+              _enrolledCourses[idx] = item;
+            } else {
+              _enrolledCourses.add(item);
+            }
+          }
           await _saveEnrolledCourses();
+          enrollmentNotifier.value++;
           return _enrolledCourses;
         }
       }
@@ -400,23 +411,37 @@ class AcademyRepository {
   }
 
   void enrollCourseLocal(CourseModel course) {
-    if (!_enrolledCourses.any((c) => c.id == course.id || c.title == course.title)) {
+    final cleanId = course.id.trim().toLowerCase();
+    final cleanTitle = course.title.trim().toLowerCase();
+    final existingIndex = _enrolledCourses.indexWhere((c) =>
+        c.id.trim().toLowerCase() == cleanId ||
+        c.title.trim().toLowerCase() == cleanTitle
+    );
+    if (existingIndex >= 0) {
+      _enrolledCourses[existingIndex] = course;
+    } else {
       _enrolledCourses.add(course);
-      _saveEnrolledCourses();
     }
+    _saveEnrolledCourses();
+    enrollmentNotifier.value++;
   }
 
   bool isCourseEnrolled(String courseId, [String? title]) {
-    return _enrolledCourses.any((c) =>
-        c.id == courseId ||
-        (title != null && c.title.trim().toLowerCase() == title.trim().toLowerCase()) ||
-        c.title.trim().toLowerCase() == courseId.trim().toLowerCase()
-    );
+    final cleanId = courseId.trim().toLowerCase();
+    final cleanTitle = title?.trim().toLowerCase();
+    return _enrolledCourses.any((c) {
+      final cId = c.id.trim().toLowerCase();
+      final cTitle = c.title.trim().toLowerCase();
+      return (cleanId.isNotEmpty && cId == cleanId) ||
+             (cleanTitle != null && cleanTitle.isNotEmpty && cTitle == cleanTitle) ||
+             (cleanId.isNotEmpty && cTitle == cleanId);
+    });
   }
 
   void clearEnrolledCourses() {
     _enrolledCourses.clear();
     _saveEnrolledCourses();
+    enrollmentNotifier.value++;
   }
 
   /// Lấy danh sách chương và bài học video thực tế từ Supabase Cloud

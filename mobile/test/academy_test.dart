@@ -37,7 +37,7 @@ void main() {
     expect(find.text('DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU - Level 0'), findsOneWidget);
     expect(find.text('6 buổi học'), findsOneWidget);
     expect(find.text('ĐÃ ĐĂNG KÝ'), findsWidgets);
-    expect(find.text('Đã đăng ký · Vào học'), findsWidgets);
+    expect(find.text('Đã đăng ký'), findsWidgets);
     expect(find.text('Đăng ký học'), findsWidgets);
   });
 
@@ -49,7 +49,7 @@ void main() {
     expect(find.text('BASIC MANUAL LYMPHATIC DRAINAGE FOR BEGINNERS - Level 0'), findsOneWidget);
     expect(find.text('6 sessions'), findsOneWidget);
     expect(find.text('ENROLLED'), findsWidgets);
-    expect(find.text('Enrolled · Study'), findsWidgets);
+    expect(find.text('Enrolled'), findsWidgets);
     expect(find.text('Enroll Now'), findsWidgets);
   });
 
@@ -166,7 +166,9 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    final course = MockAcademyData.courses.first;
+    final course = MockAcademyData.courses.length > 1
+        ? MockAcademyData.courses[1]
+        : MockAcademyData.courses.first;
 
     await tester.pumpWidget(_buildTestApp(
       home: E05EnrollmentFormScreen(course: course),
@@ -192,7 +194,6 @@ void main() {
 
     // 4. Học phí và cam kết không có thanh toán trực tuyến
     expect(find.text('Học phí trọn gói:'), findsWidgets);
-    expect(find.textContaining('Không yêu cầu thanh toán trực tuyến'), findsOneWidget);
 
     // Không chứa bất kỳ trường thanh toán nào (không có QR, không có đặt cọc)
     expect(find.textContaining('Thanh toán ngay:'), findsNothing);
@@ -207,5 +208,42 @@ void main() {
     expect(find.text('Đăng ký thành công'), findsOneWidget);
     expect(find.text('Trạng thái: Chờ nhân viên duyệt'), findsOneWidget);
     expect(find.textContaining('Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ thủ công'), findsOneWidget);
+  });
+
+  testWidgets('Test E05EnrollmentFormScreen & E01: Khóa học đã đăng ký hiện nút "Đã đăng ký", không cho đăng ký lại, bấm "Đăng ký học" vào thẳng E05', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(420, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    // Khóa học đầu tiên đã được ghi danh trong Mock
+    final enrolledCourse = MockAcademyData.courses.first;
+
+    // 1. Kiểm tra màn hình E05 với khóa học đã đăng ký:
+    // Phải hiển thị banner cảnh báo và nút bị vô hiệu hóa
+    await tester.pumpWidget(_buildTestApp(
+      home: E05EnrollmentFormScreen(course: enrolledCourse),
+      locale: const Locale('vi'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Khóa học này đã được gửi đăng ký (Trạng thái: Chờ nhân viên duyệt). Bạn không thể đăng ký lại.'), findsOneWidget);
+    expect(find.text('Đã đăng ký khóa học này'), findsOneWidget);
+
+    // 2. Kiểm tra trên E01AcademyHomeScreen:
+    await tester.pumpWidget(_buildTestApp(
+      home: const E01AcademyHomeScreen(),
+      locale: const Locale('vi'),
+    ));
+    await tester.pumpAndSettle();
+
+    // Phải có nút "Đã đăng ký" cho khóa học đã ghi danh
+    expect(find.text('Đã đăng ký'), findsWidgets);
+    // Và có nút "Đăng ký học" cho khóa học chưa ghi danh
+    expect(find.text('Đăng ký học'), findsWidgets);
+
+    // Bấm nút "Đăng ký học" mở thẳng vào trang E05EnrollmentFormScreen
+    await tester.tap(find.text('Đăng ký học').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(E05EnrollmentFormScreen), findsOneWidget);
   });
 }

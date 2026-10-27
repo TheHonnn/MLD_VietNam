@@ -4,6 +4,7 @@ import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import 'e03_course_detail_screen.dart';
+import 'e05_enrollment_form_screen.dart';
 import 'e08_class_detail_screen.dart';
 
 enum AcademyFilterExpanded { audience, need }
@@ -69,11 +70,17 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     if (widget.initialGroup != null && widget.initialGroup!.isNotEmpty) {
       _selectedAudience = widget.initialGroup!;
     }
+    _academyRepo.enrollmentNotifier.addListener(_onEnrollmentChanged);
     _loadCourses();
+  }
+
+  void _onEnrollmentChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _academyRepo.enrollmentNotifier.removeListener(_onEnrollmentChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -769,87 +776,116 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Cột Giá tiền: Giá sau giảm (#2860EB) & Giá gốc gạch ngang
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: '${_formatCurrency(course.tuitionFee)} ',
-                                    style: const TextStyle(
-                                      fontFamily: 'Montserrat',
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.coursePrice,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '${_formatCurrency(course.tuitionFee)} ',
+                                      style: const TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.coursePrice,
+                                      ),
                                     ),
-                                  ),
-                                  const TextSpan(
-                                    text: 'đ',
-                                    style: TextStyle(
-                                      fontFamily: 'Montserrat',
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.coursePrice,
-                                      decoration: TextDecoration.underline,
+                                    const TextSpan(
+                                      text: 'đ',
+                                      style: TextStyle(
+                                        fontFamily: 'Montserrat',
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.coursePrice,
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (hasDiscount) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                '${_formatCurrency(course.originalPrice!)} đ',
-                                style: const TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF94A3B8),
-                                  decoration: TextDecoration.lineThrough,
+                                  ],
                                 ),
                               ),
+                              if (hasDiscount) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${_formatCurrency(course.originalPrice!)} đ',
+                                  style: const TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF94A3B8),
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-
-                        // Nút hành động: Nếu đã đăng ký -> "Đã đăng ký · Vào học ▶", nếu chưa -> "Đăng ký học →"
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isEnrolled
-                                ? const Color(0xFF2860EB)
-                                : (_isPressed ? AppColors.primary : const Color(0xFFF1F5F9)),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isEnrolled
-                                  ? const Color(0xFF2860EB)
-                                  : (_isPressed ? AppColors.primary : const Color(0xFFE2E8F0)),
-                              width: 1.0,
-                            ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                isEnrolled
-                                    ? context.tr('Đã đăng ký · Vào học', 'Enrolled · Study')
-                                    : context.tr('Đăng ký học', 'Enroll Now'),
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Nút hành động:
+                        // - Nếu đã đăng ký: hiển thị nút "Đã đăng ký", bấm vào mở xem lớp học E08
+                        // - Nếu chưa đăng ký: hiển thị "Đăng ký học", bấm vào MỞ THẲNG TRANG ĐĂNG KÝ KHÓA HỌC E05 LUÔN!
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            if (isEnrolled) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => E08ClassDetailScreen(course: widget.course),
+                                ),
+                              ).then((_) {
+                                if (mounted) setState(() {});
+                              });
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => E05EnrollmentFormScreen(course: widget.course),
+                                ),
+                              ).then((_) {
+                                if (mounted) setState(() {});
+                              });
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isEnrolled
+                                  ? const Color(0xFF059669)
+                                  : (_isPressed ? AppColors.primary : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isEnrolled
+                                    ? const Color(0xFF059669)
+                                    : (_isPressed ? AppColors.primary : const Color(0xFFE2E8F0)),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  isEnrolled
+                                      ? context.tr('Đã đăng ký', 'Enrolled')
+                                      : context.tr('Đăng ký học', 'Enroll Now'),
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  isEnrolled ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
+                                  size: isEnrolled ? 16 : 14,
                                   color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                isEnrolled ? Icons.play_arrow_rounded : Icons.arrow_forward_rounded,
-                                size: isEnrolled ? 16 : 14,
-                                color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ],
