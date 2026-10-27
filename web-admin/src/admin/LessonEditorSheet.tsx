@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   BookOpen,
   Video,
@@ -25,6 +25,7 @@ import {
   ChevronUp,
   ClipboardCheck,
   HelpCircle,
+  RefreshCw,
 } from "lucide-react";
 import { adminApi, Row } from "./api";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
@@ -57,16 +58,21 @@ function parseArrayField<T>(val: any): T[] {
   return [];
 }
 
-// Extract YouTube embed URL
-function extractYouTubeEmbedUrl(url: string): string | null {
+// Extract YouTube video ID
+function extractYouTubeVideoId(url: string): string | null {
   if (!url || typeof url !== "string") return null;
   const trimmed = url.trim();
   const regExp = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/;
   const match = trimmed.match(regExp);
-  if (match && match[1]) {
-    return `https://www.youtube.com/embed/${match[1]}`;
-  }
-  return null;
+  return match && match[1] ? match[1] : null;
+}
+
+// Extract YouTube embed URL with enablejsapi=1 for auto duration sync
+function extractYouTubeEmbedUrl(url: string): string | null {
+  const id = extractYouTubeVideoId(url);
+  if (!id) return null;
+  const origin = typeof window !== "undefined" && window.location.origin ? encodeURIComponent(window.location.origin) : "";
+  return `https://www.youtube.com/embed/${id}?enablejsapi=1${origin ? `&origin=${origin}` : ""}`;
 }
 
 export const LessonEditorSheet: React.FC<LessonEditorSheetProps> = ({
@@ -109,6 +115,12 @@ export const LessonEditorSheet: React.FC<LessonEditorSheetProps> = ({
   const [videoUrl, setVideoUrl] = useState<string>(row.video_url || "");
   const [contentText, setContentText] = useState<string>(row.content_text || "");
   const [isFreePreview, setIsFreePreview] = useState<boolean>(Boolean(row.is_free_preview));
+
+  // 5.1 Auto duration sync state
+  const [syncingDuration, setSyncingDuration] = useState<boolean>(false);
+  const [durationSynced, setDurationSynced] = useState<boolean>(false);
+  const [syncedDurationText, setSyncedDurationText] = useState<string>("");
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Optional video toggle for reading doc
   const [showOptionalVideo, setShowOptionalVideo] = useState<boolean>(Boolean(row.video_url));
@@ -327,6 +339,139 @@ export const LessonEditorSheet: React.FC<LessonEditorSheetProps> = ({
     const clean = videoUrl.trim().toLowerCase();
     return clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".ogg");
   }, [videoUrl]);
+
+  // Load YouTube Iframe API script dynamically
+  useEffect(() => {
+    if (typeof window !== "undefined" && !(window as any).YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+  }, []);
+
+  // Sync duration from video URL (Dual tier: API + HTML5/Iframe metadata)
+  const syncDurationFromUrl = async (url: string) => {
+    if (!url || typeof url !== "string") return;
+    const trimmed = url.trim();
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) return;
+
+    setSyncingDuration(true);
+
+    // 1. Direct video file (.mp4, .webm, .ogg, .mov)
+    const clean = trimmed.toLowerCase();
+    if (
+      clean.endsWith(".mp4") ||
+      clean.endsWith(".webm") ||
+      clean.endsWith(".ogg") ||
+      clean.endsWith(".mov")
+    ) {
+      try {
+        const tempVid = document.createElement("video");
+        tempVid.preload = "metadata";
+        tempVid.src = trimmed;
+        tempVid.onloadedmetadata = () => {
+          if (tempVid.duration && !isNaN(tempVid.duration) && tempVid.duration > 0) {
+            const mins = Math.ceil(tempVid.duration / 60);
+            setDurationMinutes(mins);
+            setDurationSynced(true);
+            const m = Math.floor(tempVid.duration / 60);
+            const s = Math.round(tempVid.duration % 60);
+            setSyncedDurationText(`${m} phút ${s > 0 ? `${s}s` : ""}`);
+            setSyncingDuration(false);
+          }
+        };
+        tempVid.onerror = () => {
+          setSyncingDuration(false);
+        };
+        return;
+      } catch {
+        // fallback
+      }
+    }
+
+    // 2. Query Backend API endpoint (Fast - 150ms)
+    try {
+      const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:3000/api/v1";
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`${apiBase}/media/video-info?url=${encodeURIComponent(trimmed)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.data || json;
+        if (data.success && data.durationMinutes) {
+          setDurationMinutes(data.durationMinutes);
+          setDurationSynced(true);
+          setSyncedDurationText(data.formattedDuration || `${data.durationMinutes} phút`);
+          setSyncingDuration(false);
+          return;
+        }
+      }
+    } catch {
+      // Backend not running, proceed to client-side YouTube Iframe
+    }
+
+    // 3. YouTube Iframe postMessage request
+    const ytId = extractYouTubeVideoId(trimmed);
+    if (ytId && iframeRef.current?.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: "listening" }),
+          "*"
+        );
+        iframeRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: "command", func: "getDuration", args: [] }),
+          "*"
+        );
+      } catch {}
+    }
+
+    setTimeout(() => {
+      setSyncingDuration(false);
+    }, 2500);
+  };
+
+  // Listen to YouTube postMessage events from iframe with enablejsapi=1
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        if (data && data.info && typeof data.info.duration === "number" && data.info.duration > 0) {
+          const dur = data.info.duration;
+          const mins = Math.ceil(dur / 60);
+          setDurationMinutes(mins);
+          setDurationSynced(true);
+          const m = Math.floor(dur / 60);
+          const s = Math.round(dur % 60);
+          setSyncedDurationText(`${m} phút ${s > 0 ? `${s}s` : ""}`);
+          setSyncingDuration(false);
+        }
+      } catch {}
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, []);
+
+  // Auto-sync when videoUrl changes (with 500ms debounce)
+  useEffect(() => {
+    if (!videoUrl || !videoUrl.trim() || lessonType === "QUIZ") {
+      setDurationSynced(false);
+      setSyncedDurationText("");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      syncDurationFromUrl(videoUrl);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [videoUrl, lessonType]);
 
   // Adaptive prefix options based on active lessonType
   const prefixOptions = useMemo(() => {
@@ -964,29 +1109,55 @@ export const LessonEditorSheet: React.FC<LessonEditorSheetProps> = ({
           {/* Thời lượng & Học thử miễn phí */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                 <label className="text-xs font-bold text-[#4A3E31] flex items-center gap-1.5">
                   <Clock size={13} className="text-[#985018]" />
                   {durationMeta.label}
                 </label>
-                {!isView && (
-                  <div className="flex gap-1">
-                    {durationMeta.chips.map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setDurationMinutes(m)}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer transition-colors ${
-                          durationMinutes === m
-                            ? "bg-[#985018] text-white border-[#985018]"
-                            : "bg-white text-[#7F6E60] border-[#E8DFD8] hover:bg-[#FAF0E4]"
-                        }`}
-                      >
-                        {m}'
-                      </button>
-                    ))}
-                  </div>
-                )}
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {syncingDuration && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#985018] bg-[#FAF0E4] px-2 py-0.5 rounded-md animate-pulse">
+                      <LoaderCircle size={11} className="animate-spin text-[#985018]" />
+                      Đang đồng bộ...
+                    </span>
+                  )}
+                  {durationSynced && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] px-2 py-0.5 rounded-md">
+                      <CheckCircle2 size={11} className="text-[#059669]" />
+                      Đã đồng bộ {syncedDurationText}
+                    </span>
+                  )}
+                  {videoUrl.trim() && !syncingDuration && (
+                    <button
+                      type="button"
+                      onClick={() => syncDurationFromUrl(videoUrl)}
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#985018] hover:text-[#7F3E10] px-1.5 py-0.5 rounded hover:bg-[#FAF0E4] transition-colors cursor-pointer"
+                      title="Nhấn để đồng bộ lại thời lượng từ video"
+                    >
+                      <RefreshCw size={10} />
+                      Đồng bộ lại
+                    </button>
+                  )}
+                  {!isView && (
+                    <div className="flex gap-1 ml-1">
+                      {durationMeta.chips.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setDurationMinutes(m)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer transition-colors ${
+                            durationMinutes === m
+                              ? "bg-[#985018] text-white border-[#985018]"
+                              : "bg-white text-[#7F6E60] border-[#E8DFD8] hover:bg-[#FAF0E4]"
+                          }`}
+                        >
+                          {m}'
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <input
                 type="number"
@@ -1084,6 +1255,22 @@ export const LessonEditorSheet: React.FC<LessonEditorSheetProps> = ({
               <p className="text-[11px] text-[#7F6E60] mt-1">
                 Hỗ trợ đầy đủ liên kết YouTube (dạng chuẩn, rút gọn youtu.be, shorts) và video định dạng MP4/WebM.
               </p>
+
+              {/* Video duration sync status */}
+              {syncingDuration && (
+                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FAF0E4] border border-[#E8DFD8] text-xs font-medium text-[#985018] animate-pulse">
+                  <LoaderCircle size={14} className="animate-spin text-[#985018]" />
+                  <span>Đang tự động phát hiện và đồng bộ thời lượng từ video...</span>
+                </div>
+              )}
+              {durationSynced && (
+                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] text-xs font-semibold text-[#065F46]">
+                  <CheckCircle2 size={15} className="text-[#059669]" />
+                  <span>
+                    ✓ Đã tự động đồng bộ thời lượng: <strong>{durationMinutes} phút</strong> ({syncedDurationText}) lên trường thời lượng bài học.
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Video Player Preview */}
@@ -1098,11 +1285,27 @@ export const LessonEditorSheet: React.FC<LessonEditorSheetProps> = ({
                 </div>
                 <div className="rounded-xl overflow-hidden border border-[#E8DFD8] bg-black aspect-video relative shadow-xs">
                   <iframe
+                    ref={iframeRef}
+                    id="yt-preview-iframe"
                     src={embedUrl}
                     title="Xem trước video bài học"
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
+                    onLoad={() => {
+                      if (iframeRef.current?.contentWindow) {
+                        try {
+                          iframeRef.current.contentWindow.postMessage(
+                            JSON.stringify({ event: "listening" }),
+                            "*"
+                          );
+                          iframeRef.current.contentWindow.postMessage(
+                            JSON.stringify({ event: "command", func: "getDuration", args: [] }),
+                            "*"
+                          );
+                        } catch {}
+                      }
+                    }}
                   />
                 </div>
               </div>
