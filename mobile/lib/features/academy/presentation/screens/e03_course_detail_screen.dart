@@ -81,7 +81,20 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
       return;
     }
 
-    // Đã đăng ký: Chuyển sang Trang Khóa học của tôi (Chi tiết lớp học) để học và theo dõi tiến độ
+    // Đã đăng ký nhưng chưa được duyệt: không được xem
+    final isApproved = AcademyRepository.instance.isCourseApproved(widget.course.id, widget.course.title);
+    if (!isApproved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔒 Khóa học đang chờ duyệt & thanh toán. Bạn chỉ có thể xem bài học sau khi hồ sơ được phê duyệt!'),
+          backgroundColor: Color(0xFFD97706),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Đã đăng ký và đã duyệt: Chuyển sang Trang Khóa học của tôi (Chi tiết lớp học) để học và theo dõi tiến độ
     Navigator.push(
       context,
       MaterialPageRoute(

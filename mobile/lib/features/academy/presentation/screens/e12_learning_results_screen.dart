@@ -140,23 +140,27 @@ class E12LearningResultsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            fullName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AcademyColors.textPrimary,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              fullName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AcademyColors.textPrimary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Lớp Kỹ thuật viên · Ban Đào Tạo MLD',
-                            style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Lớp Kỹ thuật viên · Ban Đào Tạo MLD',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   );
@@ -204,10 +208,14 @@ class E12LearningResultsScreen extends StatelessWidget {
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '20 / 20 bài học đã hoàn thành',
-                        style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
+                      Expanded(
+                        child: Text(
+                          '20 / 20 bài học đã hoàn thành',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 13, color: AcademyColors.textPrimary),
+                        ),
                       ),
+                      SizedBox(width: 8),
                       Text(
                         '100%',
                         style: TextStyle(
@@ -342,13 +350,16 @@ class E12LearningResultsScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.workspace_premium_rounded, color: AcademyColors.primary, size: 32),
                         SizedBox(width: 8),
-                        Text(
-                          'MLD VIETNAM ACADEMY',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                            color: AcademyColors.primary,
+                        Flexible(
+                          child: Text(
+                            'MLD VIETNAM ACADEMY',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                              color: AcademyColors.primary,
+                            ),
                           ),
                         ),
                       ],
@@ -421,16 +432,22 @@ class E12LearningResultsScreen extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Mã Giấy chứng nhận:', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
-                              Text('MLD-GCN-2026-00089', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AcademyColors.primary)),
+                              Expanded(
+                                child: Text('Mã Giấy chứng nhận:', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                              ),
+                              SizedBox(width: 6),
+                              Text('MLD-GCN-2026-00089', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AcademyColors.primary)),
                             ],
                           ),
                           SizedBox(height: 4),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Ngày cấp:', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
-                              Text('28/08/2026', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              Expanded(
+                                child: Text('Ngày cấp:', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                              ),
+                              SizedBox(width: 6),
+                              Text('28/08/2026', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
                             ],
                           ),
                         ],

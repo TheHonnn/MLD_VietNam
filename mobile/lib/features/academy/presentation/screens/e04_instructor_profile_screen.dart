@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/academy_models.dart';
+import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e01_academy_home_screen.dart';
 import 'e03_course_detail_screen.dart';
@@ -409,14 +410,18 @@ class E04InstructorProfileScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${formatCurrency(course.tuitionFee)} đ',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.price,
+                    Expanded(
+                      child: Text(
+                        '${formatCurrency(course.tuitionFee)} đ',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AcademyColors.price,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: () {
                         Navigator.push(

@@ -310,89 +310,92 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
               const SizedBox(height: 14),
 
               // --- 4. GẦN TÔI & DANH SÁCH / BẢN ĐỒ TOGGLE ---
-              Row(
-                children: [
-                  // Button "Gần tôi"
-                  InkWell(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Đang tải vị trí chi nhánh gần nhất'),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    // Button "Gần tôi"
+                    InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Đang tải vị trí chi nhánh gần nhất'),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.primary),
                         ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.primary),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'Gần tôi',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Toggle: Danh sách vs Bản đồ
-                  InkWell(
-                    onTap: () => setState(() => _isMapView = false),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: !_isMapView ? AppColors.primary : AppColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: !_isMapView ? AppColors.primary : AppColors.border,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Danh sách',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: !_isMapView ? FontWeight.w600 : FontWeight.w400,
-                          color: !_isMapView ? AppColors.textInverse : AppColors.textPrimary,
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Gần tôi',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: () => setState(() => _isMapView = true),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: _isMapView ? AppColors.primary : AppColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: _isMapView ? AppColors.primary : AppColors.border,
+                    const SizedBox(width: 12),
+                    // Toggle: Danh sách vs Bản đồ
+                    InkWell(
+                      onTap: () => setState(() => _isMapView = false),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: !_isMapView ? AppColors.primary : AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: !_isMapView ? AppColors.primary : AppColors.border,
+                          ),
                         ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Bản đồ',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: _isMapView ? FontWeight.w600 : FontWeight.w400,
-                          color: _isMapView ? AppColors.textInverse : AppColors.textPrimary,
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Danh sách',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: !_isMapView ? FontWeight.w600 : FontWeight.w400,
+                            color: !_isMapView ? AppColors.textInverse : AppColors.textPrimary,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => setState(() => _isMapView = true),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: _isMapView ? AppColors.primary : AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _isMapView ? AppColors.primary : AppColors.border,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Bản đồ',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: _isMapView ? FontWeight.w600 : FontWeight.w400,
+                            color: _isMapView ? AppColors.textInverse : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 16),
@@ -560,11 +563,14 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                     children: [
                       const Icon(Icons.access_time_rounded, size: 16, color: AppColors.textSecondary),
                       const SizedBox(width: 6),
-                      Text(
-                        branch['hours'] as String,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                      Expanded(
+                        child: Text(
+                          branch['hours'] as String,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ],
@@ -574,12 +580,15 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                     children: [
                       const Icon(Icons.spa_outlined, size: 16, color: AppColors.primary),
                       const SizedBox(width: 6),
-                      Text(
-                        branch['services'] as String,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          branch['services'] as String,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],

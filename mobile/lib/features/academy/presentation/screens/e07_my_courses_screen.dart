@@ -404,18 +404,22 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: const Color(0xFFFDE68A)),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: [
+                              children: const [
                                 Icon(Icons.hourglass_top_rounded, size: 11, color: Color(0xFFB45309)),
                                 SizedBox(width: 4),
-                                Text(
-                                  'CHỜ DUYỆT & CHƯA THANH TOÁN',
-                                  style: TextStyle(
-                                    fontFamily: 'Montserrat',
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFFB45309),
+                                Flexible(
+                                  child: Text(
+                                    'CHỜ DUYỆT & CHƯA THANH TOÁN',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'Montserrat',
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFB45309),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -429,18 +433,22 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: [
+                            children: const [
                               Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF059669)),
                               SizedBox(width: 4),
-                              Text(
-                                'ĐÃ DUYỆT · ĐANG HỌC',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF059669),
+                              Flexible(
+                                child: Text(
+                                  'ĐÃ DUYỆT · ĐANG HỌC',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF059669),
+                                  ),
                                 ),
                               ),
                             ],

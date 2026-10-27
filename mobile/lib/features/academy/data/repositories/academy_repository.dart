@@ -13,7 +13,10 @@ import '../models/academy_models.dart';
 class AcademyRepository {
   AcademyRepository._internal() {
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
-      _enrolledCourses.add(MockAcademyData.courses.first);
+      _enrolledCourses.add(MockAcademyData.courses.first.copyWith(
+        status: 'ENROLLED',
+        approvalStatus: 'APPROVED',
+      ));
       _cachedCourses = MockAcademyData.courses;
     }
     _loadEnrolledCourses();
@@ -491,16 +494,32 @@ class AcademyRepository {
     enrollmentNotifier.value++;
   }
 
-  bool isCourseEnrolled(String courseId, [String? title]) {
+  CourseModel? getEnrolledCourse(String courseId, [String? title]) {
     final cleanId = courseId.trim().toLowerCase();
     final cleanTitle = title?.trim().toLowerCase();
-    return _enrolledCourses.any((c) {
-      final cId = c.id.trim().toLowerCase();
-      final cTitle = c.title.trim().toLowerCase();
-      return (cleanId.isNotEmpty && cId == cleanId) ||
-             (cleanTitle != null && cleanTitle.isNotEmpty && cTitle == cleanTitle) ||
-             (cleanId.isNotEmpty && cTitle == cleanId);
-    });
+    try {
+      return _enrolledCourses.firstWhere((c) {
+        final cId = c.id.trim().toLowerCase();
+        final cTitle = c.title.trim().toLowerCase();
+        return (cleanId.isNotEmpty && cId == cleanId) ||
+               (cleanTitle != null && cleanTitle.isNotEmpty && cTitle == cleanTitle) ||
+               (cleanId.isNotEmpty && cTitle == cleanId);
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool isCourseEnrolled(String courseId, [String? title]) {
+    return getEnrolledCourse(courseId, title) != null;
+  }
+
+  /// Khóa học chỉ được phép vào học khi đã được phê duyệt (status: ENROLLED/APPROVED, không phải PENDING_APPROVAL)
+  bool isCourseApproved(String courseId, [String? title]) {
+    final enr = getEnrolledCourse(courseId, title);
+    if (enr == null) return false;
+    final isPending = enr.status == 'PENDING_APPROVAL' || enr.approvalStatus == 'PENDING_APPROVAL';
+    return !isPending;
   }
 
   void clearEnrolledCourses() {
@@ -574,11 +593,11 @@ class AcademyRepository {
 
   /// Lấy vị trí giây học viên đã xem dở
   double getLessonPosition(String courseId, String lessonId) {
-    return _lessonPositions['_'] ?? 0.0;
+    return _lessonPositions['${courseId}_$lessonId'] ?? 0.0;
   }
 
   Future<void> markLessonCompleted(String courseId, String lessonId) async {
-    _completedLessonIds.add('_');
+    _completedLessonIds.add('${courseId}_$lessonId');
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_lessonProgressKey, _completedLessonIds.toList());
@@ -586,7 +605,7 @@ class AcademyRepository {
 
     try {
       await SupabaseDataService.instance.upsertLessonProgress(
-        enrollmentId: 'enroll_',
+        enrollmentId: 'enroll_$courseId',
         lessonId: lessonId,
         watchedSeconds: 9999,
         isCompleted: true,
@@ -596,16 +615,17 @@ class AcademyRepository {
 
   /// Kiểm tra bài học đã xem hết hay chưa (được phân tách chính xác theo từng khóa học)
   bool isLessonCompleted(String courseId, String lessonId) {
-    return _completedLessonIds.contains('_');
+    return _completedLessonIds.contains('${courseId}_$lessonId');
   }
 
   /// Kiểm tra bài học có được phép xem hay chưa:
-  /// Khóa học phải được đăng ký hợp lệ.
-  /// Bài 1 luôn mở đầu tiên. Bài n chỉ mở khi Bài (n-1) đã hoàn thành xem hết clip.
+  /// Khóa học phải được đăng ký hợp lệ và ĐÃ ĐƯỢC DUYỆT.
+  /// Bài 1 luôn mở đầu tiên khi đã duyệt. Bài n chỉ mở khi Bài (n-1) đã hoàn thành xem hết clip.
   bool canAccessLesson(String courseId, LessonModel lesson, List<LessonModel> allCourseLessons) {
     if (!isCourseEnrolled(courseId)) return false;
+    if (!isCourseApproved(courseId)) return false; // Chỉ khi được duyệt mới được xem
     final index = allCourseLessons.indexWhere((l) => l.id == lesson.id);
-    if (index <= 0) return true; // Bài 1 luôn mở cho học viên đã đăng ký
+    if (index <= 0) return true; // Bài 1 luôn mở cho học viên đã được duyệt
     final previousLesson = allCourseLessons[index - 1];
     return isLessonCompleted(courseId, previousLesson.id);
   }

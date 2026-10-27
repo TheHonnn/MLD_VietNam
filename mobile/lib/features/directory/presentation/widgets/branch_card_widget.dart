@@ -154,11 +154,14 @@ class BranchCardWidget extends StatelessWidget {
                       color: AppColors.textSecondary,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      clinic.openingHours,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
+                    Expanded(
+                      child: Text(
+                        clinic.openingHours,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ],

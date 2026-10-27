@@ -113,8 +113,9 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Giá tiền dịch vụ: Màu rgb(225, 29, 72) (#E11D48), chữ đ gạch chân
-                        Text.rich(
-                          TextSpan(
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
                             children: [
                               TextSpan(
                                 text: '${_formatCurrency(priceWithVat)} ',
@@ -135,9 +136,12 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                                   decoration: TextDecoration.underline,
                                 ),
                               ),
-                            ],
+                            ]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
 
                         // Nút Đặt lịch (Màu xám nhạt, chạm vào chuyển sang xanh dương #2860EB)
                         AnimatedContainer(

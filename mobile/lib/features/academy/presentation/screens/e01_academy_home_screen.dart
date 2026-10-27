@@ -5,6 +5,7 @@ import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import 'e03_course_detail_screen.dart';
 import 'e05_enrollment_form_screen.dart';
+import 'e07_my_courses_screen.dart';
 import 'e08_class_detail_screen.dart';
 
 enum AcademyFilterExpanded { audience, need }
@@ -48,6 +49,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   // Danh mục lọc Đối tượng
   static const List<String> _audienceCategories = [
     'Tất cả đối tượng',
+    'Khóa học đã đăng ký',
     'Người mới bắt đầu',
     'Người đang làm nghề',
     'Kỹ thuật viên XBBH/VLTL',
@@ -106,8 +108,11 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     return _allCourses.where((c) {
-      // 1. Lọc theo Đối tượng
-      if (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả') {
+      // 1. Lọc theo Đối tượng / Khóa học đã đăng ký
+      if (_selectedAudience == 'Khóa học đã đăng ký') {
+        final isEnrolled = _academyRepo.isCourseEnrolled(c.id, c.title);
+        if (!isEnrolled) return false;
+      } else if (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả') {
         final aud = _selectedAudience.toLowerCase();
         final matchesAudience = c.targetAudience.toLowerCase().contains(aud) ||
             c.courseGroup.toLowerCase().contains(aud) ||
@@ -145,6 +150,48 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     }).toList();
   }
 
+  Widget _buildQuickChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    IconData? icon,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: isSelected ? Colors.white : AppColors.primary),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredCourses;
@@ -171,6 +218,44 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                 onPressed: widget.onBackToHome ?? () => Navigator.pop(context),
               )
             : null,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.school_rounded, size: 16, color: AppColors.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      context.tr('Khóa học của tôi', 'My Courses'),
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -213,6 +298,69 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
+                ),
+              ),
+            ),
+
+            // Thanh lọc nhanh tìm khóa học
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildQuickChip(
+                      label: context.tr('Tất cả', 'All'),
+                      isSelected: _selectedAudience == 'Tất cả đối tượng' && _selectedNeed == 'Tất cả nhu cầu',
+                      onTap: () {
+                        setState(() {
+                          _selectedAudience = 'Tất cả đối tượng';
+                          _selectedNeed = 'Tất cả nhu cầu';
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _buildQuickChip(
+                      label: _academyRepo.enrolledCourses.isNotEmpty
+                          ? '${context.tr('Đã đăng ký', 'Enrolled')} (${_academyRepo.enrolledCourses.length})'
+                          : context.tr('Đã đăng ký', 'Enrolled'),
+                      icon: Icons.bookmark_added_rounded,
+                      isSelected: _selectedAudience == 'Khóa học đã đăng ký',
+                      onTap: () {
+                        setState(() {
+                          _selectedAudience = _selectedAudience == 'Khóa học đã đăng ký'
+                              ? 'Tất cả đối tượng'
+                              : 'Khóa học đã đăng ký';
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _buildQuickChip(
+                      label: context.tr('Người mới bắt đầu', 'Beginners'),
+                      isSelected: _selectedAudience == 'Người mới bắt đầu',
+                      onTap: () {
+                        setState(() {
+                          _selectedAudience = _selectedAudience == 'Người mới bắt đầu'
+                              ? 'Tất cả đối tượng'
+                              : 'Người mới bắt đầu';
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _buildQuickChip(
+                      label: context.tr('Đang làm nghề', 'Professionals'),
+                      isSelected: _selectedAudience == 'Người đang làm nghề',
+                      onTap: () {
+                        setState(() {
+                          _selectedAudience = _selectedAudience == 'Người đang làm nghề'
+                              ? 'Tất cả đối tượng'
+                              : 'Người đang làm nghề';
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -581,17 +729,22 @@ class _CourseCardItemState extends State<_CourseCardItem> {
   void _navigateToDetail() {
     setState(() => _isPressed = true);
     final isEnrolled = AcademyRepository.instance.isCourseEnrolled(widget.course.id, widget.course.title);
+    final isApproved = AcademyRepository.instance.isCourseApproved(widget.course.id, widget.course.title);
+
     if (isEnrolled) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => E08ClassDetailScreen(course: widget.course),
-        ),
-      ).then((_) {
-        if (mounted) {
-          setState(() => _isPressed = false);
-        }
-      });
+      if (isApproved) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => E08ClassDetailScreen(course: widget.course),
+          ),
+        ).then((_) {
+          if (mounted) setState(() => _isPressed = false);
+        });
+      } else {
+        if (mounted) setState(() => _isPressed = false);
+        _showPendingApprovalNotice(widget.course);
+      }
     } else {
       Navigator.push(
         context,
@@ -599,17 +752,109 @@ class _CourseCardItemState extends State<_CourseCardItem> {
           builder: (_) => E03CourseDetailScreen(course: widget.course),
         ),
       ).then((_) {
-        if (mounted) {
-          setState(() => _isPressed = false);
-        }
+        if (mounted) setState(() => _isPressed = false);
       });
     }
+  }
+
+  void _showPendingApprovalNotice(CourseModel course) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 24),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Khóa học đang chờ duyệt',
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Hồ sơ đăng ký khóa học "${course.title}" của bạn đang ở trạng thái Chờ duyệt & Chưa thanh toán.',
+              style: const TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF334155)),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lock_rounded, size: 16, color: Color(0xFFB45309)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Chỉ khi được duyệt nhập học, bạn mới có thể xem các video bài giảng của khóa học.',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF92400E), height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Bạn có thể vào mục "Khóa học của tôi" để xem phiếu thu (Bill), mã học viên và kiểm tra đối soát học phí.',
+              style: TextStyle(fontSize: 12.5, height: 1.4, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
+              );
+            },
+            child: const Text('Đến Khóa học của tôi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final course = widget.course;
     final isEnrolled = AcademyRepository.instance.isCourseEnrolled(course.id, course.title);
+    final isApproved = AcademyRepository.instance.isCourseApproved(course.id, course.title);
     final hasDiscount = course.originalPrice != null && course.originalPrice! > course.tuitionFee;
     final discount = course.discountPercentage;
     final sessionsCount = course.sessionCount;
@@ -663,7 +908,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2860EB),
+                          color: isApproved ? const Color(0xFF2860EB) : const Color(0xFFD97706),
                           borderRadius: BorderRadius.circular(6),
                           boxShadow: [
                             BoxShadow(
@@ -676,7 +921,11 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                            Icon(
+                              isApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               context.tr('ĐÃ ĐĂNG KÝ', 'ENROLLED'),
@@ -688,6 +937,25 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                 letterSpacing: 0.4,
                               ),
                             ),
+                            if (!isApproved) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'CHỜ DUYỆT',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -824,20 +1092,25 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                         const SizedBox(width: 8),
 
                         // Nút hành động:
-                        // - Nếu đã đăng ký: hiển thị nút "Đã đăng ký", bấm vào mở xem lớp học E08
+                        // - Nếu đã đăng ký và đã duyệt: hiển thị nút "Đã đăng ký", bấm vào mở xem lớp học E08
+                        // - Nếu đã đăng ký nhưng chờ duyệt: bấm vào hiển thị thông báo chờ duyệt
                         // - Nếu chưa đăng ký: hiển thị "Đăng ký học", bấm vào MỞ THẲNG TRANG ĐĂNG KÝ KHÓA HỌC E05 LUÔN!
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
                             if (isEnrolled) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => E08ClassDetailScreen(course: widget.course),
-                                ),
-                              ).then((_) {
-                                if (mounted) setState(() {});
-                              });
+                              if (isApproved) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => E08ClassDetailScreen(course: widget.course),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) setState(() {});
+                                });
+                              } else {
+                                _showPendingApprovalNotice(widget.course);
+                              }
                             } else {
                               Navigator.push(
                                 context,
@@ -854,12 +1127,12 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
                               color: isEnrolled
-                                  ? const Color(0xFF059669)
+                                  ? (isApproved ? const Color(0xFF059669) : const Color(0xFFD97706))
                                   : (_isPressed ? AppColors.primary : const Color(0xFFF1F5F9)),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isEnrolled
-                                    ? const Color(0xFF059669)
+                                    ? (isApproved ? const Color(0xFF059669) : const Color(0xFFD97706))
                                     : (_isPressed ? AppColors.primary : const Color(0xFFE2E8F0)),
                                 width: 1.0,
                               ),
@@ -880,7 +1153,9 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                 ),
                                 const SizedBox(width: 4),
                                 Icon(
-                                  isEnrolled ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
+                                  isEnrolled
+                                      ? (isApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded)
+                                      : Icons.arrow_forward_rounded,
                                   size: isEnrolled ? 16 : 14,
                                   color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
                                 ),

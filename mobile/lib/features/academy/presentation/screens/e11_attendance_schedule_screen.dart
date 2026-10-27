@@ -192,18 +192,27 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                         icon: const Icon(Icons.arrow_back_ios, size: 16, color: AcademyColors.textPrimary),
                         onPressed: () {},
                       ),
-                      const Text(
-                        'Tháng 10, 2026',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AcademyColors.textPrimary,
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'Tháng 10, 2026',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AcademyColors.textPrimary,
+                            ),
+                          ),
                         ),
                       ),
                       IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                         icon: const Icon(Icons.arrow_forward_ios, size: 16, color: AcademyColors.textPrimary),
                         onPressed: () {},
                       ),
