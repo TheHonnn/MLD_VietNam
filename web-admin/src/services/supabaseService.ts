@@ -1428,6 +1428,10 @@ class SupabaseService {
       studentPhone: e.student_phone,
       studentEmail: e.student_email,
       selectedBranch: e.selected_branch,
+      approvalStatus: e.approval_status,
+      approvedBy: e.approved_by,
+      approvedAt: e.approved_at,
+      approvalNotes: e.approval_notes,
     }));
   }
 
@@ -1594,6 +1598,10 @@ class SupabaseService {
       amountPaid?: number;
       progressPercent?: number;
       completedLessonsCount?: number;
+      approvalStatus?: string;
+      approvedBy?: string;
+      approvedAt?: string;
+      approvalNotes?: string;
     }
   ): Promise<boolean> {
     try {
@@ -1603,6 +1611,10 @@ class SupabaseService {
       if (updates.amountPaid !== undefined) payload.amount_paid = updates.amountPaid;
       if (updates.progressPercent !== undefined) payload.progress_percent = updates.progressPercent;
       if (updates.completedLessonsCount !== undefined) payload.completed_lessons_count = updates.completedLessonsCount;
+      if (updates.approvalStatus !== undefined) payload.approval_status = updates.approvalStatus;
+      if (updates.approvedBy !== undefined) payload.approved_by = updates.approvedBy;
+      if (updates.approvedAt !== undefined) payload.approved_at = updates.approvedAt;
+      if (updates.approvalNotes !== undefined) payload.approval_notes = updates.approvalNotes;
 
       const res = await this.query<any[]>(`course_enrollments?id=eq.${enrollmentId}`, {
         method: 'PATCH',
