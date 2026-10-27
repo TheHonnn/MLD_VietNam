@@ -1272,24 +1272,35 @@ export const W08_Enrollment: React.FC = () => {
                     <button
                       type="button"
                       disabled={isUpdatingStatus}
-                      onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.STUDYING)}
+                      onClick={() => handleOpenAssignModal(selectedCandidate)}
                       className="w-full py-2.5 bg-[#1B4F72] hover:bg-[#153e5b] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xếp lớp & Bắt đầu học'}</span>
+                      <GraduationCap className="w-4 h-4" />
+                      <span>Xếp lớp & Bắt đầu học</span>
                     </button>
                   )}
 
                   {selectedCandidate.rawStatus === EnrollmentStatus.STUDYING && (
-                    <button
-                      type="button"
-                      disabled={isUpdatingStatus}
-                      onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.GRADUATED)}
-                      className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xét tốt nghiệp & Cấp chứng chỉ'}</span>
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAssignModal(selectedCandidate)}
+                        className="w-full py-2 bg-white border border-[#1B4F72] text-[#1B4F72] hover:bg-[#EBF5FB] text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Đổi đợt lớp / Chuyển lớp</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isUpdatingStatus}
+                        onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.GRADUATED)}
+                        className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xét tốt nghiệp & Cấp chứng chỉ'}</span>
+                      </button>
+                    </div>
                   )}
 
                   {selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED && (
@@ -1459,6 +1470,17 @@ export const W08_Enrollment: React.FC = () => {
         candidate={billModalCandidate}
         onCheckPayment={handleCheckPayment}
         onApproveAtDesk={handleApproveAtDesk}
+      />
+
+      {/* MODAL: Xếp lớp & Phân đợt khai giảng */}
+      <AssignBatchModal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        candidate={assignCandidate}
+        batches={liveBatches}
+        courses={liveCourses}
+        instructors={instructors}
+        onAssignBatch={handleConfirmAssignBatch}
       />
     </div>
   );
