@@ -4,6 +4,7 @@ import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import 'e03_course_detail_screen.dart';
+import 'e08_class_detail_screen.dart';
 
 enum AcademyFilterExpanded { audience, need }
 
@@ -570,21 +571,36 @@ class _CourseCardItemState extends State<_CourseCardItem> {
 
   void _navigateToDetail() {
     setState(() => _isPressed = true);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => E03CourseDetailScreen(course: widget.course),
-      ),
-    ).then((_) {
-      if (mounted) {
-        setState(() => _isPressed = false);
-      }
-    });
+    final isEnrolled = AcademyRepository.instance.isCourseEnrolled(widget.course.id, widget.course.title);
+    if (isEnrolled) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => E08ClassDetailScreen(course: widget.course),
+        ),
+      ).then((_) {
+        if (mounted) {
+          setState(() => _isPressed = false);
+        }
+      });
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => E03CourseDetailScreen(course: widget.course),
+        ),
+      ).then((_) {
+        if (mounted) {
+          setState(() => _isPressed = false);
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final course = widget.course;
+    final isEnrolled = AcademyRepository.instance.isCourseEnrolled(course.id, course.title);
     final hasDiscount = course.originalPrice != null && course.originalPrice! > course.tuitionFee;
     final discount = course.discountPercentage;
     final sessionsCount = course.sessionCount;
@@ -629,6 +645,44 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                       ),
                     ),
                   ),
+
+                  // Huy hiệu ĐÃ ĐĂNG KÝ (nếu khóa học đã được học viên ghi danh)
+                  if (isEnrolled)
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2860EB),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.tr('ĐÃ ĐĂNG KÝ', 'ENROLLED'),
+                              style: const TextStyle(
+                                fontFamily: 'Montserrat',
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
 
                   // Huy hiệu Giảm giá (-90%)
                   if (discount != null)
@@ -757,15 +811,19 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                           ],
                         ),
 
-                        // Nút "Chi tiết →" (Màu xám nhạt, khi chạm đổi sang #2860EB)
+                        // Nút hành động: Nếu đã đăng ký -> "Đã đăng ký · Vào học ▶", nếu chưa -> "Đăng ký học →"
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: _isPressed ? AppColors.primary : const Color(0xFFF1F5F9),
+                            color: isEnrolled
+                                ? const Color(0xFF2860EB)
+                                : (_isPressed ? AppColors.primary : const Color(0xFFF1F5F9)),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: _isPressed ? AppColors.primary : const Color(0xFFE2E8F0),
+                              color: isEnrolled
+                                  ? const Color(0xFF2860EB)
+                                  : (_isPressed ? AppColors.primary : const Color(0xFFE2E8F0)),
                               width: 1.0,
                             ),
                           ),
@@ -773,19 +831,21 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                context.tr('Chi tiết', 'Details'),
+                                isEnrolled
+                                    ? context.tr('Đã đăng ký · Vào học', 'Enrolled · Study')
+                                    : context.tr('Đăng ký học', 'Enroll Now'),
                                 style: TextStyle(
                                   fontFamily: 'Montserrat',
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: _isPressed ? Colors.white : const Color(0xFF0F172A),
+                                  color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ),
                               const SizedBox(width: 4),
                               Icon(
-                                Icons.arrow_forward_rounded,
-                                size: 14,
-                                color: _isPressed ? Colors.white : const Color(0xFF0F172A),
+                                isEnrolled ? Icons.play_arrow_rounded : Icons.arrow_forward_rounded,
+                                size: isEnrolled ? 16 : 14,
+                                color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
                               ),
                             ],
                           ),

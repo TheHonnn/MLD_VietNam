@@ -231,15 +231,14 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   const SizedBox(height: 16),
 
                   // Chú giải lịch [8116:26308]
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 10,
+                    runSpacing: 6,
                     children: [
                       _buildLegendDot(const Color(0xFF1E88E5), 'Trực tuyến'),
-                      const SizedBox(width: 14),
                       _buildLegendDot(AcademyColors.primary, 'Tại lớp'),
-                      const SizedBox(width: 14),
                       _buildLegendDot(AcademyColors.primaryDark, 'Thực hành'),
-                      const SizedBox(width: 14),
                       _buildLegendDot(const Color(0xFF1E293B), 'Kiểm tra'),
                     ],
                   ),

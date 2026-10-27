@@ -11,6 +11,15 @@ import '../models/academy_models.dart';
 /// With automatic resilient fallback to MockAcademyData.
 class AcademyRepository {
   AcademyRepository._internal() {
+    // Đảm bảo user test buih73444@gmail.com có sẵn khóa 1 Level 0 ngay lập tức
+    const testCourseId = '30303030-0001-0001-0001-000000000001';
+    final courseToEnroll = MockAcademyData.courses.firstWhere(
+      (c) => c.id == testCourseId || c.title.contains('CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU'),
+      orElse: () => MockAcademyData.courses.first,
+    );
+    if (!_enrolledCourses.any((c) => c.id == courseToEnroll.id)) {
+      _enrolledCourses.add(courseToEnroll);
+    }
     _loadEnrolledCourses();
     _loadLessonProgress();
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
@@ -56,6 +57,31 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       }
     }
     return _allLessons.isNotEmpty ? _allLessons.first : null;
+  }
+
+  String? _extractYoutubeId(String? url) {
+    if (url == null || url.trim().isEmpty) return null;
+    final trimmed = url.trim();
+    final direct = YoutubePlayerController.convertUrlToId(trimmed);
+    if (direct != null && direct.length == 11) return direct;
+
+    final regExp = RegExp(
+      r'(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_\-]{11})',
+      caseSensitive: false,
+    );
+    final match = regExp.firstMatch(trimmed);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1);
+    }
+    return direct;
+  }
+
+  String _resolveCourseImage() {
+    final img = widget.course?.image;
+    if (img != null && img.isNotEmpty && !img.contains('gioithieu_1.png')) {
+      return img;
+    }
+    return 'assets/images/DaoTao/Dẫn lưu bạch huyết nền tảng cho người mới bắt đầu 599.000.jpg';
   }
 
   @override
@@ -487,113 +513,176 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                               ? chapter.lessons.map((lesson) {
                                   final isDone = AcademyRepository.instance.isLessonCompleted(_courseId, lesson.id);
                                   final isUnlocked = AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons);
+                                  final ytid = _extractYoutubeId(lesson.videoUrl);
 
                                   return InkWell(
                                     onTap: () => _onLessonTap(lesson),
                                     borderRadius: BorderRadius.circular(10),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 2.0),
                                       child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
                                         children: [
+                                          // BÊN TRÁI: VIDEO THUMBNAIL 16:9 VỚI NÚT PLAY TRÒN Ở GIỮA
                                           Container(
-                                            width: 34,
-                                            height: 34,
+                                            width: 124,
+                                            height: 70,
                                             decoration: BoxDecoration(
-                                              color: isDone
-                                                  ? const Color(0xFF10B981).withValues(alpha: 0.12)
-                                                  : isUnlocked
-                                                      ? AppColors.primary.withValues(alpha: 0.1)
-                                                      : Colors.grey.withValues(alpha: 0.1),
+                                              color: const Color(0xFF0F172A),
                                               borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: isUnlocked ? AppColors.primary.withValues(alpha: 0.3) : Colors.black12,
+                                                width: 1.0,
+                                              ),
                                             ),
-                                            child: Icon(
-                                              isDone
-                                                  ? Icons.check_circle_rounded
-                                                  : isUnlocked
-                                                      ? Icons.play_arrow_rounded
-                                                      : Icons.lock_outline_rounded,
-                                              color: isDone
-                                                  ? const Color(0xFF10B981)
-                                                  : isUnlocked
-                                                      ? AppColors.primary
-                                                      : Colors.grey[500],
-                                              size: 20,
+                                            clipBehavior: Clip.antiAlias,
+                                            child: Stack(
+                                              alignment: Alignment.center,
+                                              children: [
+                                                // Ảnh bìa Thumbnail từ YouTube hoặc Khóa học
+                                                if (ytid != null)
+                                                  Image.network(
+                                                    'https://img.youtube.com/vi/$ytid/mqdefault.jpg',
+                                                    width: 124,
+                                                    height: 70,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (_, __, ___) => Image.asset(
+                                                      _resolveCourseImage(),
+                                                      width: 124,
+                                                      height: 70,
+                                                      fit: BoxFit.cover,
+                                                    ),
+                                                  )
+                                                else
+                                                  Image.asset(
+                                                    _resolveCourseImage(),
+                                                    width: 124,
+                                                    height: 70,
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                                // Lớp phủ tối nhẹ để nổi bật nút play
+                                                Container(color: Colors.black.withValues(alpha: 0.28)),
+                                                // Nút Play tròn ở chính giữa
+                                                Container(
+                                                  width: 30,
+                                                  height: 30,
+                                                  decoration: BoxDecoration(
+                                                    color: isDone
+                                                        ? const Color(0xFF10B981)
+                                                        : (isUnlocked ? AppColors.primary : Colors.black54),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Icon(
+                                                    isDone
+                                                        ? Icons.check_rounded
+                                                        : (isUnlocked ? Icons.play_arrow_rounded : Icons.lock_outline_rounded),
+                                                    color: Colors.white,
+                                                    size: 18,
+                                                  ),
+                                                ),
+                                                // Badge thời lượng ở góc dưới bên phải (ví dụ 94:48)
+                                                Positioned(
+                                                  bottom: 4,
+                                                  right: 4,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black.withValues(alpha: 0.75),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      lesson.formattedDuration,
+                                                      style: const TextStyle(
+                                                        fontFamily: 'Montserrat',
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           const SizedBox(width: 12),
+                                          // BÊN PHẢI: TIÊU ĐỀ VIDEO VÀ TRẠNG THÁI
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   lesson.title,
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
+                                                    fontFamily: 'Montserrat',
                                                     fontSize: 13.5,
-                                                    fontWeight: FontWeight.w600,
+                                                    fontWeight: FontWeight.w700,
                                                     color: isUnlocked || isDone
-                                                        ? AcademyColors.textPrimary
+                                                        ? AcademyColors.heading
                                                         : Colors.grey[600],
+                                                    height: 1.35,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  'Video · ${lesson.formattedDuration}',
-                                                  style: const TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
+                                                const SizedBox(height: 6),
+                                                Row(
+                                                  children: [
+                                                    if (isDone)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFD1FAE5),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: const Text(
+                                                          '✓ Đã học',
+                                                          style: TextStyle(
+                                                            fontFamily: 'Montserrat',
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: Color(0xFF047857),
+                                                          ),
+                                                        ),
+                                                      )
+                                                    else if (isUnlocked)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFEFF6FF),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: const Text(
+                                                          'Vào học ▶',
+                                                          style: TextStyle(
+                                                            fontFamily: 'Montserrat',
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: AppColors.primary,
+                                                          ),
+                                                        ),
+                                                      )
+                                                    else
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFF3F4F6),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: const Text(
+                                                          'Khóa 🔒',
+                                                          style: TextStyle(
+                                                            fontFamily: 'Montserrat',
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: Color(0xFF6B7280),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          if (isDone)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFD1FAE5),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: const Text(
-                                                '✓ Đã học',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF047857),
-                                                ),
-                                              ),
-                                            )
-                                          else if (isUnlocked)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFEFF6FF),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: const Text(
-                                                'Đang học ▶',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.primary,
-                                                ),
-                                              ),
-                                            )
-                                          else
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFF3F4F6),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: const Text(
-                                                'Khóa 🔒',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF6B7280),
-                                                ),
-                                              ),
-                                            ),
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.chevron_right, size: 18, color: AcademyColors.textSecondary),
                                         ],
                                       ),
                                     ),
@@ -754,62 +843,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       );
     }
 
-    final next = _nextLessonToStudy;
-    if (next == null) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Bài học tiếp theo',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AcademyColors.heading,
-          ),
-        ),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: () => _onLessonTap(next),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AcademyColors.cardWarm,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.play_circle_fill, color: AcademyColors.primary, size: 26),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        next.title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AcademyColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Video · ${next.formattedDuration} · Tiếp tục',
-                        style: const TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: AcademyColors.primary, size: 22),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildUpcomingPracticeCard() {
@@ -1171,7 +1205,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
             ),
           ),
           if (isExpanded) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 6),
             ...lessons,
           ],
         ],

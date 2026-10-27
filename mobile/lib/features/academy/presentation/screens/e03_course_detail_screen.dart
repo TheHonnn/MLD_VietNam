@@ -6,7 +6,6 @@ import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e05_enrollment_form_screen.dart';
 import 'e08_class_detail_screen.dart';
-import 'e09_lesson_screen.dart';
 
 /// Screen E03: Chi tiết bài học & Khóa học
 /// - Header: Tên khóa học, Ảnh bìa, Thông số tinh gọn (số bài, số giờ, trạng thái - không chữ thừa, không icon rườm rà)
@@ -75,40 +74,24 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     return direct;
   }
 
-  void _onLessonTap(LessonModel lesson) async {
+  void _onLessonTap(LessonModel lesson) {
     // Chưa đăng ký khóa học tuyệt đối không được xem bài học nào
     if (!_isEnrolled) {
       _showEnrollRequiredModal(lesson);
       return;
     }
 
-    final isUnlocked = AcademyRepository.instance.canAccessLesson(widget.course.id, lesson, _allLessons);
-    if (!isUnlocked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🔒 Bạn cần xem hết clip bài học trước đó để mở khóa bài học này!'),
-          backgroundColor: Color(0xFFD97706),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    // Bấm vào là mở luôn, xem video đó luôn!
-    await Navigator.push(
+    // Đã đăng ký: Chuyển sang Trang Khóa học của tôi (Chi tiết lớp học) để học và theo dõi tiến độ
+    Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => E09LessonScreen(
-          lesson: lesson,
-          courseTitle: widget.course.title,
-          courseId: widget.course.id,
-        ),
+        builder: (_) => E08ClassDetailScreen(course: widget.course),
       ),
-    );
-
-    if (mounted) {
-      setState(() {});
-    }
+    ).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   void _showEnrollRequiredModal(LessonModel lesson) {
@@ -227,7 +210,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         summaryText: _isEnrolled
             ? 'Đã đăng ký khóa học'
             : 'Học phí · ${formatCurrency(course.tuitionFee)}đ',
-        buttonText: _isEnrolled ? 'Vào khóa học của tôi (Tiến độ & Kiểm tra)' : 'Đăng ký khóa học',
+        buttonText: _isEnrolled ? 'Vào học ngay ▶' : 'Đăng ký khóa học ngay',
         onPressed: () {
           if (_isEnrolled) {
             Navigator.push(

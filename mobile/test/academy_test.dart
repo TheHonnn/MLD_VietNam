@@ -31,7 +31,9 @@ void main() {
     // Kiểm tra các thành phần của thẻ khóa học
     expect(find.text('DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU - Level 0'), findsOneWidget);
     expect(find.text('6 buổi học'), findsOneWidget);
-    expect(find.text('Chi tiết'), findsWidgets);
+    expect(find.text('ĐÃ ĐĂNG KÝ'), findsWidgets);
+    expect(find.text('Đã đăng ký · Vào học'), findsWidgets);
+    expect(find.text('Đăng ký học'), findsWidgets);
   });
 
   testWidgets('Test E01AcademyHomeScreen rendering in English (Locale en) - 100% Translation', (WidgetTester tester) async {
@@ -41,7 +43,9 @@ void main() {
     expect(find.text('Academy & Courses'), findsOneWidget);
     expect(find.text('BASIC MANUAL LYMPHATIC DRAINAGE FOR BEGINNERS - Level 0'), findsOneWidget);
     expect(find.text('6 sessions'), findsOneWidget);
-    expect(find.text('Details'), findsWidgets);
+    expect(find.text('ENROLLED'), findsWidgets);
+    expect(find.text('Enrolled · Study'), findsWidgets);
+    expect(find.text('Enroll Now'), findsWidgets);
   });
 
   testWidgets('Test MainLayoutScreen tab 2 rendering for Academy directly without modal popup (Vietnamese)', (WidgetTester tester) async {
