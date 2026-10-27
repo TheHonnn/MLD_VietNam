@@ -412,6 +412,8 @@ export class AcademyService {
           .update({
             status: 'ENROLLED',
             approval_status: 'APPROVED',
+            student_status: 'APPROVED',
+            payment_status: 'PAID',
             amount_paid: matchedAmount,
             approved_at: new Date().toISOString(),
             approved_by: 'HỆ THỐNG TỰ ĐỘNG',
@@ -474,6 +476,8 @@ export class AcademyService {
         .update({
           status: 'ENROLLED',
           approval_status: 'APPROVED',
+          student_status: 'APPROVED',
+          payment_status: 'PAID',
           amount_paid: finalPaid,
           approved_at: new Date().toISOString(),
           approved_by: adminUser || 'ADMIN',
@@ -504,6 +508,10 @@ export class AcademyService {
           .select(`
             id,
             status,
+            approval_status,
+            student_status,
+            approval_notes,
+            order_code,
             tuition_total,
             amount_paid,
             completed_lessons_count,
@@ -529,24 +537,35 @@ export class AcademyService {
           .eq('student_id', userId);
 
         if (!error && data && data.length > 0) {
-          const formatted = data.map((item: any) => ({
-            id: item.id,
-            courseId: item.courses?.id,
-            title: item.courses?.title,
-            batchCode: item.course_batches?.batch_code || 'K24-SPA-HCM',
-            branchName: item.course_batches?.branches?.name || 'Chi nhánh Quận 3',
-            schedule: item.course_batches?.schedule_text || 'Thứ 6–7–Chủ nhật (13:00 – 17:00)',
-            startDate: item.course_batches?.start_date || '23/10/2026',
-            endDate: item.course_batches?.end_date || '23/12/2026',
-            completedLessons: item.completed_lessons_count || 0,
-            totalLessons: item.courses?.total_lessons || 20,
-            progressPercentage: item.progress_percent || 0,
-            status: item.status,
-            statusText: item.status === 'GRADUATED' ? 'Đã hoàn thành' : 'Đang học',
-            instructorName: item.courses?.instructors?.full_name || 'ThS. Nguyễn Thu Hà',
-            instructorAvatar: item.courses?.instructors?.avatar_url || 'assets/images/le_hoai_an.png',
-            imageUrl: item.courses?.image_url || 'assets/images/gioithieu_1.png',
-          }));
+          const formatted = data.map((item: any) => {
+            const notes = item.approval_notes || '';
+            const customerCode = item.order_code || notes.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1] || `HV-${String(item.id).slice(-4)}`;
+            const isApproved = item.approval_status === 'APPROVED' ||
+              ['APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.student_status).toUpperCase()) ||
+              ['APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.status).toUpperCase());
+
+            return {
+              id: item.id,
+              courseId: item.courses?.id,
+              title: item.courses?.title,
+              batchCode: item.course_batches?.batch_code || 'K24-SPA-HCM',
+              branchName: item.course_batches?.branches?.name || 'Chi nhánh Quận 3',
+              schedule: item.course_batches?.schedule_text || 'Thứ 6–7–Chủ nhật (13:00 – 17:00)',
+              startDate: item.course_batches?.start_date || '23/10/2026',
+              endDate: item.course_batches?.end_date || '23/12/2026',
+              completedLessons: item.completed_lessons_count || 0,
+              totalLessons: item.courses?.total_lessons || 20,
+              progressPercentage: item.progress_percent || 0,
+              status: item.status,
+              approvalStatus: isApproved ? 'APPROVED' : (item.approval_status || item.student_status || 'NOT_APPROVED'),
+              studentStatus: item.student_status,
+              customerCode,
+              statusText: item.status === 'GRADUATED' ? 'Đã hoàn thành' : (isApproved ? 'Đang học' : 'Chờ duyệt'),
+              instructorName: item.courses?.instructors?.full_name || 'ThS. Nguyễn Thu Hà',
+              instructorAvatar: item.courses?.instructors?.avatar_url || 'assets/images/le_hoai_an.png',
+              imageUrl: item.courses?.image_url || 'assets/images/gioithieu_1.png',
+            };
+          });
 
           return {
             success: true,

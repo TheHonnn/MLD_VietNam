@@ -19,6 +19,9 @@ import {
   StudentAdmissionStatus,
   PaymentMethod,
   PaymentStatus,
+  BatchSchedule,
+  StudentAttendance,
+  AttendanceStatus,
 } from '../types/shared_types';
 
 import { supabaseService } from './supabaseService';
@@ -946,5 +949,94 @@ export const academyService = {
       console.error('[academyService] createInstructor error:', err);
     }
     return legacyWrite<Instructor>('instructors', data);
+  },
+
+  // --- Thời khóa biểu buổi học (Batch Schedules) ---
+  async getBatchSchedules(batchId: string): Promise<ApiResponse<BatchSchedule[]>> {
+    try {
+      const live = await supabaseService.getBatchSchedules(batchId);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu thời khóa biểu lớp học từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getBatchSchedules error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn thời khóa biểu lớp học',
+        data: [],
+      };
+    }
+  },
+
+  async seedBatchSchedules(batchId: string, startDate?: string): Promise<ApiResponse<BatchSchedule[]>> {
+    try {
+      const seeded = await supabaseService.seedBatchSchedules(batchId, startDate);
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'Đã tạo 8 buổi học chuẩn phác đồ Vodder cho lớp học thành công',
+        data: seeded || [],
+      };
+    } catch (err) {
+      console.error('[academyService] seedBatchSchedules error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khởi tạo thời khóa biểu lớp học',
+        data: [],
+      };
+    }
+  },
+
+  // --- Điểm danh học viên theo buổi (Student Attendance) ---
+  async getAttendanceForSchedules(scheduleIds: string[]): Promise<ApiResponse<StudentAttendance[]>> {
+    try {
+      const live = await supabaseService.getAttendanceForSchedules(scheduleIds);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu điểm danh lớp học từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getAttendanceForSchedules error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn điểm danh lớp học',
+        data: [],
+      };
+    }
+  },
+
+  async saveBatchAttendance(
+    records: Array<{
+      scheduleId: string;
+      enrollmentId: string;
+      status: AttendanceStatus | string;
+      notes?: string;
+    }>
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.saveBatchAttendance(records);
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Lưu điểm danh thành công lên Supabase Cloud' : 'Không thể lưu điểm danh',
+        data: ok,
+      };
+    } catch (err) {
+      console.error('[academyService] saveBatchAttendance error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi lưu điểm danh',
+        data: false,
+      };
+    }
   },
 };

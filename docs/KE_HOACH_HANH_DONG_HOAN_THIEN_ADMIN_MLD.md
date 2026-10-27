@@ -59,66 +59,58 @@ flowchart TD
 
 ---
 
-## 🚀 BƯỚC 1: NỐI LIỀN CÁC MẮT XÍCH NGHIỆP VỤ ĐỨT GÃY
+## 🚀 BƯỚC 1: NỐI LIỀN CÁC MẮT XÍCH NGHIỆP VỤ ĐỨT GÃY [✅ ĐÃ HOÀN THÀNH 100%]
 
 Mục tiêu của bước này là biến các màn hình độc lập thành **một dòng chảy dữ liệu khép kín tự động (End-to-End Seamless Flow)**.
 
-### 1.1. Tích hợp Tra cứu & In Hóa đơn Học phí tại Quầy Thu ngân POS (`W07_CashierPOS.tsx`)
+### 1.1. Tích hợp Tra cứu & In Hóa đơn Học phí tại Quầy Thu ngân POS (`W07_CashierPOS.tsx`) - ✅ ĐÃ XONG
 - **Hiện trạng:** Quầy POS (`W07`) chỉ tra cứu đơn dịch vụ Spa (`bookings`). Học phí học viên thu tại Tuyển sinh (`W08`) ghi vào bảng `tuition_transactions` nhưng thu ngân không thể tìm thấy để in phiếu thu / hóa đơn VAT tại quầy.
-- **Việc cần làm:**
-  1. Thêm công tắc chuyển loại tìm kiếm trên thanh tra cứu POS:
-     - `[Tab 1] Đơn dịch vụ Spa (Lịch hẹn / Gói liệu trình)`
-     - `[Tab 2] Phiếu thu Học phí Học viện (Mã HV / Mã giao dịch TT-HV...)`
-  2. Khi chọn Tab Học viện và nhập mã học viên (ví dụ: `HV26002`) hoặc SĐT:
-     - Đọc trực tiếp từ `academyService.getTuitionTransactions()` hoặc bảng `tuition_transactions`.
-     - Tự động điền thông tin học viên, tên khóa học, số tiền đã đóng/còn nợ.
-     - Cho phép xuất và in Hóa đơn tài chính, lưu vào bảng `invoices` liên kết qua khóa ngoại `invoices.enrollment_id`.
+- **Kết quả thực hiện:**
+  1. Đã thêm công tắc chuyển chế độ mượt mà trên POS:
+     - `[Đơn dịch vụ Spa & Trị liệu]`
+     - `[Phiếu thu Học phí Học viện]`
+  2. Tra cứu động thông minh theo tên học viên, SĐT hoặc mã đăng ký/mã đơn.
+  3. Khi chọn học viên, hiển thị giao diện học phí chuyên biệt (học phí gốc, đã đóng, còn thiếu, các mốc thanh toán nhanh 100%, 50%, đóng phần còn thiếu).
+  4. Thanh toán ghi nhận vào `invoices` (với `enrollment_id`), cập nhật `tuition_transactions`, tự động phê duyệt trạng thái `APPROVED` khi hoàn tất và tự động trích hoa hồng tư vấn tuyển sinh 5%.
 
-### 1.2. Luồng Tiếp đón & Check-in Khách hàng tức thì (`W05_StaffSchedule.tsx`)
+### 1.2. Luồng Tiếp đón & Check-in Khách hàng tức thì (`W05_StaffSchedule.tsx`) - ✅ ĐÃ XONG
 - **Hiện trạng:** Khách hàng đặt lịch hẹn trên Mobile App có trạng thái `CONFIRMED`. Khi khách đến cửa spa, lễ tân phải mở ma trận lịch trực KTV để bấm đổi trạng thái sang `IN_SERVICE` thủ công.
-- **Việc cần làm:**
-  1. Thêm nút **"Quét mã QR Check-in"** ngay thanh công cụ đầu trang `W05_StaffSchedule`.
-  2. Khi quét mã đặt lịch (`booking_code` trên App Mobile của khách) hoặc nhập nhanh số điện thoại:
-     - Hệ thống tự động chuyển trạng thái lịch từ `CONFIRMED` sang `IN_SERVICE`.
-     - Cập nhật thời gian bắt đầu thực tế `actual_start_time`.
-     - Tự động thông báo tới kỹ thuật viên phụ trách phòng tương ứng.
+- **Kết quả thực hiện:**
+  1. Đã thêm nút **"Quét mã QR / Check-in"** nổi bật ngay trên thanh công cụ đầu trang `W05_StaffSchedule`.
+  2. Bấm mở Modal Check-in siêu tốc: Tự động lọc các ca cần tiếp đón hôm nay, hỗ trợ tìm nhanh theo mã booking, SĐT (hoặc 4 số cuối SĐT) và tên khách.
+  3. Bấm **"Tiếp đón ngay"**: Tự động chuyển trạng thái lịch từ `CONFIRMED` sang `IN_SERVICE`, gắn kỹ thuật viên & phòng/giường thực tế và hiển thị toast xác nhận.
 
-### 1.3. Liên kết 1-Click "Nhập Bệnh án Điều trị" khi Hoàn thành Ca (`W05` → `W06`)
+### 1.3. Liên kết 1-Click "Nhập Bệnh án Điều trị" khi Hoàn thành Ca (`W05` → `W06`) - ✅ ĐÃ XONG
 - **Hiện trạng:** KTV hoặc lễ tân bấm hoàn thành ca tại `W05_StaffSchedule` thì lịch chuyển sang `COMPLETED`, nhưng phần ghi nhận "Nhật ký điều trị" (tình trạng phù nề trước/sau, lời dặn chuyên gia) lại nằm riêng ở trang `W06_TreatmentManagement` (`treatment_journal`), dẫn đến KTV hay quên ghi hồ sơ.
-- **Việc cần làm:**
-  1. Khi người dùng bấm nút "Hoàn thành ca điều trị" tại `W05`:
-     - Hiển thị Popup Modal: *"Hoàn thành ca & Ghi nhận tiến trình điều trị"*.
-     - Cho phép KTV nhập nhanh 3 trường cốt lõi:
-       - *Tình trạng trước trị liệu* (Mức độ ứ trệ dịch, cảm giác đau căng).
-       - *Kỹ thuật & vùng can thiệp Vodder* (Vùng cổ, vùng bụng, chi trên...).
-       - *Tình trạng sau trị liệu & Lời dặn tại nhà*.
-  2. Bấm xác nhận sẽ đồng thời:
-     - Đổi trạng thái lịch hẹn `bookings.status = 'COMPLETED'`.
-     - Ghi 1 dòng nhật ký vào bảng `treatment_journal`.
-     - Nếu khách dùng gói liệu trình (`user_packages`), tự động tăng `used_sessions += 1` và giảm `remaining_sessions -= 1`.
+- **Kết quả thực hiện:**
+  1. Khi người dùng bấm nút **"Ghi bệnh án & Kết thúc ca trị liệu"** tại `W05`:
+     - Mở Modal lâm sàng chuyên khoa: *"Hồ Sơ Bệnh Án & Nhật Ký Trị Liệu Lâm Sàng"*.
+     - Cho phép chọn/trừ buổi trong Gói liệu trình của khách (`user_packages`) với thanh tiến độ buổi.
+     - Khảo sát mô kẽ & mức độ phù nề trước trị liệu.
+     - Tích chọn nhanh các vùng dẫn lưu can thiệp Vodder (Cổ mặt, Hạch nách - cánh tay, Hạch bẹn - chân, Ổ bụng sâu...).
+     - Lựa chọn mức áp lực thao tác (Nhẹ chuẩn Vodder 30-40mmHg, Vừa phải, Sâu).
+     - Kết quả đánh giá sau trị liệu & Lời dặn chuyên gia gửi Zalo ZNS.
+  2. Bấm **"Lưu Bệnh Án & Hoàn Thành Ca"** đồng thời:
+     - Cập nhật lịch hẹn `bookings.status = 'COMPLETED'`.
+     - Lưu hồ sơ vào bảng `treatment_journals` trên Supabase Cloud.
+     - Tự động trừ 1 buổi trong gói liệu trình (`user_packages.completed_sessions += 1`).
+     - Tự động trừ kho vật tư tiêu hao (BOM), trích 10% hoa hồng KTV và lên lịch ZNS dặn dò sau ca.
 
-### 1.4. Tự động Trích Phần trăm Hoa hồng KTV khi Thanh toán POS (`W07` → `W13`)
+### 1.4. Tự động Trích Phần trăm Hoa hồng KTV khi Thanh toán POS (`W07` → `W13`) - ✅ ĐÃ XONG
 - **Hiện trạng:** Trang `W13_StaffCommissions` hiển thị bảng kê hoa hồng và các nút Duyệt / Chi trả. Tuy nhiên, khi thu ngân tạo và thu tiền hóa đơn tại `W07_CashierPOS`, khoản hoa hồng chưa tự động sinh vào bảng `staff_commissions`.
-- **Việc cần làm:**
-  1. Thiết lập bảng quy tắc tỷ lệ hoa hồng mặc định trong `commissionService`:
-     - *Dịch vụ lẻ MLD:* 10% giá trị dịch vụ thực thu.
-     - *Bán gói liệu trình:* 5% tổng giá trị gói.
-     - *Tour đào tạo / workshop:* Mức cố định hoặc 15%.
-  2. Trong hàm `posService.createInvoice()` tại `W07_CashierPOS.tsx`:
-     - Ngay sau khi lưu hóa đơn thành công, kiểm tra nếu lịch hẹn có `technician_id`:
-     - Tự động tính số tiền hoa hồng `commission_amount = subtotal * percentage / 100`.
-     - Thêm 1 bản ghi vào bảng `staff_commissions` với trạng thái `PENDING_APPROVAL` (Chờ quản lý duyệt).
+- **Kết quả thực hiện:**
+  1. Khi thanh toán hóa đơn dịch vụ Spa tại POS: Tự động trích 10% hoa hồng trực tiếp (`SERVICE_DIRECT`) hoặc 5% hoa hồng nâng cấp gói (`PACKAGE_UPSELL`) cho KTV phụ trách vào bảng `staff_commissions` qua `commissionService.createCommission`.
+  2. Khi thanh toán học phí Học viện tại POS: Tự động trích 5% hoa hồng tư vấn tuyển sinh cho nhân viên tư vấn tuyển sinh phụ trách hồ sơ học viên.
+  3. Khi kết thúc ca trị liệu tại `W05_StaffSchedule`: Tự động trích 10% hoa hồng ca làm cho KTV.
 
-### 1.5. Lưới Điểm danh Buổi học Chi tiết theo Lịch lớp (`W10_Attendance.tsx`)
+### 1.5. Lưới Điểm danh Buổi học Chi tiết theo Lịch lớp (`W10_Attendance.tsx`) - ✅ ĐÃ XONG
 - **Hiện trạng:** Trang `W10_Attendance` hiển thị % chuyên cần tổng thể, nhưng chưa có bảng lưới tích chọn điểm danh từng ngày học cụ thể theo thời khóa biểu.
-- **Việc cần làm:**
-  1. Khi chọn một Lớp học (ví dụ: `K26-MLD-CS`):
-     - Đọc danh sách các buổi học từ bảng `batch_schedules` (Buổi 1, Buổi 2... ngày học, nội dung lý thuyết / thực hành lab).
-  2. Hiển thị bảng ma trận học viên x buổi học:
-     - Cột: Các buổi học theo lịch.
-     - Dòng: Danh sách học viên trong lớp (`course_enrollments`).
-     - Ô điểm danh: Tích chọn nhanh *Có mặt (P)*, *Vắng có phép (E)*, *Vắng không phép (A)*.
-  3. Bấm "Lưu điểm danh" sẽ ghi nhận vào bảng `student_attendance` trên Supabase Cloud.
+- **Kết quả thực hiện:**
+  1. Thêm thanh chuyển tab chế độ: `[Ma trận Buổi học (Thời khóa biểu)]` và `[Hồ sơ Chuyên cần]`.
+  2. Chọn lớp học từ danh sách thực tế (`K26-MLD-CS`, `K26-MLD-CB`, `K26-CDT-Q3`, `K26-GV-Q3`), tự động đọc lịch học từ bảng `batch_schedules`.
+  3. Cung cấp nút 1-click **"Khởi tạo 8 buổi học chuẩn phác đồ"** nếu lớp chưa có lịch.
+  4. Hiển thị ma trận học viên x buổi học với các nút chuyển đổi trạng thái P (Có mặt), L (Đi trễ), E (Có phép), A (Vắng mặt).
+  5. Hỗ trợ nút **"+ All Có mặt"** nhanh cho từng buổi và nút **"Lưu điểm danh lên hệ thống"** ghi nhận trực tiếp vào bảng `student_attendance` trên Supabase Cloud.
 
 ---
 

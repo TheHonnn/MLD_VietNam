@@ -78,8 +78,17 @@ class AcademyRepository {
             if (cMap['course_categories'] is Map) {
               cMap['categoryName'] = cMap['course_categories']['name'];
             }
+            final notes = item['approval_notes']?.toString() ?? '';
+            final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
+            final customerCode = notesCode ?? 'HV-${item['id'].toString().substring(0, 4).toUpperCase()}';
+            final enrStatus = item['status']?.toString() ?? 'PENDING_APPROVAL';
+            final enrApproval = item['approval_status']?.toString() ?? item['student_status']?.toString() ?? 'NOT_APPROVED';
             final model = CourseModel.fromJson(cMap).copyWith(
               progressPercentage: (item['progress_percent'] as num?)?.toInt() ?? 0,
+              status: enrStatus,
+              approvalStatus: enrApproval,
+              enrollmentId: item['id']?.toString(),
+              customerCode: customerCode,
             );
             final existingIndex = _enrolledCourses.indexWhere((c) => c.id == model.id);
             if (existingIndex >= 0) {
@@ -381,7 +390,7 @@ class AcademyRepository {
               status: e['status']?.toString() ?? 'PENDING_APPROVAL',
               enrollmentId: e['id']?.toString(),
               customerCode: customerCode,
-              approvalStatus: e['approval_status']?.toString() ?? 'PENDING_APPROVAL',
+              approvalStatus: e['approval_status']?.toString() ?? e['student_status']?.toString() ?? 'NOT_APPROVED',
             );
             list.add(model);
           }
@@ -514,12 +523,36 @@ class AcademyRepository {
     return getEnrolledCourse(courseId, title) != null;
   }
 
-  /// Khóa học chỉ được phép vào học khi đã được phê duyệt (status: ENROLLED/APPROVED, không phải PENDING_APPROVAL)
+  /// Khóa học chỉ được phép vào học khi đã được Ban Quản Trị phê duyệt & xác nhận thanh toán
+  /// Chấp nhận các trạng thái đã duyệt: APPROVED, ENROLLED, STUDYING, COMPLETED, GRADUATED
+  /// Tuyệt đối CHẶN các trạng thái chưa duyệt: NOT_APPROVED, PENDING, PENDING_APPROVAL, PENDING_CONSULTATION, CONSULTING, UNPAID, REJECTED
   bool isCourseApproved(String courseId, [String? title]) {
     final enr = getEnrolledCourse(courseId, title);
     if (enr == null) return false;
-    final isPending = enr.status == 'PENDING_APPROVAL' || enr.approvalStatus == 'PENDING_APPROVAL';
-    return !isPending;
+
+    const validApprovedStatuses = {'APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'};
+    const unapprovedStatuses = {
+      'NOT_APPROVED',
+      'PENDING',
+      'PENDING_APPROVAL',
+      'PENDING_CONSULTATION',
+      'CONSULTING',
+      'UNPAID',
+      'REJECTED',
+      'CANCELLED',
+      'SUSPENDED',
+    };
+
+    final statusUpper = enr.status.trim().toUpperCase();
+    final approvalUpper = (enr.approvalStatus ?? '').trim().toUpperCase();
+
+    // Nếu bất kỳ trường nào ghi nhận chưa duyệt / đang chờ xử lý -> Chặn ngay lập tức
+    if (unapprovedStatuses.contains(statusUpper) || unapprovedStatuses.contains(approvalUpper)) {
+      return false;
+    }
+
+    // Chỉ cho phép khi có ít nhất một trường xác nhận trạng thái duyệt hợp lệ
+    return validApprovedStatuses.contains(statusUpper) || validApprovedStatuses.contains(approvalUpper);
   }
 
   void clearEnrolledCourses() {
@@ -622,8 +655,9 @@ class AcademyRepository {
   /// Khóa học phải được đăng ký hợp lệ và ĐÃ ĐƯỢC DUYỆT.
   /// Bài 1 luôn mở đầu tiên khi đã duyệt. Bài n chỉ mở khi Bài (n-1) đã hoàn thành xem hết clip.
   bool canAccessLesson(String courseId, LessonModel lesson, List<LessonModel> allCourseLessons) {
+    if (lesson.isFreePreview) return true;
     if (!isCourseEnrolled(courseId)) return false;
-    if (!isCourseApproved(courseId)) return false; // Chỉ khi được duyệt mới được xem
+    if (!isCourseApproved(courseId)) return false; // Khóa học chưa được Admin duyệt -> Chặn hoàn toàn
     final index = allCourseLessons.indexWhere((l) => l.id == lesson.id);
     if (index <= 0) return true; // Bài 1 luôn mở cho học viên đã được duyệt
     final previousLesson = allCourseLessons[index - 1];

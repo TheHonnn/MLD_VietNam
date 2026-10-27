@@ -66,8 +66,78 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
     }
   }
 
+  bool get _canAccess {
+    if (widget.lesson?.isFreePreview == true) return true;
+    final cId = widget.courseId ?? widget.courseTitle;
+    if (cId == null || cId.isEmpty) return false;
+    return AcademyRepository.instance.isCourseApproved(cId, widget.courseTitle);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_canAccess) {
+      return Scaffold(
+        backgroundColor: AcademyColors.background,
+        appBar: const AcademyAppBar(
+          subtitleTag: 'Khóa học chờ duyệt',
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFFDE68A), width: 2),
+                  ),
+                  child: const Icon(Icons.lock_rounded, size: 40, color: Color(0xFFD97706)),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Khóa học chưa được Admin duyệt',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AcademyColors.heading,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Bạn chưa thể xem video bài học "${widget.lesson?.title ?? ""}" do hồ sơ đăng ký khóa học đang chờ Ban Quản Trị đối soát và phê duyệt.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 13.5,
+                    color: AcademyColors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Quay lại'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(

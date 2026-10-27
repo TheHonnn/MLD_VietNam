@@ -614,6 +614,17 @@ export interface CourseEnrollment {
   batch?: CourseBatch;
 }
 
+export interface BatchSchedule {
+  id: string;
+  batchId: string;
+  assignedRoomId?: string | null;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  topic: string;
+  isPracticeLab: boolean;
+}
+
 export interface StudentAttendance {
   id: string;
   scheduleId: string;
