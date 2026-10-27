@@ -252,12 +252,10 @@ export const W12_FinancialReports: React.FC = () => {
       const matchMethod =
         methodFilter === 'all' || inv.methodType === methodFilter;
 
-      let matchBranch = true;
-      if (branchFilter === 'quận 3') {
-        matchBranch = inv.branchId.includes('0001');
-      } else if (branchFilter === 'quận 1') {
-        matchBranch = inv.branchId.includes('0002');
-      }
+      const matchBranch =
+        branchFilter === 'all' ||
+        inv.branchId === branchFilter ||
+        (inv.branchId && branchFilter && inv.branchId.toLowerCase().includes(branchFilter.toLowerCase()));
 
       return matchCategory && matchMethod && matchBranch;
     });
@@ -340,17 +338,15 @@ export const W12_FinancialReports: React.FC = () => {
     };
   }, [completedInvoicesData]);
 
-  // 8. Daily Revenue Chart Bars
+  // 8. Daily Revenue Chart Bars (Dynamic 7-day rolling window)
   const dailyChartBars: DailyRevenueBar[] = useMemo(() => {
-    const days = [
-      '10/10/2026',
-      '11/10/2026',
-      '12/10/2026',
-      '13/10/2026',
-      '14/10/2026',
-      '15/10/2026',
-      '16/10/2026',
-    ];
+    const days: string[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      days.push(d.toLocaleDateString('vi-VN'));
+    }
 
     const dayTotals: Record<string, number> = {};
     days.forEach((d) => (dayTotals[d] = 0));
@@ -358,9 +354,6 @@ export const W12_FinancialReports: React.FC = () => {
     completedInvoicesData.forEach((inv) => {
       if (dayTotals[inv.date] !== undefined) {
         dayTotals[inv.date] += inv.amountNumber;
-      } else {
-        // Fallback default to 16/10 if outside array
-        dayTotals['16/10/2026'] = (dayTotals['16/10/2026'] || 0) + inv.amountNumber;
       }
     });
 
@@ -583,8 +576,11 @@ export const W12_FinancialReports: React.FC = () => {
             className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả chi nhánh</option>
-            <option value="quận 3">Quận 3</option>
-            <option value="quận 1">Quận 1</option>
+            {liveBranches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
