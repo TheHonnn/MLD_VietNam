@@ -11,6 +11,7 @@ const scripts = [
   { name: 'Giai đoạn 7: E2E Nghiệp vụ Admin Đặt Khóa học & Đặt lịch Spa Thực địa (W08, W05, W06, W07, W13, W15)', file: 'test_e2e_admin_course_and_spa.js' },
   { name: 'Giai đoạn 8: Vận hành Thật Doanh nghiệp - Zalo Cloud API, PDF Ký số & Excel XLSX (W14, W07, W16, W12)', file: 'test_step2_real_operations.js' },
   { name: 'Giai đoạn 9: Bảo mật Phân quyền Khóa học - Chặn Tuyệt đối Học viên Chưa Duyệt (Academy Security)', file: 'test_course_approval_security.js' },
+  { name: 'Giai đoạn 10: Nghiệm thu Đầu cuối UAT 2 Kịch bản Thực địa (Học viện & Spa 100% Live DB)', file: 'test_step3_uat_acceptance.js' },
 ];
 
 console.log('╔════════════════════════════════════════════════════════════════════════════════════╗');
@@ -36,7 +37,7 @@ scripts.forEach((s, idx) => {
 });
 
 if (allSuccess) {
-  console.log('🎉 TOÀN BỘ 9 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
+  console.log('🎉 TOÀN BỘ 10 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
 } else {
   console.log('⚠️ CÓ GIAI ĐOẠN CHƯA ĐẠT CHUẨN. CẦN KIỂM TRA LẠI.');
 }

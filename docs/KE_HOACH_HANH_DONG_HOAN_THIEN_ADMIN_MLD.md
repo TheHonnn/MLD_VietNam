@@ -40,7 +40,7 @@ flowchart TD
         M1 --> M2 --> M3
     end
 
-    subgraph S3["BƯỚC 3: KIỂM THỬ E2E TOÀN BỘ 2 LUỒNG CỐT LÕI"]
+    subgraph S3["BƯỚC 3: KIỂM THỬ E2E TOÀN BỘ 2 LUỒNG CỐT LÕI [✅ 100%]"]
         direction TB
         T1["Kịch bản 1: Luồng Học viện từ Tuyển sinh -> Học -> Cấp GCN"]
         T2["Kịch bản 2: Luồng Spa từ Khách đặt -> Lịch KTV -> Bệnh án -> POS -> Hoa hồng"]
@@ -159,34 +159,38 @@ Mục tiêu của bước này là thay thế toàn bộ logic mock/nội bộ b
 
 ---
 
-## 🧪 BƯỚC 3: KIỂM THỬ ĐẦU CUỐI (E2E ACCEPTANCE TESTS)
+## 🧪 BƯỚC 3: KIỂM THỬ ĐẦU CUỐI (E2E ACCEPTANCE TESTS) [✅ ĐÃ HOÀN THÀNH 100%]
 
-Chạy kiểm thử toàn diện trên 2 kịch bản vận hành sống còn của MLD Việt Nam:
+Đã hoàn tất nghiệm thu thực địa đầu cuối xuyên suốt trên **100% dữ liệu sống Supabase Cloud** qua bộ kiểm thử [`test_step3_uat_acceptance.js`](file:///d:/MyProjects/vietnamchampion/projectapp/MLD_VietNam/scripts/testing/test_step3_uat_acceptance.js) với kết quả **15/15 tiêu chí (100% PASS)**:
 
-### Kịch bản A: Luồng Đào tạo & Tuyển sinh Học viện
+### Kịch bản A: Luồng Đào tạo & Tuyển sinh Học viện [✅ ĐẠT 100%]
 ```
 [Học viên đăng ký] 
-   └──> Tiếp nhận trên W08_Enrollment
+   └──> Tiếp nhận trên W08_Enrollment (Trạng thái ban đầu: NOT_APPROVED, UNPAID, Khóa bài giảng trên Mobile)
    └──> Nộp học phí qua VietQR động (ghi nhận tuition_transactions)
-   └──> Sang quầy POS (W07) tra cứu & in biên lai VAT
-   └──> Xếp vào lớp K26-MLD-CS
-   └──> Giảng viên điểm danh buổi học trên W10_Attendance
-   └──> Học xong 11 bài trên W11_Curriculum
-   └──> Đạt bài thi thực hành lâm sàng
-   └──> Cấp Giấy chứng nhận tốt nghiệp trên W16_Certificates (kèm QR verify)
+   └──> Sang quầy POS (W07) tra cứu & in biên lai VAT (Cập nhật PAID, APPROVED, trích 5% hoa hồng tuyển sinh)
+   └──> Mobile App tự động mở khóa quyền vào học
+   └──> Xếp vào lớp K26-GV-Q3 / K26-MLD-CS (Cập nhật ENROLLED, STUDYING)
+   └──> Giảng viên điểm danh buổi học trên W10_Attendance (Ma trận batch_schedules -> student_attendance: PRESENT)
+   └──> Học viên tốt nghiệp (GRADUATED)
+   └──> Cấp Giấy chứng nhận tốt nghiệp trên W16_Certificates (kèm QR verify độc bản, xếp loại Xuất sắc)
 ```
+- **Kết quả nghiệm thu:** 7/7 tiêu chí Kịch bản A đều đạt chuẩn (Đúng schema DB, bảo toàn khóa ngoại, dọn dẹp sạch sẽ sau test).
 
-### Kịch bản B: Luồng Vận hành Spa & Trị liệu Phù nề
+### Kịch bản B: Luồng Vận hành Spa & Trị liệu Phù nề [✅ ĐẠT 100%]
 ```
 [Khách hàng đặt lịch]
-   └──> Lễ tân tiếp nhận lịch trên W05_StaffSchedule (phân KTV & Phòng)
-   └──> Khách đến: Quét mã QR Check-in chuyển trạng thái IN_SERVICE
-   └──> Bác sĩ / KTV khám phù nề ghi nhận chỉ số trên W17_EdemaAssessments
-   └──> KTV thực hiện dẫn lưu bạch huyết chuẩn Vodder
-   └──> KTV bấm Hoàn thành ca -> Popup ghi Nhật ký điều trị (treatment_journal)
-   └──> Thu ngân thanh toán tại POS (W07) -> Tự động trích Hoa hồng KTV (W13)
-   └──> Doanh thu nhảy thời gian thực trên Bảng điều khiển (W01) & Báo cáo (W12)
+   └──> Lễ tân tiếp nhận lịch trên W05_StaffSchedule (Trạng thái ban đầu: CONFIRMED, UNPAID)
+   └──> Khách đến: Quét mã QR Check-in siêu tốc chuyển trạng thái IN_SERVICE, gán phòng & KTV phụ trách
+   └──> Bác sĩ / KTV khám phù nề ghi nhận chỉ số trên W17_EdemaAssessments (Đo chu vi cm, độ II, Stemmer +)
+   └──> KTV thực hiện dẫn lưu bạch huyết chuẩn Vodder (Áp lực 30-40 mmHg)
+   └──> KTV bấm Hoàn thành ca -> Popup ghi Bệnh án điều trị lâm sàng (treatment_journal)
+   └──> Thu ngân thanh toán tại POS (W07) -> Xuất hóa đơn VAT, đổi lịch sang COMPLETED / PAID
+   └──> Tự động trích 10% Hoa hồng KTV vào bảng staff_commissions (W13)
+   └──> Tự động trừ kho vật tư tiêu hao theo định mức BOM vào inventory_consumption_logs (W15)
+   └──> Doanh thu nhảy thời gian thực trên Bảng điều khiển (W01) & Báo cáo tài chính (W12)
 ```
+- **Kết quả nghiệm thu:** 8/8 tiêu chí Kịch bản B đều đạt chuẩn (Đúng số tiền, trích chuẩn 10% hoa hồng, trừ kho BOM chính xác).
 
 ---
 
@@ -225,4 +229,5 @@ Mọi thay đổi code sau mỗi bước bắt buộc phải tuân thủ nghiêm
 | **Tích hợp Zalo Cloud API thật cho ZNS** | `W14_ZaloZNS.tsx` & `zns.service.ts` | **P2** | ✅ Đã xong 100% |
 | **Xuất file PDF & Excel nhị phân tải về máy** | `W07`, `W16`, `W12` | **P2** | ✅ Đã xong 100% |
 | **Bảo mật phân quyền khóa học & Chặn học viên chưa duyệt** | `AcademyRepository`, `E03`, `E07`, `E08`, `E09` | **P0** | ✅ Đã xong 100% |
-| **Bộ kiểm thử tự động 9 giai đoạn E2E & Build Production** | `scripts/testing`, `web-admin`, `backend` | **P0** | ✅ Đã xong 100% |
+| **Nghiệm thu Thực địa Đầu cuối Bước 3 (Master UAT)** | `test_step3_uat_acceptance.js` (Học viện & Spa) | **P0** | ✅ Đã xong 100% |
+| **Bộ kiểm thử tự động 10 giai đoạn & Build Production** | `scripts/testing`, `web-admin`, `backend` | **P0** | ✅ Đã xong 100% |
