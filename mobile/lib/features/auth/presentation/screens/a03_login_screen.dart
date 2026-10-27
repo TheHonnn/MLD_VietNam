@@ -607,8 +607,9 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                         const SizedBox(height: 20),
 
                         // --- 5. ĐĂNG KÝ TÀI KHOẢN MỚI ---
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             const Text(
                               'Chưa có tài khoản? ',
@@ -717,8 +718,9 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 GestureDetector(
                                   onTap: () {

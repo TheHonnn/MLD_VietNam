@@ -14,18 +14,50 @@ import {
   QrCode,
   FileText,
   GraduationCap,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  Users,
+  Send,
+  Check,
+  ShieldCheck,
+  AlertCircle,
+  ArrowRight,
+  DollarSign,
+  UserCheck,
 } from 'lucide-react';
 import { academyService, customerService, staffService, supabaseService, StaffWithProfile } from '../services';
 import { toast } from '../components/common';
-import { CourseEnrollment, Course, CourseBatch, User, EnrollmentStatus, UserRole, PurposeInterest, PaymentMethod, PaymentStatus } from '../types/shared_types';
+import {
+  CourseEnrollment,
+  Course,
+  CourseBatch,
+  User,
+  EnrollmentStatus,
+  UserRole,
+  PurposeInterest,
+  PaymentMethod,
+  PaymentStatus,
+  ConsultationStatus,
+  PaymentVerificationStatus,
+  StudentAdmissionStatus,
+  ConsultationNote,
+} from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 import { EnrollmentBillModal, CandidateBillInfo } from '../components/enrollment/EnrollmentBillModal';
 import { AssignBatchModal, AssignCandidateInfo } from '../components/enrollment/AssignBatchModal';
 
-export type EnrollmentSubTab = 'PENDING_APPROVAL' | 'APPROVED_PAID' | 'ALL';
+export type EnrollmentWorkflowTab =
+  | 'ALL'
+  | 'PENDING_CONSULTATION'
+  | 'CONFIRMED_PENDING_PAY'
+  | 'PAID_WAITING_CLASS'
+  | 'ENROLLED_STUDYING';
 
-interface CandidateRecord {
+export interface CandidateRecord {
   id: string;
+  orderCode: string;
   name: string;
   code: string;
   phone: string;
@@ -33,19 +65,32 @@ interface CandidateRecord {
   avatar?: string;
   initials?: string;
   program: string;
+  courseId: string;
   classBatch: string;
+  batchId?: string | null;
   tuitionTotal: string;
   tuitionDeposit: string;
   rawTuitionTotal: number;
   rawAmountPaid: number;
+  finalTuition: number;
   approvalStatus?: string;
   approvedBy?: string;
   approvedAt?: string;
   approvalNotes?: string;
   rawStatus: EnrollmentStatus;
-  stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending';
-  stageLabel: string;
-  // Detail info for right panel
+
+  // 3 Distinct Status Groups from Specification
+  consultationStatus: ConsultationStatus;
+  paymentVerificationStatus: PaymentVerificationStatus;
+  studentAdmissionStatus: StudentAdmissionStatus;
+
+  // Staff & Consultation Timeline
+  assignedStaffId?: string | null;
+  assignedStaffName?: string;
+  consultationHistory: ConsultationNote[];
+  qrCreatedAt?: string | null;
+
+  // Detail Info for Right Panel
   experience: string;
   branch: string;
   expectedClass: string;
@@ -57,16 +102,16 @@ interface CandidateRecord {
   requiredDeposit: string;
   remainingAmount: string;
   statusBadge: string;
-  buttonLabel: string;
 }
 
 export const W08_Enrollment: React.FC = () => {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [programFilter, setProgramFilter] = useState<string>('all');
-  const [stageFilter, setStageFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
-  const [activeSubTab, setActiveSubTab] = useState<EnrollmentSubTab>('PENDING_APPROVAL');
+  const [activeWorkflowTab, setActiveWorkflowTab] = useState<EnrollmentWorkflowTab>('ALL');
+
+  // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBillModalOpen, setIsBillModalOpen] = useState(false);
   const [billModalCandidate, setBillModalCandidate] = useState<CandidateBillInfo | null>(null);
@@ -78,12 +123,21 @@ export const W08_Enrollment: React.FC = () => {
   // Form add new candidate state
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
+  const [formEmail, setFormEmail] = useState('');
   const [formCourseId, setFormCourseId] = useState('');
-  const [formBatchId, setFormBatchId] = useState('');
-  const [formBranchId, setFormBranchId] = useState('q3');
-  const [formStage, setFormStage] = useState<EnrollmentStatus>(EnrollmentStatus.CONSULTING);
-  const [formTuition, setFormTuition] = useState('9.000.000đ');
+  const [formBranchId, setFormBranchId] = useState('Chi nhánh Quận 3 - TP.HCM');
+  const [formTuition, setFormTuition] = useState('35.000.000đ');
   const [isCreatingCandidate, setIsCreatingCandidate] = useState(false);
+
+  // Detail Panel Interactive State
+  const [consultationNoteInput, setConsultationNoteInput] = useState('');
+  const [consultationStatusInput, setConsultationStatusInput] = useState<ConsultationStatus>(ConsultationStatus.CONSULTING);
+  const [finalTuitionInput, setFinalTuitionInput] = useState<number>(0);
+  const [finalBranchInput, setFinalBranchInput] = useState<string>('Chi nhánh Quận 3 - TP.HCM');
+  const [isUpdatingConsultation, setIsUpdatingConsultation] = useState(false);
+  const [isFinalizingConsultation, setIsFinalizingConsultation] = useState(false);
+  const [isAssigningStaff, setIsAssigningStaff] = useState(false);
+  const [isManualConfirmingPay, setIsManualConfirmingPay] = useState(false);
 
   const showToast = (message: string) => {
     setSuccessToast(message);
@@ -97,22 +151,25 @@ export const W08_Enrollment: React.FC = () => {
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
     const fetchAcademyData = async () => {
       try {
-        const [enrRes, crsRes, batRes, custRes, instRes] = await Promise.all([
+        const [enrRes, crsRes, batRes, custRes, instRes, staffRes] = await Promise.all([
           academyService.getEnrollments(),
           academyService.getCourses(),
           academyService.getCourseBatches(),
           customerService.getCustomers(),
           staffService.getInstructors(),
+          staffService.getStaffList(),
         ]);
         if (enrRes.success) setLiveEnrollments(enrRes.data);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
         if (custRes.success) setCustomers(custRes.data);
         if (instRes.success) setInstructors(instRes.data);
+        if (staffRes.success) setStaffMembers(staffRes.data);
       } catch (err) {
         console.error('Failed to load academy data:', err);
       }
@@ -126,6 +183,7 @@ export const W08_Enrollment: React.FC = () => {
     const custMap = new Map(customers.map((c) => [c.id, c]));
     const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
     const batMap = new Map(liveBatches.map((b) => [b.id, b]));
+    const staffMap = new Map(staffMembers.map((s) => [s.id, s.fullName]));
 
     return liveEnrollments.map((enr, idx) => {
       const cust = custMap.get(enr.studentId);
@@ -136,49 +194,40 @@ export const W08_Enrollment: React.FC = () => {
       const custPhone = cust?.phone || enr.studentPhone || '—';
       const notesCode = enr.approvalNotes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
       const custCode = notesCode || `HV26${String(idx + 1).padStart(3, '0')}`;
+      const orderCode = enr.orderCode || `KH-${new Date(enr.enrolledAt || Date.now()).toISOString().slice(0, 10).replace(/-/g, '')}-${String(idx + 1).padStart(3, '0')}`;
       const programTitle = crs?.title || 'Khóa học MLD';
-      const batchCode = bat?.batchCode || `K26-${crs?.code || 'MLD'}`;
+      const batchCode = bat?.batchCode || (enr.batchId ? `K26-${crs?.code || 'MLD'}` : 'Chưa xếp lớp');
 
-      const total = enr.tuitionTotal || crs?.tuitionFee || 35000000;
-      const paid = enr.amountPaid || 0;
+      const total = Number(enr.finalTuition || enr.tuitionTotal || crs?.tuitionFee || 35000000);
+      const paid = Number(enr.amountPaid || 0);
       const remaining = Math.max(0, total - paid);
 
       const isFullyPaid = paid >= total && total > 0;
+      const isStudying = enr.status === EnrollmentStatus.STUDYING;
       const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
-      const isApproved = enr.approvalStatus === 'APPROVED';
-      const isNewlyCreated = enr.enrolledAt ? (Date.now() - new Date(enr.enrolledAt).getTime() < 48 * 3600 * 1000) : false;
-      const stage: 'new' | 'consulting' | 'payment_pending' | 'class_pending' =
-        enr.status === 'STUDYING' || isGraduated
-          ? 'class_pending'
-          : isApproved || (paid > 0 && !isFullyPaid)
-          ? 'payment_pending'
-          : isNewlyCreated || enr.approvalStatus === 'PENDING_APPROVAL' || (enr.status as string) === 'PENDING_APPROVAL'
-          ? 'new'
-          : enr.status === 'CONSULTING' || paid === 0
-          ? 'consulting'
-          : 'class_pending';
 
-      const stageLabel =
-        stage === 'class_pending'
-          ? (isGraduated ? 'Tốt nghiệp' : bat ? 'Đang học' : 'Chờ xếp lớp')
-          : isApproved
-          ? 'Đã duyệt & Đã đóng'
-          : enr.approvalStatus === 'PENDING_APPROVAL' || (enr.status as string) === 'PENDING_APPROVAL'
-          ? 'Chờ duyệt & Chưa thanh toán'
-          : enr.status === 'ENROLLED'
-          ? 'Đã nhập học / Ghi danh'
-          : stage === 'payment_pending'
-          ? 'Chờ thanh toán'
-          : stage === 'new'
-          ? 'Hồ sơ mới'
-          : 'Chờ tư vấn';
+      // 3 Disctinct Status Groups strictly evaluated from Supabase
+      const consultationStatus: ConsultationStatus =
+        (enr.consultationStatus as ConsultationStatus) ||
+        (isFullyPaid || isStudying || isGraduated ? ConsultationStatus.CONFIRMED : ConsultationStatus.PENDING_CONSULTATION);
+
+      const paymentVerificationStatus: PaymentVerificationStatus =
+        (enr.paymentVerificationStatus as PaymentVerificationStatus) ||
+        (isFullyPaid || paid > 0 ? PaymentVerificationStatus.PAID : PaymentVerificationStatus.UNPAID);
+
+      const studentAdmissionStatus: StudentAdmissionStatus =
+        (enr.studentAdmissionStatus as StudentAdmissionStatus) ||
+        (isStudying || isGraduated || enr.batchId
+          ? StudentAdmissionStatus.ENROLLED
+          : isFullyPaid || enr.approvalStatus === 'APPROVED'
+          ? StudentAdmissionStatus.APPROVED
+          : StudentAdmissionStatus.NOT_APPROVED);
+
+      const assignedStaffName = enr.assignedStaffId ? staffMap.get(enr.assignedStaffId) || 'Nhân viên tư vấn' : undefined;
 
       const startDateFormatted = bat?.startDate
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(bat.startDate))
         : '05/11/2026 (Đợt gần nhất)';
-
-      const minDeposit = crs?.depositAmount || 2000000;
-      const depositDisplay = paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : `${minDeposit.toLocaleString('vi-VN')}đ`;
 
       const initials = custName
         .split(' ')
@@ -207,8 +256,22 @@ export const W08_Enrollment: React.FC = () => {
 
       const instructorDisplay = bat?.instructorId ? 'Lâm Xuân Trường (Master Trainer)' : 'Master Trainer MLD Academy';
 
+      const statusBadge =
+        isGraduated
+          ? '🎓 Đã tốt nghiệp xuất sắc'
+          : studentAdmissionStatus === StudentAdmissionStatus.ENROLLED || isStudying
+          ? '🎓 Đã xếp lớp & Đang học'
+          : paymentVerificationStatus === PaymentVerificationStatus.PAID
+          ? '✅ Đã thanh toán & Đã duyệt'
+          : consultationStatus === ConsultationStatus.CONFIRMED
+          ? '📋 Đã chốt tư vấn (Chờ thanh toán)'
+          : consultationStatus === ConsultationStatus.CONSULTING
+          ? '📞 Đang tư vấn'
+          : '⏳ Chờ liên hệ tư vấn';
+
       return {
         id: enr.id,
+        orderCode,
         name: custName,
         code: custCode,
         phone: custPhone,
@@ -216,18 +279,29 @@ export const W08_Enrollment: React.FC = () => {
         avatar: cust?.avatarUrl || undefined,
         initials: initials || 'HV',
         program: programTitle,
-        classBatch: `${batchCode} · ${scheduleDisplay}`,
+        courseId: enr.courseId,
+        classBatch: enr.batchId ? `${batchCode} · ${scheduleDisplay}` : 'Chưa xếp lớp',
+        batchId: enr.batchId,
         tuitionTotal: `${total.toLocaleString('vi-VN')}đ`,
-        tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc',
+        tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu tiền',
         rawTuitionTotal: total,
         rawAmountPaid: paid,
+        finalTuition: total,
         approvalStatus: enr.approvalStatus,
         approvedBy: enr.approvedBy,
         approvedAt: enr.approvedAt,
         approvalNotes: enr.approvalNotes,
         rawStatus: enr.status,
-        stage,
-        stageLabel,
+
+        consultationStatus,
+        paymentVerificationStatus,
+        studentAdmissionStatus,
+
+        assignedStaffId: enr.assignedStaffId,
+        assignedStaffName,
+        consultationHistory: enr.consultationHistory || [],
+        qrCreatedAt: enr.qrCreatedAt,
+
         experience: experienceLabel,
         branch: enr.selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
         expectedClass: batchCode,
@@ -236,13 +310,12 @@ export const W08_Enrollment: React.FC = () => {
         timeSlot: timeSlotDisplay,
         instructor: instructorDisplay,
         contractTuition: `${total.toLocaleString('vi-VN')}đ`,
-        requiredDeposit: depositDisplay,
+        requiredDeposit: `${(crs?.depositAmount || 2000000).toLocaleString('vi-VN')}đ`,
         remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
-        statusBadge: isApproved ? 'Đã duyệt & Đã thanh toán' : paid > 0 ? 'Đã đóng cọc tuyển sinh' : 'Chờ duyệt & Chưa thanh toán',
-        buttonLabel: isFullyPaid ? 'Xem hồ sơ học viên' : 'Gửi thông tin lớp',
+        statusBadge,
       };
     });
-  }, [liveEnrollments, liveCourses, liveBatches, customers]);
+  }, [liveEnrollments, liveCourses, liveBatches, customers, staffMembers]);
 
   useEffect(() => {
     if (candidatesData.length > 0 && (!selectedCandidateId || !candidatesData.some((c) => c.id === selectedCandidateId))) {
@@ -250,100 +323,146 @@ export const W08_Enrollment: React.FC = () => {
     }
   }, [candidatesData, selectedCandidateId]);
 
-  // Currently selected candidate
-  const selectedCandidate: CandidateRecord =
-    candidatesData.find((c) => c.id === selectedCandidateId) ||
-    candidatesData[0] || {
-      id: '',
-      name: 'Chưa có hồ sơ',
-      code: 'HV-000',
-      phone: '—',
-      email: '',
-      program: 'Chưa chọn khóa học',
-      classBatch: 'Chưa xếp lớp',
-      tuitionTotal: '0đ',
-      tuitionDeposit: '0đ',
-      rawTuitionTotal: 0,
-      rawAmountPaid: 0,
-      approvalStatus: undefined,
-      approvedBy: undefined,
-      approvedAt: undefined,
-      approvalNotes: undefined,
-      rawStatus: EnrollmentStatus.CONSULTING,
-      stage: 'new',
-      stageLabel: 'Hồ sơ mới',
-      experience: '—',
-      branch: '—',
-      expectedClass: '—',
-      startDate: '—',
-      schedule: '—',
-      timeSlot: '—',
-      instructor: '—',
-      contractTuition: '0đ',
-      requiredDeposit: '0đ',
-      remainingAmount: '0đ',
-      statusBadge: 'Chưa có hồ sơ',
-      buttonLabel: 'Tạo hồ sơ',
-    };
+  // Selected candidate object
+  const selectedCandidate: CandidateRecord | undefined = useMemo(() => {
+    return candidatesData.find((c) => c.id === selectedCandidateId) || candidatesData[0];
+  }, [candidatesData, selectedCandidateId]);
 
-  // Dynamic pending tasks strictly derived from real candidates
+  // Synchronize form inputs when selectedCandidate changes
+  useEffect(() => {
+    if (selectedCandidate) {
+      setConsultationStatusInput(selectedCandidate.consultationStatus);
+      setFinalTuitionInput(selectedCandidate.finalTuition || selectedCandidate.rawTuitionTotal || 35000000);
+      setFinalBranchInput(selectedCandidate.branch || 'Chi nhánh Quận 3 - TP.HCM');
+    }
+  }, [selectedCandidate?.id]);
+
+  // Tab Filtering counts strictly aligned with Section 3 & 4
+  const countAll = candidatesData.length;
+  const countPendingConsultation = useMemo(() => {
+    return candidatesData.filter(
+      (c) =>
+        (c.consultationStatus === ConsultationStatus.PENDING_CONSULTATION || c.consultationStatus === ConsultationStatus.CONSULTING) &&
+        c.paymentVerificationStatus !== PaymentVerificationStatus.PAID
+    ).length;
+  }, [candidatesData]);
+
+  const countConfirmedPendingPay = useMemo(() => {
+    return candidatesData.filter(
+      (c) =>
+        c.consultationStatus === ConsultationStatus.CONFIRMED &&
+        c.paymentVerificationStatus !== PaymentVerificationStatus.PAID
+    ).length;
+  }, [candidatesData]);
+
+  const countPaidWaitingClass = useMemo(() => {
+    return candidatesData.filter(
+      (c) =>
+        c.paymentVerificationStatus === PaymentVerificationStatus.PAID &&
+        c.studentAdmissionStatus !== StudentAdmissionStatus.ENROLLED &&
+        c.rawStatus !== EnrollmentStatus.STUDYING
+    ).length;
+  }, [candidatesData]);
+
+  const countEnrolledStudying = useMemo(() => {
+    return candidatesData.filter(
+      (c) =>
+        c.studentAdmissionStatus === StudentAdmissionStatus.ENROLLED ||
+        c.rawStatus === EnrollmentStatus.STUDYING ||
+        (c.rawStatus as any) === 'GRADUATED'
+    ).length;
+  }, [candidatesData]);
+
+  // Filter candidates based on active workflow subtab and filters
+  const filteredCandidates = useMemo(() => {
+    return candidatesData.filter((c) => {
+      const isSearchMatch = matchSearch([c.name, c.orderCode, c.code, c.phone, c.program, c.branch], searchTerm);
+      const matchProgram = programFilter === 'all' || c.program.toLowerCase().includes(programFilter.toLowerCase());
+      const matchBranch = branchFilter === 'all' || c.branch.toLowerCase().includes(branchFilter.toLowerCase());
+
+      let matchTab = true;
+      if (activeWorkflowTab === 'PENDING_CONSULTATION') {
+        matchTab =
+          (c.consultationStatus === ConsultationStatus.PENDING_CONSULTATION || c.consultationStatus === ConsultationStatus.CONSULTING) &&
+          c.paymentVerificationStatus !== PaymentVerificationStatus.PAID;
+      } else if (activeWorkflowTab === 'CONFIRMED_PENDING_PAY') {
+        matchTab =
+          c.consultationStatus === ConsultationStatus.CONFIRMED &&
+          c.paymentVerificationStatus !== PaymentVerificationStatus.PAID;
+      } else if (activeWorkflowTab === 'PAID_WAITING_CLASS') {
+        matchTab =
+          c.paymentVerificationStatus === PaymentVerificationStatus.PAID &&
+          c.studentAdmissionStatus !== StudentAdmissionStatus.ENROLLED &&
+          c.rawStatus !== EnrollmentStatus.STUDYING;
+      } else if (activeWorkflowTab === 'ENROLLED_STUDYING') {
+        matchTab =
+          c.studentAdmissionStatus === StudentAdmissionStatus.ENROLLED ||
+          c.rawStatus === EnrollmentStatus.STUDYING ||
+          (c.rawStatus as any) === 'GRADUATED';
+      }
+
+      return isSearchMatch && matchProgram && matchBranch && matchTab;
+    });
+  }, [candidatesData, searchTerm, programFilter, branchFilter, activeWorkflowTab]);
+
+  // Dynamic Pending Tasks derived directly from real live candidates
   const pendingTasks = useMemo(() => {
-    const tasks: { title: string; desc: string }[] = [];
+    const tasks: { title: string; desc: string; type: string }[] = [];
 
-    // 1. Unpaid or partially paid students
     candidatesData
-      .filter((c) => c.stage === 'payment_pending' || (c.stage === 'consulting' && c.remainingAmount !== '0đ'))
-      .slice(0, 3)
-      .forEach((c) => {
-        tasks.push({
-          title: 'Thu học phí còn lại theo lộ trình',
-          desc: `Học viên ${c.name} (${c.code}): Còn ${c.remainingAmount} cần hoàn tất cho khóa ${c.program}.`,
-        });
-      });
-
-    // 2. Students not yet assigned to class
-    candidatesData
-      .filter((c) => c.expectedClass === 'Chưa xếp lớp' && (c.stage === 'class_pending' || c.stage === 'payment_pending'))
-      .slice(0, 3)
-      .forEach((c) => {
-        tasks.push({
-          title: 'Xếp lớp đào tạo cho học viên',
-          desc: `Học viên ${c.name} (${c.code}): Đã đăng ký ${c.program} nhưng chưa được phân lớp học.`,
-        });
-      });
-
-    // 3. New leads needing consultation
-    candidatesData
-      .filter((c) => c.stage === 'new')
+      .filter((c) => c.consultationStatus === ConsultationStatus.PENDING_CONSULTATION)
       .slice(0, 2)
       .forEach((c) => {
         tasks.push({
-          title: 'Tư vấn tuyển sinh hồ sơ mới',
-          desc: `Học viên ${c.name} (SĐT: ${c.phone}): Vừa gửi thông tin quan tâm khóa học ${c.program}.`,
+          title: 'Liên hệ tư vấn khách hàng mới',
+          desc: `Đơn ${c.orderCode} (${c.name} - SĐT: ${c.phone}): Khách vừa đăng ký quan tâm khóa ${c.program}.`,
+          type: 'consultation',
+        });
+      });
+
+    candidatesData
+      .filter((c) => c.consultationStatus === ConsultationStatus.CONFIRMED && c.paymentVerificationStatus !== PaymentVerificationStatus.PAID)
+      .slice(0, 2)
+      .forEach((c) => {
+        tasks.push({
+          title: 'Theo dõi thanh toán học phí đã chốt',
+          desc: `Đơn ${c.orderCode} (${c.name}): Đã chốt ${c.contractTuition}, đang chờ khách chuyển khoản VietQR.`,
+          type: 'payment',
+        });
+      });
+
+    candidatesData
+      .filter((c) => c.paymentVerificationStatus === PaymentVerificationStatus.PAID && c.studentAdmissionStatus !== StudentAdmissionStatus.ENROLLED)
+      .slice(0, 2)
+      .forEach((c) => {
+        tasks.push({
+          title: 'Xếp lớp cho học viên đã đóng học phí',
+          desc: `Học viên ${c.name} (${c.orderCode}): Đã thanh toán ${c.tuitionDeposit}, cần xếp vào đợt khai giảng ${c.branch}.`,
+          type: 'admission',
         });
       });
 
     return tasks;
   }, [candidatesData]);
 
+  // Create new consultation request / order
   const handleCreateCandidate = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = formName.trim();
     const cleanPhone = formPhone.trim();
     if (!cleanName || !cleanPhone) {
-      toast.error('Thiếu thông tin', 'Vui lòng nhập họ tên và số điện thoại học viên.');
+      toast.error('Thiếu thông tin', 'Vui lòng nhập họ tên và số điện thoại khách hàng.');
       return;
     }
     setIsCreatingCandidate(true);
     try {
       const cleanDigits = cleanPhone.replace(/\D/g, '');
-      let student = customers.find(
-        (c) => (c.phone || '').replace(/\D/g, '') === cleanDigits
-      );
+      let student = customers.find((c) => (c.phone || '').replace(/\D/g, '') === cleanDigits);
       if (!student) {
         const createRes = await customerService.createCustomer({
           fullName: cleanName,
           phone: cleanPhone,
+          email: formEmail.trim() || undefined,
           role: UserRole.STUDENT,
           purpose: PurposeInterest.ACADEMY,
         });
@@ -354,111 +473,166 @@ export const W08_Enrollment: React.FC = () => {
       }
 
       const targetCourseId = formCourseId || liveCourses[0]?.id || 'cccccccc-0001-0001-0001-000000000001';
-      const cleanTuition = Number(formTuition.replace(/\D/g, '')) || 9000000;
+      const cleanTuition = Number(formTuition.replace(/\D/g, '')) || 35000000;
+      const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const newOrderCode = `KH-${todayStr}-${String(liveEnrollments.length + 1).padStart(3, '0')}`;
 
       const enrRes = await academyService.createEnrollment({
         studentId: student?.id || '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
         courseId: targetCourseId,
-        batchId: formBatchId || null,
-        status: formStage,
+        status: EnrollmentStatus.CONSULTING,
         tuitionTotal: cleanTuition,
-        amountPaid: formStage === EnrollmentStatus.ENROLLED || formStage === EnrollmentStatus.STUDYING ? cleanTuition : 0,
+        amountPaid: 0,
       });
 
       if (enrRes.success && enrRes.data) {
-        setLiveEnrollments((prev) => [enrRes.data!, ...prev]);
+        // Update the new workflow fields on Supabase Cloud
+        await supabaseService.updateEnrollment(enrRes.data.id, {
+          orderCode: newOrderCode,
+          consultationStatus: ConsultationStatus.PENDING_CONSULTATION,
+          paymentVerificationStatus: PaymentVerificationStatus.UNPAID,
+          studentAdmissionStatus: StudentAdmissionStatus.NOT_APPROVED,
+          finalTuition: cleanTuition,
+          selectedBranch: formBranchId,
+          consultationHistory: [
+            {
+              timestamp: new Date().toISOString(),
+              author: 'Hệ thống tuyển sinh',
+              note: `Khách hàng đăng ký tư vấn khóa học qua hệ thống. Mã đơn: ${newOrderCode}`,
+            },
+          ],
+        });
+
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) {
+          setLiveEnrollments(refreshed);
+        }
         setSelectedCandidateId(enrRes.data.id);
       }
 
-      toast.success(
-        'Tạo hồ sơ thành công',
-        `Đã tạo hồ sơ tuyển sinh cho học viên ${cleanName} trên Supabase Cloud.`
-      );
-      showToast(`Đã tạo hồ sơ học viên ${cleanName} thành công!`);
-
+      toast.success('Tạo đơn tư vấn thành công', `Đơn hàng ${newOrderCode} đã được lưu vào Supabase Cloud.`);
+      showToast(`Đã tạo đơn ${newOrderCode} cho ${cleanName}!`);
       setIsAddModalOpen(false);
       setFormName('');
       setFormPhone('');
-    } catch (err) {
+      setFormEmail('');
+    } catch (err: any) {
       console.error('Failed to create candidate enrollment:', err);
-      toast.error('Lỗi tạo hồ sơ', 'Không thể lưu hồ sơ học viên. Vui lòng kiểm tra lại.');
+      toast.error('Lỗi tạo đơn', err?.message || 'Không thể lưu đơn đăng ký tư vấn.');
     } finally {
       setIsCreatingCandidate(false);
     }
   };
 
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const handleUpdateEnrollmentStatus = async (enrollmentId: string, nextStatus: EnrollmentStatus) => {
-    setIsUpdatingStatus(true);
+  // Staff assignment (Section 4.1)
+  const handleAssignStaff = async (staffId: string) => {
+    if (!selectedCandidate) return;
+    setIsAssigningStaff(true);
     try {
-      const targetEnrollment = liveEnrollments.find((e) => e.id === enrollmentId);
-      const isDepositAction = nextStatus === EnrollmentStatus.ENROLLED && (!targetEnrollment?.amountPaid || targetEnrollment.amountPaid === 0);
-      const depositVal = isDepositAction ? (targetEnrollment?.course?.depositAmount || 2000000) : undefined;
-
-      const res = await academyService.updateEnrollmentStatus(
-        enrollmentId,
-        nextStatus,
-        depositVal ? { amountPaid: depositVal } : undefined
-      );
-
+      const chosenStaff = staffMembers.find((s) => s.id === staffId);
+      const res = await academyService.assignStaffToEnrollment(selectedCandidate.id, staffId || null);
       if (res.success) {
         setLiveEnrollments((prev) =>
-          prev.map((e) =>
-            e.id === enrollmentId
-              ? { ...e, status: nextStatus, ...(depositVal ? { amountPaid: depositVal } : {}) }
-              : e
-          )
+          prev.map((e) => (e.id === selectedCandidate.id ? { ...e, assignedStaffId: staffId || null } : e))
         );
-
-        if (isDepositAction && targetEnrollment) {
-          try {
-            await supabaseService.recordTuitionPayment({
-              transactionCode: `HP-COC-${Date.now().toString().slice(-6)}`,
-              enrollmentId,
-              studentId: targetEnrollment.studentId,
-              courseId: targetEnrollment.courseId,
-              branchId: targetEnrollment.batch?.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-              amount: depositVal || 2000000,
-              paymentMethod: PaymentMethod.BANK_TRANSFER,
-              paymentStatus: PaymentStatus.PAID,
-              notes: `Ghi nhận tiền cọc nhập học khóa đào tạo (${depositVal?.toLocaleString('vi-VN')}đ)`,
-            });
-          } catch (tErr) {
-            console.warn('Lỗi ghi nhận giao dịch cọc học phí:', tErr);
-          }
-        }
-
-        const statusMap: Record<string, string> = {
-          [EnrollmentStatus.ENROLLED]: 'Đã ghi nhận đóng cọc & Nhập học thành công',
-          [EnrollmentStatus.STUDYING]: 'Đã xếp lớp & Bắt đầu học',
-          [EnrollmentStatus.GRADUATED]: 'Đã tốt nghiệp & Cấp chứng chỉ',
-        };
         toast.success(
-          'Thao tác thành công',
-          statusMap[nextStatus] || 'Đã cập nhật trạng thái hồ sơ học viên'
+          'Phân công thành công',
+          staffId
+            ? `Đã phân công nhân viên ${chosenStaff?.fullName || 'tư vấn'} phụ trách đơn ${selectedCandidate.orderCode}`
+            : `Đã hủy phân công cho đơn ${selectedCandidate.orderCode}`
         );
       } else {
-        toast.error('Lỗi', res.message || 'Không thể cập nhật trạng thái hồ sơ');
+        toast.error('Lỗi phân công', res.message);
       }
     } catch (err: any) {
-      console.error('Lỗi cập nhật hồ sơ học viên:', err);
-      toast.error('Lỗi hệ thống', err?.message || 'Vui lòng thử lại sau.');
+      toast.error('Lỗi', err?.message || 'Không thể cập nhật nhân viên phụ trách');
     } finally {
-      setIsUpdatingStatus(false);
+      setIsAssigningStaff(false);
     }
   };
 
-  // Mở modal in bill & QR chuyển khoản
+  // Update consultation status & notes (Section 4.1 & 4.2)
+  const handleSaveConsultationNote = async () => {
+    if (!selectedCandidate) return;
+    if (!consultationNoteInput.trim()) {
+      toast.error('Thiếu ghi chú', 'Vui lòng nhập nội dung trao đổi hoặc tư vấn.');
+      return;
+    }
+    setIsUpdatingConsultation(true);
+    try {
+      const authorName = 'Admin Tuyển Sinh';
+      const res = await academyService.updateConsultationStatus(
+        selectedCandidate.id,
+        consultationStatusInput,
+        consultationNoteInput,
+        authorName
+      );
+      if (res.success) {
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) setLiveEnrollments(refreshed);
+        setConsultationNoteInput('');
+        toast.success('Đã lưu tư vấn', `Cập nhật trạng thái tư vấn: ${consultationStatusInput}`);
+        showToast('Đã lưu lịch sử tư vấn thành công!');
+      } else {
+        toast.error('Lỗi', res.message);
+      }
+    } catch (err: any) {
+      toast.error('Lỗi', err?.message || 'Không thể lưu ghi chú tư vấn');
+    } finally {
+      setIsUpdatingConsultation(false);
+    }
+  };
+
+  // Finalize consultation & lock tuition/branch (Section 4.2 & 4.3)
+  const handleFinalizeConsultation = async () => {
+    if (!selectedCandidate) return;
+    if (!finalTuitionInput || finalTuitionInput <= 0) {
+      toast.error('Học phí không hợp lệ', 'Vui lòng nhập mức học phí đã chốt với khách hàng.');
+      return;
+    }
+    setIsFinalizingConsultation(true);
+    try {
+      const res = await academyService.finalizeConsultation(selectedCandidate.id, {
+        finalTuition: finalTuitionInput,
+        branchName: finalBranchInput,
+        note: `Đã chốt học phí: ${finalTuitionInput.toLocaleString('vi-VN')}đ tại ${finalBranchInput}`,
+        authorName: 'Admin Tuyển Sinh',
+      });
+      if (res.success) {
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) setLiveEnrollments(refreshed);
+        toast.success(
+          'Đã chốt tư vấn thành công!',
+          `Học phí chốt ${finalTuitionInput.toLocaleString('vi-VN')}đ. Đang mở mã QR thanh toán...`
+        );
+        // Automatically open the VietQR bill modal
+        handleOpenBillModal({
+          ...selectedCandidate,
+          rawTuitionTotal: finalTuitionInput,
+          branch: finalBranchInput,
+        });
+      } else {
+        toast.error('Lỗi chốt tư vấn', res.message);
+      }
+    } catch (err: any) {
+      toast.error('Lỗi', err?.message || 'Không thể chốt tư vấn');
+    } finally {
+      setIsFinalizingConsultation(false);
+    }
+  };
+
+  // Open Bill & QR modal
   const handleOpenBillModal = (candidate: CandidateRecord) => {
     setBillModalCandidate({
       id: candidate.id,
       name: candidate.name,
       code: candidate.code,
+      orderCode: candidate.orderCode,
       phone: candidate.phone,
       email: candidate.email,
       program: candidate.program,
       classBatch: candidate.classBatch,
-      tuitionTotal: candidate.rawTuitionTotal,
+      tuitionTotal: candidate.finalTuition || candidate.rawTuitionTotal,
       amountPaid: candidate.rawAmountPaid,
       branch: candidate.branch,
       schedule: candidate.schedule,
@@ -468,33 +642,19 @@ export const W08_Enrollment: React.FC = () => {
     setIsBillModalOpen(true);
   };
 
-  // Tự động kiểm tra đối soát tiền về qua ngân hàng theo mã khách hàng
+  // Auto reconciliation check via bank API (Section 6.1)
   const handleCheckPayment = async (enrollmentId: string) => {
     setCheckingCandidateId(enrollmentId);
     try {
       const res = await academyService.checkEnrollmentPayment(enrollmentId);
       if (res.data?.approved || res.data?.isPaid) {
-        setLiveEnrollments((prev) =>
-          prev.map((e) =>
-            e.id === enrollmentId
-              ? {
-                  ...e,
-                  status: EnrollmentStatus.ENROLLED,
-                  approvalStatus: 'APPROVED',
-                  amountPaid: res.data?.amountPaid || e.tuitionTotal || 9000000,
-                  approvalNotes: `Đã tự động duyệt: Khớp mã KH ${res.data?.customerCode || ''}`,
-                }
-              : e
-          )
-        );
-        toast.success(
-          'Đối soát thành công!',
-          res.message || 'Hệ thống đã xác nhận tiền về và tự động duyệt học viên vào khóa học.'
-        );
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) setLiveEnrollments(refreshed);
+        toast.success('Đối soát thành công!', res.message || 'Xác nhận tiền về và tự động duyệt học viên.');
         showToast('🎉 Nhận tiền thành công - Đã tự động duyệt học viên!');
         return { isPaid: true, message: res.message || 'Thanh toán thành công' };
       } else {
-        toast.info('Chưa có giao dịch', res.message || 'Hệ thống chưa nhận được khoản tiền khớp với mã khách hàng.');
+        toast.info('Chưa có giao dịch', res.message || 'Hệ thống chưa nhận được khoản tiền khớp với mã đơn hàng.');
         return { isPaid: false, message: res.message || 'Chưa nhận được thanh toán' };
       }
     } catch (err: any) {
@@ -505,50 +665,46 @@ export const W08_Enrollment: React.FC = () => {
     }
   };
 
-  // Admin duyệt học viên tại quầy
-  const handleApproveAtDesk = async (enrollmentId: string) => {
-    const target = candidatesData.find((c) => c.id === enrollmentId);
+  // Manual payment reconciliation by Admin / Accountant (Section 6.2)
+  const handleManualConfirmPayment = async () => {
+    if (!selectedCandidate) return;
+    const amount = selectedCandidate.finalTuition || selectedCandidate.rawTuitionTotal;
+    if (!window.confirm(`Xác nhận đối soát thủ công đơn hàng ${selectedCandidate.orderCode}?\nKhách hàng: ${selectedCandidate.name}\nSố tiền xác nhận đã nhận: ${amount.toLocaleString('vi-VN')}đ`)) {
+      return;
+    }
+    setIsManualConfirmingPay(true);
     try {
-      const res = await academyService.approveEnrollment(enrollmentId, {
-        adminUser: 'Admin Tuyển Sinh',
-        amountPaid: target?.rawTuitionTotal || 9000000,
-        notes: `Admin duyệt trực tiếp tại quầy cho học viên ${target?.name} (${target?.code})`,
+      const res = await academyService.confirmPayment(selectedCandidate.id, amount, {
+        authorName: 'Kế toán / Admin',
+        notes: `Xác nhận nhận đủ tiền chuyển khoản cho đơn hàng ${selectedCandidate.orderCode}`,
+        paymentMethod: PaymentMethod.BANK_TRANSFER,
       });
       if (res.success) {
-        setLiveEnrollments((prev) =>
-          prev.map((e) =>
-            e.id === enrollmentId
-              ? {
-                  ...e,
-                  status: EnrollmentStatus.ENROLLED,
-                  approvalStatus: 'APPROVED',
-                  amountPaid: target?.rawTuitionTotal || 9000000,
-                }
-              : e
-          )
-        );
-        toast.success('Duyệt thành công', `Đã duyệt học viên ${target?.name} vào khóa học!`);
-        showToast(`Đã duyệt học viên ${target?.name} thành công!`);
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) setLiveEnrollments(refreshed);
+        toast.success('Xác nhận thành công!', `Đơn hàng ${selectedCandidate.orderCode} đã chuyển sang ĐÃ THANH TOÁN & ĐƯỢC DUYỆT.`);
+        showToast('✅ Đã xác nhận thanh toán & Duyệt học viên thành công!');
         setIsBillModalOpen(false);
       } else {
-        toast.error('Lỗi duyệt', res.message || 'Không thể duyệt hồ sơ');
+        toast.error('Lỗi đối soát', res.message);
       }
     } catch (err: any) {
-      toast.error('Lỗi hệ thống', err?.message || 'Vui lòng thử lại');
+      toast.error('Lỗi', err?.message || 'Không thể xác nhận thanh toán');
+    } finally {
+      setIsManualConfirmingPay(false);
     }
   };
 
-  // Mở modal xếp lớp & phân đợt khai giảng
+  // Open class batch assignment modal (Section 4.4)
   const handleOpenAssignModal = (candidate: CandidateRecord) => {
-    const rawEnr = liveEnrollments.find((e) => e.id === candidate.id);
     setAssignCandidate({
       id: candidate.id,
       name: candidate.name,
       code: candidate.code,
       phone: candidate.phone,
       program: candidate.program,
-      courseId: rawEnr?.courseId,
-      currentBatchId: rawEnr?.batchId || null,
+      courseId: candidate.courseId,
+      currentBatchId: candidate.batchId || null,
       currentBatchCode: candidate.classBatch,
       amountPaid: candidate.rawAmountPaid,
       tuitionTotal: candidate.rawTuitionTotal,
@@ -556,35 +712,19 @@ export const W08_Enrollment: React.FC = () => {
     setIsAssignModalOpen(true);
   };
 
-  // Xác nhận xếp lớp vào Supabase
+  // Confirm batch assignment into Supabase Cloud (Section 4.4 & 7.2)
   const handleConfirmAssignBatch = async (enrollmentId: string, batchId: string) => {
     try {
-      const res = await academyService.updateEnrollmentStatus(
-        enrollmentId,
-        EnrollmentStatus.STUDYING,
-        { batchId }
-      );
-      if (res.success) {
-        setLiveEnrollments((prev) =>
-          prev.map((e) =>
-            e.id === enrollmentId
-              ? {
-                  ...e,
-                  batchId,
-                  status: EnrollmentStatus.STUDYING,
-                }
-              : e
-          )
-        );
+      const res = await academyService.assignBatchToStudent(enrollmentId, batchId, 'Admin Tuyển Sinh');
+      if (res.data?.success) {
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) setLiveEnrollments(refreshed);
         const chosenBatch = liveBatches.find((b) => b.id === batchId);
-        toast.success(
-          'Xếp lớp thành công!',
-          `Học viên đã được xếp vào lớp ${chosenBatch?.batchCode || ''} và bắt đầu học.`
-        );
-        showToast(`Đã xếp lớp ${chosenBatch?.batchCode || ''} cho học viên thành công!`);
+        toast.success('Xếp lớp thành công!', `Học viên đã được xếp vào lớp ${chosenBatch?.batchCode || ''} và sẵn sàng học.`);
+        showToast(`Đã xếp lớp ${chosenBatch?.batchCode || ''} thành công!`);
         return true;
       } else {
-        toast.error('Lỗi xếp lớp', res.message || 'Không thể xếp lớp cho học viên.');
+        toast.error('Lỗi xếp lớp', res.message || 'Không thể xếp lớp.');
         return false;
       }
     } catch (err: any) {
@@ -593,67 +733,149 @@ export const W08_Enrollment: React.FC = () => {
     }
   };
 
-  // Sub-tab counts
-  const countPendingApproval = useMemo(() => {
-    return candidatesData.filter(
-      (c) =>
-        c.approvalStatus === 'PENDING_APPROVAL' ||
-        (c.approvalStatus !== 'APPROVED' && c.rawAmountPaid === 0) ||
-        (c.rawAmountPaid < c.rawTuitionTotal && c.approvalStatus !== 'APPROVED')
-    ).length;
-  }, [candidatesData]);
-
-  const countApprovedPaid = useMemo(() => {
-    return candidatesData.filter(
-      (c) =>
-        c.approvalStatus === 'APPROVED' ||
-        (c.rawAmountPaid > 0 && c.rawAmountPaid >= c.rawTuitionTotal)
-    ).length;
-  }, [candidatesData]);
-
-  // Filter candidates
-  const filteredCandidates = candidatesData.filter((c) => {
-    const isSearchMatch = matchSearch([c.name, c.code, c.phone, c.program, c.branch], searchTerm);
-    const matchStage = stageFilter === 'all' || c.stage === stageFilter;
-    const matchProgram =
-      programFilter === 'all' || c.program.toLowerCase().includes(programFilter.toLowerCase());
-
-    let matchSubTab = true;
-    if (activeSubTab === 'PENDING_APPROVAL') {
-      matchSubTab =
-        c.approvalStatus === 'PENDING_APPROVAL' ||
-        (c.approvalStatus !== 'APPROVED' && c.rawAmountPaid === 0) ||
-        (c.rawAmountPaid < c.rawTuitionTotal && c.approvalStatus !== 'APPROVED');
-    } else if (activeSubTab === 'APPROVED_PAID') {
-      matchSubTab =
-        c.approvalStatus === 'APPROVED' ||
-        (c.rawAmountPaid > 0 && c.rawAmountPaid >= c.rawTuitionTotal);
+  // Graduation status handler
+  const handleGraduateStudent = async (enrollmentId: string) => {
+    if (!window.confirm('Xác nhận xét tốt nghiệp và cấp chứng chỉ đào tạo cho học viên này?')) return;
+    try {
+      const res = await academyService.updateEnrollmentStatus(enrollmentId, EnrollmentStatus.GRADUATED, {
+        approvalNotes: 'Đã hoàn thành xuất sắc khóa học và được cấp chứng chỉ MLD',
+      });
+      if (res.success) {
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) setLiveEnrollments(refreshed);
+        toast.success('Tốt nghiệp thành công', 'Học viên đã tốt nghiệp và hoàn tất khóa đào tạo.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi', err?.message || 'Không thể xét tốt nghiệp');
     }
+  };
 
-    return isSearchMatch && matchStage && matchProgram && matchSubTab;
-  });
+  // Render 3 Distinct Badges (Section 3)
+  const renderConsultationBadge = (status: ConsultationStatus) => {
+    switch (status) {
+      case ConsultationStatus.PENDING_CONSULTATION:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+            <Clock className="w-3 h-3" />
+            <span>Chờ liên hệ</span>
+          </span>
+        );
+      case ConsultationStatus.CONSULTING:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+            <Phone className="w-3 h-3" />
+            <span>Đang tư vấn</span>
+          </span>
+        );
+      case ConsultationStatus.CONFIRMED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <CheckCircle2 className="w-3 h-3" />
+            <span>Đã chốt tư vấn</span>
+          </span>
+        );
+      case ConsultationStatus.CANCELLED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-300">
+            <X className="w-3 h-3" />
+            <span>Đã hủy</span>
+          </span>
+        );
+      default:
+        return <span className="text-gray-500 text-[11px]">Chờ tư vấn</span>;
+    }
+  };
 
-  const countNew = candidatesData.filter((c) => c.stage === 'new').length;
-  const countConsulting = candidatesData.filter((c) => c.stage === 'consulting').length;
-  const countPending = candidatesData.filter((c) => c.stage === 'payment_pending').length;
-  const countStudying = candidatesData.filter((c) => c.stage === 'class_pending').length;
+  const renderPaymentBadge = (status: PaymentVerificationStatus) => {
+    switch (status) {
+      case PaymentVerificationStatus.UNPAID:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            <span>Chưa thanh toán</span>
+          </span>
+        );
+      case PaymentVerificationStatus.PENDING_VERIFICATION:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-yellow-50 text-yellow-800 border border-yellow-200">
+            <RefreshCw className="w-3 h-3 animate-spin" />
+            <span>Chờ đối soát</span>
+          </span>
+        );
+      case PaymentVerificationStatus.PAID:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <Check className="w-3 h-3 stroke-[2.5]" />
+            <span>Đã thanh toán</span>
+          </span>
+        );
+      case PaymentVerificationStatus.FAILED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-800 border border-red-200">
+            <span>Thất bại</span>
+          </span>
+        );
+      case PaymentVerificationStatus.EXPIRED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
+            <span>Hết hạn</span>
+          </span>
+        );
+      case PaymentVerificationStatus.REFUNDED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+            <span>Đã hoàn tiền</span>
+          </span>
+        );
+      default:
+        return <span className="text-gray-500 text-[11px]">Chưa thanh toán</span>;
+    }
+  };
 
-  const hasActiveFilter = Boolean(
-    searchTerm.trim() ||
-      programFilter !== 'all' ||
-      stageFilter !== 'all' ||
-      branchFilter !== 'all' ||
-      activeSubTab !== 'PENDING_APPROVAL'
-  );
+  const renderStudentBadge = (status: StudentAdmissionStatus, rawStatus?: EnrollmentStatus) => {
+    if (rawStatus === EnrollmentStatus.GRADUATED) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+          <GraduationCap className="w-3 h-3" />
+          <span>Đã tốt nghiệp</span>
+        </span>
+      );
+    }
+    switch (status) {
+      case StudentAdmissionStatus.NOT_APPROVED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-300">
+            <span>Chưa duyệt</span>
+          </span>
+        );
+      case StudentAdmissionStatus.APPROVED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-300">
+            <UserCheck className="w-3 h-3" />
+            <span>Đã duyệt (Chờ xếp lớp)</span>
+          </span>
+        );
+      case StudentAdmissionStatus.ENROLLED:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-300">
+            <GraduationCap className="w-3 h-3" />
+            <span>Đã xếp lớp</span>
+          </span>
+        );
+      default:
+        return <span className="text-gray-500 text-[11px]">Chưa duyệt</span>;
+    }
+  };
+
+  const hasActiveFilter = Boolean(searchTerm.trim() || programFilter !== 'all' || branchFilter !== 'all' || activeWorkflowTab !== 'ALL');
 
   return (
     <div className="space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* 1. Header Title & Top CTA */}
+      {/* 1. Header Title & Top Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#2C241E]">Tuyển sinh</h1>
+          <h1 className="text-2xl font-bold text-[#2C241E]">Quản lý Tuyển sinh & Nhập học</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Theo dõi hồ sơ tư vấn, in bill học phí, đối soát tài khoản ngân hàng và tự động duyệt học viên.
+            Quy trình chuẩn: Tiếp nhận tư vấn → Chốt học phí & cơ sở → Tạo mã VietQR → Đối soát ngân hàng → Duyệt học viên & Xếp lớp.
           </p>
         </div>
 
@@ -661,207 +883,201 @@ export const W08_Enrollment: React.FC = () => {
           onClick={() => setIsAddModalOpen(true)}
           className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
         >
-          Tạo hồ sơ tuyển sinh
+          Tạo yêu cầu tư vấn mới
         </button>
       </div>
 
-      {/* SUB-TABS: Mục con của Tuyển sinh */}
-      <div className="flex border-b border-[#EFE4D9] gap-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveSubTab('PENDING_APPROVAL')}
-          className={`pb-3 px-4 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeSubTab === 'PENDING_APPROVAL'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>⏳ Chờ duyệt & Chưa thanh toán</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
-              activeSubTab === 'PENDING_APPROVAL'
-                ? 'bg-[#8D4B1A] text-white'
-                : 'bg-[#FAF0E4] text-[#8D4B1A]'
-            }`}
-          >
-            {countPendingApproval}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('APPROVED_PAID')}
-          className={`pb-3 px-4 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeSubTab === 'APPROVED_PAID'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>✅ Đã thanh toán & Đã duyệt</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
-              activeSubTab === 'APPROVED_PAID'
-                ? 'bg-[#8D4B1A] text-white'
-                : 'bg-[#E8F6ED] text-emerald-800'
-            }`}
-          >
-            {countApprovedPaid}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('ALL')}
-          className={`pb-3 px-4 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeSubTab === 'ALL'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>📋 Tất cả hồ sơ tuyển sinh</span>
-          <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#FAF5EF] text-[#73675F]">
-            {candidatesData.length}
-          </span>
-        </button>
-      </div>
-
-      {/* 2. Top 4 KPI Metric Cards */}
+      {/* 2. Top 4 KPI Workflow Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1 */}
         <div
-          onClick={() => setStageFilter(stageFilter === 'new' ? 'all' : 'new')}
-          className={`bg-white rounded-2xl border p-5 shadow-xs transition-all cursor-pointer ${
-            stageFilter === 'new' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
+          onClick={() => setActiveWorkflowTab('PENDING_CONSULTATION')}
+          className={`bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
+            activeWorkflowTab === 'PENDING_CONSULTATION' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
           }`}
         >
-          <div className="text-[13.5px] font-bold text-[#2C241E]">Hồ sơ mới</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countNew} hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">
-            {candidatesData.find((c) => c.stage === 'new')?.name || 'Chưa phát sinh mới'}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#73675F]">1. Chờ liên hệ tư vấn</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
           </div>
+          <div className="text-xl font-extrabold text-[#2C241E] mt-2">{countPendingConsultation} đơn</div>
+          <div className="text-[11px] text-[#8C7A6B] mt-1">Cần phân công nhân viên liên hệ</div>
         </div>
 
-        {/* KPI 2 */}
         <div
-          onClick={() => setStageFilter(stageFilter === 'consulting' ? 'all' : 'consulting')}
-          className={`bg-white rounded-2xl border p-5 shadow-xs transition-all cursor-pointer ${
-            stageFilter === 'consulting' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
+          onClick={() => setActiveWorkflowTab('CONFIRMED_PENDING_PAY')}
+          className={`bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
+            activeWorkflowTab === 'CONFIRMED_PENDING_PAY' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
           }`}
         >
-          <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ tư vấn</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countConsulting} hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">
-            {candidatesData.find((c) => c.stage === 'consulting')?.name || 'Đã liên hệ hết'}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#73675F]">2. Đã chốt & Chờ thanh toán</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
           </div>
+          <div className="text-xl font-extrabold text-[#2C241E] mt-2">{countConfirmedPendingPay} đơn</div>
+          <div className="text-[11px] text-[#8C7A6B] mt-1">Đã có mã QR, chờ chuyển khoản</div>
         </div>
 
-        {/* KPI 3 */}
         <div
-          onClick={() => setStageFilter(stageFilter === 'payment_pending' ? 'all' : 'payment_pending')}
-          className={`bg-white rounded-2xl border p-5 shadow-xs transition-all cursor-pointer ${
-            stageFilter === 'payment_pending' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
+          onClick={() => setActiveWorkflowTab('PAID_WAITING_CLASS')}
+          className={`bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
+            activeWorkflowTab === 'PAID_WAITING_CLASS' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
           }`}
         >
-          <div className="text-[13.5px] font-bold text-[#2C241E]">Chờ thanh toán</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countPending} hồ sơ</div>
-          <div className="text-xs text-[#73675F] mt-3">
-            {candidatesData.find((c) => c.stage === 'payment_pending')?.name || 'Không có khoản nợ đọng'}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#73675F]">3. Đã thanh toán & Chờ xếp lớp</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
           </div>
+          <div className="text-xl font-extrabold text-[#2C241E] mt-2">{countPaidWaitingClass} học viên</div>
+          <div className="text-[11px] text-[#8C7A6B] mt-1">Đã xác nhận tiền, chờ phân đợt lớp</div>
         </div>
 
-        {/* KPI 4 */}
         <div
-          onClick={() => setStageFilter(stageFilter === 'class_pending' ? 'all' : 'class_pending')}
-          className={`bg-white rounded-2xl border p-5 shadow-xs transition-all cursor-pointer ${
-            stageFilter === 'class_pending' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
+          onClick={() => setActiveWorkflowTab('ENROLLED_STUDYING')}
+          className={`bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
+            activeWorkflowTab === 'ENROLLED_STUDYING' ? 'border-[#8D4B1A] ring-1 ring-[#8D4B1A]' : 'border-[#EFE4D9] hover:border-[#BA7E4C]'
           }`}
         >
-          <div className="text-[13.5px] font-bold text-[#2C241E]">Đang theo học</div>
-          <div className="text-[13.5px] font-bold text-[#2C241E] mt-2">{countStudying} học viên</div>
-          <div className="text-xs text-[#73675F] mt-3">
-            {candidatesData.find((c) => c.stage === 'class_pending')?.name || 'Lớp chưa khởi động'}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#73675F]">4. Đã xếp lớp & Đang học</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
           </div>
+          <div className="text-xl font-extrabold text-[#2C241E] mt-2">{countEnrolledStudying} học viên</div>
+          <div className="text-[11px] text-[#8C7A6B] mt-1">Theo dõi thời khóa biểu & điểm danh</div>
         </div>
       </div>
 
-      {/* 3. Search & Filter Bar */}
+      {/* 3. Sub-tabs Navigation */}
+      <div className="flex border-b border-[#EFE4D9] gap-1 overflow-x-auto pb-px">
+        <button
+          onClick={() => setActiveWorkflowTab('ALL')}
+          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeWorkflowTab === 'ALL'
+              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
+              : 'text-[#73675F] hover:text-[#2C241E]'
+          }`}
+        >
+          <span>📋 Tất cả yêu cầu</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#FAF5EF] text-[#73675F]">{countAll}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveWorkflowTab('PENDING_CONSULTATION')}
+          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeWorkflowTab === 'PENDING_CONSULTATION'
+              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
+              : 'text-[#73675F] hover:text-[#2C241E]'
+          }`}
+        >
+          <span>⏳ Chờ tư vấn & Chưa thanh toán</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FAF0E4] text-[#8D4B1A]">
+            {countPendingConsultation}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveWorkflowTab('CONFIRMED_PENDING_PAY')}
+          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeWorkflowTab === 'CONFIRMED_PENDING_PAY'
+              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
+              : 'text-[#73675F] hover:text-[#2C241E]'
+          }`}
+        >
+          <span>📋 Đã chốt tư vấn & Chờ thanh toán</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800">
+            {countConfirmedPendingPay}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveWorkflowTab('PAID_WAITING_CLASS')}
+          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeWorkflowTab === 'PAID_WAITING_CLASS'
+              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
+              : 'text-[#73675F] hover:text-[#2C241E]'
+          }`}
+        >
+          <span>✅ Đã thanh toán & Chờ xếp lớp</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#E8F6ED] text-emerald-800">
+            {countPaidWaitingClass}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveWorkflowTab('ENROLLED_STUDYING')}
+          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeWorkflowTab === 'ENROLLED_STUDYING'
+              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
+              : 'text-[#73675F] hover:text-[#2C241E]'
+          }`}
+        >
+          <span>🎓 Đã xếp lớp & Đang học</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800">
+            {countEnrolledStudying}
+          </span>
+        </button>
+      </div>
+
+      {/* 4. Search and Filter Bar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
-        {/* Search Input */}
-        <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
+        <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm tên, số điện thoại, mã hồ sơ..."
-            className="w-full pl-10 pr-9 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all"
+            placeholder="Tìm theo mã đơn hàng, tên khách hàng, số điện thoại..."
+            className="w-full pl-10 pr-9 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018]"
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => setSearchTerm('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
-              title="Xóa tìm kiếm"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Filter: Tất cả chương trình */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
+        <div className="relative shrink-0">
           <select
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
-            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
+            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
-            <option value="all">Tất cả chương trình</option>
-            <option value="massage">Massage Chuyên Nghiệp</option>
-            <option value="spa">Kỹ thuật Spa Cơ bản</option>
-            <option value="da">Chăm sóc da cơ bản</option>
+            <option value="all">Tất cả khóa học</option>
+            {liveCourses.map((c) => (
+              <option key={c.id} value={c.title}>
+                {c.title}
+              </option>
+            ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Filter: Tất cả giai đoạn */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
-          <select
-            value={stageFilter}
-            onChange={(e) => setStageFilter(e.target.value)}
-            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
-          >
-            <option value="all">Tất cả giai đoạn</option>
-            <option value="new">Hồ sơ mới</option>
-            <option value="consulting">Chờ tư vấn</option>
-            <option value="payment_pending">Chờ thanh toán</option>
-            <option value="class_pending">Chờ xếp lớp</option>
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
-
-        {/* Filter: Tất cả chi nhánh */}
-        <div className="relative shrink-0 flex-1 sm:flex-none">
+        <div className="relative shrink-0">
           <select
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
-            className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018] whitespace-nowrap"
+            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
-            <option value="all">Tất cả chi nhánh</option>
-            <option value="q3">Quận 3</option>
-            <option value="q1">Quận 1</option>
+            <option value="all">Tất cả cơ sở đào tạo</option>
+            <option value="Quận 3">Cơ sở Quận 3</option>
+            <option value="Quận 1">Cơ sở Quận 1</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Reset filter button */}
         {hasActiveFilter && (
           <button
             type="button"
             onClick={() => {
               setSearchTerm('');
               setProgramFilter('all');
-              setStageFilter('all');
               setBranchFilter('all');
+              setActiveWorkflowTab('ALL');
             }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-            title="Đặt lại bộ lọc"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             <span>Đặt lại</span>
@@ -869,35 +1085,33 @@ export const W08_Enrollment: React.FC = () => {
         )}
       </div>
 
-      {/* 4. Main 2-Column Grid */}
+      {/* 5. Main 2-Column Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-        {/* Left Column (8 cols on xl): Table + Việc cần làm */}
+        {/* Left Column (8 cols): Table + Việc cần làm */}
         <div className="xl:col-span-8 space-y-5 min-w-0">
-          {/* Top: Table Card */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
-            {/* Table Card Header */}
-            <div className="p-5 pb-4 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[#2C241E]">
-                Danh sách hồ sơ tuyển sinh
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
+            <div className="p-4 border-b border-[#EFE4D9] flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-[#2C241E]">Danh sách yêu cầu & Đơn đăng ký tuyển sinh</h2>
+                <p className="text-[11px] text-[#73675F] mt-0.5">Hiển thị độc lập 3 nhóm trạng thái: Tư vấn, Thanh toán và Nhập học</p>
+              </div>
+              <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-[#F3E2CE] text-[#8A4F23]">
                 {filteredCandidates.length} hồ sơ
               </span>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[640px] whitespace-nowrap">
+              <table className="w-full text-left border-collapse min-w-[760px] whitespace-nowrap">
                 <thead>
-                  <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold border-y border-[#EFE4D9] whitespace-nowrap">
-                    <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[24%]">Ứng viên / mã hồ sơ</th>
-                    <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[26%]">Chương trình / lớp</th>
-                    <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[18%]">Học phí / khoản thu</th>
-                    <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[16%]">Giai đoạn</th>
-                    <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap w-[16%] text-right">Thao tác / In bill</th>
+                  <tr className="bg-[#FAF5EF] text-[#73675F] text-[11px] font-bold border-b border-[#EFE4D9]">
+                    <th className="py-3 px-3.5 w-[22%]">MÃ ĐƠN & KHÁCH HÀNG</th>
+                    <th className="py-3 px-3.5 w-[24%]">KHÓA HỌC & CƠ SỞ</th>
+                    <th className="py-3 px-3.5 w-[16%]">HỌC PHÍ ĐÃ CHỐT</th>
+                    <th className="py-3 px-3.5 w-[22%]">3 TRẠNG THÁI QUY TRÌNH</th>
+                    <th className="py-3 px-3.5 w-[16%] text-right">THAO TÁC</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
+                <tbody className="divide-y divide-[#EFE4D9] text-xs">
                   {filteredCandidates.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-12 text-center text-[#73675F]">
@@ -905,27 +1119,10 @@ export const W08_Enrollment: React.FC = () => {
                           <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
                             <Search className="w-5 h-5" />
                           </div>
-                          <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy hồ sơ học viên</p>
+                          <p className="text-sm font-bold text-[#3E200C]">Không tìm thấy hồ sơ nào</p>
                           <p className="text-xs text-[#8C7A6B]">
-                            {searchTerm.trim()
-                              ? `Không có ứng viên nào khớp với từ khóa "${searchTerm}".`
-                              : 'Không có hồ sơ nào với bộ lọc đã chọn.'}
+                            Không có yêu cầu đăng ký nào khớp với bộ lọc hoặc từ khóa tìm kiếm.
                           </p>
-                          {hasActiveFilter && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSearchTerm('');
-                                setProgramFilter('all');
-                                setStageFilter('all');
-                                setBranchFilter('all');
-                                setActiveSubTab('PENDING_APPROVAL');
-                              }}
-                              className="mt-2 px-3.5 py-1.5 text-xs font-bold text-[#8A4F23] bg-[#F5E9DB] hover:bg-[#EFE4D9] rounded-xl transition-colors cursor-pointer"
-                            >
-                              Xóa bộ lọc
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -940,387 +1137,474 @@ export const W08_Enrollment: React.FC = () => {
                             isSelected ? 'bg-[#F8F1E8]' : 'bg-white hover:bg-[#FAF6F0]'
                           }`}
                         >
-                        {/* 1. Ứng viên / Mã hồ sơ */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-2.5">
-                            {candidate.avatar ? (
-                              <img
-                                src={candidate.avatar}
-                                alt={candidate.name}
-                                className="w-8 h-8 rounded-full object-cover shrink-0"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0">
-                                {candidate.initials}
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <div className="font-semibold text-xs text-[#2C241E] whitespace-nowrap">
-                                {candidate.name}
-                              </div>
-                              <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap flex items-center gap-1">
-                                <span className="font-mono font-bold text-[#8D4B1A] bg-amber-50 px-1 py-0.2 rounded border border-amber-200">
-                                  {candidate.code}
-                                </span>
+                          {/* 1. Mã đơn & Khách hàng */}
+                          <td className="py-3 px-3.5">
+                            <div className="flex items-center gap-2.5">
+                              {candidate.avatar ? (
+                                <img
+                                  src={candidate.avatar}
+                                  alt={candidate.name}
+                                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0">
+                                  {candidate.initials}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="font-bold text-xs text-[#2C241E] flex items-center gap-1.5">
+                                  <span>{candidate.name}</span>
+                                </div>
+                                <div className="text-[11px] text-[#73675F] flex items-center gap-1 mt-0.5">
+                                  <span className="font-mono font-bold text-[#8D4B1A] bg-amber-50 px-1 py-0.2 rounded border border-amber-200">
+                                    {candidate.orderCode}
+                                  </span>
+                                  <span>· {candidate.phone}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* 2. Chương trình / Lớp */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
-                            {candidate.program}
-                          </div>
-                          <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
-                            {candidate.classBatch}
-                          </div>
-                        </td>
-
-                        {/* 3. Học phí / Khoản thu */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="text-xs font-semibold text-[#2C241E] whitespace-nowrap">
-                            {candidate.tuitionTotal}
-                          </div>
-                          <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
-                            {candidate.tuitionDeposit}
-                          </div>
-                        </td>
-
-                        {/* 4. Giai đoạn */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          {candidate.approvalStatus === 'APPROVED' ? (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#E8F6ED] text-[#0D6832] whitespace-nowrap border border-[#C2E8D1]">
-                              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2]" />
-                              <span>Đã duyệt & Đã đóng</span>
+                          {/* 2. Khóa học & Cơ sở */}
+                          <td className="py-3 px-3.5">
+                            <div className="font-medium text-xs text-[#2C241E] truncate max-w-[200px]" title={candidate.program}>
+                              {candidate.program}
                             </div>
-                          ) : candidate.stage === 'payment_pending' ? (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23] whitespace-nowrap">
-                              <Clock className="w-3.5 h-3.5 stroke-[2]" />
-                              <span>Chờ thanh toán</span>
+                            <div className="text-[11px] text-[#73675F] mt-0.5 flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-[#8D4B1A] shrink-0" />
+                              <span className="truncate">{candidate.branch}</span>
                             </div>
-                          ) : candidate.stage === 'class_pending' ? (
-                            <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F5E6D8] text-[#8A4F23] whitespace-nowrap">
-                              Chờ xếp lớp
-                            </span>
-                          ) : candidate.stage === 'new' ? (
-                            <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#EFE8E0] text-[#73675F] whitespace-nowrap">
-                              Hồ sơ mới
-                            </span>
-                          ) : (
-                            <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#EFE8E0] text-[#73675F] whitespace-nowrap">
-                              Chờ tư vấn
-                            </span>
-                          )}
-                        </td>
+                          </td>
 
-                        {/* 5. Thao tác / In bill & check tiền */}
-                        <td className="py-3 px-3.5 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenBillModal(candidate)}
-                              className="px-2.5 py-1.5 bg-[#FAF5EF] hover:bg-[#F3E2CE] text-[#8D4B1A] border border-[#BA7E4C]/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-                              title="In bill nộp học phí & QR chuyển khoản"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                              <span>In Bill</span>
-                            </button>
+                          {/* 3. Học phí */}
+                          <td className="py-3 px-3.5">
+                            <div className="font-bold text-xs text-[#2C241E]">
+                              {candidate.tuitionTotal}
+                            </div>
+                            <div className="text-[11px] text-[#73675F] mt-0.5">
+                              {candidate.tuitionDeposit}
+                            </div>
+                          </td>
 
-                            {candidate.approvalStatus !== 'APPROVED' && candidate.rawAmountPaid < candidate.rawTuitionTotal && (
+                          {/* 4. 3 Nhóm trạng thái (Tư vấn, Thanh toán, Học viên) */}
+                          <td className="py-3 px-3.5">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Tư vấn:</span>
+                                {renderConsultationBadge(candidate.consultationStatus)}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Thanh toán:</span>
+                                {renderPaymentBadge(candidate.paymentVerificationStatus)}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Học viên:</span>
+                                {renderStudentBadge(candidate.studentAdmissionStatus, candidate.rawStatus)}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 5. Thao tác nhanh */}
+                          <td className="py-3 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
-                                disabled={checkingCandidateId === candidate.id}
-                                onClick={() => handleCheckPayment(candidate.id)}
-                                className="px-2.5 py-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
-                                title="Kiểm tra tiền về theo mã khách hàng"
+                                onClick={() => handleOpenBillModal(candidate)}
+                                className="px-2.5 py-1.5 bg-[#FAF5EF] hover:bg-[#F3E2CE] text-[#8D4B1A] border border-[#BA7E4C]/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                                title="In Bill & Xem mã VietQR"
                               >
-                                <RefreshCw className={`w-3.5 h-3.5 ${checkingCandidateId === candidate.id ? 'animate-spin' : ''}`} />
-                                <span className="hidden sm:inline">{checkingCandidateId === candidate.id ? 'Đang check...' : 'Check tiền'}</span>
+                                <Printer className="w-3.5 h-3.5" />
+                                <span>In Bill / QR</span>
                               </button>
-                            )}
 
-                            {candidate.approvalStatus === 'APPROVED' && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenAssignModal(candidate)}
-                                className="px-2.5 py-1.5 bg-[#EBF5FB] hover:bg-[#D4E6F1] text-[#1B4F72] border border-[#A9CCE3] rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-                                title="Xếp lớp học viên vào đợt khai giảng"
-                              >
-                                <GraduationCap className="w-3.5 h-3.5" />
-                                <span>{candidate.rawStatus === EnrollmentStatus.STUDYING ? 'Đổi lớp' : 'Xếp lớp'}</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }))}
+                              {candidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
+                                <button
+                                  type="button"
+                                  disabled={checkingCandidateId === candidate.id}
+                                  onClick={() => handleCheckPayment(candidate.id)}
+                                  className="px-2 py-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Kiểm tra tiền về tài khoản MB Bank"
+                                >
+                                  <RefreshCw className={`w-3.5 h-3.5 ${checkingCandidateId === candidate.id ? 'animate-spin' : ''}`} />
+                                </button>
+                              )}
+
+                              {candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAssignModal(candidate)}
+                                  className="px-2.5 py-1.5 bg-[#EBF5FB] hover:bg-[#D4E6F1] text-[#1B4F72] border border-[#A9CCE3] rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                                  title="Xếp lớp học viên vào đợt khai giảng"
+                                >
+                                  <GraduationCap className="w-3.5 h-3.5" />
+                                  <span>{candidate.batchId ? 'Đổi lớp' : 'Xếp lớp'}</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {/* Table Footer: Pagination */}
             <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
-              <span>Hiển thị {filteredCandidates.length} / {candidatesData.length} hồ sơ học viên</span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  disabled
-                  className="w-6 h-6 rounded-md border border-[#EFE4D9] flex items-center justify-center text-[#A69788] hover:bg-[#FAF7F2] disabled:opacity-40"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <button className="w-6 h-6 rounded-md bg-[#F3E2CE] text-[#8A4F23] font-semibold flex items-center justify-center text-xs">
-                  1
-                </button>
-                <button
-                  disabled
-                  className="w-6 h-6 rounded-md border border-[#EFE4D9] flex items-center justify-center text-[#A69788] hover:bg-[#FAF7F2] disabled:opacity-40"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+              <span>Hiển thị {filteredCandidates.length} / {candidatesData.length} yêu cầu</span>
+              <div className="flex items-center gap-1">
+                <span>Dữ liệu thực tế từ Supabase Cloud PostgreSQL</span>
               </div>
             </div>
           </div>
 
-          {/* Bottom: Việc cần làm */}
+          {/* Việc cần làm (Dynamic Tasks) */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-            <h2 className="text-base font-bold text-[#2C241E]">Việc cần làm</h2>
-
+            <h2 className="text-sm font-bold text-[#2C241E]">Việc cần làm theo quy trình</h2>
             {pendingTasks.length === 0 ? (
               <div className="bg-[#FAF7F2] rounded-xl p-4 text-center text-xs text-[#73675F] border border-[#EFE4D9]">
                 Hiện tại không có việc tồn đọng cần xử lý.
               </div>
             ) : (
               pendingTasks.map((task, idx) => (
-                <div key={idx} className="bg-[#F3E2CE] rounded-2xl p-4 space-y-1">
-                  <div className="text-xs font-bold text-[#2C241E]">
-                    {task.title}
+                <div key={idx} className="bg-[#FAF5EF] rounded-xl p-3.5 border border-[#EFE4D9] space-y-1">
+                  <div className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#8D4B1A]" />
+                    <span>{task.title}</span>
                   </div>
-                  <div className="text-xs text-[#73675F] leading-relaxed">
+                  <div className="text-xs text-[#73675F] leading-relaxed pl-3.5">
                     {task.desc}
                   </div>
                 </div>
               ))
             )}
-
-            {/* Footer Note */}
-            <div className="text-xs text-[#73675F] pt-1">
-              Dữ liệu tuyển sinh được cập nhật theo thời gian thực.
-            </div>
           </div>
         </div>
 
-        {/* Right Column (4 cols on xl): Hồ sơ đang chọn */}
-        <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5 min-w-0">
-          <h2 className="text-base font-bold text-[#2C241E]">Hồ sơ đang chọn</h2>
+        {/* Right Column (4 cols): Detailed Action Panel strictly implementing Section 4 & 5 */}
+        <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4 min-w-0">
+          <div className="border-b border-[#EFE4D9] pb-3">
+            <h2 className="text-base font-bold text-[#2C241E]">Chi tiết đơn & Thao tác quy trình</h2>
+            <p className="text-[11px] text-[#73675F] mt-0.5">Cập nhật tư vấn, chốt học phí, QR thanh toán và xếp lớp</p>
+          </div>
 
-          {!selectedCandidate.id ? (
+          {!selectedCandidate ? (
             <div className="py-12 text-center text-[#73675F]">
               <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018] mx-auto mb-2.5">
                 <UserIcon className="w-5 h-5" />
               </div>
-              <p className="text-xs font-bold text-[#2C241E]">Chưa có hồ sơ học viên nào</p>
-              <p className="text-[11px] text-[#8C7A6B] mt-1">
-                Tạo hồ sơ tuyển sinh mới hoặc chọn hồ sơ từ danh sách để xem chi tiết.
-              </p>
+              <p className="text-xs font-bold text-[#2C241E]">Chưa chọn hồ sơ nào</p>
+              <p className="text-[11px] text-[#8C7A6B] mt-1">Chọn một hồ sơ bên trái để thao tác.</p>
             </div>
           ) : (
-            <>
-              {/* Candidate Profile Summary */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-3">
-                  {selectedCandidate.avatar ? (
-                    <img
-                      src={selectedCandidate.avatar}
-                      alt={selectedCandidate.name}
-                      className="w-10 h-10 rounded-full object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-sm flex items-center justify-center shrink-0">
-                      {selectedCandidate.initials}
-                    </div>
-                  )}
+            <div className="space-y-4 text-xs">
+              {/* Customer & Order Header */}
+              <div className="p-3.5 rounded-xl bg-[#FAF5EF] border border-[#EFE4D9] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-extrabold text-[#8D4B1A] text-sm bg-amber-100/60 px-2 py-0.5 rounded border border-amber-300">
+                    {selectedCandidate.orderCode}
+                  </span>
+                  <span className="text-[11px] text-[#73675F]">Mã KH: {selectedCandidate.code}</span>
+                </div>
+                <div className="flex items-center gap-2.5 pt-1">
+                  <div className="w-9 h-9 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0">
+                    {selectedCandidate.initials}
+                  </div>
                   <div className="min-w-0">
-                    <div className="font-bold text-xs text-[#2C241E] truncate">
-                      {selectedCandidate.name}
+                    <div className="font-bold text-[#2C241E] text-xs truncate">{selectedCandidate.name}</div>
+                    <div className="text-[11px] text-[#73675F] truncate">{selectedCandidate.phone}</div>
+                  </div>
+                </div>
+                <div className="pt-1.5 border-t border-[#EFE4D9] space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-[#73675F]">Khóa học:</span>
+                    <span className="font-semibold text-[#2C241E] text-right truncate max-w-[180px]">
+                      {selectedCandidate.program}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#73675F]">Cơ sở đào tạo:</span>
+                    <span className="font-semibold text-[#2C241E] text-right">{selectedCandidate.branch}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 Status Summary */}
+              <div className="p-3 rounded-xl bg-white border border-[#EFE4D9] space-y-2">
+                <div className="text-[11px] font-bold text-[#73675F] uppercase tracking-wider">
+                  Trạng thái quy trình hiện tại
+                </div>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-[#73675F]">1. Trạng thái tư vấn:</span>
+                    {renderConsultationBadge(selectedCandidate.consultationStatus)}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-[#73675F]">2. Trạng thái thanh toán:</span>
+                    {renderPaymentBadge(selectedCandidate.paymentVerificationStatus)}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-[#73675F]">3. Trạng thái học viên:</span>
+                    {renderStudentBadge(selectedCandidate.studentAdmissionStatus, selectedCandidate.rawStatus)}
+                  </div>
+                </div>
+              </div>
+
+              {/* STEP 1: Phân công nhân viên phụ trách tư vấn (Spec 4.1) */}
+              <div className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-[#2C241E] text-xs flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5 text-[#8D4B1A]" />
+                    <span>Phân công nhân viên phụ trách</span>
+                  </label>
+                  {isAssigningStaff && <span className="text-[10px] text-amber-700 font-semibold animate-pulse">Đang lưu...</span>}
+                </div>
+                <select
+                  value={selectedCandidate.assignedStaffId || ''}
+                  onChange={(e) => handleAssignStaff(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                >
+                  <option value="">-- Chưa phân công nhân viên --</option>
+                  {staffMembers.map((staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.fullName} ({staff.role})
+                    </option>
+                  ))}
+                </select>
+                <div className="text-[10px] text-[#73675F]">
+                  Nhân viên được phân công chịu trách nhiệm liên hệ và chốt học phí với khách hàng.
+                </div>
+              </div>
+
+              {/* STEP 2: Lịch sử & Ghi chú tư vấn (Spec 4.1 & 4.2) */}
+              <div className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-[#2C241E] text-xs flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-[#8D4B1A]" />
+                    <span>Ghi chú & Lịch sử tư vấn</span>
+                  </label>
+                  <span className="text-[10px] text-[#73675F]">
+                    {selectedCandidate.consultationHistory.length} ghi chú
+                  </span>
+                </div>
+
+                {/* Consultation timeline */}
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {selectedCandidate.consultationHistory.length === 0 ? (
+                    <div className="p-2.5 text-center text-[11px] text-[#73675F] bg-[#FAF5EF] rounded-lg border border-dashed border-[#EFE4D9]">
+                      Chưa có ghi chú liên hệ nào.
                     </div>
-                    <div className="text-[11px] text-[#73675F] truncate">
-                      {selectedCandidate.phone} · {selectedCandidate.code}
-                    </div>
+                  ) : (
+                    selectedCandidate.consultationHistory.map((note, idx) => (
+                      <div key={idx} className="p-2 bg-[#FAF7F2] rounded-lg border border-[#EFE4D9] text-[11px] space-y-0.5">
+                        <div className="flex items-center justify-between text-[#8D4B1A] font-semibold text-[10px]">
+                          <span>{note.author || 'Nhân viên tư vấn'}</span>
+                          <span>{note.timestamp ? new Date(note.timestamp).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
+                        </div>
+                        <div className="text-[#2C241E]">{note.note}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Add note & status update form */}
+                <div className="space-y-2 pt-1 border-t border-[#EFE4D9]">
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={consultationStatusInput}
+                      onChange={(e) => setConsultationStatusInput(e.target.value as ConsultationStatus)}
+                      className="px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    >
+                      <option value={ConsultationStatus.PENDING_CONSULTATION}>Chờ liên hệ</option>
+                      <option value={ConsultationStatus.CONSULTING}>Đang tư vấn</option>
+                      <option value={ConsultationStatus.CONFIRMED}>Đã chốt tư vấn</option>
+                      <option value={ConsultationStatus.CANCELLED}>Hủy đăng ký</option>
+                    </select>
+                    <button
+                      type="button"
+                      disabled={isUpdatingConsultation || !consultationNoteInput.trim()}
+                      onClick={handleSaveConsultationNote}
+                      className="px-3 py-1.5 bg-[#FAF5EF] hover:bg-[#F3E2CE] text-[#8D4B1A] border border-[#BA7E4C] rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>{isUpdatingConsultation ? 'Đang lưu...' : 'Lưu ghi chú'}</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={consultationNoteInput}
+                    onChange={(e) => setConsultationNoteInput(e.target.value)}
+                    placeholder="Nhập nội dung trao đổi với khách..."
+                    className="w-full px-3 py-1.5 border border-[#EFE4D9] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveConsultationNote();
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* STEP 3: Chốt tư vấn & Tạo yêu cầu thanh toán VietQR (Spec 4.2 & 4.3) */}
+              <div className="p-3.5 rounded-xl bg-[#FAF5EF] border border-[#EFE4D9] space-y-2.5">
+                <div className="font-bold text-[#8D4B1A] text-xs flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Chốt học phí & Cơ sở đào tạo (Bước quan trọng)</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[11px] text-[#73675F] block mb-1">Học phí chốt (VNĐ):</label>
+                    <input
+                      type="number"
+                      step={500000}
+                      value={finalTuitionInput}
+                      onChange={(e) => setFinalTuitionInput(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs font-bold text-[#8D4B1A] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-[#73675F] block mb-1">Cơ sở đào tạo:</label>
+                    <select
+                      value={finalBranchInput}
+                      onChange={(e) => setFinalBranchInput(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    >
+                      <option value="Chi nhánh Quận 3 - TP.HCM">Chi nhánh Quận 3</option>
+                      <option value="Chi nhánh Quận 1 - TP.HCM">Chi nhánh Quận 1</option>
+                    </select>
                   </div>
                 </div>
 
-                <div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                    {selectedCandidate.statusBadge}
+                <button
+                  type="button"
+                  disabled={isFinalizingConsultation}
+                  onClick={handleFinalizeConsultation}
+                  className="w-full py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isFinalizingConsultation ? 'Đang lưu vào Supabase...' : 'Chốt tư vấn & Tạo mã VietQR'}</span>
+                </button>
+              </div>
+
+              {/* STEP 4: Quản lý thanh toán & Đối soát ngân hàng (Spec 4.3, 5, 6) */}
+              <div className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2">
+                <div className="font-bold text-[#2C241E] text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <QrCode className="w-3.5 h-3.5 text-[#8D4B1A]" />
+                    <span>Thanh toán & Đối soát VietQR</span>
                   </span>
+                  <span className="font-bold text-[#8D4B1A]">{selectedCandidate.tuitionTotal}</span>
                 </div>
-              </div>
 
-              {/* Program Title */}
-              <div className="text-xs font-bold text-[#2C241E] pt-1 border-t border-[#EFE4D9]">
-                {selectedCandidate.program}
-              </div>
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                  <div className="bg-[#FAF7F2] p-2 rounded-lg border border-[#EFE4D9]">
+                    <span className="text-[#73675F] block">Đã thực nhận:</span>
+                    <strong className="text-emerald-700 text-xs">{selectedCandidate.tuitionDeposit}</strong>
+                  </div>
+                  <div className="bg-[#FAF7F2] p-2 rounded-lg border border-[#EFE4D9]">
+                    <span className="text-[#73675F] block">Còn lại cần thu:</span>
+                    <strong className="text-rose-700 text-xs">{selectedCandidate.remainingAmount}</strong>
+                  </div>
+                </div>
 
-              {/* Key-Value Details */}
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Kinh nghiệm trước đó</span>
-                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.experience}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Chi nhánh</span>
-                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.branch}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Lớp dự kiến</span>
-                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.expectedClass}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Bắt đầu</span>
-                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.startDate}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Lịch học</span>
-                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.schedule}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Khung giờ</span>
-                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.timeSlot}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Giảng viên</span>
-                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.instructor}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Học phí hợp đồng</span>
-                  <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.contractTuition}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Cọc cần thu</span>
-                  <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.requiredDeposit}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-                  <span className="shrink-0 whitespace-nowrap">Còn lại trả sau</span>
-                  <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.remainingAmount}</span>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenBillModal(selectedCandidate)}
+                  className="w-full py-2 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>In Bill / Tải ảnh QR gửi cho khách (Zalo)</span>
+                </button>
 
-              {/* Status banner with dynamic colors */}
-              <div
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
-                  selectedCandidate.approvalStatus === 'APPROVED' || selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED
-                    ? 'bg-[#E8F6ED] text-[#0D6832]'
-                    : selectedCandidate.rawStatus === EnrollmentStatus.STUDYING
-                    ? 'bg-[#EBF5FB] text-[#1B4F72]'
-                    : selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED
-                    ? 'bg-[#FEF9E7] text-[#7D6608]'
-                    : 'bg-[#F3E2CE] text-[#8A4F23]'
-                }`}
-              >
-                <Clock className="w-4 h-4 stroke-[2]" />
-                <span>
-                  Trạng thái:{' '}
-                  {selectedCandidate.approvalStatus === 'APPROVED'
-                    ? 'Đã duyệt & Đã thanh toán'
-                    : selectedCandidate.stageLabel}
-                </span>
-              </div>
-
-              {/* Bill & Payment Actions */}
-              {selectedCandidate.id && (
-                <div className="space-y-2 pt-2 border-t border-[#EFE4D9]">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenBillModal(selectedCandidate)}
-                    className="w-full py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Printer className="w-4 h-4" />
-                    <span>In Bill & Mã QR Chuyển Khoản</span>
-                  </button>
-
-                  {selectedCandidate.approvalStatus !== 'APPROVED' && selectedCandidate.rawAmountPaid < selectedCandidate.rawTuitionTotal && (
+                {selectedCandidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
+                  <div className="space-y-1.5 pt-1">
                     <button
                       type="button"
                       disabled={checkingCandidateId === selectedCandidate.id}
                       onClick={() => handleCheckPayment(selectedCandidate.id)}
-                      className="w-full py-2.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
-                      <RefreshCw className={`w-4 h-4 ${checkingCandidateId === selectedCandidate.id ? 'animate-spin' : ''}`} />
-                      <span>{checkingCandidateId === selectedCandidate.id ? 'Đang kiểm tra đối soát...' : 'Kiểm tra tiền về (Đối soát tự động)'}</span>
+                      <RefreshCw className={`w-3.5 h-3.5 ${checkingCandidateId === selectedCandidate.id ? 'animate-spin' : ''}`} />
+                      <span>{checkingCandidateId === selectedCandidate.id ? 'Đang kiểm tra MB Bank...' : 'Kiểm tra đối soát tự động (API MB Bank)'}</span>
                     </button>
-                  )}
 
-                  {selectedCandidate.approvalStatus !== 'APPROVED' && (
                     <button
                       type="button"
-                      onClick={() => handleApproveAtDesk(selectedCandidate.id)}
-                      className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      disabled={isManualConfirmingPay}
+                      onClick={handleManualConfirmPayment}
+                      className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Duyệt & Thu tiền tại quầy</span>
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>{isManualConfirmingPay ? 'Đang xác nhận...' : 'Xác nhận đối soát thủ công (Admin/Kế toán)'}</span>
                     </button>
+                  </div>
+                )}
+              </div>
+
+              {/* STEP 5: Duyệt học viên & Xếp lớp (Spec 4.4) */}
+              <div className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2.5">
+                <div className="font-bold text-[#2C241E] text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-[#1B4F72]" />
+                    <span>Duyệt học viên & Xếp lớp khai giảng</span>
+                  </span>
+                  {selectedCandidate.batchId ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EBF5FB] text-[#1B4F72]">
+                      Đã có lớp
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800">
+                      Chưa xếp lớp
+                    </span>
                   )}
                 </div>
-              )}
 
-              {/* Interactive FSM Action buttons */}
-              {selectedCandidate.id && (
-                <div className="space-y-2 pt-1 border-t border-[#EFE4D9]">
-                  {selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED && (
+                {selectedCandidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID ? (
+                  <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-200 text-[#73675F] text-[11px] flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Cần xác nhận thanh toán trước khi xếp lớp học chính thức.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="p-2.5 rounded-lg bg-[#EBF5FB] text-[11px] text-[#1B4F72] border border-[#A9CCE3] space-y-1">
+                      <div className="flex justify-between font-semibold">
+                        <span>Lớp: {selectedCandidate.expectedClass}</span>
+                        <span>{selectedCandidate.startDate}</span>
+                      </div>
+                      <div className="text-[10px] text-[#5D6D7E]">Lịch học: {selectedCandidate.schedule}</div>
+                    </div>
+
                     <button
                       type="button"
-                      disabled={isUpdatingStatus}
                       onClick={() => handleOpenAssignModal(selectedCandidate)}
-                      className="w-full py-2.5 bg-[#1B4F72] hover:bg-[#153e5b] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="w-full py-2 bg-[#1B4F72] hover:bg-[#153e5b] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <GraduationCap className="w-4 h-4" />
-                      <span>Xếp lớp & Bắt đầu học</span>
+                      <span>{selectedCandidate.batchId ? 'Đổi sang đợt khai giảng khác' : 'Xếp lớp vào đợt khai giảng'}</span>
                     </button>
-                  )}
 
-                  {selectedCandidate.rawStatus === EnrollmentStatus.STUDYING && (
-                    <div className="space-y-2">
+                    {selectedCandidate.rawStatus === EnrollmentStatus.STUDYING && (
                       <button
                         type="button"
-                        onClick={() => handleOpenAssignModal(selectedCandidate)}
-                        className="w-full py-2 bg-white border border-[#1B4F72] text-[#1B4F72] hover:bg-[#EBF5FB] text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Đổi đợt lớp / Chuyển lớp</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isUpdatingStatus}
-                        onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.GRADUATED)}
-                        className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        onClick={() => handleGraduateStudent(selectedCandidate.id)}
+                        className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xét tốt nghiệp & Cấp chứng chỉ'}</span>
+                        <span>Xét tốt nghiệp & Cấp chứng chỉ</span>
                       </button>
-                    </div>
-                  )}
-
-                  {selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED && (
-                    <div className="p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-xs font-bold text-center border border-[#C2E8D1]">
-                      🎓 Học viên đã tốt nghiệp xuất sắc
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-
-          {/* Footnote */}
-          <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
-            Đồng bộ trạng thái hồ sơ học viên theo thời gian thực.
-          </div>
         </div>
       </div>
 
-      {/* Toast Notification */}
+      {/* Floating Success Toast */}
       {successToast && (
         <div className="fixed top-20 right-6 z-50 bg-[#2C241E] text-white px-4 py-3 rounded-xl shadow-lg border border-[#D7BBA6] flex items-center gap-2.5 animate-bounce text-xs">
           <CheckCircle2 className="w-4 h-4 text-[#E29D62]" />
@@ -1328,22 +1612,20 @@ export const W08_Enrollment: React.FC = () => {
         </div>
       )}
 
-      {/* 5. Bottom Page Disclaimer */}
+      {/* Disclaimer / System Info */}
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
         <Info className="w-4 h-4 shrink-0 text-[#8A4F23]" />
-        <span>
-          Hệ thống tuyển sinh & quản lý đào tạo học viện • MLD Vietnam Healthcare Admin.
-        </span>
+        <span>Hệ thống quản lý tuyển sinh, thanh toán VietQR & nhập học MLD Việt Nam • Dữ liệu thật lưu tại Supabase Cloud.</span>
       </div>
 
-      {/* MODAL: Tạo hồ sơ tuyển sinh mới */}
+      {/* MODAL: Tạo yêu cầu tư vấn mới */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF5EF]">
               <div>
-                <h3 className="text-base font-bold text-[#2C241E]">Tạo hồ sơ tuyển sinh mới</h3>
-                <p className="text-xs text-[#73675F] mt-0.5">Nhập thông tin học viên đăng ký tư vấn & nhập học</p>
+                <h3 className="text-base font-bold text-[#2C241E]">Tạo yêu cầu đăng ký tư vấn mới</h3>
+                <p className="text-xs text-[#73675F] mt-0.5">Hồ sơ sẽ bắt đầu ở trạng thái: Chờ liên hệ & Chưa thanh toán</p>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1353,12 +1635,11 @@ export const W08_Enrollment: React.FC = () => {
               </button>
             </div>
 
-            <form
-              onSubmit={handleCreateCandidate}
-              className="p-5 space-y-4 text-xs"
-            >
+            <form onSubmit={handleCreateCandidate} className="p-5 space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-[#2C241E] mb-1.5">Họ và tên học viên <span className="text-[#8D4B1A]">*</span></label>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">
+                  Họ và tên khách hàng <span className="text-[#8D4B1A]">*</span>
+                </label>
                 <input
                   required
                   type="text"
@@ -1371,7 +1652,9 @@ export const W08_Enrollment: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Số điện thoại <span className="text-[#8D4B1A]">*</span></label>
+                  <label className="block font-semibold text-[#2C241E] mb-1.5">
+                    Số điện thoại <span className="text-[#8D4B1A]">*</span>
+                  </label>
                   <input
                     required
                     type="tel"
@@ -1382,53 +1665,27 @@ export const W08_Enrollment: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Chi nhánh đăng ký</label>
+                  <label className="block font-semibold text-[#2C241E] mb-1.5">Email liên hệ</label>
+                  <input
+                    type="email"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    placeholder="honganh@gmail.com"
+                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#2C241E] mb-1.5">Cơ sở mong muốn</label>
                   <select
                     value={formBranchId}
                     onChange={(e) => setFormBranchId(e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   >
-                    <option value="q3">Quận 3</option>
-                    <option value="q1">Quận 1</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#2C241E] mb-1.5">Chương trình quan tâm</label>
-                <select
-                  value={formCourseId}
-                  onChange={(e) => setFormCourseId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                >
-                  {liveCourses.length > 0 ? (
-                    liveCourses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.title} ({c.code})
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="cccccccc-0001-0001-0001-000000000001">Đào tạo Dẫn lưu Bạch huyết MLD Vodder Chuyên sâu</option>
-                      <option value="cccccccc-0001-0001-0001-000000000002">Dẫn lưu Bạch huyết Phù nề Sau Phẫu Thuật</option>
-                      <option value="cccccccc-0001-0001-0001-000000000003">Chăm sóc Phục hồi Hệ Bạch Huyết Chuẩn Y Khoa</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Giai đoạn hồ sơ</label>
-                  <select
-                    value={formStage}
-                    onChange={(e) => setFormStage(e.target.value as EnrollmentStatus)}
-                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  >
-                    <option value={EnrollmentStatus.CONSULTING}>Chờ tư vấn (CONSULTING)</option>
-                    <option value={EnrollmentStatus.ENROLLED}>Đã nhập học (ENROLLED)</option>
-                    <option value={EnrollmentStatus.STUDYING}>Đang theo học (STUDYING)</option>
-                    <option value={EnrollmentStatus.GRADUATED}>Đã tốt nghiệp (GRADUATED)</option>
+                    <option value="Chi nhánh Quận 3 - TP.HCM">Quận 3 - TP.HCM</option>
+                    <option value="Chi nhánh Quận 1 - TP.HCM">Quận 1 - TP.HCM</option>
                   </select>
                 </div>
                 <div>
@@ -1440,6 +1697,21 @@ export const W08_Enrollment: React.FC = () => {
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">Khóa đào tạo quan tâm</label>
+                <select
+                  value={formCourseId}
+                  onChange={(e) => setFormCourseId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                >
+                  {liveCourses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title} ({c.code}) - {c.tuitionFee?.toLocaleString('vi-VN')}đ
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2.5">
@@ -1455,7 +1727,7 @@ export const W08_Enrollment: React.FC = () => {
                   disabled={isCreatingCandidate}
                   className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isCreatingCandidate ? 'Đang lưu vào Supabase...' : 'Tạo hồ sơ'}
+                  {isCreatingCandidate ? 'Đang lưu vào Supabase...' : 'Tạo đơn tư vấn'}
                 </button>
               </div>
             </form>
@@ -1463,13 +1735,13 @@ export const W08_Enrollment: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: In Bill & Thông tin nộp học phí VietQR */}
+      {/* MODAL: In Bill & Thông tin nộp học phí VietQR Napas 247 */}
       <EnrollmentBillModal
         isOpen={isBillModalOpen}
         onClose={() => setIsBillModalOpen(false)}
         candidate={billModalCandidate}
         onCheckPayment={handleCheckPayment}
-        onApproveAtDesk={handleApproveAtDesk}
+        onApproveAtDesk={handleManualConfirmPayment}
       />
 
       {/* MODAL: Xếp lớp & Phân đợt khai giảng */}
@@ -1485,4 +1757,3 @@ export const W08_Enrollment: React.FC = () => {
     </div>
   );
 };
-

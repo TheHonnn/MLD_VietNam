@@ -795,11 +795,12 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -817,6 +818,8 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
               ),
             ],
           ),
+          ),
+          const SizedBox(width: 8),
           Switch(
             value: value,
             activeThumbColor: Colors.white,

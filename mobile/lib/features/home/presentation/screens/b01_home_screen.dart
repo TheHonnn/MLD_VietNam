@@ -1071,9 +1071,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           child: const Icon(Icons.menu_book_outlined, color: Colors.white, size: 16),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
-                          'CỘNG ĐỒNG CHUYÊN GIA MLD',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
+                        const Expanded(
+                          child: Text(
+                            'CỘNG ĐỒNG CHUYÊN GIA MLD',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),

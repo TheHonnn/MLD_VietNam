@@ -36,6 +36,11 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
     return AcademyRepository.instance.isCourseEnrolled(widget.course!.id, widget.course!.title);
   }
 
+  bool get _isApproved {
+    if (widget.course == null) return true;
+    return AcademyRepository.instance.isCourseApproved(widget.course!.id, widget.course!.title);
+  }
+
   List<LessonModel> get _allLessons => _chapters.expand((c) => c.lessons).toList();
 
   int get _totalLessonsCount => _allLessons.length;
@@ -131,6 +136,18 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
     // 1. Chưa đăng ký khóa học tuyệt đối không được xem
     if (!_isEnrolled) {
       _showEnrollRequiredModal(lesson);
+      return;
+    }
+
+    // 1.1. Khóa học chưa được duyệt tuyệt đối không được xem
+    if (!_isApproved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔒 Khóa học đang chờ duyệt & thanh toán. Bạn chỉ có thể xem bài học sau khi hồ sơ được phê duyệt!'),
+          backgroundColor: Color(0xFFD97706),
+          duration: Duration(seconds: 3),
+        ),
+      );
       return;
     }
 
@@ -306,13 +323,26 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(),
       bottomNavigationBar: AcademyFixedBottomBar(
-        summaryText: _isCourseCompleted
-            ? 'Đã hoàn thành 100% video bài giảng ✓'
-            : (_nextLessonToStudy?.title ?? 'Bắt đầu học ngay'),
-        buttonText: _isCourseCompleted
-            ? 'Làm bài kiểm tra đánh giá'
-            : (_completedLessonsCount == 0 ? 'Bắt đầu học ngay' : 'Tiếp tục bài học'),
+        summaryText: !_isApproved
+            ? 'Khóa học đang chờ xét duyệt'
+            : (_isCourseCompleted
+                ? 'Đã hoàn thành 100% video bài giảng ✓'
+                : (_nextLessonToStudy?.title ?? 'Bắt đầu học ngay')),
+        buttonText: !_isApproved
+            ? 'Chờ duyệt'
+            : (_isCourseCompleted
+                ? 'Làm bài kiểm tra đánh giá'
+                : (_completedLessonsCount == 0 ? 'Bắt đầu học ngay' : 'Tiếp tục bài học')),
         onPressed: () {
+          if (!_isApproved) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🔒 Khóa học đang chờ duyệt & thanh toán. Vui lòng đối soát thanh toán tại Khóa học của tôi!'),
+                backgroundColor: Color(0xFFD97706),
+              ),
+            );
+            return;
+          }
           if (_isCourseCompleted) {
             _openQuiz();
           } else if (_nextLessonToStudy != null) {
@@ -326,6 +356,45 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (!_isApproved) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 22),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Khóa học đang chờ duyệt & Chưa thanh toán',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Chỉ khi được duyệt mới được xem video bài giảng. Vui lòng đối soát thanh toán tại mục Khóa học của tôi.',
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFFB45309)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // 1. Tiêu đề trang [8116:26002]
             const Text(
               'Chi tiết lớp học',

@@ -310,9 +310,11 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
               const SizedBox(height: 14),
 
               // --- 4. GẦN TÔI & DANH SÁCH / BẢN ĐỒ TOGGLE ---
-              Row(
-                children: [
-                  // Button "Gần tôi"
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    // Button "Gần tôi"
                   InkWell(
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -394,6 +396,7 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                   ),
                 ],
               ),
+            ),
 
               const SizedBox(height: 16),
 
@@ -560,11 +563,14 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                     children: [
                       const Icon(Icons.access_time_rounded, size: 16, color: AppColors.textSecondary),
                       const SizedBox(width: 6),
-                      Text(
-                        branch['hours'] as String,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                      Expanded(
+                        child: Text(
+                          branch['hours'] as String,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ],
@@ -574,12 +580,15 @@ class _B05BranchListingScreenState extends State<B05BranchListingScreen> {
                     children: [
                       const Icon(Icons.spa_outlined, size: 16, color: AppColors.primary),
                       const SizedBox(width: 6),
-                      Text(
-                        branch['services'] as String,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          branch['services'] as String,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],

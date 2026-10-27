@@ -1432,6 +1432,14 @@ class SupabaseService {
       approvedBy: e.approved_by,
       approvedAt: e.approved_at,
       approvalNotes: e.approval_notes,
+      orderCode: e.order_code,
+      consultationStatus: e.consultation_status || 'PENDING_CONSULTATION',
+      paymentVerificationStatus: e.payment_status || 'UNPAID',
+      studentAdmissionStatus: e.student_status || 'NOT_APPROVED',
+      assignedStaffId: e.assigned_staff_id,
+      finalTuition: e.final_tuition ? Number(e.final_tuition) : Number(e.tuition_total || 0),
+      consultationHistory: e.consultation_history || [],
+      qrCreatedAt: e.qr_created_at,
     }));
   }
 
@@ -1596,12 +1604,22 @@ class SupabaseService {
       status?: EnrollmentStatus;
       batchId?: string | null;
       amountPaid?: number;
+      tuitionTotal?: number;
+      selectedBranch?: string;
       progressPercent?: number;
       completedLessonsCount?: number;
       approvalStatus?: string;
       approvedBy?: string;
       approvedAt?: string;
       approvalNotes?: string;
+      orderCode?: string;
+      consultationStatus?: string;
+      paymentVerificationStatus?: string;
+      studentAdmissionStatus?: string;
+      assignedStaffId?: string | null;
+      finalTuition?: number;
+      consultationHistory?: any[];
+      qrCreatedAt?: string | null;
     }
   ): Promise<boolean> {
     try {
@@ -1609,12 +1627,25 @@ class SupabaseService {
       if (updates.status !== undefined) payload.status = updates.status;
       if (updates.batchId !== undefined) payload.batch_id = updates.batchId;
       if (updates.amountPaid !== undefined) payload.amount_paid = updates.amountPaid;
+      if (updates.tuitionTotal !== undefined) payload.tuition_total = updates.tuitionTotal;
+      if (updates.selectedBranch !== undefined) payload.selected_branch = updates.selectedBranch;
       if (updates.progressPercent !== undefined) payload.progress_percent = updates.progressPercent;
       if (updates.completedLessonsCount !== undefined) payload.completed_lessons_count = updates.completedLessonsCount;
       if (updates.approvalStatus !== undefined) payload.approval_status = updates.approvalStatus;
-      if (updates.approvedBy !== undefined) payload.approved_by = updates.approvedBy;
+      if (updates.approvedBy !== undefined) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(updates.approvedBy);
+        payload.approved_by = isUuid ? updates.approvedBy : 'f0dc713a-56fc-4347-9fb3-240528726ba3';
+      }
       if (updates.approvedAt !== undefined) payload.approved_at = updates.approvedAt;
       if (updates.approvalNotes !== undefined) payload.approval_notes = updates.approvalNotes;
+      if (updates.orderCode !== undefined) payload.order_code = updates.orderCode;
+      if (updates.consultationStatus !== undefined) payload.consultation_status = updates.consultationStatus;
+      if (updates.paymentVerificationStatus !== undefined) payload.payment_status = updates.paymentVerificationStatus;
+      if (updates.studentAdmissionStatus !== undefined) payload.student_status = updates.studentAdmissionStatus;
+      if (updates.assignedStaffId !== undefined) payload.assigned_staff_id = updates.assignedStaffId;
+      if (updates.finalTuition !== undefined) payload.final_tuition = updates.finalTuition;
+      if (updates.consultationHistory !== undefined) payload.consultation_history = updates.consultationHistory;
+      if (updates.qrCreatedAt !== undefined) payload.qr_created_at = updates.qrCreatedAt;
 
       const res = await this.query<any[]>(`course_enrollments?id=eq.${enrollmentId}`, {
         method: 'PATCH',

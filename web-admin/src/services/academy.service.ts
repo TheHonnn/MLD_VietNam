@@ -14,6 +14,11 @@ import {
   EdemaAssessment,
   EdemaAssessmentStatus,
   EdemaAssessmentResult,
+  ConsultationStatus,
+  PaymentVerificationStatus,
+  StudentAdmissionStatus,
+  PaymentMethod,
+  PaymentStatus,
 } from '../types/shared_types';
 
 import { supabaseService } from './supabaseService';
@@ -269,7 +274,14 @@ export const academyService = {
   async updateEnrollmentStatus(
     id: string,
     status: EnrollmentStatus,
-    extraUpdates?: { amountPaid?: number; batchId?: string | null }
+    extraUpdates?: {
+      amountPaid?: number;
+      batchId?: string | null;
+      approvalStatus?: string;
+      approvedBy?: string;
+      approvedAt?: string;
+      approvalNotes?: string;
+    }
   ): Promise<ApiResponse<CourseEnrollment>> {
     try {
       const ok = await supabaseService.updateEnrollment(id, { status, ...extraUpdates });
@@ -456,6 +468,241 @@ export const academyService = {
         statusCode: 500,
         message: err?.message || 'Lỗi khi duyệt học viên',
         data: null,
+      };
+    }
+  },
+
+  /**
+   * Phân công nhân viên phụ trách tư vấn
+   */
+  async assignStaffToEnrollment(enrollmentId: string, staffId: string | null): Promise<ApiResponse<boolean>> {
+    try {
+      const ok = await supabaseService.updateEnrollment(enrollmentId, { assignedStaffId: staffId });
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Đã phân công nhân viên phụ trách tư vấn' : 'Không thể phân công nhân viên',
+        data: ok,
+      };
+    } catch (err: any) {
+      return { success: false, statusCode: 500, message: err?.message || 'Lỗi phân công nhân viên', data: false };
+    }
+  },
+
+  /**
+   * Cập nhật trạng thái tư vấn và lưu lịch sử ghi chú
+   */
+  async updateConsultationStatus(
+    enrollmentId: string,
+    status: ConsultationStatus,
+    note?: string,
+    authorName?: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const live = await supabaseService.getEnrollments();
+      const current = live?.find((e) => e.id === enrollmentId);
+      const history = [...(current?.consultationHistory || [])];
+      if (note && note.trim()) {
+        history.push({
+          timestamp: new Date().toISOString(),
+          author: authorName || 'Nhân viên tư vấn',
+          note: note.trim(),
+        });
+      }
+      const ok = await supabaseService.updateEnrollment(enrollmentId, {
+        consultationStatus: status,
+        consultationHistory: history,
+      });
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Cập nhật trạng thái tư vấn thành công' : 'Không thể cập nhật tư vấn',
+        data: ok,
+      };
+    } catch (err: any) {
+      return { success: false, statusCode: 500, message: err?.message || 'Lỗi cập nhật tư vấn', data: false };
+    }
+  },
+
+  /**
+   * Chốt tư vấn: chốt học phí và cơ sở đào tạo, tạo yêu cầu thanh toán
+   */
+  async finalizeConsultation(
+    enrollmentId: string,
+    data: {
+      finalTuition: number;
+      branchName?: string;
+      note?: string;
+      authorName?: string;
+    }
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const live = await supabaseService.getEnrollments();
+      const current = live?.find((e) => e.id === enrollmentId);
+      const history = [...(current?.consultationHistory || [])];
+      const noteContent = data.note
+        ? data.note
+        : `Đã chốt học phí ${data.finalTuition.toLocaleString('vi-VN')}đ tại ${data.branchName || 'Chi nhánh đã chọn'}`;
+      history.push({
+        timestamp: new Date().toISOString(),
+        author: data.authorName || 'Nhân viên tư vấn',
+        note: noteContent,
+      });
+
+      const ok = await supabaseService.updateEnrollment(enrollmentId, {
+        consultationStatus: ConsultationStatus.CONFIRMED,
+        finalTuition: data.finalTuition,
+        tuitionTotal: data.finalTuition,
+        selectedBranch: data.branchName,
+        consultationHistory: history,
+        qrCreatedAt: new Date().toISOString(),
+      });
+
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Đã chốt tư vấn và tạo yêu cầu thanh toán thành công' : 'Lỗi chốt tư vấn',
+        data: ok,
+      };
+    } catch (err: any) {
+      return { success: false, statusCode: 500, message: err?.message || 'Lỗi chốt tư vấn', data: false };
+    }
+  },
+
+  /**
+   * Xác nhận thanh toán (tự động hoặc thủ công)
+   */
+  async confirmPayment(
+    enrollmentId: string,
+    amount: number,
+    options?: {
+      authorName?: string;
+      notes?: string;
+      paymentMethod?: PaymentMethod;
+    }
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const live = await supabaseService.getEnrollments();
+      const enr = live?.find((e) => e.id === enrollmentId);
+      if (!enr) {
+        return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ', data: false };
+      }
+
+      const history = [...(enr.consultationHistory || [])];
+      history.push({
+        timestamp: new Date().toISOString(),
+        author: options?.authorName || 'Kế toán / Đối soát',
+        note: options?.notes || `Đã xác nhận thanh toán đủ ${amount.toLocaleString('vi-VN')}đ`,
+      });
+
+      const ok = await supabaseService.updateEnrollment(enrollmentId, {
+        paymentVerificationStatus: PaymentVerificationStatus.PAID,
+        amountPaid: amount,
+        approvalStatus: 'APPROVED',
+        studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
+        status: EnrollmentStatus.ENROLLED,
+        approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+        approvedAt: new Date().toISOString(),
+        consultationHistory: history,
+      });
+
+      if (ok) {
+        try {
+          await supabaseService.recordTuitionPayment({
+            transactionCode: `HP-${enr.orderCode || Date.now().toString().slice(-6)}`,
+            enrollmentId,
+            studentId: enr.studentId,
+            courseId: enr.courseId,
+            branchId: enr.batchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+            amount,
+            paymentMethod: options?.paymentMethod || PaymentMethod.BANK_TRANSFER,
+            paymentStatus: PaymentStatus.PAID,
+            notes: options?.notes || `Thanh toán học phí cho hồ sơ ${enr.orderCode || ''}`,
+          });
+        } catch (_) {}
+      }
+
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? 'Xác nhận thanh toán và duyệt học viên thành công!' : 'Lỗi cập nhật thanh toán',
+        data: ok,
+      };
+    } catch (err: any) {
+      return { success: false, statusCode: 500, message: err?.message || 'Lỗi xác nhận thanh toán', data: false };
+    }
+  },
+
+  /**
+   * Xếp lớp cho học viên đã duyệt: kiểm tra khóa học, cơ sở và sức chứa
+   */
+  async assignBatchToStudent(
+    enrollmentId: string,
+    batchId: string,
+    authorName?: string
+  ): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    try {
+      const [enrollments, batches] = await Promise.all([
+        supabaseService.getEnrollments(),
+        supabaseService.getCourseBatches(),
+      ]);
+
+      const enr = enrollments?.find((e) => e.id === enrollmentId);
+      const batch = batches?.find((b) => b.id === batchId);
+
+      if (!enr || !batch) {
+        return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ hoặc lớp học', data: { success: false, message: 'Dữ liệu không hợp lệ' } };
+      }
+
+      // 1. Kiểm tra khóa học khớp
+      if (enr.courseId !== batch.courseId) {
+        return {
+          success: false,
+          statusCode: 400,
+          message: 'Lớp học không thuộc khóa học mà học viên đã đăng ký!',
+          data: { success: false, message: 'Sai khóa học' },
+        };
+      }
+
+      // 2. Kiểm tra sức chứa lớp
+      if (batch.maxStudents && batch.enrolledCount >= batch.maxStudents) {
+        return {
+          success: false,
+          statusCode: 400,
+          message: `Lớp ${batch.batchCode} đã đạt sức chứa tối đa (${batch.enrolledCount}/${batch.maxStudents} học viên). Vui lòng chọn lớp khác!`,
+          data: { success: false, message: 'Lớp đã đầy sĩ số' },
+        };
+      }
+
+      const history = [...(enr.consultationHistory || [])];
+      history.push({
+        timestamp: new Date().toISOString(),
+        author: authorName || 'Admin Tuyển Sinh',
+        note: `Đã xếp học viên vào lớp ${batch.batchCode} (${batch.scheduleText || ''})`,
+      });
+
+      const ok = await supabaseService.updateEnrollment(enrollmentId, {
+        batchId,
+        studentAdmissionStatus: StudentAdmissionStatus.ENROLLED,
+        status: EnrollmentStatus.STUDYING,
+        approvalStatus: 'APPROVED',
+        approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+        approvedAt: new Date().toISOString(),
+        consultationHistory: history,
+      });
+
+      return {
+        success: ok,
+        statusCode: ok ? 200 : 400,
+        message: ok ? `Đã xếp học viên vào lớp ${batch.batchCode} thành công!` : 'Lỗi khi xếp lớp',
+        data: { success: ok, message: ok ? 'Xếp lớp thành công' : 'Lỗi cập nhật' },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: err?.message || 'Lỗi hệ thống khi xếp lớp',
+        data: { success: false, message: err?.message || 'Lỗi' },
       };
     }
   },
