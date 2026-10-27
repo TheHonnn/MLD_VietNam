@@ -258,7 +258,6 @@ class AcademyRepository {
     }
 
     // Gửi bản ghi ghi danh thực tế lên Supabase Cloud (bảng course_enrollments)
-    final customerCode = 'HV${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
     try {
       final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
       await SupabaseDataService.instance.createCourseEnrollment(
@@ -269,12 +268,11 @@ class AcademyRepository {
         studentEmail: studentEmail,
         selectedBranch: selectedBranch ?? 'Học viện MLD Việt Nam - Chi nhánh Quận 3, TP.HCM (Trụ sở chính)',
         studentType: studentType ?? 'BEGINNER',
-        approvalNotes: 'Mã KH: $customerCode',
+        approvalNotes: approvalNotes,
         tuitionTotal: course.tuitionFee,
         amountPaid: 0.00,
         status: 'PENDING_APPROVAL',
         approvalStatus: 'PENDING_APPROVAL',
-        approvalNotes: approvalNotes,
       );
     } catch (e) {
       debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: ' + e.toString());
