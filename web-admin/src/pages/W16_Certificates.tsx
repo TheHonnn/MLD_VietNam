@@ -28,6 +28,7 @@ import {
   Info,
 } from 'lucide-react';
 import { academyService } from '../services';
+import { exportElementToPdf } from '../utils/pdfExport';
 import {
   StudentCertificate,
   CertificateStatus,
@@ -161,8 +162,29 @@ export const W16_Certificates: React.FC = () => {
     setShowPreviewModal(true);
   };
 
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!printRef.current || !selectedCert) return;
+    try {
+      setIsExportingPdf(true);
+      await exportElementToPdf(printRef.current, {
+        fileName: `GCN_MLD_${selectedCert.certificateCode}_${(selectedCert.studentName || 'HocVien').replace(/\s+/g, '_')}`,
+        orientation: 'landscape',
+        format: 'a4',
+        scale: 2.5,
+      });
+      toast.success('Xuất file thành công', `Đã tải về Giấy chứng nhận ${selectedCert.certificateCode}.pdf`);
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Lỗi xuất PDF', 'Không thể tạo file PDF giấy chứng nhận.');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const handleOpenRevoke = (cert: StudentCertificate) => {
@@ -627,13 +649,25 @@ export const W16_Certificates: React.FC = () => {
 
               <div className="flex items-center gap-2.5">
                 <button
-                  onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={isExportingPdf}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer disabled:opacity-50"
+                  title="Tải trực tiếp tệp PDF chuẩn in A4 ngang về máy tính"
                 >
-                  <Printer className="w-4 h-4" />
-                  In / Xuất PDF (A4 Ngang)
+                  <Download className="w-4 h-4" />
+                  <span>{isExportingPdf ? 'Đang tạo PDF...' : 'Tải file PDF (A4)'}</span>
                 </button>
                 <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>In trực tiếp</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowPreviewModal(false)}
                   className="px-3.5 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
                 >
