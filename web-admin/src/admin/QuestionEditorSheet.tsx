@@ -15,9 +15,11 @@ import {
   Check,
   ChevronRight,
   Trash2,
+  FileSpreadsheet,
 } from "lucide-react";
 import { adminApi, Row } from "./api";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
+import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 
 export interface QuestionEditorSheetProps {
   row: Row;
@@ -113,6 +115,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
   const [saveAndAddMore, setSaveAndAddMore] = useState(false);
   const [error, setError] = useState("");
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [showExcelModal, setShowExcelModal] = useState(false);
 
   // A. Fetch courses and quizzes
   useEffect(() => {
@@ -375,6 +378,18 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Quick Import Excel button */}
+          {!isView && (
+            <button
+              type="button"
+              onClick={() => setShowExcelModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] text-xs font-bold text-[#15803D] hover:bg-[#DCFCE7] cursor-pointer transition-colors shadow-xs"
+            >
+              <FileSpreadsheet size={13} className="text-[#16A34A]" />
+              Nhập từ file Excel
+            </button>
+          )}
+
           {/* Switch Mode Button */}
           {isView && onSwitchMode && (
             <button
@@ -947,6 +962,17 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
         </button>
 
         <div className="flex items-center gap-2">
+          {!isView && (
+            <button
+              type="button"
+              onClick={() => setShowExcelModal(true)}
+              className="px-3.5 py-2 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] text-xs font-bold text-[#15803D] hover:bg-[#DCFCE7] cursor-pointer transition-colors flex items-center gap-1.5 shadow-xs"
+            >
+              <FileSpreadsheet size={14} className="text-[#16A34A]" />
+              Nhập từ file Excel
+            </button>
+          )}
+
           {isCreate && (
             <button
               type="button"
@@ -985,6 +1011,18 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
           )}
         </div>
       </footer>
+
+      {/* EXCEL IMPORT MODAL */}
+      <ExcelQuizImportModal
+        isOpen={showExcelModal}
+        onClose={() => setShowExcelModal(false)}
+        quizId={quizId || undefined}
+        onImportSuccess={(count) => {
+          setSuccessBanner(`✓ Đã nhập thành công ${count} câu hỏi từ file Excel!`);
+          onSaved();
+          onClose();
+        }}
+      />
     </div>
   );
 };

@@ -16,6 +16,7 @@ import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryF
 import { InstructorFormEditor } from "./InstructorFormEditor";
 import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { StudentAcademicRecordFormEditor } from "./StudentAcademicRecordFormEditor";
+import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -57,6 +58,7 @@ import {
   CalendarCheck,
   CheckCheck,
   FileEdit,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   adminApi,
@@ -3885,6 +3887,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     } | null>(null),
     [reason, setReason] = useState("");
   const [search, setSearch] = useState(params.get("search") || "");
+  const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
@@ -4661,6 +4664,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             >
               <Plus />
               Thêm mới
+            </button>
+          )}
+          {["course_quizzes", "quiz_questions"].includes(table) && (
+            <button
+              type="button"
+              className="btn btn-outline flex items-center gap-1.5 border-[#22C55E]/40 text-[#15803D] bg-[#F0FDF4] hover:bg-[#DCFCE7] font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer ml-2"
+              onClick={() => setShowExcelImportModal(true)}
+            >
+              <FileSpreadsheet className="w-4 h-4 text-[#16A34A]" />
+              <span>Nhập từ Excel</span>
             </button>
           )}
         </div>
@@ -6196,6 +6209,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </footer>
         </dialog>
       )}
+
+      {/* Excel Quiz Import Modal */}
+      <ExcelQuizImportModal
+        isOpen={showExcelImportModal}
+        onClose={() => setShowExcelImportModal(false)}
+        onImportSuccess={() => {
+          setVersion((v) => v + 1);
+          setNotice("Nhập câu hỏi trắc nghiệm từ file Excel thành công!");
+        }}
+      />
     </section>
   );
 }
