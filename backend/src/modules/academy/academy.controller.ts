@@ -74,4 +74,20 @@ export class AcademyController {
   async getMyResults(@CurrentUser('id') userId: string) {
     return this.academyService.getMyResults(userId || 'default-user');
   }
+
+  @Get('enrollments/:id/check-payment')
+  @ApiOperation({ summary: 'Kiểm tra tiền về theo mã KH & tự động duyệt học viên' })
+  async checkEnrollmentPayment(@Param('id') id: string) {
+    return this.academyService.checkEnrollmentPayment(id);
+  }
+
+  @Post('enrollments/:id/approve')
+  @ApiOperation({ summary: 'Admin duyệt học viên & ghi nhận thanh toán tại quầy' })
+  async approveEnrollment(
+    @Param('id') id: string,
+    @Body() body: { adminUser?: string; amountPaid?: number; notes?: string },
+  ) {
+    return this.academyService.approveEnrollment(id, body?.adminUser || 'Admin Tuyển Sinh', body?.amountPaid, body?.notes);
+  }
 }
+

@@ -260,6 +260,19 @@ export class AcademyService {
         }
       } catch (_) {}
 
+      // Lấy hoặc sinh mã khách hàng chuẩn định danh
+      let customerCode = `HV${Date.now().toString().slice(-5)}`;
+      try {
+        const { data: uData } = await this.supabaseService.adminClient
+          .from('users')
+          .select('referral_code')
+          .eq('id', studentId)
+          .maybeSingle();
+        if (uData?.referral_code) {
+          customerCode = uData.referral_code.startsWith('HV') ? uData.referral_code : `HV-${uData.referral_code}`;
+        }
+      } catch (_) {}
+
       // 3. Ghi nhận vào bảng course_enrollments
       await this.supabaseService.adminClient.from('course_enrollments').insert({
         student_id: studentId,
@@ -272,6 +285,8 @@ export class AcademyService {
         student_phone: studentPhone,
         student_email: studentEmail || null,
         selected_branch: selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
+        approval_status: 'PENDING_APPROVAL',
+        approval_notes: `Mã KH: ${customerCode}`,
       });
     } catch (e: any) {
       this.logger.warn(`Lưu enrollment vào DB thất bại: ${e.message}`);
@@ -295,6 +310,187 @@ export class AcademyService {
         qrImageUrl: `https://api.vietqr.io/image/970422-0901234567-compact.jpg?amount=${depositAmount}&addInfo=${enrollmentCode}&accountName=CONG%20TY%20MLD%20VIET%20NAM`,
       },
     };
+  }
+
+  /**
+   * Tự động kiểm tra đối soát xem đã nhận được tiền của học viên theo mã khách hàng chưa
+   * Nếu đã nhận tiền -> Tự động duyệt vào khóa học!
+   */
+  async checkEnrollmentPayment(enrollmentId: string) {
+    try {
+      const { data: enr } = await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .select(`
+          id,
+          student_id,
+          course_id,
+          batch_id,
+          status,
+          approval_status,
+          tuition_total,
+          amount_paid,
+          student_name,
+          student_phone,
+          approval_notes,
+          users:student_id (id, full_name, phone, referral_code),
+          courses:course_id (id, title, tuition_fee)
+        `)
+        .eq('id', enrollmentId)
+        .maybeSingle();
+
+      if (!enr) {
+        return {
+          success: false,
+          statusCode: 404,
+          message: 'Không tìm thấy hồ sơ đăng ký',
+          data: { isPaid: false, approved: false },
+        };
+      }
+
+      // 1. Nếu đã duyệt rồi, trả về luôn
+      if (enr.approval_status === 'APPROVED' && (enr.amount_paid || 0) > 0) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: 'Học viên đã được duyệt và xác nhận thanh toán thành công!',
+          data: {
+            isPaid: true,
+            approved: true,
+            amountPaid: enr.amount_paid,
+            tuitionTotal: enr.tuition_total,
+          },
+        };
+      }
+
+      // 2. Lấy mã khách hàng từ user hoặc approval_notes
+      const userRefCode = (enr.users as any)?.referral_code || '';
+      const notesCode = enr.approval_notes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1] || '';
+      const customerCode = (userRefCode || notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
+      const studentPhone = (enr.student_phone || (enr.users as any)?.phone || '').replace(/\D/g, '');
+
+      // 3. Kiểm tra xem có giao dịch tiền về trong bảng invoices khớp với mã KH không
+      const { data: invList } = await this.supabaseService.adminClient
+        .from('invoices')
+        .select('*')
+        .eq('payment_status', 'PAID')
+        .order('paid_at', { ascending: false })
+        .limit(30);
+
+      let matchedAmount = 0;
+      if (invList && invList.length > 0) {
+        for (const inv of invList) {
+          const invCode = String(inv.invoice_code || '').toUpperCase();
+          const invNotes = String(inv.notes || '').toUpperCase();
+          if (
+            (customerCode && (invCode.includes(customerCode) || invNotes.includes(customerCode))) ||
+            (studentPhone && studentPhone.length >= 7 && (invCode.includes(studentPhone) || invNotes.includes(studentPhone)))
+          ) {
+            matchedAmount = Number(inv.total_amount || inv.subtotal || 0);
+            break;
+          }
+        }
+      }
+
+      // 4. Nếu chưa có trong invoices, kiểm tra bảng tuition_transactions
+      if (matchedAmount === 0) {
+        const { data: txList } = await this.supabaseService.adminClient
+          .from('tuition_transactions')
+          .select('*')
+          .eq('enrollment_id', enrollmentId)
+          .eq('payment_status', 'PAID');
+        if (txList && txList.length > 0) {
+          matchedAmount = txList.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        }
+      }
+
+      const tuitionFee = Number(enr.tuition_total || (enr.courses as any)?.tuition_fee || 9000000);
+
+      // 5. Nếu xác nhận đã nhận được tiền: TỰ ĐỘNG DUYỆT HỌC VIÊN
+      if (matchedAmount > 0) {
+        await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .update({
+            status: 'ENROLLED',
+            approval_status: 'APPROVED',
+            amount_paid: matchedAmount,
+            approved_at: new Date().toISOString(),
+            approved_by: 'HỆ THỐNG TỰ ĐỘNG',
+            approval_notes: `Đã tự động duyệt: Nhận thanh toán ${matchedAmount.toLocaleString('vi-VN')}đ khớp mã KH ${customerCode}`,
+          })
+          .eq('id', enrollmentId);
+
+        return {
+          success: true,
+          statusCode: 200,
+          message: `Xác nhận khớp mã KH ${customerCode} & số tiền ${matchedAmount.toLocaleString('vi-VN')}đ! Đã tự động duyệt học viên vào khóa học.`,
+          data: {
+            isPaid: true,
+            approved: true,
+            amountPaid: matchedAmount,
+            tuitionTotal: tuitionFee,
+            customerCode,
+          },
+        };
+      }
+
+      // Chưa nhận được tiền
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Hệ thống chưa nhận được tiền từ ngân hàng cho mã khách hàng "${customerCode}".`,
+        data: {
+          isPaid: false,
+          approved: false,
+          customerCode,
+          amountExpected: tuitionFee,
+        },
+      };
+    } catch (err: any) {
+      this.logger.error(`Lỗi check payment cho enrollment ${enrollmentId}: ${err.message}`);
+      return {
+        success: false,
+        statusCode: 500,
+        message: err.message,
+        data: { isPaid: false, approved: false },
+      };
+    }
+  }
+
+  /**
+   * Admin duyệt học viên vào khóa học (thu tiền tại quầy hoặc miễn giảm)
+   */
+  async approveEnrollment(enrollmentId: string, adminUser: string, amountPaid?: number, notes?: string) {
+    try {
+      const { data: enr } = await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .select('id, tuition_total, student_id, course_id')
+        .eq('id', enrollmentId)
+        .maybeSingle();
+
+      const finalPaid = amountPaid !== undefined ? amountPaid : (enr?.tuition_total || 9000000);
+
+      await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .update({
+          status: 'ENROLLED',
+          approval_status: 'APPROVED',
+          amount_paid: finalPaid,
+          approved_at: new Date().toISOString(),
+          approved_by: adminUser || 'ADMIN',
+          approval_notes: notes || `Admin duyệt tại quầy, thu ${finalPaid.toLocaleString('vi-VN')}đ`,
+        })
+        .eq('id', enrollmentId);
+
+      return {
+        success: true,
+        message: 'Đã duyệt học viên vào khóa học thành công!',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Lỗi khi duyệt hồ sơ',
+      };
+    }
   }
 
   /**

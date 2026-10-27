@@ -1198,7 +1198,7 @@ export const W17_EdemaAssessments: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Lê Thị Ánh Tuyết"
+                  placeholder="Nhập họ và tên bệnh nhân"
                   value={createForm.customerName}
                   onChange={(e) => setCreateForm({ ...createForm, customerName: e.target.value })}
                   className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -1212,7 +1212,7 @@ export const W17_EdemaAssessments: React.FC = () => {
                 <input
                   type="tel"
                   required
-                  placeholder="Ví dụ: 0912345678"
+                  placeholder="Nhập số điện thoại liên hệ"
                   value={createForm.customerPhone}
                   onChange={(e) => setCreateForm({ ...createForm, customerPhone: e.target.value })}
                   className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"

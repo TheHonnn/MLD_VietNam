@@ -357,6 +357,59 @@ export class PaymentsService {
         this.logger.warn(`[Invoice Insert Catch]: ${invErr}`);
       }
     }
+
+    // Tự động kiểm tra đối soát với Học viên / Khóa học theo mã khách hàng
+    try {
+      const orderDesc = String(paymentData?.description || mapping?.description || '').toUpperCase();
+      let targetEnrollmentId = mapping?.enrollmentId;
+
+      if (!targetEnrollmentId) {
+        const { data: pendingEnrs } = await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .select('id, student_id, approval_notes, student_phone, users:student_id(referral_code, phone)')
+          .or('approval_status.eq.PENDING_APPROVAL,status.eq.CONSULTING')
+          .limit(30);
+
+        if (pendingEnrs && pendingEnrs.length > 0) {
+          for (const enr of pendingEnrs) {
+            const userCode = String((enr.users as any)?.referral_code || '').toUpperCase();
+            const notesCode = String(enr.approval_notes || '').toUpperCase();
+            const phone = String(enr.student_phone || (enr.users as any)?.phone || '').replace(/\D/g, '');
+
+            if (userCode && orderDesc.includes(userCode)) {
+              targetEnrollmentId = enr.id;
+              break;
+            }
+            if (notesCode.includes(orderDesc) || (orderDesc.length >= 4 && notesCode.includes(orderDesc))) {
+              targetEnrollmentId = enr.id;
+              break;
+            }
+            if (phone.length >= 7 && orderDesc.includes(phone.slice(-7))) {
+              targetEnrollmentId = enr.id;
+              break;
+            }
+          }
+        }
+      }
+
+      if (targetEnrollmentId) {
+        await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .update({
+            status: 'ENROLLED',
+            approval_status: 'APPROVED',
+            amount_paid: amountPaid,
+            approved_by: 'PAYOS_AUTO_RECONCILIATION',
+            approved_at: new Date().toISOString(),
+            approval_notes: `[Tự động duyệt] Đã nhận thanh toán ${amountPaid.toLocaleString('vi-VN')}đ qua chuyển khoản VietQR MBBank.`,
+          })
+          .eq('id', targetEnrollmentId);
+
+        this.logger.log(`[Auto-Approve] Enrollment ${targetEnrollmentId} đã được tự động duyệt vào khóa học thành công!`);
+      }
+    } catch (enrErr) {
+      this.logger.warn(`[Auto-Approve Warning]: ${enrErr}`);
+    }
   }
 
   /**
