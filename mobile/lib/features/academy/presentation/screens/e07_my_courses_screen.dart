@@ -37,8 +37,6 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     final enrolled = AcademyRepository.instance.enrolledCourses;
     if (enrolled.isNotEmpty) {
       _expandedCourseIdForQuiz = enrolled.first.id;
-      _courseQuizzesCache[enrolled.first.id] =
-          MockAcademyData.getQuizzesForCourse(enrolled.first.id, enrolled.first.title);
       _loadQuizzesForCourse(enrolled.first);
     }
     _refreshCourses();
@@ -58,7 +56,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
   }
 
   void _loadQuizzesForCourse(CourseModel course) async {
-    if (_courseQuizzesCache.containsKey(course.id)) return;
+    if (_courseQuizzesCache.containsKey(course.id) && _courseQuizzesCache[course.id]!.isNotEmpty) return;
     setState(() => _isLoadingQuizzes = true);
     try {
       final list = await AcademyRepository.instance.getCourseQuizModels(course.id, course.title);
@@ -217,7 +215,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
   int _countPassedQuizzes(List<CourseModel> courses) {
     int passed = 0;
     for (final c in courses) {
-      final quizzes = _courseQuizzesCache[c.id] ?? MockAcademyData.getQuizzesForCourse(c.id, c.title);
+      final quizzes = _courseQuizzesCache[c.id] ?? [];
       for (final q in quizzes) {
         final sub = AcademyRepository.instance.getQuizSubmission(q.id);
         if (sub != null && sub.passed) passed++;
@@ -484,8 +482,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
         // Danh sách các khóa học đã đăng ký để học viên chọn
         ...enrolledCourses.map((course) {
           final isSelected = _expandedCourseIdForQuiz == course.id;
-          final quizzes = _courseQuizzesCache[course.id] ??
-              MockAcademyData.getQuizzesForCourse(course.id, course.title);
+          final quizzes = _courseQuizzesCache[course.id] ?? [];
 
           return Container(
             margin: const EdgeInsets.only(bottom: 16),

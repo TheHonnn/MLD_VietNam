@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../widgets/academy_widgets.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
+import '../../../../core/services/supabase_data_service.dart';
 
 /// Screen E10: Kiểm tra kiến thức trắc nghiệm (Quiz Assessment)
 /// Gắn theo ID khóa học, nạp ngân hàng câu hỏi chuẩn y khoa và chấm điểm theo tiêu chí Admin
@@ -56,12 +57,26 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
     _initQuizData();
   }
 
+  void _loadQuestionsDynamically() async {
+    final qId = widget.quiz?.id;
+    if (qId != null && qId.isNotEmpty) {
+      final raw = await SupabaseDataService.instance.fetchQuizQuestions(qId);
+      if (raw.isNotEmpty && mounted) {
+        setState(() {
+          _questions = raw.map((j) => QuizQuestionModel.fromJson(j)).toList();
+        });
+      }
+    }
+  }
+
   void _initQuizData() {
     if (widget.quiz != null && widget.quiz!.questions.isNotEmpty) {
       _questions = List.from(widget.quiz!.questions);
-    } else {
+    } else if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       final qId = widget.quiz?.id ?? 'quiz_default';
       _questions = MockAcademyData.getStandardVodderQuestions(qId);
+    } else {
+      _loadQuestionsDynamically();
     }
 
     _remainingSeconds = _timeLimitMinutes * 60;

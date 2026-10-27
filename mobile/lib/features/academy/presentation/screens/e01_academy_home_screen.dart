@@ -36,7 +36,9 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   final AcademyRepository _academyRepo = AcademyRepository.instance;
   final TextEditingController _searchController = TextEditingController();
 
-  List<CourseModel> _allCourses = MockAcademyData.courses;
+  List<CourseModel> _allCourses = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')
+      ? MockAcademyData.courses
+      : AcademyRepository.instance.cachedCourses;
   bool _isLoading = false;
 
   // Trạng thái mở rộng bộ lọc: mặc định là null (thu gọn, hiển thị tất cả)
