@@ -568,6 +568,10 @@ export interface CourseEnrollment {
   studentPhone?: string;
   studentEmail?: string;
   selectedBranch?: string;
+  approvalStatus?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  approvalNotes?: string;
   student?: User;
   course?: Course;
   batch?: CourseBatch;
