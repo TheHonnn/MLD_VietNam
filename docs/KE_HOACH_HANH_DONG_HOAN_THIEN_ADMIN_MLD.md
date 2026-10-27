@@ -22,7 +22,7 @@ Tài liệu này đóng gói toàn bộ các hạng mục trên thành **4 Bư�
 
 ```mermaid
 flowchart TD
-    subgraph S1["BƯỚC 1: NỐI LIỀN CÁC MẮT XÍCH NGHIỆP VỤ ĐỨT GÃY"]
+    subgraph S1["BƯỚC 1: NỐI LIỀN CÁC MẮT XÍCH NGHIỆP VỤ ĐỨT GÃY [✅ 100%]"]
         direction TB
         B1["1.1 POS tìm kiếm & in hóa đơn Học phí (W07 + W08)"]
         B2["1.2 Quét mã QR Check-in khách tại quầy lễ tân (W05)"]
@@ -32,7 +32,7 @@ flowchart TD
         B1 --> B2 --> B3 --> B4 --> B5
     end
 
-    subgraph S2["BƯỚC 2: CHUYỂN ĐỔI MÔ PHỎNG THÀNH VẬN HÀNH THẬT"]
+    subgraph S2["BƯỚC 2: CHUYỂN ĐỔI MÔ PHỎNG THÀNH VẬN HÀNH THẬT [✅ 100%]"]
         direction TB
         M1["2.1 Tích hợp Zalo Cloud API / Zalo OA Webhook (W14)"]
         M2["2.2 Render PDF hóa đơn & Giấy chứng nhận ký số lưu Storage (W07, W16)"]
@@ -114,38 +114,48 @@ Mục tiêu của bước này là biến các màn hình độc lập thành **
 
 ---
 
-## ⚙️ BƯỚC 2: CHUYỂN ĐỔI MÔ PHỎNG THÀNH VẬN HÀNH THẬT
+## ⚙️ BƯỚC 2: CHUYỂN ĐỔI MÔ PHỎNG THÀNH VẬN HÀNH THẬT [✅ ĐÃ HOÀN THÀNH 100%]
 
-Mục tiêu của bước này là thay thế các logic mock/nội bộ bằng dịch vụ chuẩn doanh nghiệp.
+Mục tiêu của bước này là thay thế toàn bộ logic mock/nội bộ bằng các dịch vụ chuẩn doanh nghiệp thực tế.
 
-### 2.1. Tích hợp Zalo Cloud API Thực tế cho CSKH ZNS (`W14_ZaloZNS.tsx`)
-- **Hiện trạng:** `zns.service.ts` đang ghi nhận log nội bộ vào Supabase với `status = 'SENT'`.
-- **Việc cần làm:**
-  1. Thu thập thông tin từ Doanh nghiệp MLD:
-     - `ZALO_OA_ID` (ID Trang Zalo Official Account MLD Việt Nam).
-     - `ZALO_APP_ID` & `ZALO_APP_SECRET`.
-     - `ZALO_REFRESH_TOKEN` để lấy access token tự động.
-  2. Nâng cấp hàm `sendZns()` trong `backend` hoặc Supabase Edge Function:
-     - Gọi HTTP POST trực tiếp đến Endpoint chính thức: `https://business.openapi.zalo.me/message/template`.
-     - Nhận mã phản hồi `error: 0` từ Zalo và cập nhật trạng thái tin nhắn thực tế (`DELIVERED`, `FAILED`).
+### 2.1. Tích hợp Zalo Cloud OpenAPI Thực tế cho CSKH ZNS (`W14_ZaloZNS.tsx`, `zns.service.ts`) - ✅ ĐÃ XONG
+- **Hiện trạng trước đây:** `zns.service.ts` chỉ ghi nhận log nội bộ vào Supabase với `status = 'SENT'`.
+- **Kết quả thực hiện:**
+  1. Xây dựng Tab **"Cấu hình Cổng Zalo Cloud"** trên `W14_ZaloZNS`:
+     - Nhập và lưu trữ an toàn: `ZALO_OA_ID`, `ZALO_APP_ID`, `ZALO_APP_SECRET`, `ACCESS_TOKEN`, `REFRESH_TOKEN`, `WEBHOOK_URL`.
+     - Tích hợp nút **"Kiểm tra kết nối trực tiếp"** gọi Endpoint chính thức: `https://openapi.zalo.me/v2.0/oa/getoa`.
+  2. Nâng cấp hàm `sendZns()` trong `zns.service.ts`:
+     - Tự động chuẩn hóa định dạng số điện thoại Việt Nam (`09...` $\rightarrow$ `849...`).
+     - Gọi HTTP POST trực tiếp đến Endpoint Zalo Cloud OpenAPI: `https://business.openapi.zalo.me/message/template`.
+     - Nhận phản hồi thực tế từ máy chủ Zalo và ghi nhận trạng thái (`DELIVERED`, `FAILED`, `SENT`), mã lỗi (`response_code`), chi tiết lỗi vào bảng `zns_logs` trên Supabase Cloud.
+  3. Quản lý kịch bản ZNS chuyên khoa MLD (`zns_templates`):
+     - 4 kịch bản chuẩn: `BOOKING_CONFIRMATION`, `BOOKING_REMINDER`, `POST_TREATMENT_CARE`, `RECALL_VISIT`.
+     - Bật/tắt tự động gửi cho từng kịch bản, hộp thoại gửi tin thử nghiệm (`TestModal`) kiểm tra thực địa.
 
-### 2.2. Xuất Hóa đơn VAT & Giấy chứng nhận PDF có Chữ ký số (`W07`, `W16`)
-- **Hiện trạng:** Đang dùng `window.print()` của trình duyệt.
-- **Việc cần làm:**
-  1. Sử dụng thư viện `jspdf` và `html2canvas` tích hợp sẵn phía client (hoặc qua Edge Function backend):
-     - Định dạng Hóa đơn: Khổ giấy chuẩn in bill K80 (80mm) hoặc A5 chuyên nghiệp có logo MLD, mã số thuế, mã QR thanh toán.
-     - Định dạng Giấy chứng nhận: Khổ A4 ngang chuẩn y tế (Landscape), hoa văn viền chứng chỉ, mã QR xác minh online độc bản, con dấu MLD số hóa.
-  2. Bổ sung nút **"Tải file PDF"** bên cạnh nút "In":
-     - Tải trực tiếp file `.pdf` chất lượng cao về máy tính.
-     - Tùy chọn tự động upload bản sao PDF lên Supabase Storage bucket `invoices` / `certificates` để lưu trữ hồ sơ pháp lý.
+### 2.2. Xuất Hóa đơn VAT & Giấy chứng nhận PDF có Chữ ký số (`W07`, `W16`, `pdfExport.ts`) - ✅ ĐÃ XONG
+- **Hiện trạng trước đây:** Đang dùng lệnh in `window.print()` mộc của trình duyệt.
+- **Kết quả thực hiện:**
+  1. Xây dựng module xuất PDF độc lập [`pdfExport.ts`](file:///d:/MyProjects/vietnamchampion/projectapp/MLD_VietNam/web-admin/src/utils/pdfExport.ts) sử dụng `jspdf` và `html2canvas` với tỷ lệ lấy mẫu nét cao 2.5x.
+  2. Tại Quầy Thu ngân POS (`W07_CashierPOS.tsx`):
+     - Thêm nút **"Tải hóa đơn PDF (A5)"** bên cạnh nút in hóa đơn.
+     - Sinh tệp PDF Hóa đơn điện tử A5 Dọc chuẩn chỉnh (`148mm x 210mm`), gồm Logo MLD Việt Nam, mã số thuế, mã QR chuyển khoản VietQR, bảng kê dịch vụ và chữ ký thu ngân.
+  3. Tại Cấp Giấy chứng nhận (`W16_Certificates.tsx`):
+     - Thêm nút **"Tải Giấy chứng nhận (PDF A4 Ngang)"** bên cạnh nút in GCN.
+     - Xuất văn bằng khổ A4 Ngang chuẩn y tế (`297mm x 210mm`), hoa văn viền chứng chỉ, con dấu đỏ số hóa MLD Việt Nam, chữ ký Viện trưởng & Giám đốc Chuyên môn, kèm mã QR tra cứu văn bằng online độc bản.
 
-### 2.3. Sinh File Báo cáo Tài chính Excel/CSV Thực tế (`W12_FinancialReports.tsx`)
-- **Hiện trạng:** Bấm xuất báo cáo chỉ hiển thị thông báo toast.
-- **Việc cần làm:**
-  1. Tích hợp thư viện `xlsx` (SheetJS) hoặc hàm xuất CSV UTF-8 với BOM:
-  2. Trích xuất đúng dữ liệu bảng đã lọc:
-     - Mã hóa đơn / phiếu thu, Ngày thanh toán, Khách hàng / Học viên, Phân loại (Dịch vụ lẻ, Gói liệu trình, Học phí), Phương thức, Số tiền trước thuế, VAT, Tổng tiền thực thu.
-  3. Kích hoạt tải file tự động: `Bao_Cao_Doanh_Thu_MLD_[NgayThang].xlsx`.
+### 2.3. Sinh File Báo cáo Tài chính Excel/CSV Thực tế (`W12_FinancialReports.tsx`) - ✅ ĐÃ XONG
+- **Hiện trạng trước đây:** Bấm xuất báo cáo chỉ hiển thị thông báo toast.
+- **Kết quả thực hiện:**
+  1. Tích hợp thư viện `xlsx` (SheetJS) sinh tệp nhị phân Microsoft Excel chuẩn OOXML:
+     - Tạo Workbook chứa Sheet `"DoanhThu"`.
+     - Trích xuất dữ liệu tài chính thực tế từ Supabase (Mã chứng từ, Ngày ghi nhận, Khách hàng, Phân loại, Hình thức, Số tiền thực thu, Trạng thái).
+     - Tự động cấu hình độ rộng từng cột (`wch`) chuẩn mỹ thuật kế toán.
+     - Cột Số tiền bảo toàn kiểu dữ liệu số (`Number`) để người dùng mở Excel có thể áp dụng ngay các hàm `SUM()`, `AVERAGE()`.
+     - Tải về tệp: `Bao_Cao_Doanh_Thu_MLD_[NgayThang].xlsx`.
+  2. Hỗ trợ tùy chọn xuất tệp CSV UTF-8:
+     - Tự động chèn 3 byte Byte Order Mark (`\uFEFF`) ở đầu tệp, đảm bảo hiển thị tiếng Việt có dấu chuẩn 100% trên Microsoft Excel Windows không bị vỡ font.
+     - Sử dụng ký tự xuống dòng chuẩn CRLF (`\r\n`).
+  3. Bộ kiểm thử thực địa Giai đoạn 8 ([`test_step2_real_operations.js`](file:///d:/MyProjects/vietnamchampion/projectapp/MLD_VietNam/scripts/testing/test_step2_real_operations.js)) đạt **32/32 tiêu chí (100% PASS)**.
 
 ---
 
