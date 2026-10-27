@@ -8,6 +8,7 @@ import {
   Info,
   X,
   CheckCircle2,
+  User as UserIcon,
 } from 'lucide-react';
 import { academyService, customerService, supabaseService } from '../services';
 import { toast } from '../components/common';
@@ -107,12 +108,12 @@ export const W08_Enrollment: React.FC = () => {
       const bat = batMap.get(enr.batchId || '');
 
       const custName = cust?.fullName || enr.studentName || `Học viên ${idx + 1}`;
-      const custPhone = cust?.phone || enr.studentPhone || '0900000000';
-      const custCode = cust?.referralCode || `HV-2026-${String(idx + 1).padStart(3, '0')}`;
-      const programTitle = crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên';
-      const batchCode = bat?.batchCode || 'K26-SPA-Q1';
+      const custPhone = cust?.phone || enr.studentPhone || '—';
+      const custCode = cust?.referralCode || `HV-${String(idx + 1).padStart(4, '0')}`;
+      const programTitle = crs?.title || 'Khóa học MLD';
+      const batchCode = bat?.batchCode || 'Chưa xếp lớp';
 
-      const total = enr.tuitionTotal || 15000000;
+      const total = enr.tuitionTotal || 0;
       const paid = enr.amountPaid || 0;
       const remaining = Math.max(0, total - paid);
 
@@ -132,7 +133,7 @@ export const W08_Enrollment: React.FC = () => {
 
       const stageLabel =
         stage === 'class_pending'
-          ? (isGraduated ? 'Tốt nghiệp' : 'Đang học')
+          ? (isGraduated ? 'Tốt nghiệp' : bat ? 'Đang học' : 'Chờ xếp lớp')
           : enr.status === 'ENROLLED'
           ? 'Đã nhập học / Ghi danh'
           : stage === 'payment_pending'
@@ -143,15 +144,15 @@ export const W08_Enrollment: React.FC = () => {
 
       const startDateFormatted = bat?.startDate
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(bat.startDate))
-        : '01/10/2026';
+        : 'Chưa có lịch';
 
-      const minDeposit = crs?.depositAmount || 2000000;
-      const depositDisplay = paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : `${minDeposit.toLocaleString('vi-VN')}đ`;
+      const minDeposit = crs?.depositAmount || 0;
+      const depositDisplay = paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : minDeposit > 0 ? `${minDeposit.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc';
 
       const initials = custName
         .split(' ')
         .filter(Boolean)
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .slice(-2)
         .join('')
         .toUpperCase();
@@ -164,19 +165,19 @@ export const W08_Enrollment: React.FC = () => {
         avatar: cust?.avatarUrl || undefined,
         initials: initials || 'HV',
         program: programTitle,
-        classBatch: `${batchCode} · ${bat?.scheduleText || 'Lịch chuẩn'}`,
+        classBatch: bat ? `${batchCode} · ${bat?.scheduleText || 'Lịch chuẩn'}` : 'Chưa xếp lớp',
         tuitionTotal: `${total.toLocaleString('vi-VN')}đ`,
         tuitionDeposit: paid > 0 ? `Đã thu ${paid.toLocaleString('vi-VN')}đ` : 'Chưa thu cọc',
         rawStatus: enr.status,
         stage,
         stageLabel,
-        experience: 'Đào tạo chuẩn nghề MLD',
-        branch: enr.selectedBranch || 'Quận 3',
-        expectedClass: batchCode,
+        experience: (enr as any).studentType === 'BEGINNER' ? 'Người mới bắt đầu' : (enr as any).studentType === 'ADVANCED' ? 'Đã có kinh nghiệm' : '—',
+        branch: enr.selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
+        expectedClass: bat ? batchCode : 'Chưa xếp lớp',
         startDate: startDateFormatted,
-        schedule: bat?.scheduleText || 'Thứ 2 - 4 - 6',
-        timeSlot: '08:30–11:30',
-        instructor: 'Master Trainer Nguyễn Thảo Ngọc',
+        schedule: bat?.scheduleText || 'Chưa có lịch',
+        timeSlot: bat?.scheduleText?.includes('13:00') ? '13:00–17:00' : bat?.scheduleText ? '08:30–11:30' : '—',
+        instructor: bat ? 'Theo lớp học' : 'Chưa phân công',
         contractTuition: `${total.toLocaleString('vi-VN')}đ`,
         requiredDeposit: depositDisplay,
         remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
@@ -199,7 +200,7 @@ export const W08_Enrollment: React.FC = () => {
       id: '',
       name: 'Chưa có hồ sơ',
       code: 'HV-000',
-      phone: '',
+      phone: '—',
       program: 'Chưa chọn khóa học',
       classBatch: 'Chưa xếp lớp',
       tuitionTotal: '0đ',
@@ -207,19 +208,59 @@ export const W08_Enrollment: React.FC = () => {
       rawStatus: EnrollmentStatus.CONSULTING,
       stage: 'new',
       stageLabel: 'Hồ sơ mới',
-      experience: '',
-      branch: 'Quận 3',
-      expectedClass: '',
-      startDate: '',
-      schedule: '',
-      timeSlot: '',
-      instructor: '',
+      experience: '—',
+      branch: '—',
+      expectedClass: '—',
+      startDate: '—',
+      schedule: '—',
+      timeSlot: '—',
+      instructor: '—',
       contractTuition: '0đ',
       requiredDeposit: '0đ',
       remainingAmount: '0đ',
       statusBadge: 'Chưa có hồ sơ',
       buttonLabel: 'Tạo hồ sơ',
     };
+
+  // Dynamic pending tasks strictly derived from real candidates
+  const pendingTasks = useMemo(() => {
+    const tasks: { title: string; desc: string }[] = [];
+
+    // 1. Unpaid or partially paid students
+    candidatesData
+      .filter((c) => c.stage === 'payment_pending' || (c.stage === 'consulting' && c.remainingAmount !== '0đ'))
+      .slice(0, 3)
+      .forEach((c) => {
+        tasks.push({
+          title: 'Thu học phí còn lại theo lộ trình',
+          desc: `Học viên ${c.name} (${c.code}): Còn ${c.remainingAmount} cần hoàn tất cho khóa ${c.program}.`,
+        });
+      });
+
+    // 2. Students not yet assigned to class
+    candidatesData
+      .filter((c) => c.expectedClass === 'Chưa xếp lớp' && (c.stage === 'class_pending' || c.stage === 'payment_pending'))
+      .slice(0, 3)
+      .forEach((c) => {
+        tasks.push({
+          title: 'Xếp lớp đào tạo cho học viên',
+          desc: `Học viên ${c.name} (${c.code}): Đã đăng ký ${c.program} nhưng chưa được phân lớp học.`,
+        });
+      });
+
+    // 3. New leads needing consultation
+    candidatesData
+      .filter((c) => c.stage === 'new')
+      .slice(0, 2)
+      .forEach((c) => {
+        tasks.push({
+          title: 'Tư vấn tuyển sinh hồ sơ mới',
+          desc: `Học viên ${c.name} (SĐT: ${c.phone}): Vừa gửi thông tin quan tâm khóa học ${c.program}.`,
+        });
+      });
+
+    return tasks;
+  }, [candidatesData]);
 
   const handleCreateCandidate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -702,25 +743,22 @@ export const W08_Enrollment: React.FC = () => {
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
             <h2 className="text-base font-bold text-[#2C241E]">Việc cần làm</h2>
 
-            {/* Task 1 */}
-            <div className="bg-[#F3E2CE] rounded-2xl p-4 space-y-1">
-              <div className="text-xs font-bold text-[#2C241E]">
-                Thu học phí đợt 2 theo lộ trình đào tạo
+            {pendingTasks.length === 0 ? (
+              <div className="bg-[#FAF7F2] rounded-xl p-4 text-center text-xs text-[#73675F] border border-[#EFE4D9]">
+                Hiện tại không có việc tồn đọng cần xử lý.
               </div>
-              <div className="text-xs text-[#73675F] leading-relaxed">
-                Học viên Bùi Khương Duy (HV-2026-002): Còn 7.000.000đ học phí đợt 2 trước khi bắt đầu phần thực hành chuyên sâu.
-              </div>
-            </div>
-
-            {/* Task 2 */}
-            <div className="bg-[#F3E2CE] rounded-2xl p-4 space-y-1">
-              <div className="text-xs font-bold text-[#2C241E]">
-                Xếp lớp đào tạo khóa mới
-              </div>
-              <div className="text-xs text-[#73675F] leading-relaxed">
-                Học viên Xuân Trường (HV-2026-001): Đã hoàn tất 100% học phí 18.500.000đ qua giao dịch TT-2026-001.
-              </div>
-            </div>
+            ) : (
+              pendingTasks.map((task, idx) => (
+                <div key={idx} className="bg-[#F3E2CE] rounded-2xl p-4 space-y-1">
+                  <div className="text-xs font-bold text-[#2C241E]">
+                    {task.title}
+                  </div>
+                  <div className="text-xs text-[#73675F] leading-relaxed">
+                    {task.desc}
+                  </div>
+                </div>
+              ))
+            )}
 
             {/* Footer Note */}
             <div className="text-xs text-[#73675F] pt-1">
@@ -733,147 +771,161 @@ export const W08_Enrollment: React.FC = () => {
         <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5 min-w-0">
           <h2 className="text-base font-bold text-[#2C241E]">Hồ sơ đang chọn</h2>
 
-          {/* Candidate Profile Summary */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-3">
-              {selectedCandidate.avatar ? (
-                <img
-                  src={selectedCandidate.avatar}
-                  alt={selectedCandidate.name}
-                  className="w-10 h-10 rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-sm flex items-center justify-center shrink-0">
-                  {selectedCandidate.initials}
+          {!selectedCandidate.id ? (
+            <div className="py-12 text-center text-[#73675F]">
+              <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018] mx-auto mb-2.5">
+                <UserIcon className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-bold text-[#2C241E]">Chưa có hồ sơ học viên nào</p>
+              <p className="text-[11px] text-[#8C7A6B] mt-1">
+                Tạo hồ sơ tuyển sinh mới hoặc chọn hồ sơ từ danh sách để xem chi tiết.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Candidate Profile Summary */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-3">
+                  {selectedCandidate.avatar ? (
+                    <img
+                      src={selectedCandidate.avatar}
+                      alt={selectedCandidate.name}
+                      className="w-10 h-10 rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-sm flex items-center justify-center shrink-0">
+                      {selectedCandidate.initials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="font-bold text-xs text-[#2C241E] truncate">
+                      {selectedCandidate.name}
+                    </div>
+                    <div className="text-[11px] text-[#73675F] truncate">
+                      {selectedCandidate.phone} · {selectedCandidate.code}
+                    </div>
+                  </div>
                 </div>
-              )}
-              <div className="min-w-0">
-                <div className="font-bold text-xs text-[#2C241E] truncate">
-                  {selectedCandidate.name}
-                </div>
-                <div className="text-[11px] text-[#73675F] truncate">
-                  {selectedCandidate.phone} · {selectedCandidate.code}
+
+                <div>
+                  <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
+                    {selectedCandidate.statusBadge}
+                  </span>
                 </div>
               </div>
-            </div>
 
-            <div>
-              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-                {selectedCandidate.statusBadge}
-              </span>
-            </div>
-          </div>
+              {/* Program Title */}
+              <div className="text-xs font-bold text-[#2C241E] pt-1 border-t border-[#EFE4D9]">
+                {selectedCandidate.program}
+              </div>
 
-          {/* Program Title */}
-          <div className="text-xs font-bold text-[#2C241E] pt-1 border-t border-[#EFE4D9]">
-            {selectedCandidate.program}
-          </div>
+              {/* Key-Value Details */}
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Kinh nghiệm trước đó</span>
+                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.experience}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Chi nhánh</span>
+                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.branch}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Lớp dự kiến</span>
+                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.expectedClass}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Bắt đầu</span>
+                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.startDate}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Lịch học</span>
+                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.schedule}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Khung giờ</span>
+                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.timeSlot}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Giảng viên</span>
+                  <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.instructor}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Học phí hợp đồng</span>
+                  <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.contractTuition}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Cọc cần thu</span>
+                  <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.requiredDeposit}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
+                  <span className="shrink-0 whitespace-nowrap">Còn lại trả sau</span>
+                  <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.remainingAmount}</span>
+                </div>
+              </div>
 
-          {/* Key-Value Details */}
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Kinh nghiệm trước đó</span>
-              <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.experience}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Chi nhánh</span>
-              <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.branch}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Lớp dự kiến</span>
-              <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.expectedClass}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Bắt đầu</span>
-              <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.startDate}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Lịch học</span>
-              <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.schedule}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Khung giờ</span>
-              <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.timeSlot}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Giảng viên</span>
-              <span className="text-[#2C241E] font-medium text-right truncate">{selectedCandidate.instructor}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Học phí hợp đồng</span>
-              <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.contractTuition}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Cọc cần thu</span>
-              <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.requiredDeposit}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[#73675F] py-0.5">
-              <span className="shrink-0 whitespace-nowrap">Còn lại trả sau</span>
-              <span className="text-[#2C241E] font-bold text-right shrink-0">{selectedCandidate.remainingAmount}</span>
-            </div>
-          </div>
+              {/* Status banner with dynamic colors */}
+              <div
+                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
+                  selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED
+                    ? 'bg-[#E8F6ED] text-[#0D6832]'
+                    : selectedCandidate.rawStatus === EnrollmentStatus.STUDYING
+                    ? 'bg-[#EBF5FB] text-[#1B4F72]'
+                    : selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED
+                    ? 'bg-[#FEF9E7] text-[#7D6608]'
+                    : 'bg-[#F3E2CE] text-[#8A4F23]'
+                }`}
+              >
+                <Clock className="w-4 h-4 stroke-[2]" />
+                <span>Trạng thái: {selectedCandidate.stageLabel}</span>
+              </div>
 
-          {/* Status banner with dynamic colors */}
-          <div
-            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
-              selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED
-                ? 'bg-[#E8F6ED] text-[#0D6832]'
-                : selectedCandidate.rawStatus === EnrollmentStatus.STUDYING
-                ? 'bg-[#EBF5FB] text-[#1B4F72]'
-                : selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED
-                ? 'bg-[#FEF9E7] text-[#7D6608]'
-                : 'bg-[#F3E2CE] text-[#8A4F23]'
-            }`}
-          >
-            <Clock className="w-4 h-4 stroke-[2]" />
-            <span>Trạng thái: {selectedCandidate.stageLabel}</span>
-          </div>
+              {/* Interactive FSM Action buttons */}
+              {selectedCandidate.id && (
+                <div className="space-y-2 pt-1">
+                  {selectedCandidate.rawStatus === EnrollmentStatus.CONSULTING && (
+                    <button
+                      type="button"
+                      disabled={isUpdatingStatus}
+                      onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.ENROLLED)}
+                      className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Ghi nhận đóng cọc / Nhập học'}</span>
+                    </button>
+                  )}
 
-          {/* Interactive FSM Action buttons */}
-          {selectedCandidate.id && (
-            <div className="space-y-2 pt-1">
-              {selectedCandidate.rawStatus === EnrollmentStatus.CONSULTING && (
-                <button
-                  type="button"
-                  disabled={isUpdatingStatus}
-                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.ENROLLED)}
-                  className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Ghi nhận đóng cọc / Nhập học'}</span>
-                </button>
-              )}
+                  {selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED && (
+                    <button
+                      type="button"
+                      disabled={isUpdatingStatus}
+                      onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.STUDYING)}
+                      className="w-full py-2.5 bg-[#1B4F72] hover:bg-[#153e5b] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xếp lớp & Bắt đầu học'}</span>
+                    </button>
+                  )}
 
-              {selectedCandidate.rawStatus === EnrollmentStatus.ENROLLED && (
-                <button
-                  type="button"
-                  disabled={isUpdatingStatus}
-                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.STUDYING)}
-                  className="w-full py-2.5 bg-[#1B4F72] hover:bg-[#153e5b] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xếp lớp & Bắt đầu học'}</span>
-                </button>
-              )}
+                  {selectedCandidate.rawStatus === EnrollmentStatus.STUDYING && (
+                    <button
+                      type="button"
+                      disabled={isUpdatingStatus}
+                      onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.GRADUATED)}
+                      className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xét tốt nghiệp & Cấp chứng chỉ'}</span>
+                    </button>
+                  )}
 
-              {selectedCandidate.rawStatus === EnrollmentStatus.STUDYING && (
-                <button
-                  type="button"
-                  disabled={isUpdatingStatus}
-                  onClick={() => handleUpdateEnrollmentStatus(selectedCandidate.id, EnrollmentStatus.GRADUATED)}
-                  className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xét tốt nghiệp & Cấp chứng chỉ'}</span>
-                </button>
-              )}
-
-              {selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED && (
-                <div className="p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-xs font-bold text-center border border-[#C2E8D1]">
-                  🎓 Học viên đã tốt nghiệp xuất sắc
+                  {selectedCandidate.rawStatus === EnrollmentStatus.GRADUATED && (
+                    <div className="p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-xs font-bold text-center border border-[#C2E8D1]">
+                      🎓 Học viên đã tốt nghiệp xuất sắc
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {/* Footnote */}

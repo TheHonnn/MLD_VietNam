@@ -64,7 +64,7 @@ DO $$ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enrollment_status') THEN
         CREATE TYPE enrollment_status AS ENUM (
-            'CONSULTING', 'DEPOSITED', 'ENROLLED', 'STUDYING', 'GRADUATED', 'DROPPED'
+            'PENDING_APPROVAL', 'CONSULTING', 'DEPOSITED', 'ENROLLED', 'STUDYING', 'GRADUATED', 'DROPPED'
         );
     END IF;
 
@@ -859,11 +859,20 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
     student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     batch_id UUID REFERENCES course_batches(id) ON DELETE SET NULL,
-    status enrollment_status NOT NULL DEFAULT 'CONSULTING',
+    status enrollment_status NOT NULL DEFAULT 'PENDING_APPROVAL',
     tuition_total NUMERIC(12, 2) NOT NULL DEFAULT 9000000.00,
     amount_paid NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     completed_lessons_count INT NOT NULL DEFAULT 0,
     progress_percent INT NOT NULL DEFAULT 0 CHECK (progress_percent >= 0 AND progress_percent <= 100),
+    student_name VARCHAR(150),
+    student_phone VARCHAR(20),
+    student_email VARCHAR(150),
+    selected_branch VARCHAR(250) DEFAULT 'Chi nhánh Quận 3 - TP.HCM',
+    student_type VARCHAR(50) DEFAULT 'BEGINNER',
+    approval_status VARCHAR(50) NOT NULL DEFAULT 'PENDING_APPROVAL',
+    approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    approved_at TIMESTAMPTZ,
+    approval_notes TEXT,
     enrolled_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

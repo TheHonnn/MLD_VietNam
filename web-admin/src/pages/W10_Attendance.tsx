@@ -190,7 +190,7 @@ export const W10_Attendance: React.FC = () => {
         avatar: cust?.avatarUrl || undefined,
         initials,
         courseName: courseTitle,
-        batchAndBranch: `${bat?.batchCode || 'K26-SPA-Q1'} · ${branchName}`,
+        batchAndBranch: bat ? `${bat.batchCode} · ${branchName}` : `Chưa xếp lớp · ${branchName}`,
         progressPercent: progress,
         progressText: `${progress}% · ${completedLessons}/${totalLessons} bài`,
         attendanceSessions: `${attended}/${totalAttendedPossible} buổi`,
@@ -640,7 +640,7 @@ export const W10_Attendance: React.FC = () => {
                   Khóa hiện tại đã ghi danh
                 </div>
                 <div className="text-xs text-[#73675F] leading-relaxed">
-                  K26-SPA-Q1 · 12 tuần / 144 giờ: 48 giờ lý thuyết và 96 giờ thực hành. Học viên theo học đúng lộ trình đào tạo tiêu chuẩn của học viện MLD.
+                  {selectedStudent?.batchAndBranch ? `${selectedStudent.batchAndBranch}: ` : ''}Học viên theo học đúng lộ trình đào tạo tiêu chuẩn của học viện MLD.
                 </div>
               </div>
 

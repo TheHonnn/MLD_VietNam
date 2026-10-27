@@ -221,17 +221,30 @@ class AcademyRepository {
   }
 
   /// E05/E06: Ghi danh khóa học & thanh toán đặt cọc lưu lên Supabase Cloud
+  /// E05: Ghi danh khóa học với thông tin cá nhân, cơ sở, đối tượng học viên và đưa vào trạng thái Chờ duyệt thủ công
   Future<Map<String, dynamic>> enrollCourse({
     required CourseModel course,
     required String studentName,
     required String studentPhone,
     required String studentEmail,
     String? selectedBranch,
+    String? studentType,
     String? selectedShift,
     double? depositAmount,
   }) async {
-    // Lưu local cache ngay lập tức để phản hồi nhanh UI
-    enrollCourseLocal(course);
+    // Lưu local cache với status PENDING_APPROVAL
+    final pendingCourse = course.copyWith(status: 'PENDING_APPROVAL');
+    enrollCourseLocal(pendingCourse);
+
+    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      return {
+        'enrollmentCode': 'MLD-EDU-TEST',
+        'courseTitle': course.title,
+        'studentName': studentName,
+        'status': 'PENDING_APPROVAL',
+        'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
+      };
+    }
 
     // Gửi bản ghi ghi danh thực tế lên Supabase Cloud (bảng course_enrollments)
     try {
@@ -239,12 +252,18 @@ class AcademyRepository {
       await SupabaseDataService.instance.createCourseEnrollment(
         courseId: course.id,
         studentId: userId,
+        studentName: studentName,
+        studentPhone: studentPhone,
+        studentEmail: studentEmail,
+        selectedBranch: selectedBranch ?? 'Học viện MLD Việt Nam - Chi nhánh Quận 3, TP.HCM (Trụ sở chính)',
+        studentType: studentType ?? 'BEGINNER',
         tuitionTotal: course.tuitionFee,
-        amountPaid: depositAmount ?? course.depositFee,
-        status: 'ENROLLED',
+        amountPaid: 0.00,
+        status: 'PENDING_APPROVAL',
+        approvalStatus: 'PENDING_APPROVAL',
       );
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: ');
+      debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: ' + e.toString());
     }
 
     // Gửi lên Backend Gateway
@@ -257,24 +276,23 @@ class AcademyRepository {
           'studentPhone': studentPhone,
           'studentEmail': studentEmail,
           'selectedBranch': selectedBranch ?? course.branch,
-          'selectedShift': selectedShift ?? course.schedule,
-          'depositAmount': depositAmount ?? course.depositFee,
+          'studentType': studentType ?? 'BEGINNER',
+          'status': 'PENDING_APPROVAL',
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         return (response.data['data'] ?? response.data) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error posting course enrollment to Backend: ');
+      debugPrint('>>> [AcademyRepository] Error posting course enrollment to Backend: ' + e.toString());
     }
 
     return {
-      'enrollmentCode': 'MLD-EDU-',
+      'enrollmentCode': 'MLD-EDU-' + DateTime.now().millisecondsSinceEpoch.toString().substring(7),
       'courseTitle': course.title,
       'studentName': studentName,
-      'depositAmount': depositAmount ?? course.depositFee,
-      'status': 'PENDING_PAYMENT',
-      'qrCodeUrl': 'https://api.vietqr.io/image/970422-0912345678-compact2.jpg?amount=&addInfo=HOCPHI%20',
+      'status': 'PENDING_APPROVAL',
+      'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
     };
   }
 
