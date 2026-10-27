@@ -28,6 +28,9 @@ import {
   InventoryConsumptionLog,
   StudentCertificate,
   EdemaAssessment,
+  BatchSchedule,
+  StudentAttendance,
+  AttendanceStatus,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -2314,6 +2317,144 @@ class SupabaseService {
       console.warn('[SupabaseService] updateEdemaAssessment error:', err);
     }
     return null;
+  }
+
+  // --- Thời khóa biểu buổi học (Batch Schedules) ---
+  public async getBatchSchedules(batchId: string): Promise<BatchSchedule[]> {
+    if (!batchId || !isUuid(batchId)) return [];
+    try {
+      const res = await this.query<any[]>(
+        `batch_schedules?batch_id=eq.${batchId}&order=session_date.asc,start_time.asc`
+      );
+      if (Array.isArray(res)) {
+        return res.map((r) => ({
+          id: r.id,
+          batchId: r.batch_id,
+          assignedRoomId: r.assigned_room_id,
+          sessionDate: r.session_date,
+          startTime: (r.start_time || '').slice(0, 5),
+          endTime: (r.end_time || '').slice(0, 5),
+          topic: r.topic,
+          isPracticeLab: Boolean(r.is_practice_lab),
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] getBatchSchedules error:', err);
+    }
+    return [];
+  }
+
+  public async seedBatchSchedules(batchId: string, startDateStr?: string): Promise<BatchSchedule[]> {
+    if (!batchId || !isUuid(batchId)) return [];
+    const baseDate = startDateStr ? new Date(startDateStr) : new Date();
+    const curriculumTopics = [
+      { topic: 'Buổi 1: Nhập môn & Giải phẫu hệ bạch huyết Vodder chuẩn Y khoa', lab: false },
+      { topic: 'Buổi 2: Kỹ thuật thao tác dẫn lưu mặt & cổ (Thực hành Vodder)', lab: true },
+      { topic: 'Buổi 3: Dẫn lưu hạch nách & kỹ thuật mở đường bạch huyết chi trên', lab: true },
+      { topic: 'Buổi 4: Dẫn lưu hạch bẹn & phác đồ giảm phù nề chi dưới (Lab)', lab: true },
+      { topic: 'Buổi 5: Dẫn lưu ổ bụng sâu & phục hồi phù nề sau phẫu thuật', lab: true },
+      { topic: 'Buổi 6: Phác đồ cá nhân hóa, chỉ định & chống chỉ định y khoa', lab: false },
+      { topic: 'Buổi 7: Thực hành lâm sàng toàn thân trên người mẫu thật', lab: true },
+      { topic: 'Buổi 8: Thi sát hạch tay nghề lâm sàng & đánh giá chứng chỉ', lab: true },
+    ];
+
+    const records = curriculumTopics.map((item, idx) => {
+      const sessionDate = new Date(baseDate.getTime() + idx * 3 * 86400000);
+      const dateStr = sessionDate.toISOString().split('T')[0];
+      return {
+        batch_id: batchId,
+        session_date: dateStr,
+        start_time: '13:30:00',
+        end_time: '17:00:00',
+        topic: item.topic,
+        is_practice_lab: item.lab,
+      };
+    });
+
+    try {
+      const res = await this.query<any[]>('batch_schedules', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(records),
+      });
+      if (Array.isArray(res)) {
+        return res.map((r) => ({
+          id: r.id,
+          batchId: r.batch_id,
+          assignedRoomId: r.assigned_room_id,
+          sessionDate: r.session_date,
+          startTime: (r.start_time || '').slice(0, 5),
+          endTime: (r.end_time || '').slice(0, 5),
+          topic: r.topic,
+          isPracticeLab: Boolean(r.is_practice_lab),
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] seedBatchSchedules error:', err);
+    }
+    return this.getBatchSchedules(batchId);
+  }
+
+  // --- Điểm danh học viên (Student Attendance) ---
+  public async getAttendanceForSchedules(scheduleIds: string[]): Promise<StudentAttendance[]> {
+    if (!scheduleIds || scheduleIds.length === 0) return [];
+    const validIds = scheduleIds.filter(isUuid);
+    if (validIds.length === 0) return [];
+
+    try {
+      const res = await this.query<any[]>(
+        `student_attendance?schedule_id=in.(${validIds.join(',')})`
+      );
+      if (Array.isArray(res)) {
+        return res.map((r) => ({
+          id: r.id,
+          scheduleId: r.schedule_id,
+          enrollmentId: r.enrollment_id,
+          status: r.status as AttendanceStatus,
+          checkInTime: r.check_in_time,
+          notes: r.notes,
+          markedById: r.marked_by_id,
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] getAttendanceForSchedules error:', err);
+    }
+    return [];
+  }
+
+  public async saveBatchAttendance(
+    records: Array<{
+      scheduleId: string;
+      enrollmentId: string;
+      status: AttendanceStatus | string;
+      notes?: string;
+    }>
+  ): Promise<boolean> {
+    if (!records || records.length === 0) return false;
+
+    try {
+      const rows = records.map((rec) => ({
+        schedule_id: rec.scheduleId,
+        enrollment_id: rec.enrollmentId,
+        status: rec.status,
+        check_in_time: new Date().toISOString(),
+        notes: rec.notes || null,
+      }));
+
+      // Supabase POST with resolution=merge-duplicates on uq_attendance (schedule_id, enrollment_id)
+      const res = await this.query<any[]>('student_attendance', {
+        method: 'POST',
+        headers: {
+          Prefer: 'resolution=merge-duplicates,return=representation',
+        },
+        body: JSON.stringify(rows),
+      });
+
+      return Boolean(res);
+    } catch (err) {
+      console.warn('[SupabaseService] saveBatchAttendance error:', err);
+      return false;
+    }
   }
 }
 

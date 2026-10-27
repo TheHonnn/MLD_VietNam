@@ -9,10 +9,30 @@ import {
   CheckCircle2,
   BookOpen,
   Search,
+  Calendar,
+  Clock,
+  Check,
+  Save,
+  Sparkles,
+  Users,
+  Award,
+  AlertCircle,
+  RefreshCw,
+  GraduationCap,
+  Layers,
 } from 'lucide-react';
 import { academyService, customerService, staffService, StaffWithProfile } from '../services';
-import { CourseEnrollment, CourseBatch, Course, User } from '../types/shared_types';
+import {
+  CourseEnrollment,
+  CourseBatch,
+  Course,
+  User,
+  BatchSchedule,
+  StudentAttendance,
+  AttendanceStatus,
+} from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
+import { toast } from '../components/common';
 
 interface CompletedCourseRecord {
   courseName: string;
@@ -128,6 +148,168 @@ export const W10_Attendance: React.FC = () => {
     };
     fetchAttendanceData();
   }, []);
+
+  // Tab view: 'matrix' (Ma trận buổi học) or 'roster' (Hồ sơ chuyên cần học viên)
+  const [activeTab, setActiveTab] = useState<'matrix' | 'roster'>('matrix');
+
+  // Matrix State
+  const [selectedBatchId, setSelectedBatchId] = useState<string>('');
+  const [batchSchedules, setBatchSchedules] = useState<BatchSchedule[]>([]);
+  const [attendanceGrid, setAttendanceGrid] = useState<Record<string, Record<string, AttendanceStatus>>>({});
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState<boolean>(false);
+  const [isSavingAttendance, setIsSavingAttendance] = useState<boolean>(false);
+
+  // Auto-select first batch if none selected
+  useEffect(() => {
+    if (liveBatches.length > 0 && !selectedBatchId) {
+      setSelectedBatchId(liveBatches[0].id);
+    }
+  }, [liveBatches, selectedBatchId]);
+
+  // Load schedules and attendance whenever selectedBatchId changes
+  useEffect(() => {
+    if (!selectedBatchId) return;
+
+    const loadMatrixData = async () => {
+      try {
+        setIsLoadingSchedules(true);
+        const schRes = await academyService.getBatchSchedules(selectedBatchId);
+        if (schRes.success && schRes.data) {
+          setBatchSchedules(schRes.data);
+
+          if (schRes.data.length > 0) {
+            const schIds = schRes.data.map((s) => s.id);
+            const attRes = await academyService.getAttendanceForSchedules(schIds);
+            if (attRes.success && attRes.data) {
+              const newGrid: Record<string, Record<string, AttendanceStatus>> = {};
+              attRes.data.forEach((att) => {
+                if (!newGrid[att.scheduleId]) newGrid[att.scheduleId] = {};
+                newGrid[att.scheduleId][att.enrollmentId] = att.status;
+              });
+              setAttendanceGrid(newGrid);
+            }
+          } else {
+            setAttendanceGrid({});
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi tải ma trận điểm danh:', err);
+      } finally {
+        setIsLoadingSchedules(false);
+      }
+    };
+
+    loadMatrixData();
+  }, [selectedBatchId]);
+
+  const activeBatch = useMemo(() => {
+    return liveBatches.find((b) => b.id === selectedBatchId) || liveBatches[0];
+  }, [liveBatches, selectedBatchId]);
+
+  const activeBatchInstructor = useMemo(() => {
+    if (!activeBatch?.instructorId) return undefined;
+    return instructors.find((i) => i.id === activeBatch.instructorId);
+  }, [activeBatch, instructors]);
+
+  const batchStudents = useMemo(() => {
+    if (!selectedBatchId) return liveEnrollments;
+    const directMatches = liveEnrollments.filter(
+      (e) => e.batchId === selectedBatchId || e.batch?.id === selectedBatchId
+    );
+    if (directMatches.length > 0) return directMatches;
+    return liveEnrollments;
+  }, [liveEnrollments, selectedBatchId]);
+
+  const getCellStatus = (scheduleId: string, enrollmentId: string): AttendanceStatus => {
+    return attendanceGrid[scheduleId]?.[enrollmentId] || AttendanceStatus.PRESENT;
+  };
+
+  const handleToggleCell = (scheduleId: string, enrollmentId: string) => {
+    const current = getCellStatus(scheduleId, enrollmentId);
+    let next: AttendanceStatus;
+    if (current === AttendanceStatus.PRESENT) next = AttendanceStatus.LATE;
+    else if (current === AttendanceStatus.LATE) next = AttendanceStatus.EXCUSED;
+    else if (current === AttendanceStatus.EXCUSED) next = AttendanceStatus.ABSENT;
+    else next = AttendanceStatus.PRESENT;
+
+    setAttendanceGrid((prev) => ({
+      ...prev,
+      [scheduleId]: {
+        ...(prev[scheduleId] || {}),
+        [enrollmentId]: next,
+      },
+    }));
+  };
+
+  const handleMarkAllPresentForSchedule = (scheduleId: string) => {
+    setAttendanceGrid((prev) => {
+      const scheduleMap = { ...(prev[scheduleId] || {}) };
+      batchStudents.forEach((st) => {
+        scheduleMap[st.id] = AttendanceStatus.PRESENT;
+      });
+      return {
+        ...prev,
+        [scheduleId]: scheduleMap,
+      };
+    });
+    showToast('Đã đánh dấu tất cả học viên có mặt cho buổi học!');
+  };
+
+  const handleSeedSchedules = async () => {
+    if (!selectedBatchId) return;
+    setIsLoadingSchedules(true);
+    try {
+      const res = await academyService.seedBatchSchedules(selectedBatchId, activeBatch?.startDate);
+      if (res.success && res.data) {
+        setBatchSchedules(res.data);
+        showToast('Đã khởi tạo thành công 8 buổi học chuẩn phác đồ Vodder!');
+      } else {
+        toast.error('Lỗi', 'Không thể khởi tạo thời khóa biểu.');
+      }
+    } catch {
+      toast.error('Lỗi', 'Có lỗi xảy ra khi tạo lịch học.');
+    } finally {
+      setIsLoadingSchedules(false);
+    }
+  };
+
+  const handleSaveAttendance = async () => {
+    if (batchSchedules.length === 0 || batchStudents.length === 0) {
+      toast.info('Thông báo', 'Chưa có buổi học hoặc học viên để lưu điểm danh.');
+      return;
+    }
+
+    setIsSavingAttendance(true);
+    try {
+      const recordsToSave: Array<{
+        scheduleId: string;
+        enrollmentId: string;
+        status: AttendanceStatus;
+      }> = [];
+
+      batchSchedules.forEach((sch) => {
+        batchStudents.forEach((st) => {
+          const status = getCellStatus(sch.id, st.id);
+          recordsToSave.push({
+            scheduleId: sch.id,
+            enrollmentId: st.id,
+            status,
+          });
+        });
+      });
+
+      const res = await academyService.saveBatchAttendance(recordsToSave);
+      if (res.success) {
+        showToast('Đã lưu thành công dữ liệu điểm danh lên Supabase Cloud!');
+      } else {
+        toast.error('Lỗi lưu điểm danh', res.message || 'Vui lòng thử lại sau.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err?.message || 'Không thể kết nối đến máy chủ.');
+    } finally {
+      setIsSavingAttendance(false);
+    }
+  };
 
   const studentsData: StudentRecord[] = useMemo(() => {
     if (!liveEnrollments || liveEnrollments.length === 0) return [];
@@ -264,25 +446,318 @@ export const W10_Attendance: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Header Title & Top CTA */}
+      {/* 1. Header Title & Top Navigation Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#2C241E]">Học viên</h1>
+          <h1 className="text-2xl font-bold text-[#2C241E]">Quản Lý Chuyên Cần & Học Viên</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Quản lý tiến độ học tập, chuyên cần và kết quả · {filteredStudents.length} học viên theo học.
+            Điểm danh thời khóa biểu từng buổi học · Sổ chuyên cần & tiến độ học tập MLD Academy.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsUpdateModalOpen(true)}
-          className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
-        >
-          Cập nhật học tập
-        </button>
+        <div className="flex items-center gap-3">
+          {/* View Switcher Tabs */}
+          <div className="flex items-center p-1 bg-[#FAF5EF] border border-[#EFE4D9] rounded-2xl shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab('matrix')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === 'matrix'
+                  ? 'bg-[#8D4B1A] text-white shadow-xs'
+                  : 'text-[#73675F] hover:text-[#2C241E]'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Ma trận Buổi học</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('roster')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === 'roster'
+                  ? 'bg-[#8D4B1A] text-white shadow-xs'
+                  : 'text-[#73675F] hover:text-[#2C241E]'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Hồ sơ Chuyên cần</span>
+            </button>
+          </div>
+
+          {activeTab === 'roster' && (
+            <button
+              onClick={() => setIsUpdateModalOpen(true)}
+              className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
+            >
+              Cập nhật học tập
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* 2. Search & Filter Bar */}
-      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
+      {activeTab === 'matrix' && (
+        <div className="space-y-4">
+          {/* Top Control Bar for Matrix */}
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-[#73675F] uppercase tracking-wider block">
+                  Chọn Lớp học / Khóa đào tạo:
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedBatchId}
+                    onChange={(e) => setSelectedBatchId(e.target.value)}
+                    className="h-10 pl-3.5 pr-9 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#2C241E] focus:outline-none focus:border-[#8D4B1A] cursor-pointer appearance-none min-w-[260px]"
+                  >
+                    {liveBatches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.batchCode || 'Khóa mới'} — {b.course?.title || liveCourses.find((c) => c.id === b.courseId)?.title || 'Khóa MLD'}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {activeBatch && (
+                <div className="text-xs text-[#73675F] border-l border-[#EFE4D9] pl-3 py-1 space-y-0.5 hidden md:block">
+                  <div className="font-semibold text-[#2C241E]">
+                    Giảng viên: <span className="text-[#8D4B1A] font-bold">{activeBatchInstructor?.fullName || (activeBatchInstructor as any)?.name || 'ThS. Nguyễn Thảo Ngọc'}</span>
+                  </div>
+                  <div>
+                    Lịch: <span className="font-medium text-[#2C241E]">{activeBatch.scheduleText || 'Thứ 7 – Chủ nhật'}</span> · Quy mô: {batchStudents.length} học viên
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {batchSchedules.length === 0 ? (
+                <button
+                  type="button"
+                  disabled={isLoadingSchedules}
+                  onClick={handleSeedSchedules}
+                  className="px-4 py-2.5 bg-[#FAF0E4] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Khởi tạo 8 buổi học chuẩn phác đồ</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isSavingAttendance}
+                  onClick={handleSaveAttendance}
+                  className="px-5 py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingAttendance ? 'Đang lưu...' : 'Lưu điểm danh lên hệ thống'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Matrix Grid Table */}
+          {isLoadingSchedules ? (
+            <div className="p-12 text-center text-xs text-[#73675F] bg-white rounded-2xl border border-[#EFE4D9]">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#8D4B1A] mb-2" />
+              Đang tải danh sách buổi học và dữ liệu điểm danh...
+            </div>
+          ) : batchSchedules.length === 0 ? (
+            <div className="p-10 text-center bg-white rounded-2xl border border-[#EFE4D9] space-y-3">
+              <Calendar className="w-10 h-10 text-[#A69788] mx-auto" />
+              <h3 className="text-sm font-bold text-[#2C241E]">Lớp học này chưa có thời khóa biểu từng buổi</h3>
+              <p className="text-xs text-[#73675F] max-w-md mx-auto">
+                Bấm vào nút bên dưới để tự động tạo 8 buổi học lâm sàng theo phác đồ dẫn lưu bạch huyết Vodder chuẩn Y khoa.
+              </p>
+              <button
+                type="button"
+                onClick={handleSeedSchedules}
+                className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Khởi tạo 8 buổi học ngay</span>
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#FAF8F5] border-b border-[#EFE4D9]">
+                      <th className="p-3.5 font-bold text-[#3E200C] sticky left-0 bg-[#FAF8F5] z-10 min-w-[200px] border-r border-[#EFE4D9]">
+                        Học viên ({batchStudents.length})
+                      </th>
+                      {batchSchedules.map((sch, sIdx) => (
+                        <th
+                          key={sch.id}
+                          className="p-3 text-center min-w-[110px] border-r border-[#EFE4D9] last:border-r-0"
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-extrabold text-[#3E200C] text-[11px]">
+                              Buổi {sIdx + 1}
+                            </span>
+                            <span className="text-[10px] text-[#73675F] font-mono">
+                              {sch.sessionDate?.split('-').reverse().slice(0, 2).join('/')}
+                            </span>
+                            {sch.isPracticeLab ? (
+                              <span className="text-[9px] bg-sky-50 text-sky-700 px-1.5 py-0.2 rounded font-bold border border-sky-200">
+                                Thực hành
+                              </span>
+                            ) : (
+                              <span className="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded font-bold border border-amber-200">
+                                Lý thuyết
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleMarkAllPresentForSchedule(sch.id)}
+                              title="Đánh dấu cả lớp có mặt cho buổi này"
+                              className="text-[9px] text-[#8D4B1A] hover:underline font-bold mt-0.5 cursor-pointer"
+                            >
+                              + All Có mặt
+                            </button>
+                          </div>
+                        </th>
+                      ))}
+                      <th className="p-3.5 text-center font-bold text-[#3E200C] min-w-[90px]">
+                        Tỷ lệ (%)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#EFE4D9]">
+                    {batchStudents.map((st) => {
+                      const presentCount = batchSchedules.filter(
+                        (sch) => getCellStatus(sch.id, st.id) === AttendanceStatus.PRESENT
+                      ).length;
+                      const attendanceRate =
+                        batchSchedules.length > 0
+                          ? Math.round((presentCount / batchSchedules.length) * 100)
+                          : 100;
+
+                      return (
+                        <tr key={st.id} className="hover:bg-[#FAF8F5]/60 transition-colors">
+                          <td className="p-3.5 sticky left-0 bg-white z-10 border-r border-[#EFE4D9] font-medium">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-[#FAF0E4] border border-[#E8DFD8] text-[#8D4B1A] font-bold text-xs flex items-center justify-center shrink-0">
+                                {st.studentName?.slice(0, 2).toUpperCase() || 'HV'}
+                              </div>
+                              <div className="truncate">
+                                <div className="font-bold text-[#2C241E] truncate max-w-[140px]">
+                                  {st.studentName || 'Học viên'}
+                                </div>
+                                <div className="text-[10px] text-[#73675F] truncate">
+                                  {st.studentPhone || st.orderCode || '--'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {batchSchedules.map((sch) => {
+                            const status = getCellStatus(sch.id, st.id);
+                            return (
+                              <td
+                                key={sch.id}
+                                className="p-2.5 text-center border-r border-[#EFE4D9] last:border-r-0"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleCell(sch.id, st.id)}
+                                  className={`w-9 h-9 rounded-xl font-extrabold text-xs transition-all cursor-pointer inline-flex items-center justify-center shadow-2xs ${
+                                    status === AttendanceStatus.PRESENT
+                                      ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300'
+                                      : status === AttendanceStatus.LATE
+                                      ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300'
+                                      : status === AttendanceStatus.EXCUSED
+                                      ? 'bg-sky-100 hover:bg-sky-200 text-sky-800 border border-sky-300'
+                                      : 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300'
+                                  }`}
+                                  title={`Bấm để đổi trạng thái. Hiện tại: ${
+                                    status === AttendanceStatus.PRESENT
+                                      ? 'Có mặt'
+                                      : status === AttendanceStatus.LATE
+                                      ? 'Đi trễ'
+                                      : status === AttendanceStatus.EXCUSED
+                                      ? 'Có phép'
+                                      : 'Vắng mặt'
+                                  }`}
+                                >
+                                  {status === AttendanceStatus.PRESENT
+                                    ? 'P'
+                                    : status === AttendanceStatus.LATE
+                                    ? 'L'
+                                    : status === AttendanceStatus.EXCUSED
+                                    ? 'E'
+                                    : 'A'}
+                                </button>
+                              </td>
+                            );
+                          })}
+
+                          <td className="p-3 text-center font-bold">
+                            <span
+                              className={`px-2 py-1 rounded-full text-[11px] font-extrabold ${
+                                attendanceRate >= 80
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : attendanceRate >= 60
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              }`}
+                            >
+                              {attendanceRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Legend footer */}
+              <div className="p-3.5 bg-[#FAF8F5] border-t border-[#EFE4D9] flex flex-wrap items-center justify-between gap-3 text-xs text-[#73675F]">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="font-semibold text-[#2C241E]">Ký hiệu:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] border border-emerald-300">
+                      P
+                    </span>
+                    <span>Có mặt (Present)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-[10px] border border-amber-300">
+                      L
+                    </span>
+                    <span>Đi trễ (Late)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-sky-100 text-sky-800 font-bold flex items-center justify-center text-[10px] border border-sky-300">
+                      E
+                    </span>
+                    <span>Có phép (Excused)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-rose-100 text-rose-800 font-bold flex items-center justify-center text-[10px] border border-rose-300">
+                      A
+                    </span>
+                    <span>Vắng mặt (Absent)</span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-[#8C7A6B]">
+                  💡 Bấm vào ô chữ (P/L/E/A) để chuyển nhanh trạng thái điểm danh cho từng học viên.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'roster' && (
+        <div className="space-y-4">
+          {/* 2. Search & Filter Bar */}
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -752,6 +1227,8 @@ export const W10_Attendance: React.FC = () => {
           </button>
         </div>
       </div>
+    </div>
+  )}
 
       {/* 4. Bottom Page Disclaimer */}
       <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">

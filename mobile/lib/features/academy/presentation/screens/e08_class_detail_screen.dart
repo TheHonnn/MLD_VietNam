@@ -32,12 +32,12 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
   String get _courseId => widget.course?.id ?? '30303030-0001-0001-0001-000000000001';
 
   bool get _isEnrolled {
-    if (widget.course == null) return true;
+    if (widget.course == null) return false;
     return AcademyRepository.instance.isCourseEnrolled(widget.course!.id, widget.course!.title);
   }
 
   bool get _isApproved {
-    if (widget.course == null) return true;
+    if (widget.course == null) return false;
     return AcademyRepository.instance.isCourseApproved(widget.course!.id, widget.course!.title);
   }
 
@@ -480,7 +480,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                           lessons: isExpanded
                               ? chapter.lessons.map((lesson) {
                                   final isDone = AcademyRepository.instance.isLessonCompleted(_courseId, lesson.id);
-                                  final isUnlocked = AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons);
+                                  final isUnlocked = (lesson.isFreePreview) || (_isApproved && AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons));
                                   final ytid = _extractYoutubeId(lesson.videoUrl);
 
                                   return InkWell(

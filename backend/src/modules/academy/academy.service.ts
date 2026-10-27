@@ -412,6 +412,8 @@ export class AcademyService {
           .update({
             status: 'ENROLLED',
             approval_status: 'APPROVED',
+            student_status: 'APPROVED',
+            payment_status: 'PAID',
             amount_paid: matchedAmount,
             approved_at: new Date().toISOString(),
             approved_by: 'HỆ THỐNG TỰ ĐỘNG',
@@ -474,6 +476,8 @@ export class AcademyService {
         .update({
           status: 'ENROLLED',
           approval_status: 'APPROVED',
+          student_status: 'APPROVED',
+          payment_status: 'PAID',
           amount_paid: finalPaid,
           approved_at: new Date().toISOString(),
           approved_by: adminUser || 'ADMIN',
