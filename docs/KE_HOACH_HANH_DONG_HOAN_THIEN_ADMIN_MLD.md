@@ -230,7 +230,7 @@ Mọi thay đổi code sau mỗi bước bắt buộc phải tuân thủ nghiêm
 | **Nghiệm thu Thực địa Đầu cuối Bước 3 (Master UAT)** | `test_step3_uat_acceptance.js` (Học viện & Spa) | **P0** | ✅ Đã xong 100% |
 | **Tự động Refresh Zalo Token (OAuth v4) & Webhook Ngân Hàng** | `payments.service.ts`, `tasks.service.ts`, `W14_ZaloZNS.tsx` | **P0** | ✅ Đã xong 100% |
 | **Khóa bảo vệ khẩn cấp RLS Bước 1 (ZNS & Y khoa/Tài chính)** | Migration 010 (`zns_config`, `edema`, `journal`, `invoices`) | **P0** | ✅ Đã xong 100% |
-| **Bộ kiểm thử tự động 11 giai đoạn & Build Production** | `scripts/testing` (11/11 phases), `web-admin`, `backend` | **P0** | ✅ Đã xong 100% |
+| **Bộ kiểm thử tự động 12 giai đoạn & Build Production** | `scripts/testing` (12/12 phases), `web-admin`, `backend` | **P0** | ✅ Đã xong 100% |
 
 ---
 
