@@ -171,6 +171,7 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
               ) : (
                 displayBatches.map((batch) => {
                   const isSelected = selectedBatchId === batch.id;
+                  const isFull = Boolean(batch.maxStudents && (batch.enrolledCount || 0) >= batch.maxStudents);
                   const instName =
                     instMap.get(batch.instructorId || '') ||
                     batch.instructorId ||
@@ -183,19 +184,28 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
                   return (
                     <div
                       key={batch.id}
-                      onClick={() => setSelectedBatchId(batch.id)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3.5 ${
-                        isSelected
-                          ? 'bg-[#FBF6EE] border-[#8D4B1A] shadow-xs ring-1 ring-[#8D4B1A]'
-                          : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6]'
+                      onClick={() => {
+                        if (!isFull) {
+                          setSelectedBatchId(batch.id);
+                        }
+                      }}
+                      className={`p-3.5 rounded-xl border transition-all flex items-start gap-3.5 ${
+                        isFull
+                          ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
+                          : isSelected
+                          ? 'bg-[#FBF6EE] border-[#8D4B1A] shadow-xs ring-1 ring-[#8D4B1A] cursor-pointer'
+                          : 'bg-white border-[#EFE4D9] hover:border-[#D7BBA6] cursor-pointer'
                       }`}
                     >
                       <input
                         type="radio"
                         name="courseBatch"
+                        disabled={isFull}
                         checked={isSelected}
-                        onChange={() => setSelectedBatchId(batch.id)}
-                        className="mt-1 text-[#8D4B1A] focus:ring-[#8D4B1A] cursor-pointer"
+                        onChange={() => {
+                          if (!isFull) setSelectedBatchId(batch.id);
+                        }}
+                        className="mt-1 text-[#8D4B1A] focus:ring-[#8D4B1A] cursor-pointer disabled:cursor-not-allowed"
                       />
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -206,10 +216,15 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
                             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#EBF5FB] text-[#1B4F72]">
                               {branchLabel}
                             </span>
+                            {isFull && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                                Lớp đã đủ sĩ số
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[11px] font-semibold text-[#8D4B1A] flex items-center gap-1">
+                          <span className={`text-[11px] font-semibold flex items-center gap-1 ${isFull ? 'text-rose-600 font-bold' : 'text-[#8D4B1A]'}`}>
                             <Users className="w-3.5 h-3.5" />
-                            {batch.enrolledCount || 1}/{batch.maxStudents || 15} học viên
+                            {batch.enrolledCount || 0}/{batch.maxStudents || 15} học viên
                           </span>
                         </div>
 

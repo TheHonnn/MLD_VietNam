@@ -124,12 +124,8 @@ export const TECHNICIAN_ROOM_MAP: Record<string, string> = {
   'cccccccc-0001-0001-0001-000000000007': 'Phòng Thải Độc Thảo Dược',
 };
 
-export const DEFAULT_FALLBACK_TECHNICIANS: ScheduleTechnician[] = [
-  { id: 'cccccccc-0001-0001-0001-000000000001', name: 'Trần Lan Anh', room: 'Phòng VIP 01 - Hoa Sen', role: 'Chuyên viên Trị liệu Cấp cao', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956' },
-  { id: 'cccccccc-0001-0001-0001-000000000002', name: 'Lê Quỳnh Nga', room: 'Phòng Massage Body 02', role: 'Chuyên viên Chăm sóc da & Dưỡng sinh', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2' },
-  { id: 'cccccccc-0001-0001-0001-000000000003', name: 'Nguyễn Thu Hà', room: 'Phòng Gội Đầu Dưỡng Sinh 03', role: 'Chuyên viên Chăm sóc Da & Phục hồi', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2' },
-  { id: 'cccccccc-0001-0001-0001-000000000004', name: 'Trần Minh Phương', room: 'Phòng Trị Liệu 04', role: 'Kỹ thuật viên Trị liệu & Bấm huyệt', avatar: 'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848' },
-];
+export const DEFAULT_FALLBACK_TECHNICIANS: ScheduleTechnician[] = [];
+
 
 export interface ScheduleValidationResult {
   isOverdue: boolean;
@@ -392,7 +388,7 @@ export const W05_StaffSchedule: React.FC = () => {
     }
 
     if (list.length === 0) {
-      return DEFAULT_FALLBACK_TECHNICIANS;
+      return [];
     }
 
     const validRooms = rooms.filter(
@@ -1020,12 +1016,12 @@ export const W05_StaffSchedule: React.FC = () => {
 
     setIsCreating(true);
     try {
-      const srv = services.find((s) => s.id === selectedServiceId) || services[0] || {
-        id: 'eeeeeeee-0001-0001-0001-000000000001',
-        name: 'Chăm sóc Da Mặt Chuyên Sâu Hydro-Care',
-        price: 650000,
-        durationMinutes: 75,
-      };
+      const srv = services.find((s) => s.id === selectedServiceId) || services[0];
+      if (!srv) {
+        toast.error('Chưa có dịch vụ', 'Vui lòng cấu hình dịch vụ trước khi lên lịch hẹn.');
+        setIsCreating(false);
+        return;
+      }
 
       const tech = branchTechnicians.find((t) => t.id === selectedTechId) || branchTechnicians[0];
       const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
@@ -1452,7 +1448,16 @@ export const W05_StaffSchedule: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
+          {timetableColumns.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] p-12 text-center shadow-xs">
+              <UserIcon className="w-10 h-10 mx-auto text-[#BA7E4C] opacity-40 mb-3" />
+              <p className="font-bold text-sm text-[#2C241E]">Chưa có kỹ thuật viên trực tại chi nhánh</p>
+              <p className="text-xs text-[#8C7A6B] mt-1 max-w-md mx-auto">
+                Hiện chưa có kỹ thuật viên hoặc lịch hẹn nào trong ngày đã chọn. Bạn có thể bấm "Đặt lịch mới" hoặc quản lý nhân viên trong mục Hồ sơ nhân viên.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
             <div className="w-max min-w-full inline-block align-top">
               {/* Timetable Header Row */}
               <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full">
@@ -1631,9 +1636,9 @@ export const W05_StaffSchedule: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
             </div>
           </div>
+          )}
 
           {/* Empty Notice if zero appointments on selected date */}
           {displayedAppointments.length === 0 && (

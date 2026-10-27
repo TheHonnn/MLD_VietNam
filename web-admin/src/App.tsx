@@ -198,7 +198,7 @@ const AppContent: React.FC = () => {
               path="attendance"
               element={
                 <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
-                  <Navigate to="/manage/student_attendance" replace />
+                  <W10_Attendance />
                 </RoleRoute>
               }
             />
