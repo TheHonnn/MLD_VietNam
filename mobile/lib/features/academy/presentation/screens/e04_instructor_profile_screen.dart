@@ -297,7 +297,7 @@ class E04InstructorProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            ...MockAcademyData.courses.take(2).map((c) => Padding(
+            ...(AcademyRepository.instance.cachedCourses.isNotEmpty ? AcademyRepository.instance.cachedCourses : MockAcademyData.courses).take(2).map((c) => Padding(
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _buildCourseSubCard(context, c),
                 )),

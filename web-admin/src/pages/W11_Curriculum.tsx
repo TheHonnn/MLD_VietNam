@@ -407,36 +407,13 @@ export const W11_Curriculum: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Header Title & Top CTA */}
+      {/* 1. Header Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Vận hành đào tạo</h1>
           <p className="text-xs text-[#73675F] mt-1">
             Lớp học, phòng thực hành, bài thi Quiz & bản quyền video · Tuần 12/10/2026 – 18/10/2026
           </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => setIsQuizModalOpen(true)}
-            className="px-3.5 py-2.5 bg-white border border-[#D7BBA6] hover:bg-[#FAF5EF] text-[#8D4B1A] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            <HelpCircle className="w-4 h-4 text-[#8D4B1A]" />
-            Ngân hàng Quiz & Điểm thi
-          </button>
-          <button
-            onClick={() => setIsVideoSecurityModalOpen(true)}
-            className="px-3.5 py-2.5 bg-white border border-[#D7BBA6] hover:bg-[#FAF5EF] text-[#8D4B1A] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            <ShieldCheck className="w-4 h-4 text-[#8D4B1A]" />
-            Bảo mật Video & Watermark
-          </button>
-          <button
-            onClick={() => setIsAddClassModalOpen(true)}
-            className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
-          >
-            Tạo lớp học
-          </button>
         </div>
       </div>
 

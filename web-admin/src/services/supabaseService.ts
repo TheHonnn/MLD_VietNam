@@ -1424,6 +1424,10 @@ class SupabaseService {
       completedLessonsCount: Number(e.completed_lessons_count || 0),
       progressPercent: Number(e.progress_percent || 0),
       enrolledAt: e.enrolled_at,
+      studentName: e.student_name,
+      studentPhone: e.student_phone,
+      studentEmail: e.student_email,
+      selectedBranch: e.selected_branch,
     }));
   }
 

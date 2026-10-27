@@ -22,10 +22,10 @@ export class EnrollCourseDto {
   @IsString()
   studentPhone: string;
 
-  @ApiProperty({ description: 'Email học viên', example: 'nam.nguyen@example.com' })
-  @IsNotEmpty({ message: 'Email không được để trống' })
-  @IsEmail({}, { message: 'Email không đúng định dạng' })
-  studentEmail: string;
+  @ApiProperty({ description: 'Email học viên', required: false, example: 'nam.nguyen@example.com' })
+  @IsOptional()
+  @IsString()
+  studentEmail?: string;
 
   @ApiProperty({ description: 'Chi nhánh đăng ký học', required: false, example: 'Chi nhánh Quận 3' })
   @IsOptional()
