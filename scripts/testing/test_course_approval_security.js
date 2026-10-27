@@ -191,7 +191,10 @@ async function runCourseApprovalSecurityTests() {
   // ----------------------------------------------------------------------
   console.log('\n[PHẦN 3] Kiểm thử tương tác trực tiếp với Supabase Cloud Database:');
 
-  const client = new Client({ connectionString });
+  const client = new Client({
+    connectionString,
+    ssl: { rejectUnauthorized: false }
+  });
   await client.connect();
 
   try {
