@@ -1,5 +1,7 @@
 import {
   Course,
+  CourseChapter,
+  CourseLesson,
   CourseBatch,
   CourseEnrollment,
   TuitionTransaction,
@@ -71,6 +73,48 @@ export const academyService = {
         statusCode: 500,
         message: 'Lỗi khi tìm khóa học từ Supabase',
         data: undefined,
+      };
+    }
+  },
+
+  // --- Chương học (Chapters) ---
+  async getCourseChapters(courseId?: string): Promise<ApiResponse<CourseChapter[]>> {
+    try {
+      const live = await supabaseService.getCourseChapters(courseId);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu chương học từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getCourseChapters failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn chương học từ Supabase Cloud',
+        data: [],
+      };
+    }
+  },
+
+  // --- Bài học (Lessons) ---
+  async getCourseLessons(chapterId?: string): Promise<ApiResponse<CourseLesson[]>> {
+    try {
+      const live = await supabaseService.getCourseLessons(chapterId);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu bài học từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getCourseLessons failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn bài học từ Supabase Cloud',
+        data: [],
       };
     }
   },

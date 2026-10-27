@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="MLD Vietnam Medical Healthcare App">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -29,8 +29,21 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>medical_healthcare_app</title>
+  <title>MLD Việt Nam - Học Viện & Trị Liệu</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Chống click chuột phải và phím tắt sao chép / chụp màn hình trên nền tảng Web
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      return false;
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || (e.ctrlKey && e.keyCode === 85) || e.keyCode === 44) {
+        e.preventDefault();
+        return false;
+      }
+    });
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

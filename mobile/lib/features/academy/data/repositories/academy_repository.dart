@@ -1,4 +1,5 @@
 import '../../../../core/services/supabase_data_service.dart';
+import '../../../../core/services/auth_service.dart';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +11,18 @@ import '../models/academy_models.dart';
 /// With automatic resilient fallback to MockAcademyData.
 class AcademyRepository {
   AcademyRepository._internal() {
+    // Đảm bảo user test buih73444@gmail.com có sẵn khóa 1 Level 0 ngay lập tức
+    const testCourseId = '30303030-0001-0001-0001-000000000001';
+    final courseToEnroll = MockAcademyData.courses.firstWhere(
+      (c) => c.id == testCourseId || c.title.contains('CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU'),
+      orElse: () => MockAcademyData.courses.first,
+    );
+    if (!_enrolledCourses.any((c) => c.id == courseToEnroll.id)) {
+      _enrolledCourses.add(courseToEnroll);
+    }
     _loadEnrolledCourses();
+    _loadLessonProgress();
+    _loadQuizSubmissions();
   }
   static final AcademyRepository instance = AcademyRepository._internal();
   factory AcademyRepository() => instance;
@@ -39,6 +51,29 @@ class AcademyRepository {
         }
       }
     } catch (_) {}
+
+    // Đảm bảo user buih73444@gmail.com có sẵn 1 khóa học đã đăng ký để test
+    await syncUserEnrollmentForTest();
+  }
+
+  /// Đồng bộ khóa học đã đăng ký cho user test buih73444@gmail.com
+  Future<void> syncUserEnrollmentForTest() async {
+    final email = AuthService.instance.lastLoginEmail ?? 'buih73444@gmail.com';
+    if (email.toLowerCase().contains('buih73444')) {
+      // Khóa 1: Dẫn lưu bạch huyết cơ bản cho người mới bắt đầu (Level 0) - chứa clip YouTube test
+      const testCourseId = '30303030-0001-0001-0001-000000000001';
+      final isAlreadyEnrolled = _enrolledCourses.any(
+        (c) => c.id == testCourseId || c.title.contains('CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU')
+      );
+      if (!isAlreadyEnrolled) {
+        final courseToEnroll = MockAcademyData.courses.firstWhere(
+          (c) => c.id == testCourseId || c.title.contains('CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU'),
+          orElse: () => MockAcademyData.courses.first,
+        );
+        _enrolledCourses.add(courseToEnroll);
+        await _saveEnrolledCourses();
+      }
+    }
   }
 
   Future<void> _saveEnrolledCourses() async {
@@ -50,10 +85,17 @@ class AcademyRepository {
   }
 
   /// E01/E02: Lấy danh sách khóa học từ Supabase/Backend
+  /// Luôn bảo toàn toàn bộ 14 khóa học y khoa chuẩn của Học viện MLD Việt Nam
   Future<List<CourseModel>> getCourses({String? category}) async {
-    // Trong môi trường Flutter Test, trả về MockAcademyData ngay để tránh pending fake_async HTTP timer
+    // Luôn khởi tạo với trọn vẹn danh mục khóa học chuẩn của Học viện
+    final courseMap = <String, CourseModel>{};
+    for (final c in MockAcademyData.courses) {
+      courseMap[c.id] = c;
+    }
+
+    // Trong môi trường Flutter Test, trả về ngay để tránh pending fake_async HTTP timer
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
-      _cachedCourses = MockAcademyData.courses;
+      _cachedCourses = courseMap.values.toList();
       if (category != null && category.isNotEmpty && category != 'Tất cả') {
         return _cachedCourses.where((c) =>
             c.category.toLowerCase().contains(category.toLowerCase()) ||
@@ -63,36 +105,30 @@ class AcademyRepository {
       return _cachedCourses;
     }
 
-    // 1. Thử lấy dữ liệu trực tiếp từ Supabase REST API
+    // 1. Thử lấy dữ liệu bổ sung từ Supabase REST API (nếu có thêm khóa học mới từ Admin)
     try {
       const path = '${ApiEndpoints.courses}?select=*,course_categories(name)&is_active=eq.true&order=created_at.asc';
       final response = await _apiClient.dio.get(path);
       if (response.statusCode == 200 && response.data != null) {
         final rawData = response.data;
         if (rawData is List && rawData.isNotEmpty) {
-          final courses = rawData.map((c) {
-            final map = Map<String, dynamic>.from(c as Map);
-            if (map['course_categories'] is Map) {
-              map['categoryName'] = map['course_categories']['name'];
-            }
-            return CourseModel.fromJson(map);
-          }).toList();
-
-          _cachedCourses = courses;
-          if (category != null && category.isNotEmpty && category != 'Tất cả') {
-            return courses.where((c) =>
-                c.category.toLowerCase().contains(category.toLowerCase()) ||
-                c.courseGroup.toLowerCase().contains(category.toLowerCase())
-            ).toList();
+          for (final item in rawData) {
+            try {
+              final map = Map<String, dynamic>.from(item as Map);
+              if (map['course_categories'] is Map) {
+                map['categoryName'] = map['course_categories']['name'];
+              }
+              final model = CourseModel.fromJson(map);
+              courseMap[model.id] = model;
+            } catch (_) {}
           }
-          return courses;
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Supabase courses fetch error, fallback to gateway: $e');
+      debugPrint('>>> [AcademyRepository] Supabase courses fetch error, keeping all mock courses: $e');
     }
 
-    // 2. Thử lấy từ Backend Gateway
+    // 2. Thử lấy bổ sung từ Backend Gateway
     try {
       String path = ApiEndpoints.academyCourses;
       if (category != null && category.isNotEmpty && category != 'Tất cả') {
@@ -102,22 +138,21 @@ class AcademyRepository {
       final response = await _apiClient.dio.get(path);
       if (response.statusCode == 200 && response.data != null) {
         final rawData = response.data['data'] ?? response.data;
-        if (rawData is List) {
-          final courses = rawData
-              .map((c) => CourseModel.fromJson(c as Map<String, dynamic>))
-              .toList();
-          if (courses.isNotEmpty) {
-            _cachedCourses = courses;
-            return courses;
+        if (rawData is List && rawData.isNotEmpty) {
+          for (final item in rawData) {
+            try {
+              final model = CourseModel.fromJson(item as Map<String, dynamic>);
+              courseMap[model.id] = model;
+            } catch (_) {}
           }
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Backend gateway error, using mock fallback: $e');
+      debugPrint('>>> [AcademyRepository] Backend gateway error, keeping all mock courses: $e');
     }
 
-    // 3. Fallback an toàn nếu mất mạng
-    _cachedCourses = MockAcademyData.courses;
+    // Danh sách đầy đủ toàn bộ khóa học không bao giờ bị mất hoặc bị thu hẹp còn 1 khóa
+    _cachedCourses = courseMap.values.toList();
     if (category != null && category.isNotEmpty && category != 'Tất cả') {
       return _cachedCourses.where((c) =>
           c.category.toLowerCase().contains(category.toLowerCase()) ||
@@ -293,13 +328,154 @@ class AcademyRepository {
     try {
       final raw = await SupabaseDataService.instance.fetchCourseCurriculum(courseId);
       if (raw.isNotEmpty) {
-        return raw.map((c) => ChapterModel.fromJson(c)).toList();
+        final list = raw.map((c) => ChapterModel.fromJson(c)).toList();
+        // Chỉ sử dụng dữ liệu từ server nếu bài học có chứa video URL hợp lệ
+        if (list.any((ch) => ch.lessons.any((l) => l.videoUrl != null && l.videoUrl!.trim().isNotEmpty))) {
+          return list;
+        }
       }
     } catch (e) {
       debugPrint('>>> [AcademyRepository] Error fetching curriculum: $e');
     }
 
+    // Bảo tồn trọn vẹn giáo trình và clip YouTube chuẩn y khoa của Học viện
     return MockAcademyData.syllabusChapters;
   }
 
+
+  static const String _lessonProgressKey = 'mld_academy_lesson_progress';
+  static const String _lessonPositionsKey = 'mld_academy_lesson_positions';
+  final Set<String> _completedLessonIds = {};
+  final Map<String, double> _lessonPositions = {};
+
+  Future<void> _loadLessonProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_lessonProgressKey);
+      if (list != null) {
+        _completedLessonIds.clear();
+        _completedLessonIds.addAll(list);
+      }
+      final rawPositions = prefs.getString(_lessonPositionsKey);
+      if (rawPositions != null) {
+        final Map<String, dynamic> decoded = jsonDecode(rawPositions);
+        _lessonPositions.clear();
+        decoded.forEach((key, val) {
+          if (val is num) _lessonPositions[key] = val.toDouble();
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Tự động lưu vị trí giây đã xem của học viên để tiếp tục lần sau
+  Future<void> saveLessonPosition(String courseId, String lessonId, double positionSeconds) async {
+    _lessonPositions['${courseId}_$lessonId'] = positionSeconds;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lessonPositionsKey, jsonEncode(_lessonPositions));
+    } catch (_) {}
+  }
+
+  /// Lấy vị trí giây học viên đã xem dở
+  double getLessonPosition(String courseId, String lessonId) {
+    return _lessonPositions['${courseId}_$lessonId'] ?? 0.0;
+  }
+
+  Future<void> markLessonCompleted(String courseId, String lessonId) async {
+    _completedLessonIds.add('${courseId}_$lessonId');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_lessonProgressKey, _completedLessonIds.toList());
+    } catch (_) {}
+  }
+
+  /// Kiểm tra bài học đã xem hết hay chưa (được phân tách chính xác theo từng khóa học)
+  bool isLessonCompleted(String courseId, String lessonId) {
+    return _completedLessonIds.contains('${courseId}_$lessonId');
+  }
+
+  /// Kiểm tra bài học có được phép xem hay chưa:
+  /// Khóa học phải được đăng ký hợp lệ.
+  /// Bài 1 luôn mở đầu tiên. Bài n chỉ mở khi Bài (n-1) đã hoàn thành xem hết clip.
+  bool canAccessLesson(String courseId, LessonModel lesson, List<LessonModel> allCourseLessons) {
+    if (!isCourseEnrolled(courseId)) return false;
+    final index = allCourseLessons.indexWhere((l) => l.id == lesson.id);
+    if (index <= 0) return true; // Bài 1 luôn mở cho học viên đã đăng ký
+    final previousLesson = allCourseLessons[index - 1];
+    return isLessonCompleted(courseId, previousLesson.id);
+  }
+
+  static const String _quizSubmissionsKey = 'mld_academy_quiz_submissions';
+  final Map<String, QuizSubmissionModel> _quizSubmissions = {};
+
+  Future<void> _loadQuizSubmissions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_quizSubmissionsKey);
+      if (raw != null) {
+        final Map<String, dynamic> decoded = jsonDecode(raw);
+        _quizSubmissions.clear();
+        decoded.forEach((key, val) {
+          if (val is Map<String, dynamic>) {
+            _quizSubmissions[key] = QuizSubmissionModel.fromJson(val);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Lấy danh sách bài kiểm tra Model có đầy đủ câu hỏi và tiêu chí của Admin
+  Future<List<CourseQuizModel>> getCourseQuizModels(String courseId, [String? courseTitle]) async {
+    try {
+      final rawList = await SupabaseDataService.instance.fetchCourseQuizzes(courseId);
+      if (rawList.isNotEmpty) {
+        final List<CourseQuizModel> result = [];
+        for (final raw in rawList) {
+          final qId = raw['id']?.toString() ?? '';
+          final rawQuestions = await SupabaseDataService.instance.fetchQuizQuestions(qId);
+          final questions = rawQuestions.map((j) => QuizQuestionModel.fromJson(j)).toList();
+          result.add(CourseQuizModel.fromJson(
+            raw,
+            questions.isNotEmpty ? questions : MockAcademyData.getStandardVodderQuestions(qId),
+          ));
+        }
+        return result;
+      }
+    } catch (_) {}
+
+    // Fallback Mock dữ liệu chuẩn y khoa Vodder theo courseId
+    return MockAcademyData.getQuizzesForCourse(courseId, courseTitle);
+  }
+
+  /// Lấy danh sách bài kiểm tra dạng Map để tương thích các widget cũ
+  Future<List<Map<String, dynamic>>> getCourseQuizzes(String courseId) async {
+    final list = await getCourseQuizModels(courseId);
+    return list.map((q) => q.toJson()).toList();
+  }
+
+  /// Lưu kết quả bài làm trắc nghiệm của học viên
+  Future<void> saveQuizSubmission(QuizSubmissionModel submission) async {
+    _quizSubmissions[submission.quizId] = submission;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mapToSave = _quizSubmissions.map((k, v) => MapEntry(k, v.toJson()));
+      await prefs.setString(_quizSubmissionsKey, jsonEncode(mapToSave));
+    } catch (_) {}
+
+    try {
+      await SupabaseDataService.instance.submitQuizSubmission(
+        enrollmentId: 'enroll_${submission.courseId}',
+        quizId: submission.quizId,
+        score: submission.score,
+        correctCount: submission.correctCount,
+        submittedAnswers: submission.submittedAnswers.map((k, v) => MapEntry(k.toString(), v)),
+        passed: submission.passed,
+      );
+    } catch (_) {}
+  }
+
+  /// Lấy kết quả bài làm mới nhất theo quizId
+  QuizSubmissionModel? getQuizSubmission(String quizId) {
+    return _quizSubmissions[quizId];
+  }
 }

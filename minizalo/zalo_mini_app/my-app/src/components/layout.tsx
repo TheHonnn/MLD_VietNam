@@ -1,17 +1,18 @@
+import React from "react";
 import {
   App,
   SnackbarProvider,
 } from "zmp-ui";
+import { MainLayout } from "@/layout/MainLayout";
 
-import HomePage from "@/pages/index";
-
-const Layout = () => {
+const Layout: React.FC = () => {
   return (
     <App theme="light">
       <SnackbarProvider>
-        <HomePage />
+        <MainLayout />
       </SnackbarProvider>
     </App>
   );
 };
+
 export default Layout;

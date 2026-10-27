@@ -6,14 +6,14 @@ import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../../core/widgets/vietnamese_dob_picker.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../widgets/primary_button.dart';
-import 'a06_purpose_selection_screen.dart';
+import '../../../home/presentation/screens/main_layout_screen.dart';
 
 class A05ProfileSetupScreen extends StatefulWidget {
   final String phone;
 
   const A05ProfileSetupScreen({
     super.key,
-    required this.phone,
+    this.phone = '',
   });
 
   @override
@@ -28,6 +28,19 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
   String? _selectedGender;
   bool _isLoading = false;
   String? _avatarPath;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = MembershipRepository.instance.profile;
+    if (profile.fullName.isNotEmpty) _fullNameController.text = profile.fullName;
+    if (profile.email.isNotEmpty) _emailController.text = profile.email;
+    final initialPhone = widget.phone.isNotEmpty ? widget.phone : profile.phone;
+    if (initialPhone.isNotEmpty) _phoneController.text = initialPhone;
+    if (profile.dateOfBirth.isNotEmpty) _dobController.text = profile.dateOfBirth;
+    if (profile.gender.isNotEmpty) _selectedGender = profile.gender;
+    if (profile.avatarUrl.isNotEmpty) _avatarPath = profile.avatarUrl;
+  }
 
   Future<void> _pickAvatar() async {
     final picked = await ProfileImagePickerHelper.showPickerModal(
@@ -141,9 +154,10 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
       setState(() {
         _isLoading = false;
       });
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const A06PurposeSelectionScreen()),
+        MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+        (route) => false,
       );
     }
   }

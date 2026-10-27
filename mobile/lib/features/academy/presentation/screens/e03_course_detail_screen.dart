@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
-import 'e04_instructor_profile_screen.dart';
 import 'e05_enrollment_form_screen.dart';
-import 'e09_lesson_screen.dart';
+import 'e08_class_detail_screen.dart';
 
-/// Screen E03: Chi tiết khóa học & Danh sách Video bài giảng
-/// Bấm vào khóa học hiện tất cả video khóa học; Muốn xem phải đăng ký khóa học.
+/// Screen E03: Chi tiết bài học & Khóa học
+/// - Header: Tên khóa học, Ảnh bìa, Thông số tinh gọn (số bài, số giờ, trạng thái - không chữ thừa, không icon rườm rà)
+/// - Danh sách bài học theo từng chương:
+///   + Bên trái: Khung Video Thumbnail tỉ lệ 16:9 với nút Phát video tròn ▶ ở chính giữa
+///   + Bên phải: Nội dung tập (Video Bài 1: Dấu hiệu nhận biết phù...)
+///   + Bấm vào là mở luôn, xem video đó luôn
+/// - Tab thông tin khóa học (Tổng quan, đối tượng, nhu cầu - không có thông tin giảng viên)
+/// - Bài kiểm tra KHÔNG có trong chi tiết khóa học, chỉ có trong "Khóa học của tôi"
 class E03CourseDetailScreen extends StatefulWidget {
   final CourseModel course;
 
@@ -22,21 +28,14 @@ class E03CourseDetailScreen extends StatefulWidget {
 }
 
 class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
-  bool _isBookmarked = false;
-  int _selectedTab = 0; // 0: Video bài học (Mặc định hiển thị tất cả video), 1: Thông tin chi tiết
+  int _selectedTab = 0; // 0: Video bài học (Mặc định), 1: Thông tin khóa học
   List<ChapterModel> _chapters = [];
   bool _isLoadingCurriculum = false;
+  final Set<int> _expandedChapterIndices = {1}; // Mặc định mở Chương 1, các chương sau thu gọn
 
   bool get _isEnrolled => AcademyRepository.instance.isCourseEnrolled(widget.course.id, widget.course.title);
-
   int get _totalLessonsCount => _chapters.fold<int>(0, (sum, c) => sum + c.lessons.length);
-
-  InstructorModel get _instructor {
-    return MockAcademyData.instructors.firstWhere(
-      (i) => i.name == widget.course.instructorName,
-      orElse: () => MockAcademyData.instructors.first,
-    );
-  }
+  List<LessonModel> get _allLessons => _chapters.expand((c) => c.lessons).toList();
 
   @override
   void initState() {
@@ -49,27 +48,50 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     try {
       final data = await AcademyRepository.instance.getCourseCurriculum(widget.course.id);
       if (mounted) {
-        setState(() => _chapters = data);
+        setState(() {
+          _chapters = data;
+        });
       }
     } catch (_) {} finally {
       if (mounted) setState(() => _isLoadingCurriculum = false);
     }
   }
 
-  void _onLessonTap(LessonModel lesson) {
-    if (_isEnrolled || lesson.isFreePreview) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => E09LessonScreen(
-            lesson: lesson,
-            courseTitle: widget.course.title,
-          ),
-        ),
-      );
-    } else {
-      _showEnrollRequiredModal(lesson);
+  String? _extractYoutubeId(String? url) {
+    if (url == null || url.trim().isEmpty) return null;
+    final trimmed = url.trim();
+    final direct = YoutubePlayerController.convertUrlToId(trimmed);
+    if (direct != null && direct.length == 11) return direct;
+
+    final regExp = RegExp(
+      r'(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_\-]{11})',
+      caseSensitive: false,
+    );
+    final match = regExp.firstMatch(trimmed);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1);
     }
+    return direct;
+  }
+
+  void _onLessonTap(LessonModel lesson) {
+    // Chưa đăng ký khóa học tuyệt đối không được xem bài học nào
+    if (!_isEnrolled) {
+      _showEnrollRequiredModal(lesson);
+      return;
+    }
+
+    // Đã đăng ký: Chuyển sang Trang Khóa học của tôi (Chi tiết lớp học) để học và theo dõi tiến độ
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => E08ClassDetailScreen(course: widget.course),
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   void _showEnrollRequiredModal(LessonModel lesson) {
@@ -106,7 +128,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Yêu cầu đăng ký khóa học',
+              'Đăng ký để học',
               style: TextStyle(
                 fontFamily: 'Montserrat',
                 fontSize: 18,
@@ -116,7 +138,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Video "${lesson.title}" thuộc khóa học "${widget.course.title}".\n\nBạn cần đăng ký khóa học để xem toàn bộ video bài giảng và tài liệu học tập chuẩn y khoa Vodder.',
+              'Bạn cần đăng ký khóa học "${widget.course.title}" để xem bài giảng này.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Montserrat',
@@ -188,21 +210,17 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         summaryText: _isEnrolled
             ? 'Đã đăng ký khóa học'
             : 'Học phí · ${formatCurrency(course.tuitionFee)}đ',
-        buttonText: _isEnrolled ? 'Vào xem video bài học' : 'Đăng ký khóa học',
+        buttonText: _isEnrolled ? 'Vào học ngay ▶' : 'Đăng ký khóa học ngay',
         onPressed: () {
           if (_isEnrolled) {
-            final firstLesson = _chapters.isNotEmpty && _chapters[0].lessons.isNotEmpty
-                ? _chapters[0].lessons[0]
-                : null;
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => E09LessonScreen(
-                  lesson: firstLesson,
-                  courseTitle: widget.course.title,
-                ),
+                builder: (_) => E08ClassDetailScreen(course: course),
               ),
-            );
+            ).then((_) {
+              if (mounted) setState(() {});
+            });
           } else {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -220,150 +238,97 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Tiêu đề khóa học
+            // 1. Tên khóa học
             Text(
               course.title,
               style: const TextStyle(
                 fontFamily: 'Montserrat',
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
                 height: 1.25,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // 2. Ảnh khóa học & Tiện ích Share/Bookmark
+            // 2. Ảnh bìa khóa học
             Container(
-              height: 200,
+              height: 195,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                    course.image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: AcademyColors.cardWarm,
-                      child: const Center(
-                        child: Icon(Icons.school, size: 60, color: AcademyColors.primary),
-                      ),
-                    ),
+              child: Image.asset(
+                course.image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: AcademyColors.cardWarm,
+                  child: const Center(
+                    child: Icon(Icons.school, size: 60, color: AcademyColors.primary),
                   ),
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Row(
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Đã sao chép liên kết khóa học'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.share_outlined,
-                              color: AcademyColors.textPrimary,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () {
-                            setState(() => _isBookmarked = !_isBookmarked);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  _isBookmarked
-                                      ? 'Đã lưu khóa học'
-                                      : 'Đã bỏ lưu khóa học',
-                                ),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                              color: _isBookmarked
-                                  ? AcademyColors.primary
-                                  : AcademyColors.textPrimary,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
-            // 3. Thẻ thông số tóm tắt
+            // 3. Thông số tinh gọn: Số bài • Số giờ • Trạng thái (Bỏ hết icon to và chữ thừa)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildQuickStat(
-                    label: 'Video bài giảng',
-                    value: '$_totalLessonsCount bài',
-                    icon: Icons.play_circle_fill,
-                    color: AppColors.primary,
+                  Text(
+                    '$_totalLessonsCount bài',
+                    style: const TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AcademyColors.heading,
+                    ),
                   ),
-                  Container(width: 1, height: 32, color: AppColors.border),
-                  _buildQuickStat(
-                    label: 'Thời lượng',
-                    value: '${course.totalHours} giờ',
-                    icon: Icons.schedule_rounded,
-                    color: const Color(0xFFD97706),
+                  Container(width: 1, height: 16, color: AppColors.border),
+                  Text(
+                    '${course.totalHours} giờ',
+                    style: const TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AcademyColors.heading,
+                    ),
                   ),
-                  Container(width: 1, height: 32, color: AppColors.border),
-                  _buildQuickStat(
-                    label: 'Trạng thái',
-                    value: _isEnrolled ? 'Đã đăng ký' : 'Cần đăng ký',
-                    icon: _isEnrolled ? Icons.check_circle_rounded : Icons.lock_outline_rounded,
-                    color: _isEnrolled ? const Color(0xFF2E8B57) : const Color(0xFFE11D48),
+                  Container(width: 1, height: 16, color: AppColors.border),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _isEnrolled ? const Color(0xFFDCFCE7) : const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _isEnrolled ? 'Đã đăng ký' : 'Chưa đăng ký',
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _isEnrolled ? const Color(0xFF15803D) : const Color(0xFFE11D48),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
-            // 4. Thanh chuyển Tab: [ ▶ Video bài học ] & [ ℹ Giới thiệu khóa học ]
+            // 4. Thanh chuyển Tab: [ Video bài học ] & [ Thông tin khóa học ]
             Container(
-              height: 44,
+              height: 42,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: const Color(0xFFF1F5F9),
@@ -390,25 +355,14 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                                 ]
                               : null,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.play_circle_fill_rounded,
-                              size: 17,
-                              color: _selectedTab == 0 ? AppColors.primary : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Video bài học ($_totalLessonsCount)',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 13,
-                                fontWeight: _selectedTab == 0 ? FontWeight.bold : FontWeight.w600,
-                                color: _selectedTab == 0 ? AppColors.primary : AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          'Video bài học ($_totalLessonsCount)',
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 13,
+                            fontWeight: _selectedTab == 0 ? FontWeight.bold : FontWeight.w600,
+                            color: _selectedTab == 0 ? AppColors.primary : AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ),
@@ -432,25 +386,14 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                                 ]
                               : null,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              size: 17,
-                              color: _selectedTab == 1 ? AppColors.primary : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Thông tin khóa học',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 13,
-                                fontWeight: _selectedTab == 1 ? FontWeight.bold : FontWeight.w600,
-                                color: _selectedTab == 1 ? AppColors.primary : AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          'Thông tin khóa học',
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 13,
+                            fontWeight: _selectedTab == 1 ? FontWeight.bold : FontWeight.w600,
+                            color: _selectedTab == 1 ? AppColors.primary : AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ),
@@ -458,41 +401,32 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
-            // 5. Nội dung Tab 0: Danh sách tất cả Video bài giảng (Hiển thị ngay lập tức)
+            // 5. Nội dung Tab:
             if (_selectedTab == 0) ...[
+              // Tab 0: Danh sách video theo chương
               if (!_isEnrolled)
                 Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFBEB),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFFDE68A)),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(Icons.lock_rounded, color: Color(0xFFD97706), size: 20),
-                      const SizedBox(width: 10),
+                      Icon(Icons.info_outline_rounded, color: Color(0xFFD97706), size: 18),
+                      SizedBox(width: 8),
                       Expanded(
-                        child: RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 12.5,
-                              color: Color(0xFF92400E),
-                              height: 1.4,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: 'Muốn xem toàn bộ video bài giảng: ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(
-                                text: 'Bạn cần đăng ký khóa học để mở khóa tất cả các bài học và học liệu bên dưới.',
-                              ),
-                            ],
+                        child: Text(
+                          'Bấm vào video để mở xem clip. Đăng ký để mở khóa toàn bộ khóa học.',
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 12,
+                            color: Color(0xFF92400E),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
@@ -531,7 +465,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                   ),
                 ),
             ] else ...[
-              // Tab 1: Thông tin chi tiết khóa học
+              // Tab 1: Thông tin khóa học (Tổng quan, Đối tượng, Nhu cầu - KHÔNG có giảng viên)
               _buildCourseOverview(course),
             ],
           ],
@@ -540,40 +474,15 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     );
   }
 
-  Widget _buildQuickStat({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: AcademyColors.heading,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 11,
-            color: AcademyColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
+  /// Danh sách video theo chương:
+  /// - Bên trái: Video thumbnail với Nút phát video tròn ▶ ở chính giữa
+  /// - Bên phải: Nội dung tập (Video Bài 1: Dấu hiệu nhận biết phù...)
+  /// - Bấm vào là mở luôn, xem video đó luôn
   Widget _buildChapterVideoSection(ChapterModel chapter, int chapterNum) {
+    final isExpanded = _expandedChapterIndices.contains(chapterNum);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -582,184 +491,273 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Chương
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: AcademyColors.cardWarm,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(11)),
+          // Tiêu đề Chương (Bấm để thu gọn / mở rộng giúp tiết kiệm diện tích)
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (isExpanded) {
+                  _expandedChapterIndices.remove(chapterNum);
+                } else {
+                  _expandedChapterIndices.add(chapterNum);
+                }
+              });
+            },
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(11),
+              bottom: Radius.circular(isExpanded ? 0 : 11),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '$chapterNum',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isExpanded ? AcademyColors.cardWarm : Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(11),
+                  bottom: Radius.circular(isExpanded ? 0 : 11),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$chapterNum',
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    chapter.title,
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AcademyColors.heading,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      chapter.title,
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: AcademyColors.heading,
+                      ),
                     ),
                   ),
-                ),
-                Text(
-                  '${chapter.lessons.length} video',
-                  style: const TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${chapter.lessons.length} video',
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
             ),
           ),
 
-          // Danh sách bài học video trong chương
-          ListView.separated(
+          // Danh sách video bài học trong chương (Thu lại khi isExpanded == false)
+          if (isExpanded)
+            ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: chapter.lessons.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: 56, endIndent: 16, color: AcademyColors.cardBorder),
+            separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16, color: AcademyColors.cardBorder),
             itemBuilder: (context, index) {
               final lesson = chapter.lessons[index];
-              final canWatch = _isEnrolled || lesson.isFreePreview;
+              final isEnrolledOrFree = _isEnrolled || lesson.isFreePreview;
+              final isCompleted = AcademyRepository.instance.isLessonCompleted(widget.course.id, lesson.id);
+              final isUnlocked = isEnrolledOrFree && AcademyRepository.instance.canAccessLesson(widget.course.id, lesson, _allLessons);
+              final ytid = _extractYoutubeId(lesson.videoUrl);
+
+              // Tách phần tiêu đề nội dung sạch sẽ
+              String lessonTitle = lesson.title;
+              if (lessonTitle.contains(':')) {
+                lessonTitle = lessonTitle.split(':').sublist(1).join(':').trim();
+              }
 
               return InkWell(
                 onTap: () => _onLessonTap(lesson),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Icon Trạng thái
+                      // BÊN TRÁI: KHUNG VIDEO THUMBNAIL 16:9 VỚI NÚT PHÁT VIDEO TRÒN Ở GIỮA
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 128,
+                        height: 72,
                         decoration: BoxDecoration(
-                          color: canWatch
-                              ? AppColors.primary.withValues(alpha: 0.1)
-                              : Colors.grey.withValues(alpha: 0.1),
+                          color: const Color(0xFF0F172A),
                           borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isUnlocked ? AppColors.primary.withValues(alpha: 0.3) : Colors.black12,
+                            width: 1.0,
+                          ),
                         ),
-                        child: Icon(
-                          canWatch ? Icons.play_arrow_rounded : Icons.lock_outline_rounded,
-                          color: canWatch ? AppColors.primary : Colors.grey[600],
-                          size: 20,
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Ảnh Thumbnail YouTube hoặc Ảnh bìa
+                            if (ytid != null)
+                              Image.network(
+                                'https://img.youtube.com/vi/$ytid/mqdefault.jpg',
+                                width: 128,
+                                height: 72,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Image.asset(
+                                  widget.course.image,
+                                  width: 128,
+                                  height: 72,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            else
+                              Image.asset(
+                                widget.course.image,
+                                width: 128,
+                                height: 72,
+                                fit: BoxFit.cover,
+                              ),
+
+                            // Lớp phủ bóng mờ
+                            Container(
+                              color: Colors.black.withValues(alpha: isUnlocked ? 0.32 : 0.6),
+                            ),
+
+                            // NÚT PHÁT VIDEO TRÒN Ở CHÍNH GIỮA
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: isCompleted
+                                    ? const Color(0xFF16A34A)
+                                    : (isUnlocked ? AppColors.primary : Colors.black54),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                isCompleted
+                                    ? Icons.check
+                                    : (!_isEnrolled
+                                        ? Icons.lock_outline_rounded
+                                        : (isUnlocked ? Icons.play_arrow_rounded : Icons.lock_outline_rounded)),
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+
+                            // Thời lượng góc dưới
+                            Positioned(
+                              bottom: 4,
+                              right: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.75),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  lesson.formattedDuration,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 12),
 
-                      // Thông tin bài học
+                      // BÊN PHẢI: NỘI DUNG TẬP (Video bài 1: Dấu hiệu nhận biết phù...)
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              lesson.title,
-                              style: TextStyle(
+                              'Video Bài ${lesson.lessonOrder}:',
+                              style: const TextStyle(
                                 fontFamily: 'Montserrat',
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                                color: canWatch ? AcademyColors.textPrimary : Colors.grey[700],
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Text(
-                                  '${lesson.durationMinutes} phút · Video YouTube',
-                                  style: TextStyle(
-                                    fontFamily: 'Montserrat',
-                                    fontSize: 11.5,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              lessonTitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isUnlocked ? AcademyColors.textPrimary : Colors.grey[600],
+                                height: 1.3,
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Badge quyền truy cập
-                      if (_isEnrolled)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'Đã mở',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2E8B57),
-                            ),
-                          ),
-                        )
-                      else if (lesson.isFreePreview)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'Học thử ▶',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF1F2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.lock, size: 10, color: Color(0xFFE11D48)),
-                              SizedBox(width: 3),
-                              Text(
-                                'Cần đăng ký',
+                            const SizedBox(height: 4),
+                            if (isCompleted)
+                              const Text(
+                                'Đã xem hết ✓',
                                 style: TextStyle(
                                   fontFamily: 'Montserrat',
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFE11D48),
+                                  color: Color(0xFF15803D),
+                                ),
+                              )
+                            else if (isUnlocked)
+                              Text(
+                                lesson.isFreePreview ? 'Học thử miễn phí ▶' : 'Xem ngay ▶',
+                                style: const TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              )
+                            else
+                              Text(
+                                !_isEnrolled && !lesson.isFreePreview ? 'Cần đăng ký 🔒' : 'Cần xem bài trước 🔒',
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[500],
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -771,13 +769,13 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     );
   }
 
+  /// Thông tin khóa học (Tổng quan, đối tượng, nhu cầu, quyền lợi - KHÔNG CÓ GIẢNG VIÊN)
   Widget _buildCourseOverview(CourseModel course) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Giới thiệu
         const Text(
-          'Giới thiệu khóa học',
+          'Giới thiệu tổng quan',
           style: TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 18,
@@ -811,8 +809,6 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.people_outline, size: 18, color: AcademyColors.primary),
-                  const SizedBox(width: 8),
                   const Text('Đối tượng:', style: TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
                   const SizedBox(width: 8),
                   Expanded(
@@ -826,8 +822,6 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               const Divider(height: 16, color: AcademyColors.cardBorder),
               Row(
                 children: [
-                  const Icon(Icons.track_changes, size: 18, color: AcademyColors.primary),
-                  const SizedBox(width: 8),
                   const Text('Nhu cầu:', style: TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
                   const SizedBox(width: 8),
                   Expanded(
@@ -854,135 +848,13 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        _buildBenefitItem('Nền tảng chăm sóc cơ thể và kỹ thuật massage'),
-        _buildBenefitItem('Quy trình chuẩn bị và thực hiện dịch vụ'),
-        _buildBenefitItem('Tìm hiểu nhu cầu, giao tiếp với khách hàng'),
-        _buildBenefitItem('Vệ sinh, an toàn và tổ chức nơi làm việc'),
-        _buildBenefitItem('Rèn luyện thao tác thực hành có hướng dẫn'),
-        _buildBenefitItem('Tác phong chuyên nghiệp và đạo đức nghề nghiệp'),
-        const SizedBox(height: 20),
-
-        // Giảng viên đồng hành
-        const Text(
-          'Giảng viên đồng hành',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AcademyColors.heading,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(
-                      _instructor.avatar,
-                      width: 56,
-                      height: 56,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 56,
-                        height: 56,
-                        color: AcademyColors.cardWarm,
-                        child: const Center(
-                          child: Text(
-                            'TH',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AcademyColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _instructor.name,
-                          style: const TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AcademyColors.heading,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _instructor.title,
-                          style: const TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AcademyColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          '8 năm kinh nghiệm đào tạo nghề',
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 12,
-                            color: AcademyColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _instructor.bio,
-                style: const TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontSize: 13,
-                  color: AcademyColors.textPrimary,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 40,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => E04InstructorProfileScreen(instructor: _instructor),
-                      ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AcademyColors.primary,
-                    side: const BorderSide(color: AcademyColors.primary),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Xem thông tin giảng viên', style: TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildBenefitItem('Nền tảng chăm sóc cơ thể và kỹ thuật massage dẫn lưu chuẩn Vodder'),
+        _buildBenefitItem('Quy trình chuẩn bị và thực hiện dịch vụ an toàn y khoa'),
+        _buildBenefitItem('Tìm hiểu nhu cầu, tư vấn giao tiếp chuyên nghiệp với khách hàng'),
+        _buildBenefitItem('Vệ sinh, vô trùng và chuẩn hóa không gian trị liệu'),
+        _buildBenefitItem('Rèn luyện thao tác thực hành lực nhẹ 30-40 mmHg'),
+        _buildBenefitItem('Tác phong chuyên nghiệp và chuẩn mực đạo đức nghề nghiệp'),
+        const SizedBox(height: 24),
       ],
     );
   }

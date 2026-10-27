@@ -19,9 +19,11 @@ import {
   Check,
   RotateCcw,
   BookOpen,
+  FileSpreadsheet,
 } from "lucide-react";
 import { adminApi, Row } from "./api";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
+import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 
 export interface QuizEditorSheetProps {
   row: Row;
@@ -112,6 +114,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [showExcelModal, setShowExcelModal] = useState(false);
 
   // 1. Fetch courses lookup
   useEffect(() => {
@@ -296,6 +299,27 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         if (created && created.id) {
           savedId = created.id;
           setCurrentQuizId(created.id);
+
+          // If questions were staged from Excel import, batch save them now
+          const stagedQuestions = questions.filter((q) => !q.id);
+          if (stagedQuestions.length > 0) {
+            const batchPayload = stagedQuestions.map((q, idx) => ({
+              quiz_id: created.id,
+              question_number: idx + 1,
+              question_text: q.question_text,
+              options: q.options,
+              correct_option: q.correct_option,
+              explanation: q.explanation || null,
+            }));
+            await fetch(`${SUPABASE_URL}/rest/v1/quiz_questions`, {
+              method: "POST",
+              headers: getSupabaseHeaders({
+                "Content-Type": "application/json",
+                Prefer: "return=representation",
+              }),
+              body: JSON.stringify(batchPayload),
+            });
+          }
         }
       } else {
         const key = { id: row.id };
@@ -500,6 +524,18 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Quick Import Excel button */}
+          {!isView && (
+            <button
+              type="button"
+              onClick={() => setShowExcelModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] text-xs font-bold text-[#15803D] hover:bg-[#DCFCE7] cursor-pointer transition-colors shadow-xs"
+            >
+              <FileSpreadsheet size={13} className="text-[#16A34A]" />
+              Nhập từ file Excel
+            </button>
+          )}
+
           {/* Switch Mode Button */}
           {isView && onSwitchMode && (
             <button
@@ -535,8 +571,8 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         </div>
       </header>
 
-      {/* TABS (For non-create or after created) */}
-      {!isCreate && (
+      {/* TABS (For non-create or after staged from Excel) */}
+      {(!isCreate || questions.length > 0) && (
         <div className="px-6 bg-white border-b border-[#E8DFD8] flex items-center gap-6">
           <button
             type="button"
@@ -610,6 +646,34 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         {/* TAB 1: SETTINGS / GENERAL FORM */}
         {activeTab === "settings" && (
           <form id="quiz-form" onSubmit={(e) => handleSaveQuiz(e, false)} className="space-y-6">
+            {/* QUICK EXCEL IMPORT BANNER */}
+            {!isView && (
+              <div className="bg-gradient-to-r from-[#F0FDF4] to-[#FAF8F5] rounded-xl border border-[#BBF7D0] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white text-[#16A34A] flex items-center justify-center border border-[#A7F3D0] shadow-xs shrink-0">
+                    <FileSpreadsheet size={22} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#14532D] flex items-center gap-1.5">
+                      <span>Nhập câu hỏi tự động từ file Excel (.xlsx)</span>
+                      <span className="text-[10px] bg-[#16A34A] text-white px-2 py-0.2 rounded-full font-bold">Tiện lợi</span>
+                    </h4>
+                    <p className="text-[11px] text-[#475569] mt-0.5">
+                      Đã có file trắc nghiệm sẵn? Tải file Excel lên để hệ thống tự động nhận diện câu hỏi và đáp án.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowExcelModal(true)}
+                  className="px-4 py-2 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0 transition-colors"
+                >
+                  <FileSpreadsheet size={14} />
+                  Nhập từ file Excel ngay
+                </button>
+              </div>
+            )}
+
             {/* SECTION 1: KHÓA HỌC ÁP DỤNG */}
             <div className="bg-white rounded-xl border border-[#E8DFD8] p-5 shadow-xs space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-[#F0EAE4]">
@@ -1093,14 +1157,24 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
               </div>
 
               {!isView && !showQuestionForm && (
-                <button
-                  type="button"
-                  onClick={handleOpenAddQuestion}
-                  className="px-4 py-2 rounded-lg bg-[#985018] hover:bg-[#7D3E10] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-                >
-                  <Plus size={15} />
-                  + Thêm câu hỏi mới
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowExcelModal(true)}
+                    className="px-3.5 py-2 rounded-lg bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#BBF7D0] text-[#15803D] text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  >
+                    <FileSpreadsheet size={14} className="text-[#16A34A]" />
+                    Nhập từ file Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddQuestion}
+                    className="px-4 py-2 rounded-lg bg-[#985018] hover:bg-[#7D3E10] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  >
+                    <Plus size={15} />
+                    + Thêm câu hỏi mới
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1486,6 +1560,17 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         </button>
 
         <div className="flex items-center gap-2">
+          {!isView && (
+            <button
+              type="button"
+              onClick={() => setShowExcelModal(true)}
+              className="px-3.5 py-2 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] text-xs font-bold text-[#15803D] hover:bg-[#DCFCE7] cursor-pointer transition-colors flex items-center gap-1.5 shadow-xs"
+            >
+              <FileSpreadsheet size={14} className="text-[#16A34A]" />
+              Nhập từ file Excel
+            </button>
+          )}
+
           {isCreate && activeTab === "settings" && (
             <button
               type="button"
@@ -1520,6 +1605,31 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
           )}
         </div>
       </footer>
+
+      {/* EXCEL IMPORT MODAL */}
+      <ExcelQuizImportModal
+        isOpen={showExcelModal}
+        onClose={() => setShowExcelModal(false)}
+        quizId={currentQuizId || undefined}
+        quizTitle={title || undefined}
+        onStagedQuestions={(staged) => {
+          const startNum = questions.length + 1;
+          const renumbered = staged.map((sq, i) => ({
+            ...sq,
+            question_number: startNum + i,
+          }));
+          setQuestions((prev) => [...prev, ...renumbered]);
+          setTotalQuestions((prev) => Math.max(prev, questions.length + staged.length));
+          setActiveTab("questions");
+          setSuccessBanner(`✓ Đã nạp ${staged.length} câu hỏi từ file Excel vào đề thi! Nhấn "Lưu bài trắc nghiệm" để hoàn tất.`);
+        }}
+        onImportSuccess={(count) => {
+          if (currentQuizId) {
+            fetchQuestions(currentQuizId);
+          }
+          setSuccessBanner(`✓ Đã nhập thành công ${count} câu hỏi từ file Excel vào bài thi!`);
+        }}
+      />
     </div>
   );
 };

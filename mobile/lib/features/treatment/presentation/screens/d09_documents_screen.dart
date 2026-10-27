@@ -141,6 +141,98 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
     );
   }
 
+  Widget _buildArticleBody(String fullText) {
+    if (fullText.trim().isEmpty) return const SizedBox.shrink();
+    final paragraphs = fullText.split('\n\n');
+    final widgets = <Widget>[];
+
+    for (final p in paragraphs) {
+      final trimmed = p.trim();
+      if (trimmed.isEmpty) continue;
+
+      // Kiểm tra cú pháp ảnh Markdown: ![caption](url)
+      final imgMatch = RegExp(r'^!\[(.*?)\]\((.*?)\)').firstMatch(trimmed);
+      if (imgMatch != null) {
+        final caption = imgMatch.group(1) ?? '';
+        final url = imgMatch.group(2) ?? '';
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    url,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+                if (caption.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    caption,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // Kiểm tra tiêu đề đề mục y khoa
+      final isHeading = RegExp(r'^(\d+\.\s+|KHI NÀO|KẾT LUẬN|TÀI LIỆU)').hasMatch(trimmed);
+      if (isHeading) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Text(
+              trimmed,
+              style: const TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textHeading,
+                height: 1.4,
+              ),
+            ),
+          ),
+        );
+      } else {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              trimmed,
+              style: const TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 14.5,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textPrimary,
+                height: 1.65,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
   void _showDocumentDetail(Map<String, dynamic> doc) {
     final rawTitle = doc['title'] as String? ?? '';
     final title = context.tr(rawTitle);
@@ -270,16 +362,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
 
               // Nội dung chi tiết
               if (content.isNotEmpty && content != summary) ...[
-                Text(
-                  content,
-                  style: const TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.textPrimary,
-                    height: 1.6,
-                  ),
-                ),
+                _buildArticleBody(content),
                 const SizedBox(height: 20),
               ],
 

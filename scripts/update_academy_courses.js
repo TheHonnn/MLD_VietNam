@@ -335,6 +335,10 @@ async function run() {
     await client.connect();
     console.log('Connected to Supabase PostgreSQL database.');
 
+    const instRes = await client.query('SELECT id FROM public.instructors LIMIT 1;');
+    const validInstructorId = instRes.rows[0]?.id || null;
+    console.log('Using instructor ID:', validInstructorId);
+
     for (const c of courses) {
       const query = `
         INSERT INTO public.courses (
@@ -373,7 +377,7 @@ async function run() {
       `;
 
       await client.query(query, [
-        c.id, c.category_id, c.primary_instructor_id, c.code, c.title,
+        c.id, c.category_id, validInstructorId, c.code, c.title,
         c.short_description, c.full_description, c.level, c.total_hours,
         c.theory_hours, c.practice_hours, c.total_lessons, c.tuition_fee,
         c.deposit_amount, c.certificate_title, c.image_url, JSON.stringify(c.learning_outcomes),

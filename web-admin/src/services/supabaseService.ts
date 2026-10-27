@@ -5,6 +5,8 @@ import {
   Service,
   Technician,
   Course,
+  CourseChapter,
+  CourseLesson,
   TreatmentPackage,
   MemberTier,
   UserPackage,
@@ -739,6 +741,63 @@ class SupabaseService {
       isActive: Boolean(c.is_active),
       createdAt: c.created_at,
       updatedAt: c.updated_at,
+    }));
+  }
+
+  // 7.1 CHƯƠNG HỌC ACADEMY (COURSE CHAPTERS)
+  async getCourseChapters(courseId?: string): Promise<CourseChapter[] | null> {
+    const path = courseId
+      ? `course_chapters?course_id=eq.${encodeURIComponent(courseId)}&select=*,courses(title,code)&order=chapter_order.asc`
+      : `course_chapters?select=*,courses(title,code)&order=chapter_order.asc`;
+    const raw = await this.query<any[]>(path);
+    if (!raw) return null;
+
+    return raw.map((ch) => ({
+      id: ch.id,
+      courseId: ch.course_id,
+      chapterOrder: Number(ch.chapter_order || 1),
+      title: ch.title,
+      description: ch.description || '',
+      createdAt: ch.created_at,
+      course: ch.courses ? ({
+        id: ch.course_id,
+        title: ch.courses.title,
+        code: ch.courses.code,
+      } as any) : undefined,
+    }));
+  }
+
+  // 7.2 BÀI HỌC ACADEMY (COURSE LESSONS)
+  async getCourseLessons(chapterId?: string): Promise<CourseLesson[] | null> {
+    const path = chapterId
+      ? `course_lessons?chapter_id=eq.${encodeURIComponent(chapterId)}&select=*,course_chapters(id,title,course_id,courses(id,title,code))&order=lesson_order.asc`
+      : `course_lessons?select=*,course_chapters(id,title,course_id,courses(id,title,code))&order=lesson_order.asc`;
+    const raw = await this.query<any[]>(path);
+    if (!raw) return null;
+
+    return raw.map((l) => ({
+      id: l.id,
+      chapterId: l.chapter_id,
+      lessonOrder: Number(l.lesson_order || 1),
+      title: l.title,
+      lessonType: l.lesson_type || 'VIDEO',
+      durationMinutes: Number(l.duration_minutes || 0),
+      videoUrl: l.video_url || '',
+      contentText: l.content_text || '',
+      attachments: Array.isArray(l.attachments) ? l.attachments : [],
+      learningGoals: Array.isArray(l.learning_goals) ? l.learning_goals : [],
+      isFreePreview: Boolean(l.is_free_preview),
+      createdAt: l.created_at,
+      chapter: l.course_chapters ? ({
+        id: l.course_chapters.id,
+        title: l.course_chapters.title,
+        courseId: l.course_chapters.course_id,
+        course: l.course_chapters.courses ? ({
+          id: l.course_chapters.courses.id,
+          title: l.course_chapters.courses.title,
+          code: l.course_chapters.courses.code,
+        } as any) : undefined,
+      } as any) : undefined,
     }));
   }
 

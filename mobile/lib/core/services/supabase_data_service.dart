@@ -228,7 +228,46 @@ class SupabaseDataService {
   }
 
   // ==========================================
-  // 10. HỌC LIỆU & BÀI HỌC VIDEO KHÓA HỌC (CURRICULUM)
+    // ==========================================
+  // 9b. BÀI VIẾT CỘNG ĐỒNG Y KHOA & TÀI LIỆU PDF (COMMUNITY)
+  // Lấy danh sách bài viết chuyên môn do Admin đăng tải từ Supabase Cloud
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchCommunityPosts({String? category}) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+
+    try {
+      final query = <String, dynamic>{
+        'kind': 'eq.COMMUNITY',
+        'status': 'in.(PUBLISHED,APPROVED)',
+        'select': '*',
+        'order': 'sort_order.asc,created_at.desc',
+      };
+      if (category != null && category.isNotEmpty && category != 'Tất cả') {
+        query['category'] = 'eq.$category';
+      }
+
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.portalContent,
+        queryParameters: query,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
+
+// 10. HỌC LIỆU & BÀI HỌC VIDEO KHÓA HỌC (CURRICULUM)
   // Lấy danh sách chương và bài học video từ Supabase Cloud
   // ==========================================
   Future<List<Map<String, dynamic>>> fetchCourseCurriculum(String courseId) async {
@@ -259,4 +298,109 @@ class SupabaseDataService {
       return [];
     }
   }
+
+  // ==========================================
+  // 11. BÀI KIỂM TRA ĐÁNH GIÁ KHÓA HỌC (QUIZZES)
+  // Lấy danh sách bài kiểm tra do Admin tạo trong Supabase
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchCourseQuizzes(String courseId) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+
+    try {
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.courseQuizzes,
+        queryParameters: {
+          'course_id': 'eq.$courseId',
+          'select': '*',
+          'order': 'created_at.asc',
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Lấy danh sách câu hỏi trắc nghiệm của bài kiểm tra
+  Future<List<Map<String, dynamic>>> fetchQuizQuestions(String quizId) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+
+    try {
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.quizQuestions,
+        queryParameters: {
+          'quiz_id': 'eq.$quizId',
+          'select': '*',
+          'order': 'question_number.asc',
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Lưu bài làm bài kiểm tra của học viên lên Supabase
+  Future<bool> submitQuizSubmission({
+    required String enrollmentId,
+    required String quizId,
+    required double score,
+    required int correctCount,
+    required Map<String, dynamic> submittedAnswers,
+    required bool passed,
+  }) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+    } catch (_) {}
+
+    try {
+      final response = await _client.post(
+        ApiEndpoints.quizSubmissions,
+        data: {
+          'enrollment_id': enrollmentId,
+          'quiz_id': quizId,
+          'score': score,
+          'correct_count': correctCount,
+          'submitted_answers': submittedAnswers,
+          'passed': passed,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+        ),
+      );
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
 }

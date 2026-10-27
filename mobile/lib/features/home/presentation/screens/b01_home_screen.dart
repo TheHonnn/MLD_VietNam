@@ -43,7 +43,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   SpaServiceModel? _coreService;
   List<Map<String, dynamic>> _banners = [];
-  bool _isLoadingBanners = false;
   int _currentBannerIndex = 0;
   late final PageController _bannerPageController;
   Timer? _bannerTimer;
@@ -63,22 +62,18 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
   Future<void> _loadBanners() async {
     if (!mounted) return;
-    setState(() => _isLoadingBanners = true);
     try {
       final data = await SupabaseDataService().fetchBanners();
       if (!mounted) return;
       setState(() {
         _banners = data;
-        _isLoadingBanners = false;
         if (_currentBannerIndex >= data.length) {
           _currentBannerIndex = 0;
         }
       });
       _startBannerAutoScroll();
     } catch (_) {
-      if (mounted) {
-        setState(() => _isLoadingBanners = false);
-      }
+
     }
   }
 
@@ -289,156 +284,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
-  /// Modal lựa chọn Website / Facebook khi click vào banner ngang trang chủ
-  void _showBannerLinkOptions(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      builder: (ctx) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Dialog(
-          backgroundColor: Colors.white.withValues(alpha: 0.96),
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: AppColors.border, width: 1.0),
-          ),
-          elevation: 12,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppColors.mintBackground,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.open_in_new_rounded, size: 18, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Kênh Thông Tin MLD',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
-                      onPressed: () => Navigator.pop(ctx),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Chọn cổng thông tin chính thức của Trung tâm MLD Việt Nam để tiếp tục:',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
-                ),
-                const SizedBox(height: 18),
-                InkWell(
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    final uri = Uri.parse('https://mldvietnam.com');
-                    try {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    } catch (_) {}
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.mintBackground,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.language_rounded, color: AppColors.primary, size: 22),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Truy cập Website MLD',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'mldvietnam.com - Cổng tin tức & đào tạo',
-                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 20),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    final uri = Uri.parse('https://facebook.com/mldvietnam');
-                    try {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    } catch (_) {}
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.facebook_rounded, color: Color(0xFF1877F2), size: 22),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Truy cập Facebook Fanpage',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'facebook.com/mldvietnam - Tư vấn trực tiếp',
-                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.chevron_right_rounded, color: Color(0xFF1877F2), size: 20),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   /// Xử lý điều hướng khi bấm vào Banner động
   void _handleBannerTap(Map<String, dynamic> banner) async {
@@ -488,44 +333,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       } else {
         _handleBooking();
       }
-      return;
-    }
-
-    if (targetLink.contains('branch') || targetLink.contains('co-so')) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const B05BranchListingScreen()),
-      );
-      return;
-    }
-
-    if (targetLink.contains('profile') ||
-        targetLink.contains('voucher') ||
-        targetLink.contains('tai-khoan') ||
-        targetLink.contains('user')) {
-      if (widget.onNavigateToProfile != null) {
-        widget.onNavigateToProfile!.call();
-      } else {
-        _showBannerDetailModal(context, banner);
-      }
-      return;
-    }
-
-    if (targetLink.contains('notification') || targetLink.contains('thong-bao')) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const D08NotificationsScreen()),
-      );
-      return;
-    }
-
-    if (targetLink.contains('document') ||
-        targetLink.contains('cam-nang') ||
-        targetLink.contains('community')) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
-      );
       return;
     }
 
@@ -585,14 +392,16 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         ? Image.network(
                             imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Image.asset(
-                              'assets/images/banner.webp',
-                              fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              decoration: const BoxDecoration(
+                                gradient: AppColors.brandGradient,
+                              ),
                             ),
                           )
-                        : Image.asset(
-                            'assets/images/banner.webp',
-                            fit: BoxFit.cover,
+                        : Container(
+                            decoration: const BoxDecoration(
+                              gradient: AppColors.brandGradient,
+                            ),
                           ),
                   ),
                   Positioned.fill(
@@ -935,137 +744,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               // 2. BANNER NGANG GIỚI THIỆU MLD TRÊN ĐẦU
               // (Dynamic Banner Carousel từ Supabase / CMS, fallback offline an toàn)
               // ==========================================
-              if (_banners.isEmpty)
-                InkWell(
-                  onTap: () => _showBannerLinkOptions(context),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    height: 156,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.22),
-                          blurRadius: 14,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        // Ảnh nền banner: assets/images/banner.webp
-                        Positioned.fill(
-                          child: Image.asset(
-                            'assets/images/banner.webp',
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              decoration: const BoxDecoration(
-                                gradient: AppColors.brandGradient,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Lớp phủ tối nhẹ giữ nguyên màu sắc mặc định của ảnh banner
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.80),
-                                  Colors.black.withValues(alpha: 0.35),
-                                  Colors.black.withValues(alpha: 0.10),
-                                ],
-                                stops: const [0.0, 0.65, 1.0],
-                                begin: Alignment.bottomLeft,
-                                end: Alignment.topRight,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Logo: assets/images/logo.webp
-                        Positioned(
-                          right: 14,
-                          top: 20,
-                          child: Image.asset(
-                            'assets/images/logo.webp',
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.spa_rounded,
-                              size: 50,
-                              color: Colors.white24,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'TRUNG TÂM Y KHOA BẠCH HUYẾT',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.4,
-                                  ),
-                                ),
-                              ),
-                              const Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'MLD VIỆT NAM',
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.white,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Row(
-                                children: [
-                                  Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Bấm để xem Website & Facebook chính thức ↗',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
+              if (_banners.isNotEmpty) ...[
                 Column(
                   children: [
                     SizedBox(
@@ -1133,14 +812,16 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                           ? Image.network(
                                               imageUrl,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) => Image.asset(
-                                                'assets/images/banner.webp',
-                                                fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                decoration: const BoxDecoration(
+                                                  gradient: AppColors.brandGradient,
+                                                ),
                                               ),
                                             )
-                                          : Image.asset(
-                                              'assets/images/banner.webp',
-                                              fit: BoxFit.cover,
+                                          : Container(
+                                              decoration: const BoxDecoration(
+                                                gradient: AppColors.brandGradient,
+                                              ),
                                             ),
                                     ),
                                     // 2. Lớp phủ gradient y khoa sang trọng
@@ -1149,9 +830,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             colors: [
-                                              Colors.black.withValues(alpha: 0.80),
-                                              Colors.black.withValues(alpha: 0.35),
-                                              Colors.black.withValues(alpha: 0.10),
+                                              const Color(0xFF002A6B).withValues(alpha: 0.90),
+                                              const Color(0xFF002A6B).withValues(alpha: 0.48),
+                                              Colors.transparent,
                                             ],
                                             stops: const [0.0, 0.70, 1.0],
                                             begin: Alignment.centerLeft,
@@ -1160,18 +841,17 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                         ),
                                       ),
                                     ),
-                                    // 3. Logo MLD chìm bên phải
+                                    // 3. Logo MLD chìm bên phải (Trong suốt, không viền nền trắng)
                                     Positioned(
                                       right: 14,
-                                      top: 18,
+                                      top: 16,
                                       child: Image.asset(
                                         'assets/images/logo.webp',
-                                        width: 66,
-                                        height: 66,
+                                        height: 32,
                                         fit: BoxFit.contain,
                                         errorBuilder: (_, __, ___) => const Icon(
                                           Icons.spa_rounded,
-                                          size: 48,
+                                          size: 32,
                                           color: Colors.white24,
                                         ),
                                       ),
@@ -1287,8 +967,8 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     ],
                   ],
                 ),
-
-              const SizedBox(height: 18),
+                const SizedBox(height: 18),
+              ],
 
               // ==========================================
               // 3. MỤC CHI NHÁNH ĐANG CHỌN
