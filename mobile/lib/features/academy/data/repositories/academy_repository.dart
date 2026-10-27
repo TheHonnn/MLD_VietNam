@@ -50,13 +50,14 @@ class AcademyRepository {
   Future<void> syncUserEnrollmentForTest() async {
     final email = AuthService.instance.lastLoginEmail ?? 'buih73444@gmail.com';
     if (email.toLowerCase().contains('buih73444')) {
-      const course1Id = '6a974696-9115-4284-8a7e-e48ca2c13e9d';
+      // Khóa 1: Dẫn lưu bạch huyết cơ bản cho người mới bắt đầu (Level 0) - chứa clip YouTube test
+      const testCourseId = '30303030-0001-0001-0001-000000000001';
       final isAlreadyEnrolled = _enrolledCourses.any(
-        (c) => c.id == course1Id || c.title.contains('giảng viên và học thuật')
+        (c) => c.id == testCourseId || c.title.contains('CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU')
       );
       if (!isAlreadyEnrolled) {
-        final courseToEnroll = _cachedCourses.firstWhere(
-          (c) => c.id == course1Id || c.title.contains('giảng viên và học thuật'),
+        final courseToEnroll = MockAcademyData.courses.firstWhere(
+          (c) => c.id == testCourseId || c.title.contains('CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU'),
           orElse: () => MockAcademyData.courses.first,
         );
         _enrolledCourses.add(courseToEnroll);
@@ -74,10 +75,17 @@ class AcademyRepository {
   }
 
   /// E01/E02: Lấy danh sách khóa học từ Supabase/Backend
+  /// Luôn bảo toàn toàn bộ 14 khóa học y khoa chuẩn của Học viện MLD Việt Nam
   Future<List<CourseModel>> getCourses({String? category}) async {
-    // Trong môi trường Flutter Test, trả về MockAcademyData ngay để tránh pending fake_async HTTP timer
+    // Luôn khởi tạo với trọn vẹn danh mục khóa học chuẩn của Học viện
+    final courseMap = <String, CourseModel>{};
+    for (final c in MockAcademyData.courses) {
+      courseMap[c.id] = c;
+    }
+
+    // Trong môi trường Flutter Test, trả về ngay để tránh pending fake_async HTTP timer
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
-      _cachedCourses = MockAcademyData.courses;
+      _cachedCourses = courseMap.values.toList();
       if (category != null && category.isNotEmpty && category != 'Tất cả') {
         return _cachedCourses.where((c) =>
             c.category.toLowerCase().contains(category.toLowerCase()) ||
@@ -87,36 +95,30 @@ class AcademyRepository {
       return _cachedCourses;
     }
 
-    // 1. Thử lấy dữ liệu trực tiếp từ Supabase REST API
+    // 1. Thử lấy dữ liệu bổ sung từ Supabase REST API (nếu có thêm khóa học mới từ Admin)
     try {
       const path = '${ApiEndpoints.courses}?select=*,course_categories(name)&is_active=eq.true&order=created_at.asc';
       final response = await _apiClient.dio.get(path);
       if (response.statusCode == 200 && response.data != null) {
         final rawData = response.data;
         if (rawData is List && rawData.isNotEmpty) {
-          final courses = rawData.map((c) {
-            final map = Map<String, dynamic>.from(c as Map);
-            if (map['course_categories'] is Map) {
-              map['categoryName'] = map['course_categories']['name'];
-            }
-            return CourseModel.fromJson(map);
-          }).toList();
-
-          _cachedCourses = courses;
-          if (category != null && category.isNotEmpty && category != 'Tất cả') {
-            return courses.where((c) =>
-                c.category.toLowerCase().contains(category.toLowerCase()) ||
-                c.courseGroup.toLowerCase().contains(category.toLowerCase())
-            ).toList();
+          for (final item in rawData) {
+            try {
+              final map = Map<String, dynamic>.from(item as Map);
+              if (map['course_categories'] is Map) {
+                map['categoryName'] = map['course_categories']['name'];
+              }
+              final model = CourseModel.fromJson(map);
+              courseMap[model.id] = model;
+            } catch (_) {}
           }
-          return courses;
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Supabase courses fetch error, fallback to gateway: $e');
+      debugPrint('>>> [AcademyRepository] Supabase courses fetch error, keeping all mock courses: $e');
     }
 
-    // 2. Thử lấy từ Backend Gateway
+    // 2. Thử lấy bổ sung từ Backend Gateway
     try {
       String path = ApiEndpoints.academyCourses;
       if (category != null && category.isNotEmpty && category != 'Tất cả') {
@@ -126,22 +128,21 @@ class AcademyRepository {
       final response = await _apiClient.dio.get(path);
       if (response.statusCode == 200 && response.data != null) {
         final rawData = response.data['data'] ?? response.data;
-        if (rawData is List) {
-          final courses = rawData
-              .map((c) => CourseModel.fromJson(c as Map<String, dynamic>))
-              .toList();
-          if (courses.isNotEmpty) {
-            _cachedCourses = courses;
-            return courses;
+        if (rawData is List && rawData.isNotEmpty) {
+          for (final item in rawData) {
+            try {
+              final model = CourseModel.fromJson(item as Map<String, dynamic>);
+              courseMap[model.id] = model;
+            } catch (_) {}
           }
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Backend gateway error, using mock fallback: $e');
+      debugPrint('>>> [AcademyRepository] Backend gateway error, keeping all mock courses: $e');
     }
 
-    // 3. Fallback an toàn nếu mất mạng
-    _cachedCourses = MockAcademyData.courses;
+    // Danh sách đầy đủ toàn bộ khóa học không bao giờ bị mất hoặc bị thu hẹp còn 1 khóa
+    _cachedCourses = courseMap.values.toList();
     if (category != null && category.isNotEmpty && category != 'Tất cả') {
       return _cachedCourses.where((c) =>
           c.category.toLowerCase().contains(category.toLowerCase()) ||
@@ -317,12 +318,17 @@ class AcademyRepository {
     try {
       final raw = await SupabaseDataService.instance.fetchCourseCurriculum(courseId);
       if (raw.isNotEmpty) {
-        return raw.map((c) => ChapterModel.fromJson(c)).toList();
+        final list = raw.map((c) => ChapterModel.fromJson(c)).toList();
+        // Chỉ sử dụng dữ liệu từ server nếu bài học có chứa video URL hợp lệ
+        if (list.any((ch) => ch.lessons.any((l) => l.videoUrl != null && l.videoUrl!.trim().isNotEmpty))) {
+          return list;
+        }
       }
     } catch (e) {
       debugPrint('>>> [AcademyRepository] Error fetching curriculum: $e');
     }
 
+    // Bảo tồn trọn vẹn giáo trình và clip YouTube chuẩn y khoa của Học viện
     return MockAcademyData.syllabusChapters;
   }
 
