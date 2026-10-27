@@ -20,6 +20,7 @@ import {
   User,
   Check,
   Clock,
+  Plus,
 } from 'lucide-react';
 import { academyService, staffService, StaffWithProfile } from '../services';
 import { Course, CourseBatch, BatchStatus } from '../types/shared_types';
@@ -58,37 +59,232 @@ interface TrainingClassRecord {
   statusLabel: string;
 }
 
-const weekDays = [
-  { label: 'Thứ hai', date: '12/10/2026', key: '2026-10-12' },
-  { label: 'Thứ ba', date: '13/10/2026', key: '2026-10-13' },
-  { label: 'Thứ tư', date: '14/10/2026', key: '2026-10-14' },
-  { label: 'Thứ năm', date: '15/10/2026', key: '2026-10-15' },
-  { label: 'Thứ sáu', date: '16/10/2026', key: '2026-10-16' },
-  { label: 'Thứ bảy', date: '17/10/2026', key: '2026-10-17' },
-  { label: 'Chủ nhật', date: '18/10/2026', key: '2026-10-18' },
+interface TimetableRoom {
+  id: string;
+  name: string;
+  instructorName: string;
+  capacity: string;
+  branch: string;
+}
+
+const ROW_HEIGHT = 72;
+const BASE_HOUR = 8;
+const TIMETABLE_HOURS = [
+  '08:00',
+  '09:00',
+  '10:00',
+  '11:00',
+  '12:00',
+  '13:00',
+  '14:00',
+  '15:00',
+  '16:00',
+  '17:00',
+  '18:00',
 ];
 
-const roomsList = [
-  'Phòng thực hành 01',
-  'Phòng thực hành 02',
-  'Phòng thực hành 03',
+const timetableRooms: TimetableRoom[] = [
+  {
+    id: 'p1',
+    name: 'Phòng thực hành 01',
+    instructorName: 'Nguyễn Thảo Ngọc',
+    capacity: '15 học viên',
+    branch: 'Cơ sở Quận 3',
+  },
+  {
+    id: 'p2',
+    name: 'Phòng thực hành 02',
+    instructorName: 'Trần Quỳnh Nga',
+    capacity: '15 học viên',
+    branch: 'Cơ sở Quận 3',
+  },
+  {
+    id: 'p3',
+    name: 'Phòng thực hành 03',
+    instructorName: 'Lê Thu Hà',
+    capacity: '12 học viên',
+    branch: 'Cơ sở Quận 1',
+  },
 ];
 
-const defaultSession: PracticalSession = {
-  id: 'ps-default',
-  room: 'Phòng thực hành 01',
-  dateKey: '2026-10-16',
-  dateLabel: '16/10/2026',
-  subject: 'Dẫn lưu Bạch huyết MLD Vodder Lâm sàng',
-  timeRange: '13:00–17:00',
-  instructorName: 'Nguyễn Thảo Ngọc',
-  className: 'K26-MLD · Phòng 01',
-  status: 'Sắp diễn ra',
-  videoTopic: 'Thực hành thao tác dẫn lưu hạch nách và vùng cổ Vodder',
-  videoDuration: '45 phút',
-  practiceDuration: '150 phút',
-  prepTime: '12:45–13:00',
-  note: 'Nhân sự đào tạo và giảng viên đối chiếu chuyên cần sau buổi học theo quy chế học viện MLD.',
+const initialPracticalSessions: PracticalSession[] = [
+  {
+    id: 'ps-101',
+    room: 'Phòng thực hành 01',
+    dateKey: '2026-10-12',
+    dateLabel: '12/10/2026',
+    subject: 'Nhập môn Giải phẫu Hệ Bạch huyết & Thao tác Cơ bản',
+    timeRange: '08:30–11:30',
+    instructorName: 'Nguyễn Thảo Ngọc',
+    className: 'K25-MLD · Phòng 01',
+    status: 'Đã hoàn thành',
+    videoTopic: 'Cấu trúc mao mạch bạch huyết & nguyên lý dẫn lưu tự nhiên',
+    videoDuration: '30 phút',
+    practiceDuration: '150 phút',
+    prepTime: '08:15–08:30',
+    note: 'Học viên đã hoàn thành 100% chuyên cần buổi nhập môn cơ bản.',
+  },
+  {
+    id: 'ps-102',
+    room: 'Phòng thực hành 02',
+    dateKey: '2026-10-12',
+    dateLabel: '12/10/2026',
+    subject: 'Massage Trị liệu Mô sâu Vùng Lưng & Cột sống',
+    timeRange: '13:30–16:30',
+    instructorName: 'Trần Quỳnh Nga',
+    className: 'K24-SPA · Phòng 02',
+    status: 'Đã hoàn thành',
+    videoTopic: 'Thao tác miết dải cơ thang và giải tỏa áp lực đĩa đệm',
+    videoDuration: '25 phút',
+    practiceDuration: '155 phút',
+    prepTime: '13:15–13:30',
+    note: 'Buổi thực hành kết thúc tốt đẹp. Giảng viên đã ký sổ xác nhận.',
+  },
+  {
+    id: 'ps-103',
+    room: 'Phòng thực hành 01',
+    dateKey: '2026-10-14',
+    dateLabel: '14/10/2026',
+    subject: 'Kỹ thuật Bấm huyệt & Kích hoạt Tuần hoàn Mao mạch',
+    timeRange: '09:00–12:00',
+    instructorName: 'Nguyễn Thảo Ngọc',
+    className: 'K25-MLD · Phòng 01',
+    status: 'Đã hoàn thành',
+    videoTopic: 'Kỹ thuật ấn nhả nhịp nhàng dọc đường kinh lạc',
+    videoDuration: '35 phút',
+    practiceDuration: '145 phút',
+    prepTime: '08:45–09:00',
+    note: 'Học viên thực hành cặp đôi đối xứng dưới sự giám sát của giảng viên.',
+  },
+  {
+    id: 'ps-104',
+    room: 'Phòng thực hành 02',
+    dateKey: '2026-10-14',
+    dateLabel: '14/10/2026',
+    subject: 'Dẫn lưu Hạch nách & Vùng Cổ Vodder',
+    timeRange: '13:00–17:00',
+    instructorName: 'Trần Quỳnh Nga',
+    className: 'K26-MLD · Phòng 02',
+    status: 'Đã hoàn thành',
+    videoTopic: 'Kỹ thuật miết vòng tròn cố định & bơm đẩy theo chiều sinh lý',
+    videoDuration: '40 phút',
+    practiceDuration: '200 phút',
+    prepTime: '12:45–13:00',
+    note: 'Thao tác áp lực nhẹ < 30 mmHg đúng chuẩn quốc tế Vodder.',
+  },
+  {
+    id: 'ps-105',
+    room: 'Phòng thực hành 01',
+    dateKey: '2026-10-15',
+    dateLabel: '15/10/2026',
+    subject: 'Ôn tập Lâm sàng & Kiểm tra Kỹ năng Tay nghề',
+    timeRange: '13:30–17:00',
+    instructorName: 'Lê Thu Hà',
+    className: 'K24-SPA · Phòng 01',
+    status: 'Đã hoàn thành',
+    videoTopic: 'Đánh giá kỹ năng miết xoay tròn và tiếp xúc bàn tay với da',
+    videoDuration: '20 phút',
+    practiceDuration: '190 phút',
+    prepTime: '13:15–13:30',
+    note: 'Kiểm tra chéo giữa các học viên và chấm điểm rubric tiêu chuẩn.',
+  },
+  {
+    id: 'ps-106',
+    room: 'Phòng thực hành 01',
+    dateKey: '2026-10-16',
+    dateLabel: '16/10/2026',
+    subject: 'Dẫn lưu Bạch huyết MLD Vodder Lâm sàng',
+    timeRange: '13:00–17:00',
+    instructorName: 'Nguyễn Thảo Ngọc',
+    className: 'K26-MLD · Phòng 01',
+    status: 'Sắp diễn ra',
+    videoTopic: 'Thực hành thao tác dẫn lưu hạch nách và vùng cổ Vodder',
+    videoDuration: '45 phút',
+    practiceDuration: '150 phút',
+    prepTime: '12:45–13:00',
+    note: 'Nhân sự đào tạo và giảng viên đối chiếu chuyên cần sau buổi học theo quy chế học viện MLD.',
+  },
+  {
+    id: 'ps-107',
+    room: 'Phòng thực hành 02',
+    dateKey: '2026-10-16',
+    dateLabel: '16/10/2026',
+    subject: 'Trị liệu Dẫn lưu Toàn thân Chuyên sâu',
+    timeRange: '08:30–11:30',
+    instructorName: 'Trần Quỳnh Nga',
+    className: 'K25-MLD · Phòng 02',
+    status: 'Đang diễn ra',
+    videoTopic: 'Phối hợp dẫn lưu chi dưới và hỗ trợ giảm phù nề sau phẫu thuật',
+    videoDuration: '30 phút',
+    practiceDuration: '150 phút',
+    prepTime: '08:15–08:30',
+    note: 'Đang triển khai buổi thực hành. Giảng viên đang hỗ trợ hướng dẫn trực tiếp.',
+  },
+  {
+    id: 'ps-108',
+    room: 'Phòng thực hành 03',
+    dateKey: '2026-10-16',
+    dateLabel: '16/10/2026',
+    subject: 'Quy trình Chuẩn bị Giường & Dụng cụ Trị liệu Chuẩn MLD',
+    timeRange: '13:30–16:30',
+    instructorName: 'Lê Thu Hà',
+    className: 'K27-SPA · Phòng 03',
+    status: 'Sắp diễn ra',
+    videoTopic: 'Khử khuẩn ga trải, điều chỉnh góc nâng giường trị liệu & ánh sáng',
+    videoDuration: '20 phút',
+    practiceDuration: '160 phút',
+    prepTime: '13:15–13:30',
+    note: 'Chuẩn bị phòng lab cho lớp thực hành K27.',
+  },
+  {
+    id: 'ps-109',
+    room: 'Phòng thực hành 01',
+    dateKey: '2026-10-17',
+    dateLabel: '17/10/2026',
+    subject: 'Thi Thực hành Thao tác Lâm sàng Trên Người Thật',
+    timeRange: '09:00–12:00',
+    instructorName: 'Nguyễn Thảo Ngọc',
+    className: 'K26-MLD · Phòng 01',
+    status: 'Sắp diễn ra',
+    videoTopic: 'Đánh giá thao tác độc lập trên khách mẫu thực tế',
+    videoDuration: '15 phút',
+    practiceDuration: '165 phút',
+    prepTime: '08:45–09:00',
+    note: 'Ban giám khảo học viện gồm 2 giảng viên chính quy chấm điểm.',
+  },
+  {
+    id: 'ps-110',
+    room: 'Phòng thực hành 02',
+    dateKey: '2026-10-17',
+    dateLabel: '17/10/2026',
+    subject: 'Đo lường & Đánh giá Phù nề Theo Thước đo ISL',
+    timeRange: '13:00–17:00',
+    instructorName: 'Trần Quỳnh Nga',
+    className: 'K28-ADV · Phòng 02',
+    status: 'Sắp diễn ra',
+    videoTopic: 'Thực hành đo thể tích chi và ghi nhận hồ sơ bệnh án MLD',
+    videoDuration: '45 phút',
+    practiceDuration: '195 phút',
+    prepTime: '12:45–13:00',
+    note: 'Khóa chuyên sâu dành cho KTV đang công tác tại hệ thống spa/clinic.',
+  },
+];
+
+const defaultSession: PracticalSession = initialPracticalSessions[5];
+
+const parseTimeRange = (timeRange: string) => {
+  const parts = timeRange.split(/[–-]/);
+  const startTimeStr = parts[0]?.trim() || '08:00';
+  const endTimeStr = parts[1]?.trim() || '11:00';
+
+  const [sH, sM] = startTimeStr.split(':').map(Number);
+  const [eH, eM] = endTimeStr.split(':').map(Number);
+
+  const startHour = (isNaN(sH) ? 8 : sH) + (isNaN(sM) ? 0 : sM) / 60;
+  const endHour = (isNaN(eH) ? 11 : eH) + (isNaN(eM) ? 0 : eM) / 60;
+  const durationHours = Math.max(0.75, endHour - startHour);
+
+  return { startHour, endHour, durationHours, startTimeStr, endTimeStr };
 };
 
 export const W11_Curriculum: React.FC = () => {
@@ -173,20 +369,19 @@ export const W11_Curriculum: React.FC = () => {
   }, [liveBatches, liveCourses, instructors]);
 
   const practicalSessionsData: PracticalSession[] = useMemo(() => {
-    if (!liveBatches || liveBatches.length === 0) return [defaultSession];
+    if (!liveBatches || liveBatches.length === 0) return initialPracticalSessions;
     const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
     const instMap = new Map(instructors.map((i) => [i.id, i]));
 
-    const sessions: PracticalSession[] = [];
-    liveBatches.forEach((bat, idx) => {
+    const batchSessions: PracticalSession[] = liveBatches.map((bat, idx) => {
       const crs = crsMap.get(bat.courseId);
       const inst = instMap.get(bat.instructorId || '');
-      const room = idx === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02';
-      const dateKey = idx === 0 ? '2026-10-14' : '2026-10-16';
-      const dateLabel = idx === 0 ? '14/10/2026' : '16/10/2026';
-      const timeRange = idx === 0 ? '09:00–12:00' : '13:00–17:00';
+      const room = idx % 2 === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02';
+      const dateKey = idx % 3 === 0 ? '2026-10-16' : idx % 3 === 1 ? '2026-10-14' : '2026-10-17';
+      const dateLabel = dateKey.split('-').reverse().join('/');
+      const timeRange = idx % 2 === 0 ? '13:00–17:00' : '08:30–11:30';
 
-      sessions.push({
+      return {
         id: `ps-${bat.id}`,
         room,
         dateKey,
@@ -195,25 +390,130 @@ export const W11_Curriculum: React.FC = () => {
         timeRange,
         instructorName: inst?.fullName || 'Nguyễn Thảo Ngọc',
         className: `${bat.batchCode} · ${room}`,
-        status: 'Chưa diễn ra',
+        status: idx === 0 ? 'Sắp diễn ra' : idx === 1 ? 'Đang diễn ra' : 'Chưa diễn ra',
         videoTopic: `Thực hành kỹ thuật chuyên sâu - ${bat.batchCode}`,
-        videoDuration: '18 phút',
-        practiceDuration: '140 phút',
-        prepTime: '08:45–09:00',
+        videoDuration: '25 phút',
+        practiceDuration: '150 phút',
+        prepTime: idx % 2 === 0 ? '12:45–13:00' : '08:15–08:30',
         note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học theo chuẩn học viện MLD.',
-      });
+      };
     });
 
-    return sessions.length > 0 ? sessions : [defaultSession];
+    const combined = [...initialPracticalSessions];
+    batchSessions.forEach((bs) => {
+      if (!combined.some((c) => c.id === bs.id)) {
+        combined.push(bs);
+      }
+    });
+
+    return combined;
   }, [liveBatches, liveCourses, instructors]);
+
+  // Timetable State & Filters
+  const [selectedDate, setSelectedDate] = useState<string>('2026-10-16');
+  const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>('ALL');
+  const [selectedSessionStatusFilter, setSelectedSessionStatusFilter] = useState<string>('ALL');
+
+  // Date selection & navigation helpers
+  const handleSelectDate = (newDate: string) => {
+    setSelectedDate(newDate);
+  };
+
+  const handleStepDay = (step: number) => {
+    try {
+      const [y, m, d] = selectedDate.split('-').map(Number);
+      const cur = new Date(y, m - 1, d);
+      cur.setDate(cur.getDate() + step);
+      const nextDateStr = cur.toISOString().split('T')[0];
+      handleSelectDate(nextDateStr);
+    } catch {
+      handleSelectDate('2026-10-16');
+    }
+  };
+
+  // Formatted header date
+  const formattedDateHeader = useMemo(() => {
+    try {
+      const [y, m, d] = selectedDate.split('-').map(Number);
+      const dObj = new Date(y, m - 1, d);
+      const weekday = dObj.toLocaleDateString('vi-VN', { weekday: 'long' });
+      const capWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+      return `${capWeekday}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+    } catch {
+      return selectedDate;
+    }
+  }, [selectedDate]);
+
+  // Dynamic quick-switch dates based on sessions in system
+  const availableBookingDates = useMemo(() => {
+    const dateMap = new Map<string, number>();
+    practicalSessionsData.forEach((s) => {
+      if (s.dateKey) {
+        dateMap.set(s.dateKey, (dateMap.get(s.dateKey) || 0) + 1);
+      }
+    });
+
+    const todayStr = '2026-10-16';
+    if (!dateMap.has(todayStr)) {
+      dateMap.set(todayStr, 0);
+    }
+
+    const sorted = Array.from(dateMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return sorted.map(([dt, count]) => {
+      const [y, m, d] = dt.split('-').map(Number);
+      const dObj = new Date(y, m - 1, d);
+      const wd = dObj.toLocaleDateString('vi-VN', { weekday: 'short' });
+      const capWd = wd.charAt(0).toUpperCase() + wd.slice(1);
+      return {
+        date: dt,
+        count,
+        label: `${capWd}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`,
+      };
+    });
+  }, [practicalSessionsData]);
+
+  // Displayed sessions filtered by selectedDate, room, and status
+  const displayedSessions = useMemo(() => {
+    return practicalSessionsData.filter((s) => {
+      if (s.dateKey !== selectedDate) return false;
+      if (selectedRoomFilter !== 'ALL' && s.room !== selectedRoomFilter) return false;
+      if (selectedSessionStatusFilter !== 'ALL' && s.status !== selectedSessionStatusFilter) return false;
+      return true;
+    });
+  }, [practicalSessionsData, selectedDate, selectedRoomFilter, selectedSessionStatusFilter]);
+
+  // Visible room columns
+  const visibleRooms = useMemo(() => {
+    if (selectedRoomFilter !== 'ALL') {
+      const filtered = timetableRooms.filter((r) => r.name === selectedRoomFilter);
+      if (filtered.length > 0) return filtered;
+    }
+    return timetableRooms;
+  }, [selectedRoomFilter]);
 
   // Modals state
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
+  // Auto select active session when displayedSessions or selectedDate changes
+  useEffect(() => {
+    if (displayedSessions.length > 0) {
+      if (!selectedSessionId || !displayedSessions.some((s) => s.id === selectedSessionId)) {
+        setSelectedSessionId(displayedSessions[0].id);
+      }
+    } else if (practicalSessionsData.length > 0) {
+      if (!selectedSessionId || !practicalSessionsData.some((s) => s.id === selectedSessionId)) {
+        setSelectedSessionId(practicalSessionsData[0].id);
+      }
+    }
+  }, [displayedSessions, practicalSessionsData, selectedSessionId]);
+
   const selectedSession =
-    practicalSessionsData.find((ps) => ps.id === selectedSessionId) || practicalSessionsData[0] || defaultSession;
+    practicalSessionsData.find((ps) => ps.id === selectedSessionId) ||
+    displayedSessions[0] ||
+    practicalSessionsData[0] ||
+    defaultSession;
 
   const showToast = (message: string) => {
     setSuccessToast(message);
@@ -413,154 +713,458 @@ export const W11_Curriculum: React.FC = () => {
         )}
       </div>
 
-      {/* 3. TẦNG 1: Lịch phòng thực hành tuần (8 cols) + Buổi đang chọn (4 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Column: Lịch phòng thực hành tuần */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between pb-1">
-            <h2 className="text-sm font-bold text-[#2C241E]">
-              Lịch phòng thực hành tuần
-            </h2>
-            <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-              {practicalSessionsData.length} buổi thực hành đã lập
+      {/* Quick Date Switcher Chips (Jump immediately between days with practical sessions) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <span className="text-[11px] font-bold text-[#73675F] shrink-0">Chọn nhanh ngày có lịch:</span>
+        {availableBookingDates.map((item) => (
+          <button
+            key={item.date}
+            type="button"
+            onClick={() => handleSelectDate(item.date)}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedDate === item.date
+                ? 'bg-[#985018] text-white shadow-xs'
+                : 'bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>{item.label}</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                selectedDate === item.date ? 'bg-white/20 text-white' : 'bg-[#FAF0E4] text-[#985018]'
+              }`}
+            >
+              {item.count}
             </span>
+          </button>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => handleSelectDate('2026-10-16')}
+          className="px-3 py-1 rounded-xl text-xs font-semibold bg-white hover:bg-[#FAF8F5] text-[#5C5046] border border-[#E8DFD8] shrink-0 cursor-pointer"
+        >
+          Hôm nay
+        </button>
+      </div>
+
+      {/* Timetable Sub-bar: Date Stepper & Filter Controls */}
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-2.5 px-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Interactive Date Selector with Steppers */}
+          <div className="flex items-center gap-1 shrink-0 bg-white border border-[#E8DFD8] rounded-xl p-1 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => handleStepDay(-1)}
+              title="Lùi 1 ngày"
+              className="p-1 rounded-lg text-[#8C7A6B] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            <label className="relative flex items-center gap-1.5 px-2 py-0.5 text-xs font-bold text-[#2C241E] cursor-pointer hover:bg-[#FAF8F5] rounded-lg transition-colors">
+              <Calendar className="w-3.5 h-3.5 text-[#985018]" />
+              <span>
+                {(() => {
+                  const parts = selectedDate.split('-');
+                  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : selectedDate;
+                })()}
+              </span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  if (e.target.value) handleSelectDate(e.target.value);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                title="Nhấp để chọn ngày bất kỳ"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => handleStepDay(1)}
+              title="Tiến 1 ngày"
+              className="p-1 rounded-lg text-[#8C7A6B] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          {/* Matrix Table */}
-          <div className="overflow-x-auto border border-[#EFE4D9] rounded-xl">
-            <table className="w-full text-center border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="bg-[#FAF5EF] text-[#73675F] text-[11px] font-semibold divide-x divide-[#EFE4D9] border-b border-[#EFE4D9] whitespace-nowrap">
-                  <th className="py-2.5 px-3 w-28 text-left font-semibold whitespace-nowrap"></th>
-                  {weekDays.map((day) => (
-                    <th key={day.key} className="py-2.5 px-2 min-w-[85px] font-semibold whitespace-nowrap">
-                      <div className="whitespace-nowrap">{day.label}</div>
-                      <div className="text-[10px] text-[#A69788] font-normal whitespace-nowrap">{day.date}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EFE4D9] text-xs whitespace-nowrap">
-                {roomsList.map((roomName) => (
-                  <tr key={roomName} className="divide-x divide-[#EFE4D9]">
-                    {/* Room title */}
-                    <td className="py-3 px-3 text-left font-semibold text-[11px] text-[#2C241E] bg-[#FAF5EF]/50 whitespace-nowrap">
-                      {roomName}
-                    </td>
-
-                    {/* Day cells */}
-                    {weekDays.map((day) => {
-                      const session = practicalSessionsData.find(
-                        (ps) => ps.room === roomName && ps.dateKey === day.key
-                      );
-
-                      if (session) {
-                        const isSelected = session.id === selectedSessionId;
-                        return (
-                          <td key={day.key} className="p-1.5 align-middle">
-                            <div
-                              onClick={() => setSelectedSessionId(session.id)}
-                              className={`p-2 rounded-xl text-left cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-[#EBD8C6] border border-[#985018] shadow-xs'
-                                  : 'bg-[#F5EADF] hover:bg-[#EFE0D2] border border-[#E8DFD8]'
-                              }`}
-                            >
-                              <div className="font-bold text-[11px] text-[#2C241E] leading-tight">
-                                {session.subject}
-                              </div>
-                              <div className="text-[10px] text-[#73675F] mt-0.5">
-                                {session.timeRange}
-                              </div>
-                              <div className="text-[10px] text-[#8A4F23] font-medium mt-0.5 truncate">
-                                {session.instructorName.split(' ').slice(-2).join(' ')}
-                              </div>
-                            </div>
-                          </td>
-                        );
-                      }
-
-                      return (
-                        <td key={day.key} className="p-2 h-16 bg-white hover:bg-[#FAF8F5] transition-colors" />
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Room filter dropdown */}
+          <div className="relative shrink-0">
+            <select
+              value={selectedRoomFilter}
+              onChange={(e) => setSelectedRoomFilter(e.target.value)}
+              className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+            >
+              <option value="ALL">Tất cả phòng thực hành ({timetableRooms.length})</option>
+              {timetableRooms.map((r) => (
+                <option key={r.id} value={r.name}>
+                  {r.name} · {r.instructorName}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Footnote below schedule grid */}
-          <div className="text-xs text-[#73675F] pt-1">
-            Lịch thực hành được phân bổ dựa trên thời khóa biểu và phòng lab thực tế của các lớp học viện MLD.
+          {/* Status filter dropdown */}
+          <div className="relative shrink-0">
+            <select
+              value={selectedSessionStatusFilter}
+              onChange={(e) => setSelectedSessionStatusFilter(e.target.value)}
+              className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
+            >
+              <option value="ALL">Tất cả trạng thái buổi học</option>
+              <option value="Đang diễn ra">Đang diễn ra</option>
+              <option value="Sắp diễn ra">Sắp diễn ra</option>
+              <option value="Đã hoàn thành">Đã hoàn thành</option>
+              <option value="Chưa diễn ra">Chưa diễn ra</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
-        {/* Right Column: Buổi đang chọn */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-[#2C241E]">
-              Buổi đang chọn · {selectedSession.dateLabel}
-            </h2>
-          </div>
-
-          <div>
-            <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-              {selectedSession.status}
-            </span>
-          </div>
-
-          {/* Topic title */}
-          <div className="text-xs font-bold text-[#2C241E] pt-1">
-            {selectedSession.videoTopic}
-          </div>
-
-          {/* Key-values */}
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Lớp / phòng</span>
-              <span className="text-[#2C241E] font-medium">{selectedSession.className}</span>
-            </div>
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Giảng viên</span>
-              <span className="text-[#2C241E] font-medium">{selectedSession.instructorName}</span>
-            </div>
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Khung buổi học</span>
-              <span className="text-[#2C241E] font-medium">{selectedSession.timeRange}</span>
-            </div>
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Thời lượng bài giảng</span>
-              <span className="text-[#2C241E] font-medium">{selectedSession.videoDuration}</span>
-            </div>
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Thực hành</span>
-              <span className="text-[#2C241E] font-medium">{selectedSession.practiceDuration}</span>
-            </div>
-            <div className="flex items-center justify-between text-[#73675F]">
-              <span>Chuẩn bị phòng</span>
-              <span className="text-[#2C241E] font-medium">{selectedSession.prepTime}</span>
-            </div>
-          </div>
-
-          {/* Warning badge */}
-          <div>
-            <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#F3E2CE] text-[#8A4F23]">
-              Điểm danh chờ xác nhận
-            </span>
-          </div>
-
-          <div className="text-[11px] text-[#73675F] leading-relaxed">
-            {selectedSession.note}
-          </div>
-
-          {/* Action button */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#73675F]">
+            {formattedDateHeader} · <strong>{displayedSessions.length}</strong> buổi thực hành
+          </span>
           <button
+            type="button"
             onClick={() => setIsScheduleModalOpen(true)}
-            className="w-full py-2.5 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
+            className="h-9 px-3.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
-            Lập lịch thực hành
+            <Plus className="w-3.5 h-3.5" />
+            <span>Lập lịch thực hành</span>
           </button>
+        </div>
+      </div>
+
+      {/* 3. Main Timetable Matrix (Left: 8 cols) + Detail Sidebar (Right: 4 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left Column: Timetable Matrix + Empty State + Legend */}
+        <div className="lg:col-span-8 space-y-3 min-w-0">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
+            <div className="w-max min-w-full inline-block align-top">
+              {/* Header Row */}
+              <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full">
+                {/* Corner spacer - Sticky on horizontal scroll */}
+                <div className="w-16 sm:w-20 shrink-0 sticky left-0 z-30 bg-[#F3E2CE] border-r border-[#EFE4D9] flex items-center justify-center p-2 text-[10.5px] font-bold text-[#73675F] shadow-[1px_0_0_#EFE4D9]">
+                  Giờ
+                </div>
+
+                {/* Room Headers */}
+                {visibleRooms.map((room, idx) => (
+                  <div
+                    key={room.id}
+                    className={`w-[220px] min-w-[220px] shrink-0 px-4 py-3 border-r border-[#EFE4D9] ${
+                      idx === visibleRooms.length - 1 ? 'border-r-0' : ''
+                    }`}
+                  >
+                    <div className="text-[13px] font-bold text-[#2C241E] truncate" title={room.name}>
+                      {room.name}
+                    </div>
+                    <div className="text-[11px] text-[#73675F] mt-0.5 truncate" title={`GV: ${room.instructorName} · ${room.capacity}`}>
+                      GV: {room.instructorName} · {room.capacity}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Timetable Body (Rows + Absolute Session Cards) */}
+              <div className="relative flex w-max min-w-full">
+                {/* Left Column: Time Labels - Sticky on horizontal scroll */}
+                <div className="w-16 sm:w-20 shrink-0 sticky left-0 z-20 bg-white border-r border-[#EFE4D9] select-none shadow-[1px_0_0_#EFE4D9]">
+                  {TIMETABLE_HOURS.map((hour) => (
+                    <div
+                      key={hour}
+                      style={{ height: `${ROW_HEIGHT}px` }}
+                      className="border-b border-[#F0E6DC] text-center pt-2 text-[11px] sm:text-xs text-[#73675F] font-medium"
+                    >
+                      {hour}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Room Columns */}
+                {visibleRooms.map((room, colIdx) => {
+                  const roomSessions = displayedSessions.filter((s) => s.room === room.name);
+                  return (
+                    <div
+                      key={room.id}
+                      className={`w-[220px] min-w-[220px] shrink-0 relative border-r border-[#EFE4D9] ${
+                        colIdx === visibleRooms.length - 1 ? 'border-r-0' : ''
+                      }`}
+                    >
+                      {/* Background Grid Lines extending full width of column */}
+                      {TIMETABLE_HOURS.map((hour) => (
+                        <div
+                          key={hour}
+                          style={{ height: `${ROW_HEIGHT}px` }}
+                          className="border-b border-[#F0E6DC] w-full"
+                        />
+                      ))}
+
+                      {/* Shared Lunch Break Block: 12:00 to 13:00 */}
+                      <div
+                        style={{
+                          top: `${(12 - BASE_HOUR) * ROW_HEIGHT + 3}px`,
+                          height: `${ROW_HEIGHT - 6}px`,
+                        }}
+                        className="absolute inset-x-2 rounded-xl bg-[#F6EFE8] flex items-center justify-center text-center p-1 select-none pointer-events-none z-5"
+                      >
+                        <span className="text-[11px] text-[#73675F] font-medium">
+                          12:00–13:00 · Nghỉ trưa & Chuẩn bị giáo cụ
+                        </span>
+                      </div>
+
+                      {/* Dynamic Practical Session Cards for this room */}
+                      {roomSessions.map((session) => {
+                        const { startHour, durationHours } = parseTimeRange(session.timeRange);
+                        const topOffset = Math.max(0, (startHour - BASE_HOUR) * ROW_HEIGHT);
+                        const blockHeight = Math.max(48, durationHours * ROW_HEIGHT);
+                        const isSelected = selectedSession?.id === session.id;
+
+                        const isCompleted = session.status === 'Đã hoàn thành';
+                        const isInProgress = session.status === 'Đang diễn ra';
+                        const isUpcoming = session.status === 'Sắp diễn ra';
+
+                        return (
+                          <div key={session.id}>
+                            {/* Attached prep time strip if applicable */}
+                            {session.prepTime && (
+                              <div
+                                style={{
+                                  top: `${Math.max(0, topOffset - 19)}px`,
+                                  height: '19px',
+                                }}
+                                className="absolute inset-x-2 rounded-t-lg bg-[#DEC6B0] border-x border-t border-[#CDB59E] px-2 flex items-center text-[9.5px] font-medium text-[#4A3E34] truncate z-10"
+                              >
+                                <Clock className="w-2.5 h-2.5 mr-1 inline shrink-0" />
+                                <span>Chuẩn bị: {session.prepTime}</span>
+                              </div>
+                            )}
+
+                            {/* Main Practical Session Card */}
+                            <div
+                              onClick={() => setSelectedSessionId(session.id)}
+                              style={{
+                                top: `${topOffset}px`,
+                                height: `${blockHeight}px`,
+                              }}
+                              className={`absolute inset-x-2 p-2.5 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between ${
+                                session.prepTime ? 'rounded-b-xl rounded-t-none' : 'rounded-xl'
+                              } ${
+                                isSelected
+                                  ? 'bg-[#FAF0E4] border-2 border-[#985018] shadow-md scale-[1.01]'
+                                  : isCompleted
+                                  ? 'bg-[#EBF7EE] border border-[#BDE5C8] hover:border-[#2D7A4D]'
+                                  : isInProgress
+                                  ? 'bg-[#EFF8FF] border border-[#BFDBFE] hover:border-[#1D4ED8]'
+                                  : isUpcoming
+                                  ? 'bg-[#FDF6EE] border border-[#D7BBA6] hover:border-[#985018]'
+                                  : 'bg-[#FFFDF7] border border-[#E8DFD8] hover:border-[#985018]'
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-[#EFE4D9] text-[#783E15] shrink-0">
+                                    {session.className.split(' · ')[0]}
+                                  </span>
+                                  <span className="text-[10px] text-[#73675F] truncate">
+                                    {session.timeRange}
+                                  </span>
+                                </div>
+                                <div className="text-[11.5px] font-bold text-[#2C241E] line-clamp-2 leading-snug">
+                                  {session.subject}
+                                </div>
+                                <div className="text-[10.5px] text-[#8A4F23] font-medium mt-1 truncate">
+                                  GV: {session.instructorName}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-1 mt-1 pt-1 border-t border-black/5">
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold ${
+                                    isCompleted
+                                      ? 'bg-[#D1F2D9] text-[#0D6832]'
+                                      : isInProgress
+                                      ? 'bg-[#DBEAFE] text-[#1E40AF]'
+                                      : isUpcoming
+                                      ? 'bg-[#FAF0E4] text-[#8A4F23]'
+                                      : 'bg-[#FEF3C7] text-[#92400E]'
+                                  }`}
+                                >
+                                  {session.status}
+                                </span>
+                                <span className="text-[9.5px] text-[#73675F] truncate">
+                                  {session.practiceDuration}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Empty Notice if zero sessions on selected date */}
+          {displayedSessions.length === 0 && (
+            <div className="p-6 bg-white border border-[#EFE4D9] rounded-2xl text-center space-y-2 shadow-xs">
+              <Calendar className="w-8 h-8 text-[#985018] mx-auto opacity-60" />
+              <h3 className="text-sm font-bold text-[#2C241E]">
+                Không có buổi học thực hành nào vào ngày {formattedDateHeader}
+              </h3>
+              <p className="text-xs text-[#73675F] max-w-md mx-auto">
+                Hiện tại các phòng thực hành đang trống toàn bộ khung giờ. Bạn có thể bấm xếp lịch thực hành mới hoặc chuyển sang ngày có lịch ở thanh chọn nhanh bên trên.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsScheduleModalOpen(true)}
+                  className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#854412] transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Xếp lịch thực hành cho ngày này</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Legend Row */}
+          <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+            <span className="px-3 py-1 bg-[#D1F2D9] text-[#0D6832] rounded-lg font-bold">
+              ● Đã hoàn thành
+            </span>
+            <span className="px-3 py-1 bg-[#DBEAFE] text-[#1E40AF] rounded-lg font-bold">
+              ● Đang diễn ra
+            </span>
+            <span className="px-3 py-1 bg-[#FDF6EE] border border-[#D7BBA6] rounded-lg font-medium text-[#8A4F23]">
+              Lịch chuẩn đã lập
+            </span>
+            <span className="px-3 py-1 bg-[#FEF3C7] text-[#92400E] rounded-lg font-medium">
+              Chưa diễn ra
+            </span>
+            <span className="px-3 py-1 bg-[#F6EFE8] text-[#73675F] rounded-lg font-medium">
+              12:00–13:00 · Nghỉ trưa & Chuẩn bị giáo cụ
+            </span>
+          </div>
+        </div>
+
+        {/* Right Column: Buổi đang chọn Details Sidebar */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[17px] font-extrabold text-[#3E200C]">Buổi đang chọn</div>
+                <div className="text-[11px] text-[#73675F]">Lớp: {selectedSession.className}</div>
+              </div>
+              <span
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                  selectedSession.status === 'Đã hoàn thành'
+                    ? 'bg-[#E8F6ED] text-[#0D6832] border border-[#C5ECD0]'
+                    : selectedSession.status === 'Đang diễn ra'
+                    ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]'
+                    : selectedSession.status === 'Sắp diễn ra'
+                    ? 'bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]'
+                    : 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
+                }`}
+              >
+                {selectedSession.status}
+              </span>
+            </div>
+
+            {/* Instructor Profile snippet */}
+            <div className="flex items-center gap-3 pt-0.5">
+              <div className="w-10 h-10 rounded-full bg-[#FAF0E4] border border-[#EFE4D9] flex items-center justify-center text-[#8D4B1A] font-bold shrink-0">
+                <User className="w-5 h-5 text-[#8D4B1A]" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-[#2C241E] truncate">
+                  {selectedSession.instructorName}
+                </div>
+                <div className="text-[11px] text-[#73675F] truncate mt-0.5">
+                  Giảng viên chuyên môn · Viện Đào Tạo MLD
+                </div>
+              </div>
+            </div>
+
+            {/* Subject Title */}
+            <div className="text-[13.5px] font-bold text-[#2C241E] pt-1 border-t border-[#F5EBE1]">
+              {selectedSession.subject}
+            </div>
+
+            {/* Topic box */}
+            <div className="text-xs text-[#73675F] bg-[#FAF5EF] p-2.5 rounded-xl border border-[#EFE4D9]">
+              <div className="font-semibold text-[#2C241E] mb-0.5 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#8D4B1A]" />
+                <span>Nội dung bài học thực hành:</span>
+              </div>
+              <div>{selectedSession.videoTopic}</div>
+            </div>
+
+            {/* Key-values breakdown */}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between text-[#73675F]">
+                <span>Phòng thực hành</span>
+                <span className="text-[#2C241E] font-semibold">{selectedSession.room}</span>
+              </div>
+              <div className="flex items-center justify-between text-[#73675F]">
+                <span>Khung buổi học</span>
+                <span className="text-[#2C241E] font-semibold">{selectedSession.timeRange}</span>
+              </div>
+              <div className="flex items-center justify-between text-[#73675F]">
+                <span>Thời lượng video bài giảng</span>
+                <span className="text-[#2C241E] font-semibold">{selectedSession.videoDuration}</span>
+              </div>
+              <div className="flex items-center justify-between text-[#73675F]">
+                <span>Thời lượng thực hành</span>
+                <span className="text-[#2C241E] font-semibold">{selectedSession.practiceDuration}</span>
+              </div>
+              <div className="flex items-center justify-between text-[#73675F]">
+                <span>Chuẩn bị phòng</span>
+                <span className="text-[#2C241E] font-semibold">{selectedSession.prepTime}</span>
+              </div>
+              <div className="flex items-center justify-between text-[#73675F]">
+                <span>Ngày diễn ra</span>
+                <span className="text-[#2C241E] font-semibold">{selectedSession.dateLabel}</span>
+              </div>
+            </div>
+
+            {/* Attendance & note box */}
+            <div className="p-3 rounded-xl bg-[#FAF0E4]/60 border border-[#E8DFD8] space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#8A4F23]">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Điểm danh học viên & Chuẩn bị giáo cụ</span>
+              </div>
+              <div className="text-[11px] text-[#73675F] leading-relaxed">
+                {selectedSession.note}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => showToast(`Đã ghi nhận điểm danh chuyên cần cho lớp ${selectedSession.className}!`)}
+                className="w-full py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>Điểm danh buổi thực hành</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="w-full py-2 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
+              >
+                Xếp lịch / Điều chỉnh ca
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -850,7 +1454,7 @@ export const W11_Curriculum: React.FC = () => {
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Ngày thực hành</label>
                   <input
                     type="date"
-                    defaultValue="2026-10-16"
+                    defaultValue={selectedSession.dateKey || selectedDate}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
