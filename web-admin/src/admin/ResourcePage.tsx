@@ -9,6 +9,7 @@ import { CourseEditorSheet } from "./CourseEditorSheet";
 import { EnrollmentEditorSheet } from "./EnrollmentEditorSheet";
 import { ChapterEditorSheet } from "./ChapterEditorSheet";
 import { LessonEditorSheet } from "./LessonEditorSheet";
+import { QuizEditorSheet } from "./QuizEditorSheet";
 import { BatchDateRangeEditor, BatchScheduleTextEditor } from "./BatchDateRangeEditor";
 import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryFormEditor";
 import { InstructorFormEditor } from "./InstructorFormEditor";
@@ -3075,7 +3076,7 @@ function RecordDialog({
   return (
     <dialog
       className={`admin-dialog ${
-        ["staff_profiles", "courses", "course_enrollments", "course_chapters"].includes(resource.name)
+        ["staff_profiles", "courses", "course_enrollments", "course_chapters", "course_lessons", "course_quizzes"].includes(resource.name)
           ? "!max-w-[880px] !w-[min(880px,calc(100%-32px))]"
           : ""
       }`}
@@ -3120,6 +3121,14 @@ function RecordDialog({
         />
       ) : resource.name === "course_lessons" ? (
         <LessonEditorSheet
+          row={row}
+          mode={mode}
+          onClose={onClose}
+          onSaved={onSaved}
+          onSwitchMode={onSwitchMode}
+        />
+      ) : resource.name === "course_quizzes" ? (
+        <QuizEditorSheet
           row={row}
           mode={mode}
           onClose={onClose}
