@@ -26,6 +26,9 @@ class E09LessonScreen extends StatefulWidget {
 
 class _E09LessonScreenState extends State<E09LessonScreen> {
   bool _isCompleted = false;
+  double _initialPosition = 0.0;
+
+  String get _courseId => widget.courseId ?? widget.courseTitle ?? 'default_course';
 
   @override
   void initState() {
@@ -33,26 +36,33 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
     // Bật bảo mật FLAG_SECURE chặn quay màn hình / chụp ảnh màn hình bài giảng
     AppSecurityService.instance.enableSecureScreen();
     if (widget.lesson != null) {
-      final cId = widget.courseId ?? widget.courseTitle ?? 'default_course';
-      _isCompleted = AcademyRepository.instance.isLessonCompleted(cId, widget.lesson!.id);
+      _isCompleted = AcademyRepository.instance.isLessonCompleted(_courseId, widget.lesson!.id);
+      _initialPosition = AcademyRepository.instance.getLessonPosition(_courseId, widget.lesson!.id);
     }
   }
 
+  /// Tự động ghi nhận hoàn thành khi học viên xem hết video
   void _markCompleted() async {
     if (widget.lesson == null) return;
-    final cId = widget.courseId ?? widget.courseTitle ?? 'default_course';
-    await AcademyRepository.instance.markLessonCompleted(cId, widget.lesson!.id);
+    if (_isCompleted) return;
+    await AcademyRepository.instance.markLessonCompleted(_courseId, widget.lesson!.id);
     if (mounted) {
       setState(() {
         _isCompleted = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✓ Đã ghi nhận xem hết bài: ${widget.lesson?.title ?? ""}'),
+          content: Text('✓ Bạn đã xem hết bài: "${widget.lesson?.title ?? ""}". Bài tiếp theo đã được mở khóa!'),
           backgroundColor: const Color(0xFF2E8B57),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
         ),
       );
+    }
+  }
+
+  void _onProgressUpdate(double position, double duration) {
+    if (widget.lesson != null && position > 0) {
+      AcademyRepository.instance.saveLessonPosition(_courseId, widget.lesson!.id, position);
     }
   }
 
@@ -62,32 +72,6 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(
         subtitleTag: 'Video bài giảng',
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: AcademyColors.cardBorder, width: 1.0)),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: _markCompleted,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isCompleted ? const Color(0xFF2E8B57) : AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              _isCompleted ? '✓ Đã hoàn thành bài học' : 'Đánh dấu đã xem hết',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -105,7 +89,11 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
               child: MldYoutubePlayer(
                 videoUrl: widget.lesson?.videoUrl ?? 'https://youtu.be/mDhpMX4EeY8?si=Hd_z_npg-loMZEx8',
                 title: widget.lesson?.title ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
+                courseId: _courseId,
+                lessonId: widget.lesson?.id,
+                initialPosition: _initialPosition,
                 onVideoEnded: _markCompleted,
+                onProgressUpdate: _onProgressUpdate,
               ),
             ),
             const SizedBox(height: 16),
@@ -146,7 +134,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Trạng thái hoàn thành
+            // Thông báo trạng thái học tập (tối giản, không icon rườm rà)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -157,28 +145,17 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                   color: _isCompleted ? const Color(0xFF86EFAC) : const Color(0xFFBFDBFE),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    _isCompleted ? Icons.check_circle_rounded : Icons.info_outline,
-                    color: _isCompleted ? const Color(0xFF16A34A) : AppColors.primary,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _isCompleted
-                          ? 'Bạn đã hoàn thành bài học này. Bài học kế tiếp đã được mở khóa!'
-                          : 'Xem hết video để hệ thống tự động ghi nhận và mở khóa bài tiếp theo.',
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _isCompleted ? const Color(0xFF15803D) : const Color(0xFF1E40AF),
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                _isCompleted
+                    ? 'Bạn đã hoàn thành bài học này. Bài học kế tiếp đã được mở khóa.'
+                    : 'Hệ thống tự động ghi nhớ vị trí xem. Bạn cần xem hết video để mở khóa bài tiếp theo.',
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: _isCompleted ? const Color(0xFF15803D) : const Color(0xFF1E40AF),
+                  height: 1.4,
+                ),
               ),
             ),
           ],

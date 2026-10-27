@@ -14,13 +14,21 @@ import '../../../membership/data/repositories/membership_repository.dart';
 class MldYoutubePlayer extends StatefulWidget {
   final String? videoUrl;
   final String? title;
+  final String? courseId;
+  final String? lessonId;
   final VoidCallback? onVideoEnded;
+  final void Function(double position, double duration)? onProgressUpdate;
+  final double initialPosition;
 
   const MldYoutubePlayer({
     super.key,
     required this.videoUrl,
     this.title,
+    this.courseId,
+    this.lessonId,
     this.onVideoEnded,
+    this.onProgressUpdate,
+    this.initialPosition = 0.0,
   });
 
   @override
@@ -31,8 +39,9 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
   YoutubePlayerController? _controller;
   String? _videoId;
 
-  // Watermark state
+  // Watermark & Progress state
   Timer? _watermarkTimer;
+  Timer? _progressTimer;
   int _watermarkPosIndex = 0;
   final List<Alignment> _watermarkAlignments = const [
     Alignment.topRight,
@@ -79,7 +88,7 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
     if (_videoId != null && !isTesting) {
       _controller = YoutubePlayerController.fromVideoId(
         videoId: _videoId!,
-        autoPlay: false,
+        autoPlay: true,
         params: const YoutubePlayerParams(
           showFullscreenButton: true,
           showControls: true,
@@ -87,9 +96,29 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
         ),
       );
 
+      if (widget.initialPosition > 0) {
+        _controller!.seekTo(seconds: widget.initialPosition, allowSeekAhead: true);
+      }
+
       _controller!.listen((state) {
         if (state.playerState == PlayerState.ended) {
           widget.onVideoEnded?.call();
+        }
+      });
+
+      // Tự động kiểm tra tiến trình xem của học viên và lưu lại
+      _progressTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+        if (_controller != null && mounted) {
+          try {
+            final pos = await _controller!.currentTime;
+            final dur = await _controller!.duration;
+            if (pos > 0) {
+              widget.onProgressUpdate?.call(pos, dur);
+              if (dur > 0 && pos >= dur - 1.5) {
+                widget.onVideoEnded?.call();
+              }
+            }
+          } catch (_) {}
         }
       });
     }
@@ -120,6 +149,7 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
 
   @override
   void dispose() {
+    _progressTimer?.cancel();
     _watermarkTimer?.cancel();
     _controller?.close();
     super.dispose();

@@ -409,44 +409,9 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
             <span>← Quay lại danh mục đào tạo</span>
           </button>
 
-          {/* Course Banner Card */}
+          {/* Course Banner Card: Bảng thông tin chỉ hiện tên khóa học */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">
-                  {selectedCourse.level} · {selectedCourse.category}
-                </span>
-                <h2 className="text-base font-bold text-slate-900 mt-1">{selectedCourse.title}</h2>
-              </div>
-            </div>
-
-            {/* Live Progress Bar (0/X completed) */}
-            <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                <span className="text-slate-700">Tiến độ bài học:</span>
-                <span className="text-blue-600 font-bold">
-                  {completedCount}/{totalLessons} bài ({progressPercent}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className={`h-2.5 rounded-full transition-all duration-500 ${
-                    is100PercentDone ? 'bg-emerald-500' : 'bg-blue-600'
-                  }`}
-                  style={{ width: `${progressPercent}%` }}
-                ></div>
-              </div>
-
-              {/* Celebration Banner when 100% video completed */}
-              {is100PercentDone && (
-                <div className="mt-3 bg-emerald-50 border border-emerald-300 rounded-lg p-2.5 flex items-center space-x-2 text-emerald-800 text-xs">
-                  <Sparkles className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <div>
-                    <strong>Chúc mừng bạn đã xem hết 100% video bài học!</strong> Khóa kiểm tra đánh giá đã được mở khóa. Hãy làm bài thi trắc nghiệm để nhận chứng chỉ chính thức.
-                  </div>
-                </div>
-              )}
-            </div>
+            <h2 className="text-base font-bold text-slate-900">{selectedCourse.title}</h2>
           </div>
 
           {/* Tabs: Nội dung học (Curriculum) vs Lịch học (Attendance E11) */}
@@ -539,25 +504,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                                   alt={lesson.title}
                                   className="w-full h-full object-cover opacity-80"
                                 />
-                                <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
-                                  <div
-                                    className={`w-7 h-7 rounded-full flex items-center justify-center shadow ${
-                                      !isEnrolled
-                                        ? 'bg-slate-800/80 text-slate-400'
-                                        : isDone
-                                        ? 'bg-emerald-500 text-white'
-                                        : 'bg-blue-600 text-white'
-                                    }`}
-                                  >
-                                    {!isEnrolled ? (
-                                      <Lock className="w-3.5 h-3.5" />
-                                    ) : isDone ? (
-                                      <CheckCircle className="w-3.5 h-3.5" />
-                                    ) : (
-                                      <PlayCircle className="w-4 h-4 ml-0.5" />
-                                    )}
-                                  </div>
-                                </div>
+
                                 <div className="absolute bottom-1 right-1 bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded leading-none">
                                   {durationDisplay}
                                 </div>
@@ -571,17 +518,15 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                                 <div className="mt-1 flex items-center space-x-2">
                                   {!isEnrolled ? (
                                     <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                                      Khóa 🔒
+                                      Khóa
                                     </span>
                                   ) : isDone ? (
                                     <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded flex items-center space-x-1">
-                                      <CheckCircle className="w-3 h-3 mr-0.5 inline" />
                                       Đã học
                                     </span>
                                   ) : (
                                     <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded flex items-center space-x-1">
-                                      <PlayCircle className="w-3 h-3 mr-0.5 inline" />
-                                      Vào học ▶
+                                      Vào học
                                     </span>
                                   )}
                                 </div>
@@ -787,19 +732,16 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                 </span>
               </div>
 
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleMarkLessonDone(activeVideoLesson.id)}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition flex items-center justify-center space-x-1.5"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Đánh dấu đã hoàn thành bài học</span>
-                </button>
+              <div className="p-2.5 bg-slate-800 rounded-lg text-xs text-slate-300">
+                Hệ thống tự động ghi nhớ vị trí xem. Bạn cần xem hết video để tự động mở khóa bài học tiếp theo.
+              </div>
+
+              <div className="flex justify-end">
                 <button
                   onClick={() => setActiveVideoLesson(null)}
-                  className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition"
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-lg transition text-center"
                 >
-                  Đóng
+                  Đóng bài giảng
                 </button>
               </div>
             </div>

@@ -338,125 +338,24 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2. Thẻ thông tin tổng quan lớp học [8116:26004] (Tính toán dữ liệu thực tế chính xác)
+            // 2. Bảng thông tin: Chỉ hiện tên khóa học theo đúng yêu cầu
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               decoration: BoxDecoration(
-                color: AcademyColors.cardWarm,
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: _isCourseCompleted
-                          ? const Color(0xFFD1FAE5)
-                          : (_completedLessonsCount > 0 ? Colors.white.withValues(alpha: 0.8) : const Color(0xFFEFF6FF)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _isCourseCompleted
-                          ? 'Đã hoàn thành video ✓'
-                          : (_completedLessonsCount > 0 ? 'Đang học · MCN-0926' : 'Mới ghi danh · Chưa học'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _isCourseCompleted
-                            ? const Color(0xFF047857)
-                            : (_completedLessonsCount > 0 ? AcademyColors.primary : const Color(0xFF2563EB)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.course?.title ?? 'Dẫn lưu bạch huyết Vodder Chuyên Nghiệp',
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                      color: AcademyColors.heading,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Ban Đào tạo Học viện MLD Việt Nam',
-                    style: TextStyle(fontSize: 14, color: AcademyColors.textPrimary),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.course?.branch ?? 'Chi nhánh Quận 3 · TP. Hồ Chí Minh',
-                    style: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.course?.schedule ?? 'Thứ 6–7–Chủ nhật · 13:00–17:00',
-                    style: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF4FE),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.schedule, size: 14, color: Color(0xFF2860EB)),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Thời hạn truy cập: Còn 45 ngày (Hạn đến: 31/12/2026)',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF2860EB),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '$_completedLessonsCount / $_totalLessonsCount bài học đã hoàn thành',
-                          style: const TextStyle(fontSize: 13, color: AcademyColors.textPrimary, fontWeight: FontWeight.w600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$_progressPercent%',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AcademyColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: _progressValue,
-                      minHeight: 6,
-                      backgroundColor: AcademyColors.cardBorder,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AcademyColors.primary),
-                    ),
-                  ),
-                ],
+              child: Text(
+                widget.course?.title ?? 'Dẫn lưu bạch huyết Vodder Chuyên Nghiệp',
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AcademyColors.heading,
+                  height: 1.35,
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -560,26 +459,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                     height: 70,
                                                     fit: BoxFit.cover,
                                                   ),
-                                                // Lớp phủ tối nhẹ để nổi bật nút play
-                                                Container(color: Colors.black.withValues(alpha: 0.28)),
-                                                // Nút Play tròn ở chính giữa
-                                                Container(
-                                                  width: 30,
-                                                  height: 30,
-                                                  decoration: BoxDecoration(
-                                                    color: isDone
-                                                        ? const Color(0xFF10B981)
-                                                        : (isUnlocked ? AppColors.primary : Colors.black54),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Icon(
-                                                    isDone
-                                                        ? Icons.check_rounded
-                                                        : (isUnlocked ? Icons.play_arrow_rounded : Icons.lock_outline_rounded),
-                                                    color: Colors.white,
-                                                    size: 18,
-                                                  ),
-                                                ),
+                                                 if (!isUnlocked && !isDone)
+                                                   Container(color: Colors.black.withValues(alpha: 0.45)),
                                                 // Badge thời lượng ở góc dưới bên phải (ví dụ 94:48)
                                                 Positioned(
                                                   bottom: 4,
@@ -635,7 +516,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
                                                         child: const Text(
-                                                          '✓ Đã học',
+                                                          'Đã học',
                                                           style: TextStyle(
                                                             fontFamily: 'Montserrat',
                                                             fontSize: 11,
@@ -652,7 +533,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
                                                         child: const Text(
-                                                          'Vào học ▶',
+                                                          'Vào học',
                                                           style: TextStyle(
                                                             fontFamily: 'Montserrat',
                                                             fontSize: 11,
@@ -669,7 +550,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
                                                         child: const Text(
-                                                          'Khóa 🔒',
+                                                          'Khóa',
                                                           style: TextStyle(
                                                             fontFamily: 'Montserrat',
                                                             fontSize: 11,
@@ -984,7 +865,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   child: Text(
                     isUnlocked
                         ? 'Phần kiểm tra đánh giá khóa học'
-                        : 'Phần kiểm tra đánh giá khóa học 🔒',
+                        : 'Phần kiểm tra đánh giá khóa học',
                     style: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
@@ -1134,7 +1015,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
-                          isUnlocked ? 'Làm bài ▶' : 'Khóa 🔒',
+                          isUnlocked ? 'Làm bài' : 'Khóa',
                           style: TextStyle(
                             fontFamily: 'Montserrat',
                             fontSize: 12,

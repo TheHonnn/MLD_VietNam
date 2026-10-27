@@ -343,7 +343,9 @@ class AcademyRepository {
 
 
   static const String _lessonProgressKey = 'mld_academy_lesson_progress';
+  static const String _lessonPositionsKey = 'mld_academy_lesson_positions';
   final Set<String> _completedLessonIds = {};
+  final Map<String, double> _lessonPositions = {};
 
   Future<void> _loadLessonProgress() async {
     try {
@@ -353,7 +355,29 @@ class AcademyRepository {
         _completedLessonIds.clear();
         _completedLessonIds.addAll(list);
       }
+      final rawPositions = prefs.getString(_lessonPositionsKey);
+      if (rawPositions != null) {
+        final Map<String, dynamic> decoded = jsonDecode(rawPositions);
+        _lessonPositions.clear();
+        decoded.forEach((key, val) {
+          if (val is num) _lessonPositions[key] = val.toDouble();
+        });
+      }
     } catch (_) {}
+  }
+
+  /// Tự động lưu vị trí giây đã xem của học viên để tiếp tục lần sau
+  Future<void> saveLessonPosition(String courseId, String lessonId, double positionSeconds) async {
+    _lessonPositions['${courseId}_$lessonId'] = positionSeconds;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lessonPositionsKey, jsonEncode(_lessonPositions));
+    } catch (_) {}
+  }
+
+  /// Lấy vị trí giây học viên đã xem dở
+  double getLessonPosition(String courseId, String lessonId) {
+    return _lessonPositions['${courseId}_$lessonId'] ?? 0.0;
   }
 
   Future<void> markLessonCompleted(String courseId, String lessonId) async {

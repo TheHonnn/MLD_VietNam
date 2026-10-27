@@ -115,20 +115,13 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Kiểm tra nút "Đánh dấu đã xem hết"
-      final markBtn = find.text('Đánh dấu đã xem hết');
-      expect(markBtn, findsOneWidget);
+      // Hệ thống tự động theo dõi tiến độ xem video, không có nút thủ công "Đánh dấu đã xem hết"
+      expect(find.text('Đánh dấu đã xem hết'), findsNothing);
+      expect(find.textContaining('Hệ thống tự động ghi nhớ vị trí xem'), findsOneWidget);
 
-      // Bấm hoàn thành bài học
-      await tester.tap(markBtn);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // Thông báo SnackBar xuất hiện
-      expect(find.text('✓ Đã ghi nhận xem hết bài: Bài 1: Tổng quan dẫn lưu Vodder'), findsOneWidget);
-
-      // Nút chuyển sang trạng thái đã hoàn thành
-      expect(find.text('✓ Đã hoàn thành bài học'), findsOneWidget);
+      // Tự động ghi nhận hoàn thành khi học viên xem xong video
+      await AcademyRepository.instance.markLessonCompleted('test_course_123', testLesson.id);
+      expect(AcademyRepository.instance.isLessonCompleted('test_course_123', testLesson.id), isTrue);
     });
 
     testWidgets('Trong E08: Hoàn thành 1 bài thì bài tiếp theo mở khóa, hoàn thành 100% thì mở khóa bài kiểm tra',
@@ -167,8 +160,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Chưa học bài nào: Hiển thị 0 bài hoàn thành và bài kiểm tra bị khóa
-      expect(find.textContaining('bài học đã hoàn thành'), findsOneWidget);
-      expect(find.text('Phần kiểm tra đánh giá khóa học 🔒'), findsOneWidget);
+      expect(find.text(testCourse.title), findsOneWidget);
+      expect(find.text('Phần kiểm tra đánh giá khóa học'), findsOneWidget);
 
       // Đánh dấu hoàn thành toàn bộ bài học của khóa
       const chapters = MockAcademyData.syllabusChapters;
@@ -190,7 +183,7 @@ void main() {
 
       // 2. Bài kiểm tra chuyển sang trạng thái ĐÃ MỞ KHÓA
       expect(find.text('Phần kiểm tra đánh giá khóa học'), findsOneWidget);
-      expect(find.text('Làm bài ▶'), findsWidgets);
+      expect(find.text('Làm bài'), findsWidgets);
 
       // 3. Thanh nút cố định dưới màn hình đổi thành nút làm bài kiểm tra
       expect(find.text('Làm bài kiểm tra đánh giá'), findsOneWidget);
