@@ -59,7 +59,10 @@ class ApiEndpoints {
 
   static const String courses = '/rest/v1/courses';
   static String courseDetail(String id) => '/rest/v1/courses?id=eq.$id&select=*,course_chapters(*,course_lessons(*))';
+  static const String courseChapters = '/rest/v1/course_chapters';
+  static const String courseLessons = '/rest/v1/course_lessons';
   static const String courseEnrollments = '/rest/v1/course_enrollments';
+  static const String userLessonProgress = '/rest/v1/user_lesson_progress';
   static const String courseQuizzes = '/rest/v1/course_quizzes';
   static const String quizQuestions = '/rest/v1/quiz_questions';
   static const String quizSubmissions = '/rest/v1/quiz_submissions';
