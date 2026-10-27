@@ -22,6 +22,7 @@ class AcademyRepository {
     }
     _loadEnrolledCourses();
     _loadLessonProgress();
+    _loadQuizSubmissions();
   }
   static final AcademyRepository instance = AcademyRepository._internal();
   factory AcademyRepository() => instance;
@@ -404,23 +405,77 @@ class AcademyRepository {
     return isLessonCompleted(courseId, previousLesson.id);
   }
 
-  /// Lấy danh sách bài kiểm tra do Admin cấu hình từ Supabase
-  Future<List<Map<String, dynamic>>> getCourseQuizzes(String courseId) async {
-    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
-      return [
-        {
-          'title': 'Bài kiểm tra cuối khóa Vodder MLD',
-          'total_questions': 10,
-          'time_limit_minutes': 15,
-          'passing_score': 80,
-        }
-      ];
-    }
+  static const String _quizSubmissionsKey = 'mld_academy_quiz_submissions';
+  final Map<String, QuizSubmissionModel> _quizSubmissions = {};
+
+  Future<void> _loadQuizSubmissions() async {
     try {
-      return await SupabaseDataService.instance.fetchCourseQuizzes(courseId);
-    } catch (_) {
-      return [];
-    }
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_quizSubmissionsKey);
+      if (raw != null) {
+        final Map<String, dynamic> decoded = jsonDecode(raw);
+        _quizSubmissions.clear();
+        decoded.forEach((key, val) {
+          if (val is Map<String, dynamic>) {
+            _quizSubmissions[key] = QuizSubmissionModel.fromJson(val);
+          }
+        });
+      }
+    } catch (_) {}
   }
 
+  /// Lấy danh sách bài kiểm tra Model có đầy đủ câu hỏi và tiêu chí của Admin
+  Future<List<CourseQuizModel>> getCourseQuizModels(String courseId, [String? courseTitle]) async {
+    try {
+      final rawList = await SupabaseDataService.instance.fetchCourseQuizzes(courseId);
+      if (rawList.isNotEmpty) {
+        final List<CourseQuizModel> result = [];
+        for (final raw in rawList) {
+          final qId = raw['id']?.toString() ?? '';
+          final rawQuestions = await SupabaseDataService.instance.fetchQuizQuestions(qId);
+          final questions = rawQuestions.map((j) => QuizQuestionModel.fromJson(j)).toList();
+          result.add(CourseQuizModel.fromJson(
+            raw,
+            questions.isNotEmpty ? questions : MockAcademyData.getStandardVodderQuestions(qId),
+          ));
+        }
+        return result;
+      }
+    } catch (_) {}
+
+    // Fallback Mock dữ liệu chuẩn y khoa Vodder theo courseId
+    return MockAcademyData.getQuizzesForCourse(courseId, courseTitle);
+  }
+
+  /// Lấy danh sách bài kiểm tra dạng Map để tương thích các widget cũ
+  Future<List<Map<String, dynamic>>> getCourseQuizzes(String courseId) async {
+    final list = await getCourseQuizModels(courseId);
+    return list.map((q) => q.toJson()).toList();
+  }
+
+  /// Lưu kết quả bài làm trắc nghiệm của học viên
+  Future<void> saveQuizSubmission(QuizSubmissionModel submission) async {
+    _quizSubmissions[submission.quizId] = submission;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mapToSave = _quizSubmissions.map((k, v) => MapEntry(k, v.toJson()));
+      await prefs.setString(_quizSubmissionsKey, jsonEncode(mapToSave));
+    } catch (_) {}
+
+    try {
+      await SupabaseDataService.instance.submitQuizSubmission(
+        enrollmentId: 'enroll_${submission.courseId}',
+        quizId: submission.quizId,
+        score: submission.score,
+        correctCount: submission.correctCount,
+        submittedAnswers: submission.submittedAnswers.map((k, v) => MapEntry(k.toString(), v)),
+        passed: submission.passed,
+      );
+    } catch (_) {}
+  }
+
+  /// Lấy kết quả bài làm mới nhất theo quizId
+  QuizSubmissionModel? getQuizSubmission(String quizId) {
+    return _quizSubmissions[quizId];
+  }
 }

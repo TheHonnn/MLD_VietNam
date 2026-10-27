@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e01_academy_home_screen.dart';
+import 'package:medical_healthcare_app/features/academy/presentation/screens/e07_my_courses_screen.dart';
+import 'package:medical_healthcare_app/features/academy/presentation/screens/e10_quiz_screen.dart';
+import 'package:medical_healthcare_app/features/academy/data/models/academy_models.dart';
+import 'package:medical_healthcare_app/features/academy/data/repositories/academy_repository.dart';
 import 'package:medical_healthcare_app/features/treatment/presentation/screens/d09_documents_screen.dart';
 import 'package:medical_healthcare_app/features/home/presentation/screens/main_layout_screen.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
@@ -68,5 +72,91 @@ void main() {
     await tester.pump();
     expect(find.byType(D09DocumentsScreen), findsOneWidget);
     expect(find.text('Documents & Medical MLD'), findsWidgets);
+  });
+
+  testWidgets('Test E07MyCoursesScreen: 2 Tabs Đang học & Kiểm tra, bấm vào khóa học hiện danh sách kiểm tra và nút Bắt đầu', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(420, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildTestApp(home: const E07MyCoursesScreen(), locale: const Locale('vi')));
+    await tester.pumpAndSettle();
+
+    // 1. Kiểm tra tiêu đề và 2 Tab duy nhất
+    expect(find.text('Khóa học của tôi'), findsOneWidget);
+    expect(find.textContaining('Đang học'), findsOneWidget);
+    expect(find.text('Kiểm tra'), findsOneWidget);
+    expect(find.text('Sắp học'), findsNothing);
+    expect(find.text('Đã hoàn thành'), findsNothing);
+
+    // 2. Chuyển sang Tab Kiểm tra
+    await tester.tap(find.text('Kiểm tra'));
+    await tester.pumpAndSettle();
+
+    // 3. Hiển thị danh sách khóa học và danh sách bài kiểm tra theo course_id
+    expect(find.text('Chọn khóa học để làm bài kiểm tra:'), findsOneWidget);
+    expect(find.textContaining('bài kiểm tra trắc nghiệm'), findsWidgets);
+    expect(find.text('Bắt đầu'), findsWidgets);
+    expect(find.textContaining('≥ 8.0 / 10 điểm'), findsWidgets);
+  });
+
+  testWidgets('Test E10QuizScreen: Trả lời câu hỏi và chấm điểm chuẩn tiêu chí Admin (>= 8.0 đạt, < 8.0 chưa đạt)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(420, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    const testQuiz = CourseQuizModel(
+      id: 'quiz_test_sample',
+      courseId: 'course_test_1',
+      title: 'Đề thi trắc nghiệm mẫu MLD',
+      totalQuestions: 10,
+      timeLimitMinutes: 15,
+      passingScore: 8.0,
+      questions: [
+        QuizQuestionModel(
+          id: 'q1',
+          quizId: 'quiz_test_sample',
+          questionNumber: 1,
+          questionText: 'Lực tác động tối ưu khi thực hiện động tác vuốt dẫn lưu bạch huyết theo kỹ thuật Vodder là bao nhiêu?',
+          options: {
+            'A': '30 - 40 mmHg',
+            'B': '80 - 100 mmHg',
+          },
+          correctOption: 'A',
+          explanation: 'Áp lực nhẹ 30-40 mmHg.',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(_buildTestApp(
+      home: const E10QuizScreen(
+        quiz: testQuiz,
+        courseTitle: 'Khóa học Test',
+      ),
+      locale: const Locale('vi'),
+    ));
+    await tester.pumpAndSettle();
+
+    // Hiển thị câu hỏi và đồng hồ đếm ngược
+    expect(find.text('Đề thi trắc nghiệm mẫu MLD'), findsOneWidget);
+    expect(find.textContaining('Thời gian:'), findsOneWidget);
+    expect(find.text('30 - 40 mmHg'), findsOneWidget);
+
+    // Chọn đáp án A
+    await tester.tap(find.text('30 - 40 mmHg'));
+    await tester.pumpAndSettle();
+
+    // Bấm Nộp bài
+    await tester.tap(find.byKey(const Key('submit_quiz_button')));
+    await tester.pumpAndSettle();
+
+    // Modal xác nhận nộp bài xuất hiện
+    expect(find.text('Xác nhận nộp bài'), findsOneWidget);
+    await tester.tap(find.text('Nộp bài ngay'));
+    await tester.pumpAndSettle();
+
+    // Đạt tiêu chuẩn vì trả lời đúng 1/1 (10.0/10 >= 8.0)
+    expect(find.text('CHÚC MỪNG: ĐẠT TIÊU CHUẨN'), findsOneWidget);
+    expect(find.text('10.0 / 10.0'), findsWidgets);
   });
 }

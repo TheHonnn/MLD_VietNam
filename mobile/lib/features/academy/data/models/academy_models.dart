@@ -771,4 +771,625 @@ class MockAcademyData {
       ),
     ];
   }
+
+  /// Danh sách câu hỏi chuẩn y khoa Vodder Module 1
+  static List<QuizQuestionModel> getStandardVodderQuestions(String quizId) {
+    return [
+      QuizQuestionModel(
+        id: '${quizId}_q1',
+        quizId: quizId,
+        questionNumber: 1,
+        questionText: 'Lực tác động tối ưu khi thực hiện động tác vuốt dẫn lưu bạch huyết theo kỹ thuật Vodder là bao nhiêu?',
+        options: {
+          'A': 'Rất nhẹ, khoảng 30 - 40 mmHg (chỉ làm căng nhẹ lớp da bì)',
+          'B': 'Lực mạnh từ 80 - 100 mmHg tác động sâu vào khối cơ',
+          'C': 'Ấn day điểm huyệt liên tục với lực tăng dần',
+          'D': 'Tùy thuộc vào ngưỡng chịu đau của bệnh nhân',
+        },
+        correctOption: 'A',
+        explanation: 'Kỹ thuật Vodder yêu cầu áp lực 30-40 mmHg để kích thích mao mạch bạch huyết nông ngay dưới lớp da bì mà không làm xẹp thành mạch.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q2',
+        quizId: quizId,
+        questionNumber: 2,
+        questionText: 'Trường hợp nào sau đây là CHỐNG CHỈ ĐỊNH TUYỆT ĐỐI của liệu trình dẫn lưu bạch huyết MLD?',
+        options: {
+          'A': 'Phù nề nhẹ sau phẫu thuật hút mỡ 3 tuần',
+          'B': 'Viêm tĩnh mạch huyết khối cấp tính (DVT) & suy tim mất bù',
+          'C': 'Mệt mỏi căng thẳng sau ngày làm việc',
+          'D': 'Phù nề chân lành sau phẫu thuật thay khớp',
+        },
+        correctOption: 'B',
+        explanation: 'DVT và suy tim mất bù là chống chỉ định tuyệt đối vì dẫn lưu có thể làm vỡ cục máu đông hoặc gây quá tải thể tích tuần hoàn cấp.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q3',
+        quizId: quizId,
+        questionNumber: 3,
+        questionText: 'Thứ tự dẫn lưu chuẩn y khoa theo nguyên lý Vodder là gì?',
+        options: {
+          'A': 'Dẫn lưu từ vùng ngọn chi trước, sau đó mới vào vùng gốc chi',
+          'B': 'Khai thông trạm hạch trung tâm (vùng cổ - xương đòn) trước, sau đó dẫn lưu từ gốc chi đến ngọn chi',
+          'C': 'Tập trung xoa bóp trực tiếp vào vùng phù nề nặng nhất trước',
+          'D': 'Thao tác ngẫu nhiên theo cảm nhận của kỹ thuật viên',
+        },
+        correctOption: 'B',
+        explanation: 'Nguyên lý Vodder bắt buộc phải giải phóng các trạm hạch trung tâm vùng cổ (Terminus) để tạo chỗ trống đón nhận dòng bạch huyết từ ngoại vi.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q4',
+        quizId: quizId,
+        questionNumber: 4,
+        questionText: 'Nhịp điệu thao tác tối ưu trong kỹ thuật dẫn lưu Vodder là:',
+        options: {
+          'A': 'Nhanh, dồn dập, khoảng 60-80 lần/phút để tăng nhiệt độ da',
+          'B': 'Chậm rãi, nhịp nhàng, khoảng 5-7 lần/phút tương ứng nhịp co bóp tự nhiên của mạch bạch huyết',
+          'C': 'Ngắt quãng đột ngột, ấn giữ 30 giây rồi thả mạnh',
+          'D': 'Thay đổi tốc độ liên tục để kích thích phản xạ thần kinh',
+        },
+        correctOption: 'B',
+        explanation: 'Mạch bạch huyết (Lymphangion) co bóp tự nhiên 5-8 lần/phút ở trạng thái nghỉ ngơi, do đó thao tác MLD cần chậm rãi và nhịp nhàng tương thích.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q5',
+        quizId: quizId,
+        questionNumber: 5,
+        questionText: 'Giai đoạn nào trong chu kỳ vuốt Vodder có tác dụng hút dịch kẽ vào mao mạch bạch huyết?',
+        options: {
+          'A': 'Pha tăng áp (Working phase) làm căng giãn các sợi tơ neo (Anchoring filaments)',
+          'B': 'Pha thả lỏng hoàn toàn tách tay khỏi bề mặt da',
+          'C': 'Pha ấn sâu giữ nguyên vị trí',
+          'D': 'Pha chà xát sinh nhiệt',
+        },
+        correctOption: 'A',
+        explanation: 'Pha tác động (Working phase) làm căng các sợi neo collagen, kéo mở các van mao mạch ban đầu để dịch mô chảy vào lòng mạch.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q6',
+        quizId: quizId,
+        questionNumber: 6,
+        questionText: 'Dấu hiệu lâm sàng Stemmer (Stemmer\'s sign) dương tính biểu hiện:',
+        options: {
+          'A': 'Da vùng mu ngón chân/tay không thể véo hoặc nhấc lên được do phù bạch huyết xơ hóa',
+          'B': 'Vết lõm sâu khi ấn tay vào và hồi phục ngay trong 3 giây',
+          'C': 'Đau nhói khi sờ nắn dọc theo đường đi của tĩnh mạch',
+          'D': 'Vùng da phù đỏ rực và nóng rát kèm sốt cao',
+        },
+        correctOption: 'A',
+        explanation: 'Dấu hiệu Stemmer đặc hiệu cho phù bạch huyết giai đoạn II-III khi dịch phù chứa nhiều protein gây xơ hóa mô dưới da.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q7',
+        quizId: quizId,
+        questionNumber: 7,
+        questionText: 'Tại sao không được sử dụng dầu massage có độ trơn cao khi thực hiện kỹ thuật Vodder chuẩn y khoa?',
+        options: {
+          'A': 'Vì dầu massage làm tăng nguy cơ dị ứng cho bệnh nhân',
+          'B': 'Vì độ trơn làm tay bị trượt, không tạo được lực kéo căng da tiếp tuyến để kích thích mao mạch bạch huyết',
+          'C': 'Vì dầu massage làm bít tắc lỗ chân lông tạm thời',
+          'D': 'Vì kỹ thuật viên khó kiểm soát nhiệt độ lòng bàn tay',
+        },
+        correctOption: 'B',
+        explanation: 'Kỹ thuật Vodder yêu cầu độ ma sát tự nhiên giữa da kỹ thuật viên và da bệnh nhân để kéo giãn các sợi tơ neo dưới biểu bì.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q8',
+        quizId: quizId,
+        questionNumber: 8,
+        questionText: 'Động tác Stationary Circles (Xoay tròn tại chỗ) thường được áp dụng ưu tiên ở vùng nào?',
+        options: {
+          'A': 'Vùng cổ, mặt và các chuỗi trạm hạch bạch huyết',
+          'B': 'Bụng chân và khối cơ đùi lớn',
+          'C': 'Toàn bộ vùng lưng và cột sống',
+          'D': 'Bề mặt khớp gối và cổ chân',
+        },
+        correctOption: 'A',
+        explanation: 'Stationary circles là kỹ thuật cơ bản nhất trong Vodder, đặc biệt dùng để kích thích các chuỗi hạch cổ nông, sâu và trạm hạch nách/bẹn.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q9',
+        quizId: quizId,
+        questionNumber: 9,
+        questionText: 'Tiêu chuẩn vệ sinh và kiểm soát nhiễm khuẩn bắt buộc trước khi MLD cho bệnh nhân sau phẫu thuật là:',
+        options: {
+          'A': 'Rửa tay sát khuẩn chuẩn ngoại khoa, sát trùng dụng cụ và không can thiệp trực tiếp lên mép vết thương hở',
+          'B': 'Chỉ cần đeo găng tay len sạch',
+          'C': 'Rửa tay bằng nước ấm thông thường',
+          'D': 'Thoa cồn 90 độ trực tiếp lên toàn bộ vùng điều trị',
+        },
+        correctOption: 'A',
+        explanation: 'MLD sau phẫu thuật đòi hỏi quy chuẩn vô khuẩn nghiêm ngặt để phòng ngừa viêm mô tế bào (Cellulitis) - biến chứng nguy hiểm nhất của phù bạch huyết.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q10',
+        quizId: quizId,
+        questionNumber: 10,
+        questionText: 'Học viện MLD Việt Nam quy định tiêu chí điểm đạt lý thuyết để được tham gia thực hành lâm sàng là:',
+        options: {
+          'A': '≥ 5.0 / 10 điểm (50%)',
+          'B': '≥ 6.5 / 10 điểm (65%)',
+          'C': '≥ 8.0 / 10 điểm (80% số câu đúng chuẩn Vodder Quốc tế)',
+          'D': 'Chỉ cần tham gia đầy đủ không tính điểm thi',
+        },
+        correctOption: 'C',
+        explanation: 'Chuẩn đào tạo y khoa Vodder tại Học viện MLD yêu cầu học viên đạt tối thiểu 8.0/10 điểm lý thuyết (≥80%) để đảm bảo an toàn tuyệt đối cho bệnh nhân trước khi thực hành lâm sàng.',
+      ),
+    ];
+  }
+
+  /// Danh sách câu hỏi Module 2: Phác đồ lâm sàng
+  static List<QuizQuestionModel> getClinicalEdemaQuestions(String quizId) {
+    return [
+      QuizQuestionModel(
+        id: '${quizId}_q1',
+        quizId: quizId,
+        questionNumber: 1,
+        questionText: 'Thời điểm an toàn nhất để bắt đầu MLD nhẹ nhàng cho bệnh nhân sau phẫu thuật thẩm mỹ (hút mỡ, nâng ngực) là:',
+        options: {
+          'A': 'Sau 24 - 48 giờ khi đã rút ống dẫn lưu và bác sĩ phẫu thuật cho phép',
+          'B': 'Ngay trong phòng mổ khi vừa khâu vết thương',
+          'C': 'Sau 1 tháng khi vết mổ đã lành sẹo hoàn toàn',
+          'D': 'Khi bệnh nhân hết cảm giác đau nhức',
+        },
+        correctOption: 'A',
+        explanation: 'MLD sớm sau 24-48 giờ giúp tiêu giảm phù nề, ngăn chặn tình trạng ứ trệ fibrin và giảm bầm tím hiệu quả.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q2',
+        quizId: quizId,
+        questionNumber: 2,
+        questionText: 'Khi thực hiện dẫn lưu cho bệnh nhân phù tay sau phẫu thuật ung thư vú có nạo vét hạch nách, dòng bạch huyết được dẫn về đâu?',
+        options: {
+          'A': 'Dẫn dịch qua đường ranh giới lưu vực (watershed) sang hạch nách bên lành và hạch bẹn cùng bên',
+          'B': 'Dẫn trực tiếp vào trạm hạch nách đã bị nạo vét',
+          'C': 'Dẫn xuống ngón tay để thoát dịch tự nhiên',
+          'D': 'Dẫn vào vùng cơ ngực bị phẫu thuật',
+        },
+        correctOption: 'A',
+        explanation: 'Kỹ thuật viên phải sử dụng các đường nối bàng hệ qua đường ranh giới lưu vực để đưa dịch phù về các trạm hạch còn nguyên vẹn.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q3',
+        quizId: quizId,
+        questionNumber: 3,
+        questionText: 'Băng ép áp lực đa lớp (Multi-layer Bandaging) trong điều trị phù bạch huyết sử dụng loại băng nào?',
+        options: {
+          'A': 'Băng co giãn ngắn (Short-stretch bandage) có độ dãn thấp và áp lực làm việc cao',
+          'B': 'Băng thun co giãn dài (Long-stretch bandage) đàn hồi mạnh',
+          'C': 'Băng dính y tế thông thường',
+          'D': 'Băng gạc xốp mềm không tạo lực',
+        },
+        correctOption: 'A',
+        explanation: 'Băng co giãn ngắn tạo áp lực tĩnh thấp khi nghỉ ngơi nhưng tạo áp lực động cao khi co cơ, giúp bơm dịch bạch huyết lưu thông an toàn.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q4',
+        quizId: quizId,
+        questionNumber: 4,
+        questionText: 'Mục đích chính của việc chăm sóc da kỹ lưỡng trong phác đồ điều trị phù bạch huyết là:',
+        options: {
+          'A': 'Làm trắng da thẩm mỹ',
+          'B': 'Bảo toàn hàng rào bảo vệ da, ngăn ngừa vi khuẩn xâm nhập gây viêm mô tế bào (Erysipelas/Cellulitis)',
+          'C': 'Làm ấm cơ thể học viên',
+          'D': 'Giúp da hấp thụ dầu massage tốt hơn',
+        },
+        correctOption: 'B',
+        explanation: 'Vùng da phù bạch huyết bị suy giảm miễn dịch tại chỗ nghiêm trọng; bất kỳ vết xước nhỏ nào cũng có thể bùng phát nhiễm trùng cấp tính.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q5',
+        quizId: quizId,
+        questionNumber: 5,
+        questionText: 'Khi phát hiện vùng điều trị của khách hàng đột ngột đỏ rực, nóng rát, sốt nhẹ và đau nhức tăng vọt, KTV cần:',
+        options: {
+          'A': 'Tiếp tục MLD với lực mạnh hơn để giải phóng ứ trệ',
+          'B': 'Ngừng ngay buổi MLD và chuyển khám bác sĩ chuyên khoa cấp bách (nghi ngờ nhiễm khuẩn cấp)',
+          'C': 'Chườm nóng trực tiếp lên vết đỏ',
+          'D': 'Cho khách hàng uống trà thảo mộc nghỉ ngơi',
+        },
+        correctOption: 'B',
+        explanation: 'Dấu hiệu viêm mô tế bào cấp tính là chống chỉ định tuyệt đối tạm thời; thực hiện MLD lúc này sẽ phát tán vi khuẩn vào hệ tuần hoàn.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q6',
+        quizId: quizId,
+        questionNumber: 6,
+        questionText: 'Kỹ thuật Pump (Ép bơm) trong Vodder mô phỏng hình dạng chuyển động nào của bàn tay?',
+        options: {
+          'A': 'Bàn tay hình muỗng lượn sóng từ ngón đến cổ tay',
+          'B': 'Lòng bàn tay áp sát, xoay cổ tay theo hình bầu dục với ngón cái mở nhẹ ép dịch về phía trung tâm',
+          'C': 'Đấm bóp nhịp nhàng bằng khớp ngón',
+          'D': 'Cấu véo bề mặt da liên tục',
+        },
+        correctOption: 'B',
+        explanation: 'Pump technique ôm trọn chu vi chi thể, sử dụng chuyển động lăn cổ tay để tạo sóng áp lực đẩy dịch dọc theo mao mạch bạch huyết.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q7',
+        quizId: quizId,
+        questionNumber: 7,
+        questionText: 'Liệu trình MLD tiêu chuẩn trong giai đoạn giảm phù tích cực thường diễn ra với tần suất:',
+        options: {
+          'A': '1 tháng 1 lần',
+          'B': '3 - 5 buổi mỗi tuần kết hợp băng ép trị liệu chuyên dụng',
+          'C': 'Mỗi ngày 3 lần liên tục',
+          'D': 'Chỉ làm duy nhất 1 buổi duy nhất',
+        },
+        correctOption: 'B',
+        explanation: 'Giai đoạn điều trị tích cực (Phase 1 CDT) đòi hỏi tần suất 3-5 buổi/tuần để duy trì dòng lưu thông liên tục trước khi chuyển sang giai đoạn duy trì.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q8',
+        quizId: quizId,
+        questionNumber: 8,
+        questionText: 'Ống ngực (Thoracic duct) - ống bạch huyết lớn nhất cơ thể - đổ vào hệ tuần hoàn tĩnh mạch tại vị trí:',
+        options: {
+          'A': 'Góc tĩnh mạch cảnh trong và dưới đòn bên trái (Tĩnh mạch Terminus trái)',
+          'B': 'Góc tĩnh mạch bên phải',
+          'C': 'Tĩnh mạch chủ dưới tại ổ bụng',
+          'D': 'Tĩnh mạch phổi',
+        },
+        correctOption: 'A',
+        explanation: 'Ống ngực thu nhận khoảng 75% lượng bạch huyết toàn thân và đổ về góc tĩnh mạch cảnh - dưới đòn bên trái.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q9',
+        quizId: quizId,
+        questionNumber: 9,
+        questionText: 'Trong phác đồ MLD Vodder vùng mặt, hướng vuốt chủ đạo từ giữa mặt là hướng về:',
+        options: {
+          'A': 'Hướng xuống môi và cằm',
+          'B': 'Hướng sang 2 bên về chuỗi hạch mang tai, hạch góc hàm và trạm hạch cổ sâu',
+          'C': 'Hướng thẳng đứng lên trán',
+          'D': 'Hướng vào cánh mũi',
+        },
+        correctOption: 'B',
+        explanation: 'Mạng lưới bạch huyết vùng mặt dẫn dịch từ trung tâm sang hai bên thái dương, trước tai và góc hàm trước khi chảy xuống cổ.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q10',
+        quizId: quizId,
+        questionNumber: 10,
+        questionText: 'Tiêu chí đạt điểm của bài kiểm tra này theo quy định của Ban Đào tạo Học viện là:',
+        options: {
+          'A': 'Tối thiểu 8.0 / 10 điểm (Đúng ≥ 8 / 10 câu)',
+          'B': 'Tối thiểu 5.0 / 10 điểm',
+          'C': 'Tối thiểu 6.0 / 10 điểm',
+          'D': 'Không bắt buộc điểm số',
+        },
+        correctOption: 'A',
+        explanation: 'Theo chuẩn đánh giá y khoa MLD Vodder, học viên phải đạt tối thiểu 8.0/10 điểm (≥80%) để đạt yêu cầu hoàn thành module.',
+      ),
+    ];
+  }
+
+  /// Danh sách câu hỏi Đánh giá tổng hợp
+  static List<QuizQuestionModel> getComprehensiveQuestions(String quizId) {
+    return [
+      QuizQuestionModel(
+        id: '${quizId}_q1',
+        quizId: quizId,
+        questionNumber: 1,
+        questionText: 'Nguyên tắc vàng "Zero Pain" (Không đau đớn) trong kỹ thuật Vodder có ý nghĩa y khoa là:',
+        options: {
+          'A': 'Đau đớn gây co thắt phản xạ giao cảm, làm tắc nghẽn co bóp tự nhiên của mạch bạch huyết',
+          'B': 'Chỉ nhằm mục đích tạo cảm giác thư giãn cho bệnh nhân',
+          'C': 'Giúp kỹ thuật viên không bị mỏi tay',
+          'D': 'Tránh làm tróc lớp sừng trên bề mặt biểu bì',
+        },
+        correctOption: 'A',
+        explanation: 'Bất kỳ kích thích đau nào cũng kích hoạt hệ thần kinh giao cảm làm co thắt mạch bạch huyết, triệt tiêu hoàn toàn hiệu quả dẫn lưu.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q2',
+        quizId: quizId,
+        questionNumber: 2,
+        questionText: 'Động tác Rotary (Kỹ thuật cuộn) trong Vodder thường được chỉ định tối ưu cho vùng cơ thể nào?',
+        options: {
+          'A': 'Các diện phẳng và rộng như lưng, mông và thành ngực',
+          'B': 'Vùng ngón tay và ngón chân nhỏ',
+          'C': 'Vùng quanh mắt',
+          'D': 'Khớp khuỷu tay',
+        },
+        correctOption: 'A',
+        explanation: 'Rotary technique sử dụng bề mặt cổ tay và ô mô út cuộn tròn trên diện rộng, cực kỳ hiệu quả cho vùng lưng và hông.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q3',
+        quizId: quizId,
+        questionNumber: 3,
+        questionText: 'Sự khác biệt cốt lõi giữa Massage Thụy Điển cổ điển và Dẫn lưu bạch huyết Vodder MLD là:',
+        options: {
+          'A': 'MLD tác động áp lực cực nhẹ (30-40 mmHg) trên hệ mao mạch da, không dùng lực sâu và không gây đỏ da (Hyperemia)',
+          'B': 'MLD dùng lực mạnh gấp đôi massage Thụy Điển',
+          'C': 'MLD bắt buộc dùng nhiều dầu trơn nóng',
+          'D': 'Massage Thụy Điển làm chậm nhịp tim hơn MLD',
+        },
+        correctOption: 'A',
+        explanation: 'Khác với massage Thụy Điển kích thích tăng tưới máu cơ, MLD chỉ tập trung vận chuyển dịch mô và protein mà không kích thích tăng tiết dịch phù.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q4',
+        quizId: quizId,
+        questionNumber: 4,
+        questionText: 'Khi nào học viên được cấp chứng chỉ thực hành chuyên nghiệp của Học viện MLD Việt Nam?',
+        options: {
+          'A': 'Hoàn thành 100% video bài giảng, đạt ≥ 8.0/10 bài kiểm tra lý thuyết và hoàn thành thực hành lâm sàng',
+          'B': 'Chỉ cần đăng ký khóa học và đóng học phí',
+          'C': 'Chỉ cần xem 50% số bài học',
+          'D': 'Tự động cấp sau 30 ngày',
+        },
+        correctOption: 'A',
+        explanation: 'Quy chuẩn chứng chỉ MLD yêu cầu kết hợp đầy đủ: chuyên cần video, vượt qua kỳ thi đánh giá lý thuyết ≥8.0 và vượt qua sát hạch thao tác tay thực tế.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q5',
+        quizId: quizId,
+        questionNumber: 5,
+        questionText: 'Phù bạch huyết nguyên phát (Primary Lymphedema) có nguyên nhân chủ yếu do:',
+        options: {
+          'A': 'Bất thường bẩm sinh, thiểu sản hoặc suy giảm cấu trúc van mạch bạch huyết',
+          'B': 'Do va đập chấn thương thể thao',
+          'C': 'Do ăn quá nhiều muối',
+          'D': 'Do thức khuya kéo dài',
+        },
+        correctOption: 'A',
+        explanation: 'Phù nguyên phát phát sinh do khiếm khuyết di truyền/bẩm sinh trong sự phát triển của hệ mạch bạch huyết.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q6',
+        quizId: quizId,
+        questionNumber: 6,
+        questionText: 'Kỹ thuật Scoop (Múc) thực hiện theo hình dáng chuyển động xoắn ốc phù hợp nhất trên:',
+        options: {
+          'A': 'Các chi thể hình trụ như cẳng tay, cẳng chân',
+          'B': 'Vùng xương bả vai phẳng',
+          'C': 'Vùng trán',
+          'D': 'Bụng dưới',
+        },
+        correctOption: 'A',
+        explanation: 'Thao tác múc (Scoop) ôm gọn chu vi chi dưới và cẳng tay, đẩy dịch theo chiều xoắn ốc hướng tâm.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q7',
+        quizId: quizId,
+        questionNumber: 7,
+        questionText: 'Trong trường hợp bệnh nhân bị suy van tĩnh mạch chi dưới kèm phù, liệu trình MLD có tác dụng hỗ trợ:',
+        options: {
+          'A': 'Giảm tải gánh nặng dịch kẽ ứ trệ, hỗ trợ tuần hoàn trở về và giảm cảm giác nặng nề',
+          'B': 'Làm teo biến hoàn toàn các búi tĩnh mạch nông',
+          'C': 'Thay thế hoàn toàn thuốc điều trị nội khoa',
+          'D': 'Làm dày thành mạch tĩnh mạch',
+        },
+        correctOption: 'A',
+        explanation: 'MLD giải phóng thể tích dịch ứ đọng xung quanh các mao mạch, giảm chèn ép vi tuần hoàn và giảm áp lực tĩnh mạch ngoại vi.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q8',
+        quizId: quizId,
+        questionNumber: 8,
+        questionText: 'Trọng lượng phân tử của phân tử Protein trong dịch bạch huyết là nguyên nhân khiến dịch phù:',
+        options: {
+          'A': 'Dễ bị xơ cứng mô (Fibrosis) nếu không được dẫn lưu và đào thải kịp thời',
+          'B': 'Tự động tiêu biến sau vài giờ',
+          'C': 'Chuyển hóa thành mỡ thừa',
+          'D': 'Bị hòa tan bởi nước muối sinh lý',
+        },
+        correctOption: 'A',
+        explanation: 'Protein ứ đọng kích thích phản ứng viêm mạn tính và tăng sinh mô sợi liên kết, dẫn đến xơ hóa không hồi phục nếu không can thiệp MLD.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q9',
+        quizId: quizId,
+        questionNumber: 9,
+        questionText: 'Tư thế nằm chuẩn của khách hàng khi thực hiện MLD toàn thân là:',
+        options: {
+          'A': 'Nằm ngửa thoải mái, có gối kê nhẹ dưới đầu và vùng khoeo chân để thư giãn tối đa cơ thành bụng',
+          'B': 'Nằm sấp liên tục suốt 90 phút',
+          'C': 'Ngồi thẳng lưng trên ghế cứng',
+          'D': 'Nằm nghiêng gập sát đùi vào bụng',
+        },
+        correctOption: 'A',
+        explanation: 'Tư thế nằm ngửa với chân nâng nhẹ và cơ bụng thả lỏng giúp giảm áp lực trong ổ bụng, tối ưu dòng chảy bạch huyết về ống ngực.',
+      ),
+      QuizQuestionModel(
+        id: '${quizId}_q10',
+        quizId: quizId,
+        questionNumber: 10,
+        questionText: 'Tiêu chuẩn đạt điểm quy định cho kỳ thi trắc nghiệm lý thuyết MLD là:',
+        options: {
+          'A': 'Đạt ≥ 8.0 / 10 điểm (≥ 80%) theo quy định thống nhất của Ban Đào tạo',
+          'B': 'Đạt 5.0 / 10 điểm',
+          'C': 'Đạt 6.0 / 10 điểm',
+          'D': 'Chỉ cần nộp bài không giới hạn điểm số',
+        },
+        correctOption: 'A',
+        explanation: 'Học viện MLD Việt Nam áp dụng thang điểm chuẩn Quốc tế Vodder: học viên đạt từ 8.0 điểm trở lên được công nhận ĐẠT tiêu chuẩn chuyên môn.',
+      ),
+    ];
+  }
+
+  /// Trả về danh sách bài kiểm tra trắc nghiệm của khóa học
+  static List<CourseQuizModel> getQuizzesForCourse(String courseId, [String? courseTitle]) {
+    final title = courseTitle ?? 'Khóa học MLD';
+    return [
+      CourseQuizModel(
+        id: 'quiz_${courseId}_01',
+        courseId: courseId,
+        title: 'Bài kiểm tra Module 1: Lý thuyết Giải phẫu & Kỹ thuật Vodder',
+        totalQuestions: 10,
+        timeLimitMinutes: 15,
+        passingScore: 8.0,
+        questions: getStandardVodderQuestions('quiz_${courseId}_01'),
+      ),
+      CourseQuizModel(
+        id: 'quiz_${courseId}_02',
+        courseId: courseId,
+        title: 'Bài kiểm tra Module 2: Phác đồ lâm sàng & Xử lý phù nề sau phẫu thuật',
+        totalQuestions: 10,
+        timeLimitMinutes: 15,
+        passingScore: 8.0,
+        questions: getClinicalEdemaQuestions('quiz_${courseId}_02'),
+      ),
+      CourseQuizModel(
+        id: 'quiz_${courseId}_final',
+        courseId: courseId,
+        title: 'Bài kiểm tra Đánh giá Năng lực Thực hành Tổng hợp - $title',
+        totalQuestions: 10,
+        timeLimitMinutes: 20,
+        passingScore: 8.0,
+        questions: getComprehensiveQuestions('quiz_${courseId}_final'),
+      ),
+    ];
+  }
+}
+
+/// Model bài kiểm tra trắc nghiệm theo khóa học (course_quizzes)
+class CourseQuizModel {
+  final String id;
+  final String courseId;
+  final String title;
+  final int totalQuestions;
+  final int timeLimitMinutes;
+  final double passingScore;
+  final DateTime? createdAt;
+  final List<QuizQuestionModel> questions;
+
+  const CourseQuizModel({
+    required this.id,
+    required this.courseId,
+    required this.title,
+    this.totalQuestions = 10,
+    this.timeLimitMinutes = 15,
+    this.passingScore = 8.0,
+    this.createdAt,
+    this.questions = const [],
+  });
+
+  factory CourseQuizModel.fromJson(Map<String, dynamic> json, [List<QuizQuestionModel> questions = const []]) {
+    return CourseQuizModel(
+      id: json['id']?.toString() ?? '',
+      courseId: json['course_id']?.toString() ?? json['courseId']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Bài kiểm tra trắc nghiệm',
+      totalQuestions: (json['total_questions'] as num?)?.toInt() ??
+          (json['totalQuestions'] as num?)?.toInt() ??
+          (questions.isNotEmpty ? questions.length : 10),
+      timeLimitMinutes: (json['time_limit_minutes'] as num?)?.toInt() ??
+          (json['timeLimitMinutes'] as num?)?.toInt() ?? 15,
+      passingScore: (json['passing_score'] as num?)?.toDouble() ??
+          (json['passingScore'] as num?)?.toDouble() ?? 8.0,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      questions: questions,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'course_id': courseId,
+    'title': title,
+    'total_questions': totalQuestions,
+    'time_limit_minutes': timeLimitMinutes,
+    'passing_score': passingScore,
+  };
+}
+
+/// Model câu hỏi trắc nghiệm (quiz_questions)
+class QuizQuestionModel {
+  final String id;
+  final String quizId;
+  final int questionNumber;
+  final String questionText;
+  final Map<String, String> options;
+  final String correctOption;
+  final String? explanation;
+
+  const QuizQuestionModel({
+    required this.id,
+    required this.quizId,
+    required this.questionNumber,
+    required this.questionText,
+    required this.options,
+    required this.correctOption,
+    this.explanation,
+  });
+
+  factory QuizQuestionModel.fromJson(Map<String, dynamic> json) {
+    Map<String, String> opts = {};
+    if (json['options'] is Map) {
+      (json['options'] as Map).forEach((k, v) => opts[k.toString()] = v.toString());
+    }
+    return QuizQuestionModel(
+      id: json['id']?.toString() ?? '',
+      quizId: json['quiz_id']?.toString() ?? json['quizId']?.toString() ?? '',
+      questionNumber: (json['question_number'] as num?)?.toInt() ??
+          (json['questionNumber'] as num?)?.toInt() ?? 1,
+      questionText: json['question_text']?.toString() ?? json['questionText']?.toString() ?? '',
+      options: opts,
+      correctOption: json['correct_option']?.toString() ?? json['correctOption']?.toString() ?? 'A',
+      explanation: json['explanation']?.toString(),
+    );
+  }
+}
+
+/// Model bài thi đã nộp (quiz_submissions)
+class QuizSubmissionModel {
+  final String id;
+  final String quizId;
+  final String courseId;
+  final double score;
+  final int correctCount;
+  final int totalQuestions;
+  final bool passed;
+  final Map<int, String> submittedAnswers;
+  final DateTime submittedAt;
+
+  const QuizSubmissionModel({
+    required this.id,
+    required this.quizId,
+    required this.courseId,
+    required this.score,
+    required this.correctCount,
+    required this.totalQuestions,
+    required this.passed,
+    required this.submittedAnswers,
+    required this.submittedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'quizId': quizId,
+    'courseId': courseId,
+    'score': score,
+    'correctCount': correctCount,
+    'totalQuestions': totalQuestions,
+    'passed': passed,
+    'submittedAnswers': submittedAnswers.map((k, v) => MapEntry(k.toString(), v)),
+    'submittedAt': submittedAt.toIso8601String(),
+  };
+
+  factory QuizSubmissionModel.fromJson(Map<String, dynamic> json) {
+    final Map<int, String> answers = {};
+    if (json['submittedAnswers'] is Map) {
+      (json['submittedAnswers'] as Map).forEach((k, v) {
+        final parsedKey = int.tryParse(k.toString());
+        if (parsedKey != null) answers[parsedKey] = v.toString();
+      });
+    }
+    return QuizSubmissionModel(
+      id: json['id']?.toString() ?? '',
+      quizId: json['quizId']?.toString() ?? json['quiz_id']?.toString() ?? '',
+      courseId: json['courseId']?.toString() ?? json['course_id']?.toString() ?? '',
+      score: (json['score'] as num?)?.toDouble() ?? 0.0,
+      correctCount: (json['correctCount'] as num?)?.toInt() ??
+          (json['correct_count'] as num?)?.toInt() ?? 0,
+      totalQuestions: (json['totalQuestions'] as num?)?.toInt() ??
+          (json['total_questions'] as num?)?.toInt() ?? 10,
+      passed: json['passed'] == true,
+      submittedAnswers: answers,
+      submittedAt: json['submittedAt'] != null
+          ? DateTime.tryParse(json['submittedAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
 }
