@@ -410,7 +410,7 @@ export const ChapterEditorSheet: React.FC<ChapterEditorSheetProps> = ({
           </div>
         </div>
 
-        {/* SECTION 2: TIÊU ĐỀ CHƯƠNG HỌC & GỢI Ý MẪU */}
+        {/* SECTION 2: TIÊU ĐỀ CHƯƠNG HỌC */}
         <div className="bg-white rounded-xl border border-[#E8DFD8] p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#F0EAE4]">
             <div className="flex items-center gap-2">
