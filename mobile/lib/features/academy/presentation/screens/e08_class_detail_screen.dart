@@ -96,6 +96,26 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
   }
 
   void _onLessonTap(LessonModel lesson) async {
+    final isUnlocked = AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons);
+    if (!isUnlocked) {
+      final prev = AcademyRepository.instance.getRequiredPreviousLesson(lesson, _allLessons);
+      final prevTitle = prev?.title != null
+          ? AppTranslation.translate(prev!.title, isEn: context.isEn)
+          : (context.isEn ? 'the previous lesson' : 'bài học trước đó');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.isEn
+                ? '🔒 Lesson is locked! Please complete "$prevTitle" first. Skipping lessons is not allowed!'
+                : '🔒 Bài học đang khóa! Vui lòng hoàn thành "$prevTitle" trước. Hệ thống không cho phép nhảy bài!',
+          ),
+          backgroundColor: const Color(0xFFD97706),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     // Mở xem video trực tiếp, phát ngay
     await Navigator.push(
       context,
@@ -217,6 +237,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                           lessons: isExpanded
                               ? chapter.lessons.map((lesson) {
                                   final isDone = AcademyRepository.instance.isLessonCompleted(_courseId, lesson.id);
+                                  final isUnlocked = AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons);
                                   final ytid = _extractYoutubeId(lesson.videoUrl);
 
                                   return InkWell(
@@ -235,7 +256,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                               color: const Color(0xFF0F172A),
                                               borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
-                                                color: AppColors.primary.withValues(alpha: 0.3),
+                                                color: isUnlocked
+                                                    ? AppColors.primary.withValues(alpha: 0.3)
+                                                    : Colors.grey.withValues(alpha: 0.2),
                                                 width: 1.0,
                                               ),
                                             ),
@@ -263,6 +286,18 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                     width: 124,
                                                     height: 70,
                                                     fit: BoxFit.cover,
+                                                  ),
+                                                // Lớp phủ khóa nếu chưa mở khóa (Anti-cheat)
+                                                if (!isUnlocked)
+                                                  Container(
+                                                    color: Colors.black.withValues(alpha: 0.65),
+                                                    child: const Center(
+                                                      child: Icon(
+                                                        Icons.lock_rounded,
+                                                        color: Colors.white,
+                                                        size: 26,
+                                                      ),
+                                                    ),
                                                   ),
                                                 // Badge thời lượng ở góc dưới bên phải (ví dụ 94:48)
                                                 Positioned(
@@ -298,11 +333,13 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                   AppTranslation.translate(lesson.title, isEn: context.isEn),
                                                   maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                     fontFamily: 'Montserrat',
                                                     fontSize: 13.5,
                                                     fontWeight: FontWeight.w700,
-                                                    color: AcademyColors.heading,
+                                                    color: isUnlocked
+                                                        ? AcademyColors.heading
+                                                        : AcademyColors.textSecondary,
                                                     height: 1.35,
                                                   ),
                                                 ),
@@ -318,7 +355,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                         ),
                                                         child: Text(
                                                           context.tr('Đã học', 'Completed'),
-                                                          style: TextStyle(
+                                                          style: const TextStyle(
                                                             fontFamily: 'Montserrat',
                                                             fontSize: 11,
                                                             fontWeight: FontWeight.bold,
@@ -326,7 +363,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                           ),
                                                         ),
                                                       )
-                                                    else
+                                                    else if (isUnlocked)
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                         decoration: BoxDecoration(
@@ -335,12 +372,37 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                         ),
                                                         child: Text(
                                                           context.tr('Vào học', 'Start'),
-                                                          style: TextStyle(
+                                                          style: const TextStyle(
                                                             fontFamily: 'Montserrat',
                                                             fontSize: 11,
                                                             fontWeight: FontWeight.bold,
                                                             color: AppColors.primary,
                                                           ),
+                                                        ),
+                                                      )
+                                                    else
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFF3F4F6),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(Icons.lock_outline_rounded, size: 12, color: Color(0xFF9CA3AF)),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              context.tr('Chưa mở khóa', 'Locked'),
+                                                              style: const TextStyle(
+                                                                fontFamily: 'Montserrat',
+                                                                fontSize: 10.5,
+                                                                fontWeight: FontWeight.w600,
+                                                                color: Color(0xFF6B7280),
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
                                                       ),
                                                   ],

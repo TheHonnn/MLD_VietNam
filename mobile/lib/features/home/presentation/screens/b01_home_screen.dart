@@ -943,7 +943,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 Column(
                   children: [
                     SizedBox(
-                      height: 160,
+                      height: 220,
                       child: PageView.builder(
                         controller: _bannerPageController,
                         itemCount: _banners.length,
@@ -1039,30 +1039,16 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                         ),
                                       ),
                                     ),
-                                    // 3. Logo MLD chìm bên phải (Trong suốt, không viền nền trắng)
-                                    Positioned(
-                                      right: 14,
-                                      top: 16,
-                                      child: Image.asset(
-                                        'assets/images/logo.webp',
-                                        height: 32,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => const Icon(
-                                          Icons.spa_rounded,
-                                          size: 32,
-                                          color: Colors.white24,
-                                        ),
-                                      ),
-                                    ),
-                                    // 4. Nội dung Banner
+
+                                    // 3. Nội dung Banner
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                             decoration: BoxDecoration(
                                               color: Colors.white.withValues(alpha: 0.22),
                                               borderRadius: BorderRadius.circular(8),
@@ -1074,7 +1060,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                             child: Text(
                                               categoryLabel,
                                               style: const TextStyle(
-                                                fontSize: 10.5,
+                                                fontSize: 11,
                                                 fontWeight: FontWeight.w700,
                                                 color: Colors.white,
                                                 letterSpacing: 0.4,
@@ -1087,7 +1073,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                               Text(
                                                 title,
                                                 style: const TextStyle(
-                                                  fontSize: 16,
+                                                  fontSize: 18,
                                                   fontWeight: FontWeight.w800,
                                                   color: Colors.white,
                                                   letterSpacing: 0.3,
@@ -1096,15 +1082,15 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                                 maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                              const SizedBox(height: 3),
+                                              const SizedBox(height: 6),
                                               Text(
                                                 summary,
                                                 style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.white.withValues(alpha: 0.88),
-                                                  height: 1.2,
+                                                  fontSize: 13,
+                                                  color: Colors.white.withValues(alpha: 0.90),
+                                                  height: 1.3,
                                                 ),
-                                                maxLines: 1,
+                                                maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ],

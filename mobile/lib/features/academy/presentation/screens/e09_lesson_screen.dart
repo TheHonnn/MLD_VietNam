@@ -139,6 +139,76 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
       );
     }
 
+    // Cơ chế chống gian lận & chống nhảy bài: Kiểm tra mở khóa tuần tự
+    final isUnlocked = widget.lesson == null ||
+        widget.lesson?.isFreePreview == true ||
+        AcademyRepository.instance.isLessonUnlocked(_courseId, widget.lesson!);
+
+    if (!isUnlocked) {
+      return Scaffold(
+        backgroundColor: AcademyColors.background,
+        appBar: AcademyAppBar(
+          subtitleTag: context.tr('Bài học đang khóa', 'Lesson Locked'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFBFDBFE), width: 2),
+                  ),
+                  child: const Icon(Icons.lock_outline_rounded, size: 40, color: AppColors.primary),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  context.tr('Chưa mở khóa bài học này', 'Lesson Not Yet Unlocked'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AcademyColors.heading,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  context.isEn
+                      ? 'You cannot skip lessons. Please complete the preceding lesson first according to the course roadmap.'
+                      : 'Hệ thống áp dụng cơ chế học tuần tự chống gian lận. Bạn cần xem và hoàn thành bài học trước đó theo đúng lộ trình để mở khóa bài học này.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 13.5,
+                    color: AcademyColors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: Text(context.tr('Quay lại lớp học', 'Back to Class')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AcademyColors.background,
       appBar: AcademyAppBar(

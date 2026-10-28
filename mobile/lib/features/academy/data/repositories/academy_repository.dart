@@ -515,10 +515,13 @@ class AcademyRepository {
     enrollmentNotifier.value++;
   }
 
+  final Map<String, List<ChapterModel>> _curriculumCache = {};
+
   /// Lấy danh sách chương và bài học video thực tế từ Supabase Cloud
   /// Không dùng dữ liệu tĩnh - map trực tiếp từ course_chapters và course_lessons
   Future<List<ChapterModel>> getCourseCurriculum(String courseId) async {
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      _curriculumCache[courseId] = MockAcademyData.syllabusChapters;
       return MockAcademyData.syllabusChapters;
     }
 
@@ -527,10 +530,11 @@ class AcademyRepository {
       if (raw.isNotEmpty) {
         final list = raw.map((c) => ChapterModel.fromJson(c)).toList();
         list.sort((a, b) => a.chapterOrder.compareTo(b.chapterOrder));
+        _curriculumCache[courseId] = list;
         return list;
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error fetching curriculum from Supabase: ');
+      debugPrint('>>> [AcademyRepository] Error fetching curriculum from Supabase: $e');
     }
 
     return [];
@@ -605,11 +609,33 @@ class AcademyRepository {
     return _completedLessonIds.contains('${courseId}_$lessonId');
   }
 
-  /// Kiểm tra bài học có được phép xem hay chưa:
-  /// Khóa học phải được đăng ký hợp lệ và ĐÃ ĐƯỢC DUYỆT.
-  /// Bài 1 luôn mở đầu tiên khi đã duyệt. Bài n chỉ mở khi Bài (n-1) đã hoàn thành xem hết clip.
+  /// Kiểm tra bài học có được phép xem hay chưa (Cơ chế chống gian lận & tuần tự):
+  /// Bài 1 luôn mở đầu tiên khi khóa học đã được duyệt.
+  /// Bài n chỉ được mở khóa khi Bài (n-1) trước đó đã hoàn thành xem hết clip. Tuyệt đối không cho nhảy bài.
   bool canAccessLesson(String courseId, LessonModel lesson, List<LessonModel> allCourseLessons) {
-    return true;
+    if (allCourseLessons.isEmpty) return true;
+    final index = allCourseLessons.indexWhere((l) => l.id == lesson.id);
+    if (index <= 0) return true; // Bài 1 của khóa học luôn mở
+    final prevLesson = allCourseLessons[index - 1];
+    return isLessonCompleted(courseId, prevLesson.id);
+  }
+
+  /// Lấy bài học trước đó học viên bắt buộc phải hoàn thành
+  LessonModel? getRequiredPreviousLesson(LessonModel lesson, List<LessonModel> allCourseLessons) {
+    final index = allCourseLessons.indexWhere((l) => l.id == lesson.id);
+    if (index > 0) {
+      return allCourseLessons[index - 1];
+    }
+    return null;
+  }
+
+  /// Kiểm tra bài học mở khóa bằng bộ nhớ đệm lộ trình của khóa học
+  bool isLessonUnlocked(String courseId, LessonModel lesson) {
+    final cached = _curriculumCache[courseId];
+    final allLessons = cached != null && cached.isNotEmpty
+        ? cached.expand((c) => c.lessons).toList()
+        : MockAcademyData.syllabusChapters.expand((c) => c.lessons).toList();
+    return canAccessLesson(courseId, lesson, allLessons);
   }
 
   static const String _quizSubmissionsKey = 'mld_academy_quiz_submissions';

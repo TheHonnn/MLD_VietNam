@@ -43,6 +43,7 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
   Timer? _watermarkTimer;
   Timer? _progressTimer;
   int _watermarkPosIndex = 0;
+  double _maxWatchedPosition = 0.0;
   final List<Alignment> _watermarkAlignments = const [
     Alignment.topRight,
     Alignment.centerLeft,
@@ -97,12 +98,21 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
       );
 
       if (widget.initialPosition > 0) {
+        _maxWatchedPosition = widget.initialPosition;
         _controller!.seekTo(seconds: widget.initialPosition, allowSeekAhead: true);
       }
 
-      _controller!.listen((state) {
+      _controller!.listen((state) async {
         if (state.playerState == PlayerState.ended) {
-          widget.onVideoEnded?.call();
+          try {
+            final dur = await _controller!.duration;
+            // Chống gian lận: Chỉ chấp nhận hoàn thành khi đã thực sự xem qua ít nhất 85% clip
+            if (dur <= 0 || _maxWatchedPosition >= dur * 0.85) {
+              widget.onVideoEnded?.call();
+            }
+          } catch (_) {
+            widget.onVideoEnded?.call();
+          }
         }
       });
 
@@ -113,9 +123,19 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
             final pos = await _controller!.currentTime;
             final dur = await _controller!.duration;
             if (pos > 0) {
+              // Cập nhật vị trí xem cao nhất hợp lệ (pos không nhảy vọt quá 5s so với vị trí đã xem)
+              if (pos <= _maxWatchedPosition + 5.0) {
+                if (pos > _maxWatchedPosition) {
+                  _maxWatchedPosition = pos;
+                }
+              }
               widget.onProgressUpdate?.call(pos, dur);
+
+              // Chống gian lận: Chỉ kích hoạt hoàn thành khi đến cuối VÀ đã theo dõi tối thiểu 85% nội dung
               if (dur > 0 && pos >= dur - 1.5) {
-                widget.onVideoEnded?.call();
+                if (_maxWatchedPosition >= dur * 0.85) {
+                  widget.onVideoEnded?.call();
+                }
               }
             }
           } catch (_) {}
