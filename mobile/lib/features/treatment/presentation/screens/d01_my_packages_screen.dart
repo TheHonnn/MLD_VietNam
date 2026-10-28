@@ -24,7 +24,6 @@ class D01MyPackagesScreen extends StatefulWidget {
 class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
   final TreatmentRepository _repo = TreatmentRepository.instance;
   int _selectedStatusIndex = 0; // 0: Đang sử dụng, 1: Đã hoàn thành, 2: Hết hạn
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -33,9 +32,8 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
   }
 
   Future<void> _loadPackages() async {
-    setState(() => _isLoading = true);
     await _repo.fetchPackages();
-    if (mounted) setState(() => _isLoading = false);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -186,12 +184,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 const SizedBox(height: 16),
 
                 // 3. DANH SÁCH GÓI LIỆU TRÌNH THEO TRẠNG THÁI
-                if (_isLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                  )
-                else if (_selectedStatusIndex == 0) ...[
+                if (_selectedStatusIndex == 0) ...[
                   if (_repo.packages.where((p) => p.status == PackageStatus.active).isEmpty)
                     _buildEmptyState(
                       icon: Icons.spa_outlined,
@@ -396,12 +389,40 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
     required VoidCallback onTap,
   }) {
     final percentText = (package.progressPercent * 100).toStringAsFixed(1).replaceAll('.0', '');
+    final profile = MembershipRepository.instance.profile;
+    final customerDisplayName = package.customerName.trim().isNotEmpty
+        ? package.customerName
+        : (profile.fullName.trim().isNotEmpty ? profile.fullName : context.tr('Khách hàng', 'Customer'));
+    final serviceDisplayName = package.serviceName.trim().isNotEmpty
+        ? package.serviceName
+        : context.tr('Trị liệu phục hồi MLD', 'MLD Recovery Therapy');
+    final packageCodeDisplay = package.packageCode.trim().isNotEmpty
+        ? package.packageCode
+        : 'MLD-PKG-';
+
+    // Xác định badge trạng thái
+    Color statusBg;
+    Color statusTextColor;
+    String statusLabel;
+    if (package.status == PackageStatus.active) {
+      statusBg = const Color(0xFFEFF4FE);
+      statusTextColor = AppColors.primary;
+      statusLabel = context.tr('Đang điều trị', 'In Treatment');
+    } else if (package.status == PackageStatus.completed || package.completedSessions >= package.totalSessions) {
+      statusBg = const Color(0xFFF0FDF4);
+      statusTextColor = const Color(0xFF16A34A);
+      statusLabel = context.tr('Hoàn thành', 'Completed');
+    } else {
+      statusBg = const Color(0xFFF3F4F6);
+      statusTextColor = const Color(0xFF6B7280);
+      statusLabel = context.tr('Hết hạn', 'Expired');
+    }
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
@@ -419,73 +440,212 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 1. Mã liệu trình & Trạng thái
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF4FE),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.qr_code_rounded, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            '#',
+                            style: const TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: statusTextColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // 2. Tên liệu trình
                 Text(
                   package.packageName.tr(context),
                   style: const TextStyle(
                     fontFamily: 'Montserrat',
-                    fontSize: 16,
+                    fontSize: 16.5,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  package.branchName.tr(context),
-                  style: const TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
+                const SizedBox(height: 8),
+
+                // 3. Tên dịch vụ & Tên khách hàng
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.spa_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textPrimary),
+                                children: [
+                                  TextSpan(
+                                    text: ' ',
+                                    style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                                  ),
+                                  TextSpan(
+                                    text: serviceDisplayName,
+                                    style: const TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textPrimary),
+                                children: [
+                                  TextSpan(
+                                    text: ' ',
+                                    style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                                  ),
+                                  TextSpan(
+                                    text: customerDisplayName,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),
 
-                // Thống kê tiến độ
+                // 4. Số buổi & Tổng số buổi cần điều trị
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildStatCol(package.totalSessions.toString(), context.tr('Tổng buổi', 'Total Sessions')),
-                    _buildStatCol(package.completedSessions.toString(), context.tr('Đã dùng', 'Used')),
-                    _buildStatCol(package.remainingSessions.toString(), context.tr('Còn lại', 'Remaining')),
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, color: AppColors.textPrimary),
+                        children: [
+                          TextSpan(
+                            text: ' ',
+                            style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                          ),
+                          TextSpan(
+                            text: '',
+                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 15),
+                          ),
+                          TextSpan(
+                            text: ' /  ',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '%',
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
 
                 // Thanh tiến trình
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: package.progressPercent,
-                    minHeight: 6,
+                    minHeight: 7,
                     backgroundColor: const Color(0xFFEFF4FE),
                     valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  context.tr('Đã hoàn thành $percentText% liệu trình', 'Completed $percentText% of package'),
-                  style: const TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
+                const SizedBox(height: 14),
+
+                // 5. CHIA BUỔI ĐỂ HIỂN THỊ (Session Breakdown)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('Chia buổi điều trị:', 'Session Breakdown:'),
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildSessionsRow(package),
+                  ],
                 ),
 
                 const SizedBox(height: 12),
-                Text(
-                  '${context.tr("Hạn sử dụng:", "Expiration Date:")} ${package.expiryDate}',
-                  style: const TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: 12.5,
-                    color: AppColors.textPrimary,
+                if (package.expiryDate.isNotEmpty)
+                  Text(
+                    ' ',
+                    style: const TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
 
                 const SizedBox(height: 14),
+                // 6. Nút thao tác
                 Row(
                   children: [
                     Expanded(
                       child: SizedBox(
-                        height: 40,
+                        height: 42,
                         child: OutlinedButton(
                           onPressed: onTap,
                           style: OutlinedButton.styleFrom(
@@ -493,7 +653,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: Text(
-                            context.tr('Xem chi tiết', 'View Details'),
+                            context.tr('Xem chi tiết các buổi', 'View Session Details'),
                             style: const TextStyle(
                               fontFamily: 'Montserrat',
                               fontSize: 13,
@@ -508,7 +668,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: SizedBox(
-                          height: 40,
+                          height: 42,
                           child: ElevatedButton(
                             onPressed: () {
                               Navigator.push(
@@ -542,6 +702,71 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Hiển thị thanh chia các buổi điều trị (Buổi 1, Buổi 2...)
+  Widget _buildSessionsRow(UserPackageModel package) {
+    final count = package.totalSessions > 0 ? package.totalSessions : 1;
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: count,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final sessionNum = index + 1;
+          final isDone = sessionNum <= package.completedSessions;
+          final isCurrent = sessionNum == package.completedSessions + 1 && package.status == PackageStatus.active;
+
+          Color bgColor;
+          Color borderColor;
+          Color textColor;
+          Widget icon;
+
+          if (isDone) {
+            bgColor = const Color(0xFFF0FDF4);
+            borderColor = const Color(0xFF86EFAC);
+            textColor = const Color(0xFF16A34A);
+            icon = const Icon(Icons.check_rounded, size: 14, color: Color(0xFF16A34A));
+          } else if (isCurrent) {
+            bgColor = const Color(0xFFEFF4FE);
+            borderColor = AppColors.primary;
+            textColor = AppColors.primary;
+            icon = const Icon(Icons.play_arrow_rounded, size: 14, color: AppColors.primary);
+          } else {
+            bgColor = const Color(0xFFF9FAFB);
+            borderColor = AppColors.border;
+            textColor = AppColors.textSecondary;
+            icon = const Icon(Icons.hourglass_empty_rounded, size: 12, color: AppColors.textSecondary);
+          }
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                icon,
+                const SizedBox(width: 4),
+                Text(
+                  ' ',
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 12,
+                    fontWeight: isDone || isCurrent ? FontWeight.w700 : FontWeight.w500,
+                    color: textColor,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

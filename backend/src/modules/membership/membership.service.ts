@@ -45,9 +45,21 @@ export class MembershipService {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
   }
 
-  private async resolveUserId(userId: string): Promise<string | null> {
+  private async resolveUserId(userId: string, phoneOrEmail?: string): Promise<string | null> {
     if (this.isValidUuid(userId)) {
       return userId;
+    }
+    if (phoneOrEmail && phoneOrEmail.trim().length > 0) {
+      const clean = phoneOrEmail.trim();
+      const isEmail = clean.includes('@');
+      try {
+        const { data } = await this.supabaseService.adminClient
+          .from('users')
+          .select('id')
+          .eq(isEmail ? 'email' : 'phone', clean)
+          .maybeSingle();
+        if (data?.id) return data.id;
+      } catch (_) {}
     }
     return null;
   }
@@ -68,8 +80,8 @@ export class MembershipService {
   /**
    * F01/F02: Lấy thông tin hồ sơ cá nhân
    */
-  async getProfile(userId: string) {
-    const resolvedId = await this.resolveUserId(userId);
+  async getProfile(userId: string, phoneOrEmail?: string) {
+    const resolvedId = await this.resolveUserId(userId, phoneOrEmail);
 
     if (resolvedId) {
       try {
@@ -138,7 +150,7 @@ export class MembershipService {
    * F02: Cập nhật thông tin cá nhân
    */
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-    const resolvedId = await this.resolveUserId(userId);
+    const resolvedId = await this.resolveUserId(userId, dto.phone || dto.email);
 
     if (resolvedId) {
       try {

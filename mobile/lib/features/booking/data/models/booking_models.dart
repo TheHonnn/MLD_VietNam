@@ -103,6 +103,7 @@ class AppointmentItemModel {
   final String customerName;
   final String customerPhone;
   final String customerEmail;
+  final String customerAddress;
   final String specialNotes;
   final String? cancellationReason;
   final double totalAmount; // 450.000đ
@@ -134,6 +135,7 @@ class AppointmentItemModel {
     required this.customerName,
     required this.customerPhone,
     this.customerEmail = '',
+    this.customerAddress = '',
     this.specialNotes = '',
     this.cancellationReason,
     required this.totalAmount,
@@ -166,6 +168,7 @@ class AppointmentItemModel {
     String? customerName,
     String? customerPhone,
     String? customerEmail,
+    String? customerAddress,
     String? specialNotes,
     String? cancellationReason,
     double? totalAmount,
@@ -197,6 +200,7 @@ class AppointmentItemModel {
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
       customerEmail: customerEmail ?? this.customerEmail,
+      customerAddress: customerAddress ?? this.customerAddress,
       specialNotes: specialNotes ?? this.specialNotes,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       totalAmount: totalAmount ?? this.totalAmount,
@@ -226,6 +230,7 @@ class BookingFlowState {
   String customerName;
   String customerPhone;
   String customerEmail;
+  String customerAddress;
   String specialNotes;
   bool payFullAmount; // false: cọc 150k, true: trả hết
   String paymentMethod; // 'BANK_TRANSFER_QR', 'ONLINE', 'AT_BRANCH', 'PREPAID_PACKAGE'
@@ -254,6 +259,7 @@ class BookingFlowState {
     this.customerName = '',
     this.customerPhone = '',
     this.customerEmail = '',
+    this.customerAddress = '',
     this.specialNotes = '',
     this.payFullAmount = false,
     this.paymentMethod = '',
@@ -313,6 +319,7 @@ class BookingFlowState {
     String? customerName,
     String? customerPhone,
     String? customerEmail,
+    String? customerAddress,
     String? specialNotes,
     bool? payFullAmount,
     String? paymentMethod,
@@ -330,6 +337,7 @@ class BookingFlowState {
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
       customerEmail: customerEmail ?? this.customerEmail,
+      customerAddress: customerAddress ?? this.customerAddress,
       specialNotes: specialNotes ?? this.specialNotes,
       payFullAmount: payFullAmount ?? this.payFullAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,

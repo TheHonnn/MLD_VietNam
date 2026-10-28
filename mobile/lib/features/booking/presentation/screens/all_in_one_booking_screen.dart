@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/validators.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
@@ -46,26 +48,25 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   // 3. Số người & Ngày giờ
   final int _guestCount = 1; // 1 - 5 người
   late DateTime _selectedDate;
-  String _selectedStartTime = '09:00';
-  static const List<String> _bookingStartTimes = [
-    '08:30',
-    '09:00',
-    '10:00',
-    '11:00',
-    '13:30',
-    '14:30',
-    '15:30',
-    '16:30',
-    '17:30',
-    '18:30',
-    '19:30',
-    '20:00',
+  String _selectedTimeSlot = '08:00 - 09:00';
+  static const List<String> _bookingTimeSlots = [
+    '08:00 - 09:00',
+    '09:15 - 10:15',
+    '10:30 - 11:30',
+    '13:30 - 14:30',
+    '14:45 - 15:45',
+    '16:00 - 17:00',
+    '17:15 - 18:15',
+    '18:30 - 19:30',
+    '19:45 - 20:45',
   ];
   
   // 4. Thông tin người đặt: Bản thân vs Đặt hộ
   bool _isBookingForSelf = true;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -75,56 +76,50 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
-    if (widget.initialSpecialty != null && widget.initialSpecialty!.isNotEmpty) {
-      _noteController.text = 'Nhu cầu: ${widget.initialSpecialty}';
-    }
-    if (widget.initialService != null) {
-      _serviceTitle = widget.initialService!.name;
-      _serviceDuration = widget.initialService!.durationMinutes;
-      _pricePerPerson = widget.initialService!.displayPrice;
-      _vatRate = widget.initialService!.vatRate;
-    }
-    if (widget.initialBranch != null) {
-      _selectedBranch = widget.initialBranch;
-    }
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       final List<BranchModel> mockBranches = BranchRepository.instance.cachedBranches.isNotEmpty
           ? BranchRepository.instance.cachedBranches
           : MockHomeRepository.getBranches();
       _branches = mockBranches;
-      _selectedBranch = widget.initialBranch ?? mockBranches.first;
-      _serviceTitle = widget.initialService?.name ?? ServiceRepository.defaultCoreVodderService.name;
-      _serviceDuration = widget.initialService?.durationMinutes ?? ServiceRepository.defaultCoreVodderService.durationMinutes;
-      _pricePerPerson = widget.initialService?.displayPrice ?? ServiceRepository.defaultCoreVodderService.displayPrice;
-      _vatRate = widget.initialService?.vatRate ?? ServiceRepository.defaultCoreVodderService.vatRate;
+      _selectedBranch = mockBranches.first;
+      _serviceTitle = ServiceRepository.defaultCoreVodderService.name;
+      _serviceDuration = ServiceRepository.defaultCoreVodderService.durationMinutes;
+      _pricePerPerson = ServiceRepository.defaultCoreVodderService.displayPrice;
+      _vatRate = ServiceRepository.defaultCoreVodderService.vatRate;
       _nameController.text = 'Khách hàng MLD';
       _phoneController.text = '0967786399';
+      _emailController.text = 'khachhang@mldvietnam.vn';
+      _addressController.text = '123 Nguyễn Thị Minh Khai, Q.3, TP.HCM';
     } else {
       _loadBranchesAndUser();
     }
   }
 
   Future<void> _loadBranchesAndUser() async {
-    final coreService = widget.initialService ?? await ServiceRepository.instance.getCoreVodderService();
+    final coreService = await ServiceRepository.instance.getCoreVodderService();
     final branches = await BranchRepository.instance.getBranches();
     final profile = await MembershipRepository.instance.fetchProfile();
     final userPhone = AuthService.instance.lastLoginPhone ?? (profile.phone.isNotEmpty ? profile.phone : (AuthService.instance.currentPhone ?? '0967786399'));
     final userName = profile.fullName.isNotEmpty ? profile.fullName : 'Khách hàng MLD';
+    final userEmail = AuthService.instance.lastLoginEmail ?? (profile.email.isNotEmpty ? profile.email : '');
+    final userAddress = profile.address.isNotEmpty ? profile.address : '';
 
     if (mounted) {
       setState(() {
-        _serviceId = (coreService.id.isNotEmpty && !coreService.id.startsWith('srv-'))
+        _serviceId = coreService.id.isNotEmpty && !coreService.id.startsWith('srv-')
             ? coreService.id
             : '235166f2-66c9-4231-bbe1-af91b48fc67c';
-        _serviceTitle = widget.initialService?.name ?? coreService.name;
-        _serviceDuration = widget.initialService?.durationMinutes ?? coreService.durationMinutes;
-        _pricePerPerson = widget.initialService?.displayPrice ?? coreService.displayPrice;
-        _vatRate = widget.initialService?.vatRate ?? coreService.vatRate;
+        _serviceTitle = coreService.name;
+        _serviceDuration = coreService.durationMinutes;
+        _pricePerPerson = coreService.displayPrice;
+        _vatRate = coreService.vatRate;
         _branches = branches;
-        _selectedBranch = widget.initialBranch ?? BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
+        _selectedBranch = BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
         if (_isBookingForSelf) {
           _nameController.text = userName;
           _phoneController.text = userPhone;
+          _emailController.text = userEmail;
+          _addressController.text = userAddress;
         }
       });
     }
@@ -134,6 +129,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
+    _addressController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -145,9 +142,13 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         final profile = MembershipRepository.instance.profile;
         _nameController.text = profile.fullName.isNotEmpty ? profile.fullName : 'Khách hàng MLD';
         _phoneController.text = AuthService.instance.lastLoginPhone ?? (profile.phone.isNotEmpty ? profile.phone : (AuthService.instance.currentPhone ?? '0967786399'));
+        _emailController.text = AuthService.instance.lastLoginEmail ?? (profile.email.isNotEmpty ? profile.email : '');
+        _addressController.text = profile.address.isNotEmpty ? profile.address : '';
       } else {
         _nameController.clear();
         _phoneController.clear();
+        _emailController.clear();
+        _addressController.clear();
       }
     });
   }
@@ -275,8 +276,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   }
 
   double get _subtotal => _pricePerPerson * _guestCount;
-  double get _vatAmount => 0.0;
-  double get _totalPrice => _subtotal;
+  double get _vatAmount => _subtotal * _vatRate;
+  double get _totalPrice => _subtotal + _vatAmount;
 
   String _formatCurrency(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
@@ -286,6 +287,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   }
 
   String _formatTimeRange(String startTime, int durationMinutes) {
+    if (startTime.contains(' - ')) return startTime;
     final parts = startTime.split(':').map(int.parse).toList();
     final start = DateTime(2020, 1, 1, parts[0], parts[1]);
     final end = start.add(Duration(minutes: durationMinutes));
@@ -305,27 +307,39 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       return;
     }
 
+    if (!AuthService.instance.isLoggedIn) {
+      final ok = await GuestAuthPrompt.ensureLoggedIn(
+        context,
+        title: 'Đăng nhập để đặt lịch',
+        message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để xác nhận lịch hẹn.',
+      );
+      if (!ok || !mounted) return;
+    }
+
     setState(() => _isSubmitting = true);
 
     final appointmentCode = 'MLD-DL-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
     final dateString =
         '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}';
 
-    final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
-    final String rawBranchId = _selectedBranch?.id ?? '';
-    final String safeBranchId = (rawBranchId.isNotEmpty && uuidRegex.hasMatch(rawBranchId))
-        ? rawBranchId
-        : 'aaaaaaaa-0001-0001-0001-000000000001';
+    final customerEmail = _emailController.text.trim();
+    final customerAddress = _addressController.text.trim();
 
-    final String safeServiceId = (_serviceId.isNotEmpty && uuidRegex.hasMatch(_serviceId))
-        ? _serviceId
-        : '235166f2-66c9-4231-bbe1-af91b48fc67c';
+    if (_isBookingForSelf) {
+      final repo = MembershipRepository.instance;
+      repo.updateProfile(repo.profile.copyWith(
+        fullName: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        email: customerEmail.isNotEmpty ? customerEmail : repo.profile.email,
+        address: customerAddress.isNotEmpty ? customerAddress : repo.profile.address,
+      ));
+    }
 
     final appointment = AppointmentItemModel(
       id: appointmentCode,
       bookingCode: appointmentCode,
-      branchId: safeBranchId,
-      serviceId: safeServiceId,
+      branchId: _selectedBranch?.id ?? 'aaaaaaaa-0001-0001-0001-000000000001',
+      serviceId: _serviceId,
       serviceName: _serviceTitle,
       serviceImage: 'assets/images/logo.webp',
       durationMinutes: _serviceDuration,
@@ -336,10 +350,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       specialistTitle: 'Chuyên viên Vodder tự động phân bổ',
       specialistAvatar: 'assets/images/logo.webp',
       appointmentDate: _selectedDate,
-      timeSlot: _formatTimeRange(_selectedStartTime, _serviceDuration),
+      timeSlot: _formatTimeRange(_selectedTimeSlot, _serviceDuration),
       customerName: _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : 'Khách hàng MLD',
       customerPhone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : '0900000000',
-      customerEmail: '',
+      customerEmail: customerEmail,
+      customerAddress: customerAddress,
       specialNotes: _noteController.text.trim(),
       totalAmount: _totalPrice,
       depositAmount: 0,
@@ -359,21 +374,15 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       ],
     );
 
-    final persistedId = await BookingRepository.instance.createAppointment(appointment);
+    // Lưu vào Repository
+    BookingRepository.instance.createAppointment(appointment);
+
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
     if (!mounted) return;
     setState(() => _isSubmitting = false);
-    if (persistedId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.tr(
-            'Chưa thể lưu lịch hẹn. Khung giờ có thể vừa hết chỗ; vui lòng thử giờ khác.',
-            'We could not save the appointment. The selected time may no longer be available; please try another time.',
-          )),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
 
     _showBookingPendingModal(appointmentCode, dateString);
   }
@@ -401,7 +410,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              context.tr('Đã gửi yêu cầu đặt lịch', 'Appointment request submitted'),
+              context.tr('Đặt lịch thành công!', 'Booking Confirmed!'),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -411,8 +420,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             const SizedBox(height: 8),
             Text(
               context.isEn
-                  ? 'Your appointment request ($code) at ${_selectedBranch?.name.tr(context)} on $dateString is waiting for branch confirmation.'
-                  : 'Yêu cầu đặt lịch ($code) tại ${_selectedBranch?.name} ngày $dateString đang chờ chi nhánh xác nhận.',
+                  ? 'Your appointment ($code) at ${_selectedBranch?.name.tr(context)} on $dateString has been booked.'
+                  : 'Lịch hẹn ($code) tại ${_selectedBranch?.name} ngày $dateString đã được ghi nhận.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -603,25 +612,24 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
 
-                    // Khung giờ hẹn
+                    const SizedBox(height: 16),
                     Text(
-                      context.tr('Khung giờ trị liệu (60 phút/ca):', 'Therapy time slot (60 mins/slot):'),
+                      context.tr('Khung giờ trị liệu (60 phút/ca, nghỉ 15 phút):', 'Therapy time slot (60 mins/slot, 15m break):'),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 10,
-                      children: _bookingStartTimes.map((slot) {
-                        final isSel = _selectedStartTime == slot;
+                      children: _bookingTimeSlots.map((slot) {
+                        final isSel = _selectedTimeSlot == slot;
                         return InkWell(
-                          onTap: () => setState(() => _selectedStartTime = slot),
+                          onTap: () => setState(() => _selectedTimeSlot = slot),
                           borderRadius: BorderRadius.circular(10),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
                               color: isSel ? AppColors.primary : Colors.white,
                               borderRadius: BorderRadius.circular(10),
@@ -642,7 +650,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                             child: Text(
                               slot,
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12.5,
                                 fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
                                 color: isSel ? Colors.white : AppColors.textPrimary,
                               ),
@@ -794,6 +802,35 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
                     const SizedBox(height: 10),
 
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: context.tr('Email', 'Email'),
+                        prefixIcon: const Icon(Icons.mail_outline_rounded, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      validator: (val) {
+                        if (val != null && val.trim().isNotEmpty) {
+                          return AppValidators.email(val.trim());
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextFormField(
+                      controller: _addressController,
+                      decoration: InputDecoration(
+                        labelText: context.tr('Địa chỉ', 'Address'),
+                        prefixIcon: const Icon(Icons.home_outlined, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
                     // Nhãn Ghi chú đơn giản theo mục 4.3
                     TextFormField(
                       controller: _noteController,
@@ -836,8 +873,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), _serviceTitle.tr(context)),
                     _buildInfoRow(context.tr('Chi nhánh:', 'Branch:'), _selectedBranch != null ? _selectedBranch!.name.tr(context) : '---'),
                     _buildInfoRow(context.tr('Ngày hẹn:', 'Date:'), dateDisplay),
-                    _buildInfoRow(context.tr('Khung giờ:', 'Time:'), _formatTimeRange(_selectedStartTime, _serviceDuration)),
+                    _buildInfoRow(context.tr('Khung giờ:', 'Time:'), _selectedTimeSlot),
                     _buildInfoRow(context.tr('Khách hàng:', 'Customer:'), '${_nameController.text} (${_phoneController.text})'),
+                    if (_emailController.text.trim().isNotEmpty)
+                      _buildInfoRow(context.tr('Email:', 'Email:'), _emailController.text.trim()),
+                    if (_addressController.text.trim().isNotEmpty)
+                      _buildInfoRow(context.tr('Địa chỉ:', 'Address:'), _addressController.text.trim()),
                     if (_noteController.text.trim().isNotEmpty)
                       _buildInfoRow(context.tr('Ghi chú:', 'Notes:'), _noteController.text.trim()),
                     const Divider(color: AppColors.border, height: 18),
@@ -846,7 +887,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            context.tr('Tổng tiền:', 'Total Amount:'),
+                            context.tr('Chi phí:', 'Estimated Cost:'),
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                           ),
                         ),

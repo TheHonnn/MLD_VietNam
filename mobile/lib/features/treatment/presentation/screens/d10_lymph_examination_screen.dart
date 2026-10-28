@@ -21,7 +21,7 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
 
   String _selectedBranch = 'Chi nhánh Quận 3 · 123 Nguyễn Thị Minh Khai';
   late DateTime _selectedDate;
-  String _selectedTime = '09:30';
+  String _selectedTime = '08:00 - 09:00';
 
   String _selectedCondition = 'Phù nề sau phẫu thuật thẩm mỹ';
 
@@ -38,13 +38,15 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
   ];
 
   final List<String> _timeSlots = [
-    '09:00',
-    '09:30',
-    '10:30',
-    '14:00',
-    '15:00',
-    '16:30',
-    '17:30',
+    '08:00 - 09:00',
+    '09:15 - 10:15',
+    '10:30 - 11:30',
+    '13:30 - 14:30',
+    '14:45 - 15:45',
+    '16:00 - 17:00',
+    '17:15 - 18:15',
+    '18:30 - 19:30',
+    '19:45 - 20:45',
   ];
 
   @override

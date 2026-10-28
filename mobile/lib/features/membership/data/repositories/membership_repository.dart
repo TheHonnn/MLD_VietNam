@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -21,6 +22,12 @@ class MembershipRepository {
   static const String _namePrefKey = 'user_full_name';
   static const String _phonePrefKey = 'user_phone';
   static const String _emailPrefKey = 'user_email';
+  static const String _addressPrefKey = 'user_address';
+  static const String _dobPrefKey = 'user_dob';
+  static const String _genderPrefKey = 'user_gender';
+  static const String _occupationPrefKey = 'user_occupation';
+  static const String _emergencyNamePrefKey = 'user_emergency_name';
+  static const String _emergencyPhonePrefKey = 'user_emergency_phone';
   static const String _memberCodePrefKey = 'user_member_code';
 
   UserProfile _userProfile = const UserProfile(
@@ -201,12 +208,25 @@ class MembershipRepository {
           ? authDisplayName
           : (cleanSavedName ?? _userProfile.fullName);
 
+      final savedAddress = prefs.getString(_addressPrefKey);
+      final savedDob = prefs.getString(_dobPrefKey);
+      final savedGender = prefs.getString(_genderPrefKey);
+      final savedOccupation = prefs.getString(_occupationPrefKey);
+      final savedEmerName = prefs.getString(_emergencyNamePrefKey);
+      final savedEmerPhone = prefs.getString(_emergencyPhonePrefKey);
+
       _userProfile = _userProfile.copyWith(
         avatarUrl: savedAvatar ?? _userProfile.avatarUrl,
         fullName: effectiveFullName,
         phone: effectivePhone,
         isPhoneVerified: effectivePhone.isNotEmpty,
         email: effectiveEmail,
+        address: (savedAddress != null && savedAddress.isNotEmpty) ? savedAddress : _userProfile.address,
+        dateOfBirth: (savedDob != null && savedDob.isNotEmpty) ? savedDob : _userProfile.dateOfBirth,
+        gender: (savedGender != null && savedGender.isNotEmpty) ? savedGender : _userProfile.gender,
+        occupation: (savedOccupation != null && savedOccupation.isNotEmpty) ? savedOccupation : _userProfile.occupation,
+        emergencyContactName: (savedEmerName != null && savedEmerName.isNotEmpty) ? savedEmerName : _userProfile.emergencyContactName,
+        emergencyContactPhone: (savedEmerPhone != null && savedEmerPhone.isNotEmpty) ? savedEmerPhone : _userProfile.emergencyContactPhone,
         memberCode: prefs.getString(_memberCodePrefKey)?.isNotEmpty == true
             ? prefs.getString(_memberCodePrefKey)!
             : _userProfile.memberCode,
@@ -248,19 +268,19 @@ class MembershipRepository {
     _persistLocalProfile(_userProfile);
   }
 
-  /// F01/F02: Lấy thông tin hồ sơ cá nhân từ Live Backend Gateway
+  /// F01/F02: Lấy thông tin hồ sơ cá nhân từ Live Backend Gateway & Supabase Database
   Future<UserProfile> fetchProfile() async {
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.membershipProfile);
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data['data'] ?? response.data;
         if (data is Map<String, dynamic>) {
-          final serverPhone = data['phone']?.toString() ?? '';
-          final currentAuthPhone = AuthService.instance.currentPhone ?? '';
-          final finalPhone = currentAuthPhone.isNotEmpty ? currentAuthPhone : serverPhone;
+          final serverPhone = data['phone']?.toString().trim() ?? '';
+          final currentAuthPhone = AuthService.instance.currentPhone?.trim() ?? '';
+          final finalPhone = currentAuthPhone.isNotEmpty ? currentAuthPhone : (serverPhone.isNotEmpty ? serverPhone : _userProfile.phone);
 
-          final serverName = data['fullName']?.toString() ?? '';
-          final currentAuthName = AuthService.instance.currentDisplayName ?? '';
+          final serverName = data['fullName']?.toString().trim() ?? '';
+          final currentAuthName = AuthService.instance.currentDisplayName?.trim() ?? '';
           final isInvalidMockName = serverName == 'Lễ Tân Hoàng Yến' ||
               serverName == 'Nguyễn Minh Anh' ||
               serverName == 'Khách hàng MLD';
@@ -268,29 +288,37 @@ class MembershipRepository {
               ? serverName
               : (currentAuthName.isNotEmpty ? currentAuthName : (serverName.isNotEmpty ? serverName : _userProfile.fullName));
 
-          final serverEmail = data['email']?.toString() ?? '';
+          final serverEmail = data['email']?.toString().trim() ?? '';
           final isInvalidMockEmail = serverEmail == 'letan.q3@mldvietnam.vn' ||
               serverEmail == 'minh.anh@example.com';
           final finalEmail = (!isInvalidMockEmail && serverEmail.isNotEmpty)
               ? serverEmail
               : _userProfile.email;
 
+          final serverDob = data['dateOfBirth']?.toString().trim() ?? '';
+          final serverGender = data['gender']?.toString().trim() ?? '';
+          final serverAddress = data['address']?.toString().trim() ?? '';
+          final serverOcc = data['occupation']?.toString().trim() ?? '';
+          final serverEmerName = data['emergencyContactName']?.toString().trim() ?? '';
+          final serverEmerPhone = data['emergencyContactPhone']?.toString().trim() ?? '';
+          final serverAvatar = data['avatarUrl']?.toString().trim() ?? '';
+
           _userProfile = _userProfile.copyWith(
             fullName: finalFullName,
             phone: finalPhone,
             isPhoneVerified: finalPhone.isNotEmpty,
             email: finalEmail,
-            dateOfBirth: data['dateOfBirth']?.toString() ?? _userProfile.dateOfBirth,
-            gender: data['gender']?.toString() ?? _userProfile.gender,
-            address: data['address']?.toString() ?? _userProfile.address,
-            occupation: data['occupation']?.toString() ?? _userProfile.occupation,
-            emergencyContactName: data['emergencyContactName']?.toString() ?? _userProfile.emergencyContactName,
-            emergencyContactPhone: data['emergencyContactPhone']?.toString() ?? _userProfile.emergencyContactPhone,
-            avatarUrl: data['avatarUrl']?.toString() ?? _userProfile.avatarUrl,
-            memberTier: data['memberTier']?.toString() ?? _userProfile.memberTier,
-            memberCode: data['memberCode']?.toString() ?? _userProfile.memberCode,
+            dateOfBirth: serverDob.isNotEmpty ? serverDob : _userProfile.dateOfBirth,
+            gender: serverGender.isNotEmpty ? serverGender : _userProfile.gender,
+            address: serverAddress.isNotEmpty ? serverAddress : _userProfile.address,
+            occupation: serverOcc.isNotEmpty ? serverOcc : _userProfile.occupation,
+            emergencyContactName: serverEmerName.isNotEmpty ? serverEmerName : _userProfile.emergencyContactName,
+            emergencyContactPhone: serverEmerPhone.isNotEmpty ? serverEmerPhone : _userProfile.emergencyContactPhone,
+            avatarUrl: serverAvatar.isNotEmpty ? serverAvatar : _userProfile.avatarUrl,
+            memberTier: (data['memberTier']?.toString().isNotEmpty == true) ? data['memberTier'].toString() : _userProfile.memberTier,
+            memberCode: (data['memberCode']?.toString().isNotEmpty == true) ? data['memberCode'].toString() : _userProfile.memberCode,
             points: (data['points'] as num?)?.toInt() ?? _userProfile.points,
-            validUntil: data['validUntil']?.toString() ?? _userProfile.validUntil,
+            validUntil: (data['validUntil']?.toString().isNotEmpty == true) ? data['validUntil'].toString() : _userProfile.validUntil,
           );
           _persistLocalProfile(_userProfile);
         }
@@ -298,33 +326,89 @@ class MembershipRepository {
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error fetching profile: $e');
     }
-    // Đồng bộ trực tiếp mã hội viên (referral_code) từ bảng users Supabase Cloud
+
+    // Đồng bộ trực tiếp và toàn diện từ bảng users Supabase Database
     final lookupPhone = _userProfile.phone.trim();
+    final lookupEmail = _userProfile.email.trim();
     final lookupId = AuthService.instance.currentUserId;
-    if (lookupPhone.isNotEmpty || (lookupId != null && lookupId.isNotEmpty)) {
+    if (lookupPhone.isNotEmpty || lookupEmail.isNotEmpty || (lookupId != null && lookupId.isNotEmpty)) {
       try {
-        final queryParam = lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'id=eq.$lookupId';
-        final sRes = await _apiClient.dio.get('${ApiEndpoints.users}?$queryParam&select=referral_code,membership_tier,reward_points&limit=1');
+        final queryParam = (lookupId != null && lookupId.isNotEmpty && RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(lookupId))
+            ? 'id=eq.$lookupId'
+            : (lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'email=eq.$lookupEmail');
+
+        final sRes = await _apiClient.dio.get(
+          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code&limit=1',
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            },
+          ),
+        );
+
         if (sRes.statusCode == 200 && sRes.data is List && (sRes.data as List).isNotEmpty) {
           final u = (sRes.data as List).first as Map<String, dynamic>;
-          final dbCode = u['referral_code']?.toString() ?? '';
+          final dbName = u['full_name']?.toString().trim() ?? '';
+          final dbPhone = u['phone']?.toString().trim() ?? '';
+          final dbEmail = u['email']?.toString().trim() ?? '';
+          final dbAddress = u['address']?.toString().trim() ?? '';
+          final dbAvatar = u['avatar_url']?.toString().trim() ?? '';
+          final dbGender = u['gender']?.toString().trim() ?? '';
+          final rawDob = u['date_of_birth']?.toString().trim() ?? '';
+          String dbDob = '';
+          if (rawDob.isNotEmpty) {
+            try {
+              final dParts = rawDob.split('-');
+              if (dParts.length == 3) {
+                dbDob = '${dParts[2]}/${dParts[1]}/${dParts[0]}';
+              } else {
+                dbDob = rawDob;
+              }
+            } catch (_) {
+              dbDob = rawDob;
+            }
+          }
+          final dbEmerName = u['emergency_contact_name']?.toString().trim() ?? '';
+          final dbEmerPhone = u['emergency_contact_phone']?.toString().trim() ?? '';
+          final dbCode = u['referral_code']?.toString().trim() ?? '';
           final dbPoints = (u['reward_points'] as num?)?.toInt();
           final dbTier = u['membership_tier']?.toString();
-          if (dbCode.isNotEmpty) {
-            _userProfile = _userProfile.copyWith(
-              memberCode: dbCode,
-              points: dbPoints ?? _userProfile.points,
-              memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
-            );
-            _persistLocalProfile(_userProfile);
+
+          String displayGender = _userProfile.gender;
+          if (dbGender == 'MALE') {
+            displayGender = 'Nam';
+          } else if (dbGender == 'FEMALE') {
+            displayGender = 'Nữ';
+          } else if (dbGender.isNotEmpty) {
+            displayGender = dbGender;
           }
+
+          _userProfile = _userProfile.copyWith(
+            fullName: dbName.isNotEmpty ? dbName : _userProfile.fullName,
+            phone: dbPhone.isNotEmpty ? dbPhone : _userProfile.phone,
+            isPhoneVerified: dbPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
+            email: dbEmail.isNotEmpty ? dbEmail : _userProfile.email,
+            address: dbAddress.isNotEmpty ? dbAddress : _userProfile.address,
+            avatarUrl: dbAvatar.isNotEmpty ? dbAvatar : _userProfile.avatarUrl,
+            gender: displayGender,
+            dateOfBirth: dbDob.isNotEmpty ? dbDob : _userProfile.dateOfBirth,
+            emergencyContactName: dbEmerName.isNotEmpty ? dbEmerName : _userProfile.emergencyContactName,
+            emergencyContactPhone: dbEmerPhone.isNotEmpty ? dbEmerPhone : _userProfile.emergencyContactPhone,
+            memberCode: dbCode.isNotEmpty ? dbCode : _userProfile.memberCode,
+            points: dbPoints ?? _userProfile.points,
+            memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
+          );
+          _persistLocalProfile(_userProfile);
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('>>> [MembershipRepository] Error querying Supabase users table: $e');
+      }
     }
     return _userProfile;
   }
 
-  /// F02: Cập nhật thông tin hồ sơ lên Backend
+  /// F02: Cập nhật thông tin hồ sơ lên Cơ Sở Dữ Liệu (Supabase & Backend)
   Future<void> updateProfile(UserProfile updated) async {
     final effectivePhone = updated.phone.trim();
     final isVerified = updated.isPhoneVerified || effectivePhone.isNotEmpty;
@@ -338,6 +422,66 @@ class MembershipRepository {
       AuthService.instance.updatePhone(updated.phone.trim());
     }
 
+    // 1. Lưu trực tiếp vào Database Supabase (Bảng users)
+    try {
+      final lookupPhone = _userProfile.phone.trim();
+      final lookupEmail = _userProfile.email.trim();
+      final lookupId = AuthService.instance.currentUserId;
+
+      final queryParam = (lookupId != null && lookupId.isNotEmpty && RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(lookupId))
+          ? 'id=eq.$lookupId'
+          : (lookupPhone.isNotEmpty
+              ? 'phone=eq.$lookupPhone'
+              : (lookupEmail.isNotEmpty ? 'email=eq.$lookupEmail' : ''));
+
+      if (queryParam.isNotEmpty) {
+        final dbGender = updated.gender.toUpperCase().contains('NAM') || updated.gender.toUpperCase() == 'MALE'
+            ? 'MALE'
+            : (updated.gender.toUpperCase().contains('NỮ') || updated.gender.toUpperCase().contains('NU') || updated.gender.toUpperCase() == 'FEMALE'
+                ? 'FEMALE'
+                : 'OTHER');
+
+        String? dbDob;
+        if (updated.dateOfBirth.trim().isNotEmpty) {
+          final parts = updated.dateOfBirth.trim().split('/');
+          if (parts.length == 3) {
+            dbDob = '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
+          } else {
+            dbDob = updated.dateOfBirth.trim();
+          }
+        }
+
+        final updateData = <String, dynamic>{
+          if (updated.fullName.trim().isNotEmpty) 'full_name': updated.fullName.trim(),
+          if (updated.phone.trim().isNotEmpty) 'phone': updated.phone.trim(),
+          if (updated.email.trim().isNotEmpty) 'email': updated.email.trim(),
+          if (updated.avatarUrl.trim().isNotEmpty) 'avatar_url': updated.avatarUrl.trim(),
+          'address': updated.address.trim(),
+          'gender': dbGender,
+          if (dbDob != null) 'date_of_birth': dbDob,
+          'emergency_contact_name': updated.emergencyContactName.trim(),
+          'emergency_contact_phone': updated.emergencyContactPhone.trim(),
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+
+        await _apiClient.dio.patch(
+          '${ApiEndpoints.users}?$queryParam',
+          data: updateData,
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation',
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Error saving profile directly to Supabase: $e');
+    }
+
+    // 2. Cập nhật lên Backend Gateway
     try {
       await _apiClient.dio.put(
         ApiEndpoints.membershipProfile,
@@ -596,6 +740,12 @@ class MembershipRepository {
       prefs.setString(_namePrefKey, p.fullName);
       prefs.setString(_phonePrefKey, p.phone);
       prefs.setString(_emailPrefKey, p.email);
+      prefs.setString(_addressPrefKey, p.address);
+      prefs.setString(_dobPrefKey, p.dateOfBirth);
+      prefs.setString(_genderPrefKey, p.gender);
+      prefs.setString(_occupationPrefKey, p.occupation);
+      prefs.setString(_emergencyNamePrefKey, p.emergencyContactName);
+      prefs.setString(_emergencyPhonePrefKey, p.emergencyContactPhone);
       if (p.memberCode.isNotEmpty) {
         prefs.setString(_memberCodePrefKey, p.memberCode);
       }

@@ -279,6 +279,8 @@ class BookingRepository {
           'endTime': endTime,
           'bookedForName': item.customerName,
           'bookedForPhone': item.customerPhone,
+          'bookedForEmail': item.customerEmail,
+          'bookedForAddress': item.customerAddress,
           'specialNotes': flow.specialNotes,
           'paymentMethod': method,
         },
@@ -362,6 +364,8 @@ class BookingRepository {
           'endTime': endTime,
           'bookedForName': appointment.customerName,
           'bookedForPhone': appointment.customerPhone,
+          'bookedForEmail': appointment.customerEmail,
+          'bookedForAddress': appointment.customerAddress,
           'specialNotes': appointment.specialNotes,
           'paymentMethod': method,
         },
@@ -464,16 +468,15 @@ class BookingRepository {
 
   static List<TimeSlotModel> getSlotsForDate(DateTime date) {
     return const [
-      TimeSlotModel(id: 'slot-0830', time: '08:30 - 09:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true),
-      TimeSlotModel(id: 'slot-0930', time: '09:30 - 10:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: false),
+      TimeSlotModel(id: 'slot-0800', time: '08:00 - 09:00', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true),
+      TimeSlotModel(id: 'slot-0915', time: '09:15 - 10:15', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: false),
       TimeSlotModel(id: 'slot-1030', time: '10:30 - 11:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true),
       TimeSlotModel(id: 'slot-1330', time: '13:30 - 14:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true),
-      TimeSlotModel(id: 'slot-1400', time: '14:00 - 15:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true),
-      TimeSlotModel(id: 'slot-1530', time: '15:30 - 16:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: false),
-      TimeSlotModel(id: 'slot-1600', time: '16:00 - 17:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true),
-      TimeSlotModel(id: 'slot-1730', time: '17:30 - 18:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true),
+      TimeSlotModel(id: 'slot-1445', time: '14:45 - 15:45', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true),
+      TimeSlotModel(id: 'slot-1600', time: '16:00 - 17:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: false),
+      TimeSlotModel(id: 'slot-1715', time: '17:15 - 18:15', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true),
       TimeSlotModel(id: 'slot-1830', time: '18:30 - 19:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true),
-      TimeSlotModel(id: 'slot-1930', time: '19:30 - 20:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: false),
+      TimeSlotModel(id: 'slot-1945', time: '19:45 - 20:45', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: false),
     ];
   }
 
@@ -484,10 +487,10 @@ class BookingRepository {
     final isHa = specialistName.contains('Hà');
 
     return [
-      const TimeSlotModel(id: 'slot-0830', time: '08:30 - 09:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true, subtext: 'Còn trống'),
+      const TimeSlotModel(id: 'slot-0800', time: '08:00 - 09:00', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true, subtext: 'Còn trống'),
       TimeSlotModel(
-        id: 'slot-0930',
-        time: '09:30 - 10:30',
+        id: 'slot-0915',
+        time: '09:15 - 10:15',
         periodName: 'Sáng',
         period: SlotPeriod.morning,
         isAvailable: !isPhuong,
@@ -503,28 +506,18 @@ class BookingRepository {
         subtext: isHa ? 'Đã có khách' : 'Còn trống',
         unavailableReason: isHa ? 'Chuyên viên $specialistName đang có lịch hẹn với khách hàng khác.' : null,
       ),
-      TimeSlotModel(
-        id: 'slot-1130',
-        time: '11:30 - 12:30',
-        periodName: 'Sáng',
-        period: SlotPeriod.morning,
-        isAvailable: false,
-        subtext: 'Ca nghỉ trưa',
-        unavailableReason: 'Chuyên viên $specialistName trong khung giờ nghỉ trưa & giao ca.',
-      ),
       const TimeSlotModel(id: 'slot-1330', time: '13:30 - 14:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'Còn trống'),
-      const TimeSlotModel(id: 'slot-1400', time: '14:00 - 15:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'Còn trống'),
+      const TimeSlotModel(id: 'slot-1445', time: '14:45 - 15:45', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'Còn trống'),
       TimeSlotModel(
-        id: 'slot-1530',
-        time: '15:30 - 16:30',
+        id: 'slot-1600',
+        time: '16:00 - 17:00',
         periodName: 'Chiều',
         period: SlotPeriod.afternoon,
         isAvailable: isHa,
         subtext: !isHa ? 'Đã có khách' : 'Còn trống',
         unavailableReason: !isHa ? 'Chuyên viên $specialistName đang thực hiện liệu trình chuyên sâu cho khách khác.' : null,
       ),
-      const TimeSlotModel(id: 'slot-1600', time: '16:00 - 17:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'Còn trống'),
-      const TimeSlotModel(id: 'slot-1730', time: '17:30 - 18:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'Còn trống'),
+      const TimeSlotModel(id: 'slot-1715', time: '17:15 - 18:15', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'Còn trống'),
       TimeSlotModel(
         id: 'slot-1830',
         time: '18:30 - 19:30',
@@ -534,23 +527,21 @@ class BookingRepository {
         subtext: isPhuong ? 'Đã có khách' : 'Còn trống',
         unavailableReason: isPhuong ? 'Chuyên viên $specialistName đã có lịch hẹn phục vụ khách hàng khác.' : null,
       ),
-      const TimeSlotModel(id: 'slot-1930', time: '19:30 - 20:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'Còn trống'),
+      const TimeSlotModel(id: 'slot-1945', time: '19:45 - 20:45', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'Còn trống'),
     ];
   }
 
   static List<TimeSlotModel> getSlotsForRandomAssignment({required DateTime date}) {
     return const [
-      TimeSlotModel(id: 'slot-0830', time: '08:30 - 09:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
-      TimeSlotModel(id: 'slot-0930', time: '09:30 - 10:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true, subtext: 'NV: Nguyễn Thu Hà'),
+      TimeSlotModel(id: 'slot-0800', time: '08:00 - 09:00', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
+      TimeSlotModel(id: 'slot-0915', time: '09:15 - 10:15', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true, subtext: 'NV: Nguyễn Thu Hà'),
       TimeSlotModel(id: 'slot-1030', time: '10:30 - 11:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: true, subtext: 'NV: Lê Hoài An'),
-      TimeSlotModel(id: 'slot-1130', time: '11:30 - 12:30', periodName: 'Sáng', period: SlotPeriod.morning, isAvailable: false, subtext: 'Nghỉ trưa toàn viện', unavailableReason: 'Tất cả chuyên viên đều trong ca nghỉ trưa & giao ca.'),
       TimeSlotModel(id: 'slot-1330', time: '13:30 - 14:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
-      TimeSlotModel(id: 'slot-1400', time: '14:00 - 15:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Nguyễn Thu Hà'),
-      TimeSlotModel(id: 'slot-1530', time: '15:30 - 16:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Lê Hoài An'),
-      TimeSlotModel(id: 'slot-1600', time: '16:00 - 17:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
-      TimeSlotModel(id: 'slot-1730', time: '17:30 - 18:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'NV: Nguyễn Thu Hà'),
+      TimeSlotModel(id: 'slot-1445', time: '14:45 - 15:45', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Nguyễn Thu Hà'),
+      TimeSlotModel(id: 'slot-1600', time: '16:00 - 17:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Lê Hoài An'),
+      TimeSlotModel(id: 'slot-1715', time: '17:15 - 18:15', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
       TimeSlotModel(id: 'slot-1830', time: '18:30 - 19:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: false, subtext: 'Kín lịch tất cả NV', unavailableReason: 'Toàn bộ chuyên viên tại cơ sở đều đang bận phục vụ khách hàng khác vào khung giờ này.'),
-      TimeSlotModel(id: 'slot-1930', time: '19:30 - 20:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'NV: Lê Hoài An'),
+      TimeSlotModel(id: 'slot-1945', time: '19:45 - 20:45', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'NV: Lê Hoài An'),
     ];
   }
 

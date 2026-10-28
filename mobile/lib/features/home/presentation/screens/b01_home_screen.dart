@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/localization/app_translation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -64,37 +66,12 @@ class B01HomeScreen extends StatefulWidget {
 class _B01HomeScreenState extends State<B01HomeScreen> {
   String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   SpaServiceModel? _coreService;
-  static final List<Map<String, dynamic>> _defaultBanners = [
-    {
-      'id': 'default-banner-1',
-      'title': 'Dẫn lưu bạch huyết MLD – Phục hồi chuẩn Y khoa Vodder',
-      'summary': 'Tầm soát và điều trị giảm phù nề, tiêu dịch ứ đọng chuyên sâu với chuyên gia MLD',
-      'image_url': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&fit=crop',
-      'category': 'TRI_LIEU',
-      'target_link': '/treatment',
-      'status': 'PUBLISHED',
-    },
-    {
-      'id': 'default-banner-2',
-      'title': 'Học viện Đào tạo Nghề MLD Chuẩn Y Khoa Quốc Tế',
-      'summary': 'Chương trình đào tạo thực hành cho người mới bắt đầu và nâng cao tay nghề chuẩn Vodder',
-      'image_url': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&fit=crop',
-      'category': 'DAO_TAO',
-      'target_link': '/academy',
-      'status': 'PUBLISHED',
-    },
-    {
-      'id': 'default-banner-3',
-      'title': 'Tầm soát & Đánh giá Độ phù nề Hệ Bạch Huyết',
-      'summary': 'Thực hiện bài kiểm tra lâm sàng phát hiện sớm nguy cơ phù bạch huyết và tư vấn miễn phí',
-      'image_url': 'https://wstvwushpwcdsmhpunvh.supabase.co/storage/v1/object/public/services/thoat_vi_dia_dem_3.webp',
-      'category': 'DICH_VU',
-      'target_link': '/treatment',
-      'status': 'PUBLISHED',
-    },
-  ];
+  // Cache bộ nhớ lưu các banner do Admin đẩy lên từ Supabase/Web Admin.
+  // Đảm bảo khi người dùng chuyển trang/tab, banner của Admin hiển thị ngay lập tức,
+  // không bị giật hay nhảy từ bất kỳ ảnh mẫu nào.
+  static List<Map<String, dynamic>> _cachedAdminBanners = [];
 
-  List<Map<String, dynamic>> _banners = List.from(_defaultBanners);
+  List<Map<String, dynamic>> _banners = List.from(_cachedAdminBanners);
   int _currentBannerIndex = 0;
   late final PageController _bannerPageController;
   Timer? _bannerTimer;
@@ -106,6 +83,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     _initBranchListener();
     _loadUserProfile();
     _loadCoreServiceFromAdmin();
+    _initBannersFromLocalCache();
     _loadBanners();
     _startBannerAutoScroll();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,30 +91,69 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     });
   }
 
+  /// Nạp banner Admin đã lưu trong SharedPreferences để hiển thị tức thì khi mở app
+  Future<void> _initBannersFromLocalCache() async {
+    if (_cachedAdminBanners.isNotEmpty) {
+      if (mounted && _banners.isEmpty) {
+        setState(() {
+          _banners = List.from(_cachedAdminBanners);
+        });
+      }
+      return;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('cached_admin_banners');
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          final list = List<Map<String, dynamic>>.from(
+            decoded.map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+          if (list.isNotEmpty) {
+            _cachedAdminBanners = list;
+            if (mounted && _banners.isEmpty) {
+              setState(() {
+                _banners = list;
+              });
+              _startBannerAutoScroll();
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Lấy danh sách banner thực tế do Admin tải lên từ Supabase
   Future<void> _loadBanners() async {
     if (!mounted) return;
     try {
       final data = await SupabaseDataService().fetchBanners();
       if (!mounted) return;
-      setState(() {
-        if (data.isNotEmpty) {
-          _banners = data;
-        } else if (_banners.isEmpty) {
-          _banners = List.from(_defaultBanners);
+      // Chỉ nhận các banner thực tế do Admin tải lên và có ảnh hợp lệ
+      final adminBanners = data.where((b) {
+        final img = (b['image_url'] as String?)?.trim() ?? '';
+        return img.isNotEmpty;
+      }).toList();
+
+      if (adminBanners.isNotEmpty) {
+        _cachedAdminBanners = List.from(adminBanners);
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_admin_banners', jsonEncode(adminBanners));
+        } catch (_) {}
+
+        if (mounted) {
+          setState(() {
+            _banners = List.from(adminBanners);
+            if (_currentBannerIndex >= _banners.length) {
+              _currentBannerIndex = 0;
+            }
+          });
+          _startBannerAutoScroll();
         }
-        if (_currentBannerIndex >= _banners.length) {
-          _currentBannerIndex = 0;
-        }
-      });
-      _startBannerAutoScroll();
-    } catch (_) {
-      if (mounted && _banners.isEmpty) {
-        setState(() {
-          _banners = List.from(_defaultBanners);
-        });
-        _startBannerAutoScroll();
       }
-    }
+    } catch (_) {}
   }
 
   void _startBannerAutoScroll() {

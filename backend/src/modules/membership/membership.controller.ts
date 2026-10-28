@@ -29,8 +29,14 @@ export class MembershipController {
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F01/F02: Lấy thông tin hồ sơ cá nhân' })
-  async getProfile(@CurrentUser('id') userId: string) {
-    return this.membershipService.getProfile(userId || 'default-user');
+  @ApiQuery({ name: 'phone', required: false })
+  @ApiQuery({ name: 'email', required: false })
+  async getProfile(
+    @CurrentUser('id') userId: string,
+    @Query('phone') phone?: string,
+    @Query('email') email?: string,
+  ) {
+    return this.membershipService.getProfile(userId || 'default-user', phone || email);
   }
 
   @Put('profile')

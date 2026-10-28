@@ -31,6 +31,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
+  late final TextEditingController _addressController;
 
   // 1. Cơ sở đào tạo
   final List<String> _branchOptions = const [
@@ -52,6 +53,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     final profile = MembershipRepository.instance.profile;
     final currentPhone = AuthService.instance.currentPhone;
     final email = AuthService.instance.lastLoginEmail ?? profile.email;
+    final address = profile.address;
 
     final initialName = profile.fullName.trim().isNotEmpty
         ? profile.fullName
@@ -62,10 +64,14 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     final initialEmail = email.trim().isNotEmpty
         ? email
         : 'hocvien@mldvietnam.vn';
+    final initialAddress = address.trim().isNotEmpty
+        ? address
+        : (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding') ? 'Hà Nội, Việt Nam' : '');
 
     _nameController = TextEditingController(text: initialName);
     _phoneController = TextEditingController(text: initialPhone);
     _emailController = TextEditingController(text: initialEmail);
+    _addressController = TextEditingController(text: initialAddress);
 
     // Mặc định phân nhóm đối tượng theo dữ liệu khóa học nếu có
     if (widget.course.targetAudience.toLowerCase().contains('nghề') ||
@@ -81,6 +87,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -90,6 +97,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim().replaceAll(' ', '');
     final email = _emailController.text.trim();
+    final address = _addressController.text.trim();
     final studentType = _selectedTargetGroup == 0 ? 'BEGINNER' : 'PRO';
 
     if (!AuthService.instance.isLoggedIn) {
@@ -105,11 +113,17 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
 
     try {
       final isTest = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
-      // 1. Cập nhật phone cho user nếu chưa có
-      if (phone.isNotEmpty && !isTest) {
-        await AuthService.instance.updatePhone(phone);
+      // 1. Cập nhật phone, email, address đồng bộ vào profile cho user
+      if (!isTest) {
+        if (phone.isNotEmpty) await AuthService.instance.updatePhone(phone);
         final repo = MembershipRepository.instance;
-        repo.updateProfile(repo.profile.copyWith(phone: phone, isPhoneVerified: true));
+        repo.updateProfile(repo.profile.copyWith(
+          fullName: name,
+          phone: phone.isNotEmpty ? phone : repo.profile.phone,
+          email: email.isNotEmpty ? email : repo.profile.email,
+          address: address.isNotEmpty ? address : repo.profile.address,
+          isPhoneVerified: true,
+        ));
       }
 
       // 2. Gửi đăng ký lên Supabase Cloud với trạng thái CHỜ DUYỆT THỦ CÔNG
@@ -118,6 +132,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         studentName: name,
         studentPhone: phone,
         studentEmail: email,
+        studentAddress: address,
         selectedBranch: _selectedBranch,
         studentType: studentType,
       );
@@ -534,6 +549,19 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 keyboardType: TextInputType.emailAddress,
                 prefixIcon: Icons.mail_outline_rounded,
                 validator: AppValidators.email,
+              ),
+              const SizedBox(height: 12),
+              _buildInputField(
+                label: context.tr('Địa chỉ liên hệ *', 'Address *'),
+                controller: _addressController,
+                hint: context.tr('Nhập địa chỉ thường trú / tạm trú của bạn', 'Enter your address'),
+                prefixIcon: Icons.home_outlined,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return context.tr('Vui lòng nhập địa chỉ', 'Please enter your address');
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 22),
 

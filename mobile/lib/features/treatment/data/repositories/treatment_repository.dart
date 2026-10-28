@@ -69,37 +69,67 @@ class TreatmentRepository {
               final tp = item['treatment_packages'] as Map<String, dynamic>?;
               final total = (item['total_sessions'] as num?)?.toInt() ?? 10;
               final completed = (item['completed_sessions'] as num?)?.toInt() ?? 0;
+
+              // Parse sessions if backend provides them
+              final rawSessions = item['sessions'] as List<dynamic>? ?? [];
+              final sessionList = <TreatmentSessionModel>[];
+              for (final s in rawSessions) {
+                if (s is Map<String, dynamic>) {
+                  sessionList.add(
+                    TreatmentSessionModel(
+                      id: s['id']?.toString() ?? '',
+                      sessionNumber: (s['session_number'] as num?)?.toInt() ?? (sessionList.length + 1),
+                      packageCode: s['package_code']?.toString() ?? item['code']?.toString() ?? item['package_code']?.toString() ?? '',
+                      packageName: s['package_name']?.toString() ?? tp?['name']?.toString() ?? item['package_name']?.toString() ?? '',
+                      serviceName: s['service_name']?.toString() ?? tp?['service_name']?.toString() ?? item['service_name']?.toString() ?? '',
+                      customerName: s['customer_name']?.toString() ?? item['customer_name']?.toString() ?? '',
+                      treatmentTime: s['treatment_time']?.toString() ?? s['session_date']?.toString() ?? s['date']?.toString() ?? '',
+                      totalSessions: total,
+                      status: s['status']?.toString() ?? 'PENDING',
+                      title: s['title']?.toString() ?? 'Buổi ${(s['session_number'] as num?)?.toInt() ?? (sessionList.length + 1)}',
+                      content: s['content']?.toString() ?? s['note']?.toString() ?? '',
+                      evidenceImages: (s['evidence_images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+                      specialistName: s['specialist_name']?.toString() ?? item['assigned_specialist']?.toString() ?? 'Chuyên viên MLD',
+                      branchName: s['branch_name']?.toString() ?? item['branch_name']?.toString() ?? 'Chi nhánh Quận 3',
+                      postCareAdvice: s['post_care_advice']?.toString(),
+                    ),
+                  );
+                }
+              }
+
+              // Determine status
+              PackageStatus pkgStatus = PackageStatus.active;
+              final statusStr = item['status']?.toString().toLowerCase() ?? '';
+              if (statusStr.contains('complete') || completed >= total) {
+                pkgStatus = PackageStatus.completed;
+              } else if (statusStr.contains('expire')) {
+                pkgStatus = PackageStatus.expired;
+              }
+
               list.add(
                 UserPackageModel(
-                  id: item['id']?.toString() ?? 'pkg-user-001',
-                  packageName: tp?['name']?.toString() ?? 'Liệu trình Trị liệu Chuyên sâu MLD',
-                  description: tp?['description']?.toString() ?? 'Phác đồ trị liệu khai thông kinh lạc tiêu chuẩn cao cấp.',
-                  imageUrl: tp?['image_url']?.toString() ?? 'assets/images/specialist_hero_1.png',
+                  id: item['id']?.toString() ?? 'pkg-${list.length + 1}',
+                  packageCode: item['package_code']?.toString() ?? item['code']?.toString() ?? 'MLD-PKG-${(list.length + 1).toString().padLeft(3, '0')}',
+                  packageName: tp?['name']?.toString() ?? item['package_name']?.toString() ?? 'Gói Liệu trình MLD',
+                  serviceName: tp?['service_name']?.toString() ?? item['service_name']?.toString() ?? 'Dẫn lưu bạch huyết',
+                  customerName: item['customer_name']?.toString() ?? item['client_name']?.toString() ?? '',
+                  description: tp?['description']?.toString() ?? item['description']?.toString() ?? '',
+                  imageUrl: tp?['image_url']?.toString() ?? item['image_url']?.toString() ?? 'assets/images/specialist_hero_1.png',
                   totalSessions: total,
                   completedSessions: completed,
-                  status: PackageStatus.active,
-                  expiryDate: item['expires_at']?.toString() ?? '31/12/2026',
-                  specialistName: item['assigned_specialist']?.toString() ?? 'Trần Minh Phương',
+                  status: pkgStatus,
+                  expiryDate: item['expires_at']?.toString() ?? item['expiry_date']?.toString() ?? '',
+                  specialistName: item['assigned_specialist']?.toString() ?? 'Chuyên viên MLD',
                   branchName: item['branch_name']?.toString() ?? 'Chi nhánh Quận 3',
-                  price: (tp?['price'] as num?)?.toDouble() ?? 3500000,
-                  sessions: const [
-                    TreatmentSessionModel(
-                      sessionNumber: 1,
-                      title: 'Khai thông kinh mạch vùng cổ vai',
-                      status: 'COMPLETED',
-                      date: '01/10/2026',
-                      note: 'Giải phóng cơ co cứng sơ bộ.',
-                    ),
-                  ],
+                  price: (tp?['price'] as num?)?.toDouble() ?? (item['price'] as num?)?.toDouble() ?? 0,
+                  sessions: sessionList,
                 ),
               );
             }
           }
-          if (list.isNotEmpty) {
-            _packages.clear();
-            _packages.addAll(list);
-            return _packages;
-          }
+          _packages.clear();
+          _packages.addAll(list);
+          return _packages;
         }
       }
     } catch (e) {
@@ -108,7 +138,7 @@ class TreatmentRepository {
     return _packages;
   }
 
-  /// D03: Lấy dòng thời gian nhật ký chăm sóc sức khỏe
+  /// D03: Lấy dòng thời gian nhật ký chăm sóc sức khỏe & chuỗi minh chứng
   Future<List<CareJournalEntryModel>> fetchCareJournal() async {
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.treatmentCareJournal);
@@ -121,22 +151,28 @@ class TreatmentRepository {
               list.add(
                 CareJournalEntryModel(
                   id: item['id']?.toString() ?? 'j-${DateTime.now().millisecondsSinceEpoch}',
-                  sessionNumber: (item['session_number'] as num?)?.toInt() ?? (_journalEntries.length + 1),
-                  date: item['date']?.toString() ?? 'Hôm nay',
-                  serviceTitle: item['service_name']?.toString() ?? 'Buổi chăm sóc trị liệu',
-                  specialistName: item['technician_name']?.toString() ?? 'Kỹ thuật viên MLD',
+                  packageCode: item['package_code']?.toString() ?? '',
+                  packageName: item['package_name']?.toString() ?? '',
+                  serviceName: item['service_name']?.toString() ?? item['service_title']?.toString() ?? 'Dịch vụ MLD',
+                  customerName: item['customer_name']?.toString() ?? '',
+                  sessionNumber: (item['session_number'] as num?)?.toInt() ?? (list.length + 1),
+                  totalSessions: (item['total_sessions'] as num?)?.toInt() ?? 10,
+                  treatmentTime: item['treatment_time']?.toString() ?? item['date']?.toString() ?? '',
+                  content: item['content']?.toString() ?? item['customer_note']?.toString() ?? item['therapist_note']?.toString() ?? '',
+                  evidenceImages: (item['evidence_images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+                  specialistName: item['technician_name']?.toString() ?? item['specialist_name']?.toString() ?? 'Kỹ thuật viên MLD',
                   branchName: item['branch_name']?.toString() ?? 'Chi nhánh Quận 3',
-                  sessionNote: item['customer_note']?.toString() ?? item['therapist_note']?.toString() ?? '',
-                  postCareSuggestion: item['home_advice']?.toString() ?? 'Uống đủ nước ấm và giữ ấm cơ thể.',
+                  postCareSuggestion: item['home_advice']?.toString() ?? item['post_care_suggestion']?.toString(),
+                  bookingId: item['booking_id']?.toString(),
+                  serviceId: item['service_id']?.toString(),
+                  technicianId: item['technician_id']?.toString(),
                 ),
               );
             }
           }
-          if (list.isNotEmpty) {
-            _journalEntries.clear();
-            _journalEntries.addAll(list);
-            return _journalEntries;
-          }
+          _journalEntries.clear();
+          _journalEntries.addAll(list);
+          return _journalEntries;
         }
       }
     } catch (e) {
@@ -151,11 +187,11 @@ class TreatmentRepository {
     final newEntry = CareJournalEntryModel(
       id: 'j-custom-${DateTime.now().millisecondsSinceEpoch}',
       sessionNumber: _journalEntries.length + 1,
-      date: 'Hôm nay',
-      serviceTitle: 'Ghi chú tự chăm sóc tại nhà',
+      treatmentTime: 'Hôm nay',
+      serviceName: 'Ghi chú tự chăm sóc tại nhà',
       specialistName: 'Khách hàng (Tự ghi nhận)',
       branchName: 'Chi nhánh Quận 3',
-      sessionNote: note,
+      content: note,
       postCareSuggestion: 'Tiếp tục duy trì thói quen nghỉ ngơi và sinh hoạt lành mạnh.',
     );
     _journalEntries.insert(0, newEntry);
