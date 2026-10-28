@@ -48,8 +48,18 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   late DateTime _selectedDate;
   String _selectedStartTime = '09:00';
   static const List<String> _bookingStartTimes = [
-    '09:00', '10:00', '11:00', '13:30', '14:30',
-    '15:30', '16:30', '17:30', '18:30', '19:30',
+    '08:30',
+    '09:00',
+    '10:00',
+    '11:00',
+    '13:30',
+    '14:30',
+    '15:30',
+    '16:30',
+    '17:30',
+    '18:30',
+    '19:30',
+    '20:00',
   ];
   
   // 4. Thông tin người đặt: Bản thân vs Đặt hộ
@@ -593,21 +603,53 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 14),
+
+                    // Khung giờ hẹn
+                    Text(
+                      context.tr('Khung giờ trị liệu (60 phút/ca):', 'Therapy time slot (60 mins/slot):'),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    ),
                     const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: _selectedStartTime,
-                      decoration: InputDecoration(
-                        labelText: context.tr('Giờ bắt đầu', 'Start time'),
-                        prefixIcon: const Icon(Icons.schedule_outlined, size: 20),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      items: _bookingStartTimes
-                          .map((time) => DropdownMenuItem(value: time, child: Text(time)))
-                          .toList(),
-                      onChanged: (time) {
-                        if (time != null) setState(() => _selectedStartTime = time);
-                      },
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 10,
+                      children: _bookingStartTimes.map((slot) {
+                        final isSel = _selectedStartTime == slot;
+                        return InkWell(
+                          onTap: () => setState(() => _selectedStartTime = slot),
+                          borderRadius: BorderRadius.circular(10),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSel ? AppColors.primary : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSel ? AppColors.primary : AppColors.border,
+                                width: isSel ? 1.5 : 1.0,
+                              ),
+                              boxShadow: isSel
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primary.withValues(alpha: 0.25),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Text(
+                              slot,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                color: isSel ? Colors.white : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
