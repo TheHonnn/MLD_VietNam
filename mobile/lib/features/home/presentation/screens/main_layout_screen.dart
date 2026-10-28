@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
@@ -28,6 +30,17 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    AuthService.instance.isLoggedInNotifier.addListener(_onAuthChanged);
+  }
+
+  void _onAuthChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    AuthService.instance.isLoggedInNotifier.removeListener(_onAuthChanged);
+    super.dispose();
   }
 
   void _onTabTapped(int index) {
@@ -42,7 +55,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       // Tab 0: Trang chủ (B01_Home)
       B01HomeScreen(
         onNavigateToServices: () => _onTabTapped(1),
-        onNavigateToBooking: () {
+        onNavigateToBooking: () async {
+          final ok = await GuestAuthPrompt.ensureLoggedIn(
+            context,
+            title: 'Đăng nhập để đặt lịch',
+            message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để đặt lịch hẹn và lưu trữ hồ sơ điều trị.',
+          );
+          if (!ok || !context.mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
@@ -90,6 +92,15 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     final email = _emailController.text.trim();
     final studentType = _selectedTargetGroup == 0 ? 'BEGINNER' : 'PRO';
 
+    if (!AuthService.instance.isLoggedIn) {
+      final ok = await GuestAuthPrompt.ensureLoggedIn(
+        context,
+        title: context.tr('Đăng nhập để đăng ký học', 'Sign In to Enroll'),
+        message: context.tr('Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.', 'Please sign in or create an account to submit your application.'),
+      );
+      if (!ok || !mounted) return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -124,7 +135,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Có lỗi xảy ra khi gửi hồ sơ: $e'),
+            content: Text(context.isEn ? 'An error occurred while submitting application: $e' : 'Có lỗi xảy ra khi gửi hồ sơ: $e'),
             backgroundColor: Colors.red[700],
           ),
         );
@@ -210,7 +221,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Mã học viên / Mã thanh toán:',
+                          'Mã học viên:',
                           style: TextStyle(fontSize: 11, color: AcademyColors.textSecondary),
                         ),
                         Text(
@@ -234,9 +245,9 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               style: const TextStyle(fontSize: 13, height: 1.45, color: AcademyColors.textPrimary),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ thủ công và xuất phiếu thu (Bill) kèm mã QR. Khi bạn chuyển khoản vào tài khoản Học viện với nội dung "MLD $customerCode" đúng số tiền học phí, hệ thống sẽ tự động đối soát và tự động duyệt bạn vào khóa học!',
-              style: const TextStyle(fontSize: 12.5, height: 1.45, color: AcademyColors.textSecondary),
+            const Text(
+              'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ đăng ký của bạn. Sau khi hồ sơ được Ban Quản Trị phê duyệt, hệ thống sẽ mở quyền vào học và thông báo cho bạn!',
+              style: TextStyle(fontSize: 12.5, height: 1.45, color: AcademyColors.textSecondary),
             ),
           ],
         ),
@@ -497,29 +508,29 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               const SizedBox(height: 22),
 
               // 3. Thông tin cá nhân
-              _buildSectionHeader('1. Thông tin cá nhân học viên'),
+              _buildSectionHeader(context.tr('1. Thông tin cá nhân học viên', '1. Student Personal Information')),
               const SizedBox(height: 12),
               _buildInputField(
-                label: 'Họ và tên *',
+                label: context.tr('Họ và tên *', 'Full Name *'),
                 controller: _nameController,
-                hint: 'Nhập họ và tên đầy đủ',
+                hint: context.tr('Nhập họ và tên đầy đủ', 'Enter full name'),
                 prefixIcon: Icons.person_outline_rounded,
                 validator: AppValidators.fullName,
               ),
               const SizedBox(height: 12),
               _buildInputField(
-                label: 'Số điện thoại *',
+                label: context.tr('Số điện thoại *', 'Phone Number *'),
                 controller: _phoneController,
-                hint: 'Nhập số điện thoại liên hệ',
+                hint: context.tr('Nhập số điện thoại liên hệ', 'Enter contact phone number'),
                 keyboardType: TextInputType.phone,
                 prefixIcon: Icons.phone_outlined,
                 validator: AppValidators.phone,
               ),
               const SizedBox(height: 12),
               _buildInputField(
-                label: 'Địa chỉ Email *',
+                label: context.tr('Địa chỉ Email *', 'Email Address *'),
                 controller: _emailController,
-                hint: 'Nhập địa chỉ email',
+                hint: context.tr('Nhập địa chỉ email', 'Enter email address'),
                 keyboardType: TextInputType.emailAddress,
                 prefixIcon: Icons.mail_outline_rounded,
                 validator: AppValidators.email,
@@ -527,7 +538,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               const SizedBox(height: 22),
 
               // 4. Cơ sở đào tạo
-              _buildSectionHeader('2. Cơ sở đào tạo'),
+              _buildSectionHeader(context.tr('2. Cơ sở đào tạo', '2. Training Branch')),
               const SizedBox(height: 10),
               Container(
                 decoration: BoxDecoration(
@@ -572,7 +583,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               const SizedBox(height: 22),
 
               // 5. Lựa chọn đối tượng học viên (1 là Người mới bắt đầu, 2 là Đang làm nghề)
-              _buildSectionHeader('3. Bạn thuộc nhóm đối tượng nào?'),
+              _buildSectionHeader(context.tr('3. Bạn thuộc nhóm đối tượng nào?', '3. Which target group do you belong to?')),
               const SizedBox(height: 10),
               _buildTargetGroupCard(
                 index: 0,

@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
+import '../network/api_exception.dart';
 
 /// Service managing user session, secure token storage, and authentication state
 class AuthService {
@@ -319,5 +320,68 @@ class AuthService {
     }
 
     isLoggedInNotifier.value = false;
+  }
+
+  /// Delete user account permanently and clear all stored data
+  /// Compliant with Apple Review Guideline 5.1.1(v) & Google Play Data Safety
+  Future<bool> deleteAccount() async {
+    try {
+      final token = await getAccessToken();
+      if (token != null && token.isNotEmpty) {
+        await ApiClient.instance.delete(ApiEndpoints.authDeleteAccount);
+      }
+    } catch (e) {
+      debugPrint('Error deleting account on backend: $e');
+    }
+
+    // Luôn dọn dẹp sạch sẽ toàn bộ local state và secure storage
+    await logout();
+
+    if (_prefs != null) {
+      await _prefs!.remove('user_phone');
+      await _prefs!.remove('user_full_name');
+      await _prefs!.remove('user_avatar_url');
+      await _prefs!.remove(_keyDisplayName);
+      await _prefs!.remove(_keyAvatarUrl);
+      await _prefs!.remove(_keyLastLoginPhone);
+      await _prefs!.remove(_keyLastLoginEmail);
+      await _prefs!.remove(_keyLastLoginMethod);
+    }
+
+    return true;
+  }
+
+  Future<({bool success, String message})> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final token = await getAccessToken();
+      if (token == null || token.isEmpty) {
+        return (success: false, message: 'Vui lòng đăng nhập để thực hiện thay đổi mật khẩu');
+      }
+
+      final response = await ApiClient.instance.post(
+        ApiEndpoints.authChangePassword,
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return (
+          success: true,
+          message: response.data?['message']?.toString() ?? 'Đổi mật khẩu thành công.',
+        );
+      } else {
+        final err = response.data?['message']?.toString() ?? 'Đổi mật khẩu không thành công.';
+        return (success: false, message: err);
+      }
+    } on ApiException catch (apiErr) {
+      return (success: false, message: apiErr.message);
+    } catch (e) {
+      return (success: false, message: 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.');
+    }
   }
 }

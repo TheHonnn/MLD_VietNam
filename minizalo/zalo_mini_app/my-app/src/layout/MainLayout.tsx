@@ -62,14 +62,26 @@ export const MainLayout: React.FC = () => {
   };
 
   const handleSelectBanner = (banner: PortalBanner) => {
-    if (banner.target_link?.includes('academy') || banner.target_link?.includes('dao-tao')) {
+    const link = banner.target_link || '';
+    if (link.startsWith('http://') || link.startsWith('https://')) {
+      window.open(link, '_blank');
+      return;
+    }
+    if (link.includes('appointment')) {
+      setActiveSubView('appointments');
+    } else if (link.includes('booking') || link.includes('dat-lich')) {
+      setActiveSubView('booking');
+    } else if (link.includes('community') || link.includes('cong-dong')) {
+      setActiveSubView('community');
+    } else if (link.includes('academy') || link.includes('dao-tao')) {
       setActiveSubView(null);
       setActiveTab('academy');
-    } else if (banner.target_link?.includes('booking') || banner.target_link?.includes('dat-lich')) {
-      setActiveSubView('booking');
-    } else if (banner.target_link?.includes('treatment') || banner.target_link?.includes('tri-lieu')) {
+    } else if (link.includes('treatment') || link.includes('tri-lieu')) {
       setActiveSubView(null);
       setActiveTab('treatment');
+    } else if (link.includes('profile') || link.includes('tai-khoan')) {
+      setActiveSubView(null);
+      setActiveTab('profile');
     } else {
       setActiveSubView(null);
       setActiveTab('services');

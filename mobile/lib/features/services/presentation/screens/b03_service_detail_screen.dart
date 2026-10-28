@@ -1,5 +1,6 @@
 import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
@@ -677,7 +678,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           ),
                           elevation: 0,
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           // 1. Xác định hoặc tái tạo SpaServiceModel tương ứng
                           SpaServiceModel? effectiveService = widget.serviceModel;
 
@@ -728,7 +729,13 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                             );
                           }
 
-                          // Điều hướng THẲNG sang Bước 2: Chọn Chi nhánh (C02BranchSelectionScreen)
+                          final ok = await GuestAuthPrompt.ensureLoggedIn(
+                            context,
+                            title: 'Đăng nhập để đặt lịch',
+                            message: 'Quý khách vui lòng đăng nhập để đặt lịch trị liệu với dịch vụ này.',
+                          );
+                          if (!ok || !context.mounted) return;
+
                           Navigator.push(
                             context,
                             MaterialPageRoute(

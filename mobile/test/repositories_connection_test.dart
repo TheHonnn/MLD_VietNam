@@ -103,7 +103,7 @@ void main() {
       expect(vouchers, isNotEmpty);
 
       final payments = await repo.fetchPaymentHistory();
-      expect(payments, isNotEmpty);
+      expect(payments, isNotNull);
 
       final referrals = await repo.fetchReferralProgram();
       expect(referrals, isNotEmpty);

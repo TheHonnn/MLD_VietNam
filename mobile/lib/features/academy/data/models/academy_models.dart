@@ -1359,6 +1359,13 @@ class QuizQuestionModel {
     Map<String, String> opts = {};
     if (json['options'] is Map) {
       (json['options'] as Map).forEach((k, v) => opts[k.toString()] = v.toString());
+    } else if (json['options'] is List) {
+      final list = json['options'] as List;
+      final keys = ['A', 'B', 'C', 'D', 'E', 'F'];
+      for (int i = 0; i < list.length; i++) {
+        final k = i < keys.length ? keys[i] : String.fromCharCode(65 + i);
+        opts[k] = list[i].toString();
+      }
     }
     return QuizQuestionModel(
       id: json['id']?.toString() ?? '',

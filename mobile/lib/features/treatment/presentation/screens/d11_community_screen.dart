@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/supabase_data_service.dart';
@@ -99,9 +100,9 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
 
   /// Mở giao diện đọc tài liệu PDF y khoa chuyên sâu (Chỉ đọc, không tải về)
   void _showArticleDetail(Map<String, dynamic> article) {
-    final title = article['title']?.toString() ?? 'Tài liệu Y khoa MLD';
-    final category = article['category']?.toString() ?? 'Chuyên môn';
-    final author = article['author_name']?.toString() ?? 'Trung tâm MLD Việt Nam';
+    final title = (article['title']?.toString() ?? 'Tài liệu Y khoa MLD').tr(context);
+    final category = (article['category']?.toString() ?? 'Chuyên môn').tr(context);
+    final author = (article['author_name']?.toString() ?? 'Trung tâm MLD Việt Nam').tr(context);
     final date = _formatDate(article['published_at'] ?? article['created_at']);
     final imageUrl = article['image_url']?.toString();
     final fileUrl = article['file_url']?.toString();
@@ -167,14 +168,14 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.lock_outline, size: 12, color: Color(0xFF64748B)),
-                              SizedBox(width: 4),
+                              const Icon(Icons.lock_outline, size: 12, color: Color(0xFF64748B)),
+                              const SizedBox(width: 4),
                               Text(
-                                'Chỉ đọc y khoa',
-                                style: TextStyle(
+                                context.tr('Chỉ đọc y khoa', 'Medical Read-Only'),
+                                style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF64748B),
@@ -357,7 +358,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                                 ],
 
                                 // Toàn văn nội dung bài viết / trích yếu lâm sàng
-                                _buildArticleBody(contentText),
+                                _buildArticleBody(contentText.tr(context)),
                                 const SizedBox(height: 28),
 
                                 // Khối đăng ký khám & đặt trị liệu
@@ -386,18 +387,18 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Bạn đang cần tư vấn hoặc gặp tình trạng phù nề?',
-            style: TextStyle(
+          Text(
+            context.tr('Bạn đang cần tư vấn hoặc gặp tình trạng phù nề?', 'Need consultation or experiencing lymphedema?'),
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: Color(0xFF1F2937),
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Liên hệ chuyên gia hoặc đăng ký kiểm tra phù nề y khoa trực tiếp tại cơ sở MLD Việt Nam.',
-            style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+          Text(
+            context.tr('Liên hệ chuyên gia hoặc đăng ký kiểm tra phù nề y khoa trực tiếp tại cơ sở MLD Việt Nam.', 'Contact an expert or register for direct medical edema examination at MLD Vietnam.'),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
           ),
           const SizedBox(height: 14),
           Row(
@@ -418,7 +419,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                       MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()),
                     );
                   },
-                  child: const Text('Khám phù MLD', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text(context.tr('Khám phù MLD', 'MLD Edema Exam'), style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -437,7 +438,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                       MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
                     );
                   },
-                  child: const Text('Đặt trị liệu', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text(context.tr('Đặt trị liệu', 'Book Treatment'), style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -592,20 +593,20 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
             }
           },
         ),
-        title: const Column(
+        title: Column(
           children: [
             Text(
-              'Cộng đồng MLD Việt Nam',
-              style: TextStyle(
+              context.tr('Cộng đồng MLD Việt Nam', 'MLD Vietnam Community'),
+              style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1F2937),
               ),
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
-              'Chia sẻ kiến thức & tài liệu PDF chuyên môn',
-              style: TextStyle(
+              context.tr('Chia sẻ kiến thức & tài liệu PDF chuyên môn', 'Knowledge Sharing & Professional PDF Materials'),
+              style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF475569),
                 fontWeight: FontWeight.w400,
@@ -645,9 +646,9 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                             child: TextField(
                               controller: _searchController,
                               onChanged: (_) => setState(() {}),
-                              decoration: const InputDecoration(
-                                hintText: 'Tìm bài viết, tài liệu y khoa PDF...',
-                                hintStyle: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
+                              decoration: InputDecoration(
+                                hintText: context.tr('Tìm bài viết, tài liệu y khoa PDF...', 'Search articles, medical PDF materials...'),
+                                hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
                                 border: InputBorder.none,
                                 isDense: true,
                               ),
@@ -679,7 +680,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                             final isSelected = _selectedCategoryIndex == index;
                             return ChoiceChip(
                               label: Text(
-                                _categories[index],
+                                _categories[index].tr(context),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -716,15 +717,15 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                           children: [
                             const Icon(Icons.menu_book_outlined, size: 48, color: Color(0xFFCBD5E1)),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Không tìm thấy bài viết hoặc tài liệu phù hợp',
-                              style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
+                            Text(
+                              context.tr('Không tìm thấy bài viết hoặc tài liệu phù hợp', 'No matching articles or documents found'),
+                              style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
                             ),
                             const SizedBox(height: 12),
                             TextButton.icon(
                               onPressed: _loadArticles,
                               icon: const Icon(Icons.refresh, size: 18, color: AppColors.primary),
-                              label: const Text('Tải lại dữ liệu', style: TextStyle(color: AppColors.primary)),
+                              label: Text(context.tr('Tải lại dữ liệu', 'Reload Data'), style: const TextStyle(color: AppColors.primary)),
                             ),
                           ],
                         ),
@@ -745,11 +746,11 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
   /// - Huy hiệu nhãn PDF chuyên sâu nếu có file_url
   /// - Hoàn toàn không có nút Like, không bình luận, không tải về
   Widget _buildArticleCard(Map<String, dynamic> article) {
-    final title = article['title']?.toString() ?? '';
+    final title = (article['title']?.toString() ?? '').tr(context);
     final imageUrl = article['image_url']?.toString();
     final fileUrl = article['file_url']?.toString();
     final hasPdf = fileUrl != null && fileUrl.trim().isNotEmpty && fileUrl.contains('.pdf');
-    final author = article['author_name']?.toString() ?? 'MLD Việt Nam';
+    final author = (article['author_name']?.toString() ?? 'MLD Việt Nam').tr(context);
     final date = _formatDate(article['published_at'] ?? article['created_at']);
 
     return InkWell(

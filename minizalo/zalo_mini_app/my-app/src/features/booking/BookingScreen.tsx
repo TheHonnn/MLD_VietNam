@@ -106,7 +106,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       customerPhone: customerPhone.trim(),
       specialNotes: note.trim(),
       totalAmount,
-      paymentMethod: 'Thanh toán tại cơ sở / QR',
+      paymentMethod: '',
       status: 'pending',
       createdAt: new Date().toISOString(),
     };
@@ -300,14 +300,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
           </div>
 
           <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-2 border-t border-gray-100">
-            <span>Tổng thanh toán:</span>
+            <span>Tổng chi phí dự kiến:</span>
             <span className="text-emerald-700">{totalAmount.toLocaleString('vi-VN')}đ</span>
           </div>
 
-          <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-2.5 text-[11px] text-blue-900 flex items-center space-x-2">
-            <CheckCircle className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>Hình thức: <strong>Thanh toán trực tiếp tại cơ sở / QR</strong></span>
-          </div>
+
         </div>
 
         {/* 7. NÚT XÁC NHẬN */}

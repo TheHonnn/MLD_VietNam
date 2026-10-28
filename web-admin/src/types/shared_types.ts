@@ -791,6 +791,21 @@ export interface Invoice {
   shift?: CashierShift;
   serviceTitle?: string;
   serviceCategory?: 'SERVICE' | 'PACKAGE' | 'ACADEMY' | 'OTHER';
+  items?: Array<{
+    id: string;
+    itemName: string;
+    itemType: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
+}
+
+export interface InvoiceSyncResult {
+  syncedEnrollmentInvoices: number;
+  syncedBookingInvoices: number;
+  syncedTuitionTransactions: number;
+  totalSyncedAmount: number;
 }
 
 export interface Coupon {

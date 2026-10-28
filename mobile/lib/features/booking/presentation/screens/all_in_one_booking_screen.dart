@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
@@ -261,6 +262,15 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       return;
     }
 
+    if (!AuthService.instance.isLoggedIn) {
+      final ok = await GuestAuthPrompt.ensureLoggedIn(
+        context,
+        title: 'Đăng nhập để đặt lịch',
+        message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để xác nhận lịch hẹn.',
+      );
+      if (!ok || !mounted) return;
+    }
+
     setState(() => _isSubmitting = true);
 
     final appointmentCode = 'MLD-DL-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
@@ -290,7 +300,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       totalAmount: _totalPrice,
       depositAmount: 0,
       remainingAmount: _totalPrice,
-      paymentMethod: 'Thanh toán tại cơ sở / QR',
+      paymentMethod: '',
       status: AppointmentStatus.pending, // Chờ duyệt
       createdAt: DateTime.now(),
       timeline: [

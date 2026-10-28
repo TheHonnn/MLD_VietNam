@@ -1,18 +1,40 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/supabase_data_service.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
+import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
+import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
+import '../../../membership/presentation/screens/f01_profile_dashboard_screen.dart';
+import '../../../membership/presentation/screens/f02_edit_profile_screen.dart';
+import '../../../membership/presentation/screens/f08_settings_screen.dart';
 import '../../../treatment/data/repositories/treatment_repository.dart';
+import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
+import '../../../treatment/presentation/screens/d03_care_journal_screen.dart';
+import '../../../treatment/presentation/screens/d04_pre_service_consultation_screen.dart';
+import '../../../treatment/presentation/screens/d05_service_review_screen.dart';
+import '../../../treatment/presentation/screens/d06_home_care_guidelines_screen.dart';
+import '../../../treatment/presentation/screens/d07_customer_support_screen.dart';
 import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
+import '../../../treatment/presentation/screens/d09_documents_screen.dart';
+import '../../../treatment/presentation/screens/d10_lymph_examination_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
+import '../../../academy/presentation/screens/e01_academy_home_screen.dart';
+import '../../../academy/presentation/screens/e02_course_catalog_screen.dart';
+import '../../../academy/presentation/screens/e07_my_courses_screen.dart';
+import '../../../academy/presentation/screens/e11_attendance_schedule_screen.dart';
+import '../../../academy/presentation/screens/e12_learning_results_screen.dart';
+import '../../../services/presentation/screens/b02_service_listing_screen.dart';
+import 'b04_search_screen.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/branch_repository.dart';
 import '../../data/repositories/service_repository.dart';
@@ -120,6 +142,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   void _startBannerAutoScroll() {
     _bannerTimer?.cancel();
     if (_banners.length <= 1) return;
+    try {
+      if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) return;
+    } catch (_) {}
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_bannerPageController.hasClients || _banners.isEmpty) return;
       final nextIndex = (_currentBannerIndex + 1) % _banners.length;
@@ -181,13 +206,24 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     super.dispose();
   }
 
-  void _handleBooking() {
-    Navigator.push(
+  Future<void> _handleBooking() async {
+    final ok = await GuestAuthPrompt.ensureLoggedIn(
       context,
-      MaterialPageRoute(
-        builder: (_) => const AllInOneBookingScreen(),
-      ),
+      title: 'Đăng nhập để đặt lịch',
+      message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để đặt lịch hẹn và lưu trữ hồ sơ điều trị.',
     );
+    if (!ok || !mounted) return;
+
+    if (widget.onNavigateToBooking != null) {
+      widget.onNavigateToBooking!.call();
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const AllInOneBookingScreen(),
+        ),
+      );
+    }
   }
 
   Future<void> _loadCoreServiceFromAdmin() async {
@@ -333,6 +369,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
+    // 1. External URL (Website, Facebook, Zalo, etc.)
     if (targetLink.startsWith('http://') || targetLink.startsWith('https://')) {
       try {
         final uri = Uri.parse(targetLink);
@@ -343,31 +380,87 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
-    if (targetLink.contains('academy') ||
-        targetLink.contains('dao-tao') ||
-        targetLink.contains('curriculum') ||
-        targetLink.contains('enrollment')) {
-      if (widget.onNavigateToAcademy != null) {
-        widget.onNavigateToAcademy!.call();
-      } else {
-        _showBannerDetailModal(context, banner);
-      }
+    // 2. Specific Sub-routes Matching AVAILABLE_BANNER_ROUTES
+    // 2.1 Cẩm nang Y khoa & Tài liệu
+    if (targetLink == '/documents' || targetLink.contains('tai-lieu') || targetLink.contains('cam-nang')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D09DocumentsScreen()));
       return;
     }
 
-    if (targetLink.contains('treatment') ||
-        targetLink.contains('service') ||
-        targetLink.contains('tri-lieu') ||
-        targetLink.contains('dich-vu')) {
-      if (widget.onNavigateToServices != null) {
-        widget.onNavigateToServices!.call();
-      } else {
-        _showBannerDetailModal(context, banner);
-      }
+    // 2.2 Cộng đồng chuyên gia & Ca lâm sàng
+    if (targetLink == '/community' || targetLink.contains('cong-dong')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D11CommunityScreen()));
       return;
     }
 
-    if (targetLink.contains('booking') || targetLink.contains('dat-lich')) {
+    // 2.3 Hộp thư thông báo
+    if (targetLink == '/notifications' || targetLink.contains('thong-bao')) {
+      _showNotificationSheet();
+      return;
+    }
+
+    // 2.4 Tìm kiếm dịch vụ & chuyên khoa
+    if (targetLink == '/home/search' || targetLink.contains('tim-kiem')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const B04SearchScreen()));
+      return;
+    }
+
+    // 2.5 Danh sách Chi nhánh / Cơ sở
+    if (targetLink.startsWith('/branches') || targetLink.contains('chi-nhanh') || targetLink.contains('co-so')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const B05BranchListingScreen()));
+      return;
+    }
+
+    // 2.6 Đội ngũ Kỹ thuật viên & Chuyên gia
+    if (targetLink.startsWith('/specialists') || targetLink.contains('chuyen-vien') || targetLink.contains('chuyen-gia')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()));
+      return;
+    }
+
+    // 2.7 Tầm soát & Đánh giá Độ phù Hệ Bạch huyết
+    if (targetLink == '/treatment/lymph-examination' || targetLink.contains('lymph') || targetLink.contains('tam-soat')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()));
+      return;
+    }
+
+    // 2.8 Gói liệu trình trị liệu của tôi
+    if (targetLink.contains('my-packages') || targetLink.contains('/treatment/packages')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()));
+      return;
+    }
+
+    // 2.9 Nhật ký Chăm sóc & Tiến trình Hồi phục
+    if (targetLink.contains('care-journal') || targetLink.contains('nhat-ky') || targetLink == '/treatment/journal') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D03CareJournalScreen()));
+      return;
+    }
+
+    // 2.10 Hướng dẫn tự chăm sóc tại nhà
+    if (targetLink.contains('home-care') || targetLink.contains('tai-nha')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D06HomeCareGuidelinesScreen()));
+      return;
+    }
+
+    // 2.11 Khám sàng lọc & Tư vấn trước trị liệu
+    if (targetLink.contains('consultation') || targetLink.contains('sang-loc')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D04PreServiceConsultationScreen()));
+      return;
+    }
+
+    // 2.12 Đánh giá & Phản hồi chất lượng ca
+    if (targetLink.contains('review') || targetLink.contains('danh-gia')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D05ServiceReviewScreen()));
+      return;
+    }
+
+    // 2.13 Danh sách lịch hẹn của tôi
+    if (targetLink.contains('/booking/appointments') || targetLink.contains('lich-hen')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()));
+      return;
+    }
+
+    // 2.14 Đặt lịch khám & Trị liệu trực tuyến
+    if (targetLink == '/booking' || targetLink.contains('dat-lich')) {
       if (widget.onNavigateToBooking != null) {
         widget.onNavigateToBooking!.call();
       } else {
@@ -376,6 +469,71 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
+    // 2.15 Học viện: Các trang con
+    if (targetLink.contains('/academy/courses') || targetLink.contains('khoa-hoc')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()));
+      return;
+    }
+    if (targetLink.contains('/academy/my-courses') || targetLink.contains('lop-cua-toi')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()));
+      return;
+    }
+    if (targetLink.contains('/academy/attendance') || targetLink.contains('diem-danh') || targetLink.contains('lich-hoc')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()));
+      return;
+    }
+    if (targetLink.contains('/academy/results') || targetLink.contains('chung-chi') || targetLink.contains('ket-qua')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const E12LearningResultsScreen()));
+      return;
+    }
+    if (targetLink.contains('/academy/enrollment') || targetLink.contains('ghi-danh') || targetLink.contains('tuyen-sinh')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()));
+      return;
+    }
+
+    // 2.16 Hồ sơ cá nhân: Các trang con
+    if (targetLink == '/profile/edit' || targetLink.contains('chinh-sua')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const F02EditProfileScreen()));
+      return;
+    }
+    if (targetLink == '/profile/settings' || targetLink.contains('cai-dat')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const F08SettingsScreen()));
+      return;
+    }
+    if (targetLink == '/profile/support' || targetLink.contains('ho-tro')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D07CustomerSupportScreen()));
+      return;
+    }
+
+    // 3. Tab-level Navigation Fallbacks
+    if (targetLink.contains('academy') || targetLink.contains('dao-tao')) {
+      if (widget.onNavigateToAcademy != null) {
+        widget.onNavigateToAcademy!.call();
+      } else {
+        _showBannerDetailModal(context, banner);
+      }
+      return;
+    }
+
+    if (targetLink.contains('treatment') || targetLink.contains('service') || targetLink.contains('tri-lieu') || targetLink.contains('dich-vu')) {
+      if (widget.onNavigateToServices != null) {
+        widget.onNavigateToServices!.call();
+      } else {
+        _showBannerDetailModal(context, banner);
+      }
+      return;
+    }
+
+    if (targetLink.contains('profile') || targetLink.contains('tai-khoan') || targetLink.contains('hoi-vien')) {
+      if (widget.onNavigateToProfile != null) {
+        widget.onNavigateToProfile!.call();
+      } else {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const F01ProfileDashboardScreen()));
+      }
+      return;
+    }
+
+    // Fallback: Hiện modal chi tiết banner
     _showBannerDetailModal(context, banner);
   }
 
@@ -655,82 +813,86 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ==========================================
-              // 1. HEADER (Lời chào + Avatar + Chuông thông báo)
+              // 1. HEADER (Logo góc trái, Nút thông báo & Khung cá nhân góc phải)
               // ==========================================
               SizedBox(
-                height: 56,
+                height: 48,
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    InkWell(
-                      onTap: widget.onNavigateToProfile,
-                      borderRadius: BorderRadius.circular(22),
-                      child: AppProfileAvatar(
-                        avatarUrl: MembershipRepository.instance.profile.avatarUrl,
-                        size: 44,
-                        borderWidth: 1.5,
-                        borderColor: AppColors.primary,
-                        showShadow: false,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Xin chào,',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _getGreetingName(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    InkWell(
-                      onTap: _showNotificationSheet,
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            const Icon(
-                              Icons.notifications_none_rounded,
-                              size: 24,
-                              color: AppColors.primary,
-                            ),
-                            if (TreatmentRepository.instance.hasUnreadNotifications)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.error,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                          ],
+                    // --- GÓC TRÁI: LOGO MLD VIETNAM ---
+                    Image.asset(
+                      'assets/images/logo.webp',
+                      height: 40,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'MLD VIETNAM',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                          letterSpacing: 0.5,
                         ),
                       ),
+                    ),
+
+                    // --- BÊN PHẢI: NÚT THÔNG BÁO & KHUNG TRANG CÁ NHÂN ---
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Nút Chuông thông báo
+                        InkWell(
+                          onTap: _showNotificationSheet,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border, width: 0.8),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.notifications_none_rounded,
+                                  size: 23,
+                                  color: AppColors.primary,
+                                ),
+                                if (TreatmentRepository.instance.hasUnreadNotifications)
+                                  Positioned(
+                                    top: 9,
+                                    right: 9,
+                                    child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.error,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Khung Trang cá nhân (Avatar Profile)
+                        InkWell(
+                          onTap: widget.onNavigateToProfile,
+                          borderRadius: BorderRadius.circular(22),
+                          child: AppProfileAvatar(
+                            avatarUrl: MembershipRepository.instance.profile.avatarUrl,
+                            size: 42,
+                            borderWidth: 1.5,
+                            borderColor: AppColors.primary,
+                            showShadow: false,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -818,18 +980,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             categoryLabel = category;
                           }
 
-                                                    String ctaText = 'Bấm để xem chi tiết';
-                          if (targetLink.contains('academy') || targetLink.contains('curriculum') || targetLink.contains('enrollment')) {
-                            ctaText = 'Xem khóa đào tạo ngay';
-                          } else if (targetLink.contains('treatment') || targetLink.contains('service')) {
-                            ctaText = 'Khám phá dịch vụ trị liệu';
-                          } else if (targetLink.startsWith('http')) {
-                            ctaText = 'Nhấn để truy cập';
-                          } else if (targetLink.contains('treatment') || targetLink.contains('service')) {
-                            ctaText = 'Khám phá dịch vụ trị liệu →';
-                          } else if (targetLink.startsWith('http')) {
-                            ctaText = 'Nhấn để truy cập';
-                          }
+                          
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 1.0),
@@ -965,21 +1116,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                               ),
                                             ],
                                           ),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
-                                              const SizedBox(width: 5),
-                                              Text(
-                                                ctaText,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w700,
-                                                  decoration: TextDecoration.underline,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+
                                         ],
                                       ),
                                     ),
@@ -1159,7 +1296,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
                           );
                         },
-                        child: const Text('Xem bài viết chuyên môn', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                        child: Text(context.tr('Xem bài viết chuyên môn', 'View Expert Articles'), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ],

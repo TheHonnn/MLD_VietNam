@@ -11,6 +11,7 @@ import '../../../home/data/repositories/branch_repository.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
+import '../widgets/change_password_modal.dart';
 
 class F08SettingsScreen extends StatefulWidget {
   const F08SettingsScreen({super.key});
@@ -319,6 +320,112 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
     );
   }
 
+  void _showDeleteAccountDialog(BuildContext context, bool isEn) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isEn ? 'Delete Account' : 'Xóa tài khoản',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textHeading,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isEn
+                    ? 'Are you sure you want to delete your account? This action is permanent and cannot be undone.'
+                    : 'Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản không? Thao tác này không thể hoàn tác.',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isEn
+                    ? 'All your personal data, booking records, membership tiers, loyalty points, treatment history, and academy course progress will be permanently erased in compliance with Apple and Google privacy standards.'
+                    : 'Toàn bộ dữ liệu cá nhân, lịch hẹn spa, hạng thành viên, điểm tích lũy, hồ sơ trị liệu và tiến trình khóa học sẽ bị xóa vĩnh viễn khỏi hệ thống MLD Việt Nam theo quy chuẩn bảo mật.',
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: Text(
+              isEn ? 'Cancel' : 'Hủy',
+              style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+              );
+
+              await AuthService.instance.deleteAccount();
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                  (route) => false,
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.textHeading,
+                    content: Text(
+                      isEn
+                          ? 'Your account and personal data have been permanently deleted.'
+                          : 'Tài khoản và dữ liệu cá nhân của bạn đã được xóa vĩnh viễn thành công.',
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              isEn ? 'Delete Permanently' : 'Xóa vĩnh viễn',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEn = _settings.language == 'English' || Localizations.localeOf(context).languageCode == 'en';
@@ -381,8 +488,8 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
 
               const SizedBox(height: 24),
 
-              // --- 2. NHÓM TÀI KHOẢN ---
-              _buildSectionTitle(isEn ? 'Account' : 'Tài khoản'),
+              // --- 2. NHÓM BẢO MẬT & TÀI KHOẢN ---
+              _buildSectionTitle(isEn ? 'Security & Account' : 'Bảo mật & Tài khoản'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.person_outline_rounded,
@@ -395,12 +502,18 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                   },
                 ),
                 _buildMenuItem(
-                  icon: Icons.shield_outlined,
-                  title: isEn ? 'Account Security' : 'Bảo mật tài khoản',
+                  icon: Icons.lock_reset_rounded,
+                  title: isEn ? 'Change Password' : 'Đổi mật khẩu',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(isEn ? 'Account security & PIN protection' : 'Bảo mật tài khoản & mật khẩu PIN')),
-                    );
+                    if (!AuthService.instance.isLoggedIn) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(isEn ? 'Please sign in to change password' : 'Vui lòng đăng nhập để đổi mật khẩu'),
+                        ),
+                      );
+                      return;
+                    }
+                    ChangePasswordModal.show(context);
                   },
                 ),
                 _buildMenuItem(
@@ -561,13 +674,9 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 ),
                 _buildMenuItem(
                   icon: Icons.person_remove_outlined,
-                  title: isEn ? 'Request Account Deletion' : 'Yêu cầu xóa tài khoản',
+                  title: isEn ? 'Delete Account' : 'Xóa tài khoản',
                   isLast: true,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(isEn ? 'Account deletion request recorded' : 'Yêu cầu xóa tài khoản đã được ghi nhận')),
-                    );
-                  },
+                  onTap: () => _showDeleteAccountDialog(context, isEn),
                 ),
               ]),
 

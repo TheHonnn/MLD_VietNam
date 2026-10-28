@@ -276,10 +276,7 @@ export const TreatmentScreen: React.FC<TreatmentScreenProps> = ({ onBookAppointm
                 <span>Hạn sử dụng gói:</span>
                 <span className="font-semibold text-slate-800">31/12/2026</span>
               </div>
-              <div className="flex justify-between items-center text-xs text-slate-600">
-                <span>Trạng thái thanh toán:</span>
-                <span className="font-semibold text-emerald-600">Đã thanh toán tại cơ sở</span>
-              </div>
+
 
               <div className="pt-2 flex space-x-2">
                 <button

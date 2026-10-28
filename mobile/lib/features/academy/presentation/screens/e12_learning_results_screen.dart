@@ -70,7 +70,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Đang tải giấy chứng nhận PDF ($certCode.pdf)...'),
+                            content: Text(context.tr('Đang tải giấy chứng nhận PDF ($certCode.pdf)...', 'Downloading PDF certificate ($certCode.pdf)...')),
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -256,16 +256,16 @@ class E12LearningResultsScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       // Logo & Đơn vị cấp
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.workspace_premium_rounded, color: AcademyColors.primary, size: 32),
-                          SizedBox(width: 8),
+                          const Icon(Icons.workspace_premium_rounded, color: AcademyColors.primary, size: 32),
+                          const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              'HỌC VIỆN MLD VIỆT NAM',
+                              context.tr('HỌC VIỆN MLD VIỆT NAM', 'MLD VIETNAM ACADEMY'),
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.0,
@@ -338,7 +338,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Mã Giấy chứng nhận:', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                                Text(context.tr('Mã Giấy chứng nhận:', 'Certificate Code:'), style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
@@ -353,7 +353,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Ngày cấp:', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                                Text(context.tr('Ngày cấp:', 'Issue Date:'), style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
@@ -518,7 +518,7 @@ class E12LearningResultsScreen extends StatelessWidget {
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Đóng'),
+                    child: Text(context.tr('Đóng', 'Close')),
                   ),
                 ),
               ],

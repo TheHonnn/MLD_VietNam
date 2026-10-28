@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 
 class AcademyColors {
   static const Color background = Color(0xFFFFFFFF);
@@ -73,7 +74,7 @@ class AcademyAppBar extends StatelessWidget implements PreferredSizeWidget {
             padding: const EdgeInsets.only(right: 20),
             child: Center(
               child: Text(
-                subtitleTag!,
+                AppTranslation.translate(subtitleTag, isEn: context.isEn),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -106,7 +107,7 @@ class AcademyHeaderSection extends StatelessWidget {
       children: [
         if (badgeText != null) ...[
           Text(
-            badgeText!.toUpperCase(),
+            AppTranslation.translate(badgeText, isEn: context.isEn).toUpperCase(),
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -117,7 +118,7 @@ class AcademyHeaderSection extends StatelessWidget {
           const SizedBox(height: 4),
         ],
         Text(
-          title,
+          title.tr(context),
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w600,
@@ -128,7 +129,7 @@ class AcademyHeaderSection extends StatelessWidget {
         if (subtitle.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(
-            subtitle,
+            subtitle.tr(context),
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w400,
@@ -179,7 +180,7 @@ class AcademyFixedBottomBar extends StatelessWidget {
                   height: 24,
                   child: Center(
                     child: Text(
-                      summaryText!,
+                      AppTranslation.translate(summaryText, isEn: context.isEn),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -206,7 +207,7 @@ class AcademyFixedBottomBar extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    buttonText,
+                    AppTranslation.translate(buttonText, isEn: context.isEn),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

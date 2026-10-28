@@ -4,6 +4,7 @@ import {
   Body,
   Get,
   Patch,
+  Delete,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -18,6 +19,7 @@ import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { AccountLinkDto } from './dto/account-link.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { BruteForceGuard } from './guards/brute-force.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -135,5 +137,29 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Cập nhật số điện thoại thành công' })
   async updatePhone(@CurrentUser('id') userId: string, @Body() body: { phone: string }) {
     return this.authService.updatePhone(userId, body.phone);
+  }
+
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đổi mật khẩu tài khoản' })
+  @ApiResponse({ status: 200, description: 'Đổi mật khẩu thành công' })
+  async changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(userId, dto);
+  }
+
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xóa vĩnh viễn tài khoản (Apple App Store Guideline 5.1.1(v))' })
+  @ApiResponse({ status: 200, description: 'Tài khoản đã được xóa vĩnh viễn' })
+  async deleteAccount(@CurrentUser('id') userId: string) {
+    return this.authService.deleteAccount(userId);
   }
 }

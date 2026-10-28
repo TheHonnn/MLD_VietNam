@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/app_security_service.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
@@ -52,7 +53,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✓ Bạn đã xem hết bài: "${widget.lesson?.title ?? ""}". Bài tiếp theo đã được mở khóa!'),
+          content: Text(context.isEn ? '✓ Completed lesson: "${widget.lesson?.title.tr(context) ?? ""}". Next lesson unlocked!' : '✓ Bạn đã xem hết bài: "${widget.lesson?.title ?? ""}". Bài tiếp theo đã được mở khóa!'),
           backgroundColor: const Color(0xFF2E8B57),
           duration: const Duration(seconds: 3),
         ),
@@ -78,8 +79,8 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
     if (!_canAccess) {
       return Scaffold(
         backgroundColor: AcademyColors.background,
-        appBar: const AcademyAppBar(
-          subtitleTag: 'Khóa học chờ duyệt',
+        appBar: AcademyAppBar(
+          subtitleTag: context.tr('Khóa học chờ duyệt', 'Course Pending Approval'),
         ),
         body: Center(
           child: Padding(
@@ -98,10 +99,10 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                   child: const Icon(Icons.lock_rounded, size: 40, color: Color(0xFFD97706)),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Khóa học chưa được Admin duyệt',
+                Text(
+                  context.tr('Khóa học chưa được Admin duyệt', 'Course Not Yet Approved by Admin'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Montserrat',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -110,7 +111,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Bạn chưa thể xem video bài học "${widget.lesson?.title ?? ""}" do hồ sơ đăng ký khóa học đang chờ Ban Quản Trị đối soát và phê duyệt.',
+                  context.isEn ? 'You cannot watch video lecture "${widget.lesson?.title.tr(context) ?? ""}" because your enrollment is pending Board approval.' : 'Bạn chưa thể xem video bài học "${widget.lesson?.title ?? ""}" do hồ sơ đăng ký khóa học đang chờ Ban Quản Trị đối soát và phê duyệt.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: 'Montserrat',
@@ -123,7 +124,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                 ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('Quay lại'),
+                  label: Text(context.tr('Quay lại', 'Back')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -140,8 +141,8 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
 
     return Scaffold(
       backgroundColor: AcademyColors.background,
-      appBar: const AcademyAppBar(
-        subtitleTag: 'Video bài giảng',
+      appBar: AcademyAppBar(
+        subtitleTag: context.tr('Video bài giảng', 'Video Lecture'),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -158,7 +159,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
               clipBehavior: Clip.antiAlias,
               child: MldYoutubePlayer(
                 videoUrl: widget.lesson?.videoUrl ?? 'https://youtu.be/mDhpMX4EeY8?si=Hd_z_npg-loMZEx8',
-                title: widget.lesson?.title ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
+                title: widget.lesson?.title.tr(context) ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
                 courseId: _courseId,
                 lessonId: widget.lesson?.id,
                 initialPosition: _initialPosition,
@@ -170,7 +171,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
 
             // Nhãn Video bài với thời lượng hiển thị chính xác theo độ dài clip
             Text(
-              'Video Bài ${widget.lesson?.lessonOrder ?? 1} · ${widget.lesson?.formattedDuration ?? "94:48"}',
+              '${context.tr("Video Bài", "Lesson")} ${widget.lesson?.lessonOrder ?? 1} · ${widget.lesson?.formattedDuration ?? "94:48"}',
               style: const TextStyle(
                 fontFamily: 'Montserrat',
                 fontSize: 12.5,
@@ -182,7 +183,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
 
             // Tên bài học
             Text(
-              widget.lesson?.title ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
+              widget.lesson?.title.tr(context) ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
               style: const TextStyle(
                 fontFamily: 'Montserrat',
                 fontSize: 18,
@@ -195,7 +196,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
 
             // Tên khóa học
             Text(
-              widget.courseTitle ?? 'Học viện MLD Việt Nam',
+              widget.courseTitle?.tr(context) ?? 'Học viện MLD Việt Nam',
               style: const TextStyle(
                 fontFamily: 'Montserrat',
                 fontSize: 13.5,
@@ -217,8 +218,8 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
               ),
               child: Text(
                 _isCompleted
-                    ? 'Bạn đã hoàn thành bài học này. Bài học kế tiếp đã được mở khóa.'
-                    : 'Hệ thống tự động ghi nhớ vị trí xem. Bạn cần xem hết video để mở khóa bài tiếp theo.',
+                    ? context.tr('Bạn đã hoàn thành bài học này. Bài học kế tiếp đã được mở khóa.', 'You have completed this lesson. The next lesson has been unlocked.')
+                    : context.tr('Hệ thống tự động ghi nhớ vị trí xem. Bạn cần xem hết video để mở khóa bài tiếp theo.', 'The system automatically remembers playback progress. Complete the full video to unlock the next lesson.'),
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontSize: 12.5,

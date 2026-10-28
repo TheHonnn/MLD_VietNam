@@ -1,4 +1,4 @@
-package com.medcare.app.medical_healthcare_app
+package vn.mldvietnam.app
 
 import android.os.Bundle
 import android.view.WindowManager
@@ -7,7 +7,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val SECURITY_CHANNEL = "com.medcare.app/security"
+    private val SECURITY_CHANNEL = "vn.mldvietnam.app/security"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,3 +33,4 @@ class MainActivity : FlutterActivity() {
         }
     }
 }
+

@@ -98,7 +98,8 @@ class ApiClient {
                 path.contains(ApiEndpoints.authRegisterEmail) ||
                 path.contains(ApiEndpoints.authRefresh) ||
                 path.contains(ApiEndpoints.authForgotPassword) ||
-                path.contains(ApiEndpoints.authResetPassword);
+                path.contains(ApiEndpoints.authResetPassword) ||
+                path.contains(ApiEndpoints.authChangePassword);
 
             if (!isAuthBypassRoute) {
               final currentRefreshToken = await AuthService.instance.getRefreshToken();

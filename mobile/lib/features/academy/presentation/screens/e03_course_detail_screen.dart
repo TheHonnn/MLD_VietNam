@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
@@ -101,8 +103,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     // Đã đăng ký nhưng chưa được duyệt: không được xem
     if (!_isApproved) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Khóa học đang chờ duyệt.'),
+        SnackBar(
+          content: Text(context.tr('Khóa học đang chờ duyệt.', 'Course is pending approval.')),
           backgroundColor: Color(0xFFD97706),
           duration: Duration(seconds: 2),
         ),
@@ -156,8 +158,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               child: const Icon(Icons.lock_outline_rounded, size: 28, color: AppColors.primary),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Đăng ký để học',
+            Text(
+              context.tr('Đăng ký để học', 'Enroll to Learn'),
               style: TextStyle(
                 fontFamily: 'Montserrat',
                 fontSize: 18,
@@ -167,7 +169,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Bạn cần đăng ký khóa học "${widget.course.title}" để xem bài giảng này.',
+              context.isEn ? 'You need to enroll in course "${widget.course.title.tr(context)}" to watch this lecture.' : 'Bạn cần đăng ký khóa học "${widget.course.title}" để xem bài giảng này.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Montserrat',
@@ -181,16 +183,23 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(ctx);
-                  Navigator.push(
+                  final ok = await GuestAuthPrompt.ensureLoggedIn(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => E05EnrollmentFormScreen(course: widget.course),
-                    ),
-                  ).then((_) {
-                    if (mounted) setState(() {});
-                  });
+                    title: 'Đăng nhập để đăng ký học',
+                    message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.',
+                  );
+                  if (ok && mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => E05EnrollmentFormScreen(course: widget.course),
+                      ),
+                    ).then((_) {
+                      if (mounted) setState(() {});
+                    });
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -199,8 +208,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
-                  'Đăng ký khóa học ngay',
+                child: Text(
+                  context.tr('Đăng ký khóa học ngay', 'Enroll in Course Now'),
                   style: TextStyle(
                     fontFamily: 'Montserrat',
                     fontSize: 14.5,
@@ -213,8 +222,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text(
-                'Để sau',
+              child: Text(
+                context.tr('Để sau', 'Later'),
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   color: AppColors.textSecondary,
@@ -237,11 +246,11 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
       appBar: const AcademyAppBar(),
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: _isEnrolled
-            ? (_isApproved ? 'Đã duyệt vào học' : 'Hồ sơ đang chờ duyệt & thanh toán')
-            : 'Học phí · ${formatCurrency(course.tuitionFee)}đ',
+            ? (_isApproved ? context.tr('Đã duyệt vào học', 'Enrollment Approved') : context.tr('Hồ sơ đang chờ duyệt', 'Enrollment Pending Approval'))
+            : '${context.tr("Học phí", "Tuition")} · ${formatCurrency(course.tuitionFee)}đ',
         buttonText: _isEnrolled
-            ? (_isApproved ? 'Vào học ngay' : 'Chờ duyệt hồ sơ')
-            : 'Đăng ký học',
+            ? (_isApproved ? context.tr('Vào học ngay', 'Start Learning') : context.tr('Chờ duyệt hồ sơ', 'Pending Approval'))
+            : context.tr('Đăng ký học', 'Enroll Now'),
         onPressed: () {
           if (_isEnrolled) {
             if (_isApproved) {
@@ -255,20 +264,28 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               });
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('🔒 Hồ sơ đăng ký đang chờ Admin xét duyệt & xác nhận thanh toán. Bạn chưa thể vào học lúc này.'),
+                SnackBar(
+                  content: Text(context.tr('🔒 Hồ sơ đăng ký đang chờ Admin xét duyệt. Bạn chưa thể vào học lúc này.', '🔒 Enrollment application is pending Admin approval. You cannot access lectures yet.')),
                   backgroundColor: Color(0xFFD97706),
                   duration: Duration(seconds: 3),
                 ),
               );
             }
           } else {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => E05EnrollmentFormScreen(course: course),
-              ),
-            ).then((_) {
-              if (mounted) setState(() {});
+            GuestAuthPrompt.ensureLoggedIn(
+              context,
+              title: 'Đăng nhập để đăng ký học',
+              message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.',
+            ).then((ok) {
+              if (ok && mounted) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => E05EnrollmentFormScreen(course: course),
+                  ),
+                ).then((_) {
+                  if (mounted) setState(() {});
+                });
+              }
             });
           }
         },
@@ -307,7 +324,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                           ),
                           SizedBox(height: 3),
                           Text(
-                            'Bạn đã gửi đăng ký khóa học. Hồ sơ đang được Ban Quản Trị đối soát thanh toán và xét duyệt học phí trước khi mở quyền vào học.',
+                            'Bạn đã gửi đăng ký khóa học. Hồ sơ đang được Ban Quản Trị xét duyệt trước khi mở quyền vào học.',
                             style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
                           ),
                         ],
@@ -320,7 +337,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
 
             // 1. Tên khóa học
             Text(
-              course.title,
+              course.title.tr(context),
               style: const TextStyle(
                 fontFamily: 'Montserrat',
                 fontSize: 22,
@@ -366,7 +383,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '$_totalLessonsCount bài',
+                    '$_totalLessonsCount ${context.tr("bài", "lessons")}',
                     style: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
@@ -376,7 +393,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                   ),
                   Container(width: 1, height: 16, color: AppColors.border),
                   Text(
-                    '${course.totalHours} giờ',
+                    '${course.totalHours} ${context.tr("giờ", "hours")}',
                     style: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
@@ -392,7 +409,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      _isEnrolled ? 'Đã đăng ký' : 'Chưa đăng ký',
+                      _isEnrolled ? context.tr('Đã đăng ký', 'Enrolled') : context.tr('Chưa đăng ký', 'Not Enrolled'),
                       style: TextStyle(
                         fontFamily: 'Montserrat',
                         fontSize: 12,
@@ -436,7 +453,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               : null,
                         ),
                         child: Text(
-                          'Video bài học ($_totalLessonsCount)',
+                          '${context.tr("Video bài học", "Video Lessons")} ($_totalLessonsCount)',
                           style: TextStyle(
                             fontFamily: 'Montserrat',
                             fontSize: 13,
@@ -467,7 +484,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               : null,
                         ),
                         child: Text(
-                          'Thông tin khóa học',
+                          context.tr('Thông tin khóa học', 'Course Info'),
                           style: TextStyle(
                             fontFamily: 'Montserrat',
                             fontSize: 13,
@@ -618,7 +635,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      chapter.title,
+                      chapter.title.tr(context),
                       style: const TextStyle(
                         fontFamily: 'Montserrat',
                         fontSize: 13.5,
@@ -634,7 +651,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '${chapter.lessons.length} video',
+                      '${chapter.lessons.length} ${context.tr("video", "videos")}',
                       style: const TextStyle(
                         fontFamily: 'Montserrat',
                         fontSize: 11.5,
@@ -782,7 +799,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Video Bài ${lesson.lessonOrder}:',
+                              '${context.tr("Video Bài", "Lesson")} ${lesson.lessonOrder}:',
                               style: const TextStyle(
                                 fontFamily: 'Montserrat',
                                 fontSize: 13,
@@ -792,7 +809,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              lessonTitle,
+                              lessonTitle.tr(context),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -805,8 +822,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                             ),
                             const SizedBox(height: 4),
                             if (isCompleted)
-                              const Text(
-                                'Đã xem hết ✓',
+                              Text(
+                                context.tr('Đã xem hết ✓', 'Completed ✓'),
                                 style: TextStyle(
                                   fontFamily: 'Montserrat',
                                   fontSize: 11,
@@ -816,7 +833,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               )
                             else if (isUnlocked)
                               Text(
-                                lesson.isFreePreview ? 'Học thử miễn phí ▶' : 'Xem ngay ▶',
+                                lesson.isFreePreview ? context.tr('Học thử miễn phí ▶', 'Free Preview ▶') : context.tr('Xem ngay ▶', 'Watch Now ▶'),
                                 style: const TextStyle(
                                   fontFamily: 'Montserrat',
                                   fontSize: 11,
@@ -826,7 +843,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               )
                             else
                               Text(
-                                !_isEnrolled && !lesson.isFreePreview ? 'Cần đăng ký 🔒' : 'Cần xem bài trước 🔒',
+                                !_isEnrolled && !lesson.isFreePreview ? context.tr('Cần đăng ký 🔒', 'Enrollment Required 🔒') : context.tr('Cần xem bài trước 🔒', 'Previous Lesson Required 🔒'),
                                 style: TextStyle(
                                   fontFamily: 'Montserrat',
                                   fontSize: 11,
@@ -853,8 +870,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Giới thiệu tổng quan',
+        Text(
+          context.tr('Giới thiệu tổng quan', 'Course Overview'),
           style: TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 18,
@@ -865,8 +882,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         const SizedBox(height: 8),
         Text(
           course.description.isNotEmpty
-              ? course.description
-              : 'Chương trình đào tạo chuẩn y khoa Quốc tế Vodder MLD, kết hợp lý thuyết giải phẫu tuần hoàn và thực hành lâm sàng.',
+              ? course.description.tr(context)
+              : context.tr('Chương trình đào tạo chuẩn y khoa Quốc tế Vodder MLD, kết hợp lý thuyết giải phẫu tuần hoàn và thực hành lâm sàng.', 'International Vodder MLD medical-grade training combining circulatory anatomy theory and clinical practice.'),
           style: const TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 13.5,
@@ -888,11 +905,11 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             children: [
               Row(
                 children: [
-                  const Text('Đối tượng:', style: TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
+                  Text(context.tr('Đối tượng:', 'Target Audience:'), style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      course.targetAudience,
+                      course.targetAudience.tr(context),
                       style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
                     ),
                   ),
@@ -901,11 +918,11 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               const Divider(height: 16, color: AcademyColors.cardBorder),
               Row(
                 children: [
-                  const Text('Nhu cầu:', style: TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
+                  Text(context.tr('Nhu cầu:', 'Learning Needs:'), style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      course.targetNeed,
+                      course.targetNeed.tr(context),
                       style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
                     ),
                   ),
@@ -917,8 +934,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         const SizedBox(height: 20),
 
         // Bạn sẽ học được gì?
-        const Text(
-          'Bạn sẽ học được gì?',
+        Text(
+          context.tr('Bạn sẽ học được gì?', 'What will you learn?'),
           style: TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 18,
@@ -948,7 +965,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              text,
+              text.tr(context),
               style: const TextStyle(
                 fontFamily: 'Montserrat',
                 fontSize: 13.5,

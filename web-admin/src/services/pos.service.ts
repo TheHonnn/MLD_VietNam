@@ -5,12 +5,32 @@ import {
   ApiResponse,
   CashierShift,
   ShiftStatus,
+  InvoiceSyncResult,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
 import { isUuid } from '../utils/searchUtils';
 
 export const posService = {
+  async syncInvoices(): Promise<ApiResponse<InvoiceSyncResult | null>> {
+    try {
+      const result = await supabaseService.syncInvoicesAndRevenue();
+      return {
+        success: true,
+        statusCode: 200,
+        message: result ? 'Đồng bộ hóa đơn và doanh thu thành công từ Supabase Cloud' : 'Hóa đơn đã được đồng bộ mới nhất',
+        data: result,
+      };
+    } catch (err) {
+      console.error('[posService] syncInvoices error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi đồng bộ hóa đơn từ hệ thống',
+        data: null,
+      };
+    }
+  },
   async getInvoices(params?: {
     branchId?: string;
     customerId?: string;

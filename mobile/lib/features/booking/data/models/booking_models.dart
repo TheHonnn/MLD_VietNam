@@ -107,7 +107,7 @@ class AppointmentItemModel {
   final double totalAmount; // 450.000đ
   final double depositAmount; // 150.000đ
   final double remainingAmount; // 300.000đ
-  final String paymentMethod; // 'Chuyển khoản ngân hàng / QR'
+  final String paymentMethod;
   final AppointmentStatus status;
   final DateTime createdAt;
   final List<BookingTimelineEvent> timeline;
@@ -136,7 +136,7 @@ class AppointmentItemModel {
     required this.totalAmount,
     required this.depositAmount,
     required this.remainingAmount,
-    this.paymentMethod = 'Chuyển khoản ngân hàng / QR',
+    this.paymentMethod = '',
     this.status = AppointmentStatus.confirmed,
     required this.createdAt,
     this.timeline = const [],
@@ -247,7 +247,7 @@ class BookingFlowState {
     this.customerEmail = '',
     this.specialNotes = '',
     this.payFullAmount = false,
-    this.paymentMethod = 'BANK_TRANSFER_QR',
+    this.paymentMethod = '',
     this.usePrepaidPackage = false,
     this.prepaidPackageName,
     this.voucherCode,
@@ -360,7 +360,7 @@ class SpaBookingDraftModel {
     this.isForSelf = true,
     this.couponCode,
     this.discountAmount = 0.0,
-    this.paymentMethod = 'CASH_AT_SPA',
+    this.paymentMethod = '',
   });
 
   String get patientName => customerName;

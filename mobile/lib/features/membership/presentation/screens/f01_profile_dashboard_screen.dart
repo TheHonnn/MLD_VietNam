@@ -4,6 +4,8 @@ import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
+import '../../../home/presentation/screens/main_layout_screen.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
 import '../../../treatment/data/repositories/treatment_repository.dart';
@@ -99,8 +101,14 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               await AuthService.instance.logout();
               if (mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                  MaterialPageRoute(builder: (_) => const MainLayoutScreen(initialIndex: 0)),
                   (route) => false,
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã đăng xuất. Bạn đang ở chế độ khách.'),
+                    duration: Duration(seconds: 2),
+                  ),
                 );
               }
             },
@@ -109,6 +117,23 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _requireLoginAndRun(
+    VoidCallback action, {
+    String title = 'Đăng nhập tài khoản',
+    String message = 'Quý khách vui lòng đăng nhập để sử dụng tính năng này.',
+  }) async {
+    final ok = await GuestAuthPrompt.ensureLoggedIn(
+      context,
+      title: title,
+      message: message,
+    );
+    if (ok && mounted) {
+      _refreshProfile();
+      setState(() {});
+      action();
+    }
   }
 
   @override
@@ -162,72 +187,151 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ==========================================
-              // 1. THẺ HỒ SƠ NGƯỜI DÙNG
+              // 1. THẺ HỒ SƠ: KHÁCH HOẶC ĐÃ ĐĂNG NHẬP
               // ==========================================
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    AppProfileAvatar(
-                      avatarUrl: _profile.avatarUrl,
-                      size: 60,
-                      onEditTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
-                        );
-                        _refreshProfile();
-                      },
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            displayName,
-                            style: const TextStyle(
-                              fontSize: 16.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            displayPhone,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
+              if (!AuthService.instance.isLoggedIn)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
-                      onPressed: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
-                        );
-                        _refreshProfile();
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.mintBackground,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                        ),
+                        child: const Icon(Icons.person_rounded, size: 30, color: AppColors.primary),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Khách trải nghiệm',
+                              style: TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Đăng nhập để xem lịch & tích điểm',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                          );
+                          _refreshProfile();
+                          if (mounted) setState(() {});
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text(
+                          'Đăng nhập',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      AppProfileAvatar(
+                        avatarUrl: _profile.avatarUrl,
+                        size: 60,
+                        onEditTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
+                          );
+                          _refreshProfile();
+                        },
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              displayPhone,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
+                          );
+                          _refreshProfile();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
               const SizedBox(height: 16),
 
@@ -242,12 +346,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       count: upcomingAppointmentsCount.toString(),
                       label: context.tr('Lịch hẹn', 'Appointments'),
                       subLabel: context.tr('sắp tới', 'upcoming'),
-                      onTap: () {
+                      onTap: () => _requireLoginAndRun(() {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
                         );
-                      },
+                      }, title: 'Xem lịch hẹn', message: 'Vui lòng đăng nhập để xem danh sách lịch hẹn của bạn.'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -257,12 +361,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       count: remainingSessions.toString(),
                       label: context.tr('Liệu trình', 'Packages'),
                       subLabel: context.tr('buổi còn lại', 'remaining'),
-                      onTap: () {
+                      onTap: () => _requireLoginAndRun(() {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
                         );
-                      },
+                      }, title: 'Xem gói liệu trình', message: 'Vui lòng đăng nhập để xem thông tin liệu trình của bạn.'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -272,12 +376,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       count: myCoursesCount.toString(),
                       label: context.tr('Khóa học', 'Courses'),
                       subLabel: context.tr('đang học', 'active'),
-                      onTap: () {
+                      onTap: () => _requireLoginAndRun(() {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
                         );
-                      },
+                      }, title: 'Xem khóa học', message: 'Vui lòng đăng nhập để theo dõi khóa học của bạn.'),
                     ),
                   ),
                 ],
@@ -294,34 +398,34 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.calendar_today_outlined,
                   title: context.tr('Lịch hẹn của tôi', 'My Appointments'),
-                  onTap: () {
+                  onTap: () => _requireLoginAndRun(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
                     );
-                  },
+                  }, title: 'Lịch hẹn của tôi', message: 'Vui lòng đăng nhập để xem danh sách lịch hẹn của bạn.'),
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.spa_outlined,
                   title: context.tr('Gói liệu trình', 'Treatment Packages'),
-                  onTap: () {
+                  onTap: () => _requireLoginAndRun(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
                     );
-                  },
+                  }, title: 'Gói liệu trình', message: 'Vui lòng đăng nhập để theo dõi gói liệu trình của bạn.'),
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.menu_book_outlined,
                   title: context.tr('Nhật ký trị liệu', 'Care Journal'),
-                  onTap: () {
+                  onTap: () => _requireLoginAndRun(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const D03CareJournalScreen()),
                     );
-                  },
+                  }, title: 'Nhật ký trị liệu', message: 'Vui lòng đăng nhập để xem hồ sơ và nhật ký trị liệu của bạn.'),
                 ),
               ]),
 
@@ -336,34 +440,34 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.school_outlined,
                   title: context.tr('Khóa học của tôi', 'My Courses'),
-                  onTap: () {
+                  onTap: () => _requireLoginAndRun(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
                     );
-                  },
+                  }, title: 'Khóa học của tôi', message: 'Vui lòng đăng nhập để theo dõi các khóa học bạn đã đăng ký.'),
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.event_note_outlined,
                   title: context.tr('Lịch học', 'Class Schedule'),
-                  onTap: () {
+                  onTap: () => _requireLoginAndRun(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()),
                     );
-                  },
+                  }, title: 'Lịch học', message: 'Vui lòng đăng nhập để theo dõi thời khóa biểu học viên.'),
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.workspace_premium_outlined,
                   title: context.tr('Chứng nhận', 'Certifications'),
-                  onTap: () {
+                  onTap: () => _requireLoginAndRun(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const E12LearningResultsScreen()),
                     );
-                  },
+                  }, title: 'Chứng nhận', message: 'Vui lòng đăng nhập để xem chứng chỉ và chứng nhận hoàn thành khóa học.'),
                 ),
               ]),
 
@@ -376,36 +480,41 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 8),
               _buildCardContainer([
                 _buildMenuItem(
-                  icon: Icons.person_outline_rounded,
-                  title: context.tr('Thông tin cá nhân', 'Personal Information'),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
-                    );
-                    _refreshProfile();
-                  },
-                ),
-                const Divider(height: 1, indent: 56, color: AppColors.border),
-                _buildMenuItem(
                   icon: Icons.settings_outlined,
                   title: context.tr('Cài đặt tài khoản', 'Account Settings'),
-                  onTap: () {
+                  onTap: () => _requireLoginAndRun(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const F08SettingsScreen()),
                     );
-                  },
+                  }, title: 'Cài đặt tài khoản', message: 'Vui lòng đăng nhập để quản lý cài đặt tài khoản và bảo mật.'),
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.border),
-                _buildMenuItem(
-                  icon: Icons.logout_rounded,
-                  iconColor: AppColors.error,
-                  title: context.tr('Đăng xuất', 'Sign Out'),
-                  titleColor: AppColors.error,
-                  onTap: _handleLogout,
-                  showChevron: false,
-                ),
+                if (!AuthService.instance.isLoggedIn)
+                  _buildMenuItem(
+                    icon: Icons.login_rounded,
+                    iconColor: AppColors.primary,
+                    title: context.tr('Đăng nhập / Đăng ký', 'Sign In / Register'),
+                    titleColor: AppColors.primary,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                      );
+                      _refreshProfile();
+                      if (mounted) setState(() {});
+                    },
+                    showChevron: true,
+                  )
+                else
+                  _buildMenuItem(
+                    icon: Icons.logout_rounded,
+                    iconColor: AppColors.error,
+                    title: context.tr('Đăng xuất', 'Sign Out'),
+                    titleColor: AppColors.error,
+                    onTap: _handleLogout,
+                    showChevron: false,
+                  ),
               ]),
 
               const SizedBox(height: 28),

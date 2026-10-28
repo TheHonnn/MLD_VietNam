@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
@@ -671,9 +672,9 @@ class _CourseCardItemState extends State<_CourseCardItem> {
               child: const Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 24),
             ),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Khóa học đang chờ duyệt',
+                context.tr('Khóa học đang chờ duyệt', 'Course Pending Approval'),
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontSize: 16.5,
@@ -689,7 +690,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hồ sơ đăng ký khóa học "${course.title}" của bạn đang ở trạng thái Chờ duyệt & Chưa thanh toán.',
+              context.isEn ? 'Your enrollment application for "${course.title.tr(context)}" is pending approval.' : 'Hồ sơ đăng ký khóa học "${course.title}" của bạn đang ở trạng thái Chờ duyệt.',
               style: const TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF334155)),
             ),
             const SizedBox(height: 10),
@@ -700,14 +701,14 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lock_rounded, size: 16, color: Color(0xFFB45309)),
-                  SizedBox(width: 8),
+                  const Icon(Icons.lock_rounded, size: 16, color: Color(0xFFB45309)),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Chỉ khi được duyệt nhập học, bạn mới có thể xem các video bài giảng của khóa học.',
+                      context.tr('Chỉ khi được duyệt nhập học, bạn mới có thể xem các video bài giảng của khóa học.', 'Only after admission approval can you view the course video lectures.'),
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF92400E), height: 1.35),
                     ),
                   ),
@@ -715,8 +716,8 @@ class _CourseCardItemState extends State<_CourseCardItem> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Bạn có thể vào mục "Khóa học của tôi" để xem phiếu thu (Bill), mã học viên và kiểm tra đối soát học phí.',
+            Text(
+              context.tr('Bạn có thể vào mục "Khóa học của tôi" để xem phiếu thu (Bill), mã học viên và kiểm tra đối soát học phí.', 'You can go to "My Courses" to view bills, student ID, and tuition reconciliation.'),
               style: TextStyle(fontSize: 12.5, height: 1.4, color: Color(0xFF64748B)),
             ),
           ],
@@ -724,7 +725,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+            child: Text(context.tr('Đóng', 'Close'), style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -739,7 +740,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                 MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
               );
             },
-            child: const Text('Đến Khóa học của tôi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(context.tr('Đến Khóa học của tôi', 'Go to My Courses'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -841,8 +842,8 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                   color: Colors.white.withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text(
-                                  'CHỜ DUYỆT',
+                                child: Text(
+                                  context.tr('CHỜ DUYỆT', 'PENDING APPROVAL'),
                                   style: TextStyle(
                                     fontFamily: 'Montserrat',
                                     color: Colors.white,
@@ -1011,13 +1012,21 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                 _showPendingApprovalNotice(widget.course);
                               }
                             } else {
-                              Navigator.push(
+                              GuestAuthPrompt.ensureLoggedIn(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (_) => E05EnrollmentFormScreen(course: widget.course),
-                                ),
-                              ).then((_) {
-                                if (mounted) setState(() {});
+                                title: context.tr('Đăng nhập để đăng ký học', 'Sign in to enroll'),
+                                message: context.tr('Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.', 'Please sign in or create an account to submit your student application.'),
+                              ).then((ok) {
+                                if (ok && mounted) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => E05EnrollmentFormScreen(course: widget.course),
+                                    ),
+                                  ).then((_) {
+                                    if (mounted) setState(() {});
+                                  });
+                                }
                               });
                             }
                           },

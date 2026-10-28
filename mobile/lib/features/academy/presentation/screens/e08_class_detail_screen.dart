@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
@@ -132,8 +133,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Tiêu đề trang [8116:26002]
-            const Text(
-              'Chi tiết lớp học',
+            Text(
+              context.tr('Chi tiết lớp học', 'Class Details'),
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
@@ -153,7 +154,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               child: Text(
-                widget.course?.title ?? 'Dẫn lưu bạch huyết Vodder Chuyên Nghiệp',
+                AppTranslation.translate(widget.course?.title ?? 'Dẫn lưu bạch huyết Vodder Chuyên Nghiệp', isEn: context.isEn),
                 style: const TextStyle(
                   fontFamily: 'Montserrat',
                   fontSize: 18,
@@ -175,9 +176,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               ),
               child: Row(
                 children: [
-                  _buildNavTab(0, 'Nội dung học'),
-                  _buildNavTab(1, 'Lịch học'),
-                  _buildNavTab(2, 'Tài liệu'),
+                  _buildNavTab(0, context.tr('Nội dung học', 'Curriculum')),
+                  _buildNavTab(1, context.tr('Lịch học', 'Schedule')),
+                  _buildNavTab(2, context.tr('Tài liệu', 'Materials')),
                 ],
               ),
             ),
@@ -201,8 +202,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: _buildChapterCard(
-                          title: chapter.title,
-                          subtitle: '${chapter.lessons.length} bài học video',
+                          title: AppTranslation.translate(chapter.title, isEn: context.isEn),
+                          subtitle: context.isEn ? '${chapter.lessons.length} video lessons' : '${chapter.lessons.length} bài học video',
                           isExpanded: isExpanded,
                           onToggle: () {
                             setState(() {
@@ -216,7 +217,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                           lessons: isExpanded
                               ? chapter.lessons.map((lesson) {
                                   final isDone = AcademyRepository.instance.isLessonCompleted(_courseId, lesson.id);
-                                  final isUnlocked = (lesson.isFreePreview) || (_isApproved && AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons));
                                   final ytid = _extractYoutubeId(lesson.videoUrl);
 
                                   return InkWell(
@@ -235,7 +235,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                               color: const Color(0xFF0F172A),
                                               borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
-                                                color: isUnlocked ? AppColors.primary.withValues(alpha: 0.3) : Colors.black12,
+                                                color: AppColors.primary.withValues(alpha: 0.3),
                                                 width: 1.0,
                                               ),
                                             ),
@@ -264,8 +264,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                     height: 70,
                                                     fit: BoxFit.cover,
                                                   ),
-                                                 if (!isUnlocked && !isDone)
-                                                   Container(color: Colors.black.withValues(alpha: 0.45)),
                                                 // Badge thời lượng ở góc dưới bên phải (ví dụ 94:48)
                                                 Positioned(
                                                   bottom: 4,
@@ -297,7 +295,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  lesson.title,
+                                                  AppTranslation.translate(lesson.title, isEn: context.isEn),
                                                   maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: const TextStyle(
@@ -318,8 +316,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                           color: const Color(0xFFD1FAE5),
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
-                                                        child: const Text(
-                                                          'Đã học',
+                                                        child: Text(
+                                                          context.tr('Đã học', 'Completed'),
                                                           style: TextStyle(
                                                             fontFamily: 'Montserrat',
                                                             fontSize: 11,
@@ -335,8 +333,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                           color: const Color(0xFFEFF6FF),
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
-                                                        child: const Text(
-                                                          'Vào học',
+                                                        child: Text(
+                                                          context.tr('Vào học', 'Start'),
                                                           style: TextStyle(
                                                             fontFamily: 'Montserrat',
                                                             fontSize: 11,
@@ -385,7 +383,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     );
                   },
                   icon: const Icon(Icons.calendar_month, color: Colors.white),
-                  label: const Text('Xem lịch học đầy đủ & điểm danh'),
+                  label: Text(context.tr('Xem lịch học đầy đủ & điểm danh', 'View full schedule & attendance')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AcademyColors.primary,
                     foregroundColor: Colors.white,
@@ -403,19 +401,22 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(Icons.folder_open, size: 48, color: AcademyColors.primary),
-                    SizedBox(height: 12),
+                    const Icon(Icons.folder_open, size: 48, color: AcademyColors.primary),
+                    const SizedBox(height: 12),
                     Text(
-                      'Giáo trình & Tài liệu khóa học',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AcademyColors.heading),
+                      context.tr('Giáo trình & Tài liệu khóa học', 'Course Syllabus & Materials'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AcademyColors.heading),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      'Bao gồm slide bài giảng, tài liệu kỹ thuật và quy chuẩn vệ sinh Spa.',
+                      context.tr(
+                        'Bao gồm slide bài giảng, tài liệu kỹ thuật và quy chuẩn vệ sinh Spa.',
+                        'Includes lecture slides, technical documents, and Spa hygiene standards.',
+                      ),
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                      style: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
                     ),
                   ],
                 ),
@@ -481,8 +482,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Đã hoàn thành tất cả video!',
+                  Text(
+                    context.tr('Đã hoàn thành tất cả video!', 'All videos completed!'),
                     style: TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 15,
@@ -492,7 +493,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Bạn đã hoàn thành $_totalLessonsCount/$_totalLessonsCount bài giảng video của khóa học.',
+                    context.isEn ? 'You have completed $_totalLessonsCount/$_totalLessonsCount video lectures of the course.' : 'Bạn đã hoàn thành $_totalLessonsCount/$_totalLessonsCount bài giảng video của khóa học.',
                     style: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 12,
@@ -522,8 +523,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Buổi thực hành sắp tới',
+          Text(
+            context.tr('Buổi thực hành sắp tới', 'Upcoming Practice Session'),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -541,10 +542,10 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
                 ),
-                child: const Column(
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
+                    const Text(
                       '16',
                       style: TextStyle(
                         fontSize: 22,
@@ -554,7 +555,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                       ),
                     ),
                     Text(
-                      'Tháng 10',
+                      context.tr('Tháng 10', 'October'),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -565,11 +566,11 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       '13:00–17:00',
                       style: TextStyle(
                         fontSize: 16,
@@ -579,7 +580,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Thực hành kỹ thuật massage cơ bản',
+                      context.tr('Thực hành kỹ thuật massage cơ bản', 'Basic massage technique practice'),
                       style: TextStyle(
                         fontSize: 13,
                         color: AcademyColors.textPrimary,
@@ -591,13 +592,13 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Phòng thực hành 02 · Chi nhánh Quận 3',
+          Text(
+            context.tr('Phòng thực hành 02 · Chi nhánh Quận 3', 'Practice Room 02 · District 3 Branch'),
             style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Ban Đào tạo Học viện MLD Việt Nam',
+          Text(
+            context.tr('Ban Đào tạo Học viện MLD Việt Nam', 'MLD Vietnam Academy Academic Board'),
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AcademyColors.textSecondary),
           ),
         ],
