@@ -634,7 +634,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'Tổng thanh toán',
+                  'Tổng chi phí dự kiến',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -653,13 +653,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          _buildRow(
-            'Tiền đặt cọc',
-            deposit > 0 ? '${_formatCurrency(deposit)}đ' : '0đ (Không yêu cầu cọc)',
-          ),
-          const SizedBox(height: 8),
-          _buildRow('Hình thức thanh toán', 'Thanh toán tại cơ sở khi đến / POS'),
+
         ],
       ),
     );
@@ -851,7 +845,7 @@ class BookingTimelineWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final steps = [
       'Đã tạo yêu cầu',
-      'Chờ xác nhận / thanh toán',
+      'Chờ xác nhận',
       'Đã xác nhận',
       'Hoàn thành',
     ];

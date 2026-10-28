@@ -297,17 +297,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.payment_rounded, size: 15, color: AppColors.textSecondary),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${context.tr('Thanh toán:', 'Payment:')} ${app.paymentMethod.isNotEmpty ? app.paymentMethod.tr(context) : context.tr("Tại cơ sở / QR", "At branch / QR")}',
-                          style: const TextStyle(fontFamily: 'Montserrat', fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
+
                   ],
                 ),
               ),

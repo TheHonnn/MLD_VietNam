@@ -290,7 +290,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       totalAmount: _totalPrice,
       depositAmount: 0,
       remainingAmount: _totalPrice,
-      paymentMethod: 'Thanh toán tại cơ sở / QR',
+      paymentMethod: '',
       status: AppointmentStatus.pending, // Chờ duyệt
       createdAt: DateTime.now(),
       timeline: [

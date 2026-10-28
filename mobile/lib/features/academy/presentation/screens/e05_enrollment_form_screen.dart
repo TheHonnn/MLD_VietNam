@@ -210,7 +210,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Mã học viên / Mã thanh toán:',
+                          'Mã học viên:',
                           style: TextStyle(fontSize: 11, color: AcademyColors.textSecondary),
                         ),
                         Text(
@@ -234,9 +234,9 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               style: const TextStyle(fontSize: 13, height: 1.45, color: AcademyColors.textPrimary),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ thủ công và xuất phiếu thu (Bill) kèm mã QR. Khi bạn chuyển khoản vào tài khoản Học viện với nội dung "MLD $customerCode" đúng số tiền học phí, hệ thống sẽ tự động đối soát và tự động duyệt bạn vào khóa học!',
-              style: const TextStyle(fontSize: 12.5, height: 1.45, color: AcademyColors.textSecondary),
+            const Text(
+              'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ đăng ký của bạn. Sau khi hồ sơ được Ban Quản Trị phê duyệt, hệ thống sẽ mở quyền vào học và thông báo cho bạn!',
+              style: TextStyle(fontSize: 12.5, height: 1.45, color: AcademyColors.textSecondary),
             ),
           ],
         ),

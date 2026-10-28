@@ -130,7 +130,7 @@ export const AppointmentsScreen: React.FC<AppointmentsScreenProps> = ({ onBack, 
               </div>
 
               <div className="flex items-center justify-between pt-1">
-                <span className="text-[11px] text-gray-400">Tổng thanh toán:</span>
+                <span className="text-[11px] text-gray-400">Tổng chi phí:</span>
                 <span className="text-xs font-extrabold text-emerald-700">
                   {app.totalAmount.toLocaleString('vi-VN')}đ
                 </span>
@@ -195,9 +195,7 @@ export const AppointmentsScreen: React.FC<AppointmentsScreenProps> = ({ onBack, 
                 <span>Tổng chi phí:</span>
                 <span className="text-emerald-700">{selectedApp.totalAmount.toLocaleString('vi-VN')}đ</span>
               </div>
-              <div className="text-[11px] text-gray-500 pt-1">
-                Phương thức: {selectedApp.paymentMethod}
-              </div>
+
             </div>
 
             <button

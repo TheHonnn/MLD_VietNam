@@ -7,7 +7,7 @@ class AppSecurityService {
   AppSecurityService._();
   static final AppSecurityService instance = AppSecurityService._();
 
-  static const MethodChannel _channel = MethodChannel('com.medcare.app/security');
+  static const MethodChannel _channel = MethodChannel('vn.mldvietnam.app/security');
 
   /// Kích hoạt cấm chụp ảnh và quay phim màn hình (FLAG_SECURE)
   Future<void> enableSecureScreen() async {

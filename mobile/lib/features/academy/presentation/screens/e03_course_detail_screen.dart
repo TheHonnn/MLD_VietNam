@@ -237,7 +237,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
       appBar: const AcademyAppBar(),
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: _isEnrolled
-            ? (_isApproved ? 'Đã duyệt vào học' : 'Hồ sơ đang chờ duyệt & thanh toán')
+            ? (_isApproved ? 'Đã duyệt vào học' : 'Hồ sơ đang chờ duyệt')
             : 'Học phí · ${formatCurrency(course.tuitionFee)}đ',
         buttonText: _isEnrolled
             ? (_isApproved ? 'Vào học ngay' : 'Chờ duyệt hồ sơ')
@@ -256,7 +256,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('🔒 Hồ sơ đăng ký đang chờ Admin xét duyệt & xác nhận thanh toán. Bạn chưa thể vào học lúc này.'),
+                  content: Text('🔒 Hồ sơ đăng ký đang chờ Admin xét duyệt. Bạn chưa thể vào học lúc này.'),
                   backgroundColor: Color(0xFFD97706),
                   duration: Duration(seconds: 3),
                 ),
@@ -307,7 +307,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                           ),
                           SizedBox(height: 3),
                           Text(
-                            'Bạn đã gửi đăng ký khóa học. Hồ sơ đang được Ban Quản Trị đối soát thanh toán và xét duyệt học phí trước khi mở quyền vào học.',
+                            'Bạn đã gửi đăng ký khóa học. Hồ sơ đang được Ban Quản Trị xét duyệt trước khi mở quyền vào học.',
                             style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
                           ),
                         ],

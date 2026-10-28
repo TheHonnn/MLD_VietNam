@@ -110,56 +110,7 @@ class MembershipRepository {
   final List<ReferralRecord> _referralHistory = [];
 
   void _initData() {
-    _payments.addAll([
-      const PaymentTransaction(
-        id: 'pay-01',
-        code: 'PAY-102601',
-        date: '15/10/2026',
-        type: 'Dịch vụ',
-        icon: 'receipt',
-        serviceName: 'Massage thư giãn toàn thân 60 phút',
-        branch: 'Chi nhánh Quận 3',
-        amount: 450000,
-        amountFormatted: '450.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thành công',
-        paymentMethod: 'VietQR MBBank',
-        refundAmount: 0,
-        remainingAmount: 0,
-      ),
-      const PaymentTransaction(
-        id: 'pay-02',
-        code: 'PAY-102602',
-        date: '08/10/2026',
-        type: 'Liệu trình',
-        icon: 'receipt',
-        serviceName: 'Gói Chăm Sóc Da Chuyên Sâu Tái Tạo',
-        branch: 'Chi nhánh Quận 3',
-        amount: 2800000,
-        amountFormatted: '2.800.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thành công',
-        paymentMethod: 'Chuyển khoản VietQR',
-        refundAmount: 0,
-        remainingAmount: 0,
-      ),
-      const PaymentTransaction(
-        id: 'pay-03',
-        code: 'PAY-092601',
-        date: '20/09/2026',
-        type: 'Học phí',
-        icon: 'graduation-cap',
-        serviceName: 'Khóa học Massage Chuyên Nghiệp',
-        branch: 'Học viện MLD Quận 3',
-        amount: 2000000,
-        amountFormatted: '2.000.000đ',
-        status: 'SUCCESS',
-        statusLabel: 'Thành công',
-        paymentMethod: 'Chuyển khoản VietQR',
-        refundAmount: 0,
-        remainingAmount: 0,
-      ),
-    ]);
+
 
     _pointHistory.addAll([
       const PointsTransaction(

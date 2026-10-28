@@ -322,52 +322,6 @@ class AcademyRepository {
   }
 
 
-  /// Tự động kiểm tra đối soát tiền về theo mã KH & tự động duyệt học viên
-  Future<Map<String, dynamic>> checkEnrollmentPayment(String enrollmentId) async {
-    // 1. Kiểm tra qua Backend Gateway
-    try {
-      final response = await _apiClient.dio.get(ApiEndpoints.academyCheckEnrollmentPayment(enrollmentId));
-      if (response.statusCode == 200 && response.data != null) {
-        final res = response.data as Map<String, dynamic>;
-        final isPaid = res['data']?['approved'] == true || res['data']?['isPaid'] == true;
-        if (isPaid) {
-          await syncUserEnrollmentFromSupabase();
-          enrollmentNotifier.value++;
-        }
-        return res;
-      }
-    } catch (e) {
-      debugPrint('>>> [AcademyRepository] Gateway check payment: $e');
-    }
-
-    // 2. Kiểm tra trực tiếp qua Supabase Cloud
-    try {
-      final response = await _apiClient.get<List<dynamic>>(
-        '${ApiEndpoints.courseEnrollments}?id=eq.$enrollmentId&select=*',
-      );
-      if (response.data != null && (response.data as List).isNotEmpty) {
-        final enr = (response.data as List).first as Map<String, dynamic>;
-        final isApproved = enr['approval_status'] == 'APPROVED' ||
-            (enr['amount_paid'] != null && (enr['amount_paid'] as num) > 0);
-        if (isApproved) {
-          await syncUserEnrollmentFromSupabase();
-          enrollmentNotifier.value++;
-          return {
-            'success': true,
-            'data': {'isPaid': true, 'approved': true},
-            'message': 'Đã đối soát tiền về thành công! Khóa học đã được duyệt.',
-          };
-        }
-      }
-    } catch (_) {}
-
-    return {
-      'success': true,
-      'data': {'isPaid': false, 'approved': false},
-      'message': 'Hệ thống chưa nhận được khoản tiền khớp với mã khách hàng.',
-    };
-  }
-
   /// E07: Lấy danh sách khóa học của học viên hoàn toàn động từ bảng course_enrollments
   Future<List<CourseModel>> getMyCourses() async {
     // 1. Tải danh sách ghi danh thực tế từ Supabase

@@ -138,7 +138,7 @@ class AppTranslation {
     'Tổng tiền': 'Total Amount',
     'Đặt cọc trước (20%)': 'Advance Deposit (20%)',
     'Đặt cọc trước': 'Advance Deposit',
-    'Thanh toán tại cơ sở': 'Remaining at Branch',
+
     'Thời lượng ca': 'Duration',
     'Thời lượng': 'Duration',
     'Phút': 'mins',
@@ -410,7 +410,7 @@ class AppTranslation {
     'Đơn giá:': 'Unit Price:',
     'Thuế VAT (8%):': 'VAT (8%):',
     'Tổng chi phí:': 'Total Cost:',
-    'Thanh toán: Tại cơ sở / QR': 'Payment: At branch / QR',
+
     'Hotline hỗ trợ: 096.7786.399': 'Support Hotline: 096.7786.399',
     'Hủy lịch hẹn này': 'Cancel this appointment',
     'Không tìm thấy thông tin lịch hẹn.': 'Appointment information not found.',

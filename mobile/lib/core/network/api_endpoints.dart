@@ -68,7 +68,6 @@ class ApiEndpoints {
   static const String quizSubmissions = '/rest/v1/quiz_submissions';
 
   // --- Supabase Edge Functions ---
-  static const String vietQrPayment = '/functions/v1/vietqr-payment';
   static const String appointmentReminder = '/functions/v1/appointment-reminder';
 
   // --- Auth & User Profile ---
@@ -100,7 +99,6 @@ class ApiEndpoints {
   static const String academyMyCourses = '/academy/my-courses';
   static const String academySchedule = '/academy/schedule';
   static const String academyResults = '/academy/results';
-  static String academyCheckEnrollmentPayment(String id) => '/academy/enrollments/$id/check-payment';
 
   // --- Treatment (Group D) Endpoints ---
   static const String treatmentMyPackages = '/treatment/packages/my';
@@ -124,7 +122,5 @@ class ApiEndpoints {
   static const String membershipReferral = '/membership/referral';
   static const String membershipSettings = '/membership/settings';
 
-  // --- Payments & VietQR PayOS Endpoints ---
-  static const String paymentCreatePayosLink = '/payments/create-payos-link';
-  static String paymentPayosStatus(int orderCode) => '/payments/payos/status/$orderCode';
+
 }

@@ -689,7 +689,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hồ sơ đăng ký khóa học "${course.title}" của bạn đang ở trạng thái Chờ duyệt & Chưa thanh toán.',
+              'Hồ sơ đăng ký khóa học "${course.title}" của bạn đang ở trạng thái Chờ duyệt.',
               style: const TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF334155)),
             ),
             const SizedBox(height: 10),

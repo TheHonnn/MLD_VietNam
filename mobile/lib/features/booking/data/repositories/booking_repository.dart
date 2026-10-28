@@ -108,7 +108,7 @@ class BookingRepository {
                   totalAmount: price,
                   depositAmount: price * 0.3,
                   remainingAmount: price * 0.7,
-                  paymentMethod: item['payment_method']?.toString() ?? 'Chuyển khoản ngân hàng / QR',
+                  paymentMethod: item['payment_method']?.toString() ?? '',
                   status: parsedStatus,
                   createdAt: DateTime.now(),
                   timeline: const [
@@ -192,7 +192,7 @@ class BookingRepository {
       totalAmount: flow.servicePrice,
       depositAmount: flow.payableNow,
       remainingAmount: flow.remainingAmount,
-      paymentMethod: flow.paymentMethod == 'BANK_TRANSFER_QR' ? 'Chuyển khoản ngân hàng / QR' : 'Thanh toán tại cơ sở',
+      paymentMethod: '',
       status: AppointmentStatus.confirmed,
       createdAt: DateTime.now(),
       timeline: [
@@ -203,8 +203,8 @@ class BookingRepository {
           isCompleted: true,
         ),
         BookingTimelineEvent(
-          title: 'Chờ xác nhận / thanh toán',
-          description: 'Đã thanh toán ${flow.payableNow.toInt()}đ',
+          title: 'Chờ xác nhận',
+          description: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch',
           timestamp: DateTime.now(),
           isCompleted: true,
         ),

@@ -121,27 +121,6 @@ class SupabaseDataService {
   }
 
   // ==========================================
-  // 6. THANH TOÁN VIETQR (EDGE FUNCTION)
-  // ==========================================
-  Future<Map<String, dynamic>> generateVietQr({
-    String? invoiceId,
-    String? bookingId,
-    num? amount,
-    String? description,
-  }) async {
-    final response = await _client.post<Map<String, dynamic>>(
-      ApiEndpoints.vietQrPayment,
-      data: {
-        if (invoiceId != null) 'invoice_id': invoiceId,
-        if (bookingId != null) 'booking_id': bookingId,
-        if (amount != null) 'amount': amount,
-        if (description != null) 'description': description,
-      },
-    );
-    return response.data ?? {};
-  }
-
-  // ==========================================
   // 7. THÔNG BÁO (NOTIFICATIONS)
   // ==========================================
   Future<List<Map<String, dynamic>>> fetchMyNotifications(String userId) async {

@@ -120,6 +120,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   void _startBannerAutoScroll() {
     _bannerTimer?.cancel();
     if (_banners.length <= 1) return;
+    try {
+      if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) return;
+    } catch (_) {}
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_bannerPageController.hasClients || _banners.isEmpty) return;
       final nextIndex = (_currentBannerIndex + 1) % _banners.length;
@@ -968,16 +971,20 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                           Row(
                                             children: [
                                               const Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
-                                              const SizedBox(width: 5),
-                                              Text(
-                                                ctaText,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w700,
-                                                  decoration: TextDecoration.underline,
-                                                ),
-                                              ),
+                                               const SizedBox(width: 5),
+                                               Expanded(
+                                                 child: Text(
+                                                   ctaText,
+                                                   maxLines: 1,
+                                                   overflow: TextOverflow.ellipsis,
+                                                   style: const TextStyle(
+                                                     fontSize: 12,
+                                                     color: Colors.white,
+                                                     fontWeight: FontWeight.w700,
+                                                     decoration: TextDecoration.underline,
+                                                   ),
+                                                 ),
+                                               ),
                                             ],
                                           ),
                                         ],

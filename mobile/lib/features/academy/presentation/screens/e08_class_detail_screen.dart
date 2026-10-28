@@ -216,7 +216,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                           lessons: isExpanded
                               ? chapter.lessons.map((lesson) {
                                   final isDone = AcademyRepository.instance.isLessonCompleted(_courseId, lesson.id);
-                                  final isUnlocked = (lesson.isFreePreview) || (_isApproved && AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons));
                                   final ytid = _extractYoutubeId(lesson.videoUrl);
 
                                   return InkWell(
@@ -235,7 +234,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                               color: const Color(0xFF0F172A),
                                               borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
-                                                color: isUnlocked ? AppColors.primary.withValues(alpha: 0.3) : Colors.black12,
+                                                color: AppColors.primary.withValues(alpha: 0.3),
                                                 width: 1.0,
                                               ),
                                             ),
@@ -264,8 +263,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                     height: 70,
                                                     fit: BoxFit.cover,
                                                   ),
-                                                 if (!isUnlocked && !isDone)
-                                                   Container(color: Colors.black.withValues(alpha: 0.45)),
                                                 // Badge thời lượng ở góc dưới bên phải (ví dụ 94:48)
                                                 Positioned(
                                                   bottom: 4,
