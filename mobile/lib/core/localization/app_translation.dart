@@ -701,6 +701,7 @@ class AppTranslation {
     'Bạn chưa có gói liệu trình nào đã hoàn thành.': 'You have no completed treatment packages.',
     'Không có gói liệu trình nào hết hạn.': 'No expired treatment packages.',
     'Khám phá dịch vụ & đặt lịch': 'Explore Services & Book',
+    'Khám phá dịch vụ': 'Explore Services',
 
     'LỊCH SỬ TRỊ LIỆU': 'TREATMENT HISTORY',
     'Sau mỗi buổi trị liệu tại trung tâm, chuyên viên MLD sẽ ghi chép chi tiết kết quả phục hồi tại đây.': 'After each session at the center, MLD specialists will record your recovery results here.',

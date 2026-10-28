@@ -1,3 +1,4 @@
+import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
@@ -89,7 +90,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                     final usedSessions = _repo.packages.fold<int>(0, (sum, p) => sum + p.completedSessions);
 
                     final displayName = profile.fullName.trim().isNotEmpty ? profile.fullName : context.tr('Khách hàng', 'Customer');
-                    final memberTier = profile.memberTier.trim().isNotEmpty ? profile.memberTier.tr(context) : context.tr('Thành viên', 'Member');
+                    final phone = profile.phone.trim();
 
                     return Container(
                       width: double.infinity,
@@ -136,20 +137,21 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      memberTier,
-                                      style: const TextStyle(
-                                        fontFamily: 'Montserrat',
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
+                                    if (phone.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        phone,
+                                        style: const TextStyle(
+                                          fontFamily: 'Montserrat',
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textSecondary,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.workspace_premium_rounded, color: AppColors.primary, size: 24),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -363,7 +365,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const AllInOneBookingScreen()),
+                    MaterialPageRoute(builder: (_) => const B02ServiceListingScreen()),
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -374,7 +376,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                 ),
                 child: Text(
-                  context.tr('Khám phá dịch vụ & đặt lịch', 'Explore Services & Book'),
+                  context.tr('Khám phá dịch vụ', 'Explore Services'),
                   style: const TextStyle(
                     fontFamily: 'Montserrat',
                     fontSize: 13.5,
