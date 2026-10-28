@@ -216,7 +216,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                           lessons: isExpanded
                               ? chapter.lessons.map((lesson) {
                                   final isDone = AcademyRepository.instance.isLessonCompleted(_courseId, lesson.id);
-                                  final isUnlocked = AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons);
+                                  final isUnlocked = (lesson.isFreePreview) || (_isApproved && AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons));
                                   final ytid = _extractYoutubeId(lesson.videoUrl);
 
                                   return InkWell(

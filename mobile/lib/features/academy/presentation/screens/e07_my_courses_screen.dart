@@ -403,7 +403,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                   children: [
                     Builder(
                       builder: (ctx) {
-                        final isPending = course.status == 'PENDING_APPROVAL' || course.approvalStatus == 'PENDING_APPROVAL';
+                        final isPending = !AcademyRepository.instance.isCourseApproved(course.id, course.title);
                         if (isPending) {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -482,7 +482,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           const SizedBox(height: 14),
           Builder(
             builder: (ctx) {
-              final isPending = course.status == 'PENDING_APPROVAL' || course.approvalStatus == 'PENDING_APPROVAL';
+              final isPending = !AcademyRepository.instance.isCourseApproved(course.id, course.title);
               if (isPending) {
                 return SizedBox(
                   width: double.infinity,

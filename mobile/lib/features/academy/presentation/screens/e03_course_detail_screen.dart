@@ -6,6 +6,7 @@ import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e05_enrollment_form_screen.dart';
 import 'e08_class_detail_screen.dart';
+import 'e09_lesson_screen.dart';
 
 /// Screen E03: Chi tiết bài học & Khóa học
 /// - Header: Tên khóa học, Ảnh bìa, Thông số tinh gọn (số bài, số giờ, trạng thái - không chữ thừa, không icon rườm rà)
@@ -34,6 +35,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
   final Set<int> _expandedChapterIndices = {1}; // Mặc định mở Chương 1, các chương sau thu gọn
 
   bool get _isEnrolled => AcademyRepository.instance.isCourseEnrolled(widget.course.id, widget.course.title);
+  bool get _isApproved => AcademyRepository.instance.isCourseApproved(widget.course.id, widget.course.title);
   int get _totalLessonsCount => _chapters.fold<int>(0, (sum, c) => sum + c.lessons.length);
   List<LessonModel> get _allLessons => _chapters.expand((c) => c.lessons).toList();
 
@@ -75,6 +77,21 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
   }
 
   void _onLessonTap(LessonModel lesson) {
+    if (lesson.isFreePreview) {
+      // Cho phép học viên xem bài học thử miễn phí
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => E09LessonScreen(
+            lesson: lesson,
+            courseTitle: widget.course.title,
+            courseId: widget.course.id,
+          ),
+        ),
+      );
+      return;
+    }
+
     // Chưa đăng ký khóa học tuyệt đối không được xem bài học nào
     if (!_isEnrolled) {
       _showEnrollRequiredModal(lesson);
@@ -82,8 +99,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
     }
 
     // Đã đăng ký nhưng chưa được duyệt: không được xem
-    final isApproved = AcademyRepository.instance.isCourseApproved(widget.course.id, widget.course.title);
-    if (!isApproved) {
+    if (!_isApproved) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Khóa học đang chờ duyệt.'),
@@ -221,19 +237,31 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
       appBar: const AcademyAppBar(),
       bottomNavigationBar: AcademyFixedBottomBar(
         summaryText: _isEnrolled
-            ? 'Đã đăng ký khóa học'
+            ? (_isApproved ? 'Đã duyệt vào học' : 'Hồ sơ đang chờ duyệt & thanh toán')
             : 'Học phí · ${formatCurrency(course.tuitionFee)}đ',
-        buttonText: _isEnrolled ? 'Đã đăng ký' : 'Đăng ký học',
+        buttonText: _isEnrolled
+            ? (_isApproved ? 'Vào học ngay' : 'Chờ duyệt hồ sơ')
+            : 'Đăng ký học',
         onPressed: () {
           if (_isEnrolled) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => E08ClassDetailScreen(course: course),
-              ),
-            ).then((_) {
-              if (mounted) setState(() {});
-            });
+            if (_isApproved) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => E08ClassDetailScreen(course: course),
+                ),
+              ).then((_) {
+                if (mounted) setState(() {});
+              });
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('🔒 Hồ sơ đăng ký đang chờ Admin xét duyệt & xác nhận thanh toán. Bạn chưa thể vào học lúc này.'),
+                  backgroundColor: Color(0xFFD97706),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
           } else {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -251,6 +279,45 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_isEnrolled && !_isApproved) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 22),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Khóa học đang chờ Admin xét duyệt',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Bạn đã gửi đăng ký khóa học. Hồ sơ đang được Ban Quản Trị đối soát thanh toán và xét duyệt học phí trước khi mở quyền vào học.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // 1. Tên khóa học
             Text(
               course.title,
@@ -597,9 +664,8 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16, color: AcademyColors.cardBorder),
             itemBuilder: (context, index) {
               final lesson = chapter.lessons[index];
-              final isEnrolledOrFree = _isEnrolled || lesson.isFreePreview;
               final isCompleted = AcademyRepository.instance.isLessonCompleted(widget.course.id, lesson.id);
-              final isUnlocked = isEnrolledOrFree && AcademyRepository.instance.canAccessLesson(widget.course.id, lesson, _allLessons);
+              final isUnlocked = (lesson.isFreePreview) || (_isEnrolled && _isApproved && AcademyRepository.instance.canAccessLesson(widget.course.id, lesson, _allLessons));
               final ytid = _extractYoutubeId(lesson.videoUrl);
 
               // Tách phần tiêu đề nội dung sạch sẽ

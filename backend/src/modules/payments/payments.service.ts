@@ -420,4 +420,353 @@ export class PaymentsService {
     const desc = encodeURIComponent(description);
     return `https://api.vietqr.io/image/${this.bankBin}-${this.bankAccountNo}-compact2.jpg?amount=${amountStr}&addInfo=${desc}&accountName=${encodeURIComponent(this.bankAccountName)}`;
   }
+
+  /**
+   * 5. XỬ LÝ WEBHOOK TỰ ĐỘNG CHO CÁC CỔNG BIẾN ĐỘNG SỐ DƯ NGÂN HÀNG (SEPAY, CASSO, MBBANK)
+   */
+  async handleBankTransferWebhook(body: any, headers?: any) {
+    this.logger.log(`[Bank Transfer Webhook] Received webhook payload: ${JSON.stringify(body)}`);
+
+    let transactions: any[] = [];
+    if (body && (body.transferAmount !== undefined || body.content !== undefined)) {
+      // Dạng SePay đơn lẻ
+      transactions.push({
+        amount: Number(body.transferAmount || body.amount || 0),
+        content: String(body.content || body.description || ''),
+        referenceCode: String(body.referenceCode || body.code || body.id || ''),
+        gateway: body.gateway || 'SEPAY',
+        accountNumber: body.accountNumber || '',
+      });
+    } else if (body && Array.isArray(body.data)) {
+      // Dạng Casso danh sách
+      transactions = body.data.map((tx: any) => ({
+        amount: Number(tx.amount || 0),
+        content: String(tx.description || tx.content || ''),
+        referenceCode: String(tx.tid || tx.id || ''),
+        gateway: 'CASSO',
+        accountNumber: '',
+      }));
+    } else if (Array.isArray(body)) {
+      transactions = body.map((tx: any) => ({
+        amount: Number(tx.amount || tx.transferAmount || 0),
+        content: String(tx.content || tx.description || ''),
+        referenceCode: String(tx.referenceCode || tx.id || ''),
+        gateway: tx.gateway || 'BANK',
+        accountNumber: tx.accountNumber || '',
+      }));
+    } else if (body) {
+      transactions.push({
+        amount: Number(body.amount || 0),
+        content: String(body.content || body.description || ''),
+        referenceCode: String(body.referenceCode || body.id || ''),
+        gateway: 'UNIVERSAL',
+        accountNumber: '',
+      });
+    }
+
+    const results: any[] = [];
+
+    for (const tx of transactions) {
+      const { amount, content, referenceCode } = tx;
+      if (!amount || amount <= 0) continue;
+
+      const upperContent = content.toUpperCase();
+      this.logger.log(`[Reconcile Check] Analyzing transfer content: "${content}" with amount ${amount}đ`);
+
+      let matchedType: 'INVOICE' | 'ENROLLMENT' | 'BOOKING' | 'UNKNOWN' = 'UNKNOWN';
+      let matchedId: string | null = null;
+      let matchedCode: string | null = null;
+
+      // 1. Kiểm tra đối soát với Hóa đơn (invoices): HD-SPA-..., HD-HP-..., INV-...
+      const invMatch = upperContent.match(/(HD-SPA-[A-Z0-9_-]+|HD-HP-[A-Z0-9_-]+|INV-[A-Z0-9_-]+)/i);
+      if (invMatch) {
+        matchedCode = invMatch[1].toUpperCase();
+        const { data: inv } = await this.supabaseService.adminClient
+          .from('invoices')
+          .select('id, invoice_code, total_amount, payment_status, enrollment_id, booking_id, customer_id, branch_id')
+          .eq('invoice_code', matchedCode)
+          .maybeSingle();
+
+        if (inv) {
+          matchedType = 'INVOICE';
+          matchedId = inv.id;
+
+          await this.supabaseService.adminClient
+            .from('invoices')
+            .update({
+              payment_status: 'PAID',
+              paid_at: new Date().toISOString(),
+              gateway_transaction_id: referenceCode || 'BANK_TRANSFER_WEBHOOK',
+            })
+            .eq('id', inv.id);
+
+          if (inv.enrollment_id) {
+            await this.supabaseService.adminClient
+              .from('course_enrollments')
+              .update({
+                payment_status: 'PAID',
+                student_status: 'APPROVED',
+                approval_status: 'APPROVED',
+                status: 'ENROLLED',
+                amount_paid: amount,
+                approved_at: new Date().toISOString(),
+                approved_by: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+                approval_notes: `[Tự động đối soát Webhook Ngân hàng] Nhận ${amount.toLocaleString('vi-VN')}đ khớp ${matchedCode}`,
+              })
+              .eq('id', inv.enrollment_id);
+          }
+
+          if (inv.booking_id) {
+            await this.supabaseService.adminClient
+              .from('bookings')
+              .update({
+                payment_status: 'PAID',
+                status: 'COMPLETED',
+                checked_out_at: new Date().toISOString(),
+                special_notes: `[Tự động đối soát Webhook Ngân hàng] Đã thanh toán ${amount.toLocaleString('vi-VN')}đ`,
+              })
+              .eq('id', inv.booking_id);
+          }
+        }
+      }
+
+      // 2. Kiểm tra đối soát với Học viên / Khóa học: UAT-EDU-..., SEC-ENR-..., HV-...
+      if (matchedType === 'UNKNOWN') {
+        const enrMatch = upperContent.match(/(UAT-EDU-[A-Z0-9_-]+|SEC-ENR-[A-Z0-9_-]+|HV-[A-Z0-9_-]+)/i);
+        if (enrMatch) {
+          matchedCode = enrMatch[1].toUpperCase();
+          const { data: enr } = await this.supabaseService.adminClient
+            .from('course_enrollments')
+            .select('id, order_code, course_id, student_id, selected_branch, assigned_staff_id, final_tuition, tuition_total')
+            .or(`order_code.eq.${matchedCode},approval_notes.ilike.%${matchedCode}%`)
+            .maybeSingle();
+
+          if (enr) {
+            matchedType = 'ENROLLMENT';
+            matchedId = enr.id;
+
+            await this.supabaseService.adminClient
+              .from('course_enrollments')
+              .update({
+                payment_status: 'PAID',
+                student_status: 'APPROVED',
+                approval_status: 'APPROVED',
+                status: 'ENROLLED',
+                amount_paid: amount,
+                approved_at: new Date().toISOString(),
+                approved_by: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+                approval_notes: `[Tự động đối soát Webhook Ngân hàng] Đã nhận thanh toán ${amount.toLocaleString('vi-VN')}đ khớp mã ${matchedCode}`,
+              })
+              .eq('id', enr.id);
+
+            await this.supabaseService.adminClient
+              .from('tuition_transactions')
+              .insert({
+                transaction_code: `TX-BANK-${Date.now().toString().slice(-6)}`,
+                enrollment_id: enr.id,
+                student_id: enr.student_id,
+                course_id: enr.course_id,
+                amount: amount,
+                payment_method: 'BANK_TRANSFER',
+                payment_status: 'PAID',
+                notes: `Đối soát tự động qua Webhook Ngân hàng (Mã GD: ${referenceCode || 'WEBHOOK'})`,
+                paid_at: new Date().toISOString(),
+              });
+
+            if (enr.assigned_staff_id) {
+              const admissionCommissionAmt = Math.round((amount * 5.0) / 100);
+              await this.supabaseService.adminClient
+                .from('staff_commissions')
+                .insert({
+                  staff_id: enr.assigned_staff_id,
+                  commission_type: 'PACKAGE_UPSELL',
+                  base_amount: amount,
+                  percentage: 5.0,
+                  commission_amount: admissionCommissionAmt,
+                  status: 'APPROVED',
+                  cycle_month: new Date().toISOString().slice(0, 7),
+                  notes: `Hoa hồng tư vấn tuyển sinh 5% tự động trích qua Webhook khớp ${matchedCode}`,
+                });
+            }
+          }
+        }
+      }
+
+      // 3. Kiểm tra đối soát với Lịch hẹn Spa: UAT-SPA-..., BK-..., MLD-...
+      if (matchedType === 'UNKNOWN') {
+        const bkgMatch = upperContent.match(/(UAT-SPA-[A-Z0-9_-]+|BK-[A-Z0-9_-]+|MLD-[A-Z0-9_-]+)/i);
+        if (bkgMatch) {
+          matchedCode = bkgMatch[1].toUpperCase();
+          const { data: bkg } = await this.supabaseService.adminClient
+            .from('bookings')
+            .select('id, booking_code, technician_id, branch_id, customer_id, final_price, status')
+            .eq('booking_code', matchedCode)
+            .maybeSingle();
+
+          if (bkg) {
+            matchedType = 'BOOKING';
+            matchedId = bkg.id;
+
+            await this.supabaseService.adminClient
+              .from('bookings')
+              .update({
+                payment_status: 'PAID',
+                payment_method: 'BANK_TRANSFER',
+                status: bkg.status === 'IN_SERVICE' ? 'COMPLETED' : 'CONFIRMED',
+                special_notes: `[Tự động đối soát Webhook Ngân hàng] Đã thanh toán ${amount.toLocaleString('vi-VN')}đ khớp mã ${matchedCode}`,
+              })
+              .eq('id', bkg.id);
+
+            const invoiceCode = `HD-BANK-${Date.now().toString().slice(-6)}`;
+            const { data: createdInv } = await this.supabaseService.adminClient
+              .from('invoices')
+              .insert({
+                invoice_code: invoiceCode,
+                booking_id: bkg.id,
+                customer_id: bkg.customer_id,
+                branch_id: bkg.branch_id,
+                subtotal: amount,
+                total_amount: amount,
+                payment_method: 'BANK_TRANSFER',
+                payment_status: 'PAID',
+                gateway_transaction_id: referenceCode || 'BANK_TRANSFER_WEBHOOK',
+                paid_at: new Date().toISOString(),
+              })
+              .select('id')
+              .maybeSingle();
+
+            if (bkg.technician_id) {
+              const techCommissionAmt = Math.round((amount * 10.0) / 100);
+              await this.supabaseService.adminClient
+                .from('staff_commissions')
+                .insert({
+                  staff_id: bkg.technician_id,
+                  branch_id: bkg.branch_id,
+                  booking_id: bkg.id,
+                  invoice_id: createdInv?.id || null,
+                  commission_type: 'SERVICE_DIRECT',
+                  base_amount: amount,
+                  percentage: 10.0,
+                  commission_amount: techCommissionAmt,
+                  status: 'APPROVED',
+                  cycle_month: new Date().toISOString().slice(0, 7),
+                  notes: `Hoa hồng ca trực 10% tự động trích qua Webhook khớp ${matchedCode}`,
+                });
+            }
+          }
+        }
+      }
+
+      results.push({
+        content,
+        amount,
+        referenceCode,
+        matchedType,
+        matchedCode,
+        matchedId,
+        success: matchedType !== 'UNKNOWN',
+      });
+    }
+
+    return {
+      success: true,
+      message: `Đã xử lý ${results.length} giao dịch qua Webhook Ngân hàng tự động.`,
+      data: results,
+    };
+  }
+
+  /**
+   * 6. CƠ CHẾ TỰ ĐỘNG REFRESH ZALO ACCESS TOKEN (ZALO OAUTH V4)
+   */
+  async refreshZaloAccessToken(customConfig?: { appId?: string; appSecret?: string; refreshToken?: string }) {
+    let appId = customConfig?.appId;
+    let appSecret = customConfig?.appSecret;
+    let refreshToken = customConfig?.refreshToken;
+
+    if (!appId || !appSecret || !refreshToken) {
+      try {
+        const { data: cfg } = await this.supabaseService.adminClient
+          .from('zns_config')
+          .select('app_id, app_secret, refresh_token, access_token')
+          .eq('id', 'default')
+          .maybeSingle();
+
+        if (cfg) {
+          appId = appId || cfg.app_id;
+          appSecret = appSecret || cfg.app_secret;
+          refreshToken = refreshToken || cfg.refresh_token;
+        }
+      } catch (err) {
+        this.logger.warn(`Could not read zns_config: ${err}`);
+      }
+    }
+
+    if (!appId || !appSecret || !refreshToken) {
+      return {
+        success: false,
+        message: 'Thiếu thông tin cấu hình Zalo OAuth (App ID, App Secret hoặc Refresh Token). Vui lòng cập nhật trên trang W14.',
+      };
+    }
+
+    try {
+      this.logger.log(`[Zalo OAuth v4] Refreshing access token for App ID: ${appId}...`);
+      const bodyParams = new URLSearchParams({
+        refresh_token: refreshToken.trim(),
+        app_id: appId.trim(),
+        grant_type: 'refresh_token',
+      });
+
+      const response = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
+        method: 'POST',
+        headers: {
+          'secret_key': appSecret.trim(),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: bodyParams.toString(),
+      });
+
+      const data = await response.json();
+
+      if (data.access_token) {
+        const expiresInSeconds = Number(data.expires_in) || 90000;
+        const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+
+        await this.supabaseService.adminClient
+          .from('zns_config')
+          .upsert({
+            id: 'default',
+            app_id: appId,
+            app_secret: appSecret,
+            access_token: data.access_token,
+            refresh_token: data.refresh_token || refreshToken,
+            expires_at: expiresAt,
+            updated_at: new Date().toISOString(),
+          });
+
+        this.logger.log(`[Zalo OAuth v4] Refresh token success! New access token valid until ${expiresAt}`);
+
+        return {
+          success: true,
+          message: 'Làm mới Zalo Access Token thành công!',
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token || refreshToken,
+          expiresIn: expiresInSeconds,
+          expiresAt,
+        };
+      } else {
+        this.logger.error(`[Zalo OAuth v4 Error]: ${JSON.stringify(data)}`);
+        return {
+          success: false,
+          message: `Zalo trả về lỗi mã ${data.error || 'ERROR'}: ${data.message || 'Không thể làm mới token'}`,
+          details: data,
+        };
+      }
+    } catch (err: any) {
+      this.logger.error(`[Zalo OAuth Exception]: ${err.message}`);
+      return {
+        success: false,
+        message: `Lỗi kết nối tới máy chủ Zalo OAuth: ${err.message}`,
+      };
+    }
+  }
 }

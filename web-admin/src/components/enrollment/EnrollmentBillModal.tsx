@@ -6,6 +6,7 @@ export interface CandidateBillInfo {
   id: string;
   name: string;
   code: string; // Mã khách hàng (HV-xxxx)
+  orderCode?: string; // Mã đơn hàng (KH-xxxx)
   phone: string;
   email?: string;
   program: string;
@@ -43,8 +44,9 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
   const remaining = Math.max(0, rawTuition - (candidate.amountPaid || 0));
   const amountToPay = remaining > 0 ? remaining : rawTuition;
 
-  // Clean customer code for payment transfer
-  const cleanCode = (candidate.code || `HV-${candidate.id.slice(-4)}`).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  // Prioritize unique order code for accurate payment transfer matching (Spec 5.2 & 5.3)
+  const orderRef = candidate.orderCode || candidate.code || `KH-${candidate.id.slice(-6)}`;
+  const cleanCode = orderRef.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase();
   const transferContent = `MLD ${cleanCode}`;
 
   // VietQR Napas 247 generator URL
@@ -182,10 +184,15 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
               </div>
 
               <div className="text-left sm:text-right shrink-0 bg-[#FAF5EF] sm:bg-transparent p-3 sm:p-0 rounded-xl w-full sm:w-auto">
-                <div className="text-[11px] text-[#73675F]">MÃ KHÁCH HÀNG / HỌC VIÊN</div>
+                <div className="text-[11px] text-[#73675F]">MÃ ĐƠN HÀNG / THAM CHIẾU</div>
                 <div className="text-xl font-mono font-extrabold text-[#8D4B1A] tracking-wider">
-                  {candidate.code}
+                  {candidate.orderCode || candidate.code}
                 </div>
+                {candidate.orderCode && candidate.code && (
+                  <div className="text-[11px] text-[#73675F]">
+                    Mã KH: <span className="font-semibold">{candidate.code}</span>
+                  </div>
+                )}
                 <div className="text-[11px] text-[#73675F] mt-0.5">
                   Ngày in: {new Date().toLocaleDateString('vi-VN')}
                 </div>

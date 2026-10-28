@@ -26,6 +26,9 @@ import {
   XCircle,
   FileText,
   Send,
+  QrCode,
+  Activity,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   bookingService,
@@ -36,6 +39,7 @@ import {
   inventoryService,
   commissionService,
   znsService,
+  treatmentService,
 } from '../services';
 import { toast } from '../components/common';
 import {
@@ -48,8 +52,10 @@ import {
   PaymentMethod,
   Service,
   BranchRoom,
+  UserPackage,
+  TreatmentJournal,
 } from '../types/shared_types';
-import { matchSearch } from '../utils/searchUtils';
+import { matchSearch, isUuid } from '../utils/searchUtils';
 
 const SUPABASE_URL =
   (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
@@ -57,6 +63,7 @@ const SUPABASE_URL =
 interface ScheduleAppointment {
   id: string;
   technicianId: string;
+  customerId?: string;
   branchId?: string;
   title: string;
   subtitle: string;
@@ -124,12 +131,8 @@ export const TECHNICIAN_ROOM_MAP: Record<string, string> = {
   'cccccccc-0001-0001-0001-000000000007': 'Phòng Thải Độc Thảo Dược',
 };
 
-export const DEFAULT_FALLBACK_TECHNICIANS: ScheduleTechnician[] = [
-  { id: 'cccccccc-0001-0001-0001-000000000001', name: 'Trần Lan Anh', room: 'Phòng VIP 01 - Hoa Sen', role: 'Chuyên viên Trị liệu Cấp cao', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956' },
-  { id: 'cccccccc-0001-0001-0001-000000000002', name: 'Lê Quỳnh Nga', room: 'Phòng Massage Body 02', role: 'Chuyên viên Chăm sóc da & Dưỡng sinh', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2' },
-  { id: 'cccccccc-0001-0001-0001-000000000003', name: 'Nguyễn Thu Hà', room: 'Phòng Gội Đầu Dưỡng Sinh 03', role: 'Chuyên viên Chăm sóc Da & Phục hồi', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2' },
-  { id: 'cccccccc-0001-0001-0001-000000000004', name: 'Trần Minh Phương', room: 'Phòng Trị Liệu 04', role: 'Kỹ thuật viên Trị liệu & Bấm huyệt', avatar: 'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848' },
-];
+export const DEFAULT_FALLBACK_TECHNICIANS: ScheduleTechnician[] = [];
+
 
 export interface ScheduleValidationResult {
   isOverdue: boolean;
@@ -392,7 +395,7 @@ export const W05_StaffSchedule: React.FC = () => {
     }
 
     if (list.length === 0) {
-      return DEFAULT_FALLBACK_TECHNICIANS;
+      return [];
     }
 
     const validRooms = rooms.filter(
@@ -485,6 +488,7 @@ export const W05_StaffSchedule: React.FC = () => {
       return {
         id: b.id,
         technicianId: b.technicianId || '',
+        customerId: b.customerId,
         branchId: b.branchId,
         title: `${srvName.split(' ')[0]} · ${customerName}`,
         subtitle: `${timeRange} · ${statusLabel}`,
@@ -991,6 +995,185 @@ export const W05_StaffSchedule: React.FC = () => {
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
 
+  // Fast Check-in Modal State
+  const [showFastCheckInModal, setShowFastCheckInModal] = useState<boolean>(false);
+  const [fastCheckInQuery, setFastCheckInQuery] = useState<string>('');
+
+  // 1-Click Clinical Treatment Journal Modal State
+  const [showClinicalModal, setShowClinicalModal] = useState<boolean>(false);
+  const [clinicalApp, setClinicalApp] = useState<ScheduleAppointment | null>(null);
+  const [clinicalCustomerPackages, setClinicalCustomerPackages] = useState<UserPackage[]>([]);
+  const [selectedUserPackageId, setSelectedUserPackageId] = useState<string>('');
+  const [clinicalConditionBefore, setClinicalConditionBefore] = useState<string>('');
+  const [clinicalVodderAreas, setClinicalVodderAreas] = useState<string[]>([
+    'Vùng cổ mặt & hạch sau tai',
+    'Vùng hạch nách & cánh tay',
+  ]);
+  const [clinicalPressureLevel, setClinicalPressureLevel] = useState<'LIGHT' | 'MODERATE' | 'FIRM'>('LIGHT');
+  const [clinicalConditionAfter, setClinicalConditionAfter] = useState<string>('');
+  const [clinicalSpecialistAdvice, setClinicalSpecialistAdvice] = useState<string>(
+    'Uống 2L nước ấm, mang gen định hình/tất y khoa nếu có chỉ định, kiêng thực phẩm mặn và duy trì vận động nhẹ.'
+  );
+  const [isSavingClinical, setIsSavingClinical] = useState<boolean>(false);
+
+  const handleOpenClinicalModal = async (app: ScheduleAppointment) => {
+    setClinicalApp(app);
+    const targetBooking = liveBookings.find((b) => b.id === app.id);
+    const targetCustId = targetBooking?.customerId || app.customerId;
+
+    if (targetCustId && isUuid(targetCustId)) {
+      try {
+        const pkgRes = await treatmentService.getUserPackagesByCustomer(targetCustId);
+        if (pkgRes.success && pkgRes.data && pkgRes.data.length > 0) {
+          const activePkgs = pkgRes.data.filter(
+            (p) => p.status === 'ACTIVE' && p.completedSessions < p.totalSessions
+          );
+          setClinicalCustomerPackages(activePkgs);
+          if (activePkgs.length > 0) {
+            setSelectedUserPackageId(activePkgs[0].id);
+          } else {
+            setSelectedUserPackageId('');
+          }
+        } else {
+          setClinicalCustomerPackages([]);
+          setSelectedUserPackageId('');
+        }
+      } catch {
+        setClinicalCustomerPackages([]);
+        setSelectedUserPackageId('');
+      }
+    } else {
+      setClinicalCustomerPackages([]);
+      setSelectedUserPackageId('');
+    }
+
+    setClinicalConditionBefore(`Khách hàng ${app.customer}: Khảo sát ban đầu mô kẽ ứ dịch, căng tức nhẹ vùng điều trị.`);
+    setClinicalConditionAfter(`Sau phiên dẫn lưu Vodder: Mô mềm hóa rõ rệt, giải phóng ứ trệ, cảm giác nhẹ nhõm tức thì.`);
+    setShowClinicalModal(true);
+  };
+
+  const handleConfirmCompleteWithJournal = async () => {
+    if (!clinicalApp) return;
+    setIsSavingClinical(true);
+    try {
+      const targetBooking = liveBookings.find((b) => b.id === clinicalApp.id);
+      const targetCustomerId =
+        targetBooking?.customerId ||
+        clinicalApp.customerId ||
+        '00000000-0000-0000-0000-000000000000';
+      const targetServiceId = clinicalApp.serviceId || 'db29e3c0-c659-492c-8aef-a7d8abc772a3';
+      const targetBranchId = clinicalApp.branchId || (selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001');
+
+      // 1. Cập nhật booking status = COMPLETED
+      await handleUpdateBookingStatus(clinicalApp.id, BookingStatus.COMPLETED);
+
+      // 2. Ghi nhận hồ sơ bệnh án / nhật ký trị liệu lâm sàng (treatment_journal)
+      const combinedNotes = `[Vùng dẫn lưu Vodder]: ${clinicalVodderAreas.join(', ')} | [Mức áp lực]: ${
+        clinicalPressureLevel === 'LIGHT'
+          ? 'Nhẹ chuẩn Vodder 30-40mmHg'
+          : clinicalPressureLevel === 'MODERATE'
+          ? 'Vừa phải'
+          : 'Sâu chuyên biệt'
+      }`;
+
+      let sessionNum = 1;
+      let chosenPkg = clinicalCustomerPackages.find((p) => p.id === selectedUserPackageId);
+
+      if (chosenPkg) {
+        sessionNum = (chosenPkg.completedSessions || 0) + 1;
+        await treatmentService.completePackageSession(
+          chosenPkg.id,
+          chosenPkg.completedSessions,
+          chosenPkg.totalSessions,
+          {
+            bookingId: clinicalApp.id,
+            customerId: targetCustomerId,
+            technicianId: clinicalApp.technicianId || null,
+            assignedRoomId: null,
+            conditionBefore: clinicalConditionBefore,
+            conditionAfter: clinicalConditionAfter,
+            treatmentNotes: combinedNotes,
+            specialistAdvice: clinicalSpecialistAdvice,
+          }
+        );
+      } else {
+        await treatmentService.createTreatmentJournal({
+          bookingId: clinicalApp.id,
+          customerId: targetCustomerId,
+          technicianId: clinicalApp.technicianId || null,
+          assignedRoomId: null,
+          sessionNumber: 1,
+          sessionDate: new Date().toISOString().split('T')[0],
+          conditionBefore: clinicalConditionBefore,
+          conditionAfter: clinicalConditionAfter,
+          treatmentNotes: combinedNotes,
+          specialistAdvice: clinicalSpecialistAdvice,
+        });
+      }
+
+      // 3. Tự động trừ kho vật tư tiêu hao (BOM)
+      try {
+        await inventoryService.deductMaterialsForBooking({
+          bookingId: clinicalApp.id,
+          serviceId: targetServiceId,
+          branchId: targetBranchId,
+          technicianId: clinicalApp.technicianId || null,
+        });
+      } catch (bomErr) {
+        console.warn('Lỗi trừ kho BOM:', bomErr);
+      }
+
+      // 4. Tự động trích hoa hồng 10% KTV
+      if (clinicalApp.technicianId && isUuid(clinicalApp.technicianId)) {
+        try {
+          const rawPrice = parseInt(clinicalApp.price.replace(/\D/g, ''), 10) || 450000;
+          await commissionService.createCommission({
+            staffId: clinicalApp.technicianId,
+            branchId: targetBranchId,
+            bookingId: clinicalApp.id,
+            commissionType: 'SERVICE_DIRECT',
+            baseAmount: rawPrice,
+            percentage: 10,
+            notes: `Hoa hồng ca trị liệu ${clinicalApp.service} cho khách ${clinicalApp.customer}`,
+          });
+        } catch (commErr) {
+          console.warn('Lỗi ghi hoa hồng KTV:', commErr);
+        }
+      }
+
+      // 5. Tự động gửi tin nhắn Zalo ZNS dặn dò sau trị liệu
+      if (clinicalApp.customerPhone) {
+        try {
+          await znsService.sendZns({
+            recipientPhone: clinicalApp.customerPhone,
+            recipientName: clinicalApp.customer,
+            templateCode: 'POST_TREATMENT_CARE',
+            bookingId: clinicalApp.id,
+            paramsSent: {
+              customer_name: clinicalApp.customer,
+              service_name: clinicalApp.service,
+            },
+          });
+        } catch (znsErr) {
+          console.warn('Lỗi gửi ZNS:', znsErr);
+        }
+      }
+
+      setShowClinicalModal(false);
+      toast.success(
+        'Hoàn tất ca & Lưu bệnh án thành công!',
+        `Đã lưu hồ sơ bệnh án Vodder cho ${clinicalApp.customer}${
+          chosenPkg ? ` (Trừ buổi ${sessionNum}/${chosenPkg.totalSessions} của gói)` : ''
+        }, trích 10% hoa hồng KTV và trừ kho vật tư tiêu hao.`
+      );
+    } catch (err: any) {
+      console.error('Lỗi hoàn tất ca:', err);
+      toast.error('Lỗi thao tác', err?.message || 'Không thể lưu hồ sơ bệnh án.');
+    } finally {
+      setIsSavingClinical(false);
+    }
+  };
+
   // Set defaults for Create Modal
   useEffect(() => {
     if (services.length > 0 && !selectedServiceId) {
@@ -1020,12 +1203,12 @@ export const W05_StaffSchedule: React.FC = () => {
 
     setIsCreating(true);
     try {
-      const srv = services.find((s) => s.id === selectedServiceId) || services[0] || {
-        id: 'eeeeeeee-0001-0001-0001-000000000001',
-        name: 'Chăm sóc Da Mặt Chuyên Sâu Hydro-Care',
-        price: 650000,
-        durationMinutes: 75,
-      };
+      const srv = services.find((s) => s.id === selectedServiceId) || services[0];
+      if (!srv) {
+        toast.error('Chưa có dịch vụ', 'Vui lòng cấu hình dịch vụ trước khi lên lịch hẹn.');
+        setIsCreating(false);
+        return;
+      }
 
       const tech = branchTechnicians.find((t) => t.id === selectedTechId) || branchTechnicians[0];
       const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
@@ -1172,6 +1355,19 @@ export const W05_StaffSchedule: React.FC = () => {
               <span>{isDeleting ? 'Đang xóa...' : 'Xóa hết lịch đã đặt'}</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setFastCheckInQuery('');
+              setShowFastCheckInModal(true);
+            }}
+            className="px-4 py-2.5 bg-[#FAF0E4] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+            title="Quét mã QR hoặc tìm nhanh mã booking để tiếp đón khách vào phòng"
+          >
+            <QrCode className="w-4 h-4 text-[#8A4F23]" />
+            <span>Quét mã QR / Check-in</span>
+          </button>
 
           <button
             onClick={() => {
@@ -1452,7 +1648,16 @@ export const W05_StaffSchedule: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
+          {timetableColumns.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] p-12 text-center shadow-xs">
+              <UserIcon className="w-10 h-10 mx-auto text-[#BA7E4C] opacity-40 mb-3" />
+              <p className="font-bold text-sm text-[#2C241E]">Chưa có kỹ thuật viên trực tại chi nhánh</p>
+              <p className="text-xs text-[#8C7A6B] mt-1 max-w-md mx-auto">
+                Hiện chưa có kỹ thuật viên hoặc lịch hẹn nào trong ngày đã chọn. Bạn có thể bấm "Đặt lịch mới" hoặc quản lý nhân viên trong mục Hồ sơ nhân viên.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
             <div className="w-max min-w-full inline-block align-top">
               {/* Timetable Header Row */}
               <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full">
@@ -1634,6 +1839,7 @@ export const W05_StaffSchedule: React.FC = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Empty Notice if zero appointments on selected date */}
           {displayedAppointments.length === 0 && (
@@ -2054,55 +2260,11 @@ export const W05_StaffSchedule: React.FC = () => {
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
-                          onClick={() => {
-                            handleUpdateBookingStatus(selectedApp.id, BookingStatus.COMPLETED);
-
-                            // Giai đoạn 2: Tự động trừ kho nguyên vật liệu tiêu hao BOM
-                            const targetServiceId = selectedApp.serviceId || 'db29e3c0-c659-492c-8aef-a7d8abc772a3';
-                            const targetBranchId = selectedApp.branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
-                            inventoryService.deductMaterialsForBooking({
-                              bookingId: selectedApp.id,
-                              serviceId: targetServiceId,
-                              branchId: targetBranchId,
-                              technicianId: selectedApp.technicianId || null,
-                            });
-
-                            // Giai đoạn 2: Tự động ghi nhận hoa hồng KTV
-                            if (selectedApp.technicianId) {
-                              commissionService.createCommission({
-                                staffId: selectedApp.technicianId,
-                                branchId: targetBranchId,
-                                bookingId: selectedApp.id,
-                                commissionType: 'SERVICE_DIRECT',
-                                baseAmount: 450000,
-                                percentage: 10,
-                                notes: `Hoa hồng ca trị liệu ${selectedApp.service} cho khách ${selectedApp.customer}`,
-                              });
-                            }
-
-                            // Giai đoạn 2: Tự động gửi Zalo ZNS dặn dò sau trị liệu
-                            if (selectedApp.customerPhone) {
-                              znsService.sendZns({
-                                recipientPhone: selectedApp.customerPhone,
-                                recipientName: selectedApp.customer,
-                                templateCode: 'POST_TREATMENT_CARE',
-                                bookingId: selectedApp.id,
-                                paramsSent: {
-                                  customer_name: selectedApp.customer,
-                                  service_name: selectedApp.service,
-                                },
-                              });
-                            }
-
-                            toast.success(
-                              'Kết ca trị liệu hoàn tất!',
-                              `Ca của khách ${selectedApp.customer} đã hoàn tất. Đã tự động trừ kho vật tư (BOM), trích hoa hồng KTV và lên lịch Zalo ZNS dặn dò sau trị liệu.`
-                            );
-                          }}
-                          className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                          onClick={() => handleOpenClinicalModal(selectedApp)}
+                          className="w-full py-3 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Kết ca trị liệu (Giải phóng Giường & KTV)'}</span>
+                          <ClipboardCheck className="w-4 h-4" />
+                          <span>Ghi bệnh án & Kết thúc ca trị liệu</span>
                         </button>
                       )}
 
@@ -2725,6 +2887,399 @@ export const W05_StaffSchedule: React.FC = () => {
                   </button>
                 </>
               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Fast Check-in / Reception QR Modal */}
+      {showFastCheckInModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-[#EFE4D9] w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+            <div className="p-5 border-b border-[#EFE4D9] bg-gradient-to-r from-[#FAF0E4] to-[#FAF8F5] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#8A4F23] text-white flex items-center justify-center shadow-xs">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#3E200C]">Check-in Lễ Tân Siêu Tốc & Tiếp Đón</h3>
+                  <p className="text-xs text-[#73675F] mt-0.5">Quét mã QR hoặc tìm theo mã lịch hẹn / SĐT khách hàng</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFastCheckInModal(false)}
+                className="p-2 rounded-xl text-[#73675F] hover:bg-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+              {/* Search bar */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={fastCheckInQuery}
+                  onChange={(e) => setFastCheckInQuery(e.target.value)}
+                  placeholder="Nhập mã booking (ví dụ: BK-202610-...), SĐT hoặc tên khách..."
+                  className="w-full pl-10 pr-9 py-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#8C7A6B] focus:outline-none focus:border-[#8A4F23] focus:ring-1 focus:ring-[#8A4F23]/20 transition-all font-medium"
+                />
+                {fastCheckInQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setFastCheckInQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-white transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* List of matched appointments today */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-semibold text-[#73675F]">
+                  <span>Danh sách lịch hẹn hôm nay cần tiếp đón:</span>
+                  <span className="text-[11px] bg-[#FAF0E4] text-[#8A4F23] px-2 py-0.5 rounded-full font-bold">
+                    {displayedAppointments.filter((a) => a.statusRaw === 'CONFIRMED' || a.statusRaw === 'PENDING').length} ca chờ
+                  </span>
+                </div>
+
+                {displayedAppointments
+                  .filter((a) => {
+                    if (!fastCheckInQuery.trim()) return a.statusRaw === 'CONFIRMED' || a.statusRaw === 'PENDING';
+                    return matchSearch([a.customer, a.customerPhone, a.customerCode, a.service, a.technicianName], fastCheckInQuery);
+                  })
+                  .slice(0, 8)
+                  .map((app) => (
+                    <div
+                      key={app.id}
+                      className="p-3.5 rounded-2xl border border-[#EFE4D9] bg-[#FAF8F5] hover:bg-white hover:border-[#8A4F23]/40 transition-all shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[#2C241E]">{app.customer}</span>
+                          <span className="text-[10px] font-mono font-bold bg-[#E8DFD8] text-[#5C4D43] px-1.5 py-0.5 rounded">
+                            {app.customerCode}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              app.statusRaw === 'CONFIRMED'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : app.statusRaw === 'IN_SERVICE'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            {app.status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-[#73675F] flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-[#8A4F23]">{app.service}</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {app.timeRange}
+                          </span>
+                          <span>•</span>
+                          <span>KTV: <strong className="text-[#2C241E]">{app.technicianName}</strong></span>
+                          <span>•</span>
+                          <span>{app.resource}</span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-2">
+                        {app.statusRaw === 'CONFIRMED' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleCheckInAndStart(app);
+                              setSelectedAppId(app.id);
+                              setShowFastCheckInModal(false);
+                            }}
+                            className="px-4 py-2 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Tiếp đón ngay</span>
+                          </button>
+                        ) : app.statusRaw === 'PENDING' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleUpdateBookingStatus(app.id, BookingStatus.IN_SERVICE);
+                              setSelectedAppId(app.id);
+                              setShowFastCheckInModal(false);
+                            }}
+                            className="px-4 py-2 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Xác nhận & Tiếp đón</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAppId(app.id);
+                              setShowFastCheckInModal(false);
+                            }}
+                            className="px-3.5 py-1.5 bg-white border border-[#E8DFD8] text-[#73675F] hover:bg-[#FAF8F5] rounded-xl text-xs font-semibold cursor-pointer"
+                          >
+                            Xem chi tiết
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                {displayedAppointments.filter((a) => {
+                  if (!fastCheckInQuery.trim()) return a.statusRaw === 'CONFIRMED' || a.statusRaw === 'PENDING';
+                  return matchSearch([a.customer, a.customerPhone, a.customerCode, a.service, a.technicianName], fastCheckInQuery);
+                }).length === 0 && (
+                  <div className="text-center py-8 text-[#8C7A6B] text-xs">
+                    Không tìm thấy lịch hẹn nào cần tiếp đón khớp với từ khóa tìm kiếm.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-between text-xs text-[#73675F]">
+              <span>💡 Mẹo: Lễ tân có thể gõ 4 số cuối điện thoại của khách để tìm nhanh.</span>
+              <button
+                type="button"
+                onClick={() => setShowFastCheckInModal(false)}
+                className="px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl font-bold hover:bg-[#FAF0E4] transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. 1-Click Clinical Treatment Journal Modal */}
+      {showClinicalModal && clinicalApp && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-[#EFE4D9] w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-5 border-b border-[#EFE4D9] bg-gradient-to-r from-[#FAF0E4] to-[#FAF8F5] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-700 text-white flex items-center justify-center shadow-xs">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#3E200C]">Hồ Sơ Bệnh Án & Nhật Ký Trị Liệu Lâm Sàng</h3>
+                  <p className="text-xs text-[#73675F] mt-0.5">
+                    Ghi nhận kết quả phiên dẫn lưu Vodder · Giải phóng giường & KTV
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClinicalModal(false)}
+                className="p-2 rounded-xl text-[#73675F] hover:bg-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto text-xs">
+              {/* Customer summary card */}
+              <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold text-[#2C241E] flex items-center gap-2">
+                    <span>{clinicalApp.customer}</span>
+                    <span className="text-[10px] text-[#8A4F23] bg-[#FAF0E4] px-2 py-0.5 rounded-full font-bold">
+                      {clinicalApp.service}
+                    </span>
+                  </div>
+                  <div className="text-[#73675F] text-[11px] mt-0.5">
+                    KTV: <strong className="text-[#2C241E]">{clinicalApp.technicianName}</strong> · Phòng: <strong>{clinicalApp.resource}</strong> · Ca: <strong>{clinicalApp.timeRange}</strong>
+                  </div>
+                </div>
+
+                {clinicalCustomerPackages.length > 0 && (
+                  <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl font-medium flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <div className="font-bold text-[11px]">Khách hàng sở hữu gói liệu trình</div>
+                      <div className="text-[10px] text-emerald-700">
+                        Buổi {(clinicalCustomerPackages[0].completedSessions || 0) + 1} / {clinicalCustomerPackages[0].totalSessions} buổi
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Package Deduction Option */}
+              {clinicalCustomerPackages.length > 0 && (
+                <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-teal-900">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedUserPackageId)}
+                      onChange={(e) => {
+                        setSelectedUserPackageId(e.target.checked ? clinicalCustomerPackages[0].id : '');
+                      }}
+                      className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span>Tự động trừ 1 buổi trong Gói liệu trình của khách hàng</span>
+                  </label>
+                  {selectedUserPackageId && (
+                    <select
+                      value={selectedUserPackageId}
+                      onChange={(e) => setSelectedUserPackageId(e.target.value)}
+                      className="w-full bg-white border border-teal-300 rounded-xl px-3 py-2 text-xs text-teal-950 font-semibold focus:outline-none"
+                    >
+                      {clinicalCustomerPackages.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id}>
+                          {pkg.package?.name || 'Gói Trị Liệu MLD'} — Đã làm {pkg.completedSessions}/{pkg.totalSessions} buổi (Còn lại {pkg.totalSessions - pkg.completedSessions} buổi)
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* 1. Tình trạng trước trị liệu */}
+              <div>
+                <label className="block font-bold text-[#2C241E] mb-1">
+                  1. Khảo sát mô kẽ & Mức độ phù nề trước trị liệu
+                </label>
+                <input
+                  type="text"
+                  value={clinicalConditionBefore}
+                  onChange={(e) => setClinicalConditionBefore(e.target.value)}
+                  placeholder="Ví dụ: Phù nề mô kẽ độ 2, căng tức vùng chi dưới, da hơi căng bóng..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23]"
+                />
+              </div>
+
+              {/* 2. Vùng dẫn lưu Vodder */}
+              <div>
+                <label className="block font-bold text-[#2C241E] mb-1.5">
+                  2. Vùng dẫn lưu bạch huyết can thiệp (Phác đồ Vodder)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Vùng cổ mặt & hạch sau tai',
+                    'Vùng hạch nách & cánh tay',
+                    'Vùng hạch bẹn & chi dưới',
+                    'Dẫn lưu vùng bụng & eo sâu',
+                    'Vùng lưng & mạn sườn',
+                  ].map((area) => {
+                    const isSelected = clinicalVodderAreas.includes(area);
+                    return (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setClinicalVodderAreas(clinicalVodderAreas.filter((a) => a !== area));
+                          } else {
+                            setClinicalVodderAreas([...clinicalVodderAreas, area]);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#8A4F23] text-white border-[#8A4F23] shadow-xs'
+                            : 'bg-white text-[#5C4D43] border-[#E8DFD8] hover:bg-[#FAF8F5]'
+                        }`}
+                      >
+                        {area}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Mức áp lực thao tác */}
+              <div>
+                <label className="block font-bold text-[#2C241E] mb-1.5">
+                  3. Mức áp lực thao tác dẫn lưu
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { id: 'LIGHT', label: 'Nhẹ chuẩn Vodder', sub: '30–40 mmHg (Tiêu chuẩn)' },
+                    { id: 'MODERATE', label: 'Vừa phải', sub: 'Mô xơ hóa / Sẹo dính' },
+                    { id: 'FIRM', label: 'Sâu chuyên biệt', sub: 'Giải phóng mô sâu' },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setClinicalPressureLevel(p.id as any)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        clinicalPressureLevel === p.id
+                          ? 'bg-[#FAF0E4] border-[#8A4F23] text-[#8A4F23] ring-1 ring-[#8A4F23]'
+                          : 'bg-white border-[#E8DFD8] text-[#5C4D43] hover:bg-[#FAF8F5]'
+                      }`}
+                    >
+                      <div className="font-bold text-xs">{p.label}</div>
+                      <div className="text-[10px] text-[#73675F] mt-0.5">{p.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Kết quả & Đánh giá sau trị liệu */}
+              <div>
+                <label className="block font-bold text-[#2C241E] mb-1">
+                  4. Kết quả & Đánh giá sau phiên trị liệu
+                </label>
+                <input
+                  type="text"
+                  value={clinicalConditionAfter}
+                  onChange={(e) => setClinicalConditionAfter(e.target.value)}
+                  placeholder="Ví dụ: Mô mềm hóa rõ rệt, giảm căng tức tức thì, khách hàng cảm thấy nhẹ nhõm..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23]"
+                />
+              </div>
+
+              {/* 5. Lời dặn dò chuyên khoa */}
+              <div>
+                <label className="block font-bold text-[#2C241E] mb-1">
+                  5. Lời dặn dò chuyên gia (Tự động gửi kèm Zalo ZNS)
+                </label>
+                <textarea
+                  rows={2}
+                  value={clinicalSpecialistAdvice}
+                  onChange={(e) => setClinicalSpecialistAdvice(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23]"
+                />
+              </div>
+
+              {/* Auto actions notice */}
+              <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 text-[#783E15] text-[11px] space-y-1">
+                <div className="font-bold">⚡ Các mắt xích tự động kích hoạt khi lưu:</div>
+                <ul className="list-disc list-inside space-y-0.5 text-[10px] text-[#854412]">
+                  <li>Lưu nhật ký điều trị vào bảng <code>treatment_journals</code> trên Supabase Cloud.</li>
+                  <li>Tự động trừ 1 buổi trong gói liệu trình <code>user_packages</code> (nếu áp dụng).</li>
+                  <li>Tự động trừ kho vật tư tiêu hao (BOM) & Trích 10% hoa hồng KTV <code>staff_commissions</code>.</li>
+                  <li>Gửi tin nhắn Zalo ZNS dặn dò sau trị liệu cho khách hàng.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div className="p-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClinicalModal(false)}
+                className="px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#73675F] hover:bg-[#FAF0E4] transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isSavingClinical}
+                onClick={handleConfirmCompleteWithJournal}
+                className="px-6 py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <ClipboardCheck className="w-4 h-4" />
+                <span>{isSavingClinical ? 'Đang ghi nhận bệnh án...' : 'Lưu Bệnh Án & Hoàn Thành Ca'}</span>
+              </button>
             </div>
           </div>
         </div>

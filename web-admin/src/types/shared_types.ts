@@ -107,6 +107,34 @@ export enum EnrollmentStatus {
   DROPPED = 'DROPPED',
 }
 
+export enum ConsultationStatus {
+  PENDING_CONSULTATION = 'PENDING_CONSULTATION',
+  CONSULTING = 'CONSULTING',
+  CONFIRMED = 'CONFIRMED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PaymentVerificationStatus {
+  UNPAID = 'UNPAID',
+  PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  EXPIRED = 'EXPIRED',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum StudentAdmissionStatus {
+  NOT_APPROVED = 'NOT_APPROVED',
+  APPROVED = 'APPROVED',
+  ENROLLED = 'ENROLLED',
+}
+
+export interface ConsultationNote {
+  timestamp: string;
+  author: string;
+  note: string;
+}
+
 export enum LessonType {
   VIDEO = 'VIDEO',
   READING_DOC = 'READING_DOC',
@@ -572,9 +600,29 @@ export interface CourseEnrollment {
   approvedBy?: string;
   approvedAt?: string;
   approvalNotes?: string;
+  // Quy trình 3 nhóm trạng thái độc lập
+  orderCode?: string;
+  consultationStatus?: ConsultationStatus | string;
+  paymentVerificationStatus?: PaymentVerificationStatus | string;
+  studentAdmissionStatus?: StudentAdmissionStatus | string;
+  assignedStaffId?: string | null;
+  finalTuition?: number;
+  consultationHistory?: ConsultationNote[];
+  qrCreatedAt?: string | null;
   student?: User;
   course?: Course;
   batch?: CourseBatch;
+}
+
+export interface BatchSchedule {
+  id: string;
+  batchId: string;
+  assignedRoomId?: string | null;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  topic: string;
+  isPracticeLab: boolean;
 }
 
 export interface StudentAttendance {
