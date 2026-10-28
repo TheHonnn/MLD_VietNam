@@ -32,6 +32,7 @@ import {
   StudentAttendance,
   AttendanceStatus,
   DualSlotAvailability,
+  InvoiceSyncResult,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -71,6 +72,29 @@ class SupabaseService {
         if (res.ok) {
           const json = await res.json();
           return json as T;
+        }
+
+        // Retry với public anon key nếu token JWT trong storage hết hạn (401)
+        if (res.status === 401) {
+          try {
+            const retryRes = await fetch(fullUrl, {
+              ...options,
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                Prefer: 'return=representation',
+                apikey: this.key,
+                Authorization: `Bearer ${this.key}`,
+                ...(options.headers || {}),
+              },
+            });
+            if (retryRes.ok) {
+              const retryJson = await retryRes.json();
+              return retryJson as T;
+            }
+          } catch {
+            // bỏ qua lỗi retry
+          }
         }
       } catch {
         // Fallback to local adminApi if direct fetch fails
@@ -1372,49 +1396,93 @@ class SupabaseService {
 
   // 11. HÓA ĐƠN THU NGÂN (INVOICES)
   async getInvoices(branchId?: string, customerId?: string): Promise<Invoice[] | null> {
-    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city)&order=paid_at.desc`;
+    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city),items:invoice_items(*)&order=paid_at.desc`;
     if (branchId && branchId !== 'ALL') path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
     const raw = await this.query<any[]>(path);
     if (!raw || raw.length === 0) return null;
 
-    return raw.map((inv) => ({
-      id: inv.id,
-      invoiceCode: inv.invoice_code,
-      branchId: inv.branch_id,
-      customerId: inv.customer_id,
-      cashierId: inv.cashier_id,
-      bookingId: inv.booking_id,
-      userPackageId: inv.user_package_id,
-      enrollmentId: inv.enrollment_id,
-      subtotal: Number(inv.subtotal),
-      discountAmount: Number(inv.discount_amount || 0),
-      pointsRedeemedAmount: Number(inv.points_redeemed_amount || 0),
-      vatAmount: Number(inv.vat_amount || 0),
-      totalAmount: Number(inv.total_amount),
-      paymentMethod: inv.payment_method,
-      paymentStatus: inv.payment_status,
-      gatewayTransactionId: inv.gateway_transaction_id,
-      refundAmount: Number(inv.refund_amount || 0),
-      paidAt: inv.paid_at,
-      customer: inv.customer ? {
-        id: inv.customer.id,
-        fullName: inv.customer.full_name || 'Khách hàng',
-        phone: inv.customer.phone || '--',
-        email: inv.customer.email,
-        avatarUrl: inv.customer.avatar_url,
-        membershipTier: inv.customer.membership_tier,
-      } as any : undefined,
-      branch: inv.branch ? {
-        id: inv.branch.id,
-        name: inv.branch.name,
-        code: inv.branch.code,
-        address: inv.branch.address,
-        district: inv.branch.district,
-        city: inv.branch.city,
-      } as any : undefined,
-    }));
+    return raw.map((inv) => {
+      const parsedItems = Array.isArray(inv.items)
+        ? inv.items.map((it: any) => ({
+            id: it.id,
+            itemName: it.item_name,
+            itemType: it.item_type,
+            quantity: Number(it.quantity || 1),
+            unitPrice: Number(it.unit_price || 0),
+            amount: Number(it.amount || 0),
+          }))
+        : [];
+
+      return {
+        id: inv.id,
+        invoiceCode: inv.invoice_code,
+        branchId: inv.branch_id,
+        customerId: inv.customer_id,
+        cashierId: inv.cashier_id,
+        bookingId: inv.booking_id,
+        userPackageId: inv.user_package_id,
+        enrollmentId: inv.enrollment_id,
+        subtotal: Number(inv.subtotal),
+        discountAmount: Number(inv.discount_amount || 0),
+        pointsRedeemedAmount: Number(inv.points_redeemed_amount || 0),
+        vatAmount: Number(inv.vat_amount || 0),
+        totalAmount: Number(inv.total_amount),
+        paymentMethod: inv.payment_method,
+        paymentStatus: inv.payment_status,
+        gatewayTransactionId: inv.gateway_transaction_id,
+        refundAmount: Number(inv.refund_amount || 0),
+        paidAt: inv.paid_at,
+        customer: inv.customer ? {
+          id: inv.customer.id,
+          fullName: inv.customer.full_name || 'Khách hàng',
+          phone: inv.customer.phone || '--',
+          email: inv.customer.email,
+          avatarUrl: inv.customer.avatar_url,
+          membershipTier: inv.customer.membership_tier,
+        } as any : undefined,
+        branch: inv.branch ? {
+          id: inv.branch.id,
+          name: inv.branch.name,
+          code: inv.branch.code,
+          address: inv.branch.address,
+          district: inv.branch.district,
+          city: inv.branch.city,
+        } as any : undefined,
+        items: parsedItems,
+        serviceTitle: parsedItems.length > 0 ? parsedItems.map((i: { itemName: string }) => i.itemName).join(', ') : undefined,
+        serviceCategory: inv.enrollment_id ? 'ACADEMY' : inv.user_package_id ? 'PACKAGE' : 'SERVICE',
+      };
+    });
+  }
+
+  // 11.1. ĐỒNG BỘ HÓA ĐƠN VÀ DOANH THU THỜI GIAN THỰC (AUTOMATED REVENUE & INVOICE SYNC)
+  async syncInvoicesAndRevenue(): Promise<InvoiceSyncResult | null> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_sync_invoices_and_revenue', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+
+      if (res && res.length > 0) {
+        return {
+          syncedEnrollmentInvoices: Number(res[0].synced_enrollment_invoices || 0),
+          syncedBookingInvoices: Number(res[0].synced_booking_invoices || 0),
+          syncedTuitionTransactions: Number(res[0].synced_tuition_transactions || 0),
+          totalSyncedAmount: Number(res[0].total_synced_amount || 0),
+        };
+      }
+      return {
+        syncedEnrollmentInvoices: 0,
+        syncedBookingInvoices: 0,
+        syncedTuitionTransactions: 0,
+        totalSyncedAmount: 0,
+      };
+    } catch (err) {
+      console.warn('[SupabaseService] syncInvoicesAndRevenue error:', err);
+      return null;
+    }
   }
 
   // Tạo mới Hóa đơn Thu ngân (Invoice) trực tiếp trên Supabase
