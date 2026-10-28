@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabaseApi } from '@/api/supabase';
+import { zaloAuthService } from '@/api/zalo-auth-service';
 import { UserProfile } from '@/core/types';
 import {
   User,
@@ -20,21 +21,31 @@ import {
   ChevronRight,
   X,
   Award,
+  LogIn,
 } from 'lucide-react';
 
 interface ProfileScreenProps {
+  currentUser?: UserProfile;
+  onProfileUpdated?: (updated: UserProfile) => void;
   onNavigateTab: (tab: 'home' | 'services' | 'academy' | 'treatment' | 'profile') => void;
   onOpenAppointments: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
+  currentUser,
+  onProfileUpdated,
   onNavigateTab,
   onOpenAppointments,
 }) => {
-  const [profile, setProfile] = useState<UserProfile>(supabaseApi.getUserProfile());
+  const [profile, setProfile] = useState<UserProfile>(currentUser || supabaseApi.getUserProfile());
   const [appointmentsCount, setAppointmentsCount] = useState(0);
 
-  // Modals
+  // Modals & Auth State
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [showManualPhoneModal, setShowManualPhoneModal] = useState(false);
+  const [manualPhoneInput, setManualPhoneInput] = useState('');
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
@@ -48,11 +59,68 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [editGender, setEditGender] = useState(profile.gender || 'Nữ');
 
   useEffect(() => {
-    const p = supabaseApi.getUserProfile();
-    setProfile(p);
+    if (currentUser) {
+      setProfile(currentUser);
+      setEditName(currentUser.fullName);
+      setEditPhone(currentUser.phone);
+      setEditEmail(currentUser.email);
+    } else {
+      const p = supabaseApi.getUserProfile();
+      setProfile(p);
+      setEditName(p.fullName);
+      setEditPhone(p.phone);
+      setEditEmail(p.email);
+    }
     const appts = supabaseApi.getAppointments();
     setAppointmentsCount(appts.length);
-  }, []);
+  }, [currentUser]);
+
+  const handleZaloLogin = async () => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+    try {
+      const result = await zaloAuthService.loginWithZalo();
+      if (result.success && result.user) {
+        setProfile(result.user);
+        onProfileUpdated?.(result.user);
+      } else {
+        setShowManualPhoneModal(true);
+      }
+    } catch (err: any) {
+      console.warn('Zalo login prompt error:', err);
+      setShowManualPhoneModal(true);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleManualPhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualPhoneInput.trim()) return;
+    setIsLoggingIn(true);
+    setLoginError(null);
+    try {
+      const result = await zaloAuthService.loginWithZalo(manualPhoneInput.trim());
+      if (result.success && result.user) {
+        setProfile(result.user);
+        onProfileUpdated?.(result.user);
+        setShowManualPhoneModal(false);
+        setManualPhoneInput('');
+      } else {
+        setLoginError(result.error || 'Không thể xác thực số điện thoại. Vui lòng thử lại.');
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (window.confirm('Bạn có chắc chắn muốn đăng xuất tài khoản? Ứng dụng sẽ chuyển về chế độ khách.')) {
+      const guest = await zaloAuthService.logout();
+      setProfile(guest);
+      onProfileUpdated?.(guest);
+    }
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +132,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       gender: editGender,
     });
     setProfile(updated);
+    onProfileUpdated?.(updated);
     setIsEditModalOpen(false);
   };
 
@@ -78,33 +147,51 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               alt={profile.fullName}
               className="w-16 h-16 rounded-full object-cover border-2 border-white/60 shadow"
             />
-            <button
-              onClick={() => setIsEditModalOpen(true)}
-              className="absolute -bottom-1 -right-1 bg-white text-blue-600 p-1 rounded-full shadow hover:bg-blue-50 transition"
-              title="Chỉnh sửa ảnh"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
+            {profile.isPhoneVerified && (
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="absolute -bottom-1 -right-1 bg-white text-blue-600 p-1 rounded-full shadow hover:bg-blue-50 transition"
+                title="Chỉnh sửa hồ sơ"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2">
-              <h1 className="text-base font-bold truncate">{profile.fullName}</h1>
-              {profile.isPhoneVerified && (
-                <span className="bg-emerald-500/30 text-emerald-200 text-[10px] px-1.5 py-0.2 rounded font-semibold flex items-center">
+              <h1 className="text-base font-bold truncate">
+                {profile.isPhoneVerified ? profile.fullName : 'Khách hàng'}
+              </h1>
+              {profile.isPhoneVerified ? (
+                <span className="bg-emerald-500/30 text-emerald-200 text-[10px] px-1.5 py-0.2 rounded font-semibold flex items-center shrink-0">
                   <CheckCircle className="w-3 h-3 mr-0.5" />
                   Đã xác thực
                 </span>
+              ) : (
+                <span className="bg-white/20 text-blue-100 text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0">
+                  Chế độ khách
+                </span>
               )}
             </div>
-            <p className="text-xs text-blue-100 flex items-center mt-1 truncate">
-              <Mail className="w-3.5 h-3.5 mr-1 shrink-0 text-blue-200" />
-              {profile.email}
-            </p>
-            <p className="text-xs text-blue-100 flex items-center mt-0.5 truncate">
-              <Phone className="w-3.5 h-3.5 mr-1 shrink-0 text-blue-200" />
-              {profile.phone}
-            </p>
+            {profile.isPhoneVerified ? (
+              <>
+                <p className="text-xs text-blue-100 flex items-center mt-1 truncate">
+                  <Phone className="w-3.5 h-3.5 mr-1 shrink-0 text-blue-200" />
+                  {profile.phone}
+                </p>
+                {profile.email && (
+                  <p className="text-xs text-blue-100 flex items-center mt-0.5 truncate">
+                    <Mail className="w-3.5 h-3.5 mr-1 shrink-0 text-blue-200" />
+                    {profile.email}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-blue-100/90 mt-1">
+                Chưa kết nối tài khoản Zalo
+              </p>
+            )}
           </div>
         </div>
 
@@ -137,6 +224,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Banner Đăng nhập Zalo 1-Chạm khi ở chế độ Khách */}
+        {!profile.isPhoneVerified && (
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-slate-900">Đăng nhập tài khoản MLD</h3>
+                <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                  Xác thực 1-chạm qua Zalo để đồng bộ lịch hẹn, mở khóa tiến độ học viện và nhận thông báo nhắc lịch trị liệu.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleZaloLogin}
+                  disabled={isLoggingIn}
+                  className="mt-3 w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center space-x-2 transition cursor-pointer"
+                >
+                  {isLoggingIn ? (
+                    <span>Đang kết nối Zalo...</span>
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4 mr-1" />
+                      <span>Đăng nhập bằng Zalo 1-chạm</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Section 1: Dịch vụ & Trị liệu */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
@@ -310,6 +428,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </a>
+
+            {/* Nút Đăng xuất - Chỉ hiển thị khi đã đăng nhập */}
+            {profile.isPhoneVerified && (
+              <div
+                onClick={handleLogout}
+                className="p-3.5 flex items-center justify-between hover:bg-rose-50 cursor-pointer transition text-rose-600 border-t border-slate-100"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                    <LogOut className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold block">Đăng xuất tài khoản</span>
+                    <span className="text-[11px] text-slate-400">Trở về chế độ khách khám phá</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-300" />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -481,6 +618,56 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 Tôi đã hiểu
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Manual Phone Modal (Dự phòng khi chạy ngoài Zalo hoặc SDK không hỗ trợ) */}
+      {showManualPhoneModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900">Kết nối Số điện thoại Zalo</h3>
+              </div>
+              <button
+                onClick={() => setShowManualPhoneModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Nhập số điện thoại Zalo của bạn để đồng bộ hồ sơ khách hàng và lưu trữ lịch hẹn:
+            </p>
+
+            <form onSubmit={handleManualPhoneSubmit} className="space-y-3">
+              <div>
+                <input
+                  type="tel"
+                  placeholder="Ví dụ: 0967786399"
+                  value={manualPhoneInput}
+                  onChange={(e) => setManualPhoneInput(e.target.value)}
+                  className="w-full text-xs p-3 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-600 font-semibold"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              {loginError && (
+                <p className="text-[11px] text-rose-600 font-medium">{loginError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoggingIn}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition disabled:opacity-50"
+              >
+                {isLoggingIn ? 'Đang xác thực...' : 'Xác nhận kết nối'}
+              </button>
+            </form>
           </div>
         </div>
       )}

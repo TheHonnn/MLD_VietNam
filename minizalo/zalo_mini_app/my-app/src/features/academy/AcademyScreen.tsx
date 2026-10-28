@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabaseApi } from '@/api/supabase';
+import { zaloAuthService } from '@/api/zalo-auth-service';
 import { Course, Chapter, Lesson, QuizQuestion } from '@/core/types';
 import {
   GraduationCap,
@@ -615,8 +616,12 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
             <div className="space-y-2 pt-2">
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (selectedCourse) {
+                    const currentProf = supabaseApi.getUserProfile();
+                    if (!currentProf.isPhoneVerified) {
+                      await zaloAuthService.loginWithZalo().catch(console.warn);
+                    }
                     supabaseApi.enrollCourse(selectedCourse.id);
                   }
                   setShowEnrollModal(false);

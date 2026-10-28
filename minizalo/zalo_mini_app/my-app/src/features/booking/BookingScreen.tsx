@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Branch, SpaService, Appointment, UserProfile } from '@/core/types';
 import { SupabaseDataService } from '@/api/supabase';
-import { Calendar, Clock, MapPin, User, Phone, CheckCircle, ArrowLeft, AlertCircle, FileText } from 'lucide-react';
+import { zaloAuthService } from '@/api/zalo-auth-service';
+import { Calendar, Clock, MapPin, User, Phone, CheckCircle, ArrowLeft, AlertCircle, FileText, Zap } from 'lucide-react';
 
 export const MINI_APP_SPA_SLOTS = [
   { label: '09:00 – 10:00', startTime: '09:00:00', endTime: '10:00:00' },
@@ -66,10 +67,37 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   
 
   // Customer form
-  const [customerName, setCustomerName] = useState<string>(currentUser.fullName || 'Khách hàng MLD');
-  const [customerPhone, setCustomerPhone] = useState<string>(currentUser.phone || '0967786399');
+  const [customerName, setCustomerName] = useState<string>(
+    currentUser.isPhoneVerified && currentUser.fullName ? currentUser.fullName : ''
+  );
+  const [customerPhone, setCustomerPhone] = useState<string>(
+    currentUser.isPhoneVerified && currentUser.phone ? currentUser.phone : ''
+  );
   const [note, setNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isQuickFilling, setIsQuickFilling] = useState(false);
+
+  useEffect(() => {
+    if (currentUser.isPhoneVerified) {
+      if (currentUser.fullName) setCustomerName(currentUser.fullName);
+      if (currentUser.phone) setCustomerPhone(currentUser.phone);
+    }
+  }, [currentUser]);
+
+  const handleQuickZaloFill = async () => {
+    setIsQuickFilling(true);
+    try {
+      const res = await zaloAuthService.loginWithZalo();
+      if (res.success && res.user) {
+        setCustomerName(res.user.fullName);
+        setCustomerPhone(res.user.phone);
+      }
+    } catch (e) {
+      console.warn('Quick fill error:', e);
+    } finally {
+      setIsQuickFilling(false);
+    }
+  };
 
   // Success Modal
   const [confirmedBooking, setConfirmedBooking] = useState<Appointment | null>(null);
@@ -81,8 +109,13 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerName.trim() || !customerPhone.trim()) {
-      alert('Vui lòng nhập đầy đủ họ tên và số điện thoại!');
+      alert('Vui lòng nhập đầy đủ họ tên và số điện thoại liên hệ!');
       return;
+    }
+
+    // Tự động đồng bộ số điện thoại vào Supabase nếu đang ở chế độ khách
+    if (!currentUser.isPhoneVerified && customerPhone.trim()) {
+      zaloAuthService.syncWithSupabase(customerPhone.trim(), customerName.trim()).catch(console.warn);
     }
 
     setIsSubmitting(true);
@@ -249,10 +282,23 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
 
         {/* 5. THÔNG TIN KHÁCH HÀNG */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs space-y-3">
-          <label className="text-xs font-bold text-gray-800 flex items-center">
-            <User className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
-            Thông tin người đặt lịch
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-gray-800 flex items-center">
+              <User className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+              Thông tin người đặt lịch
+            </label>
+            {!currentUser.isPhoneVerified && (
+              <button
+                type="button"
+                onClick={handleQuickZaloFill}
+                disabled={isQuickFilling}
+                className="text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 active:scale-95 px-2.5 py-1 rounded-lg border border-blue-200 flex items-center space-x-1 cursor-pointer transition"
+              >
+                <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+                <span>{isQuickFilling ? 'Đang lấy SĐT...' : 'Điền nhanh từ Zalo'}</span>
+              </button>
+            )}
+          </div>
 
           <div>
             <label className="text-[11px] text-gray-400 block mb-1">Họ và tên *</label>
