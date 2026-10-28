@@ -632,6 +632,8 @@ export interface DualSlotAvailability {
   remainingCapacity: number;
   statusText: string;
   recommendedOrder: number;
+  isRecommended?: boolean;
+  recommendedTag?: string | null;
 }
 
 export interface BatchSchedule {

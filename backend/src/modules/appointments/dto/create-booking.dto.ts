@@ -75,5 +75,10 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   bookingCode?: string;
+
+  @ApiProperty({ description: 'Số/Mã giường trị liệu (G-VIP-01, G-BODY-01, ...)', required: false })
+  @IsOptional()
+  @IsString()
+  assignedBedNumber?: string;
 }
 

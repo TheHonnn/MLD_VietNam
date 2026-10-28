@@ -107,6 +107,7 @@ export class AppointmentsService {
 
     const bookingCode = dto.bookingCode || `MLD-BK-${Date.now().toString().slice(-6)}`;
     const effectiveUserId = userId && userId !== 'default-user' ? userId : 'bbbbbbbb-0001-0001-0001-000000000001';
+    const targetBranchId = branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
 
     // 1. Lấy thông tin Dịch vụ & Giá từ Supabase
     let basePrice = 450000;
@@ -134,6 +135,65 @@ export class AppointmentsService {
       .update(`${bookingCode}-${effectiveUserId}-${Date.now()}`)
       .digest('hex');
 
+    // 1.1. Kiểm tra năng lực phục vụ kép (DRC: 6 Giường × 6 KTV × Ca 1 Giờ)
+    try {
+      const { data: drcData } = await this.supabaseService.adminClient.rpc(
+        'fn_check_slot_dual_availability',
+        {
+          p_branch_id: targetBranchId,
+          p_booking_date: bookingDate,
+          p_start_time: startTime,
+          p_end_time: calculatedEndTime,
+        }
+      );
+      const drc = drcData?.[0];
+      if (drc && !drc.is_available) {
+        throw new ConflictException(
+          `Không thể đặt lịch: ${drc.reason} (Giường trống: ${drc.free_beds}/6, Chuyên viên rảnh: ${drc.free_staff})`
+        );
+      }
+    } catch (checkErr: any) {
+      if (checkErr instanceof ConflictException) throw checkErr;
+      this.logger.warn(`Lỗi kiểm tra DRC: ${checkErr.message}`);
+    }
+
+    // 1.2. Thuật toán Least-Busy Dispatch: Tự động gán KTV ít ca nhất trong ngày để kín lịch đều cho 6 KTV
+    let assignedTechnicianId = technicianId;
+    if (!assignedTechnicianId) {
+      try {
+        const dispatched = await this.dispatchLeastBusyTechnician(
+          targetBranchId,
+          bookingDate,
+          startTime,
+          calculatedEndTime,
+        );
+        if (dispatched && dispatched.technicianId) {
+          assignedTechnicianId = dispatched.technicianId;
+        }
+      } catch (dispatchErr: any) {
+        this.logger.warn(`Lỗi điều phối Least-Busy Dispatch: ${dispatchErr.message}`);
+      }
+    }
+
+    // 1.3. Gán giường trị liệu trong 6 giường cố định (2 VIP, 4 Body Massage)
+    const standardBeds = ['G-VIP-01', 'G-VIP-02', 'G-BODY-01', 'G-BODY-02', 'G-BODY-03', 'G-BODY-04'];
+    let assignedBed = dto.assignedBedNumber;
+    if (!assignedBed) {
+      try {
+        const { data: occupiedBeds } = await this.supabaseService.adminClient
+          .from('bookings')
+          .select('assigned_bed_number')
+          .eq('branch_id', targetBranchId)
+          .eq('booking_date', bookingDate)
+          .in('status', ['CONFIRMED', 'IN_SERVICE', 'PENDING']);
+
+        const occSet = new Set((occupiedBeds || []).map((o) => o.assigned_bed_number).filter(Boolean));
+        assignedBed = standardBeds.find((b) => !occSet.has(b)) || 'G-BODY-01';
+      } catch (_) {
+        assignedBed = 'G-BODY-01';
+      }
+    }
+
     let createdBooking: any = null;
 
     try {
@@ -159,8 +219,9 @@ export class AppointmentsService {
         .insert({
           booking_code: bookingCode,
           customer_id: effectiveUserId,
-          branch_id: branchId,
-          technician_id: technicianId || null,
+          branch_id: targetBranchId,
+          technician_id: assignedTechnicianId || null,
+          assigned_bed_number: assignedBed,
           booking_date: bookingDate,
           start_time: startTime,
           end_time: calculatedEndTime,
@@ -184,7 +245,7 @@ export class AppointmentsService {
         await this.supabaseService.adminClient.from('booking_items').insert({
           booking_id: booking.id,
           service_id: serviceId,
-          technician_id: technicianId || null,
+          technician_id: assignedTechnicianId || null,
           duration_minutes: durationMinutes,
           price: basePrice,
         });
@@ -306,45 +367,43 @@ export class AppointmentsService {
     const branchId = currentBooking?.branch_id || 'aaaaaaaa-0001-0001-0001-000000000001';
     let assignedTechnicianId = technicianId || currentBooking?.technician_id;
 
-    // 2. PHÂN NHÁNH QUY TẮC
-    if (isAutoAssign) {
-      // --- NHÁNH 1: RANDOM NHÂN VIÊN ---
-      // Tìm chuyên viên tại chi nhánh đang rảnh vào newDate và newStartTime
-      let freeTechId: string | null = null;
-
-      try {
-        // Lấy danh sách kỹ thuật viên tại chi nhánh
-        const { data: techs } = await this.supabaseService.adminClient
-          .from('technicians')
-          .select('id, full_name')
-          .eq('branch_id', branchId);
-
-        if (techs && techs.length > 0) {
-          // Lấy danh sách những chuyên viên đã có lịch vào giờ này
-          const { data: busyBookings } = await this.supabaseService.adminClient
-            .from('bookings')
-            .select('technician_id')
-            .eq('branch_id', branchId)
-            .eq('booking_date', newDate)
-            .eq('start_time', newStartTime)
-            .neq('id', bookingId)
-            .neq('status', 'CANCELLED');
-
-          const busyIds = new Set((busyBookings || []).map((b) => b.technician_id).filter(Boolean));
-          const availableTech = techs.find((t) => !busyIds.has(t.id));
-
-          if (availableTech) {
-            freeTechId = availableTech.id;
-          }
-        }
-      } catch (_) {}
-
-      if (!freeTechId) {
-        // Mock fallback technician if DB isn't seeded
-        freeTechId = 'cccccccc-0001-0001-0001-000000000002'; // Lê Quỳnh Nga
+    // 2.0. Kiểm tra năng lực phục vụ kép (DRC: 6 Giường × 6 KTV) cho khung giờ mới
+    try {
+      const { data: drcData } = await this.supabaseService.adminClient.rpc(
+        'fn_check_slot_dual_availability',
+        {
+          p_branch_id: branchId,
+          p_booking_date: newDate,
+          p_start_time: newStartTime,
+          p_end_time: calculatedEndTime,
+        },
+      );
+      const drc = drcData?.[0];
+      if (drc && !drc.is_available) {
+        throw new ConflictException(
+          `Không thể đổi sang khung giờ này: ${drc.reason} (Giường trống: ${drc.free_beds}/6, Chuyên viên rảnh: ${drc.free_staff})`,
+        );
       }
+    } catch (checkErr: any) {
+      if (checkErr instanceof ConflictException) throw checkErr;
+      this.logger.warn(`Lỗi kiểm tra DRC khi reschedule: ${checkErr.message}`);
+    }
 
-      assignedTechnicianId = freeTechId;
+    // 2.1. PHÂN NHÁNH QUY TẮC ĐIỀU PHỐI KTV
+    if (isAutoAssign) {
+      // --- NHÁNH 1: LEAST-BUSY TECHNICIAN DISPATCH ---
+      const dispatched = await this.dispatchLeastBusyTechnician(
+        branchId,
+        newDate,
+        newStartTime,
+        calculatedEndTime,
+      );
+      if (!dispatched || !dispatched.technicianId) {
+        throw new ConflictException(
+          'Không còn chuyên viên nào sẵn sàng trong khung giờ đã chọn. Vui lòng chọn khung giờ khác!',
+        );
+      }
+      assignedTechnicianId = dispatched.technicianId;
     } else {
       // --- NHÁNH 2: CHỈ ĐỊNH CHUYÊN VIÊN ---
       // Bắt buộc kiểm tra chuyên viên này có rảnh khung giờ newDate và newStartTime không
@@ -436,53 +495,126 @@ export class AppointmentsService {
   }
 
   /**
-   * 4. TRA CỨU KHUNG GIỜ CÒN TRỐNG & LÝ DO BẬN (SLOTS & AVAILABILITY)
+   * 4. TRA CỨU KHUNG GIỜ CÒN TRỐNG & LÝ DO BẬN (DUAL-RESOURCE AVAILABILITY: 6 GIƯỜNG × 6 KTV × CA 1 TIẾNG)
    */
   async getAvailableSlots(branchId: string, date: string, technicianId?: string, isAutoAssign?: boolean) {
-    const allHours = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
-    const slots: any[] = [];
+    const effectiveBranchId = branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
 
-    // Lấy danh sách booking bận trong ngày tại chi nhánh
-    let busyBookings: any[] = [];
+    // 0. Tự động giải phóng các ca quá giờ trước khi tra cứu slot
+    await this.autoReleaseExpiredBookings(effectiveBranchId).catch(() => {});
+
     try {
-      let q = this.supabaseService.adminClient
-        .from('bookings')
-        .select('id, start_time, technician_id')
-        .eq('booking_date', date)
-        .neq('status', 'CANCELLED');
+      // 1. Gọi RPC tính toán năng lực kép của toàn bộ 10 ca 1 tiếng trong ngày
+      const { data: rpcSlots, error: rpcErr } = await this.supabaseService.adminClient.rpc(
+        'fn_get_day_slots_dual_availability',
+        {
+          p_branch_id: effectiveBranchId,
+          p_booking_date: date,
+        }
+      );
 
-      if (branchId) q = q.eq('branch_id', branchId);
-      if (technicianId && !isAutoAssign) q = q.eq('technician_id', technicianId);
+      // Nếu có technicianId được chỉ định riêng (không phải random KTV)
+      const techBusySlots: Set<string> = new Set();
+      if (technicianId && !isAutoAssign) {
+        const { data: techBookings } = await this.supabaseService.adminClient
+          .from('bookings')
+          .select('start_time, end_time')
+          .eq('branch_id', effectiveBranchId)
+          .eq('booking_date', date)
+          .eq('technician_id', technicianId)
+          .in('status', ['CONFIRMED', 'IN_SERVICE', 'PENDING']);
 
-      const { data } = await q;
-      if (data) busyBookings = data;
-    } catch (_) {}
-
-    for (const time of allHours) {
-      if (isAutoAssign) {
-        // Random NV: rảnh nếu không phải toàn bộ KTV đều bận
-        slots.push({
-          time,
-          isAvailable: true,
-          statusText: 'Còn chuyên viên sẵn sàng',
-          isHeld: false,
-        });
-      } else {
-        // Chỉ định NV: kiểm tra lịch của KTV đó
-        const isBusy = busyBookings.some((b) => b.start_time === time || b.start_time?.startsWith(time));
-        slots.push({
-          time,
-          isAvailable: !isBusy,
-          statusText: isBusy ? 'Đã có khách đặt' : 'Còn trống',
-          unavailabilityReason: isBusy ? 'Nhân viên đang được đặt lịch với khách hàng khác' : null,
-          isHeld: false,
-        });
+        if (techBookings) {
+          for (const tb of techBookings) {
+            techBusySlots.add(tb.start_time?.slice(0, 5) || tb.start_time);
+          }
+        }
       }
+
+      if (!rpcErr && rpcSlots && rpcSlots.length > 0) {
+        const slots = rpcSlots.map((s: any) => {
+          const startTimeStr = s.start_time ? s.start_time.slice(0, 5) : '09:00';
+          const isTechBusy = Boolean(technicianId && !isAutoAssign && techBusySlots.has(startTimeStr));
+          const isAvailable = Boolean(s.is_available && !isTechBusy);
+
+          let statusText = s.status_text;
+          let unavailabilityReason: string | null = null;
+
+          if (isTechBusy) {
+            statusText = 'KTV đã kín lịch';
+            unavailabilityReason = 'Chuyên viên chỉ định đã có lịch phục vụ khách hàng khác trong khung giờ này';
+          } else if (!s.is_available) {
+            unavailabilityReason = s.status_text;
+          }
+
+          return {
+            time: startTimeStr,
+            slotTime: s.slot_time,
+            startTime: s.start_time,
+            endTime: s.end_time,
+            isAvailable,
+            freeBeds: Number(s.free_beds || 0),
+            freeStaff: Number(s.free_staff || 0),
+            remainingCapacity: isAvailable ? Number(s.remaining_capacity || 0) : 0,
+            statusText,
+            unavailabilityReason,
+            isHeld: false,
+            isRecommended: false,
+            recommendedTag: null as string | null,
+          };
+        });
+
+        // 2. Tối ưu hóa phân bổ (Compact Slot Recommendation): Ưu tiên slot liền kề ca đã có khách
+        for (let i = 0; i < slots.length; i++) {
+          if (slots[i].isAvailable) {
+            const prev = slots[i - 1];
+            const next = slots[i + 1];
+            const prevHasClients = prev && prev.remainingCapacity < 6;
+            const nextHasClients = next && next.remainingCapacity < 6;
+            if (prevHasClients || nextHasClients) {
+              slots[i].isRecommended = true;
+              slots[i].recommendedTag = 'Khung giờ gợi ý tốt nhất';
+            }
+          }
+        }
+
+        return {
+          success: true,
+          data: slots,
+        };
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi khi gọi RPC fn_get_day_slots_dual_availability: ${err.message}`);
     }
+
+    // Fallback chuẩn 10 ca 1 tiếng nếu RPC gặp sự cố tạm thời
+    const fallbackSlots = [
+      { time: '09:00', slotTime: '09:00–10:00', startTime: '09:00:00', endTime: '10:00:00' },
+      { time: '10:00', slotTime: '10:00–11:00', startTime: '10:00:00', endTime: '11:00:00' },
+      { time: '11:00', slotTime: '11:00–12:00', startTime: '11:00:00', endTime: '12:00:00' },
+      { time: '13:30', slotTime: '13:30–14:30', startTime: '13:30:00', endTime: '14:30:00' },
+      { time: '14:30', slotTime: '14:30–15:30', startTime: '14:30:00', endTime: '15:30:00' },
+      { time: '15:30', slotTime: '15:30–16:30', startTime: '15:30:00', endTime: '16:30:00' },
+      { time: '16:30', slotTime: '16:30–17:30', startTime: '16:30:00', endTime: '17:30:00' },
+      { time: '17:30', slotTime: '17:30–18:30', startTime: '17:30:00', endTime: '18:30:00' },
+      { time: '18:30', slotTime: '18:30–19:30', startTime: '18:30:00', endTime: '19:30:00' },
+      { time: '19:30', slotTime: '19:30–20:30', startTime: '19:30:00', endTime: '20:30:00' },
+    ].map((f) => ({
+      ...f,
+      isAvailable: true,
+      freeBeds: 6,
+      freeStaff: 6,
+      remainingCapacity: 6,
+      statusText: 'Còn 6 chỗ',
+      unavailabilityReason: null,
+      isHeld: false,
+      isRecommended: false,
+      recommendedTag: null,
+    }));
 
     return {
       success: true,
-      data: slots,
+      data: fallbackSlots,
     };
   }
 
@@ -672,6 +804,145 @@ export class AppointmentsService {
       success: true,
       message: 'Hủy lịch hẹn thành công',
     };
+  }
+
+  /**
+   * 8. LEAST-BUSY TECHNICIAN DISPATCH (Cân bằng tải 6 KTV theo số ca trong ngày)
+   */
+  async dispatchLeastBusyTechnician(
+    branchId: string,
+    bookingDate: string,
+    startTime: string,
+    endTime: string,
+  ): Promise<{ technicianId: string; fullName: string; sessionsToday: number } | null> {
+    const targetBranchId = branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
+    try {
+      const { data, error } = await this.supabaseService.adminClient.rpc(
+        'fn_dispatch_least_busy_technician',
+        {
+          p_branch_id: targetBranchId,
+          p_booking_date: bookingDate,
+          p_start_time: startTime,
+          p_end_time: endTime,
+        },
+      );
+
+      if (!error && data && data.length > 0) {
+        return {
+          technicianId: data[0].technician_id,
+          fullName: data[0].full_name,
+          sessionsToday: Number(data[0].sessions_today || 0),
+        };
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi gọi RPC fn_dispatch_least_busy_technician: ${err.message}`);
+    }
+
+    // Fallback quét trực tiếp DB nếu RPC gặp sự cố tạm thời
+    try {
+      const { data: techs } = await this.supabaseService.adminClient
+        .from('technicians')
+        .select('id, full_name')
+        .eq('branch_id', targetBranchId)
+        .eq('is_active', true);
+
+      if (!techs || techs.length === 0) return null;
+
+      const { data: dayBookings } = await this.supabaseService.adminClient
+        .from('bookings')
+        .select('technician_id, start_time, end_time')
+        .eq('branch_id', targetBranchId)
+        .eq('booking_date', bookingDate)
+        .in('status', ['CONFIRMED', 'IN_SERVICE', 'PENDING']);
+
+      const counts: Record<string, number> = {};
+      const busyTechIdsInSlot = new Set<string>();
+
+      for (const t of techs) counts[t.id] = 0;
+
+      for (const b of (dayBookings || [])) {
+        if (b.technician_id) {
+          counts[b.technician_id] = (counts[b.technician_id] || 0) + 1;
+          if (
+            (b.start_time <= startTime && b.end_time > startTime) ||
+            (b.start_time < endTime && b.end_time >= endTime) ||
+            (b.start_time >= startTime && b.end_time <= endTime)
+          ) {
+            busyTechIdsInSlot.add(b.technician_id);
+          }
+        }
+      }
+
+      const availableTechs = techs.filter((t) => !busyTechIdsInSlot.has(t.id));
+      if (availableTechs.length === 0) return null;
+
+      availableTechs.sort((a, b) => counts[a.id] - counts[b.id]);
+      return {
+        technicianId: availableTechs[0].id,
+        fullName: availableTechs[0].full_name,
+        sessionsToday: counts[availableTechs[0].id],
+      };
+    } catch (fallbackErr: any) {
+      this.logger.warn(`Lỗi fallback least busy: ${fallbackErr.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 9. AUTO-RELEASE COMPLETED BOOKINGS (Tự động nhả 6 Giường × 6 KTV khi hết ca)
+   */
+  async autoReleaseExpiredBookings(branchId?: string): Promise<{ releasedCount: number; message: string }> {
+    try {
+      const { data, error } = await this.supabaseService.adminClient.rpc(
+        'fn_release_completed_bookings',
+        { p_branch_id: branchId || null },
+      );
+
+      if (!error && data && data.length > 0) {
+        return {
+          releasedCount: Number(data[0].released_count || 0),
+          message: data[0].message || 'Đã giải phóng tài nguyên thành công',
+        };
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi RPC release bookings: ${err.message}`);
+    }
+
+    // Fallback trực tiếp DB
+    try {
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentTimeStr = now.toTimeString().split(' ')[0];
+
+      let query = this.supabaseService.adminClient
+        .from('bookings')
+        .select('id')
+        .eq('booking_date', todayStr)
+        .lte('end_time', currentTimeStr)
+        .in('status', ['IN_SERVICE', 'CONFIRMED']);
+
+      if (branchId) query = query.eq('branch_id', branchId);
+
+      const { data: pastBookings } = await query;
+      let releasedCount = 0;
+      if (pastBookings && pastBookings.length > 0) {
+        for (const b of pastBookings) {
+          await this.supabaseService.adminClient
+            .from('bookings')
+            .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
+            .eq('id', b.id);
+          releasedCount++;
+        }
+      }
+
+      return {
+        releasedCount,
+        message: `Đã tự động giải phóng ${releasedCount} ca trị liệu hoàn tất (nhả giường & KTV).`,
+      };
+    } catch (fallbackErr: any) {
+      this.logger.error(`Lỗi fallback auto-release: ${fallbackErr.message}`);
+      return { releasedCount: 0, message: fallbackErr.message };
+    }
   }
 
   private calculateEndTime(startTime: string, durationMinutes: number): string {

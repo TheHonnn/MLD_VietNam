@@ -1186,6 +1186,146 @@ class SupabaseService {
     }
   }
 
+  // 10.1. DUAL-RESOURCE CAPACITY & AUTO-RELEASE (6 GIƯỜNG × 6 KTV × CA 1 TIẾNG)
+  async getDaySlotsDualAvailability(branchId: string, bookingDate: string): Promise<DualSlotAvailability[]> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_get_day_slots_dual_availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+          p_booking_date: bookingDate,
+        }),
+      });
+
+      if (!res || res.length === 0) return [];
+
+      return res.map((r: any) => ({
+        slotTime: r.slot_time,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        isAvailable: Boolean(r.is_available),
+        freeBeds: Number(r.free_beds || 0),
+        freeStaff: Number(r.free_staff || 0),
+        remainingCapacity: Number(r.remaining_capacity || 0),
+        statusText: r.status_text || (r.is_available ? 'Còn chỗ' : 'Hết chỗ'),
+        recommendedOrder: Number(r.recommended_order || 0),
+      }));
+    } catch (err) {
+      console.warn('[SupabaseService] getDaySlotsDualAvailability error:', err);
+      return [];
+    }
+  }
+
+  async checkSlotDualAvailability(
+    branchId: string,
+    bookingDate: string,
+    startTime: string,
+    endTime: string
+  ): Promise<DualSlotAvailability | null> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_check_slot_dual_availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+          p_booking_date: bookingDate,
+          p_start_time: startTime,
+          p_end_time: endTime,
+        }),
+      });
+
+      if (!res || res.length === 0) return null;
+      const r = res[0];
+      return {
+        slotTime: `${startTime.slice(0, 5)}–${endTime.slice(0, 5)}`,
+        startTime,
+        endTime,
+        isAvailable: Boolean(r.is_available),
+        freeBeds: Number(r.free_beds || 0),
+        freeStaff: Number(r.free_staff || 0),
+        remainingCapacity: Number(r.remaining_capacity || 0),
+        statusText: r.reason || (r.is_available ? 'Còn chỗ' : 'Hết chỗ'),
+        recommendedOrder: 1,
+      };
+    } catch (err) {
+      console.warn('[SupabaseService] checkSlotDualAvailability error:', err);
+      return null;
+    }
+  }
+
+  async releaseCompletedBookings(branchId?: string): Promise<{ releasedCount: number; message: string }> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_release_completed_bookings', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId && isUuid(branchId) ? branchId : null,
+        }),
+      });
+
+      if (res && res.length > 0) {
+        return {
+          releasedCount: Number(res[0].released_count || 0),
+          message: res[0].message || 'Đã giải phóng tài nguyên thành công',
+        };
+      }
+
+      // Fallback update trực tiếp
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().split(' ')[0];
+      let filter = `booking_date=eq.${todayStr}&end_time=lte.${timeStr}&status=in.(CONFIRMED,IN_SERVICE)`;
+      if (branchId && isUuid(branchId)) filter += `&branch_id=eq.${branchId}`;
+
+      const past = await this.query<any[]>(`bookings?${filter}&select=id`);
+      let releasedCount = 0;
+      if (past && past.length > 0) {
+        for (const item of past) {
+          await this.query(`bookings?id=eq.${item.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'COMPLETED' }),
+          });
+          releasedCount++;
+        }
+      }
+
+      return {
+        releasedCount,
+        message: `Đã tự động giải phóng ${releasedCount} ca trị liệu hoàn tất (nhả giường & KTV).`,
+      };
+    } catch (err: any) {
+      console.warn('[SupabaseService] releaseCompletedBookings error:', err);
+      return { releasedCount: 0, message: err?.message || 'Lỗi khi giải phóng tài nguyên' };
+    }
+  }
+
+  async dispatchLeastBusyTechnician(
+    branchId: string,
+    bookingDate: string,
+    startTime: string,
+    endTime: string
+  ): Promise<{ technicianId: string; fullName: string; sessionsToday: number } | null> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_dispatch_least_busy_technician', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId && isUuid(branchId) ? branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+          p_booking_date: bookingDate,
+          p_start_time: startTime,
+          p_end_time: endTime,
+        }),
+      });
+
+      if (!res || res.length === 0) return null;
+      return {
+        technicianId: res[0].technician_id,
+        fullName: res[0].full_name,
+        sessionsToday: Number(res[0].sessions_today || 0),
+      };
+    } catch (err) {
+      console.warn('[SupabaseService] dispatchLeastBusyTechnician error:', err);
+      return null;
+    }
+  }
+
   // Xóa lịch hẹn theo ID trên Supabase Cloud
   async deleteBooking(bookingId: string): Promise<boolean> {
     if (!isUuid(bookingId)) {
@@ -2662,85 +2802,6 @@ class SupabaseService {
     } catch (err) {
       console.warn('[SupabaseService] saveBatchAttendance error:', err);
       return false;
-    }
-  }
-
-  // 17. BỘ ĐIỀU PHỐI ĐẶT LỊCH DUAL-RESOURCE (6 GIƯỜNG × 6 KTV × CA 1 TIẾNG)
-  public async getDaySlotsDualAvailability(
-    branchId: string,
-    bookingDate: string
-  ): Promise<DualSlotAvailability[]> {
-    try {
-      const res = await this.query<any[]>('rpc/fn_get_day_slots_dual_availability', {
-        method: 'POST',
-        body: JSON.stringify({
-          p_branch_id: branchId,
-          p_booking_date: bookingDate,
-        }),
-      });
-
-      if (!res || !Array.isArray(res)) return [];
-
-      return res.map((r) => ({
-        slotTime: r.slot_time,
-        startTime: r.start_time,
-        endTime: r.end_time,
-        isAvailable: Boolean(r.is_available),
-        freeBeds: Number(r.free_beds || 0),
-        freeStaff: Number(r.free_staff || 0),
-        remainingCapacity: Number(r.remaining_capacity || 0),
-        statusText: r.status_text,
-        recommendedOrder: Number(r.recommended_order || 0),
-      }));
-    } catch (err) {
-      console.warn('[SupabaseService] getDaySlotsDualAvailability error:', err);
-      return [];
-    }
-  }
-
-  public async checkSlotDualAvailability(
-    branchId: string,
-    bookingDate: string,
-    startTime: string,
-    endTime: string
-  ): Promise<{
-    isAvailable: boolean;
-    totalBeds: number;
-    occupiedBeds: number;
-    freeBeds: number;
-    totalStaffOnDuty: number;
-    busyStaff: number;
-    freeStaff: number;
-    remainingCapacity: number;
-    reason: string;
-  } | null> {
-    try {
-      const res = await this.query<any[]>('rpc/fn_check_slot_dual_availability', {
-        method: 'POST',
-        body: JSON.stringify({
-          p_branch_id: branchId,
-          p_booking_date: bookingDate,
-          p_start_time: startTime,
-          p_end_time: endTime,
-        }),
-      });
-
-      if (!res || res.length === 0) return null;
-      const r = res[0];
-      return {
-        isAvailable: Boolean(r.is_available),
-        totalBeds: Number(r.total_beds || 6),
-        occupiedBeds: Number(r.occupied_beds || 0),
-        freeBeds: Number(r.free_beds || 0),
-        totalStaffOnDuty: Number(r.total_staff_on_duty || 0),
-        busyStaff: Number(r.busy_staff || 0),
-        freeStaff: Number(r.free_staff || 0),
-        remainingCapacity: Number(r.remaining_capacity || 0),
-        reason: r.reason,
-      };
-    } catch (err) {
-      console.warn('[SupabaseService] checkSlotDualAvailability error:', err);
-      return null;
     }
   }
 

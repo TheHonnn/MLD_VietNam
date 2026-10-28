@@ -54,6 +54,7 @@ import {
   BranchRoom,
   UserPackage,
   TreatmentJournal,
+  DualSlotAvailability,
 } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 
@@ -99,17 +100,16 @@ interface ScheduleAppointment {
 
 
 export const TIME_SLOT_OPTIONS = [
-  { label: '09:00–10:15', startHour: 9.0, durationHours: 1.25, bufferTimeRange: '10:15–10:30', bufferEndTime: '10:30' },
-  { label: '09:30–10:45', startHour: 9.5, durationHours: 1.25, bufferTimeRange: '10:45–11:00', bufferEndTime: '11:00' },
-  { label: '10:00–11:15', startHour: 10.0, durationHours: 1.25, bufferTimeRange: '11:15–11:30', bufferEndTime: '11:30' },
-  { label: '11:00–12:00', startHour: 11.0, durationHours: 1.0, bufferTimeRange: '12:00–12:15', bufferEndTime: '12:15' },
-  { label: '13:30–14:45', startHour: 13.5, durationHours: 1.25, bufferTimeRange: '14:45–15:00', bufferEndTime: '15:00' },
-  { label: '14:00–15:30', startHour: 14.0, durationHours: 1.5, bufferTimeRange: '15:30–15:45', bufferEndTime: '15:45' },
-  { label: '15:00–16:15', startHour: 15.0, durationHours: 1.25, bufferTimeRange: '16:15–16:30', bufferEndTime: '16:30' },
-  { label: '15:30–17:00', startHour: 15.5, durationHours: 1.5, bufferTimeRange: '17:00–17:15', bufferEndTime: '17:15' },
-  { label: '16:30–17:45', startHour: 16.5, durationHours: 1.25, bufferTimeRange: '17:45–18:00', bufferEndTime: '18:00' },
-  { label: '17:00–18:15', startHour: 17.0, durationHours: 1.25, bufferTimeRange: '18:15–18:30', bufferEndTime: '18:30' },
-  { label: '18:00–19:15', startHour: 18.0, durationHours: 1.25, bufferTimeRange: '19:15–19:30', bufferEndTime: '19:30' },
+  { label: '09:00–10:00', startHour: 9.0, durationHours: 1.0, bufferTimeRange: '10:00–10:15', bufferEndTime: '10:00', startTime: '09:00:00', endTime: '10:00:00' },
+  { label: '10:00–11:00', startHour: 10.0, durationHours: 1.0, bufferTimeRange: '11:00–11:15', bufferEndTime: '11:00', startTime: '10:00:00', endTime: '11:00:00' },
+  { label: '11:00–12:00', startHour: 11.0, durationHours: 1.0, bufferTimeRange: '12:00–12:15', bufferEndTime: '12:00', startTime: '11:00:00', endTime: '12:00:00' },
+  { label: '13:30–14:30', startHour: 13.5, durationHours: 1.0, bufferTimeRange: '14:30–14:45', bufferEndTime: '14:30', startTime: '13:30:00', endTime: '14:30:00' },
+  { label: '14:30–15:30', startHour: 14.5, durationHours: 1.0, bufferTimeRange: '15:30–15:45', bufferEndTime: '15:30', startTime: '14:30:00', endTime: '15:30:00' },
+  { label: '15:30–16:30', startHour: 15.5, durationHours: 1.0, bufferTimeRange: '16:30–16:45', bufferEndTime: '16:30', startTime: '15:30:00', endTime: '16:30:00' },
+  { label: '16:30–17:30', startHour: 16.5, durationHours: 1.0, bufferTimeRange: '17:30–17:45', bufferEndTime: '17:30', startTime: '16:30:00', endTime: '17:30:00' },
+  { label: '17:30–18:30', startHour: 17.5, durationHours: 1.0, bufferTimeRange: '18:30–18:45', bufferEndTime: '18:30', startTime: '17:30:00', endTime: '18:30:00' },
+  { label: '18:30–19:30', startHour: 18.5, durationHours: 1.0, bufferTimeRange: '19:30–19:45', bufferEndTime: '19:30', startTime: '18:30:00', endTime: '19:30:00' },
+  { label: '19:30–20:30', startHour: 19.5, durationHours: 1.0, bufferTimeRange: '20:30–20:45', bufferEndTime: '20:30', startTime: '19:30:00', endTime: '20:30:00' },
 ];
 
 export interface ScheduleTechnician {
@@ -262,6 +262,8 @@ export const W05_StaffSchedule: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [rooms, setRooms] = useState<BranchRoom[]>([]);
   const [consultationSurveys, setConsultationSurveys] = useState<any[]>([]);
+  const [drcSlots, setDrcSlots] = useState<DualSlotAvailability[]>([]);
+  const [isReleasing, setIsReleasing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Filters State
@@ -284,7 +286,8 @@ export const W05_StaffSchedule: React.FC = () => {
   const fetchScheduleData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [bkRes, techRes, custRes, brRes, srvRes, roomRes, surveysRes] = await Promise.all([
+      const targetBranch = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+      const [bkRes, techRes, custRes, brRes, srvRes, roomRes, surveysRes, slotsRes] = await Promise.all([
         bookingService.getBookings(),
         supabaseService.getTechnicians(),
         customerService.getCustomers(),
@@ -292,6 +295,7 @@ export const W05_StaffSchedule: React.FC = () => {
         supabaseService.getServices(),
         supabaseService.getRooms(),
         supabaseService.getConsultationSurveys(),
+        bookingService.getDaySlotsDualAvailability(targetBranch, selectedDate),
       ]);
 
       if (bkRes.success && bkRes.data) setLiveBookings(bkRes.data);
@@ -301,13 +305,32 @@ export const W05_StaffSchedule: React.FC = () => {
       if (srvRes && srvRes.length > 0) setServices(srvRes);
       if (roomRes && roomRes.length > 0) setRooms(roomRes);
       if (Array.isArray(surveysRes)) setConsultationSurveys(surveysRes);
+      if (slotsRes.success && slotsRes.data) setDrcSlots(slotsRes.data);
     } catch (err) {
       console.error('Failed to load schedule data:', err);
       toast.error('Lỗi tải dữ liệu', 'Không thể kết nối đến máy chủ. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedBranchId, selectedDate]);
+
+  const handleAutoRelease = async () => {
+    setIsReleasing(true);
+    try {
+      const branchForRelease = selectedBranchId !== 'ALL' ? selectedBranchId : undefined;
+      const res = await bookingService.releaseCompletedBookings(branchForRelease);
+      if (res.success) {
+        toast.success('Nhả ca thành công', res.message || `Đã giải phóng ${res.data.releasedCount} ca trị liệu hoàn tất.`);
+        await fetchScheduleData();
+      } else {
+        toast.error('Lỗi nhả ca', res.message || 'Không thể giải phóng ca.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi', err?.message || 'Lỗi khi thực thi auto-release.');
+    } finally {
+      setIsReleasing(false);
+    }
+  };
 
   useEffect(() => {
     fetchScheduleData();
@@ -1358,6 +1381,17 @@ export const W05_StaffSchedule: React.FC = () => {
 
           <button
             type="button"
+            onClick={handleAutoRelease}
+            disabled={isReleasing}
+            className="px-4 py-2.5 bg-[#E7F4EE] hover:bg-[#D3EEDB] text-[#1B6E44] border border-[#BDE3CF] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            title="Quét và tự động giải phóng giường, chuyên viên cho các ca đã hết giờ (Auto-Release)"
+          >
+            <RotateCcw className={`w-4 h-4 ${isReleasing ? 'animate-spin' : ''}`} />
+            <span>{isReleasing ? 'Đang nhả ca...' : 'Nhả phòng & KTV hết ca'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setFastCheckInQuery('');
               setShowFastCheckInModal(true);
@@ -1379,6 +1413,47 @@ export const W05_StaffSchedule: React.FC = () => {
             <Plus className="w-4 h-4" />
             <span>Tạo lịch hẹn</span>
           </button>
+        </div>
+      </div>
+
+      {/* DRC Resource Summary Banner (6 Giường × 6 KTV × Ca 1 Giờ) */}
+      <div className="bg-gradient-to-r from-[#FAF0E4] via-white to-[#E7F4EE] rounded-2xl border border-[#E8DFD8] p-3 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-[#985018] text-white rounded-xl">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-bold text-[#2C241E] flex items-center gap-2">
+              <span>Ràng Buộc Kép DRC (Dual-Resource Capacity)</span>
+              <span className="px-2 py-0.5 bg-[#E7F4EE] text-[#1B6E44] text-[10px] font-bold rounded-md">
+                1 Ca = 60 Phút
+              </span>
+              <span className="px-2 py-0.5 bg-[#FAF0E4] text-[#985018] text-[10px] font-bold rounded-md">
+                Least-Busy Dispatch
+              </span>
+            </div>
+            <div className="text-[11px] text-[#73675F] mt-0.5">
+              Cố định <strong>6 Giường</strong> (2 VIP, 4 Body Massage) &bull; <strong>6 KTV Chuyên Môn</strong> trực ca &bull; Tự động khóa slot khi hết giường/KTV &bull; Tự động nhả khi hết ca.
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {drcSlots.slice(0, 5).map((s) => (
+            <div
+              key={s.slotTime}
+              className={`px-2 py-1 rounded-lg border text-[11px] font-medium text-center ${
+                s.isAvailable
+                  ? 'bg-white border-[#BDE3CF] text-[#1B6E44]'
+                  : 'bg-red-50 border-red-200 text-red-600'
+              }`}
+            >
+              <div className="font-bold">{s.slotTime.slice(0, 5)}</div>
+              <div className="text-[9px]">
+                {s.isAvailable ? `${s.remainingCapacity} chỗ` : 'Hết'}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -2585,21 +2660,45 @@ export const W05_StaffSchedule: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-32 overflow-y-auto p-1.5 border border-[#E8DFD8] rounded-xl bg-[#FAF8F5]">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1.5 border border-[#E8DFD8] rounded-xl bg-[#FAF8F5]">
                   {TIME_SLOT_OPTIONS.map((slot, idx) => {
                     const isSelected = selectedSlotIndex === idx;
+                    const drcInfo = drcSlots.find(
+                      (d) => d.slotTime === slot.label || d.startTime?.startsWith(slot.label.slice(0, 5))
+                    );
+                    const isFull = drcInfo ? !drcInfo.isAvailable : false;
+                    const freeBeds = drcInfo?.freeBeds ?? 6;
+                    const freeStaff = drcInfo?.freeStaff ?? 6;
+                    const capacity = drcInfo?.remainingCapacity ?? 6;
+
                     return (
                       <button
                         type="button"
                         key={slot.label}
-                        onClick={() => setSelectedSlotIndex(idx)}
-                        className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all text-center cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#985018] text-white shadow-xs'
-                            : 'bg-white text-[#2C241E] border border-[#E8DFD8] hover:border-[#985018]'
+                        disabled={isFull}
+                        onClick={() => {
+                          if (!isFull) setSelectedSlotIndex(idx);
+                        }}
+                        className={`p-2 rounded-xl text-left transition-all border ${
+                          isFull
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                            : isSelected
+                            ? 'bg-[#985018] text-white border-[#985018] shadow-sm'
+                            : 'bg-white text-[#2C241E] border-[#E8DFD8] hover:border-[#985018] cursor-pointer'
                         }`}
                       >
-                        {slot.label}
+                        <div className="text-xs font-bold">{slot.label}</div>
+                        <div
+                          className={`text-[10px] mt-0.5 font-medium ${
+                            isSelected ? 'text-white/90' : isFull ? 'text-red-500' : 'text-emerald-700'
+                          }`}
+                        >
+                          {isFull
+                            ? freeBeds === 0
+                              ? '❌ Hết giường'
+                              : '❌ Hết KTV'
+                            : `Còn ${capacity} chỗ (${freeBeds}G/${freeStaff}NV)`}
+                        </div>
                       </button>
                     );
                   })}

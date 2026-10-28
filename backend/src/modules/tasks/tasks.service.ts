@@ -266,6 +266,57 @@ export class TasksService {
       return { expiredCount: 0, expiringSoonCount: 0, activeCount: 0 };
     }
   }
+
+  /**
+   * CRON JOB 5: Tự động giải phóng tài nguyên Spa khi ca kết thúc (Auto-Release Lifecycle)
+   * Chạy định kỳ mỗi 10 phút
+   * Cập nhật các booking đã qua giờ kết thúc thành COMPLETED, giải phóng 6 Giường và 6 KTV cho ca tiếp theo
+   */
+  @Cron('*/5 * * * *')
+  async handleAutoReleaseExpiredBookings(): Promise<{ releasedCount: number }> {
+    try {
+      this.logger.log('⏱️ [CRON JOB SPA DRC] Bắt đầu quét giải phóng tài nguyên ca đã kết thúc (Auto-Release)...');
+      
+      // 1. Thử gọi RPC fn_release_completed_bookings
+      const { data, error } = await this.supabaseService.adminClient.rpc('fn_release_completed_bookings');
+      if (!error && data && data.length > 0) {
+        const releasedCount = Number(data[0].released_count || 0);
+        if (releasedCount > 0) {
+          this.logger.log(
+            `✅ [CRON JOB SPA DRC] Auto-release RPC hoàn tất: ${releasedCount} ca đã hoàn thành (nhả giường & KTV).`,
+          );
+        }
+        return { releasedCount };
+      }
+
+      // 2. Fallback trực tiếp bằng Supabase query
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentTimeStr = now.toTimeString().split(' ')[0];
+      const { data: pastBookings } = await this.supabaseService.adminClient
+        .from('bookings')
+        .select('id')
+        .eq('booking_date', todayStr)
+        .lte('end_time', currentTimeStr)
+        .in('status', ['IN_SERVICE', 'CONFIRMED']);
+
+      let releasedCount = 0;
+      if (pastBookings && pastBookings.length > 0) {
+        for (const b of pastBookings) {
+          await this.supabaseService.adminClient
+            .from('bookings')
+            .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
+            .eq('id', b.id);
+          releasedCount++;
+        }
+        this.logger.log(`✅ [CRON JOB SPA DRC] Fallback hoàn tất: Đã nhả phòng & KTV cho ${releasedCount} ca.`);
+      }
+      return { releasedCount };
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron job auto-release booking: ${err.message}`);
+      return { releasedCount: 0 };
+    }
+  }
 }
 
 
