@@ -199,29 +199,44 @@ export const W08_Enrollment: React.FC = () => {
       const batchCode = bat?.batchCode || (enr.batchId ? `K26-${crs?.code || 'MLD'}` : 'Chưa xếp lớp');
 
       const total = Number(enr.finalTuition || enr.tuitionTotal || crs?.tuitionFee || 35000000);
-      const paid = Number(enr.amountPaid || 0);
-      const remaining = Math.max(0, total - paid);
+      let paid = Number(enr.amountPaid || 0);
 
-      const isFullyPaid = paid >= total && total > 0;
       const isStudying = enr.status === EnrollmentStatus.STUDYING;
       const isGraduated = (enr.status as any) === 'GRADUATED' || (enr.status as any) === 'COMPLETED';
+      const isDirectlyApproved =
+        enr.approvalStatus === 'APPROVED' ||
+        (enr.studentAdmissionStatus as any) === 'APPROVED' ||
+        (enr as any).student_status === 'APPROVED';
 
-      // 3 Disctinct Status Groups strictly evaluated from Supabase
-      const consultationStatus: ConsultationStatus =
-        (enr.consultationStatus as ConsultationStatus) ||
-        (isFullyPaid || isStudying || isGraduated ? ConsultationStatus.CONFIRMED : ConsultationStatus.PENDING_CONSULTATION);
+      const isFullyPaid = (paid >= total && total > 0) || isDirectlyApproved || isStudying || isGraduated;
+      if (isFullyPaid && paid === 0) {
+        paid = total;
+      }
+      const remaining = Math.max(0, total - paid);
+
+      // 3 Distinct Status Groups strictly evaluated from Supabase
+      const isConsultationDone =
+        isFullyPaid ||
+        isStudying ||
+        isGraduated ||
+        isDirectlyApproved ||
+        enr.consultationStatus === ConsultationStatus.CONFIRMED;
+
+      const consultationStatus: ConsultationStatus = isConsultationDone
+        ? ConsultationStatus.CONFIRMED
+        : (enr.consultationStatus as ConsultationStatus) || ConsultationStatus.PENDING_CONSULTATION;
 
       const paymentVerificationStatus: PaymentVerificationStatus =
-        (enr.paymentVerificationStatus as PaymentVerificationStatus) ||
-        (isFullyPaid || paid > 0 ? PaymentVerificationStatus.PAID : PaymentVerificationStatus.UNPAID);
+        (isFullyPaid || paid > 0 || isDirectlyApproved)
+          ? PaymentVerificationStatus.PAID
+          : (enr.paymentVerificationStatus as PaymentVerificationStatus) || PaymentVerificationStatus.UNPAID;
 
       const studentAdmissionStatus: StudentAdmissionStatus =
-        (enr.studentAdmissionStatus as StudentAdmissionStatus) ||
-        (isStudying || isGraduated || enr.batchId
+        (isStudying || isGraduated || enr.batchId)
           ? StudentAdmissionStatus.ENROLLED
-          : isFullyPaid || enr.approvalStatus === 'APPROVED'
+          : (isDirectlyApproved || isFullyPaid)
           ? StudentAdmissionStatus.APPROVED
-          : StudentAdmissionStatus.NOT_APPROVED);
+          : (enr.studentAdmissionStatus as StudentAdmissionStatus) || StudentAdmissionStatus.NOT_APPROVED;
 
       const assignedStaffName = enr.assignedStaffId ? staffMap.get(enr.assignedStaffId) || 'Nhân viên tư vấn' : undefined;
 
@@ -317,25 +332,7 @@ export const W08_Enrollment: React.FC = () => {
     });
   }, [liveEnrollments, liveCourses, liveBatches, customers, staffMembers]);
 
-  useEffect(() => {
-    if (candidatesData.length > 0 && (!selectedCandidateId || !candidatesData.some((c) => c.id === selectedCandidateId))) {
-      setSelectedCandidateId(candidatesData[0].id);
-    }
-  }, [candidatesData, selectedCandidateId]);
 
-  // Selected candidate object
-  const selectedCandidate: CandidateRecord | undefined = useMemo(() => {
-    return candidatesData.find((c) => c.id === selectedCandidateId) || candidatesData[0];
-  }, [candidatesData, selectedCandidateId]);
-
-  // Synchronize form inputs when selectedCandidate changes
-  useEffect(() => {
-    if (selectedCandidate) {
-      setConsultationStatusInput(selectedCandidate.consultationStatus);
-      setFinalTuitionInput(selectedCandidate.finalTuition || selectedCandidate.rawTuitionTotal || 35000000);
-      setFinalBranchInput(selectedCandidate.branch || 'Chi nhánh Quận 3 - TP.HCM');
-    }
-  }, [selectedCandidate?.id]);
 
   // Tab Filtering counts strictly aligned with Section 3 & 4
   const countAll = candidatesData.length;
@@ -404,6 +401,52 @@ export const W08_Enrollment: React.FC = () => {
       return isSearchMatch && matchProgram && matchBranch && matchTab;
     });
   }, [candidatesData, searchTerm, programFilter, branchFilter, activeWorkflowTab]);
+
+  // Auto-select candidate when filteredCandidates or active tab changes
+  useEffect(() => {
+    if (filteredCandidates.length > 0) {
+      if (!selectedCandidateId || !filteredCandidates.some((c) => c.id === selectedCandidateId)) {
+        setSelectedCandidateId(filteredCandidates[0].id);
+      }
+    } else {
+      setSelectedCandidateId('');
+    }
+  }, [filteredCandidates, selectedCandidateId]);
+
+  // Selected candidate object (always prioritizing filtered list)
+  const selectedCandidate: CandidateRecord | undefined = useMemo(() => {
+    if (!selectedCandidateId) return filteredCandidates[0];
+    return filteredCandidates.find((c) => c.id === selectedCandidateId) || filteredCandidates[0];
+  }, [filteredCandidates, selectedCandidateId]);
+
+  const isWaitingForClass = Boolean(
+    selectedCandidate && (
+      selectedCandidate.studentAdmissionStatus === StudentAdmissionStatus.APPROVED ||
+      (selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID && !selectedCandidate.batchId)
+    )
+  );
+
+  const isEnrolledOrStudying = Boolean(
+    selectedCandidate && (
+      selectedCandidate.studentAdmissionStatus === StudentAdmissionStatus.ENROLLED ||
+      selectedCandidate.rawStatus === EnrollmentStatus.STUDYING ||
+      (selectedCandidate.rawStatus as any) === 'GRADUATED' ||
+      Boolean(selectedCandidate.batchId)
+    )
+  );
+
+  // Synchronize form inputs when selectedCandidate changes
+  useEffect(() => {
+    if (selectedCandidate) {
+      const initialStatus =
+        isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID
+          ? ConsultationStatus.CONFIRMED
+          : selectedCandidate.consultationStatus;
+      setConsultationStatusInput(initialStatus);
+      setFinalTuitionInput(selectedCandidate.finalTuition || selectedCandidate.rawTuitionTotal || 35000000);
+      setFinalBranchInput(selectedCandidate.branch || 'Chi nhánh Quận 3 - TP.HCM');
+    }
+  }, [selectedCandidate?.id, isWaitingForClass, isEnrolledOrStudying]);
 
   // Dynamic Pending Tasks derived directly from real live candidates
   const pendingTasks = useMemo(() => {
@@ -1447,47 +1490,65 @@ export const W08_Enrollment: React.FC = () => {
               </div>
 
               {/* STEP 3: Chốt tư vấn & Tạo yêu cầu thanh toán VietQR (Spec 4.2 & 4.3) */}
-              <div className="p-3.5 rounded-xl bg-[#FAF5EF] border border-[#EFE4D9] space-y-2.5">
-                <div className="font-bold text-[#8D4B1A] text-xs flex items-center gap-1.5">
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>Chốt học phí & Cơ sở đào tạo (Bước quan trọng)</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <label className="text-[11px] text-[#73675F] block mb-1">Học phí chốt (VNĐ):</label>
-                    <input
-                      type="number"
-                      step={500000}
-                      value={finalTuitionInput}
-                      onChange={(e) => setFinalTuitionInput(Number(e.target.value))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs font-bold text-[#8D4B1A] focus:outline-none focus:border-[#985018]"
-                    />
+              {isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? (
+                <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold text-emerald-800 text-xs flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Chốt học phí & Cơ sở đào tạo</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      ✅ Đã hoàn tất
+                    </span>
                   </div>
-
-                  <div>
-                    <label className="text-[11px] text-[#73675F] block mb-1">Cơ sở đào tạo:</label>
-                    <select
-                      value={finalBranchInput}
-                      onChange={(e) => setFinalBranchInput(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    >
-                      <option value="Chi nhánh Quận 3 - TP.HCM">Chi nhánh Quận 3</option>
-                      <option value="Chi nhánh Quận 1 - TP.HCM">Chi nhánh Quận 1</option>
-                    </select>
+                  <div className="text-[11px] text-[#2C241E] flex items-center justify-between pt-1 border-t border-emerald-100">
+                    <span>Học phí chốt: <strong className="text-[#8D4B1A] font-bold">{selectedCandidate.tuitionTotal}</strong></span>
+                    <span>Cơ sở: <strong className="font-semibold text-[#2C241E]">{selectedCandidate.branch}</strong></span>
                   </div>
                 </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-[#FAF5EF] border border-[#EFE4D9] space-y-2.5">
+                  <div className="font-bold text-[#8D4B1A] text-xs flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Chốt học phí & Cơ sở đào tạo (Bước quan trọng)</span>
+                  </div>
 
-                <button
-                  type="button"
-                  disabled={isFinalizingConsultation}
-                  onClick={handleFinalizeConsultation}
-                  className="w-full py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{isFinalizingConsultation ? 'Đang lưu vào Supabase...' : 'Chốt tư vấn & Tạo mã VietQR'}</span>
-                </button>
-              </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="text-[11px] text-[#73675F] block mb-1">Học phí chốt (VNĐ):</label>
+                      <input
+                        type="number"
+                        step={500000}
+                        value={finalTuitionInput}
+                        onChange={(e) => setFinalTuitionInput(Number(e.target.value))}
+                        className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs font-bold text-[#8D4B1A] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-[#73675F] block mb-1">Cơ sở đào tạo:</label>
+                      <select
+                        value={finalBranchInput}
+                        onChange={(e) => setFinalBranchInput(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      >
+                        <option value="Chi nhánh Quận 3 - TP.HCM">Chi nhánh Quận 3</option>
+                        <option value="Chi nhánh Quận 1 - TP.HCM">Chi nhánh Quận 1</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isFinalizingConsultation}
+                    onClick={handleFinalizeConsultation}
+                    className="w-full py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isFinalizingConsultation ? 'Đang lưu vào Supabase...' : 'Chốt tư vấn & Tạo mã VietQR'}</span>
+                  </button>
+                </div>
+              )}
 
               {/* STEP 4: Quản lý thanh toán & Đối soát ngân hàng (Spec 4.3, 5, 6) */}
               <div className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2">
@@ -1502,11 +1563,19 @@ export const W08_Enrollment: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
                   <div className="bg-[#FAF7F2] p-2 rounded-lg border border-[#EFE4D9]">
                     <span className="text-[#73675F] block">Đã thực nhận:</span>
-                    <strong className="text-emerald-700 text-xs">{selectedCandidate.tuitionDeposit}</strong>
+                    <strong className="text-emerald-700 text-xs">
+                      {isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID
+                        ? `Đã thu ${selectedCandidate.tuitionTotal}`
+                        : selectedCandidate.tuitionDeposit}
+                    </strong>
                   </div>
                   <div className="bg-[#FAF7F2] p-2 rounded-lg border border-[#EFE4D9]">
                     <span className="text-[#73675F] block">Còn lại cần thu:</span>
-                    <strong className="text-rose-700 text-xs">{selectedCandidate.remainingAmount}</strong>
+                    <strong className={`${isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? 'text-emerald-700' : 'text-rose-700'} text-xs`}>
+                      {isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID
+                        ? '0đ'
+                        : selectedCandidate.remainingAmount}
+                    </strong>
                   </div>
                 </div>
 
@@ -1519,7 +1588,7 @@ export const W08_Enrollment: React.FC = () => {
                   <span>In Bill / Tải ảnh QR gửi cho khách (Zalo)</span>
                 </button>
 
-                {selectedCandidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
+                {selectedCandidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && !isWaitingForClass && !isEnrolledOrStudying ? (
                   <div className="space-y-1.5 pt-1">
                     <button
                       type="button"
@@ -1540,6 +1609,11 @@ export const W08_Enrollment: React.FC = () => {
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>{isManualConfirmingPay ? 'Đang xác nhận...' : 'Xác nhận đối soát thủ công (Admin/Kế toán)'}</span>
                     </button>
+                  </div>
+                ) : (
+                  <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Học phí đã được đối soát & thanh toán thành công</span>
                   </div>
                 )}
               </div>
@@ -1562,7 +1636,7 @@ export const W08_Enrollment: React.FC = () => {
                   )}
                 </div>
 
-                {selectedCandidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID ? (
+                {selectedCandidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && !isWaitingForClass && !isEnrolledOrStudying ? (
                   <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-200 text-[#73675F] text-[11px] flex items-center gap-1.5">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Cần xác nhận thanh toán trước khi xếp lớp học chính thức.</span>
