@@ -378,6 +378,9 @@ export const academyService = {
         await supabaseService.updateEnrollment(enrollmentId, {
           status: EnrollmentStatus.ENROLLED,
           approvalStatus: 'APPROVED',
+          studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
+          paymentVerificationStatus: PaymentVerificationStatus.PAID,
+          consultationStatus: ConsultationStatus.CONFIRMED,
           amountPaid: matchedAmount,
           approvedAt: new Date().toISOString(),
           approvedBy: 'HỆ THỐNG TỰ ĐỘNG',
@@ -433,6 +436,9 @@ export const academyService = {
       await supabaseService.updateEnrollment(enrollmentId, {
         status: EnrollmentStatus.ENROLLED,
         approvalStatus: 'APPROVED',
+        studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
+        paymentVerificationStatus: PaymentVerificationStatus.PAID,
+        consultationStatus: ConsultationStatus.CONFIRMED,
         amountPaid: finalPaid,
         approvedAt: new Date().toISOString(),
         approvedBy: options?.adminUser || 'Admin Tuyển Sinh',
@@ -603,6 +609,7 @@ export const academyService = {
         amountPaid: amount,
         approvalStatus: 'APPROVED',
         studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
+        consultationStatus: ConsultationStatus.CONFIRMED,
         status: EnrollmentStatus.ENROLLED,
         approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
         approvedAt: new Date().toISOString(),
