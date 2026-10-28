@@ -38,15 +38,16 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   String _serviceId = '235166f2-66c9-4231-bbe1-af91b48fc67c';
   String _serviceTitle = 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
   int _serviceDuration = 60;
-  double _pricePerPerson = 650000;
-  double _vatRate = 0.08;
+  double _pricePerPerson = 700000;
+  double _vatRate = 0.0;
 
   // 2. Chi nhánh từ repository
   List<BranchModel> _branches = [];
   BranchModel? _selectedBranch;
 
   // 3. Số người & Ngày giờ
-  final int _guestCount = 1; // 1 - 5 người
+  int _guestCount = 1; // 1 - 10 người
+  int _sessionCount = 1; // 1 - 30 buổi
   late DateTime _selectedDate;
   String _selectedTimeSlot = '08:00 - 09:00';
   static const List<String> _bookingTimeSlots = [
@@ -112,7 +113,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         _serviceTitle = coreService.name;
         _serviceDuration = coreService.durationMinutes;
         _pricePerPerson = coreService.displayPrice;
-        _vatRate = coreService.vatRate;
+        _vatRate = 0.0;
         _branches = branches;
         _selectedBranch = BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
         if (_isBookingForSelf) {
@@ -275,9 +276,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     }
   }
 
-  double get _subtotal => _pricePerPerson * _guestCount;
-  double get _vatAmount => _subtotal * _vatRate;
-  double get _totalPrice => _subtotal + _vatAmount;
+  double get _subtotal => _pricePerPerson * _guestCount * _sessionCount;
+  double get _vatAmount => 0.0;
+  double get _totalPrice => _subtotal;
 
   String _formatCurrency(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
@@ -366,7 +367,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       timeline: [
         BookingTimelineEvent(
           title: 'Đăng ký đặt lịch thành công',
-          description: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người). Chờ chuyên viên phòng khám xác nhận.',
+          description: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người, $_sessionCount buổi). Chờ chuyên viên phòng khám xác nhận.',
           timestamp: DateTime.now(),
           isCompleted: true,
           isCurrent: true,
@@ -498,6 +499,312 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ==========================================
+              // 0. DỊCH VỤ, SỐ LƯỢNG & BUỔI ĐIỀU TRỊ
+              // ==========================================
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.spa_outlined, color: AppColors.primary, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _serviceTitle.tr(context),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$_serviceDuration phút/ca',
+                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    '${_formatCurrency(_pricePerPerson)}đ / buổi',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.servicePrice,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1, color: AppColors.border),
+                    const SizedBox(height: 14),
+
+                    // Mục chọn Số lượng người đi
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.people_outline_rounded, size: 18, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      context.tr('Số lượng người', 'Number of guests'),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${_formatCurrency(_pricePerPerson)}đ / người / buổi',
+                                style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove, size: 18),
+                                color: _guestCount > 1 ? AppColors.textPrimary : AppColors.border,
+                                onPressed: _guestCount > 1
+                                    ? () => setState(() => _guestCount--)
+                                    : null,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                padding: EdgeInsets.zero,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: Text(
+                                  '$_guestCount',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add, size: 18),
+                                color: _guestCount < 10 ? AppColors.primary : AppColors.border,
+                                onPressed: _guestCount < 10
+                                    ? () => setState(() => _guestCount++)
+                                    : null,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Mục chọn Buổi điều trị
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.event_repeat_rounded, size: 18, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      context.tr('Buổi điều trị', 'Treatment sessions'),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                context.tr('Số buổi theo liệu trình', 'Sessions in treatment plan'),
+                                style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove, size: 18),
+                                color: _sessionCount > 1 ? AppColors.textPrimary : AppColors.border,
+                                onPressed: _sessionCount > 1
+                                    ? () => setState(() => _sessionCount--)
+                                    : null,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                padding: EdgeInsets.zero,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: Text(
+                                  '$_sessionCount',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add, size: 18),
+                                color: _sessionCount < 30 ? AppColors.primary : AppColors.border,
+                                onPressed: _sessionCount < 30
+                                    ? () => setState(() => _sessionCount++)
+                                    : null,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Chip chọn nhanh số buổi: 1 buổi, 2 buổi, 3 buổi, 5 buổi, 10 buổi
+                    Wrap(
+                      spacing: 8,
+                      children: [1, 2, 3, 5, 10].map((s) {
+                        final isSel = _sessionCount == s;
+                        return InkWell(
+                          onTap: () => setState(() => _sessionCount = s),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: isSel ? AppColors.primary : const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSel ? AppColors.primary : AppColors.border,
+                              ),
+                            ),
+                            child: Text(
+                              '$s ${context.tr('buổi', 'sessions')}',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                color: isSel ? Colors.white : AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$_guestCount người x $_sessionCount buổi',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${_formatCurrency(_totalPrice)}đ',
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.servicePrice,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // ==========================================
               // 1. CHỌN CHI NHÁNH (Chuẩn 4.1: Bấm để chọn, không hộp to, không km)
               // ==========================================
@@ -871,6 +1178,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), _serviceTitle.tr(context)),
+                    _buildInfoRow(context.tr('Đơn giá:', 'Unit price:'), '${_formatCurrency(_pricePerPerson)}đ / buổi'),
+                    _buildInfoRow(context.tr('Số lượng:', 'Guests:'), '$_guestCount ${context.tr('người', 'guests')}'),
+                    _buildInfoRow(context.tr('Buổi điều trị:', 'Sessions:'), '$_sessionCount ${context.tr('buổi', 'sessions')}'),
                     _buildInfoRow(context.tr('Chi nhánh:', 'Branch:'), _selectedBranch != null ? _selectedBranch!.name.tr(context) : '---'),
                     _buildInfoRow(context.tr('Ngày hẹn:', 'Date:'), dateDisplay),
                     _buildInfoRow(context.tr('Khung giờ:', 'Time:'), _selectedTimeSlot),
@@ -886,15 +1196,28 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Text(
-                            context.tr('Chi phí:', 'Estimated Cost:'),
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.tr('Tổng chi phí:', 'Estimated Cost:'),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                              ),
+                              if (_guestCount > 1 || _sessionCount > 1)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    '${_formatCurrency(_pricePerPerson)}đ x $_guestCount x $_sessionCount',
+                                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         Text(
                           '${_formatCurrency(_totalPrice)}đ',
                           style: const TextStyle(
-                            fontSize: 17,
+                            fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: AppColors.servicePrice,
                           ),
