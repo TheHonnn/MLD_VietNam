@@ -51,36 +51,31 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const relevantBatches = candidate?.courseId
+    ? batches.filter((batch) => batch.courseId === candidate.courseId)
+    : batches;
+  const selectableBatches = relevantBatches.filter(
+    (batch) => !batch.maxStudents || (batch.enrolledCount || 0) < batch.maxStudents,
+  );
+
   // Sync initial batch selection when modal opens
   React.useEffect(() => {
     if (candidate) {
-      if (candidate.currentBatchId) {
-        setSelectedBatchId(candidate.currentBatchId);
+      const currentBatch = selectableBatches.find((batch) => batch.id === candidate.currentBatchId);
+      if (currentBatch) {
+        setSelectedBatchId(currentBatch.id);
       } else {
-        // Find default matching batch for this course
-        const matching = batches.find((b) => b.courseId === candidate.courseId);
-        if (matching) {
-          setSelectedBatchId(matching.id);
-        } else if (batches.length > 0) {
-          setSelectedBatchId(batches[0].id);
-        }
+        setSelectedBatchId(selectableBatches[0]?.id || '');
       }
     }
   }, [candidate, batches]);
 
   if (!isOpen || !candidate) return null;
 
-  // Filter batches for candidate's course (or fallback to all if courseId missing)
-  const relevantBatches = candidate.courseId
-    ? batches.filter((b) => b.courseId === candidate.courseId)
-    : batches;
-
-  const displayBatches = relevantBatches.length > 0 ? relevantBatches : batches;
-
   const instMap = new Map(instructors.map((i) => [i.id, i.fullName]));
 
   const handleSubmit = async () => {
-    if (!selectedBatchId) return;
+    if (!selectableBatches.some((batch) => batch.id === selectedBatchId)) return;
     setIsSubmitting(true);
     try {
       const ok = await onAssignBatch(candidate.id, selectedBatchId);
@@ -156,7 +151,7 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-[#8D4B1A]" />
-                <span>Chọn đợt lớp khai giảng ({displayBatches.length} lớp khả dụng)</span>
+                <span>Chọn lớp khai giảng ({selectableBatches.length} lớp còn chỗ)</span>
               </label>
               <span className="text-[11px] text-[#73675F]">
                 Đợt lớp đồng bộ với Thời khóa biểu & Điểm danh
@@ -164,12 +159,16 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
             </div>
 
             <div className="space-y-2.5">
-              {displayBatches.length === 0 ? (
+              {relevantBatches.length === 0 ? (
                 <div className="p-6 text-center bg-white rounded-xl border border-dashed border-[#D7BBA6] text-[#73675F] text-xs">
-                  Chưa có đợt khai giảng nào cho khóa này. Vui lòng tạo lớp mới tại mục <strong>Vận hành đào tạo</strong>.
+                  Chưa có lớp khai giảng cho khóa <strong>{candidate.program}</strong>. Hãy tạo lớp của đúng khóa trong mục <strong>Vận hành đào tạo</strong>, rồi quay lại xếp lớp.
+                </div>
+              ) : selectableBatches.length === 0 ? (
+                <div className="p-6 text-center bg-white rounded-xl border border-dashed border-[#D7BBA6] text-[#73675F] text-xs">
+                  Các lớp của khóa này đã đủ chỗ. Hãy mở thêm lớp trong mục <strong>Vận hành đào tạo</strong>.
                 </div>
               ) : (
-                displayBatches.map((batch) => {
+                relevantBatches.map((batch) => {
                   const isSelected = selectedBatchId === batch.id;
                   const isFull = Boolean(batch.maxStudents && (batch.enrolledCount || 0) >= batch.maxStudents);
                   const instName =
@@ -281,7 +280,7 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
           </button>
           <button
             type="button"
-            disabled={!selectedBatchId || isSubmitting}
+            disabled={!selectableBatches.some((batch) => batch.id === selectedBatchId) || isSubmitting}
             onClick={handleSubmit}
             className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1B4F72] hover:bg-[#153e5b] text-white transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >

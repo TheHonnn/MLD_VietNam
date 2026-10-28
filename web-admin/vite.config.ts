@@ -15,6 +15,7 @@ export default defineConfig({
     host: true,
   },
   build: {
+    emptyOutDir: false,
     chunkSizeWarningLimit: 1500,
   },
 });

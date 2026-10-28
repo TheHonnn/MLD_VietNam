@@ -7,6 +7,7 @@ import {
   ForbiddenException,
   InternalServerErrorException,
   Logger,
+  HttpException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseService } from '../../database/supabase.service';
@@ -101,32 +102,30 @@ export class AppointmentsService {
       bookedForName,
       bookedForPhone,
       specialNotes,
-      paymentMethod = 'VIETQR',
+      paymentMethod: requestedPaymentMethod,
       couponCode,
     } = dto;
 
+    const paymentMethod = requestedPaymentMethod?.trim() || 'CASH_AT_SPA';
     const bookingCode = dto.bookingCode || `MLD-BK-${Date.now().toString().slice(-6)}`;
     const effectiveUserId = userId && userId !== 'default-user' ? userId : 'bbbbbbbb-0001-0001-0001-000000000001';
     const targetBranchId = branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
 
     // 1. Lấy thông tin Dịch vụ & Giá từ Supabase
-    let basePrice = 450000;
-    let serviceName = 'Chăm Sóc & Trị Liệu Spa MLD';
-    let durationMinutes = 60;
+    const { data: srv, error: serviceError } = await this.supabaseService.adminClient
+      .from('services')
+      .select('id, name, price, duration_minutes')
+      .eq('id', serviceId)
+      .maybeSingle();
 
-    try {
-      const { data: srv } = await this.supabaseService.adminClient
-        .from('services')
-        .select('id, name, price, duration_minutes')
-        .eq('id', serviceId)
-        .maybeSingle();
+    if (serviceError) {
+      this.logger.error(`Lỗi tải dịch vụ ${serviceId}: ${serviceError.message}`);
+      throw new InternalServerErrorException('Không thể xác minh dịch vụ. Vui lòng thử lại.');
+    }
+    if (!srv) throw new NotFoundException('Không tìm thấy dịch vụ đã chọn');
 
-      if (srv) {
-        basePrice = Number(srv.price);
-        serviceName = srv.name;
-        durationMinutes = srv.duration_minutes || 60;
-      }
-    } catch (_) {}
+    const basePrice = Number(srv.price);
+    const durationMinutes = Number(srv.duration_minutes) || 60;
 
     const calculatedEndTime = endTime || this.calculateEndTime(startTime, durationMinutes);
     const finalPrice = basePrice;
@@ -137,7 +136,7 @@ export class AppointmentsService {
 
     // 1.1. Kiểm tra năng lực phục vụ kép (DRC: 6 Giường × 6 KTV × Ca 1 Giờ)
     try {
-      const { data: drcData } = await this.supabaseService.adminClient.rpc(
+      const { data: drcData, error: drcError } = await this.supabaseService.adminClient.rpc(
         'fn_check_slot_dual_availability',
         {
           p_branch_id: targetBranchId,
@@ -146,7 +145,9 @@ export class AppointmentsService {
           p_end_time: calculatedEndTime,
         }
       );
+      if (drcError) throw new Error(drcError.message);
       const drc = drcData?.[0];
+      if (!drc) throw new Error('Không có kết quả kiểm tra năng lực phục vụ');
       if (drc && !drc.is_available) {
         throw new ConflictException(
           `Không thể đặt lịch: ${drc.reason} (Giường trống: ${drc.free_beds}/6, Chuyên viên rảnh: ${drc.free_staff})`
@@ -154,7 +155,8 @@ export class AppointmentsService {
       }
     } catch (checkErr: any) {
       if (checkErr instanceof ConflictException) throw checkErr;
-      this.logger.warn(`Lỗi kiểm tra DRC: ${checkErr.message}`);
+      this.logger.error(`Không thể kiểm tra năng lực phục vụ: ${checkErr.message}`);
+      throw new InternalServerErrorException('Không thể xác nhận chỗ trống. Vui lòng thử lại.');
     }
 
     // 1.2. Thuật toán Least-Busy Dispatch: Tự động gán KTV ít ca nhất trong ngày để kín lịch đều cho 6 KTV
@@ -180,17 +182,27 @@ export class AppointmentsService {
     let assignedBed = dto.assignedBedNumber;
     if (!assignedBed) {
       try {
-        const { data: occupiedBeds } = await this.supabaseService.adminClient
+        const { data: occupiedBeds, error: bedsError } = await this.supabaseService.adminClient
           .from('bookings')
-          .select('assigned_bed_number')
+          .select('assigned_bed_number, start_time, end_time')
           .eq('branch_id', targetBranchId)
           .eq('booking_date', bookingDate)
           .in('status', ['CONFIRMED', 'IN_SERVICE', 'PENDING']);
 
-        const occSet = new Set((occupiedBeds || []).map((o) => o.assigned_bed_number).filter(Boolean));
-        assignedBed = standardBeds.find((b) => !occSet.has(b)) || 'G-BODY-01';
-      } catch (_) {
-        assignedBed = 'G-BODY-01';
+        if (bedsError) throw bedsError;
+
+        const occSet = new Set(
+          (occupiedBeds || [])
+            .filter((o) => o.start_time < calculatedEndTime && o.end_time > startTime)
+            .map((o) => o.assigned_bed_number)
+            .filter(Boolean),
+        );
+        assignedBed = standardBeds.find((b) => !occSet.has(b));
+        if (!assignedBed) throw new ConflictException('Chi nhánh đã hết giường trống trong khung giờ này');
+      } catch (bedErr: any) {
+        if (bedErr instanceof ConflictException) throw bedErr;
+        this.logger.error(`Không thể kiểm tra giường trống: ${bedErr.message}`);
+        throw new InternalServerErrorException('Không thể xác nhận tài nguyên phòng. Vui lòng thử lại.');
       }
     }
 
@@ -199,17 +211,10 @@ export class AppointmentsService {
     try {
       // 2. Phân loại payment_status và booking_status theo phương thức thanh toán
       let initialPaymentStatus = 'UNPAID';
-      let initialBookingStatus = 'CONFIRMED';
+      let initialBookingStatus = 'PENDING';
       const upperMethod = (paymentMethod || '').toUpperCase();
       if (upperMethod === 'MEMBERSHIP_WALLET' || upperMethod === 'PACKAGE' || upperMethod === 'MEMBERSHIP_CARD') {
         initialPaymentStatus = 'PAID';
-        initialBookingStatus = 'CONFIRMED';
-      } else if (upperMethod === 'VIETQR' || upperMethod === 'BANK_TRANSFER' || upperMethod === 'MOMO' || upperMethod === 'VNPAY') {
-        initialPaymentStatus = 'UNPAID';
-        initialBookingStatus = 'PENDING';
-      } else {
-        // CASH_AT_SPA, AT_BRANCH, CASH
-        initialPaymentStatus = 'UNPAID';
         initialBookingStatus = 'CONFIRMED';
       }
 
@@ -238,57 +243,55 @@ export class AppointmentsService {
         .select('*')
         .maybeSingle();
 
-      if (!bErr && booking) {
-        createdBooking = booking;
+      if (bErr || !booking) {
+        throw new InternalServerErrorException('Không thể lưu lịch hẹn. Vui lòng thử lại.');
+      }
+      createdBooking = booking;
 
-        // 3. Chèn vào bảng booking_items
-        await this.supabaseService.adminClient.from('booking_items').insert({
-          booking_id: booking.id,
-          service_id: serviceId,
-          technician_id: assignedTechnicianId || null,
-          duration_minutes: durationMinutes,
-          price: basePrice,
-        });
+      const { error: itemError } = await this.supabaseService.adminClient.from('booking_items').insert({
+        booking_id: booking.id,
+        service_id: serviceId,
+        technician_id: assignedTechnicianId || null,
+        duration_minutes: durationMinutes,
+        price: basePrice,
+      });
+      if (itemError) throw new Error(`Không thể lưu dịch vụ của lịch hẹn: ${itemError.message}`);
 
-        // 4. Cập nhật slot thành BOOKED nếu có slotId
-        if (slotId) {
-          await this.supabaseService.adminClient
-            .from('technician_slots')
-            .update({
-              status: 'BOOKED',
-              held_by_user_id: null,
-              hold_expires_at: null,
-            })
-            .eq('id', slotId);
-        }
+      if (slotId) {
+        const { data: updatedSlot, error: slotError } = await this.supabaseService.adminClient
+          .from('technician_slots')
+          .update({ status: 'BOOKED', held_by_user_id: null, hold_expires_at: null })
+          .eq('id', slotId)
+          .select('id')
+          .maybeSingle();
+        if (slotError) throw new Error(`Không thể xác nhận khung giờ: ${slotError.message}`);
+        if (!updatedSlot) throw new ConflictException('Khung giờ không còn khả dụng. Vui lòng chọn giờ khác.');
       }
     } catch (err: any) {
-      this.logger.warn(`Lỗi ghi DB bookings: ${err.message}`);
-    }
-
-    // 5. Giải phóng Redis Lock
-    if (slotId) {
-      await this.redisService.releaseLock(`lock:slot:${slotId}`, userId);
-    }
-
-    if (!createdBooking) {
-      createdBooking = {
-        id: `bk-${Date.now()}`,
-        booking_code: bookingCode,
-        customer_id: effectiveUserId,
-        branch_id: branchId,
-        technician_id: technicianId,
-        booking_date: bookingDate,
-        start_time: startTime,
-        end_time: calculatedEndTime,
-        status: 'CONFIRMED',
-        payment_status: 'PAID',
-        final_price: finalPrice,
-        booked_for_name: bookedForName || 'Khách hàng MLD',
-        booked_for_phone: bookedForPhone || '0901234567',
-        service_name: serviceName,
-        qr_code_hash: qrCodeHash,
-      };
+      if (createdBooking?.id) {
+        const { error: itemCleanupError } = await this.supabaseService.adminClient
+          .from('booking_items')
+          .delete()
+          .eq('booking_id', createdBooking.id);
+        const { error: bookingCleanupError } = await this.supabaseService.adminClient
+          .from('bookings')
+          .delete()
+          .eq('id', createdBooking.id);
+        if (itemCleanupError || bookingCleanupError) {
+          this.logger.error(`Không thể hoàn tác booking ${createdBooking.id} sau lỗi lưu.`);
+        }
+      }
+      if (err instanceof HttpException) throw err;
+      this.logger.error(`Lỗi ghi DB booking: ${err.message}`);
+      throw new InternalServerErrorException('Không thể lưu đầy đủ lịch hẹn. Vui lòng thử lại.');
+    } finally {
+      if (slotId) {
+        try {
+          await this.redisService.releaseLock(`lock:slot:${slotId}`, userId || 'guest');
+        } catch (releaseErr: any) {
+          this.logger.warn(`Không thể giải phóng Redis lock cho slot ${slotId}: ${releaseErr.message}`);
+        }
+      }
     }
 
     return {

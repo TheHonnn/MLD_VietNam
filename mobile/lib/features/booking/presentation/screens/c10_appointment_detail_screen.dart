@@ -251,6 +251,8 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                       _buildDetailRow(context.tr('Chuyên viên:', 'Specialist:'), app.specialistName.tr(context)),
                     if (app.specialNotes.isNotEmpty)
                       _buildDetailRow(context.tr('Ghi chú:', 'Notes:'), app.specialNotes.tr(context)),
+                    if (app.cancellationReason != null && app.cancellationReason!.isNotEmpty)
+                      _buildDetailRow(context.tr('Lý do hủy:', 'Cancellation Reason:'), app.cancellationReason!.tr(context)),
                   ],
                 ),
               ),

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
 
@@ -192,8 +192,7 @@ export class AcademyService {
 
     let studentId = (userId && userId !== 'default-user') ? userId : null;
 
-    try {
-      // 1. Kiểm tra tài khoản người dùng hoặc tìm theo SĐT/Email
+    // 1. Kiểm tra tài khoản người dùng hoặc tìm theo SĐT/Email
       if (studentId) {
         await this.supabaseService.adminClient
           .from('users')
@@ -242,7 +241,7 @@ export class AcademyService {
           if (newUser?.id) {
             studentId = newUser.id;
           } else {
-            studentId = '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e'; // Default customer fallback
+            throw new InternalServerErrorException('Không thể tạo hồ sơ học viên. Vui lòng thử lại.');
           }
         }
       }
@@ -273,30 +272,38 @@ export class AcademyService {
         }
       } catch (_) {}
 
-      // 3. Ghi nhận vào bảng course_enrollments
-      await this.supabaseService.adminClient.from('course_enrollments').insert({
-        student_id: studentId,
-        course_id: courseId,
-        batch_id: batchId || null,
-        status: 'PENDING_APPROVAL',
-        tuition_total: tuitionTotal,
-        amount_paid: 0,
-        student_name: studentName,
-        student_phone: studentPhone,
-        student_email: studentEmail || null,
-        selected_branch: selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
-        approval_status: 'PENDING_APPROVAL',
-        approval_notes: `Mã KH: ${customerCode}`,
-      });
-    } catch (e: any) {
-      this.logger.warn(`Lưu enrollment vào DB thất bại: ${e.message}`);
-    }
+      // 3. Ghi một hồ sơ duy nhất và chỉ xác nhận sau khi DB trả về ID thật.
+      const { data: enrollment, error: enrollmentError } = await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .insert({
+          student_id: studentId,
+          course_id: courseId,
+          batch_id: batchId || null,
+          status: 'PENDING_APPROVAL',
+          tuition_total: tuitionTotal,
+          amount_paid: 0,
+          student_name: studentName,
+          student_phone: studentPhone,
+          student_email: studentEmail || null,
+          selected_branch: selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
+          approval_status: 'PENDING_APPROVAL',
+          approval_notes: `Mã KH: ${customerCode}; Mã hồ sơ: ${enrollmentCode}`,
+        })
+        .select('id, status, approval_status')
+        .single();
+
+      if (enrollmentError || !enrollment) {
+        this.logger.error(`Lưu enrollment vào DB thất bại: ${enrollmentError?.message || 'Không có bản ghi trả về'}`);
+        throw new InternalServerErrorException('Không thể lưu hồ sơ đăng ký. Vui lòng thử lại.');
+      }
 
     return {
       success: true,
-      message: 'Ghi danh khóa học thành công! Vui lòng thanh toán cọc để giữ chỗ.',
+      message: 'Đã nhận hồ sơ đăng ký. Nhân viên sẽ kiểm tra và liên hệ về học phí, lịch học.',
       data: {
+        id: enrollment.id,
         enrollmentCode,
+        customerCode,
         courseId,
         studentName,
         studentPhone,
@@ -304,10 +311,9 @@ export class AcademyService {
         selectedBranch: selectedBranch || 'Chi nhánh Quận 3',
         selectedShift: selectedShift || 'Thứ 6–7–Chủ nhật · 13:00–17:00',
         depositAmount,
-        tuitionTotal: 15000000,
-        paymentStatus: 'PENDING_DEPOSIT',
-        vietQrPayload: `2|99|0901234567|CONG TY MLD VIET NAM|${depositAmount}|${enrollmentCode}`,
-        qrImageUrl: `https://api.vietqr.io/image/970422-0901234567-compact.jpg?amount=${depositAmount}&addInfo=${enrollmentCode}&accountName=CONG%20TY%20MLD%20VIET%20NAM`,
+        tuitionTotal,
+        status: enrollment.status,
+        approvalStatus: enrollment.approval_status,
       },
     };
   }

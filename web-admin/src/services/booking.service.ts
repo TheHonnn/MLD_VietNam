@@ -355,6 +355,7 @@ export const bookingService = {
       technicianId?: string | null;
       assignedRoomId?: string | null;
       assignedBedNumber?: string | null;
+      cancellationReason?: string | null;
     }
   ): Promise<ApiResponse<Booking>> {
     if (!isUuid(id)) {
@@ -396,9 +397,10 @@ export const bookingService = {
     id: string,
     status?: BookingStatus,
     paymentStatus?: PaymentStatus,
-    paymentMethod?: PaymentMethod
+    paymentMethod?: PaymentMethod,
+    cancellationReason?: string | null
   ): Promise<ApiResponse<Booking>> {
-    return this.updateBooking(id, { status, paymentStatus, paymentMethod });
+    return this.updateBooking(id, { status, paymentStatus, paymentMethod, cancellationReason });
   },
 
   async deleteBooking(id: string): Promise<ApiResponse<boolean>> {

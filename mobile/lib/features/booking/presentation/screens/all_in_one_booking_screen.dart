@@ -38,6 +38,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   // 3. Số người & Ngày giờ
   final int _guestCount = 1; // 1 - 5 người
   late DateTime _selectedDate;
+  String _selectedStartTime = '09:00';
+  static const List<String> _bookingStartTimes = [
+    '09:00', '10:00', '11:00', '13:30', '14:30',
+    '15:30', '16:30', '17:30', '18:30', '19:30',
+  ];
   
   // 4. Thông tin người đặt: Bản thân vs Đặt hộ
   bool _isBookingForSelf = true;
@@ -250,6 +255,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         );
   }
 
+  String _formatTimeRange(String startTime, int durationMinutes) {
+    final parts = startTime.split(':').map(int.parse).toList();
+    final start = DateTime(2020, 1, 1, parts[0], parts[1]);
+    final end = start.add(Duration(minutes: durationMinutes));
+    String pad(int value) => value.toString().padLeft(2, '0');
+    return '${pad(start.hour)}:${pad(start.minute)} - ${pad(end.hour)}:${pad(end.minute)}';
+  }
+
   void _handleSubmitBooking() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBranch == null) {
@@ -292,7 +305,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       specialistTitle: 'Chuyên viên Vodder tự động phân bổ',
       specialistAvatar: 'assets/images/logo.webp',
       appointmentDate: _selectedDate,
-      timeSlot: 'Trong ngày',
+      timeSlot: _formatTimeRange(_selectedStartTime, _serviceDuration),
       customerName: _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : 'Khách hàng MLD',
       customerPhone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : '0900000000',
       customerEmail: '',
@@ -300,7 +313,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       totalAmount: _totalPrice,
       depositAmount: 0,
       remainingAmount: _totalPrice,
-      paymentMethod: '',
+      paymentMethod: 'CASH_AT_SPA',
       status: AppointmentStatus.pending, // Chờ duyệt
       createdAt: DateTime.now(),
       timeline: [
@@ -314,15 +327,21 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       ],
     );
 
-    // Lưu vào Repository
-    BookingRepository.instance.createAppointment(appointment);
-
-    if (!WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
-      await Future.delayed(const Duration(milliseconds: 500));
-    }
-
+    final persistedId = await BookingRepository.instance.createAppointment(appointment);
     if (!mounted) return;
     setState(() => _isSubmitting = false);
+    if (persistedId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr(
+            'Chưa thể lưu lịch hẹn. Khung giờ có thể vừa hết chỗ; vui lòng thử giờ khác.',
+            'We could not save the appointment. The selected time may no longer be available; please try another time.',
+          )),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
 
     _showBookingPendingModal(appointmentCode, dateString);
   }
@@ -350,7 +369,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              context.tr('Đặt lịch thành công!', 'Booking Confirmed!'),
+              context.tr('Đã gửi yêu cầu đặt lịch', 'Appointment request submitted'),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -360,8 +379,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             const SizedBox(height: 8),
             Text(
               context.isEn
-                  ? 'Your appointment ($code) at ${_selectedBranch?.name.tr(context)} on $dateString has been booked.'
-                  : 'Lịch hẹn ($code) tại ${_selectedBranch?.name} ngày $dateString đã được ghi nhận.',
+                  ? 'Your appointment request ($code) at ${_selectedBranch?.name.tr(context)} on $dateString is waiting for branch confirmation.'
+                  : 'Yêu cầu đặt lịch ($code) tại ${_selectedBranch?.name} ngày $dateString đang chờ chi nhánh xác nhận.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -552,7 +571,22 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         ),
                       ),
                     ),
-
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _selectedStartTime,
+                      decoration: InputDecoration(
+                        labelText: context.tr('Giờ bắt đầu', 'Start time'),
+                        prefixIcon: const Icon(Icons.schedule_outlined, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      items: _bookingStartTimes
+                          .map((time) => DropdownMenuItem(value: time, child: Text(time)))
+                          .toList(),
+                      onChanged: (time) {
+                        if (time != null) setState(() => _selectedStartTime = time);
+                      },
+                    ),
                     
                   ],
                 ),
@@ -739,6 +773,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), _serviceTitle.tr(context)),
                     _buildInfoRow(context.tr('Chi nhánh:', 'Branch:'), _selectedBranch != null ? _selectedBranch!.name.tr(context) : '---'),
                     _buildInfoRow(context.tr('Ngày hẹn:', 'Date:'), dateDisplay),
+                    _buildInfoRow(context.tr('Khung giờ:', 'Time:'), _formatTimeRange(_selectedStartTime, _serviceDuration)),
                     _buildInfoRow(context.tr('Khách hàng:', 'Customer:'), '${_nameController.text} (${_phoneController.text})'),
                     if (_noteController.text.trim().isNotEmpty)
                       _buildInfoRow(context.tr('Ghi chú:', 'Notes:'), _noteController.text.trim()),
