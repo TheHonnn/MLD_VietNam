@@ -63,12 +63,12 @@ export const W16_Certificates: React.FC = () => {
     studentName: '',
     dateOfBirth: '',
     courseId: '',
-    courseTitle: 'Kỹ Thuật Dẫn Lưu Bạch Huyết Chuyên Sâu (MLD Advanced)',
-    theoryScore: 9.0,
-    practicalScore: 9.5,
-    finalGrade: 'XUẤT SẮC',
-    signerName: 'BS. CKI Trần Hoàng Nam',
-    signerTitle: 'Chủ Tịch Hội Đồng Y Khoa MLD',
+    courseTitle: '',
+    theoryScore: 0,
+    practicalScore: 0,
+    finalGrade: '',
+    signerName: '',
+    signerTitle: '',
   });
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -273,12 +273,12 @@ export const W16_Certificates: React.FC = () => {
           studentName: '',
           dateOfBirth: '',
           courseId: '',
-          courseTitle: courses[0]?.title || 'Kỹ Thuật Dẫn Lưu Bạch Huyết Chuyên Sâu (MLD Advanced)',
-          theoryScore: 9.0,
-          practicalScore: 9.5,
-          finalGrade: 'XUẤT SẮC',
-          signerName: 'BS. CKI Trần Hoàng Nam',
-          signerTitle: 'Chủ Tịch Hội Đồng Y Khoa MLD',
+          courseTitle: courses[0]?.title || '',
+          theoryScore: 0,
+          practicalScore: 0,
+          finalGrade: '',
+          signerName: '',
+          signerTitle: '',
         });
         loadAllData();
       } else {

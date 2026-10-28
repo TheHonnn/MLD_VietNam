@@ -568,9 +568,9 @@ export const W01_Dashboard: React.FC = () => {
       }
     }
 
-    // Default fallback to 8 days up to 2026-10-16 if empty or ALL
+    // A date axis is presentation state only; all amounts remain derived from Supabase records.
     if (dateStrings.length === 0) {
-      const anchor = new Date('2026-10-16');
+      const anchor = new Date();
       const daysCount = 8;
       dateStrings = Array.from({ length: daysCount }, (_, i) => {
         const d = new Date(anchor);

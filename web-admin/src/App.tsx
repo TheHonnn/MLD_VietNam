@@ -35,7 +35,15 @@ const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ de
         k &&
         (k.startsWith('mld_local_') ||
           k.startsWith('mld_custom_') ||
-          k === 'mld_staff_appointments')
+          k.startsWith('mld_archived_') ||
+          k.startsWith('mld_rooms_') ||
+          k.startsWith('mld_cust_') ||
+          k === 'mld_staff_appointments' ||
+          k === 'mld_deleted_amenities' ||
+          k === 'mld_current_shift' ||
+          k === 'mld_closed_shifts' ||
+          k === 'mld_notifications' ||
+          k === 'mld_zns_logs')
       ) {
         keysToRemove.push(k);
       }

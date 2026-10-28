@@ -292,19 +292,6 @@ function buildColumns(table: string, rows: Row[]): Column[] {
   return cols;
 }
 
-const SEED_DATA: Record<string, Row[]> = {};
-
-function isMissingTableError(res: Response, err: any): boolean {
-  if (res.status === 404) return true;
-  if (err?.code === "PGRST200") return true;
-  const msg = (err?.message || "").toLowerCase();
-  return (
-    msg.includes("schema cache") ||
-    msg.includes("could not find the table") ||
-    (msg.includes("relation") && msg.includes("does not exist"))
-  );
-}
-
 function formatDatabaseError(err: any, defaultMsg: string): string {
   const msg = err?.message || "";
   if (!msg) return defaultMsg;
@@ -325,118 +312,9 @@ function formatDatabaseError(err: any, defaultMsg: string): string {
   return msg;
 }
 
-function getLocalTableRows(table: string): Row[] {
-  try {
-    const raw = localStorage.getItem(`mld_local_${table}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch {}
-  const seeds = SEED_DATA[table] || [];
-  if (seeds.length > 0) {
-    try {
-      localStorage.setItem(`mld_local_${table}`, JSON.stringify(seeds));
-    } catch {}
-  }
-  return [...seeds];
-}
-
-function saveLocalTableRows(table: string, rows: Row[]) {
-  try {
-    localStorage.setItem(`mld_local_${table}`, JSON.stringify(rows));
-  } catch (err) {
-    console.warn(`Lỗi lưu mld_local_${table}:`, err);
-  }
-}
-
-function createLocalRecord(table: string, values: Record<string, any>): Row {
-  const rows = getLocalTableRows(table);
-  const newRow: Row = {
-    id: values.id || `${table.slice(0, 4)}-${Date.now()}`,
-    ...values,
-    created_at: values.created_at || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-  rows.unshift(newRow);
-  saveLocalTableRows(table, rows);
-  return newRow;
-}
-
-function deleteLocalRecord(table: string, key: any): boolean {
-  const rows = getLocalTableRows(table);
-  const targetId = typeof key === "object" ? key.id : key;
-  const filtered = rows.filter((r) => r.id !== targetId);
-  saveLocalTableRows(table, filtered);
-  return true;
-}
-
-function getLocalFallbackListing<T>(
-  table: string,
-  page: number,
-  limit: number,
-  search?: string | null,
-  filterParam?: string | null,
-  sort?: string | null,
-  direction?: string | null,
-): T {
-  let allRows = getLocalTableRows(table);
-
-  if (filterParam) {
-    try {
-      const filter = JSON.parse(filterParam);
-      allRows = allRows.filter((r) => {
-        return Object.entries(filter).every(([k, v]) => {
-          if (v === undefined || v === null || v === "") return true;
-          return String(r[k]) === String(v);
-        });
-      });
-    } catch {}
-  }
-
-  if (search && search.trim()) {
-    const kw = search.trim().toLowerCase();
-    allRows = allRows.filter((r) => {
-      return Object.values(r).some((v) =>
-        typeof v === "string" && v.toLowerCase().includes(kw)
-      );
-    });
-  }
-
-  if (sort) {
-    allRows.sort((a, b) => {
-      const valA = a[sort] ?? "";
-      const valB = b[sort] ?? "";
-      if (valA < valB) return direction === "desc" ? 1 : -1;
-      if (valA > valB) return direction === "desc" ? -1 : 1;
-      return 0;
-    });
-  }
-
-  const total = allRows.length;
-  const offset = Math.max(0, (page - 1) * limit);
-  const pagedRows = allRows.slice(offset, offset + limit);
-  const columns = buildColumns(table, pagedRows.length > 0 ? pagedRows : allRows);
-
-  return {
-    rows: pagedRows,
-    columns,
-    page,
-    limit,
-    total,
-  } as unknown as T;
-}
-
 async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   if (path === "resources") {
     return DEFAULT_RESOURCES as unknown as T;
-  }
-
-  if (path === "login") {
-    return {
-      token: "supabase-direct-admin-token",
-      user: { role: "SUPER_ADMIN", full_name: "Quản trị viên Hệ thống (Supabase Cloud)" },
-    } as unknown as T;
   }
 
   const [tableOrAction, queryString] = path.split("?");
@@ -630,9 +508,6 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       const err = await res.json().catch(() => null);
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
-      }
-      if (isMissingTableError(res, err)) {
-        return getLocalFallbackListing(table, page, limit, search, filterParam, sort, direction);
       }
       throw new Error(err?.message || `Lỗi truy vấn dữ liệu Supabase (${res.status}).`);
     }
@@ -960,9 +835,6 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
       }
-      if (isMissingTableError(res, err)) {
-        return createLocalRecord(table, cleanValues) as T;
-      }
       throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
     }
     const created = await res.json();
@@ -1130,14 +1002,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
       }
-      if (isMissingTableError(res, err)) {
-        deleteLocalRecord(table, id || key);
-        return true as unknown as T;
-      }
       throw new Error(formatDatabaseError(err, "Không thể xóa bản ghi trên Supabase."));
     }
 
-    deleteLocalRecord(table, id || key);
     return true as unknown as T;
   }
 

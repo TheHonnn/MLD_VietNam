@@ -148,6 +148,36 @@ export const academyService = {
     }
   },
 
+  async createCourseBatch(data: {
+    courseId: string;
+    branchId?: string;
+    batchCode: string;
+    instructorId?: string | null;
+    startDate?: string;
+    endDate?: string;
+    scheduleText?: string;
+    maxStudents?: number;
+    status?: string;
+  }): Promise<ApiResponse<CourseBatch | null>> {
+    try {
+      const created = await supabaseService.createCourseBatch(data);
+      return {
+        success: Boolean(created),
+        statusCode: created ? 201 : 400,
+        message: created ? 'Đã khởi tạo lớp đào tạo mới thành công' : 'Không thể khởi tạo lớp',
+        data: created,
+      };
+    } catch (err) {
+      console.error('[academyService] createCourseBatch failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi tạo lớp đào tạo',
+        data: null,
+      };
+    }
+  },
+
   async updateCourseBatch(
     batchId: string,
     updates: {
@@ -975,6 +1005,54 @@ export const academyService = {
         statusCode: 500,
         message: 'Lỗi truy vấn thời khóa biểu lớp học',
         data: [],
+      };
+    }
+  },
+
+  async getAllBatchSchedules(): Promise<ApiResponse<BatchSchedule[]>> {
+    try {
+      const live = await supabaseService.getAllBatchSchedules();
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu thời khóa biểu toàn viện từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getAllBatchSchedules error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn thời khóa biểu',
+        data: [],
+      };
+    }
+  },
+
+  async createBatchSchedule(data: {
+    batchId: string;
+    assignedRoomId?: string | null;
+    sessionDate: string;
+    startTime: string;
+    endTime: string;
+    topic: string;
+    isPracticeLab?: boolean;
+  }): Promise<ApiResponse<BatchSchedule | null>> {
+    try {
+      const created = await supabaseService.createBatchSchedule(data);
+      return {
+        success: Boolean(created),
+        statusCode: created ? 201 : 400,
+        message: created ? 'Đã xếp lịch thực hành thành công' : 'Không thể lưu lịch thực hành',
+        data: created,
+      };
+    } catch (err) {
+      console.error('[academyService] createBatchSchedule error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi xếp lịch thực hành',
+        data: null,
       };
     }
   },

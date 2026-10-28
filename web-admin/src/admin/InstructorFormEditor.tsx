@@ -224,7 +224,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
             required
             value={values.full_name || ""}
             onChange={(e) => onChange("full_name", e.target.value)}
-            placeholder="VD: Nguyễn Thảo Ngọc, BS. Trần Đình Quân..."
+            placeholder="VD: Lâm Xuân Trường, BS. Trần Đình Quân..."
             className="w-full text-xs px-3.5 py-2.5 bg-white border border-[#E2D7CB] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018] shadow-2xs font-bold"
           />
         </div>

@@ -2051,7 +2051,7 @@ export const W05_StaffSchedule: React.FC = () => {
                     <span>Hoa hồng KTV (10% ca):</span>
                   </span>
                   <span className="font-bold text-[#8A4F23]">
-                    +{Math.round((parseInt(selectedApp.price.replace(/\D/g, ''), 10) || 390000) * 0.1).toLocaleString('vi-VN')}đ
+                    +{Math.round((parseInt(selectedApp.price.replace(/\D/g, ''), 10) || 0) * 0.1).toLocaleString('vi-VN')}đ
                   </span>
                 </div>
 
