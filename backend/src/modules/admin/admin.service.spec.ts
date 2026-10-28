@@ -131,6 +131,76 @@ describe('Admin shared-schema integration', () => {
     });
     expect(list.total).toBe(0);
   });
+  it('keeps package activation and session counts tied to checkout and ordered journals', async () => {
+    const customer = await service.mutate('users', actor, 'create', {
+      values: {
+        phone: '0900000011',
+        full_name: 'Treatment package customer',
+        role: 'CUSTOMER',
+      },
+    });
+    const category = await service.mutate('service_categories', actor, 'create', {
+      values: {
+        name: 'Treatment package tests',
+        code: 'TREATPKGTEST',
+        icon_url: 'https://example.invalid/category.png',
+      },
+    });
+    const treatment = await service.mutate('services', actor, 'create', {
+      values: {
+        category_id: category.id,
+        name: 'Treatment package service',
+        slug: 'treatment-package-service',
+        short_description: 'Test',
+        full_description: 'Test',
+        price: 100000,
+        duration_minutes: 60,
+        image_url: 'https://example.invalid/service.png',
+      },
+    });
+    await expect(service.mutate('treatment_packages', actor, 'create', {
+      values: {
+        name: 'Invalid package', total_sessions: 1, price: 100000,
+        validity_months: 6, description: 'Test', image_url: 'https://example.invalid/package.png',
+        service_id: treatment.id,
+      },
+    })).rejects.toThrow(/ít nhất 2 buổi/);
+    const treatmentPackage = await service.mutate('treatment_packages', actor, 'create', {
+      values: {
+        name: 'Two session package', service_id: treatment.id,
+        total_sessions: 2, price: 180000, discount_price: 160000,
+        validity_months: 3, description: 'Test', image_url: 'https://example.invalid/package.png',
+      },
+    });
+
+    await expect(service.mutate('user_packages', actor, 'create', {
+      values: { customer_id: customer.id, package_id: treatmentPackage.id, total_sessions: 2 },
+    })).rejects.toThrow(/POS/);
+
+    const owner = (await pg.query<any>(
+      `INSERT INTO user_packages(customer_id,package_id,total_sessions,expires_at)
+       VALUES($1,$2,2,now()+interval '3 months') RETURNING id`,
+      [customer.id, treatmentPackage.id],
+    )).rows[0];
+    const session = (sessionNumber: number) => service.mutate('treatment_journal', actor, 'create', {
+      values: {
+        user_package_id: owner.id, customer_id: customer.id,
+        session_number: sessionNumber, session_date: new Date().toISOString().slice(0, 10),
+      },
+    });
+    await expect(session(2)).rejects.toThrow(/buổi 1/);
+    await session(1);
+    await session(2);
+    const completed = (await pg.query<any>(
+      'SELECT completed_sessions,status FROM user_packages WHERE id=$1', [owner.id],
+    )).rows[0];
+    expect(completed.completed_sessions).toBe(2);
+    expect(completed.status).toBe('COMPLETED');
+    await expect(session(3)).rejects.toThrow();
+    await expect(service.mutate('user_packages', actor, 'update', {
+      key: { id: owner.id }, values: { completed_sessions: 1 },
+    })).rejects.toThrow(/nhật ký điều trị/);
+  });
   it('creates real users with generated referral and hashed optional password, and never returns hashes', async () => {
     const user = await service.mutate('users', actor, 'create', {
       values: {

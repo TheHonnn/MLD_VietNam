@@ -57,6 +57,7 @@ import {
   Service,
   Technician,
   DualSlotAvailability,
+  TreatmentPackage,
 } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { useAdmin } from '../admin/Auth';
@@ -161,6 +162,8 @@ export const W07_CashierPOS: React.FC = () => {
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [allCustomers, setAllCustomers] = useState<User[]>([]);
   const [treatmentPackages, setTreatmentPackages] = useState<any[]>([]);
+  const packageIdParam = searchParams.get('packageId') || '';
+  const selectedTreatmentPackage = treatmentPackages.find((item) => item.id === packageIdParam) as TreatmentPackage | undefined;
   const [booking, setBooking] = useState<Booking | undefined>(undefined);
   const [customer, setCustomer] = useState<User | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
@@ -176,7 +179,6 @@ export const W07_CashierPOS: React.FC = () => {
 
   // VAT and Regimen session states
   const [vatRate, setVatRate] = useState<number>(8); // Mặc định VAT 8%
-  const [isPackageRedemption, setIsPackageRedemption] = useState(false);
 
   // Cashier Shift states
   const [currentShift, setCurrentShift] = useState<CashierShift | null>(null);
@@ -324,13 +326,21 @@ export const W07_CashierPOS: React.FC = () => {
     fetchPosData();
   }, []);
 
+  useEffect(() => {
+    const presetCustomerId = searchParams.get('customerId');
+    if (!presetCustomerId) return;
+    const presetCustomer = allCustomers.find((item) => item.id === presetCustomerId);
+    if (presetCustomer) setCustomer((current) => current?.id === presetCustomer.id ? current : presetCustomer);
+  }, [searchParams, allCustomers]);
+
   // Tự động tải danh sách 10 ca 1 tiếng DRC khi mở modal Đặt lịch tại quầy
   useEffect(() => {
     if (!showWalkInModal) return;
     const fetchWalkInSlots = async () => {
       setIsLoadingWalkInSlots(true);
       try {
-        const branch = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+        const branch = selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id;
+        if (!isUuid(branch)) throw new Error('Chọn chi nhánh hợp lệ để kiểm tra chỗ trống.');
         const res = await bookingService.getDaySlotsDualAvailability(branch, walkInDate);
         if (res.success && res.data) {
           setWalkInDrcSlots(res.data);
@@ -346,13 +356,17 @@ export const W07_CashierPOS: React.FC = () => {
 
   // Xử lý tạo đơn đặt lịch nhanh tại quầy (Walk-in)
   const handleCreateWalkInBooking = async () => {
-    if (!walkInCustomerName.trim()) {
-      toast.warning('Thiếu thông tin', 'Vui lòng nhập họ tên khách hàng.');
+    if (!isUuid(walkInCustomerId) || !walkInCustomerName.trim()) {
+      toast.warning('Chọn hồ sơ khách hàng', 'Walk-in cần gắn với hồ sơ khách hàng có sẵn. Hãy tạo hồ sơ trước nếu khách mới.');
       return;
     }
     const chosenService = allServices.find((s) => s.id === walkInServiceId) || allServices[0];
     const chosenSlot = POS_TIME_SLOTS[walkInSlotIndex] || POS_TIME_SLOTS[0];
-    const targetBranchId = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+    const targetBranchId = selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id;
+    if (!isUuid(targetBranchId) || !isUuid(chosenService?.id)) {
+      toast.error('Thiếu dữ liệu', 'Cần chọn chi nhánh và dịch vụ đang hoạt động trước khi tạo lịch.');
+      return;
+    }
 
     // Kiểm tra DRC slot
     const drcInfo = walkInDrcSlots.find(
@@ -369,7 +383,7 @@ export const W07_CashierPOS: React.FC = () => {
       const res = await bookingService.createBooking({
         customerName: walkInCustomerName.trim(),
         customerPhone: walkInCustomerPhone.trim() || undefined,
-        customerId: walkInCustomerId || undefined,
+        customerId: walkInCustomerId,
         branchId: targetBranchId,
         serviceId: chosenService?.id,
         serviceName: chosenService?.name || 'Chăm sóc & Trị liệu Spa',
@@ -721,6 +735,139 @@ export const W07_CashierPOS: React.FC = () => {
   const customerPhone = customer?.phone || booking?.customer?.phone || booking?.bookedForPhone || (booking ? '--' : 'Chưa có SĐT');
 
   const handleProcessPayment = async () => {
+    if (!currentShift) {
+      toast.warning('Mở ca trước', 'Mở ca thu ngân để bắt đầu ghi nhận khoản thu.');
+      setShowOpenShiftModal(true);
+      return;
+    }
+    if (selectedMethod === 'online') {
+      toast.warning('Phương thức chưa hỗ trợ', 'POS hiện chỉ ghi nhận tiền mặt hoặc chuyển khoản đã xác nhận.');
+      return;
+    }
+
+    const method = selectedMethod === 'transfer'
+      ? PaymentMethod.BANK_TRANSFER
+      : PaymentMethod.CASH_AT_SPA;
+    setIsProcessing(true);
+    try {
+      if (posMode === 'tuition') {
+        if (!selectedEnrollment) {
+          toast.error('Chưa chọn học viên', 'Tra cứu hồ sơ học viên trước khi thu học phí.');
+          return;
+        }
+        const due = Math.max(0, (selectedEnrollment.tuitionTotal || 0) - (selectedEnrollment.amountPaid || 0));
+        const amount = tuitionPaymentAmount || due;
+        if (amount <= 0 || amount > due) {
+          toast.error('Số tiền không hợp lệ', 'Số thu phải lớn hơn 0 và không vượt số học phí còn lại.');
+          return;
+        }
+        const result = await posService.collectPayment({
+          kind: 'TUITION', enrollmentId: selectedEnrollment.id,
+          branchId: selectedBranchId === 'ALL' ? undefined : selectedBranchId,
+          amount, paymentMethod: method, shiftId: currentShift.id,
+        });
+        if (!result.success || !result.data) throw new Error(result.message);
+        const paidTotal = Number(result.data.paidTotal);
+        const tuitionTotal = Number(result.data.tuitionTotal);
+        const fullyPaid = paidTotal >= tuitionTotal;
+        const receiptAmount = `${amount.toLocaleString('vi-VN')}đ`;
+        const receiptCode = result.data.transactionCode;
+        const courseTitle = selectedEnrollment.course?.title || 'Học phí khóa học';
+        setIsPaid(fullyPaid);
+        setSelectedEnrollment((current) => current ? {
+          ...current,
+          amountPaid: paidTotal,
+          ...(fullyPaid ? { approvalStatus: 'APPROVED', status: EnrollmentStatus.ENROLLED } : {}),
+        } : undefined);
+        setAllEnrollments((current) => current.map((enrollment) => enrollment.id === selectedEnrollment.id
+          ? { ...enrollment, amountPaid: paidTotal, ...(fullyPaid ? { approvalStatus: 'APPROVED', status: EnrollmentStatus.ENROLLED } : {}) }
+          : enrollment));
+        setSelectedReceiptData({
+          id: receiptCode, customerName: selectedEnrollment.studentName || 'Học viên',
+          customerPhone: selectedEnrollment.studentPhone, branchName: primaryBranch?.name,
+          serviceName: courseTitle, category: 'ACADEMY', method: method === PaymentMethod.CASH_AT_SPA ? 'Tiền mặt' : 'Chuyển khoản',
+          amount: receiptAmount, subtotal: receiptAmount, vatRateText: '0%', vatAmountText: '0đ',
+          shiftCode: currentShift.shiftCode, date: new Date().toLocaleString('vi-VN'), status: 'Đã thanh toán',
+        });
+        setShowReceiptModal(true);
+        await fetchPosData();
+        toast.success('Đã thu học phí', `${receiptAmount} · Phiếu thu ${receiptCode}`);
+        return;
+      }
+
+      const packageId = searchParams.get('packageId');
+      const isPackageSale = Boolean(packageId);
+      if (!booking && !isPackageSale) {
+        toast.error('Chưa chọn đơn', 'Tra cứu lịch hẹn trước khi thu tiền.');
+        return;
+      }
+
+      if (isPackageSale && !isUuid(customer?.id)) {
+        toast.warning('Chọn hồ sơ khách hàng', 'Chọn khách hàng có hồ sơ trước khi bán gói liệu trình.');
+        return;
+      }
+      if (isPackageSale && (!selectedTreatmentPackage || !selectedTreatmentPackage.isActive)) {
+        toast.error('Không thể bán gói', 'Gói liệu trình không tồn tại hoặc đã ngừng mở bán.');
+        return;
+      }
+      const taxRate = isPackageSale ? 0 : vatRate;
+      const result = await posService.collectPayment(isPackageSale
+        ? {
+            kind: 'PACKAGE', packageId: packageId!,
+            customerId: customer!.id,
+            branchId: currentShift.branchId, paymentMethod: method,
+            shiftId: currentShift.id, vatRate: taxRate,
+          }
+        : {
+            kind: 'BOOKING', bookingId: booking!.id,
+            branchId: booking!.branchId, paymentMethod: method,
+            shiftId: currentShift.id, vatRate: taxRate,
+          });
+      if (!result.success || !result.data) throw new Error(result.message);
+
+      const invoice = result.data.invoice;
+      const amount = Number(result.data.amount);
+      const invoiceCode = invoice?.invoice_code || invoice?.invoiceCode || result.data.transactionCode;
+      if (booking && !isPackageSale) {
+        const paidBooking = { ...booking, paymentStatus: PaymentStatus.PAID, paymentMethod: method };
+        setBooking(paidBooking);
+        setAllBookings((current) => current.map((item) => item.id === booking.id ? paidBooking : item));
+      }
+      setIsPaid(true);
+      setSelectedReceiptData({
+        id: invoiceCode, customerName, customerPhone,
+        customerTier: customer?.membershipTier || 'MEMBER',
+        branchName, branchAddress,
+        serviceName: isPackageSale ? selectedTreatmentPackage!.name : serviceName,
+        category: isPackageSale ? 'PACKAGE' : 'SERVICE',
+        method: method === PaymentMethod.CASH_AT_SPA ? 'Tiền mặt tại cơ sở' : 'Chuyển khoản ngân hàng',
+        amount: `${amount.toLocaleString('vi-VN')}đ`,
+        subtotal: `${Number(invoice?.subtotal || booking?.baseTotal || amount).toLocaleString('vi-VN')}đ`,
+        discount: `${Number(invoice?.discount_amount || booking?.discountAmount || 0).toLocaleString('vi-VN')}đ`,
+        preTaxAmount: `${Number(invoice?.pre_tax_amount || amount).toLocaleString('vi-VN')}đ`,
+        vatRateText: `${Number(invoice?.vat_rate || taxRate)}%`,
+        vatAmountText: `${Number(invoice?.vat_amount || 0).toLocaleString('vi-VN')}đ`,
+        shiftCode: currentShift.shiftCode, date: new Date().toLocaleString('vi-VN'), status: 'Đã thanh toán',
+      });
+      setShowReceiptModal(true);
+      await fetchPosData();
+      if (!isPackageSale && booking?.technicianId) {
+        await commissionService.createCommission({
+          staffId: booking.technicianId, branchId: booking.branchId,
+          bookingId: booking.id, invoiceId: invoice?.id,
+          commissionType: 'SERVICE_DIRECT', baseAmount: amount, percentage: 10,
+          notes: `Hoa hồng từ hóa đơn ${invoiceCode}`,
+        }).catch(() => undefined);
+      }
+      toast.success(isPackageSale ? 'Đã bán gói liệu trình' : 'Đã ghi nhận thanh toán', `Tổng thu ${amount.toLocaleString('vi-VN')}đ · ${invoiceCode}`);
+    } catch (error: any) {
+      toast.error('Không thể ghi nhận khoản thu', error?.message || 'Kiểm tra kết nối rồi thử lại.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleLegacyProcessPayment = async () => {
     // -------------------------------------------------------------
     // LUỒNG 1: QUYẾT TOÁN HỌC PHÍ HỌC VIỆN TẠI QUẦY
     // -------------------------------------------------------------
@@ -932,9 +1079,9 @@ export const W07_CashierPOS: React.FC = () => {
       const baseSubtotal = booking.baseTotal || (booking.finalPrice || 0);
       const discountVal = booking.discountAmount || 0;
       const pointsVal = booking.pointsDiscount || 0;
-      const preTax = isPackageRedemption ? 0 : Math.max(0, baseSubtotal - discountVal - pointsVal);
-      const vatVal = isPackageRedemption ? 0 : Math.round(preTax * (vatRate / 100));
-      const amount = isPackageRedemption ? 0 : (preTax + vatVal);
+      const preTax = Math.max(0, baseSubtotal - discountVal - pointsVal);
+      const vatVal = Math.round(preTax * (vatRate / 100));
+      const amount = preTax + vatVal;
       const formattedAmount = `${amount.toLocaleString('vi-VN')}đ`;
       const datePart = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       const randPart = Math.floor(1000 + Math.random() * 9000);
@@ -1001,7 +1148,7 @@ export const W07_CashierPOS: React.FC = () => {
       }
 
       // 3. Tích điểm và cập nhật chi tiêu cho khách hàng (Supabase bảng users)
-      const custId = isUuid(customer?.id) ? customer?.id : isUuid(booking.customerId) ? booking.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e';
+      const custId = isUuid(customer?.id) ? customer.id : booking.customerId;
       if (custId) {
         try {
           const curSpent = Number(customer?.totalSpent || 0);
@@ -1021,23 +1168,6 @@ export const W07_CashierPOS: React.FC = () => {
       }
 
       // KÍCH HOẠT GÓI LIỆU TRÌNH VIP (Nếu là đơn bán gói)
-      if (packageIdParam || booking.bookingCode?.startsWith('VIP-PKG-')) {
-        const pkgId = packageIdParam || 'tp-001';
-        try {
-          await treatmentService.assignPackageToCustomer({
-            customerId: custId,
-            packageId: pkgId,
-            packageName: serviceName,
-            totalSessions: 5,
-            price: amount,
-            validityMonths: 6,
-            notes: `Khách mua gói qua POS - Hóa đơn ${generatedInvoiceCode}`,
-          });
-        } catch (pkgErr) {
-          console.warn('Lỗi gán gói liệu trình:', pkgErr);
-        }
-      }
-
       // TRỤ CỘT 1: BẢO MẬT & AUDIT TRAIL
       try {
         await supabaseService.createAuditLog({
@@ -1058,8 +1188,7 @@ export const W07_CashierPOS: React.FC = () => {
       }
 
       // TRỤ CỘT 2: HOA HỒNG KTV & LƯƠNG THƯỞNG (10% Dịch vụ lẻ, 5% Gói)
-      const isPackage = Boolean(packageIdParam || booking.bookingCode?.startsWith('VIP-PKG-'));
-      const commPercentage = isPackage ? 5 : 10;
+      const commPercentage = 10;
       const targetTechId = isUuid(booking.technicianId)
         ? booking.technicianId
         : isUuid(booking.technician?.id)
@@ -1073,13 +1202,13 @@ export const W07_CashierPOS: React.FC = () => {
         try {
           await commissionService.createCommission({
             staffId: targetTechId,
-            branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+            branchId: booking.branchId,
             bookingId: validBookingId || null,
             invoiceId: isUuid(resInvoice?.data?.id) ? resInvoice.data.id : undefined,
-            commissionType: isPackage ? 'PACKAGE_UPSELL' : 'SERVICE_DIRECT',
+            commissionType: 'SERVICE_DIRECT',
             baseAmount: amount,
             percentage: commPercentage,
-            notes: `Hoa hồng ${commPercentage}% ${isPackage ? 'gói liệu trình' : 'dịch vụ'} ${serviceName} (Hóa đơn ${generatedInvoiceCode})`,
+            notes: `Hoa hồng ${commPercentage}% dịch vụ ${serviceName} (Hóa đơn ${generatedInvoiceCode})`,
           });
         } catch (commErr) {
           console.warn('Lỗi ghi hoa hồng KTV:', commErr);
@@ -1119,7 +1248,7 @@ export const W07_CashierPOS: React.FC = () => {
         branchName,
         branchAddress,
         serviceName,
-        category: isPackageRedemption ? 'PACKAGE' : 'SERVICE',
+        category: 'SERVICE',
         method: methodLabel,
         amount: formattedAmount,
         subtotal: `${baseSubtotal.toLocaleString('vi-VN')}đ`,
@@ -1188,7 +1317,7 @@ export const W07_CashierPOS: React.FC = () => {
         branchName: branchName,
         branchCode: branchCode,
         branchDistrict: '',
-        branchId: booking.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+        branchId: booking.branchId,
         content: `${serviceName} (${serviceDuration} phút)`,
         category: 'SERVICE' as const,
         method: methodLabel,
@@ -1383,12 +1512,23 @@ export const W07_CashierPOS: React.FC = () => {
   const kpiCashOrMomoAmount = kpiCashOrMomo.reduce((sum, r) => sum + r.rawAmount, 0);
 
   // Tính toán chi phí, VAT và tổng thanh toán theo chuẩn Y tế
-  const rawSubtotal = booking ? (booking.baseTotal || (booking.finalPrice || 0)) : 0;
+  const configuredPackageDiscount = Number(selectedTreatmentPackage?.discountPrice || 0);
+  const configuredPackagePrice = Number(selectedTreatmentPackage?.price || 0);
+  const selectedPackagePrice = configuredPackageDiscount > 0 && configuredPackageDiscount < configuredPackagePrice
+    ? configuredPackageDiscount
+    : configuredPackagePrice;
+  const rawSubtotal = booking
+    ? (booking.baseTotal || (booking.finalPrice || 0))
+    : packageIdParam && selectedTreatmentPackage
+    ? selectedPackagePrice
+    : 0;
+  const isPackageSale = Boolean(packageIdParam && selectedTreatmentPackage);
+  const checkoutTaxRate = isPackageSale ? 0 : vatRate;
   const rawDiscount = booking ? (booking.discountAmount || 0) : 0;
   const rawPoints = booking ? (booking.pointsDiscount || 0) : 0;
-  const preTaxAmount = isPackageRedemption ? 0 : Math.max(0, rawSubtotal - rawDiscount - rawPoints);
-  const calculatedVat = isPackageRedemption ? 0 : Math.round(preTaxAmount * (vatRate / 100));
-  const finalTotalAmount = isPackageRedemption ? 0 : (preTaxAmount + calculatedVat);
+  const preTaxAmount = Math.max(0, rawSubtotal - rawDiscount - rawPoints);
+  const calculatedVat = Math.round(preTaxAmount * (checkoutTaxRate / 100));
+  const finalTotalAmount = preTaxAmount + calculatedVat;
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -1707,6 +1847,19 @@ export const W07_CashierPOS: React.FC = () => {
       </div>
 
       {/* 3. Middle Section: Two Columns (Service Details & Payment Breakdown) */}
+      {packageIdParam && posMode === 'spa' && (
+        <section className="bg-white border border-[#EFE4D9] rounded-xl p-4 flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-[#2C241E] mb-1">Khách hàng mua gói</label>
+            <select value={customer?.id || ''} onChange={(event) => setCustomer(allCustomers.find((item) => item.id === event.target.value))} className="w-full h-10 px-3 border border-[#E8DFD8] rounded-lg text-sm bg-white">
+              <option value="">Chọn hồ sơ khách hàng</option>
+              {allCustomers.filter((item) => isUuid(item.id)).map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.phone || 'Chưa có SĐT'}</option>)}
+            </select>
+          </div>
+          <div className="text-sm sm:text-right"><div className="font-semibold text-[#2C241E]">{selectedTreatmentPackage?.name || 'Đang tải gói liệu trình...'}</div><div className="text-xs text-[#73675F]">{selectedTreatmentPackage ? `${selectedTreatmentPackage.totalSessions} buổi · ${selectedPackagePrice.toLocaleString('vi-VN')}đ` : ''}</div></div>
+        </section>
+      )}
+
       {posMode === 'tuition' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Left Column: Hồ sơ học viên & khóa học */}
@@ -1899,7 +2052,7 @@ export const W07_CashierPOS: React.FC = () => {
               <label className="block text-xs font-bold text-[#2C241E] mb-2">
                 Phương thức thu học phí <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedMethod('onsite')}
@@ -1923,18 +2076,6 @@ export const W07_CashierPOS: React.FC = () => {
                 >
                   <QrCode className="w-3.5 h-3.5" />
                   <span>Chuyển khoản VietQR</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedMethod('online')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    selectedMethod === 'online'
-                      ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
-                      : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>Quẹt thẻ / Ví</span>
                 </button>
               </div>
             </div>
@@ -2026,7 +2167,7 @@ export const W07_CashierPOS: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Đơn dịch vụ đang chọn */}
         <div className="lg:col-span-6 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-          {!booking ? (
+          {!booking && !packageIdParam ? (
             <div className="py-12 px-4 text-center space-y-3">
               <div className="w-14 h-14 rounded-2xl bg-[#FAF6F0] border border-[#EFE4D9] flex items-center justify-center mx-auto text-[#8A4F23]">
                 <Receipt className="w-7 h-7 stroke-[1.8]" />
@@ -2129,12 +2270,12 @@ export const W07_CashierPOS: React.FC = () => {
 
                 <div className="flex items-center justify-between pt-1">
                   <span>Ngày hẹn</span>
-                  <span className="font-semibold text-[#2C241E]">{booking.bookingDate || '2026-10-17'}</span>
+                  <span className="font-semibold text-[#2C241E]">{booking?.bookingDate || 'Chưa đặt lịch'}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span>Giờ chăm sóc</span>
-                  <span className="font-semibold text-[#2C241E]">{`${booking.startTime.slice(0, 5)}–${booking.endTime.slice(0, 5)}`}</span>
+                  <span className="font-semibold text-[#2C241E]">{booking?.startTime ? `${booking.startTime.slice(0, 5)}–${booking.endTime?.slice(0, 5)}` : 'Linh hoạt'}</span>
                 </div>
 
                 <p className="text-[11px] text-[#73675F] leading-relaxed pt-0.5">
@@ -2178,39 +2319,21 @@ export const W07_CashierPOS: React.FC = () => {
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Tạm tính (Đơn giá)</span>
-              <span className="font-semibold text-[#2C241E]">{booking ? `${rawSubtotal.toLocaleString('vi-VN')}đ` : '0đ'}</span>
+              <span className="font-semibold text-[#2C241E]">{booking || isPackageSale ? `${rawSubtotal.toLocaleString('vi-VN')}đ` : '0đ'}</span>
             </div>
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Ưu đãi / Giảm trừ</span>
               <span className="font-semibold text-emerald-700">{booking && rawDiscount > 0 ? `-${rawDiscount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
             </div>
 
-            {/* Tùy chọn trừ buổi liệu trình */}
-            <div className="py-2 px-3 rounded-xl bg-slate-50 border border-slate-200">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isPackageRedemption}
-                  onChange={(e) => setIsPackageRedemption(e.target.checked)}
-                  className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300"
-                />
-                <span className="text-xs font-semibold text-slate-800">
-                  Trừ vào Gói Liệu Trình (Khách đã thanh toán trước)
-                </span>
-              </label>
-              {isPackageRedemption && (
-                <p className="text-[11px] text-emerald-700 font-medium mt-1 ml-6">
-                  ✓ Số tiền phát sinh: 0đ. Hệ thống sẽ ghi nhận lịch sử trừ 1 buổi vào hồ sơ liệu trình của khách.
-                </p>
-              )}
-            </div>
-
             {/* Lựa chọn VAT 0%, 8%, 10% */}
-            {!isPackageRedemption && (
-              <div className="pt-2 border-t border-dashed border-[#EFE4D9] space-y-2">
+            <div className="pt-2 border-t border-dashed border-[#EFE4D9] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-700">Mức thuế VAT</span>
-                  <div className="flex items-center gap-1.5">
+                  {isPackageSale ? (
+                    <span className="font-semibold text-slate-600">0%</span>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
                     {[0, 8, 10].map((rate) => (
                       <button
                         key={rate}
@@ -2226,30 +2349,30 @@ export const W07_CashierPOS: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between text-[#73675F]">
                   <span>Tiền trước thuế</span>
-                  <span className="font-semibold text-[#2C241E]">{booking ? `${preTaxAmount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
+                  <span className="font-semibold text-[#2C241E]">{booking || isPackageSale ? `${preTaxAmount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
                 </div>
                 <div className="flex items-center justify-between text-[#73675F]">
-                  <span>Tiền thuế VAT ({vatRate}%)</span>
-                  <span className="font-semibold text-sky-700">+{booking ? `${calculatedVat.toLocaleString('vi-VN')}đ` : '0đ'}</span>
+                  <span>Tiền thuế VAT ({checkoutTaxRate}%)</span>
+                  <span className="font-semibold text-sky-700">+{booking || isPackageSale ? `${calculatedVat.toLocaleString('vi-VN')}đ` : '0đ'}</span>
                 </div>
-              </div>
-            )}
+            </div>
 
             <div className="border-t border-[#EFE4D9] pt-2.5 space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-bold text-[#2C241E]">Tổng thanh toán</span>
-                <span className="font-extrabold text-base text-sky-700">{booking ? `${finalTotalAmount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
+                <span className="font-extrabold text-base text-sky-700">{booking || isPackageSale ? `${finalTotalAmount.toLocaleString('vi-VN')}đ` : '0đ'}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-[#73675F]">
                 <span>Trạng thái thuế</span>
                 <span className="font-medium text-slate-600">
-                  {vatRate > 0 && !isPackageRedemption
-                    ? `Chưa gồm VAT — Cộng thêm ${vatRate}% (+${calculatedVat.toLocaleString('vi-VN')}đ)`
-                    : 'Miễn thuế VAT (0% - Chuẩn Y tế)'}
+                  {checkoutTaxRate > 0
+                    ? `Cộng thêm VAT ${checkoutTaxRate}% (+${calculatedVat.toLocaleString('vi-VN')}đ)`
+                    : 'VAT 0% cho giao dịch này'}
                 </span>
               </div>
             </div>
@@ -2268,6 +2391,11 @@ export const W07_CashierPOS: React.FC = () => {
                 <span>Chờ thanh toán</span>
               </div>
             )
+          ) : isPackageSale ? (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F3E2CE] text-[#8A4F23] text-xs font-semibold">
+              <Clock className="w-4 h-4 stroke-[2]" />
+              <span>Sẵn sàng thanh toán gói liệu trình</span>
+            </div>
           ) : (
             <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#FAF8F5] text-[#8C7A6B] border border-[#EFE4D9] text-xs font-medium">
               <Info className="w-4 h-4 stroke-[2]" />
@@ -2294,7 +2422,7 @@ export const W07_CashierPOS: React.FC = () => {
           {/* Phương thức thanh toán gọn gàng */}
           <div className="space-y-1.5 pt-1">
             <label className="text-xs font-semibold text-[#2C241E]">Hình thức thanh toán:</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setSelectedMethod('onsite')}
@@ -2319,23 +2447,11 @@ export const W07_CashierPOS: React.FC = () => {
                 <QrCode className="w-3.5 h-3.5" />
                 <span>Chuyển khoản</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setSelectedMethod('online')}
-                className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  selectedMethod === 'online'
-                    ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
-                    : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Quẹt thẻ / Ví</span>
-              </button>
             </div>
           </div>
 
           {/* Payment action buttons */}
-          {!booking ? (
+          {!booking && !packageIdParam ? (
             <button
               type="button"
               disabled
@@ -2394,10 +2510,10 @@ export const W07_CashierPOS: React.FC = () => {
               )}
             </div>
             <div className="text-[11px] text-[#73675F]">
-              {booking ? `${booking.bookingCode} · Tổng đơn ${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : 'Chưa có đơn dịch vụ'}
+              {booking ? `${booking.bookingCode} · Tổng đơn ${(booking.finalPrice || 0).toLocaleString('vi-VN')}đ` : packageIdParam ? `${selectedTreatmentPackage?.name || 'Gói liệu trình'} · ${customer?.fullName || 'Chưa chọn khách hàng'}` : 'Chưa có đơn dịch vụ'}
             </div>
             <div className="text-[11px] text-[#73675F]">
-              Phương thức: {selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở.' : selectedMethod === 'online' ? 'Quẹt thẻ / Ví điện tử.' : 'Chuyển khoản ngân hàng.'}
+              Phương thức: {selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở.' : 'Chuyển khoản ngân hàng.'}
             </div>
           </div>
 
@@ -2918,7 +3034,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Hình thức thanh toán:</span>
                   <span className="font-semibold text-[#8A4F23]">
-                    {selectedReceiptData?.method || (selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'online' ? 'Quẹt thẻ / Ví điện tử' : 'Chuyển khoản ngân hàng')}
+                    {selectedReceiptData?.method || (selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : 'Chuyển khoản ngân hàng')}
                   </span>
                 </div>
 
@@ -2981,7 +3097,7 @@ export const W07_CashierPOS: React.FC = () => {
                       <span>Hoa hồng KTV (10%):</span>
                     </span>
                     <span className="font-bold text-[#8A4F23]">
-                      {selectedReceiptData?.commissionText || `${Math.round(((booking?.finalPrice || 0) * 0.1)).toLocaleString('vi-VN')}đ (KTV Phụ trách)`}
+                      {selectedReceiptData?.commissionText || 'Chưa ghi nhận'}
                     </span>
                   </div>
 
@@ -2991,7 +3107,7 @@ export const W07_CashierPOS: React.FC = () => {
                       <span>Tự động hóa Zalo ZNS:</span>
                     </span>
                     <span className="font-bold text-[#166534]">
-                      Đã gửi xác nhận đơn & CSKH
+                      {selectedReceiptData?.znsSent ? 'Đã gửi xác nhận đơn & CSKH' : 'Chưa gửi'}
                     </span>
                   </div>
 
@@ -3000,8 +3116,8 @@ export const W07_CashierPOS: React.FC = () => {
                       <Receipt className="w-3.5 h-3.5 text-[#475569]" />
                       <span>Định mức kho (BOM):</span>
                     </span>
-                    <span className="font-semibold text-[#475569] truncate max-w-[200px]" title="Đã xuất vật tư tiêu hao">
-                      {selectedReceiptData?.materialsText || 'Đã xuất 3 vật tư định mức'}
+                    <span className="font-semibold text-[#475569] truncate max-w-[200px]" title={selectedReceiptData?.materialsText || 'Vật tư được ghi nhận khi hoàn tất điều trị'}>
+                      {selectedReceiptData?.materialsText || 'Chưa xuất kho'}
                     </span>
                   </div>
                 </div>
@@ -3087,7 +3203,7 @@ export const W07_CashierPOS: React.FC = () => {
                   Cơ sở / Chi nhánh làm việc
                 </label>
                 <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
-                  {branches.find((b) => b.id === selectedBranchId)?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa'}
+                  {branches.find((b) => b.id === (selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id))?.name || 'Chưa chọn chi nhánh'}
                 </div>
               </div>
 
@@ -3131,8 +3247,13 @@ export const W07_CashierPOS: React.FC = () => {
                 <button
                   type="button"
                   onClick={async () => {
+                    const shiftBranchId = selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id;
+                    if (!isUuid(shiftBranchId)) {
+                      toast.error('Chưa có chi nhánh hợp lệ', 'Tạo hoặc chọn chi nhánh trước khi mở ca.');
+                      return;
+                    }
                     const res = await posService.openShift({
-                      branchId: selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+                      branchId: shiftBranchId,
                       openingCash: shiftOpeningCash,
                       notes: shiftNotes,
                     });
@@ -3283,13 +3404,8 @@ export const W07_CashierPOS: React.FC = () => {
                 <button
                   type="button"
                   onClick={async () => {
-                    const sysCash = currentShift.systemCash || currentShift.openingCash;
                     const res = await posService.closeShift(currentShift.id, {
                       closingCash: shiftClosingCash,
-                      systemCash: sysCash,
-                      cardSales: currentShift.cardSales || 0,
-                      transferSales: currentShift.transferSales || 0,
-                      totalSales: currentShift.totalSales || 0,
                       notes: shiftNotes,
                     });
                     if (res.success) {
@@ -3347,15 +3463,22 @@ export const W07_CashierPOS: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Họ tên khách hàng <span className="text-rose-500">*</span>
+                    Hồ sơ khách hàng <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={walkInCustomerName}
-                    onChange={(e) => setWalkInCustomerName(e.target.value)}
-                    placeholder="VD: Nguyễn Thị Lan"
+                  <select
+                    value={walkInCustomerId}
+                    onChange={(e) => {
+                      const selected = allCustomers.find((item) => item.id === e.target.value);
+                      setWalkInCustomerId(selected?.id || '');
+                      setWalkInCustomerName(selected?.fullName || '');
+                      setWalkInCustomerPhone(selected?.phone || '');
+                    }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
-                  />
+                  >
+                    <option value="">Chọn khách hàng có sẵn</option>
+                    {allCustomers.filter((item) => isUuid(item.id)).map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.phone || 'Chưa có SĐT'}</option>)}
+                  </select>
+                  {!walkInCustomerId && <p className="mt-1 text-[10px] text-slate-500">Khách mới cần tạo hồ sơ trước khi đặt lịch.</p>}
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">

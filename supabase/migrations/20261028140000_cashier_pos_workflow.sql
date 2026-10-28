@@ -29,7 +29,15 @@ CREATE INDEX IF NOT EXISTS idx_cashier_shifts_cashier ON public.cashier_shifts(c
 ALTER TABLE public.cashier_shifts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Staff manage cashier_shifts" ON public.cashier_shifts;
 CREATE POLICY "Staff manage cashier_shifts" ON public.cashier_shifts
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+  FOR ALL TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND role IN ('CASHIER', 'ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER')
+  ))
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND role IN ('CASHIER', 'ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER')
+  ));
 
 ALTER TABLE public.tuition_transactions
   ADD COLUMN IF NOT EXISTS shift_id UUID REFERENCES public.cashier_shifts(id) ON DELETE SET NULL;

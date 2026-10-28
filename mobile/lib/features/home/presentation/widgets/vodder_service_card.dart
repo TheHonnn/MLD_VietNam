@@ -120,13 +120,12 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                                 ),
                               ),
                               const TextSpan(
-                                text: 'đ',
+                                text: 'đ/buổi',
                                 style: TextStyle(
                                   fontFamily: 'Montserrat',
-                                  fontSize: 20,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.servicePrice,
-                                  decoration: TextDecoration.underline,
                                 ),
                               ),
                             ],

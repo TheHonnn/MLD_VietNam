@@ -26,6 +26,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { Row } from './api';
+import { adminApi } from './api';
 import { toast } from '../components/common';
 import { supabase } from '../services/supabaseClient';
 
@@ -38,7 +39,7 @@ interface ClientPackageHolder {
   total_sessions: number;
   completed_sessions: number;
   status: string;
-  created_at: string;
+  purchased_at: string;
   expires_at?: string;
 }
 
@@ -75,20 +76,20 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
   const packageId = String(row.id || '');
   const packageName = String(row.name || 'Gói Liệu Trình MLD');
   const serviceId = String(row.service_id || '');
-  const totalSessions = Number(row.total_sessions || 5);
+  const totalSessions = Number(row.total_sessions || 0);
   const price = Number(row.price || 0);
   const discountPrice = Number(row.discount_price || 0);
-  const validityMonths = Number(row.validity_months || 6);
+  const validityMonths = Number(row.validity_months || 0);
   const description = String(row.description || '');
   const imageUrl = String(row.image_url || '/spa_massage_banner.png');
 
   // Giá mỗi buổi thực tế
-  const pricePerSession = totalSessions > 0 ? Math.round(price / totalSessions) : price;
+  const effectivePrice = discountPrice > 0 && discountPrice < price ? discountPrice : price;
+  const pricePerSession = totalSessions > 0 ? Math.round(effectivePrice / totalSessions) : 0;
   
   // So sánh tiết kiệm: nếu có discount_price > price thì lấy mức chênh, ngược lại tính ước tính 20%
-  const referenceOriginalPrice = discountPrice > price ? discountPrice : Math.round(price * 1.25);
-  const savingsAmount = referenceOriginalPrice - price;
-  const savingsPercent = referenceOriginalPrice > 0 ? Math.round((savingsAmount / referenceOriginalPrice) * 100) : 0;
+  const savingsAmount = discountPrice > 0 && discountPrice < price ? price - discountPrice : 0;
+  const savingsPercent = savingsAmount > 0 ? Math.round((savingsAmount / price) * 100) : 0;
 
   // 1. Tải danh sách khách hàng đang sở hữu gói này
   useEffect(() => {
@@ -105,7 +106,7 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
             total_sessions,
             completed_sessions,
             status,
-            created_at,
+            purchased_at,
             expires_at,
             users (
               id,
@@ -115,7 +116,7 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
             )
           `)
           .eq('package_id', packageId)
-          .order('created_at', { ascending: false })
+          .order('purchased_at', { ascending: false })
           .limit(10);
 
         if (!error && data && isSubscribed) {
@@ -125,10 +126,10 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
             customer_name: d.users?.full_name || 'Khách hàng MLD',
             customer_phone: d.users?.phone || '--',
             customer_avatar: d.users?.avatar_url,
-            total_sessions: Number(d.total_sessions || totalSessions),
+            total_sessions: Number(d.total_sessions || 0),
             completed_sessions: Number(d.completed_sessions || 0),
             status: d.status || 'ACTIVE',
-            created_at: d.created_at,
+            purchased_at: d.purchased_at,
             expires_at: d.expires_at,
           }));
           setHolders(mapped);
@@ -214,23 +215,19 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
     setIsTogglingStatus(true);
     const nextState = !isActive;
     try {
-      const { error } = await supabase
-        .from('treatment_packages')
-        .update({ is_active: nextState })
-        .eq('id', packageId);
-
-      if (!error) {
-        setIsActive(nextState);
-        toast.success(
-          nextState ? 'Kích hoạt mở bán gói' : 'Tạm ngưng áp dụng gói',
-          nextState
-            ? `Đã mở bán gói "${packageName}" trên toàn hệ thống.`
-            : `Đã tạm ngưng áp dụng gói "${packageName}".`
-        );
-        if (onRefresh) onRefresh();
-      } else {
-        throw error;
-      }
+      await adminApi('treatment_packages/update', {
+        values: { is_active: nextState },
+        key: { id: packageId },
+        ...(row.updated_at ? { expectedUpdatedAt: row.updated_at } : {}),
+      });
+      setIsActive(nextState);
+      toast.success(
+        nextState ? 'Kích hoạt mở bán gói' : 'Tạm ngưng áp dụng gói',
+        nextState
+          ? `Đã mở bán gói "${packageName}" trên toàn hệ thống.`
+          : `Đã tạm ngưng áp dụng gói "${packageName}".`
+      );
+      onRefresh?.();
     } catch (err: any) {
       console.error('Lỗi cập nhật trạng thái gói:', err);
       toast.error('Lỗi thao tác', err.message || 'Không thể cập nhật trạng thái gói.');
@@ -359,11 +356,11 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
             <DollarSign className="w-3.5 h-3.5 text-[#8A4F23]" />
           </div>
           <div className="text-lg sm:text-xl font-extrabold text-[#0D6832]">
-            {price.toLocaleString('vi-VN')}đ
+            {effectivePrice.toLocaleString('vi-VN')}đ
           </div>
-          {referenceOriginalPrice > price && (
+          {savingsAmount > 0 && (
             <div className="text-[11px] text-[#A69788] line-through font-medium">
-              {referenceOriginalPrice.toLocaleString('vi-VN')}đ
+              {price.toLocaleString('vi-VN')}đ
             </div>
           )}
         </div>
@@ -392,7 +389,7 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
             {savingsPercent > 0 ? `-${savingsPercent}%` : 'Ưu đãi VIP'}
           </div>
           <div className="text-[11px] text-[#8A4F23] font-medium">
-            Tiết kiệm {savingsAmount.toLocaleString('vi-VN')}đ so với mua lẻ
+            {savingsAmount > 0 ? `Giảm ${savingsAmount.toLocaleString('vi-VN')}đ so với giá gốc gói` : 'Không áp dụng giá ưu đãi'}
           </div>
         </div>
 

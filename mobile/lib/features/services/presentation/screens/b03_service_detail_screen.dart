@@ -311,7 +311,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                                 const SizedBox(width: 8),
                               ],
                               Text(
-                                widget.price,
+                                widget.price.contains('/buổi') ? widget.price : '${widget.price} / buổi',
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,

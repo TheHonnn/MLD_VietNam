@@ -262,7 +262,7 @@ class SpaServiceModel {
     required this.durationMinutes,
     required this.price,
     this.discountPrice,
-    this.vatRate = 0.08,
+    this.vatRate = 0.0,
     required this.imageUrl,
     this.steps = const [],
     this.benefits = const [],
