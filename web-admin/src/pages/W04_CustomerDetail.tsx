@@ -1618,7 +1618,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 >
                   {availablePackages.filter((pkg) => pkg.isActive).map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
-                      {pkg.name} — {pkg.totalSessions} buổi ({(pkg.discountPrice || pkg.price).toLocaleString('vi-VN')}đ)
+                      {pkg.name} — {pkg.totalSessions} buổi ({(pkg.discountPrice && pkg.discountPrice < pkg.price ? pkg.discountPrice : pkg.price).toLocaleString('vi-VN')}đ)
                     </option>
                   ))}
                 </select>

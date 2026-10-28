@@ -253,7 +253,9 @@ export const W06_TreatmentManagement: React.FC = () => {
         CANCELLED: 'Đã hủy',
         PAUSED: 'Tạm dừng',
       };
-      const rawPrice = pkgDef?.discountPrice || pkgDef?.price || 0;
+      const basePrice = Number(pkgDef?.price || 0);
+      const discount = Number(pkgDef?.discountPrice || 0);
+      const rawPrice = discount > 0 && discount < basePrice ? discount : basePrice;
       const priceText = `${rawPrice.toLocaleString('vi-VN')}đ`;
 
       const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => {
@@ -1498,7 +1500,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                 >
                   {livePackages.filter((p) => p.isActive).map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} · {p.totalSessions} buổi ({((p.discountPrice || p.price) || 0).toLocaleString('vi-VN')}đ)
+                      {p.name} · {p.totalSessions} buổi ({(p.discountPrice && p.discountPrice < p.price ? p.discountPrice : p.price).toLocaleString('vi-VN')}đ)
                     </option>
                   ))}
                 </select>
