@@ -245,9 +245,11 @@ export const ServiceDetailModal: React.FC<{
   bookingError?:string;
   onRequireLogin?:()=>void;
   service: ServiceDetails | null;
+  doctors?:DoctorDetails[];
+  onSpecialist?:(doctor:Doctor)=>void;
   onClose: () => void;
   onBookNow: (service: MedicalService) => void;
-}> = ({ service, onClose, onBookNow,userId,onRequireLogin,bookingError }) => {
+}> = ({ service, onClose, onBookNow,userId,onRequireLogin,bookingError,doctors=[],onSpecialist }) => {
   const [shareStatus, setShareStatus] = React.useState('');
   const [sharing, setSharing] = React.useState(false);
   const [favorite,setFavorite]=React.useState(false);
@@ -312,6 +314,7 @@ export const ServiceDetailModal: React.FC<{
       <section className="service-detail-section"><h2>Giới thiệu dịch vụ</h2><p>{service.description}</p></section>
       {!!service.benefits?.length && <section className="service-detail-section"><h2>Trải nghiệm nổi bật</h2><ul>{service.benefits.map((benefit,index)=><li key={index}>{contentText(benefit,'title')||contentText(benefit,'description')}</li>)}</ul></section>}
       {!!service.steps?.length && <section className="service-detail-section"><h2>Quy trình trải nghiệm</h2>{service.steps.map((step,index)=><div key={index} className="service-detail-step"><h3>{typeof step!=='string'&&typeof step.step==='number'?`${step.step}. `:''}{contentText(step,'title')}</h3>{typeof step!=='string'&&<p>{contentText(step,'desc')||contentText(step,'description')}</p>}</div>)}</section>}
+      {doctors.length>0&&onSpecialist&&<section className="service-detail-section"><h2>Chuyên viên gợi ý</h2>{doctors.map(doctor=><button key={doctor.id} type="button" className="mobile-list-card" onClick={()=>onSpecialist(doctor)}><EntityImage src={doctor.avatar} alt={doctor.name}/><span><strong>{doctor.name}</strong><small>{doctor.title}</small></span></button>)}</section>}
       <Gallery urls={service.galleryUrls} name={service.title}/>
       {!!service.reviews?.length && <div className="service-detail-section">{service.reviewsCount>0&&Number.isFinite(service.rating)&&<p>{service.rating}/5 · {service.reviewsCount} đánh giá</p>}<Reviews reviews={service.reviews}/></div>}
     </main>

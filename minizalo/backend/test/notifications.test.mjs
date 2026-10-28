@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {workflowFixture} from './fixtures/workflow.mjs';
+import {workflowFixture,seedCompletedReadings} from './fixtures/workflow.mjs';
 
 test('notification inbox observes canonical changes, isolates customers and persists read state', async t => {
   const {db,id,request,close} = await workflowFixture();
@@ -51,6 +51,7 @@ test('notification inbox observes canonical changes, isolates customers and pers
       assert.match(result.title,/tốt nghiệp/); assert.match(result.message,/hoàn thành nội dung/);
     });
     await t.test('quiz grades, feedback, lesson changes and schedule changes deep-link to the exact enrollment',async()=>{
+      await seedCompletedReadings(db,id(29));
       const submitted=await request(`/courses/${id(22)}/quiz/submit`,{method:'POST',body:{enrollmentId:id(29),quizId:id(26),answers:{[id(27)]:'A',[id(28)]:'B'}}});
       assert.equal(submitted.status,200);
       let notification=source(await inbox(),`quiz:${submitted.data.submission.id}`);

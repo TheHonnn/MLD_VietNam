@@ -105,7 +105,11 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       assert.equal(privateLesson.videoUrl,null);
       assert.equal(privateLesson.contentText,null);
       assert.deepEqual(privateLesson.attachments,[]);
-      assert.equal(course.lessons.find(l=>l.id===id(12)).videoUrl,'https://example.test/preview.mp4');
+      const formerlyPreview=course.lessons.find(l=>l.id===id(12));
+      assert.equal(formerlyPreview.videoUrl,null);
+      assert.equal(formerlyPreview.contentText,null);
+      assert.equal(formerlyPreview.isFreePreview,false);
+      assert.deepEqual(formerlyPreview.attachments,[]);
     });
     await t.test('learning uses actual schedule/room and progress persists without issuing certificates', async () => {
       assert.equal((await call(`/courses/${id(9)}/learning`,{owner:2})).status,403);

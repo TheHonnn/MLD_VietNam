@@ -11,7 +11,7 @@ import { AcademyCertificates } from './AcademyCertificates';
 import { YouTubeLessonPlayer } from './YouTubeLessonPlayer';
 import type { LessonPlayerHandle } from './YouTubeLessonPlayer';
 import { AcademyHome, AcademyCatalog, AcademyCourseDetail, AcademyInstructor, AcademyRegistration, AcademyRegistrationStatus, AcademyMyCourses, AcademyClassSummary, AcademyHeader, AcademyFooter } from './AcademyViews';
-import type { AcademyEnrollment } from './AcademyViews';
+import type { RegistrationDetails, AcademyEnrollment } from './AcademyViews';
 import '@/css/academy.scss';
 
 interface GroupEAcademyProps {
@@ -30,6 +30,7 @@ interface GroupEAcademyProps {
   catalogSearch?: { query: string; id: number };
   notificationTarget?: { id: string; enrollmentId: string; tab: string; quizId?: string; certificateId?: string };
   onBusyChange?: (busy: boolean) => void;
+  onExit?:()=>void;
 }
 
 type Lesson = Course['lessons'][number] & {
@@ -79,13 +80,15 @@ const displayText = (value: unknown): string => {
 const buttonClass = 'min-h-10 rounded-[8px] border border-[#D5DAD7] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-50';
 const Empty = ({ children }: { children?: React.ReactNode }) => children ? <p className="py-4 text-xs text-[#66736C]">{children}</p> : null;
 
-export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, user, branches = [], onOpenNotifications, loading, error, onRefresh, onRequireLogin, mode = 'catalog', initialCourseId, catalogSearch, notificationTarget, onBusyChange }) => {
+export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, user, branches = [], onOpenNotifications, loading, error, onRefresh, onRequireLogin, mode = 'catalog', initialCourseId, catalogSearch, notificationTarget, onBusyChange,onExit }) => {
   const [tab, setTab] = useState<Tab>(initialCourseId ? 'catalog' : mode === 'learning' ? 'my_courses' : 'catalog');
   const [selectedId, setSelectedId] = useState<string | null>(initialCourseId || null);
   const [catalogView, setCatalogView] = useState<'home' | 'catalog' | 'course' | 'instructor' | 'registration' | 'payment'>(initialCourseId ? 'course' : 'catalog');
   const [branchId, setBranchId] = useState('');
   const [catalogAudience, setCatalogAudience] = useState<CourseAudience | ''>('');
   const [batchId, setBatchId] = useState('');
+  const [registrationDetails,setRegistrationDetails]=useState<RegistrationDetails|undefined>();
+  const [questionIndex,setQuestionIndex]=useState(0);
   const [instructorId, setInstructorId] = useState('');
   const [paymentEnrollmentId, setPaymentEnrollmentId] = useState('');
   const [registering, setRegistering] = useState(false);
@@ -222,12 +225,18 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       .then(() => { if (!cancelled) setEnrollmentLoading(false); });
     return () => { cancelled = true; };
   }, [userId, enrollmentVersion]);
+  useEffect(()=>{
+    if(!userId)return;
+    const refresh=()=>{if(document.hidden)return;apiClient.invalidateReadPaths(['/course-enrollments']);setEnrollmentVersion(v=>v+1);};
+    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);const timer=window.setInterval(refresh,30000);
+    return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+  },[userId]);
 
   const eligible = enrollments.filter(item => accessible(item.status));
   useEffect(() => {
     if (!notificationTarget || openedNotification.current === notificationTarget.id) return;
     if (notificationTarget.tab === 'certificates') { openedNotification.current = notificationTarget.id; setTab('certificates'); setLessonId(null); return; }
-    const entry = enrollments.find(item => item.id === notificationTarget.enrollmentId);
+    const entry = enrollments.find(item => item.id === notificationTarget.enrollmentId)||(!notificationTarget.enrollmentId?eligible[0]:undefined);
     if (!entry) return;
     openedNotification.current = notificationTarget.id;
     if (!accessible(entry.status) || notificationTarget.tab === 'payment') {
@@ -263,6 +272,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   useEffect(() => { onBusyChange?.(navigationBusy); return () => onBusyChange?.(false); }, [navigationBusy, onBusyChange]);
   useEffect(() => () => { quizRequest.current++; }, []);
   const beginQuiz = async () => {
+    setQuestionIndex(0);
     if (!study?.quiz || attemptLock.current || quizLock.current) return;
     const previous = pendingForQuiz || readPending({ courseId: study.id, enrollmentId: activeEnrollmentId || '', quizId: study.quiz.id });
     if (previous) { rememberPending(previous); await sendQuizSubmission(previous); return; }
@@ -346,10 +356,17 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       .then(() => { if (!cancelled) setLearningLoading(false); });
     return () => { cancelled = true; };
   }, [activeCourseId, activeEnrollmentId, learningVersion, tab === 'certificates']);
-  useEffect(() => { setQuizAttempt(null); setQuizResult(null); setAnswers({}); }, [activeCourseId, activeEnrollmentId, quizId]);
+  useEffect(() => { setQuizAttempt(null); setQuizResult(null); setAnswers({}); setQuestionIndex(0); }, [activeCourseId, activeEnrollmentId, quizId]);
 
+  useEffect(()=>{
+    if(!activeCourseId||!activeEnrollmentId)return;
+    const refresh=()=>{if(document.hidden||attemptLock.current||quizLock.current||progressLock.current||playback.current||lessonId)return;apiClient.invalidateReadPaths(['/courses/'+activeCourseId+'/learning']);setLearningVersion(v=>v+1);};
+    window.addEventListener('focus',refresh);const timer=window.setInterval(refresh,30000);
+    return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);};
+  },[activeCourseId,activeEnrollmentId,lessonId]);
   const openLesson = (item: Lesson) => {
     if (attemptLock.current || quizLock.current || progressLock.current || closingLesson.current) return;
+    if((item as any).isLocked){setActionError('Hoàn thành bài học trước để mở bài này.');return;}
     setLessonExitBlocked(false); setDraftStorageFailed(false);
     const ownedLesson = Boolean(tab !== 'catalog' && study?.lessons.some(lesson => lesson.id === item.id) && activeEnrollmentId);
     if (item.lessonType === 'QUIZ' && ownedLesson) {
@@ -411,6 +428,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
           ...item, watchedSeconds: progress.watchedSeconds, isCompleted: progress.isCompleted, studentNotes: progress.studentNotes,
         } : item)
       } : current);
+      if(progress.isCompleted&&!activeLesson?.isCompleted){apiClient.invalidateReadPaths([`/courses/${courseId}/learning`]);setLearningVersion(v=>v+1);}
       if (response.enrollment) setEnrollments(current => current.map(item => item.id === response.enrollment.id ? response.enrollment : item));
       else setEnrollmentVersion(value => value + 1);
       setNotice(completed && isReadingLesson(activeLesson) && progress.isCompleted ? 'Đã ghi nhận xác nhận đã đọc.' : 'Đã lưu tiến trình học.');
@@ -476,7 +494,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     if (!selected || registrationLock.current || enrollmentLoading || enrollmentError) return;
     registrationLock.current = true; setRegistering(true); setActionError(''); setNotice('');
     try {
-      const response = await apiClient.enrollCourse({ courseId: selected.id, ...(batchId ? { batchId } : {}) });
+      const response = await apiClient.enrollCourse({ courseId: selected.id, ...registrationDetails, ...(batchId ? { batchId } : {}) });
       if (response?.status === 401) { setEnrollmentAuthRequired(true); onRequireLogin(); return; }
       if (response?.error || !response?.enrollment?.id) throw new Error(response?.error || 'Không thể đăng ký khóa học.');
       setEnrollments(current => [response.enrollment, ...current.filter(item => item.id !== response.enrollment.id)]);
@@ -540,8 +558,8 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
     })), []).filter(Boolean);
     return links.length ? links : <Empty></Empty>;
   };
-  const renderLesson = (item: Lesson) => <button key={item.id} data-lesson-id={item.id} className="academy-lesson-row" disabled={learningActionBusy} onClick={() => openLesson(item)}>
-    {isReadingLesson(item) ? <FileTextIcon size={18} /> : <PlayCircleIcon size={18} />}<span className="min-w-0 break-words">{item.title}<small className="block font-normal">{item.duration}{item.isCompleted ? ' · Đã hoàn thành' : ''}</small></span>
+  const renderLesson = (item: Lesson) => <button key={item.id} data-lesson-id={item.id} className="academy-lesson-row" disabled={learningActionBusy || Boolean((item as any).isLocked)} onClick={() => openLesson(item)}>
+    {isReadingLesson(item) ? <FileTextIcon size={18} /> : <PlayCircleIcon size={18} />}<span className="min-w-0 break-words">{item.title}<small className="block font-normal">{item.duration}{(item as any).isLocked?' · Đang khóa':item.isCompleted ? ' · Đã hoàn thành' : ''}</small></span>
   </button>;
   const renderQuizHistory = () => <section className="space-y-2 text-xs" aria-label="Lịch sử bài kiểm tra">
     <h3 className="text-sm font-bold">Lịch sử bài kiểm tra</h3>
@@ -558,7 +576,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
               const question = submission.questions?.find(item => item.id === id) || quizzes.find(quiz => quiz.id === submission.quizId)?.questions.find(item => item.id === id);
               const optionKey = typeof answer === 'number' ? String.fromCharCode(65 + answer) : answer;
               const optionIndex = question?.optionKeys?.indexOf(optionKey) ?? -1;
-              return <div key={id} className="space-y-1 py-2"><p>{question?.question || id}</p><p>{optionKey}{optionIndex >= 0 ? ` · ${question?.options[optionIndex]}` : ''}</p></div>;
+              return <div key={id} className="space-y-1 py-2"><p>{question?.question || id}</p><p>{optionKey}{optionIndex >= 0 ? ` · ${question?.options[optionIndex]}` : ''}</p>{(question as any)?.correctOption&&<p>Đáp án đúng: {(question as any).correctOption}</p>}{(question as any)?.explanation&&<p>Giải thích: {(question as any).explanation}</p>}</div>;
             })}</details>}
           </div>;
         })}
@@ -567,7 +585,7 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   const openCatalog = (audience?: CourseAudience) => { setCatalogAudience(audience === 'BEGINNER' || audience === 'PRACTITIONER' ? audience : ''); setTab('catalog'); setCatalogView('catalog'); setInstructorId(''); setActionError(''); setNotice(''); };
   const openCertificates = () => { if (!userId) { onRequireLogin(); return; } setLessonId(null); setTab('certificates'); setActionError(''); setNotice(''); };
   const openMine = () => { if (attemptLock.current || quizLock.current || progressLock.current || registrationLock.current) return; if (!userId || enrollmentAuthRequired) { onRequireLogin(); return; } setTab('my_courses'); setLessonId(null); setNotice(''); setActionError(''); };
-  const showCourse = (course: Course) => { setSelectedId(course.id); setCatalogView('course'); setBatchId(''); setPaymentEnrollmentId(''); setActionError(''); };
+  const showCourse = (course: Course) => { setSelectedId(course.id); setCatalogView('course'); setBatchId(''); setRegistrationDetails(undefined); setPaymentEnrollmentId(''); setActionError(''); };
   const beginRegistration = () => {
     if (!userId || enrollmentAuthRequired) { onRequireLogin(); return; }
     const existing = enrollments.find(entry => entry.courseId === selected?.id && entry.status !== 'dropped');
@@ -587,13 +605,13 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
       {enrollmentLoading && <p role="status">Đang tải đăng ký học...</p>}
       {enrollmentError && <p role="alert" className="academy-error">{enrollmentError} <button onClick={() => setEnrollmentVersion(value => value + 1)}>Thử lại</button></p>}
     </div>}
-    {tab === 'catalog' && ['home', 'catalog'].includes(catalogView) && <><div className="academy-body academy-chips"><button type="button" className="academy-outline" onClick={openMine}> </button><button type="button" className="academy-outline" onClick={openCertificates}>Giấy chứng nhận</button></div><AcademyCatalog key={catalogSearch?.id} initialQuery={catalogSearch?.query} initialAudience={catalogAudience} courses={courses} branches={branches} branchId={branchId} onBranch={setBranchId} instructorId={instructorId} onCourse={showCourse} /></>}
+    {tab === 'catalog' && ['home', 'catalog'].includes(catalogView) && <><div className="academy-body academy-chips"><button type="button" className="academy-outline" onClick={openMine}>Khóa học của tôi</button><button type="button" className="academy-outline" onClick={openCertificates}>Giấy chứng nhận</button></div><AcademyCatalog key={catalogSearch?.id} initialQuery={catalogSearch?.query} initialAudience={catalogAudience} courses={courses} branches={branches} branchId={branchId} onBranch={setBranchId} instructorId={instructorId} onCourse={showCourse} /></>}
     {tab === 'catalog' && !['home', 'catalog'].includes(catalogView) && !selected && !(catalogView === 'payment' && paymentEnrollment) && <AcademyHeader title="Khóa học" onBack={openCatalog} />}
     {tab === 'catalog' && catalogView === 'course' && selected && <AcademyCourseDetail course={selected} onBack={openCatalog} onInstructor={() => setCatalogView('instructor')} onRegister={beginRegistration} registered={enrollments.some(entry => entry.courseId === selected.id && entry.status !== 'dropped')} onPreview={openLesson} />}
     {tab === 'catalog' && catalogView === 'instructor' && selected && <AcademyInstructor course={selected} onBack={() => setCatalogView('course')} onCourses={() => { openCatalog(); setInstructorId(selected.instructorProfile?.id || ''); }} />}
-    {tab === 'catalog' && catalogView === 'registration' && selected && <AcademyRegistration course={selected} user={user} batchId={batchId} onBatch={setBatchId} onBack={() => setCatalogView('course')} onContinue={() => setCatalogView('payment')} />}
+    {tab === 'catalog' && catalogView === 'registration' && selected && <AcademyRegistration course={selected} user={user} branches={branches} initialDetails={registrationDetails} batchId={batchId} onBatch={setBatchId} onBack={() => setCatalogView('course')} onContinue={details=>{setRegistrationDetails(details);setCatalogView('payment');}} />}
     {tab === 'catalog' && catalogView === 'payment' && (selected || paymentEnrollment) && <AcademyRegistrationStatus course={selected} batchId={batchId} enrollment={paymentEnrollment} onBack={() => selected ? setCatalogView(paymentEnrollmentId ? 'course' : 'registration') : openMine()} onSubmit={register} onMine={openMine} busy={registering} error={actionError} />}
-    {tab === 'my_courses' && (!enrollmentLoading && !enrollmentError && !enrollmentAuthRequired && userId ? <AcademyMyCourses enrollments={enrollments} onBack={() => { setTab('catalog'); setCatalogView('home'); }} onCertificates={openCertificates} onPayment={openPayment} onLearn={entry => { setStudyId(entry.id); setTab('content'); }} /> : <AcademyHeader title="Khóa học của tôi" onBack={() => { setTab('catalog'); setCatalogView('home'); }} />)}
+    {tab === 'my_courses' && (!enrollmentLoading && !enrollmentError && !enrollmentAuthRequired && userId ? <AcademyMyCourses enrollments={enrollments} onBack={onExit||(()=>{setTab('catalog');setCatalogView('home');})} onCertificates={openCertificates} onPayment={openPayment} onExam={entry=>{setStudyId(entry.id);setTab('exam');}} onLearn={entry => { setStudyId(entry.id); setTab('content'); }} /> : <AcademyHeader title="Khóa học của tôi" onBack={onExit||(()=>{setTab('catalog');setCatalogView('home');})} />)}
 
     {tab === 'certificates' && <AcademyCertificates key={userId} userId={userId} initialCertificateId={notificationTarget?.tab === 'certificates' ? notificationTarget.certificateId : undefined} onBack={() => { setTab('catalog'); setCatalogView('home'); }} onRequireLogin={onRequireLogin} />}
     {!['catalog', 'my_courses', 'certificates'].includes(tab) && <>
@@ -623,15 +641,16 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
           {tab === 'exam' && pendingForQuiz && <button className={buttonClass} disabled={quizSubmitting || attemptBusy} onClick={() => void sendQuizSubmission(pendingForQuiz)}>{quizSubmitting ? 'Đang xác nhận bài nộp...' : 'Kiểm tra / gửi lại bài nộp'}</button>}
           {tab === 'exam' && attemptActive && (study.quiz?.questions.length ? <div className="space-y-4">
             <QuizTimer deadline={quizDeadline.current} onExpire={expireQuiz} />
-            <h2 className="text-base font-bold">{study.quiz.title}</h2><p className="text-xs">Điểm đạt: {study.quiz.passingScore}%</p>
-            {study.quiz.questions.map((question, index) => <fieldset key={question.id} disabled={quizSubmitting || Boolean(pendingForQuiz)} className="space-y-2"><legend className="mb-2 text-sm font-semibold">{index + 1}. {question.question}</legend>{question.options.map((option, optionIndex) => {
+            <h2 className="text-base font-bold">{study.quiz.title}</h2><p className="text-xs">Điểm đạt: {study.quiz.passingScore/10}/10</p>
+            {study.quiz.questions.map((question, index) => index===questionIndex&&<fieldset key={question.id} disabled={quizSubmitting || Boolean(pendingForQuiz)} className="space-y-2"><legend className="mb-2 text-sm font-semibold">{index + 1}. {question.question}</legend>{question.options.map((option, optionIndex) => {
               const key = question.optionKeys?.[optionIndex] || String.fromCharCode(65 + optionIndex);
               return <label key={key} className="flex items-start gap-2 text-xs"><input type="radio" name={question.id} checked={answers[question.id] === key} onChange={() => chooseAnswer(question.id, key)} /><span>{option}</span></label>;
             })}</fieldset>)}
-            {!pendingForQuiz && <button className={buttonClass} disabled={quizSubmitting || !attemptActive} onClick={submitQuiz}>{quizSubmitting ? 'Đang nộp bài...' : 'Nộp bài'}</button>}
-            {quizResult?.courseId === study.id && <p role="status" className="text-xs">Điểm: {quizResult.score}% · {quizResult.correctCount}/{quizResult.totalQuestions} câu đúng · {quizResult.isPassed ? 'Đạt' : 'Chưa đạt'}</p>}
+            <div className="academy-tabs"><button type="button" disabled={questionIndex===0||quizSubmitting} onClick={()=>setQuestionIndex(i=>i-1)}>Câu trước</button><span>{questionIndex+1} / {study.quiz.questions.length}</span><button type="button" disabled={questionIndex>=study.quiz.questions.length-1||quizSubmitting} onClick={()=>setQuestionIndex(i=>i+1)}>Câu tiếp theo</button></div>
+            {!pendingForQuiz && <button className={buttonClass} disabled={quizSubmitting || !attemptActive} onClick={()=>{if(window.confirm('Bạn có chắc chắn muốn nộp bài?'))submitQuiz();}}>{quizSubmitting ? 'Đang nộp bài...' : 'Nộp bài'}</button>}
+            {quizResult?.courseId === study.id && <p role="status" className="text-xs">Điểm: {(quizResult.score/10).toLocaleString('vi-VN')}/10 · {quizResult.correctCount}/{quizResult.totalQuestions} câu đúng · {quizResult.isPassed ? 'Đạt' : 'Chưa đạt'}</p>}
           </div> : <Empty></Empty>)}
-          {tab === 'exam' && !attemptActive && quizResult?.courseId === study.id && <p role="status" className="text-xs">Điểm: {quizResult.score}% · {quizResult.correctCount}/{quizResult.totalQuestions} câu đúng · {quizResult.isPassed ? 'Đạt' : 'Chưa đạt'}</p>}
+          {tab === 'exam' && !attemptActive && quizResult?.courseId === study.id && <p role="status" className="text-xs">Điểm: {(quizResult.score/10).toLocaleString('vi-VN')}/10 · {quizResult.correctCount}/{quizResult.totalQuestions} câu đúng · {quizResult.isPassed ? 'Đạt' : 'Chưa đạt'}</p>}
           {tab === 'exam' && renderQuizHistory()}
           {tab === 'results' && <div className="space-y-3 text-xs">
             <h2 className="text-base font-bold">Kết quả học tập</h2>

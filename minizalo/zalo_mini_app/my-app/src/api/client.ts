@@ -40,6 +40,7 @@ const validReadPayload = (path: string, payload: Record<string,any>) => {
 const relativePath = (url: URL) => url.pathname.slice(new URL(API_BASE_URL).pathname.replace(/\/$/,'').length);
 const cacheKey = (url: URL, token = session.get()) => {
   const path = relativePath(url);
+  if(path==='/portal/banners')return null;
   const scope = publicReads.has(path) ? 'public' : privateReads.has(path) || /^\/courses\/[^/]+\/learning$/.test(path) ? 'private' : '';
   if (!scope) return null;
   const canonical = new URL(url); canonical.searchParams.sort(); canonical.search = canonical.searchParams.toString();
@@ -174,6 +175,7 @@ const createCustomerRecord=async(scope:'support-tickets'|'consultation-surveys',
 const searchWrites = new OwnerWriteQueue(() => String(sessionEpoch));
 
 export const apiClient = {
+  clearUnverifiedSession(){if(!verifiedZaloSessionThisPage)session.clear();},
   async getClassSchedules(signal?:AbortSignal){
     try{return await responseJson(await fetch(`${API_BASE_URL}/staff/class-schedules`,{signal}));}
     catch{return {error:'Không thể tải lịch lớp. Vui lòng thử lại.'};}
@@ -331,6 +333,19 @@ export const apiClient = {
   },
 
   cancelZaloLogin() { authController?.abort(); authController = null; },
+  async syncZaloProfile(){
+    const token=session.get(),epoch=sessionEpoch;
+    if(!token)return {skipped:true};
+    try{
+      const profile=await apiClient.getZaloProfile();
+      if(session.get()!==token||sessionEpoch!==epoch)return {skipped:true};
+      const patch:Record<string,string>={};
+      if(profile.name)patch.name=profile.name;
+      if(profile.avatar)patch.avatar=profile.avatar;
+      if(!Object.keys(patch).length)return {skipped:true};
+      return await apiClient.updateProfile(patch);
+    }catch{return {skipped:true};}
+  },
   async getZaloProfile() {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 15000);
@@ -512,8 +527,8 @@ export const apiClient = {
     try{return await responseJson(await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(id)}`,{cache:'no-store',signal}));}
     catch{return {error:'Không thể mở tài liệu. Vui lòng thử lại.'};}
   },
-  async getSharedContent(kind:'COMMUNITY'|'DOCUMENT',search:string,cursor?:string,signal?:AbortSignal){
-    const params=new URLSearchParams({kind,search,limit:'20',...(cursor?{cursor}:{})});
+  async getSharedContent(kind:'COMMUNITY'|'DOCUMENT',search:string,cursor?:string,signal?:AbortSignal,category?:string){
+    const params=new URLSearchParams({kind,...(category?{category}:{}),search,limit:'20',...(cursor?{cursor}:{})});
     try{return await responseJson(await fetch(`${API_BASE_URL}/portal/${session.get()?'library':'content'}?${params}`,{cache:'no-store',signal}));}
     catch{return {error:'Không thể tải nội dung chia sẻ. Vui lòng thử lại.'};}
   },
@@ -535,9 +550,9 @@ export const apiClient = {
     catch{return {error:'Không thể cập nhật ca trị liệu. Vui lòng thử lại.'};}
   },
 
-  async getBookings() {
+  async getBookings(scope:'personal'|'work'='work') {
     try {
-      const res = await fetch(`${API_BASE_URL}/bookings`);
+      const res = await fetch(`${API_BASE_URL}/bookings?scope=${scope}`);
       if (!res.ok) throw new Error('API error');
       return await res.json();
     } catch {
@@ -766,7 +781,7 @@ export const apiClient = {
     }
   },
 
-  async getNotifications(fresh = false,cursor?:string,filter:'all'|'unread'='all') {
+  async getNotifications(fresh = false,cursor?:string,filter:'all'|'unread'|'booking'|'treatment'|'academy'='all') {
     if (fresh) invalidatePaths(['/notifications']);
     try {
       const query=new URLSearchParams();

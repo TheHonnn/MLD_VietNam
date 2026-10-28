@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {workflowFixture} from './fixtures/workflow.mjs';
+import {workflowFixture,seedCompletedReadings} from './fixtures/workflow.mjs';
 import {migrateFixture} from './fixtures/migrations.mjs';
 
 test('mobile reliability regressions use an isolated database only',async t=>{
@@ -37,6 +37,7 @@ test('mobile reliability regressions use an isolated database only',async t=>{
       assert.equal((await row('SELECT status FROM bookings WHERE id=$1',[id(11)])).status,'CONFIRMED');
     });
     await t.test('quiz completion is server verified, draft resumes, a passing quiz completes its linked lesson',async()=>{
+      await seedCompletedReadings(db,id(29));
       assert.equal((await request(`${course}/lessons/${id(31)}/progress`,{method:'POST',body:{enrollmentId:id(29),isCompleted:true}})).status,400);
       const start=await request(`${course}/quiz/start`,{method:'POST',body:scope});
       assert.equal(start.status,200,JSON.stringify(start));
@@ -56,11 +57,12 @@ test('mobile reliability regressions use an isolated database only',async t=>{
       const learning=await request(`${course}/learning?enrollmentId=${id(29)}`);
       assert.equal(learning.data.course.lessons.find(l=>l.id===id(31)).isCompleted,true);
       assert.equal(learning.data.course.quizSubmissions[0].questions[0].questionText,'First question');
-      assert.equal(JSON.stringify(learning).includes('correctOption'),false);
+      assert.equal(learning.data.course.quizSubmissions[0].questions[0].correctOption,'A');
       assert.equal((await row('SELECT count(*)::int AS n FROM student_certificates')).n,0);
       assert.equal((await request(`${course}/quiz/start`,{method:'POST',body:scope,owner:2})).status,403);
     });
     await t.test('attempt deadlines and three-attempt limit survive reconnecting',async()=>{
+      await seedCompletedReadings(db,id(32));
       const body={...scope,enrollmentId:id(32)};
       for(let i=0;i<3;i++){
         const started=await request(`${course}/quiz/start`,{method:'POST',body});
@@ -97,7 +99,7 @@ test('mobile reliability regressions use an isolated database only',async t=>{
       assert.equal(old.status,409);assert.equal(old.code,'VIDEO_SESSION_EXPIRED');
       assert.equal((await row('SELECT watched_seconds FROM user_lesson_progress WHERE enrollment_id=$1 AND lesson_id=$2',[id(29),id(70)])).watched_seconds,60);
       const invalid=await request(`${course}/lessons/${id(999)}/playback`,{method:'POST',body:{enrollmentId:id(29)}});
-      assert.equal(invalid.status,409);
+      assert.equal(invalid.status,404);
       assert.equal((await row('SELECT expires_at>clock_timestamp() AS active FROM miniapp_lesson_playbacks WHERE id=$1',[replacement.data.playback.id])).active,true);
     });
     await t.test('package reservations charge zero, release on cancellation and consume only an actual journal',async()=>{

@@ -150,6 +150,7 @@ export const GroupBSearch: React.FC<GroupBSearchProps> = ({
           {popularError && <p className="search-error" role="alert">{popularError} <button type="button" onClick={() => setRefresh(value => value+1)}>Thử lại</button></p>}
           <div className="search-popular">{popular.map(item => <button key={item.query} type="button" onClick={() => void commit(item.query)}>{item.query}</button>)}</div>
         </section>
+        <section><h2>Khám phá theo nhu cầu</h2><div className="search-popular">{categories.filter(c=>c.id!=='all').map(c=><button key={c.id} type="button" onClick={()=>onNavigateCategory(c.id as Exclude<Category,'all'>,'')}>{c.label}</button>)}</div></section>
       </> : <section aria-label="Kết quả tìm kiếm" className="search-results">
         {results.slice(0,resultLimit).map(item => <button key={`${item.type}-${item.id}`} type="button" className="search-result" onClick={() => {
           void commit(keyword, false);

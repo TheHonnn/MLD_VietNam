@@ -25,10 +25,14 @@ function visible(scope:{staff:boolean;member:boolean}){
 export async function portalContent(store:Store,input:Record<string,unknown>,actorId?:string){
   if(input.kind!=='COMMUNITY'&&input.kind!=='DOCUMENT')throw new ApiError(400,'Invalid content kind');
   if(input.search!==undefined&&(typeof input.search!=='string'||input.search.length>150))throw new ApiError(400,'Invalid content search');
+  if(input.category!==undefined&&(typeof input.category!=='string'||input.category.length>150))throw new ApiError(400,'Invalid content category');
   const scope=await audience(store,actorId),pattern='%'+String(input.search||'').trim().replace(/[\\%_]/g,'\\$&')+'%';
   const kind=input.kind==='COMMUNITY'?Prisma.sql`UPPER(c.kind) IN ('COMMUNITY','ARTICLE')`:Prisma.sql`UPPER(c.kind)='DOCUMENT'`;
-  return collectionPage(store,Prisma.sql`SELECT ${fields} ${from} WHERE ${visible(scope)} AND ${kind}
+  const page=await collectionPage(store,Prisma.sql`SELECT ${fields} ${from} WHERE ${visible(scope)} AND ${kind}
+    AND (${String(input.category||'')}='' OR to_jsonb(c)->>'category'=${String(input.category||'')})
     AND (c.title ILIKE ${pattern} OR c.summary ILIKE ${pattern} OR COALESCE(to_jsonb(c)->>'author_name',u.full_name,'') ILIKE ${pattern})`,input);
+  const categories=await store.query(Prisma.sql`SELECT DISTINCT to_jsonb(c)->>'category' AS name ${from} WHERE ${visible(scope)} AND ${kind} AND NULLIF(to_jsonb(c)->>'category','') IS NOT NULL ORDER BY name`);
+  return {...page,categories:categories.map(row=>row.name)};
 }
 export async function portalContentDetail(store:Store,id:string,actorId?:string){
   const scope=await audience(store,actorId);

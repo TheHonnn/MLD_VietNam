@@ -32,7 +32,7 @@ type PointTransaction = {
   actionType: string; description: string; referenceId?: string; createdAt: string;
 };
 
-const lower = (value: string) => value.toLowerCase();
+const lower = (value: unknown) => typeof value==='string'?value.toLowerCase():'';
 
 export const adaptUser = (u: Omit<User, 'phone'> & { phone?: string | null }): View.User => ({
   ...u, phone: u.phone || '', name: u.fullName, avatar: u.avatarUrl || '', email: u.email || '',
@@ -53,7 +53,7 @@ export const adaptService = (s: Service & DisplayFields & {ratingAvg?: number | 
 });
 
 export const adaptDoctor = (d: Technician & DisplayFields): View.Doctor => ({
-  ...d, name: d.fullName, specialty: d.specialties.join(', '),
+  ...d, name: d.fullName, specialty: Array.isArray(d.specialties)?d.specialties.join(', '):'',
   hospital: d.branchName || '', rating: d.ratingAvg == null ? null : Number(d.ratingAvg),
   reviewsCount: Number(d.reviewCount), avatar: d.avatarUrl,
   bio: d.bio || '',
@@ -85,7 +85,7 @@ const adaptQuiz = (quiz: Quiz): NonNullable<View.Course['quiz']> => ({
   questionsCount: (quiz.questions || []).length,
   questions: (quiz.questions || []).map(q => {
     const keys = Array.isArray(q.options) ? q.options.map((_, index) => String.fromCharCode(65 + index)) : Object.keys(q.options || {}).sort();
-    return { id: q.id, question: q.questionText, optionKeys: keys,
+    return { id: q.id, question: q.questionText, correctOption:(q as any).correctOption,explanation:(q as any).explanation, optionKeys: keys,
       options: Array.isArray(q.options) ? q.options : keys.map(key => (q.options as Record<string, string>)[key]) };
   }),
 });
@@ -183,7 +183,7 @@ export function profileToCanonical(profile: Record<string, any>) {
     dateOfBirth: dob !== undefined ? dob === '' ? null : dob : rest.dateOfBirth === '' ? null : rest.dateOfBirth,
     avatarUrl: avatar !== undefined ? avatar : rest.avatarUrl,
     gender: gender === 'Nam' ? 'MALE' : gender === 'Nữ' ? 'FEMALE' : gender === 'Khác' ? 'OTHER' : gender === '' ? null : gender,
-    email: rest.email, address: rest.address,
+    email: rest.email, address: rest.address,occupation:rest.occupation,
     emergencyContactName: rest.emergencyContactName, emergencyContactPhone: rest.emergencyContactPhone,
     preferredBranch:rest.preferredBranch,skinType:rest.skinType,healthNotes:rest.healthNotes,
     ...(rest.purpose !== undefined ? { purpose: rest.purpose } : {}),

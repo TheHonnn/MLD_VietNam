@@ -11,7 +11,7 @@ async function client(fixture){
   const result=await build({entryPoints:[fileURLToPath(new URL('../src/api/client.ts',import.meta.url))],bundle:true,write:false,format:'esm',platform:'browser',logLevel:'silent',define:{'import.meta.env.VITE_API_BASE_URL':JSON.stringify('https://fixture.invalid/api')},plugins:[{
     name:'isolated-zalo-sdk',setup(builder){
       builder.onResolve({filter:/^zmp-sdk$/},()=>({path:'zmp-sdk',namespace:'fixture'}));
-      builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`const f=globalThis.__zaloAuthFixture;export const nativeStorage=f.storage;export const getPhoneNumber=()=>f.phone();export const getAccessToken=()=>Promise.resolve('isolated-access');export const getUserInfo=()=>Promise.resolve({userInfo:{}});`,loader:'js'}));
+      builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`const f=globalThis.__zaloAuthFixture;export const nativeStorage=f.storage;export const getPhoneNumber=()=>f.phone();export const getAccessToken=()=>Promise.resolve('isolated-access');export const getUserInfo=()=>f.profile?f.profile():Promise.resolve({userInfo:{}});`,loader:'js'}));
     },
   }]});
   const api=(await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64')+'#'+(++sequence))).apiClient;
@@ -106,6 +106,19 @@ test('Mini App Zalo auth keeps permissions and storage failures separate',async 
       await api.loginWithZalo(true);await api.getBookings();await api.getBookings();assert.equal(bookingReads,1);
       const current=await api.loginWithZalo(false);assert.equal(current.user.staffAccess,false);assert.equal(api.hasSession(),true);
       await api.getBookings();assert.equal(bookingReads,2);
+    });
+    await t.test('Zalo name and photo update only the verified current account, never role or phone',async()=>{
+      const writes=[];
+      globalThis.window={setTimeout,clearTimeout,dispatchEvent:()=>true,fetch:async(input,init)=>{const path=new URL(input).pathname;if(path.endsWith('/auth/profile')){const patch=JSON.parse(init.body);writes.push(patch);return response({user:{...staff,...patch}});}return response({user:staff,token:'profile-owner-token'});}};
+      const api=await client({storage:{getItem:()=>'',setItem(){},removeItem(){}},phone:()=>Promise.resolve({token:'verified-phone'}),profile:()=>Promise.resolve({userInfo:{name:'Current Zalo name',avatar:'https://images.test/current.png'}})});
+      await api.loginWithZalo(true);const synced=await api.syncZaloProfile();assert.equal(synced.user.name,'Current Zalo name');assert.equal(synced.user.avatar,'https://images.test/current.png');assert.deepEqual(writes,[{fullName:'Current Zalo name',avatarUrl:'https://images.test/current.png'}]);
+      api.clearUnverifiedSession();assert.equal(api.hasSession(),true);
+    });
+    await t.test('a late Zalo profile cannot be written to a newly signed-in account',async()=>{
+      let finish,writes=0;
+      globalThis.window={setTimeout,clearTimeout,dispatchEvent:()=>true,fetch:async(input)=>{const path=new URL(input).pathname;if(path.endsWith('/auth/profile'))writes++;return response({user:staff,token:'profile-owner-token'});}};
+      const api=await client({storage:{getItem:()=>'',setItem(){},removeItem(){}},phone:()=>Promise.resolve({token:'verified-phone'}),profile:()=>new Promise(resolve=>{finish=resolve;})});
+      await api.loginWithZalo(true);const old=api.syncZaloProfile();await api.logout();await api.loginWithZalo(true);finish({userInfo:{name:'Old owner',avatar:'https://images.test/old.png'}});assert.equal((await old).skipped,true);assert.equal(writes,0);
     });
   }finally{globalThis.window=originalWindow;delete globalThis.__zaloAuthFixture;}
 });

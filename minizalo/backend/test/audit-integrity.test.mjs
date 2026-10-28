@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Prisma} from '@prisma/client';
-import {workflowFixture} from './fixtures/workflow.mjs';
+import {workflowFixture,seedCompletedReadings} from './fixtures/workflow.mjs';
 import {configureWorkflows} from '../dist/configure-workflows.js';
 import {statements} from '../migrations/007_audit_integrity.mjs';
 
@@ -49,6 +49,8 @@ test('audit integrity regressions never use the shared database',async t=>{
       assert.match(stored.payload_hash,/^[a-f0-9]{64}$/);assert.equal(Object.hasOwn(stored,'payload'),false);
     });
     await t.test('inactive course or category blocks every private learning operation consistently',async()=>{
+      await seedCompletedReadings(db,id(29));
+      const baselineProgress=(await db.query('SELECT count(*)::int AS count FROM user_lesson_progress')).rows[0].count;
       const started=await request(`/courses/${id(22)}/quiz/start`,{method:'POST',body:{quizId:id(26),enrollmentId:id(29)}});assert.equal(started.status,200);
       const attempt=started.data.attempt.id;
       for(const table of ['courses','course_categories']){
@@ -67,7 +69,7 @@ test('audit integrity regressions never use the shared database',async t=>{
         await db.query(`UPDATE ${table} SET is_active=true WHERE id=$1`,[target]);
       }
       assert.equal((await db.query('SELECT count(*)::int AS count FROM miniapp_quiz_attempts')).rows[0].count,1);
-      assert.equal((await db.query('SELECT count(*)::int AS count FROM user_lesson_progress')).rows[0].count,0);
+      assert.equal((await db.query('SELECT count(*)::int AS count FROM user_lesson_progress')).rows[0].count,baselineProgress);
     });
     await t.test('unread filter finds older unread rows outside the first full inbox page',async()=>{
       await db.query("INSERT INTO users(id,phone,full_name,referral_code) VALUES($1,'0900000904','Isolated inbox owner','INBOX904')",[id(904)]);

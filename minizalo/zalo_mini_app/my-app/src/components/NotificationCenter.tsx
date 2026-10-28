@@ -16,8 +16,8 @@ interface NotificationCenterProps {
   hasMore:boolean;
   loadingMore:boolean;
   onLoadMore:()=>void;
-  filter:'all'|'unread';
-  onFilter:(filter:'all'|'unread')=>void;
+  filter:'all'|'unread'|'booking'|'treatment'|'academy';
+  onFilter:(filter:'all'|'unread'|'booking'|'treatment'|'academy')=>void;
 }
 
 const relativeTime = (value: string) => {
@@ -77,7 +77,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
       <div className="flex items-center justify-between"><button type="button" title="Quay lại" aria-label="Quay lại" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#c8dde3] bg-white"><ArrowLeftIcon size={18} color="#183b47" /></button><button onClick={readAll} disabled={!unreadCount || busy} className="text-[10px] font-bold text-[#2860eb] disabled:text-[#A79C95]">{busy ? 'Đang cập nhật...' : 'Đọc tất cả'}</button></div>
       <h1 className="mt-3 text-[21px] font-bold text-[#164e63]">Thông báo</h1>
       <p className="mt-1 text-[10px] text-[#526a73]">{unreadCount ? `${unreadCount} thông báo chưa đọc` : ''}</p>
-      <div className="mt-3 grid grid-cols-2 gap-2">{([['all', `Tất cả (${totalCount})`], ['unread', `Chưa đọc (${unreadCount})`]] as const).map(([id, label]) => <button key={id} onClick={() => setFilter(id)} className={`h-9 rounded-[8px] border text-[10px] font-semibold ${filter === id ? 'border-[#2860eb] bg-[#2860eb] text-white' : 'border-[#c8dde3] bg-white'}`}>{label}</button>)}</div>
+      <div className="mt-3 grid grid-cols-2 gap-2">{([['all', `Tất cả (${totalCount})`], ['unread', `Chưa đọc (${unreadCount})`],['booking','Lịch hẹn'],['treatment','Liệu trình'],['academy','Đào tạo']] as const).map(([id, label]) => <button key={id} onClick={() => setFilter(id)} className={`h-9 rounded-[8px] border text-[10px] font-semibold ${filter === id ? 'border-[#2860eb] bg-[#2860eb] text-white' : 'border-[#c8dde3] bg-white'}`}>{label}</button>)}</div>
     </header>
     <main className="flex-1 space-y-2 overflow-y-auto px-3 py-3 pb-20">
       {error && <p role="alert" className="text-xs text-red-700">{error}</p>}

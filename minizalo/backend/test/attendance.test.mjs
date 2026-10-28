@@ -23,6 +23,10 @@ test('attendance QR is scoped, signed, time-bound and persists one real enrollme
     const saved=await submit();assert.equal(saved.status,200,JSON.stringify(saved));assert.equal(saved.data.attendance.enrollmentId,id(29));assert.equal(saved.data.attendance.markedById,id(90));
     assert.equal((await submit()).data.attendance.id,saved.data.attendance.id);
     assert.equal((await db.query('SELECT count(*)::int AS n FROM student_attendance WHERE schedule_id=$1',[id(150)])).rows[0].n,1);
+    await db.query("UPDATE course_batches SET status='CANCELLED' WHERE id=$1",[id(30)]);
+    assert.equal((await issue()).status,404);assert.equal((await submit()).status,403);
+    assert.deepEqual((await request('/staff/class-schedules',{owner:90})).data.schedules,[]);
+    await db.query("UPDATE course_batches SET status='IN_PROGRESS' WHERE id=$1",[id(30)]);
     await db.query("UPDATE student_attendance SET status='EXCUSED' WHERE schedule_id=$1",[id(150)]);
     assert.equal((await submit()).status,409);
     await db.query('UPDATE staff_profiles SET is_active=false WHERE user_id=$1',[id(90)]);

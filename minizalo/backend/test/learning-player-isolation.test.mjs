@@ -7,6 +7,7 @@ test('a new learning player replaces only that student across enrollments',async
   try{
     await db.query("INSERT INTO course_lessons(id,chapter_id,title,lesson_type,video_url,duration_minutes) VALUES($1,$2,'Isolated video','VIDEO','https://example.test/video.mp4',1)",[id(70),id(23)]);
     await db.query("INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status) VALUES($1,$2,$3,$4,'STUDYING')",[id(71),id(2),id(22),id(30)]);
+    await db.query("UPDATE course_lessons SET lesson_order=-1 WHERE lesson_type='VIDEO'");
     const start=async(owner,enrollmentId)=>{
       const result=await f.request(`/courses/${id(22)}/lessons/${id(70)}/playback`,{method:'POST',owner,body:{enrollmentId}});
       assert.equal(result.status,200,JSON.stringify(result));return result.data.playback.id;

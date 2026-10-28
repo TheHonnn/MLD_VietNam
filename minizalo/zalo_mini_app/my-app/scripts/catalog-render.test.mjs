@@ -10,7 +10,7 @@ const result = await build({
     import {AcademyCourseDetail, AcademyCatalog} from './src/components/AcademyViews';
     import {HomeCatalog} from './src/components/GroupBHome';
     export {trainingMetadata} from './src/utils/training-metadata';
-    export {adaptCourse} from './src/api/adapters';
+    export {adaptCourse,adaptBooking,adaptDoctor} from './src/api/adapters';
     export const renderCourse = course => renderToStaticMarkup(React.createElement(AcademyCourseDetail, {course}));
     export const renderAcademy = courses => renderToStaticMarkup(React.createElement(AcademyCatalog, {courses, branches:[], branchId:''}));
     export const renderCatalog = props => renderToStaticMarkup(React.createElement(HomeCatalog, props));`,
@@ -21,7 +21,12 @@ const result = await build({
     builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const EntityImage=()=>null;export const BranchHours=()=>null;',loader:'js'}));
   }}],
 });
-const {renderCourse,renderCatalog,renderAcademy,trainingMetadata,adaptCourse}=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
+const {renderCourse,renderCatalog,renderAcademy,trainingMetadata,adaptCourse,adaptBooking,adaptDoctor}=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
+test('unpaid bookings and missing specialist specialties remain readable without fabricated values',()=>{
+  const booking=adaptBooking({id:'actual',customerId:'owner',bookingCode:'ACTUAL',paymentMethod:null,status:'PENDING',bookingDate:'2026-10-28',startTime:'14:00',endTime:'15:00',items:[],baseTotal:100000,discountAmount:0,pointsDiscount:0,finalPrice:100000});
+  assert.equal(booking.paymentMethod,'');assert.equal(booking.status,'pending');assert.equal(booking.code,'ACTUAL');
+  assert.equal(adaptDoctor({id:'doctor',fullName:'Actual doctor',specialties:null,reviewCount:0,ratingAvg:null}).specialty,'');
+});
 
 test('course outline retains unassigned lessons without duplicating chapter lessons',()=>{
   const html=renderCourse({title:'Course from API',category:'',price:100,totalHours:3,lessonsCount:3,

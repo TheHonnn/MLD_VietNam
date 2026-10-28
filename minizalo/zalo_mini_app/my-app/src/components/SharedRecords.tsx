@@ -5,11 +5,12 @@ import {ArrowLeftIcon,FileTextIcon,SearchIcon} from './Icons';
 import {EntityImage} from './GroupBExtensions';
 import type {CustomerSection} from '@/types/staff';
 import {CareDocuments} from './CareDocuments';
+import {DocumentAttachment} from './DocumentAttachment';
 import '@/css/shared-records.scss';
 
 export type StaffRecordCustomer={id:string;fullName:string;phone:string|null;dateOfBirth?:string|null};
 type Customer=StaffRecordCustomer;
-type Document={id:string;title:string;courseTitle?:string;chapterTitle?:string;summary?:string;imageUrl?:string;authorName?:string;publishedAt?:string;contentText?:string;attachments?:{url:string;name:string}[]};
+type Document={isLocked?:boolean;id:string;title:string;courseTitle?:string;chapterTitle?:string;summary?:string;imageUrl?:string;authorName?:string;publishedAt?:string;contentText?:string;attachments?:{url:string;name:string}[]};
 type RecordEntry={id:string;title?:string;serviceId?:string;bookingId?:string;bookingCode?:string;date?:string;startTime?:string;endTime?:string;status?:string;branchName?:string;technicianName?:string;recipientName?:string;treatmentNotes?:string;conditionBefore?:string;conditionAfter?:string;specialistAdvice?:string;totalSessions?:number;completedSessions?:number;reservedSessions?:number;remainingSessions?:number;expiresAt?:string;sessionNumber?:number;serviceName?:string;packageDescription?:string;serviceDescription?:string;serviceSteps?:unknown[];durationMinutes?:number};
 
 function PackageInformation({item}:{item:RecordEntry}){
@@ -58,9 +59,13 @@ function PageState({state}:{state:ReturnType<typeof usePages>}){return <>
   {state.error&&<div role="alert">{state.error}<button type="button" disabled={state.loading} onClick={state.retry}>Thử lại</button></div>}
   {!state.error&&state.cursor&&<button className="records-more" type="button" disabled={state.loading} onClick={state.more}>Xem thêm</button>}
 </>;}
-function DocumentsList({query,onSelect,kind}:{query:string;onSelect:(id:string)=>void;kind?:'COMMUNITY'|'DOCUMENT'}){
-  const state=usePages<Document>((cursor,signal)=>kind?apiClient.getSharedContent(kind,query,cursor,signal):apiClient.getDocuments(query,cursor,signal),kind?'items':'documents');
-  return <>{state.items.map(item=><button key={item.id} className={`record-row ${kind==='COMMUNITY'?'community-row':''}`} type="button" onClick={()=>onSelect(item.id)}>{item.imageUrl?<EntityImage src={item.imageUrl} alt={item.title} className="shared-content-cover"/>:<FileTextIcon size={22}/>}<span><strong>{item.title}</strong><small>{[item.courseTitle,item.chapterTitle,item.summary].filter(Boolean).join(' · ')}</small>{item.authorName&&<small>{item.authorName} · {date(item.publishedAt)}</small>}</span></button>)}<PageState state={state}/></>;
+function DocumentsList(props:{query:string;onSelect:(id:string)=>void;kind?:'COMMUNITY'|'DOCUMENT'}){
+  const [category,setCategory]=useState(''),[categories,setCategories]=useState<string[]>([]);
+  return <>{Boolean(categories.length)&&<label className="mobile-field">Danh mục<select aria-label="Danh mục tài liệu" value={category} onChange={e=>setCategory(e.target.value)}><option value="">Tất cả</option>{categories.map(value=><option key={value}>{value}</option>)}</select></label>}<DocumentRows key={props.kind+props.query+category} {...props} category={category} onCategories={setCategories}/></>;
+}
+function DocumentRows({query,onSelect,kind,category,onCategories}:{query:string;onSelect:(id:string)=>void;kind?:'COMMUNITY'|'DOCUMENT';category:string;onCategories:(values:string[])=>void}){
+  const state=usePages<Document>(async(cursor,signal)=>{if(!kind)return apiClient.getDocuments(query,cursor,signal);const data=await apiClient.getSharedContent(kind,query,cursor,signal,category);if(!signal.aborted&&Array.isArray(data?.categories))onCategories(data.categories);return data;},kind?'items':'documents');
+  return <>{state.items.map(item=><button key={item.id} disabled={Boolean((item as any).isLocked)} className={`record-row ${kind==='COMMUNITY'?'community-row':''}`} type="button" onClick={()=>onSelect(item.id)}>{item.imageUrl?<EntityImage src={item.imageUrl} alt={item.title} className="shared-content-cover"/>:<FileTextIcon size={22}/>}<span><strong>{item.title}</strong>{(item as any).isLocked&&<small>Bài học đang khóa</small>}<small>{[item.courseTitle,item.chapterTitle,item.summary].filter(Boolean).join(' · ')}</small>{item.authorName&&<small>{item.authorName} · {date(item.publishedAt)}</small>}</span></button>)}<PageState state={state}/></>;
 }
 function DocumentDetail({id,shared=false}:{id:string;shared?:boolean}){
   const [item,setItem]=useState<Document|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[version,setVersion]=useState(0);
@@ -74,10 +79,10 @@ function DocumentDetail({id,shared=false}:{id:string;shared?:boolean}){
     const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
     return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
   },[]);
-  return <>{loading&&<p role="status">Đang mở nội dung...</p>}{error&&<div role="alert">{error}<button type="button" onClick={()=>setVersion(value=>value+1)}>Thử lại</button></div>}{item&&<article className="document-reading">{item.imageUrl&&<EntityImage src={item.imageUrl} alt={item.title} className="shared-content-cover"/>}<h2>{item.title}</h2><p>{[item.courseTitle,item.chapterTitle,item.summary].filter(Boolean).join(' · ')}</p>{item.authorName&&<p>{item.authorName} · {date(item.publishedAt)}</p>}<div className="record-text">{item.contentText}</div>{item.attachments?.map((file,index)=><a key={file.url+index} href={file.url} target="_blank" rel="noopener noreferrer"><FileTextIcon size={18}/>{file.name}</a>)}</article>}</>;
+  return <>{loading&&<p role="status">Đang mở nội dung...</p>}{error&&<div role="alert">{error}<button type="button" onClick={()=>setVersion(value=>value+1)}>Thử lại</button></div>}{item&&<article className="document-reading">{item.imageUrl&&<EntityImage src={item.imageUrl} alt={item.title} className="shared-content-cover"/>}<h2>{item.title}</h2><p>{[item.courseTitle,item.chapterTitle,item.summary].filter(Boolean).join(' · ')}</p>{item.authorName&&<p>{item.authorName} · {date(item.publishedAt)}</p>}<div className="record-text">{item.contentText}</div>{item.attachments?.map((file,index)=><DocumentAttachment key={file.url+index} file={file}/>)}</article>}</>;
 }
 export function DocumentLibrary({onBack}:{onBack:()=>void}){
-  const {value,setValue,query}=useSearch(),[selected,setSelected]=useState(''),[source,setSource]=useState<'care'|'course'|'shared'>('care');
+  const {value,setValue,query}=useSearch(),[selected,setSelected]=useState(''),[source,setSource]=useState<'care'|'course'|'shared'>('shared');
   useBackAction(Boolean(selected),()=>setSelected(''),2);
   return <section className="shared-records document-library"><Header title="Tài liệu" onBack={()=>selected?setSelected(''):onBack()}/>{!selected&&<><div className="records-tabs" role="tablist" aria-label="Nguồn tài liệu">{[['care','Cẩm nang'],['course','Khóa học'],['shared','Được chia sẻ']].map(([key,label])=><button key={key} type="button" role="tab" aria-selected={source===key} onClick={()=>setSource(key as typeof source)}>{label}</button>)}</div><label className="records-search"><SearchIcon size={20}/><input aria-label="Tìm tài liệu" value={value} maxLength={150} placeholder="Tìm tài liệu, tác giả..." onChange={event=>setValue(event.target.value)}/></label></>}{source==='care'?<CareDocuments query={query} selected={selected} onSelect={setSelected}/>:selected?<DocumentDetail key={source+selected} id={selected} shared={source==='shared'}/>:<DocumentsList key={source+query} query={query} onSelect={setSelected} kind={source==='shared'?'DOCUMENT':undefined}/>}</section>;
 }

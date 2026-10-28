@@ -6,6 +6,16 @@ import jwt from 'jsonwebtoken';
 import { createApp } from '../../dist/server.js';
 import {migrateFixture} from './migrations.mjs';
 
+// A scenario about grading/retries may start with the prerequisite reading already completed.
+// Explicit fixture state only: never run this helper against a shared database.
+export async function seedCompletedReadings(db,enrollmentId){
+  await db.query(`INSERT INTO user_lesson_progress(enrollment_id,lesson_id,is_completed,completed_at)
+    SELECT ce.id,l.id,true,clock_timestamp() FROM course_enrollments ce
+    JOIN course_chapters ch ON ch.course_id=ce.course_id JOIN course_lessons l ON l.chapter_id=ch.id
+    WHERE ce.id=$1 AND l.lesson_type IN ('READING_DOC','PRACTICE_GUIDE')
+    ON CONFLICT(enrollment_id,lesson_id) DO UPDATE SET is_completed=true,completed_at=EXCLUDED.completed_at`,[enrollmentId]);
+}
+
 // Test-only records, always in memory. Never connect this fixture to a shared DB.
 export async function workflowFixture() {
   const db = new PGlite();

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { workflowFixture } from './fixtures/workflow.mjs';
+import {workflowFixture,seedCompletedReadings} from './fixtures/workflow.mjs';
 
 test('complete customer workflows persist canonical data with ownership and fail-closed validation', async t => {
   const {db,id,request,close} = await workflowFixture();
@@ -45,6 +45,7 @@ test('complete customer workflows persist canonical data with ownership and fail
       assert.equal((await request(`/records/${id(12)}`,{owner:2})).status,404);
     });
     await t.test('quiz validates complete answers, persists selections and reloads teacher feedback only for its enrollment',async()=>{
+      await seedCompletedReadings(db,id(29));
       const path=`/courses/${id(22)}/quiz/submit`;
       const body={quizId:id(26),enrollmentId:id(29)};
       for(const answers of [{},{[id(27)]:'A',[id(28)]:'Z'},{[id(27)]:'A',[id(28)]:'B',[id(99)]:'A'}]) assert.equal((await request(path,{method:'POST',body:{...body,answers}})).status,400);
@@ -56,7 +57,7 @@ test('complete customer workflows persist canonical data with ownership and fail
       const learning=await request(`/courses/${id(22)}/learning?enrollmentId=${id(29)}`);
       assert.equal(learning.data.course.quizSubmissions[0].instructorFeedback,'Actual teacher feedback');
       assert.deepEqual(learning.data.course.quizSubmissions[0].submittedAnswers,{[id(27)]:'A',[id(28)]:'B'});
-      assert.equal(JSON.stringify(learning).includes('correctOption'),false);
+      assert.equal(learning.data.course.quizSubmissions[0].questions[0].correctOption,'A');
       assert.equal((await request(`/courses/${id(22)}/learning?enrollmentId=${id(32)}`)).data.course.quizSubmissions.length,0);
       assert.equal((await request(`/courses/${id(22)}/learning?enrollmentId=${id(29)}`,{owner:2})).status,403);
     });

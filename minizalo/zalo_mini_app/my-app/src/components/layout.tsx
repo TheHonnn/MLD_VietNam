@@ -3,7 +3,7 @@ import {
   App,
   SnackbarProvider,
 } from "zmp-ui";
-import { MainLayout } from "@/layout/MainLayout";
+import { MainLayout } from "@/layout/ConnectedLayout";
 
 const Layout: React.FC = () => {
   return (

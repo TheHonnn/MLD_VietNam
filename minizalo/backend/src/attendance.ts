@@ -14,8 +14,8 @@ export async function staffClassSchedules(store:Store,actorId:string){
   const scope=await staffScope(store,actorId);
   return store.query(Prisma.sql`SELECT bs.id,bs.session_date,bs.start_time,bs.end_time,bs.topic,cb.batch_code,c.title AS course_title,br.name AS branch_name,
     (${windowSql}) AS attendance_open
-    FROM batch_schedules bs JOIN course_batches cb ON cb.id=bs.batch_id JOIN courses c ON c.id=cb.course_id JOIN branches br ON br.id=cb.branch_id
-    WHERE br.is_active AND c.is_active AND (${scope.branchId}::uuid IS NULL OR cb.branch_id=${scope.branchId}::uuid)
+    FROM batch_schedules bs JOIN course_batches cb ON cb.id=bs.batch_id JOIN courses c ON c.id=cb.course_id JOIN course_categories cat ON cat.id=c.category_id JOIN branches br ON br.id=cb.branch_id
+    WHERE br.is_active AND c.is_active AND cat.is_active AND cb.status NOT IN ('CANCELLED','COMPLETED') AND (${scope.branchId}::uuid IS NULL OR cb.branch_id=${scope.branchId}::uuid)
     AND bs.session_date BETWEEN (clock_timestamp() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND (clock_timestamp() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date+7
     ORDER BY bs.session_date,bs.start_time,bs.id LIMIT 100`);
 }
@@ -23,8 +23,8 @@ export async function staffClassSchedules(store:Store,actorId:string){
 export async function attendanceCode(store:Store,actorId:string,scheduleId:string,secret:string){
   const scope=await staffScope(store,actorId);
   const [schedule]=await store.query(Prisma.sql`SELECT bs.id,(${windowSql}) AS attendance_open FROM batch_schedules bs
-    JOIN course_batches cb ON cb.id=bs.batch_id JOIN courses c ON c.id=cb.course_id JOIN branches br ON br.id=cb.branch_id
-    WHERE bs.id=${scheduleId}::uuid AND br.is_active AND c.is_active AND (${scope.branchId}::uuid IS NULL OR cb.branch_id=${scope.branchId}::uuid)`);
+    JOIN course_batches cb ON cb.id=bs.batch_id JOIN courses c ON c.id=cb.course_id JOIN course_categories cat ON cat.id=c.category_id JOIN branches br ON br.id=cb.branch_id
+    WHERE bs.id=${scheduleId}::uuid AND br.is_active AND c.is_active AND cat.is_active AND cb.status NOT IN ('CANCELLED','COMPLETED') AND (${scope.branchId}::uuid IS NULL OR cb.branch_id=${scope.branchId}::uuid)`);
   if(!schedule)throw new ApiError(404,'Attendance session is unavailable');
   if(!schedule.attendance_open)throw new ApiError(409,'Attendance is outside the session window');
   const token=jwt.sign({scheduleId,actorId},key(secret),{algorithm:'HS256',audience:'miniapp-attendance',issuer:'mld-miniapp',expiresIn:120});
@@ -44,7 +44,7 @@ export async function recordAttendance(store:Store,userId:string,courseId:string
     const [schedule]=await tx.query(Prisma.sql`SELECT bs.id,(${windowSql}) AS attendance_open,
       clock_timestamp()>((bs.session_date+bs.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh') AS is_late
       FROM batch_schedules bs JOIN course_batches cb ON cb.id=bs.batch_id JOIN branches br ON br.id=cb.branch_id
-      WHERE bs.id=${proof.scheduleId}::uuid AND bs.batch_id=${enrollment.batch_id}::uuid AND br.is_active
+      WHERE bs.id=${proof.scheduleId}::uuid AND bs.batch_id=${enrollment.batch_id}::uuid AND br.is_active AND cb.status NOT IN ('CANCELLED','COMPLETED')
       AND (${scope.branchId}::uuid IS NULL OR cb.branch_id=${scope.branchId}::uuid) FOR SHARE OF bs,cb,br`);
     if(!schedule)throw new ApiError(403,'Attendance QR does not match your class');
     if(!schedule.attendance_open)throw new ApiError(409,'Attendance is outside the session window');

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {workflowFixture} from './fixtures/workflow.mjs';
+import {workflowFixture,seedCompletedReadings} from './fixtures/workflow.mjs';
 import {configureWorkflows} from '../dist/configure-workflows.js';
 import {runReminderBatch} from '../dist/reminders.js';
 
@@ -50,6 +50,7 @@ test('customer workflow regressions and operator configuration',async t=>{
       assert.equal(Number((await query('SELECT progress_percent FROM course_enrollments WHERE id=$1',[id(29)]))[0].progress_percent),100);
     });
     await t.test('resuming uses the original grading threshold and authoritative server time',async()=>{
+      await seedCompletedReadings(db,id(32));
       const path=`/courses/${id(22)}/quiz/start`,input={quizId:id(26),enrollmentId:id(32)};
       const first=await request(path,{method:'POST',body:input});
       await query('UPDATE course_quizzes SET passing_score=10 WHERE id=$1',[id(26)]);

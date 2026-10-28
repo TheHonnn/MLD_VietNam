@@ -1,0 +1,13 @@
+import React,{useEffect,useState} from 'react';
+import {apiClient} from '@/api/client';
+export function MySchedule({userId,onBack,onOpen}:{userId:string;onBack:()=>void;onOpen:(enrollmentId:string)=>void}){
+  const [rows,setRows]=useState<any[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[version,setVersion]=useState(0);
+  useEffect(()=>{
+    let active=true;setLoading(true);setRows([]);setError('');const epoch=apiClient.sessionVersion();
+    if(!userId){setLoading(false);return;}
+    apiClient.invalidateReadPaths(['/course-enrollments']);
+    void(async()=>{const result=await apiClient.getCourseEnrollments();if(!result||result.error)throw new Error(result?.error||'Không thể tải lịch học.');const entries=(result.enrollments||[]).filter((item:any)=>['enrolled','studying','graduated'].includes(String(item.status).toLowerCase()));let index=0;const collected:any[]=[];let failure='';await Promise.all(Array.from({length:Math.min(3,entries.length)},async()=>{while(index<entries.length&&active){const entry=entries[index++];const data=await apiClient.getCourseLearning(entry.courseId,entry.id);if(data.error){failure=data.error;continue;}for(const schedule of data.course?.schedules||[])collected.push({...schedule,enrollmentId:entry.id,courseTitle:entry.courseTitle,batchCode:entry.batchCode});}}));if(active&&apiClient.sessionVersion()===epoch){setRows(collected.sort((a,b)=>String(a.sessionDate+a.startTime).localeCompare(String(b.sessionDate+b.startTime))));setError(failure);}})().catch(error=>{if(active)setError(error.message);}).finally(()=>{if(active)setLoading(false);});
+    const refresh=()=>{if(!document.hidden)setVersion(v=>v+1);};window.addEventListener('focus',refresh);const timer=window.setInterval(refresh,30000);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh);};
+  },[userId,version]);
+  return <section><header className="mobile-page-header"><button onClick={onBack}>Quay lại</button><h1>Lịch học</h1></header><div className="mobile-body">{loading&&<p role="status">Đang tải lịch học...</p>}{error&&<div role="alert">{error}<button onClick={()=>setVersion(v=>v+1)}>Thử lại</button></div>}{rows.map(row=><button type="button" key={row.enrollmentId+row.id} className="mobile-card p-4 text-left" onClick={()=>onOpen(row.enrollmentId)}><h2>{row.courseTitle}</h2><p>{row.batchCode} · {row.topic}</p><p>{row.sessionDate?.slice(0,10)} · {row.startTime}–{row.endTime}</p><p>{[row.branchName,row.roomName,row.instructorName].filter(Boolean).join(' · ')}</p>{row.attendanceStatus&&<p>{({PRESENT:'Có mặt',LATE:'Đi muộn',ABSENT:'Vắng mặt',EXCUSED:'Vắng có phép'} as Record<string,string>)[row.attendanceStatus]||row.attendanceStatus}</p>}</button>)}</div></section>;
+}

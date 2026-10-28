@@ -46,6 +46,7 @@ interface GroupDTreatmentProps {
   onClose: () => void;
   onOpenConsultation?: () => void;
   initialTab?: Tab;
+  initialForm?: 'survey';
   initialEntityId?: string;
   treatmentPlans?: Plan[] | null;
   sourceLoading?: boolean;
@@ -73,7 +74,7 @@ const emptySurvey = { bookingId: '', focusAreas: '', pressurePref: '', hasSensit
 const cachedPaths: Record<string,string> = {surveys:'/consultation-surveys',reviews:'/reviews/mine',guidelines:'/care-guidelines',tickets:'/support-tickets',faqs:'/support-faqs',records:'/records',bookings:'/bookings'};
 
 export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
-  user, notifications: serverNotifications, onClose, initialTab = 'packages', initialEntityId,
+  user, notifications: serverNotifications, onClose, initialTab = 'packages', initialEntityId, initialForm,
   treatmentPlans, sourceLoading=false, sourceErrors={}, bookingError, onRetrySource, onBusyChange, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange, onOpenNotification,onOpenPlanBooking,onOpenInbox,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
@@ -125,7 +126,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   useEffect(() => {
     let cancelled = false;
     setSavedSurveys(apiClient.peek('/consultation-surveys')?.surveys || null); setMyReviews(apiClient.peek('/reviews/mine')?.reviews || null); setReviewedBookings([]);
-    setForm(null); setReviewSession(null); setSurvey(emptySurvey); setNotice('');
+    setForm(initialForm||null); setReviewSession(null); setSurvey(emptySurvey); setNotice('');
     const load = async (key: string, request: () => Promise<any>, field: string, save: (value: any) => void) => {
       const cached = apiClient.peek(cachedPaths[key]);
       if (Array.isArray(cached?.[field])) save(cached[field]);

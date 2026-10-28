@@ -13,6 +13,11 @@ export interface User {
   preferredBranch?: string;
   skinType?: string;
   healthNotes?: string;
+  profileExtended?:boolean;
+  occupation?:string;
+  theme?:'LIGHT'|'DARK'|'SYSTEM';
+  treatmentNotify?:boolean;
+  courseNotify?:boolean;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   purpose?: 'BEAUTY_SPA' | 'ACADEMY' | 'BOTH';

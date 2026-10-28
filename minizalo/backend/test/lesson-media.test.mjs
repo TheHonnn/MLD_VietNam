@@ -21,6 +21,7 @@ test('public embedding requires a real decision bound to the actual lesson media
   let playbackId;
   try{
     await db.query("INSERT INTO course_lessons(id,chapter_id,title,lesson_type,video_url,duration_minutes) VALUES($1,$2,'Configured YouTube lesson','VIDEO','https://www.youtube.com/watch?v=abcdefghijk',1)",[id(70),id(23)]);
+    await db.query("UPDATE course_lessons SET lesson_order=-1 WHERE lesson_type='VIDEO'");
     await t.test('unapproved protected lessons expose neither a YouTube ID nor raw video URL',async()=>{
       const learning=await f.request(course+'/learning?enrollmentId='+id(29));assert.equal(learning.status,200,JSON.stringify(learning));
       const item=learning.data.course.lessons.find(l=>l.id===id(70));assert.equal(item.videoUrl,null);assert.equal(item.youtubeVideoId,null);assert.equal(item.mediaErrorCode,'YOUTUBE_NOT_APPROVED');
@@ -46,9 +47,10 @@ test('public embedding requires a real decision bound to the actual lesson media
       const item=(await f.request(course,{anonymous:true})).data.course.lessons.find(l=>l.id===id(70));assert.equal(item.videoUrl,null);assert.equal(item.youtubeVideoId,null);
       assert.equal((await db.query('SELECT watched_seconds FROM user_lesson_progress WHERE lesson_id=$1',[id(70)])).rows[0].watched_seconds,10);
     });
-    await t.test('free previews can embed, but changing approved media requires a new approval',async()=>{
+    await t.test('public outlines stay locked even when preview is flagged; approved media changes require reapproval',async()=>{
       await configureWorkflows(store,config(true),true);
-      assert.equal((await f.request(course,{anonymous:true})).data.course.lessons.find(l=>l.id===id(70)).youtubeVideoId,'abcdefghijk');
+      const outline=(await f.request(course,{anonymous:true})).data.course.lessons.find(l=>l.id===id(70));
+      assert.equal(outline.youtubeVideoId,null);assert.equal(outline.videoUrl,null);assert.equal(outline.isFreePreview,false);
       await db.query("UPDATE course_lessons SET video_url='https://youtu.be/12345678901' WHERE id=$1",[id(70)]);
       assert.equal((await f.request(course,{anonymous:true})).data.course.lessons.find(l=>l.id===id(70)).videoUrl,null);
       const result=await f.request(lesson+'/playback',{method:'POST',body:{enrollmentId:id(29)}});assert.equal(result.status,403);

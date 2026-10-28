@@ -8,6 +8,7 @@ import { useBackAction } from '@/hooks/useNavigationHistory';
 import { LegalLinks } from './LegalLinks';
 import {ZaloAccountOptions} from './AccountControls';
 import {ZaloAuthFeedback} from './ZaloAuthFeedback';
+import logo from '@/static/logo-admin.png';
 
 interface GroupAAuthModalProps {
   isOpen: boolean;
@@ -64,7 +65,12 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
     loginLock.current=false;
     setBusy(false);
     if (result?.registrationRequired && result.registrationToken) {
-      setRegistration({ registrationToken: result.registrationToken, phone: result.phone, suggestedName: result.suggestedName, suggestedAvatar: result.suggestedAvatar });
+      loginLock.current=true;setBusy(true);
+      let profile:{name?:string;avatar?:string}={};
+      try{profile=await apiClient.getZaloProfile();}catch{/* The phone is verified; optional profile consent can be declined. */}
+      if(current!==attempt.current)return;
+      loginLock.current=false;setBusy(false);
+      setRegistration({ registrationToken: result.registrationToken, phone: result.phone, suggestedName: profile.name||result.suggestedName, suggestedAvatar: profile.avatar||result.suggestedAvatar });
       return;
     }
     if (!result?.user || !result.token) {
@@ -87,7 +93,7 @@ export const GroupAAuthModal: React.FC<GroupAAuthModalProps> = ({
         </button>
       )}
       <div className="mx-auto my-auto w-full max-w-sm py-8 text-center">
-        <div className="mb-5 flex justify-center"><LeafIcon size={48} color="#2860eb" /></div>
+        <div className="mb-5 flex justify-center"><img src={logo} alt="MLD Việt Nam" className="h-16 max-w-full object-contain"/></div>
         <p className="mb-2 text-sm font-semibold text-[#2860eb]">MLD Việt Nam</p>
         <h2 id="zalo-login-title" className="text-xl font-bold text-stone-800">Kết nối tài khoản Zalo</h2>
         <p className="mt-3 text-sm leading-6 text-stone-600">Kết nối bằng số điện thoại Zalo. Tên và ảnh đại diện chỉ được sử dụng khi bạn đồng ý chia sẻ.</p>

@@ -4,6 +4,16 @@ import {ApiError} from './errors.js';
 import {assertLessonMedia} from './lesson-media.js';
 
 export const MAX_QUIZ_ATTEMPTS = 3;
+export async function assertLessonUnlocked(store:Store,enrollment:Row,lessonId:string) {
+  const lessons=await store.query(Prisma.sql`SELECT l.id,l.title,COALESCE(p.is_completed,false) AS is_completed
+    FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id
+    LEFT JOIN user_lesson_progress p ON p.lesson_id=l.id AND p.enrollment_id=${enrollment.id}::uuid
+    WHERE ch.course_id=${enrollment.course_id}::uuid ORDER BY ch.chapter_order,l.lesson_order,l.id`);
+  const index=lessons.findIndex(item=>item.id===lessonId);
+  if(index<0)throw new ApiError(404,'Lesson not found in this course');
+  const required=lessons.slice(0,index).find(item=>!item.is_completed);
+  if(required)throw new ApiError(403,'Hoàn thành bài học trước để mở bài này.',{code:'LESSON_LOCKED',requiredLessonId:required.id});
+}
 export async function ownedEnrollment(store:Store,userId:string,courseId:string,enrollmentId:string|null,lock=false) {
   const [available]=await store.query(Prisma.sql`SELECT c.id FROM courses c JOIN course_categories cat ON cat.id=c.category_id WHERE c.id=${courseId}::uuid AND c.is_active AND cat.is_active`);
   if(!available) throw new ApiError(404,'Course is unavailable');
@@ -53,11 +63,16 @@ function validateQuizConfiguration(quiz:Row,questions:Row[]) {
       ||!entries.some(([key])=>key===question.correct_option))throw new ApiError(409,'Quiz questions are not configured correctly');
   }
 }
+async function assertQuizUnlocked(store:Store,enrollment:Row,quizId:string){
+  const [linked]=await store.query(Prisma.sql`SELECT link.lesson_id FROM (${lessonQuizLinks}) link JOIN course_lessons l ON l.id=link.lesson_id JOIN course_chapters ch ON ch.id=l.chapter_id WHERE ch.course_id=${enrollment.course_id}::uuid AND link.quiz_id=${quizId}::uuid ORDER BY ch.chapter_order,l.lesson_order,l.id LIMIT 1`);
+  if(linked)await assertLessonUnlocked(store,enrollment,String(linked.lesson_id));
+}
 export async function saveQuizDraft(store:Store,userId:string,courseId:string,attemptId:string,enrollmentId:string|null,answers:unknown) {
   return store.transaction(async tx=>{
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
     const [attempt]=await tx.query(Prisma.sql`SELECT * FROM miniapp_quiz_attempts WHERE id=${attemptId}::uuid AND enrollment_id=${enrollment.id}::uuid AND submission_id IS NULL AND expires_at>clock_timestamp() FOR UPDATE`);
     if(!attempt) throw new ApiError(409,'Attempt expired or already submitted');
+    await assertQuizUnlocked(tx,enrollment,String(attempt.quiz_id));
     if(!answers||typeof answers!=='object'||Array.isArray(answers)||Object.keys(answers).length>attempt.questions.length) throw new ApiError(400,'Invalid answer draft');
     for(const [id,value] of Object.entries(answers)) {
       const question=attempt.questions.find((q:Row)=>q.id===id);
@@ -73,13 +88,15 @@ export async function startQuiz(store:Store,userId:string,courseId:string,quizId
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
     const [quiz]=await tx.query(Prisma.sql`SELECT * FROM course_quizzes WHERE id=${quizId}::uuid AND course_id=${courseId}::uuid`);
     if(!quiz) throw new ApiError(404,'Quiz not found');
+    const linked=await tx.query(Prisma.sql`SELECT link.lesson_id FROM (${lessonQuizLinks}) link JOIN course_lessons l ON l.id=link.lesson_id JOIN course_chapters ch ON ch.id=l.chapter_id WHERE ch.course_id=${courseId}::uuid AND link.quiz_id=${quizId}::uuid ORDER BY ch.chapter_order,l.lesson_order,l.id LIMIT 1`);
+    if(linked[0])await assertLessonUnlocked(tx,enrollment,String(linked[0].lesson_id));
     const [limits]=await tx.query(Prisma.sql`SELECT max_attempts FROM miniapp_quiz_limits WHERE enrollment_id=${enrollment.id}::uuid AND quiz_id=${quizId}::uuid`);
     const maxAttempts=limits?.max_attempts??MAX_QUIZ_ATTEMPTS;
     let [attempt]=await tx.query(Prisma.sql`SELECT * FROM miniapp_quiz_attempts WHERE enrollment_id=${enrollment.id}::uuid AND quiz_id=${quizId}::uuid AND submission_id IS NULL AND expires_at>clock_timestamp() ORDER BY started_at DESC LIMIT 1`);
     if(!attempt) {
       const [{count}]=await tx.query(Prisma.sql`SELECT count(*)::int FROM miniapp_quiz_attempts WHERE enrollment_id=${enrollment.id}::uuid AND quiz_id=${quizId}::uuid`);
       if(count>=maxAttempts) throw new ApiError(409,'Đã hết lượt thi. Vui lòng liên hệ giảng viên.',{code:'ATTEMPTS_EXHAUSTED',maxAttempts});
-      const questions=await tx.query(Prisma.sql`SELECT id,question_number,question_text,options,correct_option FROM quiz_questions WHERE quiz_id=${quizId}::uuid ORDER BY question_number,id`);
+      const questions=await tx.query(Prisma.sql`SELECT id,question_number,question_text,options,correct_option,explanation FROM quiz_questions WHERE quiz_id=${quizId}::uuid ORDER BY question_number,id`);
       if(!questions.length) throw new ApiError(409,'Quiz has no questions');
       if(!Number.isInteger(quiz.time_limit_minutes)||quiz.time_limit_minutes<=0) throw new ApiError(409,'Quiz duration is not configured');
       validateQuizConfiguration(quiz,questions);
@@ -96,6 +113,7 @@ export async function submitAttempt(store:Store,userId:string,courseId:string,at
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
     const [attempt]=await tx.query(Prisma.sql`SELECT * FROM miniapp_quiz_attempts WHERE id=${attemptId}::uuid AND enrollment_id=${enrollment.id}::uuid FOR UPDATE`);
     if(!attempt) throw new ApiError(404,'Attempt not found');
+    await assertQuizUnlocked(tx,enrollment,String(attempt.quiz_id));
     if(attempt.submission_id) {
       const [submission]=await tx.query(Prisma.sql`SELECT * FROM quiz_submissions WHERE id=${attempt.submission_id}::uuid`);
       return {submission,score:Number(submission.score)*10,correctCount:submission.correct_count,totalQuestions:attempt.questions.length,isPassed:submission.passed,certificateCode:null};
@@ -133,6 +151,7 @@ export async function startPlayback(store:Store,userId:string,courseId:string,le
   return store.transaction(async tx=>{
     await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`learning-player:${userId}`}))::text AS locked`);
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
+    await assertLessonUnlocked(tx,enrollment,lessonId);
     const [lesson]=await tx.query(Prisma.sql`SELECT l.*,policy.allow_public_embed,policy.media_url AS policy_media_url FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id LEFT JOIN miniapp_lesson_media_policy policy ON policy.lesson_id=l.id WHERE l.id=${lessonId}::uuid AND ch.course_id=${courseId}::uuid AND l.lesson_type='VIDEO'`);
     if(!lesson||!lesson.video_url||lesson.duration_minutes<=0) throw new ApiError(409,'Video duration or media is not configured');
     assertLessonMedia(lesson);
@@ -148,6 +167,7 @@ export async function heartbeat(store:Store,userId:string,courseId:string,lesson
   return store.transaction(async tx=>{
     await tx.query(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`learning-player:${userId}`}))::text AS locked`);
     const enrollment=await ownedEnrollment(tx,userId,courseId,enrollmentId,true);
+    await assertLessonUnlocked(tx,enrollment,lessonId);
     const [playback]=await tx.query(Prisma.sql`SELECT p.*,l.video_url,l.duration_minutes,l.is_free_preview,policy.allow_public_embed,policy.media_url AS policy_media_url FROM miniapp_lesson_playbacks p JOIN course_lessons l ON l.id=p.lesson_id LEFT JOIN miniapp_lesson_media_policy policy ON policy.lesson_id=l.id
       WHERE p.id=${playbackId}::uuid AND p.lesson_id=${lessonId}::uuid AND p.enrollment_id=${enrollment.id}::uuid AND p.expires_at>clock_timestamp() FOR UPDATE OF p`);
     if(!playback||playback.media_url!==playback.video_url||playback.duration_seconds!==playback.duration_minutes*60) throw new ApiError(409,'Video session expired, replaced on another device or media changed',{code:'VIDEO_SESSION_EXPIRED'});
