@@ -117,6 +117,137 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'ENROLLMENT_PROGRESS_MONTHLY',
+    name: 'Báo cáo tiến độ học tập & Thời gian học còn lại',
+    subject: 'MLD Academy - Báo cáo tiến độ học tập & Thời hạn khóa học: {{course_name}}',
+    description: 'Gửi định kỳ hàng tháng thông báo số ngày học còn lại trong 365 ngày, số bài giảng đã hoàn thành và số giờ thực hành tích lũy',
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8DFD8;">
+      <div style="background: linear-gradient(135deg, #985018 0%, #693B20 100%); padding: 30px 20px; text-align: center; color: #ffffff;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: bold;">HỌC VIỆN ĐÀO TẠO MLD VIỆT NAM</h1>
+        <p style="margin: 6px 0 0 0; font-size: 13px; color: #FAF0E4;">Báo Cáo Tiến Độ Đào Tạo Chuyên Khoa Dẫn Lưu Bạch Huyết</p>
+      </div>
+      <div style="padding: 30px 25px; color: #2C241E; line-height: 1.6;">
+        <p style="font-size: 16px; font-weight: bold; margin-top: 0;">Kính gửi Học viên {{student_name}},</p>
+        <p style="font-size: 14px; color: #554B42;">Học viện MLD Việt Nam xin gửi tới bạn bản tổng hợp tiến độ học tập và thời hạn khóa đào tạo chuyên môn:</p>
+        
+        <div style="background: #FAF8F5; border: 2px dashed #BA7E4C; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0;">
+          <div style="font-size: 12px; font-weight: bold; color: #BA7E4C; text-transform: uppercase;">THỜI GIAN HIỆU LỰC KHÓA HỌC (CHU KỲ 1 NĂM)</div>
+          <div style="font-size: 32px; font-weight: 800; color: #985018; margin: 8px 0;">Còn {{days_left}} Ngày</div>
+          <div style="font-size: 12px; color: #73675F;">Hạn kết thúc: <strong>{{valid_until_date}}</strong> (Tự động khóa sau 365 ngày)</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #E8DACB; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #73675F;">Khóa học:</td>
+              <td style="padding: 6px 0; font-weight: bold; text-align: right;">{{course_name}}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #73675F;">Mã số học viên:</td>
+              <td style="padding: 6px 0; font-weight: bold; text-align: right; color: #985018;">{{student_code}}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #73675F;">Tiến độ bài giảng:</td>
+              <td style="padding: 6px 0; font-weight: bold; text-align: right; color: #137333;">{{completed_lessons}} / {{total_lessons}} bài ({{progress_percent}}%)</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #73675F;">Số buổi thực hành:</td>
+              <td style="padding: 6px 0; font-weight: bold; text-align: right; color: #985018;">{{attended_sessions}} buổi đã tham gia</td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="font-size: 13px; color: #554B42;">
+          * Bạn hãy hoàn thành các bài thi lý thuyết và thực hành lâm sàng trước ngày <strong>{{valid_until_date}}</strong> để được cấp chứng nhận chính thức.
+        </p>
+      </div>
+    </div>`,
+    variables: ['student_name', 'course_name', 'student_code', 'days_left', 'valid_until_date', 'progress_percent', 'completed_lessons', 'total_lessons', 'attended_sessions'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'ENROLLMENT_EXPIRY_WARNING',
+    name: 'Cảnh báo hết hạn khóa học 1 năm (30 ngày & 7 ngày)',
+    subject: '[QUAN TRỌNG] MLD Academy - Khóa học {{course_name}} của bạn còn {{days_left}} ngày hiệu lực',
+    description: 'Gửi tự động khi thời hạn học còn 30 ngày hoặc 7 ngày để học viên kịp thi và hoàn tất chứng chỉ trước khi khóa học bị hủy/đóng quyền truy cập',
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8DFD8;">
+      <div style="background: linear-gradient(135deg, #B3261E 0%, #7A1712 100%); padding: 30px 20px; text-align: center; color: #ffffff;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: bold;">CẢNH BÁO THỜI HẠN KHÓA ĐÀO TẠO</h1>
+        <p style="margin: 6px 0 0 0; font-size: 13px; color: #FCE8E6;">Quyền Truy Cập Sắp Bị Thu Hồi Theo Quy Chế 1 Năm</p>
+      </div>
+      <div style="padding: 30px 25px; color: #2C241E; line-height: 1.6;">
+        <p style="font-size: 16px; font-weight: bold; margin-top: 0;">Kính gửi Học viên {{student_name}},</p>
+        <p style="font-size: 14px; color: #554B42;">
+          Học viện MLD Việt Nam xin thông báo: Thời hạn hiệu lực 01 năm của khóa học <strong>{{course_name}}</strong> (Mã HV: <strong style="color: #B3261E;">{{student_code}}</strong>) sắp kết thúc.
+        </p>
+
+        <div style="background: #FDF2F2; border: 2px solid #F5C6CB; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0;">
+          <div style="font-size: 12px; font-weight: bold; color: #B3261E; text-transform: uppercase;">THỜI HẠN CÒN LẠI CHÍNH XÁC</div>
+          <div style="font-size: 38px; font-weight: 800; color: #B3261E; margin: 6px 0;">{{days_left}} NGÀY</div>
+          <div style="font-size: 13px; color: #721C24;">Khóa học sẽ chính thức đóng vào ngày: <strong>{{valid_until_date}}</strong></div>
+        </div>
+
+        <div style="background: #FFF9F5; border-left: 4px solid #B3261E; padding: 15px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+          <h4 style="margin: 0 0 6px 0; color: #B3261E; font-size: 13px;">HÀNH ĐỘNG CẦN THỰC HIỆN NGAY:</h4>
+          <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #554B42;">
+            <li>Hoàn tất các bài thi lý thuyết trực tuyến và lịch thi thực hành lâm sàng.</li>
+            <li>Sau ngày <strong>{{valid_until_date}}</strong>, hệ thống sẽ tự động khóa toàn bộ bài giảng và không nhận điểm danh thực hành.</li>
+          </ul>
+        </div>
+      </div>
+    </div>`,
+    variables: ['student_name', 'course_name', 'student_code', 'days_left', 'valid_until_date', 'exams_pending', 'hotline', 'portal_link'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'PRACTICE_SCHEDULE_ANNOUNCEMENT',
+    name: 'Thông báo lịch học thực hành & Nhắc lịch trước 24 giờ',
+    subject: 'MLD Academy - Thông báo lịch học thực hành: {{session_topic}} ngày {{session_date}}',
+    description: 'Gửi tự động khi giảng viên xếp lịch thực hành mới hoặc gửi nhắc nhở 24h trước khi ca thực hành lab diễn ra',
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8DFD8;">
+      <div style="background: linear-gradient(135deg, #137333 0%, #0D5324 100%); padding: 30px 20px; text-align: center; color: #ffffff;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: bold;">LỊCH THỰC HÀNH LÂM SÀNG MLD</h1>
+        <p style="margin: 6px 0 0 0; font-size: 13px; color: #E6F4EA;">Phòng Thực Hành Kỹ Thuật Tay Vodder Chuyên Nghiệp</p>
+      </div>
+      <div style="padding: 30px 25px; color: #2C241E; line-height: 1.6;">
+        <p style="font-size: 16px; font-weight: bold; margin-top: 0;">Xin chào Học viên {{student_name}},</p>
+        <p style="font-size: 14px; color: #554B42;">
+          Giảng viên phụ trách lớp đào tạo <strong style="color: #137333;">{{batch_code}}</strong> xin thông báo lịch tổ chức buổi học thực hành lâm sàng:
+        </p>
+
+        <div style="background: #FAF8F5; border: 1px solid #E8DACB; border-radius: 10px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 15px; font-weight: bold; color: #985018; margin-bottom: 12px;">{{session_topic}}</div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #73675F; width: 140px;">Thời gian:</td>
+              <td style="padding: 6px 0; font-weight: bold; color: #137333;">{{session_time}} · Ngày {{session_date}}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #73675F;">Phòng học:</td>
+              <td style="padding: 6px 0; font-weight: bold; color: #985018;">{{room_name}}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #73675F;">Giảng viên đứng lớp:</td>
+              <td style="padding: 6px 0; font-weight: bold;">{{instructor_name}}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #73675F;">Địa điểm cơ sở:</td>
+              <td style="padding: 6px 0;">{{branch_address}}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>`,
+    variables: ['student_name', 'batch_code', 'session_topic', 'session_date', 'session_time', 'room_name', 'instructor_name', 'branch_address', 'requirements'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 export const emailService = {
@@ -330,5 +461,101 @@ export const emailService = {
       console.error('[emailService] deleteLog error:', err);
       return { success: false, statusCode: 500, message: 'Lỗi xóa nhật ký email', data: false };
     }
+  },
+
+  /**
+   * Helper 1: Báo cáo tiến độ học tập & thời gian còn lại (định kỳ hàng tháng)
+   */
+  async sendMonthlyProgressEmail(params: {
+    recipientEmail: string;
+    studentName: string;
+    courseName: string;
+    studentCode: string;
+    daysLeft: number;
+    validUntilDate: string;
+    progressPercent: number;
+    completedLessons: number;
+    totalLessons: number;
+    attendedSessions: number;
+  }): Promise<ApiResponse<boolean>> {
+    return this.sendEmail({
+      recipientEmail: params.recipientEmail,
+      recipientName: params.studentName,
+      templateId: 'ENROLLMENT_PROGRESS_MONTHLY',
+      variables: {
+        student_name: params.studentName,
+        course_name: params.courseName,
+        student_code: params.studentCode,
+        days_left: String(params.daysLeft),
+        valid_until_date: params.validUntilDate,
+        progress_percent: String(params.progressPercent),
+        completed_lessons: String(params.completedLessons),
+        total_lessons: String(params.totalLessons),
+        attended_sessions: String(params.attendedSessions),
+      },
+      metadata: { type: 'MONTHLY_PROGRESS', studentCode: params.studentCode },
+    });
+  },
+
+  /**
+   * Helper 2: Cảnh báo sắp hết hạn khóa học (30 ngày & 7 ngày)
+   */
+  async sendExpiryWarningEmail(params: {
+    recipientEmail: string;
+    studentName: string;
+    courseName: string;
+    studentCode: string;
+    daysLeft: number;
+    validUntilDate: string;
+  }): Promise<ApiResponse<boolean>> {
+    return this.sendEmail({
+      recipientEmail: params.recipientEmail,
+      recipientName: params.studentName,
+      templateId: 'ENROLLMENT_EXPIRY_WARNING',
+      variables: {
+        student_name: params.studentName,
+        course_name: params.courseName,
+        student_code: params.studentCode,
+        days_left: String(params.daysLeft),
+        valid_until_date: params.validUntilDate,
+        exams_pending: 'Kỳ thi Trắc nghiệm Lý thuyết & Sát hạch Thực hành Lâm sàng',
+        hotline: '096.7786.399',
+        portal_link: 'https://mldvietnam.edu.vn',
+      },
+      metadata: { type: 'EXPIRY_WARNING', daysLeft: params.daysLeft, studentCode: params.studentCode },
+    });
+  },
+
+  /**
+   * Helper 3: Thông báo lịch học thực hành lâm sàng & nhắc lịch trước 24 giờ
+   */
+  async sendPracticeScheduleEmail(params: {
+    recipientEmail: string;
+    studentName: string;
+    batchCode: string;
+    sessionTopic: string;
+    sessionDate: string;
+    sessionTime: string;
+    roomName: string;
+    instructorName: string;
+    branchAddress: string;
+  }): Promise<ApiResponse<boolean>> {
+    return this.sendEmail({
+      recipientEmail: params.recipientEmail,
+      recipientName: params.studentName,
+      templateId: 'PRACTICE_SCHEDULE_ANNOUNCEMENT',
+      variables: {
+        student_name: params.studentName,
+        batch_code: params.batchCode,
+        session_topic: params.sessionTopic,
+        session_date: params.sessionDate,
+        session_time: params.sessionTime,
+        room_name: params.roomName,
+        instructor_name: params.instructorName,
+        branch_address: params.branchAddress,
+        requirements: 'Đồng phục MLD, móng tay cắt ngắn, tập giáo trình lâm sàng Vodder',
+      },
+      metadata: { type: 'PRACTICE_SCHEDULE', batchCode: params.batchCode, sessionDate: params.sessionDate },
+    });
   },
 };

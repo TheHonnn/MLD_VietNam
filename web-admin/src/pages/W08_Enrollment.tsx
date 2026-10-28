@@ -102,6 +102,15 @@ export interface CandidateRecord {
   requiredDeposit: string;
   remainingAmount: string;
   statusBadge: string;
+
+  // 365-day Expiry & Validity Info (Phase 2)
+  validUntil?: string | null;
+  accessStatus?: 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED' | 'EXTENDED';
+  daysRemaining: number;
+  isExpired: boolean;
+  isExpiringSoon: boolean;
+  extensionMonths: number;
+  extensionReason?: string | null;
 }
 
 export const W08_Enrollment: React.FC = () => {
@@ -119,6 +128,13 @@ export const W08_Enrollment: React.FC = () => {
   const [assignCandidate, setAssignCandidate] = useState<AssignCandidateInfo | null>(null);
   const [checkingCandidateId, setCheckingCandidateId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // 365-day Validity & Extension Modals State (Phase 2)
+  const [isSweepingExpiry, setIsSweepingExpiry] = useState(false);
+  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
+  const [extendMonthsInput, setExtendMonthsInput] = useState<number>(3);
+  const [extendReasonInput, setExtendReasonInput] = useState<string>('');
+  const [isSubmittingExtend, setIsSubmittingExtend] = useState(false);
 
   // Form add new candidate state
   const [formName, setFormName] = useState('');
@@ -284,6 +300,31 @@ export const W08_Enrollment: React.FC = () => {
           ? '📞 Đang tư vấn'
           : '⏳ Chờ liên hệ tư vấn';
 
+      // 365-day Validity & Expiry Calculation (Phase 2)
+      const validUntilStr =
+        enr.validUntil ||
+        (enr as any).valid_until ||
+        (enr.enrolledAt ? new Date(new Date(enr.enrolledAt).getTime() + 365 * 86400000).toISOString() : null);
+      const validUntilDate = validUntilStr ? new Date(validUntilStr) : null;
+      const now = new Date();
+      const daysRemaining = validUntilDate
+        ? Math.ceil((validUntilDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 365;
+      const rawAccessStatus = enr.accessStatus || (enr as any).access_status;
+      const isExpired =
+        daysRemaining <= 0 ||
+        rawAccessStatus === 'EXPIRED';
+      const isExpiringSoon = !isExpired && daysRemaining <= 30;
+      const computedAccessStatus: 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED' | 'EXTENDED' = isExpired
+        ? 'EXPIRED'
+        : rawAccessStatus === 'EXTENDED'
+        ? 'EXTENDED'
+        : isExpiringSoon
+        ? 'EXPIRING_SOON'
+        : 'ACTIVE';
+      const extensionMonths = Number(enr.extensionMonths || (enr as any).extension_months || 0);
+      const extensionReason = enr.extensionReason || (enr as any).extension_reason || null;
+
       return {
         id: enr.id,
         orderCode,
@@ -328,6 +369,15 @@ export const W08_Enrollment: React.FC = () => {
         requiredDeposit: `${(crs?.depositAmount || 2000000).toLocaleString('vi-VN')}đ`,
         remainingAmount: `${remaining.toLocaleString('vi-VN')}đ`,
         statusBadge,
+
+        // 365-day Expiry fields
+        validUntil: validUntilStr,
+        accessStatus: computedAccessStatus,
+        daysRemaining,
+        isExpired,
+        isExpiringSoon,
+        extensionMonths,
+        extensionReason,
       };
     });
   }, [liveEnrollments, liveCourses, liveBatches, customers, staffMembers]);
@@ -793,6 +843,66 @@ export const W08_Enrollment: React.FC = () => {
     }
   };
 
+  // 365-day Expiry & Validity Handlers (Phase 2)
+  const handleSweepExpired = async () => {
+    setIsSweepingExpiry(true);
+    try {
+      const res = await academyService.sweepExpiredEnrollments();
+      if (res && res.success && res.data) {
+        showToast(`Quét hạn 365 ngày hoàn tất: ${res.data.expiredCount} hết hạn, ${res.data.expiringSoonCount} sắp hết hạn.`);
+      } else {
+        showToast('Đã quét hạn ngạch học viên 365 ngày thành công.');
+      }
+      const refreshed = await supabaseService.getEnrollments();
+      if (refreshed) {
+        setLiveEnrollments(refreshed);
+      }
+    } catch (err: any) {
+      console.error('Lỗi khi quét hạn học viên:', err);
+      toast.error('Lỗi quét hạn', err?.message || 'Không thể hoàn tất quét hạn học viên.');
+    } finally {
+      setIsSweepingExpiry(false);
+    }
+  };
+
+  const handleOpenExtendModal = () => {
+    setExtendMonthsInput(3);
+    setExtendReasonInput('');
+    setIsExtendModalOpen(true);
+  };
+
+  const handleConfirmExtend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+    if (!extendReasonInput.trim()) {
+      toast.error('Thiếu thông tin', 'Vui lòng nhập lý do phê duyệt gia hạn khóa học.');
+      return;
+    }
+    setIsSubmittingExtend(true);
+    try {
+      const res = await academyService.extendEnrollment(
+        selectedCandidate.id,
+        extendMonthsInput,
+        extendReasonInput.trim()
+      );
+      if (res && res.success) {
+        showToast(`Gia hạn thành công +${extendMonthsInput} tháng cho học viên ${selectedCandidate.name}.`);
+        setIsExtendModalOpen(false);
+        const refreshed = await supabaseService.getEnrollments();
+        if (refreshed) {
+          setLiveEnrollments(refreshed);
+        }
+      } else {
+        toast.error('Gia hạn thất bại', res.message || 'Không thể gia hạn.');
+      }
+    } catch (err: any) {
+      console.error('Lỗi gia hạn:', err);
+      toast.error('Lỗi hệ thống', err?.message || 'Không thể thực hiện gia hạn.');
+    } finally {
+      setIsSubmittingExtend(false);
+    }
+  };
+
   // Render 3 Distinct Badges (Section 3)
   const renderConsultationBadge = (status: ConsultationStatus) => {
     switch (status) {
@@ -909,6 +1019,39 @@ export const W08_Enrollment: React.FC = () => {
     }
   };
 
+  const renderValidityBadge = (candidate: CandidateRecord) => {
+    if (candidate.isExpired) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+          <AlertCircle className="w-3 h-3 text-rose-600" />
+          <span>Hết hạn 365 ngày (Đã khóa)</span>
+        </span>
+      );
+    }
+    if (candidate.accessStatus === 'EXTENDED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
+          <Clock className="w-3 h-3 text-purple-600" />
+          <span>Gia hạn (+{candidate.extensionMonths}th) · Còn {candidate.daysRemaining} ngày</span>
+        </span>
+      );
+    }
+    if (candidate.isExpiringSoon) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+          <Clock className="w-3 h-3 text-amber-600" />
+          <span>Sắp hết hạn: Còn {candidate.daysRemaining} ngày</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+        <span>Còn {candidate.daysRemaining} ngày</span>
+      </span>
+    );
+  };
+
   const hasActiveFilter = Boolean(searchTerm.trim() || programFilter !== 'all' || branchFilter !== 'all' || activeWorkflowTab !== 'ALL');
 
   return (
@@ -922,12 +1065,25 @@ export const W08_Enrollment: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
-        >
-          Tạo yêu cầu tư vấn mới
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            disabled={isSweepingExpiry}
+            onClick={handleSweepExpired}
+            className="px-4 py-2.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+            title="Kích hoạt kiểm tra thời hạn 365 ngày của toàn bộ học viên và tự động khóa học viên quá hạn"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSweepingExpiry ? 'animate-spin' : ''}`} />
+            <span>{isSweepingExpiry ? 'Đang quét...' : 'Quét hạn 365 ngày'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
+          >
+            Tạo yêu cầu tư vấn mới
+          </button>
+        </div>
       </div>
 
       {/* 2. Top 4 KPI Workflow Cards */}
@@ -1243,6 +1399,10 @@ export const W08_Enrollment: React.FC = () => {
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] text-[#73675F] w-12 shrink-0">Học viên:</span>
                                 {renderStudentBadge(candidate.studentAdmissionStatus, candidate.rawStatus)}
+                              </div>
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Hạn 365d:</span>
+                                {renderValidityBadge(candidate)}
                               </div>
                             </div>
                           </td>
@@ -1673,6 +1833,77 @@ export const W08_Enrollment: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* STEP 6: Thời hạn học tập 365 ngày & Quyền truy cập (Phase 2 Spec) */}
+              <div className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2.5">
+                <div className="font-bold text-[#2C241E] text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#8D4B1A]" />
+                    <span>Thời hạn 365 ngày & Quyền truy cập</span>
+                  </span>
+                  {renderValidityBadge(selectedCandidate)}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="bg-[#FAF7F2] p-2 rounded-lg border border-[#EFE4D9]">
+                    <span className="text-[#73675F] block">Ngày hết hạn:</span>
+                    <strong className="text-[#2C241E] font-semibold">
+                      {selectedCandidate.validUntil
+                        ? new Date(selectedCandidate.validUntil).toLocaleDateString('vi-VN')
+                        : '365 ngày từ ngày nhập học'}
+                    </strong>
+                  </div>
+                  <div className="bg-[#FAF7F2] p-2 rounded-lg border border-[#EFE4D9]">
+                    <span className="text-[#73675F] block">Thời gian còn lại:</span>
+                    <strong
+                      className={
+                        selectedCandidate.isExpired
+                          ? 'text-rose-700 font-bold'
+                          : selectedCandidate.isExpiringSoon
+                          ? 'text-amber-700 font-bold'
+                          : 'text-emerald-700 font-bold'
+                      }
+                    >
+                      {selectedCandidate.isExpired ? 'Đã hết hạn' : `${selectedCandidate.daysRemaining} ngày`}
+                    </strong>
+                  </div>
+                </div>
+
+                {selectedCandidate.isExpired && (
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[11px] space-y-1">
+                    <div className="font-bold flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span>Đã khóa quyền truy cập đào tạo (Expired)</span>
+                    </div>
+                    <p className="text-[10px] text-rose-700 leading-relaxed">
+                      Học viên đã vượt quá 365 ngày. Bài giảng video LMS, đặt lịch thực hành và đề thi lý thuyết tự động bị chặn. Cần Admin cấp quyền Gia hạn để mở lại quyền.
+                    </p>
+                  </div>
+                )}
+
+                {selectedCandidate.extensionMonths > 0 && (
+                  <div className="p-2.5 rounded-lg bg-purple-50 border border-purple-200 text-[11px] text-purple-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1 text-[10px]">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                      <span>Đã được Admin gia hạn thêm +{selectedCandidate.extensionMonths} tháng</span>
+                    </div>
+                    {selectedCandidate.extensionReason && (
+                      <p className="text-[10px] text-purple-800 italic">
+                        Lý do phê duyệt: &ldquo;{selectedCandidate.extensionReason}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleOpenExtendModal}
+                  className="w-full py-2 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Gia hạn khóa học (+N tháng)</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1828,6 +2059,106 @@ export const W08_Enrollment: React.FC = () => {
         instructors={instructors}
         onAssignBatch={handleConfirmAssignBatch}
       />
+
+      {/* MODAL: Gia hạn khóa học (+N tháng) kèm lý do phê duyệt (Phase 2) */}
+      {isExtendModalOpen && selectedCandidate && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF5EF]">
+              <div>
+                <h3 className="text-base font-bold text-[#2C241E]">Gia hạn thời hạn học tập</h3>
+                <p className="text-xs text-[#73675F] mt-0.5">
+                  Học viên: <strong className="text-[#8D4B1A]">{selectedCandidate.name}</strong> ({selectedCandidate.orderCode})
+                </p>
+              </div>
+              <button
+                onClick={() => setIsExtendModalOpen(false)}
+                className="p-1.5 rounded-lg text-[#73675F] hover:bg-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmExtend} className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">
+                  Khóa đào tạo
+                </label>
+                <div className="p-2.5 rounded-xl bg-[#FAF5EF] border border-[#EFE4D9] font-medium text-[#2C241E]">
+                  {selectedCandidate.program}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">
+                  Thời hạn hiện tại
+                </label>
+                <div className="text-[11px] text-[#73675F]">
+                  Hết hạn:{' '}
+                  <strong className="text-[#2C241E]">
+                    {selectedCandidate.validUntil
+                      ? new Date(selectedCandidate.validUntil).toLocaleDateString('vi-VN')
+                      : 'Chưa kích hoạt'}
+                  </strong>{' '}
+                  ({selectedCandidate.isExpired ? 'Đã quá hạn' : `Còn ${selectedCandidate.daysRemaining} ngày`})
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">
+                  Thời gian gia hạn thêm <span className="text-[#8D4B1A]">*</span>
+                </label>
+                <select
+                  value={extendMonthsInput}
+                  onChange={(e) => setExtendMonthsInput(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#EFE4D9] rounded-xl text-xs font-semibold text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                >
+                  <option value={1}>Gia hạn +1 tháng (30 ngày)</option>
+                  <option value={2}>Gia hạn +2 tháng (60 ngày)</option>
+                  <option value={3}>Gia hạn +3 tháng (90 ngày) — Khuyến nghị tiêu chuẩn</option>
+                  <option value={6}>Gia hạn +6 tháng (180 ngày)</option>
+                  <option value={12}>Gia hạn +12 tháng (1 năm)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">
+                  Lý do phê duyệt gia hạn <span className="text-[#8D4B1A]">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={extendReasonInput}
+                  onChange={(e) => setExtendReasonInput(e.target.value)}
+                  placeholder="Ví dụ: Học viên có đơn xin tạm hoãn do điều trị y khoa / Nghỉ thai sản / Đi công tác..."
+                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] resize-none"
+                />
+                <p className="text-[10px] text-[#8C7A6B] mt-1">
+                  Ghi chú này sẽ được lưu trữ vĩnh viễn vào hồ sơ học viên trên Supabase để phục vụ kiểm toán đào tạo.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-[#EFE4D9]">
+                <button
+                  type="button"
+                  onClick={() => setIsExtendModalOpen(false)}
+                  className="px-4 py-2 bg-white border border-[#EFE4D9] text-[#73675F] hover:bg-[#FAF7F2] rounded-xl font-medium cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingExtend}
+                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{isSubmittingExtend ? 'Đang lưu vào Supabase...' : 'Xác nhận gia hạn'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

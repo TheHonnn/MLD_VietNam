@@ -81,13 +81,26 @@ export class AcademyController {
     return this.academyService.checkEnrollmentPayment(id);
   }
 
-  @Post('enrollments/:id/approve')
-  @ApiOperation({ summary: 'Admin duyệt học viên & ghi nhận thanh toán tại quầy' })
-  async approveEnrollment(
-    @Param('id') id: string,
-    @Body() body: { adminUser?: string; amountPaid?: number; notes?: string },
+  @Get('courses/:courseId/lessons/:lessonId/access')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kiểm tra quyền xem bài học (chặn khi hết hạn 365 ngày)' })
+  async checkLessonAccess(
+    @CurrentUser('id') userId: string,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
   ) {
-    return this.academyService.approveEnrollment(id, body?.adminUser || 'Admin Tuyển Sinh', body?.amountPaid, body?.notes);
+    return this.academyService.checkLessonAccess(userId || 'default-user', courseId, lessonId);
+  }
+
+  @Post('enrollments/:id/extend')
+  @ApiOperation({ summary: 'Admin gia hạn khóa học (+N tháng) cho học viên' })
+  async extendEnrollment(
+    @Param('id') id: string,
+    @Body() body: { extensionMonths: number; reason: string },
+  ) {
+    return this.academyService.extendEnrollment(id, body?.extensionMonths || 3, body?.reason || 'Gia hạn theo yêu cầu');
   }
 }
+
 

@@ -1504,6 +1504,74 @@ class SupabaseService {
     }));
   }
 
+  async extendEnrollment(
+    enrollmentId: string,
+    extensionMonths: number,
+    reason: string
+  ): Promise<{ success: boolean; newValidUntil?: string; message: string }> {
+    try {
+      // 1. Thử gọi RPC fn_extend_enrollment
+      const rpcRes = await this.query<any[]>('rpc/fn_extend_enrollment', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_enrollment_id: enrollmentId,
+          p_extension_months: extensionMonths,
+          p_reason: reason,
+        }),
+      });
+
+      if (rpcRes && rpcRes.length > 0) {
+        return {
+          success: Boolean(rpcRes[0].success),
+          newValidUntil: rpcRes[0].new_valid_until,
+          message: rpcRes[0].message || 'Gia hạn thành công',
+        };
+      }
+
+      // 2. Fallback update trực tiếp
+      const curList = await this.query<any[]>(`course_enrollments?id=eq.${enrollmentId}&select=valid_until,extension_months`);
+      const cur = curList?.[0];
+      const curValid = cur?.valid_until ? new Date(cur.valid_until).getTime() : Date.now();
+      const baseTime = curValid < Date.now() ? Date.now() : curValid;
+      const newValid = new Date(baseTime + extensionMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const ok = await this.updateEnrollment(enrollmentId, {
+        validUntil: newValid,
+        accessStatus: 'EXTENDED',
+        extensionMonths: Number(cur?.extension_months || 0) + extensionMonths,
+        extensionReason: reason,
+      });
+
+      return {
+        success: ok,
+        newValidUntil: newValid,
+        message: ok ? `Gia hạn thành công +${extensionMonths} tháng!` : 'Lỗi cập nhật gia hạn',
+      };
+    } catch (err: any) {
+      console.warn('[SupabaseService] extendEnrollment error:', err);
+      return { success: false, message: err?.message || 'Lỗi khi gia hạn học viên' };
+    }
+  }
+
+  async sweepExpiredEnrollments(): Promise<{ expiredCount: number; expiringSoonCount: number; activeCount: number }> {
+    try {
+      const rpcRes = await this.query<any[]>('rpc/fn_expire_enrollments_cron', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (rpcRes && rpcRes.length > 0) {
+        return {
+          expiredCount: Number(rpcRes[0].expired_count || 0),
+          expiringSoonCount: Number(rpcRes[0].expiring_soon_count || 0),
+          activeCount: Number(rpcRes[0].active_count || 0),
+        };
+      }
+    } catch (e) {
+      console.warn('[SupabaseService] sweepExpiredEnrollments rpc error:', e);
+    }
+    return { expiredCount: 0, expiringSoonCount: 0, activeCount: 0 };
+  }
+
   // 14. PHÂN CA KỸ THUẬT VIÊN (TECHNICIAN SHIFTS)
   async getTechnicianShifts(branchId?: string): Promise<any[] | null> {
     const path = branchId
@@ -1681,6 +1749,12 @@ class SupabaseService {
       finalTuition?: number;
       consultationHistory?: any[];
       qrCreatedAt?: string | null;
+      validUntil?: string | null;
+      accessStatus?: string;
+      expiredAt?: string | null;
+      extensionMonths?: number;
+      extensionReason?: string | null;
+      lastExpiryNotifiedAt?: string | null;
     }
   ): Promise<boolean> {
     try {
@@ -1707,6 +1781,12 @@ class SupabaseService {
       if (updates.finalTuition !== undefined) payload.final_tuition = updates.finalTuition;
       if (updates.consultationHistory !== undefined) payload.consultation_history = updates.consultationHistory;
       if (updates.qrCreatedAt !== undefined) payload.qr_created_at = updates.qrCreatedAt;
+      if (updates.validUntil !== undefined) payload.valid_until = updates.validUntil;
+      if (updates.accessStatus !== undefined) payload.access_status = updates.accessStatus;
+      if (updates.expiredAt !== undefined) payload.expired_at = updates.expiredAt;
+      if (updates.extensionMonths !== undefined) payload.extension_months = updates.extensionMonths;
+      if (updates.extensionReason !== undefined) payload.extension_reason = updates.extensionReason;
+      if (updates.lastExpiryNotifiedAt !== undefined) payload.last_expiry_notified_at = updates.lastExpiryNotifiedAt;
 
       const res = await this.query<any[]>(`course_enrollments?id=eq.${enrollmentId}`, {
         method: 'PATCH',
