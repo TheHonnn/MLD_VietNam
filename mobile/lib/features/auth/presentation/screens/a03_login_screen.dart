@@ -1,8 +1,10 @@
+import '../../../membership/presentation/screens/legal_document_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
@@ -758,15 +760,15 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                               children: [
                                 GestureDetector(
                                   onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Điều khoản dịch vụ MLD Vietnam'),
-                                        duration: Duration(seconds: 1),
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const LegalDocumentScreen(type: LegalDocType.termsOfService),
                                       ),
                                     );
                                   },
                                   child: const Text(
-                                    'Điều khoản dịch vụ',
+                                    'Điều khoản sử dụng',
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w500,
@@ -784,10 +786,10 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                 ),
                                 GestureDetector(
                                   onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Chính sách bảo mật thông tin'),
-                                        duration: Duration(seconds: 1),
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const LegalDocumentScreen(type: LegalDocType.privacyPolicy),
                                       ),
                                     );
                                   },

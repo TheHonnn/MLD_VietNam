@@ -1,3 +1,4 @@
+import 'legal_document_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -634,24 +635,28 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 _buildMenuItem(
                   icon: Icons.security_rounded,
                   title: isEn ? 'Privacy Policy' : 'Chính sách bảo mật',
-                  onTap: () => _showInfoModal(
-                    context,
-                    isEn ? 'Privacy Policy' : 'Chính sách bảo mật',
-                    isEn
-                        ? 'MLD Vietnam commits to protecting all personal information and medical data of customers. Information is only used for booking, treatment journals, and loyalty programs under Vietnamese law.'
-                        : 'MLD Việt Nam cam kết bảo vệ dữ liệu cá nhân và hồ sơ trị liệu của khách hàng tuyệt đối an toàn. Mọi dữ liệu chỉ phục vụ đặt lịch, liệu trình và tích điểm theo quy chuẩn an toàn thông tin.',
-                  ),
+                  subtitle: isEn ? 'Minh Anh Education Co., Ltd.' : 'Chính sách bảo mật thông tin khách hàng',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LegalDocumentScreen(type: LegalDocType.privacyPolicy),
+                      ),
+                    );
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.description_outlined,
-                  title: isEn ? 'Terms of Service' : 'Điều khoản dịch vụ',
-                  onTap: () => _showInfoModal(
-                    context,
-                    isEn ? 'Terms of Service' : 'Điều khoản dịch vụ',
-                    isEn
-                        ? 'By using the MLD Vietnam application, you agree to our terms of booking, payment policies, cancellation guidelines, and customer code of conduct.'
-                        : 'Khi sử dụng ứng dụng MLD Việt Nam, quý khách đồng ý với các quy định đặt lịch, chính sách thanh toán, hướng dẫn đổi hủy và quy tắc ứng xử của viện thẩm mỹ.',
-                  ),
+                  title: isEn ? 'Terms of Service' : 'Điều khoản sử dụng',
+                  subtitle: isEn ? 'MLD Vietnam & Lymphatic System' : 'Quy định & thỏa thuận sử dụng dịch vụ',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LegalDocumentScreen(type: LegalDocType.termsOfService),
+                      ),
+                    );
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.rule_folder_outlined,

@@ -482,12 +482,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
                   title: context.tr('Cài đặt tài khoản', 'Account Settings'),
-                  onTap: () => _requireLoginAndRun(() {
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const F08SettingsScreen()),
                     );
-                  }, title: 'Cài đặt tài khoản', message: 'Vui lòng đăng nhập để quản lý cài đặt tài khoản và bảo mật.'),
+                  },
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.border),
                 if (!AuthService.instance.isLoggedIn)
