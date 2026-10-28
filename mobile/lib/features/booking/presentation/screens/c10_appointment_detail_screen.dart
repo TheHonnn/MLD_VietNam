@@ -278,14 +278,13 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                     ),
                     const SizedBox(height: 12),
                     _buildDetailRow(context.tr('Dịch vụ:', 'Service:'), app.serviceName.tr(context)),
-                    _buildDetailRow(context.tr('Đơn giá:', 'Unit Price:'), _formatPrice(app.totalAmount / 1.08)),
-                    _buildDetailRow(context.tr('Thuế VAT (8%):', 'VAT (8%):'), _formatPrice(app.totalAmount - (app.totalAmount / 1.08))),
+                    const SizedBox(height: 8),
                     const Divider(color: AppColors.border, height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          context.tr('Tổng chi phí:', 'Total Cost:'),
+                          context.tr('Tổng tiền:', 'Total Amount:'),
                           style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                         ),
                         Text(

@@ -404,6 +404,7 @@ class AppTranslation {
     'Tiền dịch vụ': 'Service Fee',
     'Tổng tiền dịch vụ': 'Total Service Fee',
     'Tổng tiền': 'Total Amount',
+    'Tổng tiền:': 'Total Amount:',
     'Đặt cọc trước (20%)': 'Advance Deposit (20%)',
     'Đặt cọc trước': 'Advance Deposit',
 

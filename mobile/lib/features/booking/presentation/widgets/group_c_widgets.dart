@@ -613,11 +613,7 @@ class PriceBreakdownCardWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _buildRow('Giá dịch vụ (trước VAT)', '${_formatCurrency(preTaxSubtotal)}đ'),
-          const SizedBox(height: 8),
-          _buildRow('Thuế GTGT (VAT $vatPercentStr%)', '${_formatCurrency(vatAmount)}đ'),
-          const SizedBox(height: 8),
-          _buildRow('Tạm tính', '${_formatCurrency(subtotal)}đ'),
+          _buildRow('Giá dịch vụ', '${_formatCurrency(subtotal)}đ'),
           if (discount > 0) ...[
             const SizedBox(height: 8),
             _buildRow('Ưu đãi', '-${_formatCurrency(discount)}đ'),

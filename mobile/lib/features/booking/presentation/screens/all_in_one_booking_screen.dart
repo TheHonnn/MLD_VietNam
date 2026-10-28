@@ -265,8 +265,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   }
 
   double get _subtotal => _pricePerPerson * _guestCount;
-  double get _vatAmount => _subtotal * _vatRate;
-  double get _totalPrice => _subtotal + _vatAmount;
+  double get _vatAmount => 0.0;
+  double get _totalPrice => _subtotal;
 
   String _formatCurrency(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
@@ -804,7 +804,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            context.tr('Chi phí dự kiến:', 'Estimated Cost:'),
+                            context.tr('Tổng tiền:', 'Total Amount:'),
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                           ),
                         ),
@@ -817,11 +817,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      context.tr('Đã bao gồm 8% thuế VAT theo quy định', 'Includes 8% VAT as regulated'),
-                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
