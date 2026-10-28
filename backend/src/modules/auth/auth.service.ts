@@ -584,14 +584,20 @@ export class AuthService {
    * Liên kết tài khoản: Bổ sung Email & Mật khẩu vào tài khoản đã đăng ký bằng SĐT
    */
   async changePassword(userId: string, dto: ChangePasswordDto) {
-    const { currentPassword, newPassword } = dto;
-    if (currentPassword === newPassword) {
+    const currentPassword = (dto.currentPassword || dto.oldPassword || '').trim();
+    const newPassword = (dto.newPassword || '').trim();
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Mật khẩu mới phải có ít nhất 6 ký tự');
+    }
+
+    if (currentPassword && currentPassword === newPassword) {
       throw new BadRequestException('Mật khẩu mới không được trùng với mật khẩu hiện tại');
     }
 
     const { data: user, error } = await this.supabaseService.adminClient
       .from('users')
-      .select('id, password_hash, email')
+      .select('id, password_hash, email, phone')
       .eq('id', userId)
       .maybeSingle();
 
@@ -599,28 +605,63 @@ export class AuthService {
       throw new NotFoundException('Không tìm thấy tài khoản người dùng');
     }
 
-    if (!user.password_hash) {
-      throw new BadRequestException('Tài khoản chưa được thiết lập mật khẩu');
+    let passwordHash = user.password_hash;
+    if (!passwordHash) {
+      // Tìm mật khẩu đã lưu trong auth_identities nếu có
+      const { data: identity } = await this.supabaseService.adminClient
+        .from('auth_identities')
+        .select('password_hash')
+        .eq('user_id', userId)
+        .not('password_hash', 'is', null)
+        .limit(1)
+        .maybeSingle();
+
+      if (identity?.password_hash) {
+        passwordHash = identity.password_hash;
+      }
     }
 
-    const isMatch = await this.passwordHasherService.comparePassword(currentPassword, user.password_hash);
-    if (!isMatch) {
-      throw new BadRequestException('Mật khẩu hiện tại không chính xác');
+    // Nếu tài khoản đã có mật khẩu, bắt buộc kiểm tra mật khẩu hiện tại
+    if (passwordHash) {
+      if (!currentPassword) {
+        throw new BadRequestException('Vui lòng nhập mật khẩu hiện tại');
+      }
+      const isMatch = await this.passwordHasherService.comparePassword(currentPassword, passwordHash);
+      if (!isMatch) {
+        throw new BadRequestException('Mật khẩu hiện tại không chính xác');
+      }
     }
 
+    // Mã hóa mật khẩu mới bằng Bcrypt
     const newHash = await this.passwordHasherService.hashPassword(newPassword);
 
-    await this.supabaseService.adminClient
+    const { error: updateError } = await this.supabaseService.adminClient
       .from('users')
       .update({ password_hash: newHash })
       .eq('id', userId);
 
-    if (user.email) {
+    if (updateError) {
+      this.logger.error(`Lỗi cập nhật mật khẩu users: ${updateError.message}`);
+      throw new BadRequestException('Không thể cập nhật mật khẩu vào cơ sở dữ liệu');
+    }
+
+    // Cập nhật tất cả các định danh liên kết trong auth_identities
+    try {
       await this.supabaseService.adminClient
         .from('auth_identities')
         .update({ password_hash: newHash })
-        .eq('user_id', userId)
-        .eq('identifier', user.email.toLowerCase().trim());
+        .eq('user_id', userId);
+    } catch (e) {
+      this.logger.warn(`Lỗi cập nhật auth_identities: ${e}`);
+    }
+
+    // Đồng bộ tài khoản Supabase Auth GoTrue nếu có
+    try {
+      await this.supabaseService.adminClient.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+    } catch (_) {
+      // Bỏ qua nếu người dùng chỉ sử dụng bảng users tùy chỉnh
     }
 
     return {

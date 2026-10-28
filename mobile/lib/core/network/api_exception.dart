@@ -36,6 +36,8 @@ class ApiException implements Exception {
         if (responseData is Map<String, dynamic>) {
           if (responseData['message'] is String && (responseData['message'] as String).isNotEmpty) {
             serverMessage = responseData['message'] as String;
+          } else if (responseData['message'] is List && (responseData['message'] as List).isNotEmpty) {
+            serverMessage = (responseData['message'] as List).first.toString();
           } else if (responseData['error'] is String && (responseData['error'] as String).isNotEmpty) {
             serverMessage = responseData['error'] as String;
           }

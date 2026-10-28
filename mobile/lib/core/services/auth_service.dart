@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -365,8 +366,14 @@ class AuthService {
         ApiEndpoints.authChangePassword,
         data: {
           'currentPassword': currentPassword,
+          'oldPassword': currentPassword,
           'newPassword': newPassword,
         },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer ',
+          },
+        ),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {

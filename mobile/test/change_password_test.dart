@@ -5,6 +5,7 @@ import 'package:medical_healthcare_app/core/services/auth_service.dart';
 import 'package:medical_healthcare_app/features/membership/presentation/screens/f01_profile_dashboard_screen.dart';
 import 'package:medical_healthcare_app/features/membership/presentation/screens/f08_settings_screen.dart';
 import 'package:medical_healthcare_app/features/membership/presentation/widgets/change_password_modal.dart';
+import 'package:medical_healthcare_app/features/treatment/data/models/treatment_models.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
 
 Widget _buildTestApp({required Widget home, Locale locale = const Locale('vi')}) {
@@ -115,6 +116,48 @@ void main() {
     await tester.enterText(fields.at(2), 'newsecret678');
     await tester.pumpAndSettle();
     expect(find.text('Mật khẩu xác nhận không khớp'), findsNothing);
+  });
+
+  test('CareJournalEntryModel constructor supports both date/treatmentTime, serviceTitle/serviceName, sessionNote/content', () {
+    // Test with legacy/alias parameters
+    final legacyEntry = CareJournalEntryModel(
+      id: 'test-legacy-1',
+      sessionNumber: 1,
+      date: 'Hôm nay',
+      serviceTitle: 'Ghi chú tự chăm sóc tại nhà',
+      sessionNote: 'Ghi chú chăm sóc sau liệu trình',
+    );
+    expect(legacyEntry.treatmentTime, equals('Hôm nay'));
+    expect(legacyEntry.date, equals('Hôm nay'));
+    expect(legacyEntry.serviceName, equals('Ghi chú tự chăm sóc tại nhà'));
+    expect(legacyEntry.serviceTitle, equals('Ghi chú tự chăm sóc tại nhà'));
+    expect(legacyEntry.content, equals('Ghi chú chăm sóc sau liệu trình'));
+    expect(legacyEntry.sessionNote, equals('Ghi chú chăm sóc sau liệu trình'));
+
+    // Test with canonical parameters
+    const canonicalEntry = CareJournalEntryModel(
+      id: 'test-canonical-1',
+      sessionNumber: 2,
+      treatmentTime: '2026-10-28 14:00',
+      serviceName: 'Dịch vụ Dẫn lưu bạch huyết MLD',
+      content: 'Trị liệu chuẩn Y khoa MLD',
+    );
+    expect(canonicalEntry.treatmentTime, equals('2026-10-28 14:00'));
+    expect(canonicalEntry.date, equals('2026-10-28 14:00'));
+    expect(canonicalEntry.serviceName, equals('Dịch vụ Dẫn lưu bạch huyết MLD'));
+    expect(canonicalEntry.serviceTitle, equals('Dịch vụ Dẫn lưu bạch huyết MLD'));
+    expect(canonicalEntry.content, equals('Trị liệu chuẩn Y khoa MLD'));
+    expect(canonicalEntry.sessionNote, equals('Trị liệu chuẩn Y khoa MLD'));
+  });
+
+  test('AuthService changePassword returns error when user is not logged in', () async {
+    final result = await AuthService.instance.changePassword(
+      currentPassword: 'currentPassword123',
+      newPassword: 'newPassword456',
+    );
+    // When no access token is set, it returns clear login prompt
+    expect(result.success, isFalse);
+    expect(result.message, contains('đăng nhập'));
   });
 }
 

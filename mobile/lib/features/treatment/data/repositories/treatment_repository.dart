@@ -187,11 +187,11 @@ class TreatmentRepository {
     final newEntry = CareJournalEntryModel(
       id: 'j-custom-${DateTime.now().millisecondsSinceEpoch}',
       sessionNumber: _journalEntries.length + 1,
-      treatmentTime: 'Hôm nay',
-      serviceName: 'Ghi chú tự chăm sóc tại nhà',
+      date: 'Hôm nay',
+      serviceTitle: 'Ghi chú tự chăm sóc tại nhà',
       specialistName: 'Khách hàng (Tự ghi nhận)',
       branchName: 'Chi nhánh Quận 3',
-      content: note,
+      sessionNote: note,
       postCareSuggestion: 'Tiếp tục duy trì thói quen nghỉ ngơi và sinh hoạt lành mạnh.',
     );
     _journalEntries.insert(0, newEntry);

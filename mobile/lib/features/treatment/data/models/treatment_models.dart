@@ -138,12 +138,12 @@ class CareJournalEntryModel {
     required this.id,
     this.packageCode = '',
     this.packageName = '',
-    required this.serviceName,
+    String? serviceName,
     this.customerName = '',
     required this.sessionNumber,
     this.totalSessions = 1,
-    required this.treatmentTime,
-    required this.content,
+    String? treatmentTime,
+    String? content,
     this.evidenceImages = const [],
     this.specialistName = 'Kỹ thuật viên MLD',
     this.branchName = 'Chi nhánh Quận 3',
@@ -151,7 +151,12 @@ class CareJournalEntryModel {
     this.bookingId,
     this.serviceId,
     this.technicianId,
-  });
+    String? date,
+    String? serviceTitle,
+    String? sessionNote,
+  })  : serviceName = serviceName ?? serviceTitle ?? '',
+        treatmentTime = treatmentTime ?? date ?? '',
+        content = content ?? sessionNote ?? '';
 
   // Getter tương thích ngược cho các màn hình hiện tại
   String get date => treatmentTime;
