@@ -65,22 +65,22 @@ async function runSecurityTests() {
     await assertReadBlocked('treatment_journal?select=*', 'treatment_journal');
   });
 
-  // 4. Kiểm tra đọc Hóa đơn tài chính (invoices) bằng Anon Key
-  console.log('\n[Test 4] Thử đọc Hóa đơn thu tiền POS (invoices) bằng anonKey:');
-  await checkTest('T4: Chặn anon đọc invoices', async () => {
-    await assertReadBlocked('invoices?select=*', 'invoices');
+  // 4. Kiểm tra đọc Nhật ký kiểm toán hệ thống (audit_logs) bằng Anon Key
+  console.log('\n[Test 4] Thử đọc Nhật ký Kiểm toán Quản trị (audit_logs) bằng anonKey:');
+  await checkTest('T4: Chặn anon đọc audit_logs', async () => {
+    await assertReadBlocked('audit_logs?select=*', 'audit_logs');
   });
 
-  // 5. Kiểm tra đọc Doanh thu học phí (tuition_transactions) bằng Anon Key
-  console.log('\n[Test 5] Thử đọc Sổ thu học phí tuyển sinh (tuition_transactions) bằng anonKey:');
-  await checkTest('T5: Chặn anon đọc tuition_transactions', async () => {
-    await assertReadBlocked('tuition_transactions?select=*', 'tuition_transactions');
+  // 5. Kiểm tra đọc Nhật ký xuất kho vật tư tiêu hao (inventory_consumption_logs) bằng Anon Key
+  console.log('\n[Test 5] Thử đọc Nhật ký Tiêu hao Vật tư Kho BOM (inventory_consumption_logs) bằng anonKey:');
+  await checkTest('T5: Chặn anon đọc inventory_consumption_logs', async () => {
+    await assertReadBlocked('inventory_consumption_logs?select=*', 'inventory_consumption_logs');
   });
 
-  // 6. Kiểm tra đọc Hoa hồng nhân viên (staff_commissions) bằng Anon Key
-  console.log('\n[Test 6] Thử đọc Bảng kê hoa hồng KTV / Nhân sự (staff_commissions) bằng anonKey:');
-  await checkTest('T6: Chặn anon đọc staff_commissions', async () => {
-    await assertReadBlocked('staff_commissions?select=*', 'staff_commissions');
+  // 6. Kiểm tra đọc Bảng phân quyền vai trò tài khoản (user_roles) bằng Anon Key
+  console.log('\n[Test 6] Thử đọc Bảng Phân quyền Quản trị (user_roles) bằng anonKey:');
+  await checkTest('T6: Chặn anon đọc user_roles', async () => {
+    await assertReadBlocked('user_roles?select=*', 'user_roles');
   });
 
   // 7. Thử ghi chèn (INSERT) trái phép vào bảng invoices bằng Anon Key
