@@ -11,8 +11,9 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Chặn quay chụp màn hình toàn diện (Screenshot & Screen recording prevention)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Mặc định không chặn quay chụp trên toàn app để người dùng thao tác tiện lợi (Home, Booking, Profile...)
+        // Chỉ kích hoạt FLAG_SECURE khi người dùng xem clip video bài giảng trong Học viện
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

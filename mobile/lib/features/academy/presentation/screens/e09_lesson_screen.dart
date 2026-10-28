@@ -34,12 +34,21 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
   @override
   void initState() {
     super.initState();
-    // Bật bảo mật FLAG_SECURE chặn quay màn hình / chụp ảnh màn hình bài giảng
-    AppSecurityService.instance.enableSecureScreen();
+    // Bật bảo mật FLAG_SECURE chặn quay màn hình / chụp ảnh màn hình khi xem bài giảng
+    if (_canAccess) {
+      AppSecurityService.instance.enableSecureScreen();
+    }
     if (widget.lesson != null) {
       _isCompleted = AcademyRepository.instance.isLessonCompleted(_courseId, widget.lesson!.id);
       _initialPosition = AcademyRepository.instance.getLessonPosition(_courseId, widget.lesson!.id);
     }
+  }
+
+  @override
+  void dispose() {
+    // Luôn giải phóng FLAG_SECURE khi thoát khỏi bài giảng video để người dùng thao tác bình thường ở các màn hình khác
+    AppSecurityService.instance.disableSecureScreen();
+    super.dispose();
   }
 
   /// Tự động ghi nhận hoàn thành khi học viên xem hết video

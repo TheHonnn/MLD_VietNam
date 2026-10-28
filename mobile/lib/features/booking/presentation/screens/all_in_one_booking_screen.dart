@@ -376,7 +376,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     );
 
     // Lưu vào Repository
-    BookingRepository.instance.createAppointment(appointment);
+    await BookingRepository.instance.createAppointment(appointment);
 
     if (!WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       await Future.delayed(const Duration(milliseconds: 500));

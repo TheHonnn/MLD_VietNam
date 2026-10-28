@@ -55,12 +55,14 @@ android {
             ndk {
                 debugSymbolLevel = "none"
             }
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 
     packaging {
-        jniLibs {
-            keepDebugSymbols.add("**/*.so")
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }

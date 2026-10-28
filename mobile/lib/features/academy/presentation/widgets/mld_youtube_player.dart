@@ -169,6 +169,8 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
 
   @override
   void dispose() {
+    // Tắt chặn quay chụp màn hình khi thoát khỏi trình phát clip bài giảng
+    AppSecurityService.instance.disableSecureScreen();
     _progressTimer?.cancel();
     _watermarkTimer?.cancel();
     _controller?.close();

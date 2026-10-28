@@ -296,7 +296,10 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           const SizedBox(height: 8),
 
                           // Price & Duration
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               if (widget.originalPrice != null && widget.originalPrice!.isNotEmpty) ...[
                                 Text(
@@ -308,7 +311,6 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                                     decoration: TextDecoration.lineThrough,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                               ],
                               Text(
                                 widget.price.contains('/buổi') ? widget.price : '${widget.price} / buổi',
@@ -318,7 +320,6 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                                   color: AppColors.servicePrice,
                                 ),
                               ),
-                              const SizedBox(width: 14),
                               Container(
                                 width: 4,
                                 height: 4,
@@ -327,7 +328,6 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                                   shape: BoxShape.circle,
                                 ),
                               ),
-                              const SizedBox(width: 14),
                               Text(
                                 widget.duration,
                                 style: const TextStyle(
