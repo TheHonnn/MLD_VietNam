@@ -113,7 +113,7 @@ const SAMPLE_QUIZ_QUESTIONS: QuizQuestion[] = [
 export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  
+
   // Filters
   const [selectedAudience, setSelectedAudience] = useState<string>('Tất cả');
   const [selectedNeed, setSelectedNeed] = useState<string>('Tất cả');
@@ -256,9 +256,8 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                           setSelectedAudience(opt);
                           setAudienceDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2 text-xs transition ${
-                          selectedAudience === opt ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-xs transition ${selectedAudience === opt ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                          }`}
                       >
                         {opt}
                       </button>
@@ -291,9 +290,8 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                           setSelectedNeed(opt);
                           setNeedDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2 text-xs transition ${
-                          selectedNeed === opt ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-xs transition ${selectedNeed === opt ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                          }`}
                       >
                         {opt}
                       </button>
@@ -368,11 +366,10 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
 
                         <button
                           onClick={() => handleOpenCourse(course)}
-                          className={`py-2 px-4 font-semibold text-xs rounded-lg shadow transition flex items-center space-x-1 ${
-                            isEnrolled
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
-                          }`}
+                          className={`py-2 px-4 font-semibold text-xs rounded-lg shadow transition flex items-center space-x-1 ${isEnrolled
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
+                            }`}
                         >
                           {isEnrolled ? (<span>Đã đăng ký · Vào học</span>) : (<span>Đăng ký học</span>)}
                         </button>
@@ -406,17 +403,15 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
           <div className="flex border-b border-slate-200 bg-white rounded-lg p-1 shadow-sm">
             <button
               onClick={() => setClassTab('curriculum')}
-              className={`flex-1 py-2 text-xs font-bold rounded transition ${
-                classTab === 'curriculum' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`flex-1 py-2 text-xs font-bold rounded transition ${classTab === 'curriculum' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Nội dung bài giảng
             </button>
             <button
               onClick={() => setClassTab('schedule')}
-              className={`flex-1 py-2 text-xs font-bold rounded transition ${
-                classTab === 'schedule' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`flex-1 py-2 text-xs font-bold rounded transition ${classTab === 'schedule' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Lịch học & Điểm danh (E11)
             </button>
@@ -453,9 +448,8 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                           {chapter.lessons.length} video
                         </span>
                         <ChevronDown
-                          className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
-                            isExpanded ? 'rotate-180' : ''
-                          }`}
+                          className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
+                            }`}
                         />
                       </div>
                     </div>
@@ -473,8 +467,12 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                             <div
                               key={lesson.id}
                               onClick={() => {
-    setActiveVideoLesson(lesson);
-  }}
+                                if (!isEnrolled) {
+                                  setShowEnrollModal(true);
+                                  return;
+                                }
+                                setActiveVideoLesson(lesson);
+                              }}
                               className="p-3 flex items-center space-x-3 hover:bg-blue-50/40 cursor-pointer transition"
                             >
                               {/* BÊN TRÁI: Video Thumbnail 16:9 với Nút Phát tròn ở giữa và Badge thời lượng */}
@@ -523,6 +521,54 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                   </div>
                 );
               })}
+
+              {/* Quiz Card - STRICTLY LOCKED UNTIL 100% COMPLETED */}
+              <div
+                className={`rounded-xl border p-4 shadow-sm transition ${is100PercentDone
+                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300'
+                  : 'bg-slate-50 border-slate-200 opacity-80'
+                  }`}
+              >
+                <div className="flex items-start space-x-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${is100PercentDone ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
+                      }`}
+                  >
+                    {is100PercentDone ? <Award className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        BÀI KIỂM TRA ĐÁNH GIÁ KHÓA HỌC (E10)
+                      </h3>
+                      {!is100PercentDone && (
+                        <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+                          Đang khóa
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">
+                      10 câu hỏi trắc nghiệm y khoa chuyên môn Vodder · Điểm đạt tối thiểu: 8/10 câu
+                    </p>
+
+                    {!is100PercentDone ? (
+                      <div className="mt-2 text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 flex items-center space-x-1.5">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Bạn cần hoàn thành tất cả video bài học trước khi làm bài kiểm tra.</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setIsQuizModalOpen(true)}
+                        className="mt-3 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow transition flex items-center space-x-1.5"
+                      >
+                        <Award className="w-4 h-4" />
+                        <span>Bắt đầu làm bài kiểm tra (15 phút)</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -535,7 +581,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                     <Calendar className="w-4 h-4 text-blue-600 mr-1.5" />
                     Lịch học trực tiếp tại Học viện
                   </h3>
-                  
+
                 </div>
 
                 <div className="py-8 text-center space-y-2.5 bg-slate-50 rounded-xl border border-dashed border-slate-200 p-6">
@@ -613,7 +659,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
             >
               <iframe
                 className="w-full h-full"
-                src={`https://www.youtube.com/embed/${activeVideoLesson.youtubeId || (activeVideoLesson.videoUrl ? (activeVideoLesson.videoUrl.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] || 'mDhpMX4EeY8') : 'mDhpMX4EeY8')}?autoplay=1&rel=0&modestbranding=1`}
+                src={`https://www.youtube.com/embed/${activeVideoLesson.youtubeId || (activeVideoLesson.videoUrl ? (activeVideoLesson.videoUrl.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] || '1F2b2Uf0a88') : '1F2b2Uf0a88')}?autoplay=1&rel=0&modestbranding=1`}
                 title={activeVideoLesson.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -636,7 +682,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
               </div>
 
               <div className="p-2.5 bg-slate-800 rounded-lg text-xs text-slate-300">
-                Hệ thống tự động ghi nhớ vị trí xem. Bạn cần xem hết video để tự động mở khóa bài học tiếp theo.
+                Bạn cần xem hết video để tự động mở khóa bài học tiếp theo.
               </div>
 
               <div className="flex justify-end">
@@ -722,11 +768,10 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
               {quizSubmitted ? (
                 <div className="space-y-3">
                   <div
-                    className={`p-3 rounded-xl border text-center ${
-                      quizScore >= 8
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                        : 'bg-rose-50 border-rose-300 text-rose-900'
-                    }`}
+                    className={`p-3 rounded-xl border text-center ${quizScore >= 8
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                      : 'bg-rose-50 border-rose-300 text-rose-900'
+                      }`}
                   >
                     <h4 className="text-base font-bold">
                       Kết quả: {quizScore}/10 câu ({quizScore >= 8 ? 'ĐẠT' : 'CHƯA ĐẠT'})
