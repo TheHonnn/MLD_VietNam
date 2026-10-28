@@ -31,6 +31,7 @@ import {
   BatchSchedule,
   StudentAttendance,
   AttendanceStatus,
+  DualSlotAvailability,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -1494,6 +1495,12 @@ class SupabaseService {
       finalTuition: e.final_tuition ? Number(e.final_tuition) : Number(e.tuition_total || 0),
       consultationHistory: e.consultation_history || [],
       qrCreatedAt: e.qr_created_at,
+      validUntil: e.valid_until,
+      accessStatus: e.access_status || 'ACTIVE',
+      expiredAt: e.expired_at,
+      extensionMonths: Number(e.extension_months || 0),
+      extensionReason: e.extension_reason,
+      lastExpiryNotifiedAt: e.last_expiry_notified_at,
     }));
   }
 
@@ -2576,6 +2583,100 @@ class SupabaseService {
       console.warn('[SupabaseService] saveBatchAttendance error:', err);
       return false;
     }
+  }
+
+  // 17. BỘ ĐIỀU PHỐI ĐẶT LỊCH DUAL-RESOURCE (6 GIƯỜNG × 6 KTV × CA 1 TIẾNG)
+  public async getDaySlotsDualAvailability(
+    branchId: string,
+    bookingDate: string
+  ): Promise<DualSlotAvailability[]> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_get_day_slots_dual_availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId,
+          p_booking_date: bookingDate,
+        }),
+      });
+
+      if (!res || !Array.isArray(res)) return [];
+
+      return res.map((r) => ({
+        slotTime: r.slot_time,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        isAvailable: Boolean(r.is_available),
+        freeBeds: Number(r.free_beds || 0),
+        freeStaff: Number(r.free_staff || 0),
+        remainingCapacity: Number(r.remaining_capacity || 0),
+        statusText: r.status_text,
+        recommendedOrder: Number(r.recommended_order || 0),
+      }));
+    } catch (err) {
+      console.warn('[SupabaseService] getDaySlotsDualAvailability error:', err);
+      return [];
+    }
+  }
+
+  public async checkSlotDualAvailability(
+    branchId: string,
+    bookingDate: string,
+    startTime: string,
+    endTime: string
+  ): Promise<{
+    isAvailable: boolean;
+    totalBeds: number;
+    occupiedBeds: number;
+    freeBeds: number;
+    totalStaffOnDuty: number;
+    busyStaff: number;
+    freeStaff: number;
+    remainingCapacity: number;
+    reason: string;
+  } | null> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_check_slot_dual_availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId,
+          p_booking_date: bookingDate,
+          p_start_time: startTime,
+          p_end_time: endTime,
+        }),
+      });
+
+      if (!res || res.length === 0) return null;
+      const r = res[0];
+      return {
+        isAvailable: Boolean(r.is_available),
+        totalBeds: Number(r.total_beds || 6),
+        occupiedBeds: Number(r.occupied_beds || 0),
+        freeBeds: Number(r.free_beds || 0),
+        totalStaffOnDuty: Number(r.total_staff_on_duty || 0),
+        busyStaff: Number(r.busy_staff || 0),
+        freeStaff: Number(r.free_staff || 0),
+        remainingCapacity: Number(r.remaining_capacity || 0),
+        reason: r.reason,
+      };
+    } catch (err) {
+      console.warn('[SupabaseService] checkSlotDualAvailability error:', err);
+      return null;
+    }
+  }
+
+  public async revokeExpiredEnrollments(): Promise<number> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_revoke_expired_enrollments', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (res && res.length > 0) {
+        return Number(res[0].revoked_count || 0);
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] revokeExpiredEnrollments error:', err);
+    }
+    return 0;
   }
 }
 

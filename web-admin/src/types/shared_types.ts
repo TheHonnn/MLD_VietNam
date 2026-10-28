@@ -610,9 +610,28 @@ export interface CourseEnrollment {
   finalTuition?: number;
   consultationHistory?: ConsultationNote[];
   qrCreatedAt?: string | null;
+  // Hạn định khóa học 1 năm & Quản lý vòng đời
+  validUntil?: string;
+  accessStatus?: 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED' | 'EXTENDED';
+  expiredAt?: string | null;
+  extensionMonths?: number;
+  extensionReason?: string | null;
+  lastExpiryNotifiedAt?: string | null;
   student?: User;
   course?: Course;
   batch?: CourseBatch;
+}
+
+export interface DualSlotAvailability {
+  slotTime: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+  freeBeds: number;
+  freeStaff: number;
+  remainingCapacity: number;
+  statusText: string;
+  recommendedOrder: number;
 }
 
 export interface BatchSchedule {
