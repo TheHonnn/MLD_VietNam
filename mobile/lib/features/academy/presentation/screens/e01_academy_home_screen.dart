@@ -178,41 +178,15 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
               )
             : null,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
-                );
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.school_rounded, size: 16, color: AppColors.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      context.tr('Khóa học của tôi', 'My Courses'),
-                      style: const TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.school_rounded, size: 24, color: AppColors.primary),
+            tooltip: context.tr('Khóa học của tôi', 'My Courses'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const E07MyCoursesScreen()),
+              );
+            },
           ),
         ],
       ),

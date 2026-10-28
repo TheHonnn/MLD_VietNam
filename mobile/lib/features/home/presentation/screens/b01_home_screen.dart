@@ -346,6 +346,49 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
+  Widget _buildFallbackBannerCard(String title, String summary) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: AppColors.brandGradient,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (title.isNotEmpty)
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0.3,
+                height: 1.25,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (summary.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              summary,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.90),
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   void _showNotificationSheet() {
     Navigator.push(
       context,
@@ -542,7 +585,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
     String categoryLabel = 'THÔNG BÁO Y KHOA';
     if (category == 'DAO_TAO') {
-      categoryLabel = 'ĐÀO TẠO';
+      categoryLabel = 'MLD VIỆT NAM';
     } else if (category == 'DICH_VU' || category == 'TRI_LIEU') {
       categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
     } else if (category == 'KHUYEN_MAI') {
@@ -743,7 +786,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                 ),
                                 child: Text(
                                   targetLink.contains('academy')
-                                      ? 'Xem Đào Tạo'
+                                      ? 'Khám Phá Ngay'
                                       : targetLink.contains('treatment') || targetLink.contains('service')
                                           ? 'Xem Dịch Vụ'
                                           : 'Khám Phá Ngay',
@@ -955,25 +998,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         itemBuilder: (context, index) {
                           final banner = _banners[index];
                           final title = banner['title'] as String? ?? 'MLD VIỆT NAM';
-                          final summary = banner['summary'] as String? ?? 'Dẫn lưu phù bạch huyết chuẩn Y khoa Vodder';
+                          final summary = banner['summary'] as String? ?? '';
                           final imageUrl = (banner['image_url'] as String?)?.trim() ?? '';
-                          final category = (banner['category'] as String?)?.trim() ?? '';
-                          final targetLink = (banner['target_link'] as String?)?.trim() ?? '';
-
-                          String categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
-                          if (category == 'DAO_TAO') {
-                            categoryLabel = 'ĐÀO TẠO';
-                          } else if (category == 'DICH_VU' || category == 'TRI_LIEU') {
-                            categoryLabel = 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
-                          } else if (category == 'KHUYEN_MAI') {
-                            categoryLabel = 'ƯU ĐÃI ĐẶC QUYỀN';
-                          } else if (category == 'SU_KIEN') {
-                            categoryLabel = 'SỰ KIỆN CHUYÊN NGÀNH';
-                          } else if (category.isNotEmpty) {
-                            categoryLabel = category;
-                          }
-
-                          
+                          final hasImage = imageUrl.isNotEmpty;
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 1.0),
@@ -986,121 +1013,31 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: 0.22),
-                                      blurRadius: 14,
-                                      offset: const Offset(0, 5),
+                                      color: AppColors.primary.withValues(alpha: 0.15),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
-                                child: Stack(
-                                  children: [
-                                    // 1. Ảnh nền banner (Network với Fallback an toàn)
-                                    Positioned.fill(
-                                      child: imageUrl.startsWith('http')
-                                          ? Image.network(
-                                              imageUrl,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) => Container(
-                                                decoration: const BoxDecoration(
-                                                  gradient: AppColors.brandGradient,
-                                                ),
-                                              ),
-                                            )
-                                          : (imageUrl.startsWith('assets/')
-                                              ? Image.asset(
-                                                  imageUrl,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (_, __, ___) => Container(
-                                                    decoration: const BoxDecoration(
-                                                      gradient: AppColors.brandGradient,
-                                                    ),
-                                                  ),
-                                                )
-                                              : Container(
-                                                  decoration: const BoxDecoration(
-                                                    gradient: AppColors.brandGradient,
-                                                  ),
-                                                )),
-                                    ),
-                                    // 2. Lớp phủ gradient y khoa sang trọng
-                                    Positioned.fill(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              const Color(0xFF002A6B).withValues(alpha: 0.90),
-                                              const Color(0xFF002A6B).withValues(alpha: 0.48),
-                                              Colors.transparent,
-                                            ],
-                                            stops: const [0.0, 0.70, 1.0],
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                    // 3. Nội dung Banner
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.22),
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: Colors.white.withValues(alpha: 0.35),
-                                                width: 0.8,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              categoryLabel,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.white,
-                                                letterSpacing: 0.4,
-                                              ),
-                                            ),
-                                          ),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                title,
-                                                style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Colors.white,
-                                                  letterSpacing: 0.3,
-                                                  height: 1.25,
-                                                ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                summary,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.white.withValues(alpha: 0.90),
-                                                  height: 1.3,
-                                                ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ),
-
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                child: hasImage
+                                    ? (imageUrl.startsWith('http')
+                                        ? Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            errorBuilder: (_, __, ___) => _buildFallbackBannerCard(title, summary),
+                                          )
+                                        : (imageUrl.startsWith('assets/')
+                                            ? Image.asset(
+                                                imageUrl,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                                errorBuilder: (_, __, ___) => _buildFallbackBannerCard(title, summary),
+                                              )
+                                            : _buildFallbackBannerCard(title, summary)))
+                                    : _buildFallbackBannerCard(title, summary),
                               ),
                             ),
                           );

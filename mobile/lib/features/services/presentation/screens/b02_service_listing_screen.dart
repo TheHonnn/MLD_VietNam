@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
+import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/service_repository.dart';
@@ -173,6 +174,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                 onPressed: widget.onBack,
               )
             : null,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_outlined, color: AppColors.primary, size: 24),
+            tooltip: context.tr('Lịch hẹn của tôi', 'My Appointments'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(

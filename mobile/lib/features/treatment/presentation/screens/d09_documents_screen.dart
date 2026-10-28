@@ -482,18 +482,6 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 onPressed: widget.onBackToHome,
               )
             : null,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.forum_outlined, color: AppColors.primary),
-            tooltip: context.tr('Cộng đồng MLD', 'MLD Community'),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
-              );
-            },
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
