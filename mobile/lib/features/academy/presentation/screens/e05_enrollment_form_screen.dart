@@ -123,7 +123,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
       );
 
       final customerCode = enrollResult['customerCode']?.toString() ??
-          'HV-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+          '—';
 
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -246,7 +246,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ đăng ký của bạn. Sau khi hồ sơ được Ban Quản Trị phê duyệt, hệ thống sẽ mở quyền vào học và thông báo cho bạn!',
+              'Bước 1: Nhân viên kiểm tra hồ sơ và xác nhận học phí. Bước 2: Sau khi thanh toán được xác nhận, Admin xếp bạn vào lớp và gửi lịch học. Bạn sẽ xem lịch trong mục Khóa học của tôi.',
               style: TextStyle(fontSize: 12.5, height: 1.45, color: AcademyColors.textSecondary),
             ),
           ],

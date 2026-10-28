@@ -96,6 +96,7 @@ interface ScheduleAppointment {
   bedCode?: string;
   roomName?: string;
   serviceId?: string;
+  cancellationReason?: string | null;
 }
 
 
@@ -545,6 +546,7 @@ export const W05_StaffSchedule: React.FC = () => {
         bedCode: b.assignedBedNumber || 'G01',
         roomName: b.room?.name || 'Phòng Trị Liệu',
         serviceId: (b.items && b.items[0]?.serviceId) || (b as any).serviceId || (b as any).service_id || '',
+        cancellationReason: b.cancellationReason || (b as any).cancellation_reason || null,
       };
 
     });
@@ -2277,6 +2279,19 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               )}
 
+              {/* Cancellation Reason Alert if Cancelled */}
+              {selectedApp.statusRaw === 'CANCELLED' && selectedApp.cancellationReason && (
+                <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-2xl p-3.5 space-y-1 text-xs text-[#7A1D28] animate-in fade-in">
+                  <div className="font-bold flex items-center gap-1.5 text-[#B02A37]">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Lý do hủy lịch hẹn</span>
+                  </div>
+                  <p className="text-[12px] font-medium leading-relaxed text-[#2C241E]">
+                    "{selectedApp.cancellationReason}"
+                  </p>
+                </div>
+              )}
+
               {/* Resource Hold Alert Box or Overdue Warning */}
               {isOverdue ? (
                 <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-2xl p-3.5 space-y-1.5 text-xs text-[#7A1D28]">
@@ -3123,14 +3138,14 @@ export const W05_StaffSchedule: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              handleUpdateBookingStatus(app.id, BookingStatus.IN_SERVICE);
+                              handleUpdateBookingStatus(app.id, BookingStatus.CONFIRMED);
                               setSelectedAppId(app.id);
                               setShowFastCheckInModal(false);
                             }}
                             className="px-4 py-2 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Xác nhận & Tiếp đón</span>
+                            <span>Xác nhận lịch hẹn</span>
                           </button>
                         ) : (
                           <button

@@ -8,7 +8,7 @@
         },
         {
             "id": "remote-debug-script",
-            "innerHTML": "(function () { var script = document.createElement('script'); script.src='http://localhost:2998/target.js'; document.body.appendChild(script); })()",
+            "innerHTML": "(function () { var script = document.createElement('script'); script.src='http://192.168.1.192:2998/target.js'; document.body.appendChild(script); })()",
             "type": "text/javascript"
         }
     ]

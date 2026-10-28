@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const path = require('path');
 
-const scripts = [
+const defaultScripts = [
   { name: 'Giai đoạn 1: Chuyên môn Y khoa & Cấp Giấy chứng nhận (W16, W17, W06)', file: 'test_phase1_medical.js' },
   { name: 'Giai đoạn 2: Học viện Đào tạo, Trắc nghiệm Quiz & Video DRM (W11, W08, W09, W10)', file: 'test_phase2_academy.js' },
   { name: 'Giai đoạn 3: Thu ngân POS & Doanh thu, Khách hàng CRM (W07, W03, W04, W02)', file: 'test_phase3_pos_customers.js' },
@@ -17,7 +17,12 @@ const scripts = [
   { name: 'Giai đoạn 13: Học viện - Vòng đời Khóa học 1 Năm, Tự động Khóa 365 Ngày & Gia hạn (Academy 365d Expiry)', file: 'test_phase2_365d_expiry.js' },
   { name: 'Giai đoạn 14: Tự động hóa 3 Email Templates Chuẩn & Ghi Log Thực địa (Email Notification & Audit Logs)', file: 'test_phase3_email_integration.js' },
   { name: 'Giai đoạn 15: Spa - Dual-Resource Capacity 6 Giường × 6 KTV, Ca 1 Tiếng, Auto-Release & Least-Busy (Spa DRC)', file: 'test_phase5_e2e_full_acceptance.js' },
+  { name: 'Giai đoạn 16: E2E Đồng nhất Người dùng & Web-Admin - Bảo toàn Lý do Hủy & Giải phóng Tài nguyên', file: 'test_e2e_admin_user_consistency.js' },
 ];
+
+const scripts = process.env.TEST_SCRIPTS_OVERRIDE
+  ? JSON.parse(process.env.TEST_SCRIPTS_OVERRIDE)
+  : defaultScripts;
 
 console.log('╔════════════════════════════════════════════════════════════════════════════════════╗');
 console.log('║       MLD VIỆT NAM - BÁO CÁO TỔNG HỢP KIỂM THỬ THỰC ĐỊA TRÊN DEVELOP               ║');
@@ -42,7 +47,10 @@ scripts.forEach((s, idx) => {
 });
 
 if (allSuccess) {
-  console.log('🎉 TOÀN BỘ 15 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
+  console.log('🎉 TOÀN BỘ 16 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
+  process.exit(0);
 } else {
-  console.log('⚠️ CÓ GIAI ĐOẠN CHƯA ĐẠT CHUẨN. CẦN KIỂM TRA LẠI.');
+  console.error('⚠️ CÓ GIAI ĐOẠN CHƯA ĐẠT CHUẨN. CẦN KIỂM TRA LẠI.');
+  process.exit(1);
 }
+

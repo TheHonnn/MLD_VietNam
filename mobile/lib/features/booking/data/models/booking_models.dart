@@ -104,6 +104,7 @@ class AppointmentItemModel {
   final String customerPhone;
   final String customerEmail;
   final String specialNotes;
+  final String? cancellationReason;
   final double totalAmount; // 450.000đ
   final double depositAmount; // 150.000đ
   final double remainingAmount; // 300.000đ
@@ -133,6 +134,7 @@ class AppointmentItemModel {
     required this.customerPhone,
     this.customerEmail = '',
     this.specialNotes = '',
+    this.cancellationReason,
     required this.totalAmount,
     required this.depositAmount,
     required this.remainingAmount,
@@ -163,6 +165,7 @@ class AppointmentItemModel {
     String? customerPhone,
     String? customerEmail,
     String? specialNotes,
+    String? cancellationReason,
     double? totalAmount,
     double? depositAmount,
     double? remainingAmount,
@@ -192,6 +195,7 @@ class AppointmentItemModel {
       customerPhone: customerPhone ?? this.customerPhone,
       customerEmail: customerEmail ?? this.customerEmail,
       specialNotes: specialNotes ?? this.specialNotes,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
       totalAmount: totalAmount ?? this.totalAmount,
       depositAmount: depositAmount ?? this.depositAmount,
       remainingAmount: remainingAmount ?? this.remainingAmount,
@@ -201,6 +205,7 @@ class AppointmentItemModel {
       timeline: timeline ?? this.timeline,
     );
   }
+
 }
 
 /// 4. Quản lý trạng thái xuyên suốt luồng đặt lịch (BookingFlowState)

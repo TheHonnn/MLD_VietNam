@@ -142,5 +142,22 @@ export interface PortalBanner {
   image_url: string;
   target_link?: string;
   author_name?: string;
+  category?: string;
 }
+
+export interface MedicalDocument {
+  id: string;
+  title: string;
+  slug?: string;
+  category: string;
+  readTimeMinutes: number;
+  summary: string;
+  content: string;
+  steps?: any[];
+  imageUrl?: string;
+  authorName?: string;
+  publishedAt?: string;
+  viewCount?: number;
+}
+
 

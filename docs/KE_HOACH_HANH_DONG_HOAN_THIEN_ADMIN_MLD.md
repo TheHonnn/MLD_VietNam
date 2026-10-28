@@ -210,7 +210,7 @@ Mọi thay đổi code sau mỗi bước bắt buộc phải tuân thủ nghiêm
    git merge develop -m "Merge develop into feature/portal-content-and-email"
    git push origin feature/portal-content-and-email
    git push xuantruong feature/portal-content-and-email
-   git checkout develop
+   git checkout develop26
    ```
 
 ---

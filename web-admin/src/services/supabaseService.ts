@@ -923,6 +923,7 @@ class SupabaseService {
       bookedForName: b.booked_for_name,
       bookedForPhone: b.booked_for_phone,
       specialNotes: b.special_notes,
+      cancellationReason: b.cancellation_reason,
       qrCodeHash: b.qr_code_hash,
       checkedInAt: b.checked_in_at,
       serviceStartedAt: b.service_started_at,
@@ -1020,6 +1021,7 @@ class SupabaseService {
       assignedRoomId?: string | null;
       assignedBedNumber?: string | null;
       technicianId?: string | null;
+      cancellationReason?: string | null;
     }
   ): Promise<boolean> {
     if (!isUuid(bookingId)) {
@@ -1035,6 +1037,7 @@ class SupabaseService {
       if (updates.assignedRoomId !== undefined) payload.assigned_room_id = updates.assignedRoomId;
       if (updates.assignedBedNumber !== undefined) payload.assigned_bed_number = updates.assignedBedNumber;
       if (updates.technicianId !== undefined) payload.technician_id = updates.technicianId;
+      if (updates.cancellationReason !== undefined) payload.cancellation_reason = updates.cancellationReason;
 
       const res = await this.query<any[]>(`bookings?id=eq.${bookingId}`, {
         method: 'PATCH',

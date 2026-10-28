@@ -18,6 +18,7 @@
     "relay:local": "npm run build && node scripts/local-relay.mjs start",
     "relay:stop": "node scripts/local-relay.mjs stop",
     "test": "npm run build && node --import tsx --test test/*.test.mjs",
+    "test:safe": "npm run build && node scripts/run-all-tests.mjs",
     "db:generate": "prisma generate",
     "db:check": "npm run build && node scripts/check-database.mjs"
   },

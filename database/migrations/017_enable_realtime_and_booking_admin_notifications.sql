@@ -172,7 +172,7 @@ BEGIN
     v_notif_title := '💰 Thu ngân: Hóa đơn đã thanh toán ' || NEW.invoice_code;
     v_notif_message := 'Hóa đơn ' || NEW.invoice_code || 
                        ' trị giá ' || replace(to_char(NEW.total_amount, 'FM999G999G999G990'), ',', '.') || 'đ' ||
-                       ' đã thanh toán thành công qua ' || COALESCE(NEW.payment_method, 'tiền mặt/chuyển khoản') || '.';
+                       ' đã thanh toán thành công qua ' || COALESCE(NEW.payment_method::TEXT, 'tiền mặt/chuyển khoản') || '.';
     v_notif_data := jsonb_build_object(
       'invoice_id', NEW.id,
       'invoice_code', NEW.invoice_code,

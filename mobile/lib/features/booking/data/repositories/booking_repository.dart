@@ -105,6 +105,8 @@ class BookingRepository {
                   timeSlot: '$startTime - $endTime',
                   customerName: item['booked_for_name']?.toString() ?? 'Khách hàng',
                   customerPhone: item['booked_for_phone']?.toString() ?? '',
+                  specialNotes: item['special_notes']?.toString() ?? item['notes']?.toString() ?? '',
+                  cancellationReason: item['cancellation_reason']?.toString(),
                   totalAmount: price,
                   depositAmount: price * 0.3,
                   remainingAmount: price * 0.7,
@@ -152,12 +154,12 @@ class BookingRepository {
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (e) {
       debugPrint('>>> [BookingRepository] Error holding slot: $e');
-      return true; // Fallback cho phép tiếp tục flow
+      return false;
     }
   }
 
   /// C06/C08: Tạo lịch hẹn mới từ BookingFlowState và đồng bộ lên Backend
-  AppointmentItemModel createAppointmentFromFlow(BookingFlowState flow) {
+  Future<AppointmentItemModel?> createAppointmentFromFlow(BookingFlowState flow) async {
     final randomNum = 1000 + Random().nextInt(9000);
     final bookingCode = 'MLD-$randomNum';
     final id = 'apt-${DateTime.now().millisecondsSinceEpoch}';
@@ -222,12 +224,12 @@ class BookingRepository {
       ],
     );
 
-    _appointments.insert(0, item);
+    final persistedId = await _syncBookingToBackend(flow, item);
+    if (persistedId == null) return null;
 
-    // Bắn API lên Backend Gateway lưu cơ sở dữ liệu Supabase
-    _syncBookingToBackend(flow, item);
-
-    return item;
+    final persistedItem = item.copyWith(id: persistedId);
+    _appointments.insert(0, persistedItem);
+    return persistedItem;
   }
 
   Future<String?> _syncBookingToBackend(BookingFlowState flow, AppointmentItemModel item) async {
@@ -258,28 +260,26 @@ class BookingRepository {
         final data = body is Map ? (body['data'] ?? body) : null;
         final realId = data?['id']?.toString();
         if (realId != null && realId.isNotEmpty) {
-          final idx = _appointments.indexWhere((a) => a.id == item.id || a.bookingCode == item.bookingCode);
-          if (idx != -1) {
-            _appointments[idx] = _appointments[idx].copyWith(id: realId);
-            debugPrint('>>> [BookingRepository] Updated appointment id to real UUID: $realId');
-          }
           return realId;
         }
       }
-      debugPrint('>>> [BookingRepository] Booking successfully persisted to Backend DB!');
+      debugPrint('>>> [BookingRepository] Backend did not return a persisted booking ID.');
     } catch (e) {
       debugPrint('>>> [BookingRepository] Sync booking to backend notice: $e');
     }
     return null;
   }
 
-  void createAppointment(AppointmentItemModel appointment, [BookingFlowState? flow]) {
-    _appointments.insert(0, appointment);
-    if (flow != null) {
-      _syncBookingToBackend(flow, appointment);
-    } else {
-      _syncAppointmentDirect(appointment);
-    }
+  Future<String?> createAppointment(AppointmentItemModel appointment, [BookingFlowState? flow]) async {
+    final persistedId = flow != null
+        ? await _syncBookingToBackend(flow, appointment)
+        : await _syncAppointmentDirect(appointment);
+    if (persistedId == null) return null;
+
+    final persistedItem = appointment.copyWith(id: persistedId);
+    _appointments.removeWhere((item) => item.bookingCode == appointment.bookingCode);
+    _appointments.insert(0, persistedItem);
+    return persistedId;
   }
 
   Future<String?> _syncAppointmentDirect(AppointmentItemModel appointment) async {
@@ -317,11 +317,6 @@ class BookingRepository {
         final data = body is Map ? (body['data'] ?? body) : null;
         final realId = data?['id']?.toString();
         if (realId != null && realId.isNotEmpty) {
-          final idx = _appointments.indexWhere((a) => a.id == appointment.id || a.bookingCode == appointment.bookingCode);
-          if (idx != -1) {
-            _appointments[idx] = _appointments[idx].copyWith(id: realId);
-            debugPrint('>>> [BookingRepository] Updated appointment id to real UUID: $realId');
-          }
           return realId;
         }
       }
@@ -394,14 +389,15 @@ class BookingRepository {
           final old = _appointments[index];
           _appointments[index] = old.copyWith(
             status: AppointmentStatus.cancelled,
-            specialNotes: reason.isNotEmpty ? 'Lý do hủy: ' : old.specialNotes,
+            cancellationReason: reason.trim().isNotEmpty ? reason.trim() : old.cancellationReason,
+            specialNotes: old.specialNotes,
           );
         }
         return true;
       }
       return false;
     } catch (e) {
-      debugPrint('>>> [BookingRepository] Error on canceling booking: ');
+      debugPrint('>>> [BookingRepository] Error on canceling booking: $e');
       return false;
     }
   }
