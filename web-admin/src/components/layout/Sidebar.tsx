@@ -26,7 +26,6 @@ import {
   Smartphone,
   Layers,
   Award,
-  Stethoscope,
   type LucideIcon,
   X,
 } from 'lucide-react';
@@ -58,7 +57,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         { name: 'Nhân viên', path: '/manage/staff_profiles', icon: UserRoundCog, onlyWhenAllowed: true },
         { name: 'Lịch kỹ thuật viên', path: '/staff-schedule', icon: Calendar },
         { name: 'Liệu trình', path: '/medical-records', icon: Leaf },
-        { name: 'Khám kiểm tra phù', path: '/edema-assessments', icon: Stethoscope },
         { name: 'Thu ngân', path: '/cashier-pos', icon: CreditCard },
         { name: 'Hoa hồng KTV', path: '/commissions', icon: DollarSign },
         { name: 'Voucher & hội viên', path: '/manage/coupons', icon: Ticket, onlyWhenAllowed: true },
