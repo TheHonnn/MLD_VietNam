@@ -255,6 +255,15 @@ export const bookingService = {
     const discountAmount = params.depositAmount ?? 0;
     const targetBranchId = params.branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
 
+    if (!params.customerId || !isUuid(params.customerId)) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: 'Vui lòng chọn hồ sơ khách hàng trước khi tạo lịch.',
+        data: {} as Booking,
+      };
+    }
+
     try {
       // 1. Kiểm tra năng lực DRC trước khi đặt
       const drc = await supabaseService.checkSlotDualAvailability(

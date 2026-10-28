@@ -270,19 +270,18 @@ export const treatmentService = {
     assignedRoomId?: string | null;
     sessionNumber: number;
     sessionDate: string;
+    treatmentStartTime?: string | null;
+    treatmentEndTime?: string | null;
     conditionBefore?: string;
     conditionAfter?: string;
     treatmentNotes?: string;
     specialistAdvice?: string;
+    beforePhotos?: string[];
+    afterPhotos?: string[];
   }): Promise<ApiResponse<any>> {
     try {
-      const res = await supabaseService.createTreatmentJournal(journal);
-      return {
-        success: Boolean(res),
-        statusCode: res ? 201 : 400,
-        message: res ? 'Ghi chép sổ điều trị thành công trên Supabase Cloud' : 'Lỗi khi ghi nhật ký',
-        data: res,
-      };
+      const res = await legacyWrite<TreatmentJournal>('treatment_journal', journal);
+      return res;
     } catch (err) {
       console.error('[treatmentService] createTreatmentJournal error:', err);
       return {
@@ -310,23 +309,47 @@ export const treatmentService = {
       };
     }
 
-    const nextCompleted = currentCompleted + 1;
-    const nextStatus = nextCompleted >= totalSessions ? PackageStatus.COMPLETED : PackageStatus.ACTIVE;
+    if (!journalData) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: 'Thiếu thông tin buổi điều trị.',
+        data: false,
+      };
+    }
 
-    const res = await this.updateUserPackage(userPackageId, {
-      completedSessions: nextCompleted,
+    const nextCompleted = currentCompleted + 1;
+    const requestedSession = Number(journalData.sessionNumber || nextCompleted);
+    if (requestedSession !== nextCompleted) {
+      return {
+        success: false,
+        statusCode: 409,
+        message: `Buổi tiếp theo cần cập nhật là buổi ${nextCompleted}.`,
+        data: false,
+      };
+    }
+    const journalRes = await this.createTreatmentJournal({
+        ...journalData,
+        userPackageId,
+        sessionNumber: requestedSession,
+        sessionDate: journalData.sessionDate || new Date().toISOString().slice(0, 10),
+      });
+
+    if (!journalRes.success) return journalRes;
+
+    const nextStatus = requestedSession >= totalSessions ? PackageStatus.COMPLETED : PackageStatus.ACTIVE;
+    const packageRes = await this.updateUserPackage(userPackageId, {
+      completedSessions: requestedSession,
       status: nextStatus,
     });
 
-    if (res.success && journalData) {
-      await this.createTreatmentJournal({
-        ...journalData,
-        userPackageId,
-        sessionNumber: nextCompleted,
-        sessionDate: new Date().toISOString().split('T')[0],
-      });
-    }
-
-    return res;
+    return {
+      success: packageRes.success,
+      statusCode: packageRes.statusCode,
+      message: packageRes.success
+        ? 'Đã cập nhật hồ sơ buổi điều trị.'
+        : 'Đã lưu nhật ký điều trị nhưng chưa cập nhật được số buổi của gói.',
+      data: packageRes.success,
+    };
   },
 };

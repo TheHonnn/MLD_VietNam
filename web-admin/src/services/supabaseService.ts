@@ -881,6 +881,8 @@ class SupabaseService {
       assignedRoomId: j.assigned_room_id,
       sessionNumber: Number(j.session_number),
       sessionDate: j.session_date,
+      treatmentStartTime: j.treatment_start_time,
+      treatmentEndTime: j.treatment_end_time,
       conditionBefore: j.condition_before,
       conditionAfter: j.condition_after,
       treatmentNotes: j.treatment_notes,
@@ -1074,14 +1076,9 @@ class SupabaseService {
     durationMinutes?: number;
   }): Promise<Booking | null> {
     try {
-      // 1. Đảm bảo có customer_id hợp lệ cho foreign key
-      let validCustomerId = bookingData.customerId;
-      if (!validCustomerId) {
-        const users = await this.query<any[]>('users?select=id&limit=1');
-        if (users && users.length > 0) {
-          validCustomerId = users[0].id;
-        }
-      }
+      // Never attach a booking to an arbitrary customer when the profile is missing.
+      const validCustomerId = bookingData.customerId;
+      if (!validCustomerId || !isUuid(validCustomerId)) return null;
 
       // 2. Đảm bảo có branch_id hợp lệ
       let validBranchId = bookingData.branchId;
@@ -2143,10 +2140,14 @@ class SupabaseService {
     assignedRoomId?: string | null;
     sessionNumber: number;
     sessionDate: string;
+    treatmentStartTime?: string | null;
+    treatmentEndTime?: string | null;
     conditionBefore?: string;
     conditionAfter?: string;
     treatmentNotes?: string;
     specialistAdvice?: string;
+    beforePhotos?: string[];
+    afterPhotos?: string[];
   }): Promise<any | null> {
     try {
       const payload = {
@@ -2157,12 +2158,14 @@ class SupabaseService {
         assigned_room_id: journal.assignedRoomId || null,
         session_number: journal.sessionNumber,
         session_date: journal.sessionDate,
+        treatment_start_time: journal.treatmentStartTime || null,
+        treatment_end_time: journal.treatmentEndTime || null,
         condition_before: journal.conditionBefore || '',
         condition_after: journal.conditionAfter || '',
         treatment_notes: journal.treatmentNotes || '',
         specialist_advice: journal.specialistAdvice || '',
-        before_photos: [],
-        after_photos: [],
+        before_photos: journal.beforePhotos || [],
+        after_photos: journal.afterPhotos || [],
       };
 
       const res = await this.query<any[]>('treatment_journal', {

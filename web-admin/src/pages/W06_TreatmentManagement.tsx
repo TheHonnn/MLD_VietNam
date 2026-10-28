@@ -26,6 +26,7 @@ import {
   customerService,
   branchService,
   bookingService,
+  portalService,
 } from '../services';
 import { toast } from '../components/common';
 import { matchSearch } from '../utils/searchUtils';
@@ -76,8 +77,11 @@ interface TreatmentPackageUI {
   branch: string;
   status: string;
   rawStatus: string;
+  treatmentName: string;
+  serviceName: string;
   sessionsHistory: {
     number: string;
+    totalSessions: number;
     date: string;
     serviceName: string;
     conditionBefore?: string | null;
@@ -89,6 +93,11 @@ interface TreatmentPackageUI {
     staff?: string;
     room?: string;
     statusBadge?: string;
+    treatmentStartTime?: string | null;
+    treatmentEndTime?: string | null;
+    beforePhotos?: string[];
+    afterPhotos?: string[];
+    treatmentNotes?: string | null;
   }[];
   historySubtitle: string;
   historyNote: string;
@@ -99,6 +108,7 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [liveUserPackages, setLiveUserPackages] = useState<UserPackage[]>([]);
   const [liveServices, setLiveServices] = useState<Service[]>([]);
   const [liveJournals, setLiveJournals] = useState<TreatmentJournal[]>([]);
+  const [liveBookings, setLiveBookings] = useState<import('../types/shared_types').Booking[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -147,10 +157,12 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   // Clinical Session Form
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [conditionBefore, setConditionBefore] = useState('');
+  const [sessionNumberInput, setSessionNumberInput] = useState(1);
   const [treatmentNotes, setTreatmentNotes] = useState('');
-  const [conditionAfter, setConditionAfter] = useState('');
-  const [specialistAdvice, setSpecialistAdvice] = useState('');
+  const [treatmentStartTime, setTreatmentStartTime] = useState('');
+  const [treatmentEndTime, setTreatmentEndTime] = useState('');
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+  const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
 
   // Assign Package Form
   const [assignCustomerId, setAssignCustomerId] = useState('');
@@ -161,7 +173,7 @@ export const W06_TreatmentManagement: React.FC = () => {
   const fetchTreatmentData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList] = await Promise.all([
+      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList, bookings] = await Promise.all([
         treatmentService.getTreatmentPackages(),
         treatmentService.getUserPackagesByCustomer(),
         treatmentService.getServices(),
@@ -169,12 +181,14 @@ export const W06_TreatmentManagement: React.FC = () => {
         customerService.getCustomers(),
         branchService.getAllBranches(),
         supabaseService.getTechnicians(),
+        bookingService.getBookings(),
       ]);
 
       if (pkgRes.success) setLivePackages(pkgRes.data);
       if (upkgRes.success) setLiveUserPackages(upkgRes.data);
       if (srvRes.success) setLiveServices(srvRes.data);
       if (jrnRes.success) setLiveJournals(jrnRes.data);
+      if (bookings.success) setLiveBookings(bookings.data);
       if (custRes.success) setCustomers(custRes.data);
       if (brRes.success && brRes.data.length > 0) {
         setBranches(brRes.data);
@@ -197,6 +211,8 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   const custMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
   const branchMap = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
+  const serviceMap = useMemo(() => new Map(liveServices.map((service) => [service.id, service])), [liveServices]);
+  const bookingMap = useMemo(() => new Map(liveBookings.map((booking) => [booking.id, booking])), [liveBookings]);
 
   const availableBranchTechnicians = useMemo(() => {
     const list = technicians.filter((t) => !bookingBranchId || t.branchId === bookingBranchId);
@@ -214,7 +230,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         .sort((a, b) => a.sessionNumber - b.sessionNumber);
 
       const used = up.completedSessions ?? journals.length;
-      const total = up.totalSessions || pkgDef?.totalSessions || 5;
+      const total = up.totalSessions || pkgDef?.totalSessions || 0;
       const remaining = Math.max(0, total - used);
       const progressPercent = Math.min(100, Math.round((used / total) * 100));
 
@@ -225,32 +241,43 @@ export const W06_TreatmentManagement: React.FC = () => {
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.expiresAt))
         : '31/12/2026';
 
-      const srvName = pkgDef?.name || 'Liệu trình phục hồi da chuyên sâu';
-      const rawPrice = pkgDef?.discountPrice || pkgDef?.price || 2290000;
+      const treatmentName = pkgDef?.name || '—';
+      const serviceName = (pkgDef?.serviceId && serviceMap.get(pkgDef.serviceId)?.name) || '—';
+      const statusLabels: Record<string, string> = {
+        ACTIVE: 'Đang sử dụng',
+        COMPLETED: 'Hoàn tất',
+        EXPIRED: 'Hết hạn',
+        CANCELLED: 'Đã hủy',
+        PAUSED: 'Tạm dừng',
+      };
+      const rawPrice = pkgDef?.discountPrice || pkgDef?.price || 0;
       const priceText = `${rawPrice.toLocaleString('vi-VN')}đ`;
 
-      const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => ({
-        number: String(j.sessionNumber).padStart(2, '0'),
-        date: new Intl.DateTimeFormat('vi-VN').format(new Date(j.sessionDate)),
-        serviceName: j.treatmentNotes || srvName,
-        conditionBefore: j.conditionBefore || undefined,
-        conditionAfter: j.conditionAfter || undefined,
-        specialistAdvice: j.specialistAdvice || undefined,
-      }));
-
-      if (remaining > 0) {
-        sessionsHistory.push({
-          number: String(used + 1).padStart(2, '0'),
-          date: 'Lịch sắp tới',
-          serviceName: 'Buổi chăm sóc tiếp theo theo phác đồ',
-          isUpcoming: true,
-          bookingCode: `BK-${up.id.slice(0, 4).toUpperCase()}`,
-          time: '09:00–10:30',
-          staff: 'Kỹ thuật viên chuyên trách',
-          room: 'Phòng VIP MLD',
-          statusBadge: 'Chờ xếp lịch',
-        });
-      }
+      const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => {
+        const booking = j.bookingId ? bookingMap.get(j.bookingId) : undefined;
+        const timeFromBooking = booking?.startTime
+          ? `${booking.startTime.slice(0, 5)}${booking.endTime ? `–${booking.endTime.slice(0, 5)}` : ''}`
+          : undefined;
+        return {
+          number: String(j.sessionNumber).padStart(2, '0'),
+          totalSessions: total,
+          date: j.sessionDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(j.sessionDate)) : '—',
+          serviceName,
+          treatmentNotes: j.treatmentNotes || '',
+          conditionBefore: j.conditionBefore || undefined,
+          conditionAfter: j.conditionAfter || undefined,
+          specialistAdvice: j.specialistAdvice || undefined,
+          treatmentStartTime: j.treatmentStartTime || booking?.startTime || null,
+          treatmentEndTime: j.treatmentEndTime || booking?.endTime || null,
+          beforePhotos: j.beforePhotos || [],
+          afterPhotos: j.afterPhotos || [],
+          bookingCode: booking?.bookingCode,
+          time: timeFromBooking,
+          staff: booking?.technician?.fullName,
+          room: booking?.room?.name,
+          statusBadge: 'Đã hoàn thành',
+        };
+      });
 
       // Branch determination
       const branchName = cust?.address?.includes('Hà Nội')
@@ -262,7 +289,9 @@ export const W06_TreatmentManagement: React.FC = () => {
       return {
         id: up.id,
         packageId: up.packageId,
-        name: `${srvName} · ${total} buổi`,
+        name: treatmentName,
+        treatmentName,
+        serviceName,
         customerId: up.customerId,
         sessionsTotal: total,
         price: priceText,
@@ -275,14 +304,14 @@ export const W06_TreatmentManagement: React.FC = () => {
         progressPercent,
         progressLabel: `${progressPercent}% đã dùng`,
         branch: branchName,
-        status: up.status === 'ACTIVE' ? 'Đang sử dụng' : 'Hoàn tất',
-        rawStatus: up.status || 'ACTIVE',
+        status: statusLabels[up.status] || '—',
+        rawStatus: up.status || '',
         historySubtitle: `Hồ sơ liệu trình thực tế của ${cust?.fullName || 'khách hàng'}, đồng bộ trực tiếp từ Supabase Cloud.`,
         historyNote: `Đã hoàn thành ${used}/${total} buổi. Còn lại ${remaining} buổi hợp lệ đến ${expiryFormatted}.`,
         sessionsHistory,
       };
     });
-  }, [liveUserPackages, livePackages, liveJournals, custMap]);
+  }, [liveUserPackages, livePackages, liveJournals, custMap, serviceMap, bookingMap]);
 
   // Filter Logic
   const filteredPackages = useMemo(() => {
@@ -475,11 +504,13 @@ export const W06_TreatmentManagement: React.FC = () => {
       );
       return;
     }
-    setSessionDate(new Date().toISOString().split('T')[0]);
-    setConditionBefore('Da/Cơ thể cần chăm sóc chuyên sâu định kỳ.');
-    setTreatmentNotes(`Thực hiện quy trình trị liệu chuẩn phác đồ ${selectedPkg.name}.`);
-    setConditionAfter('Tình trạng cải thiện rõ rệt, da sáng hồng và cơ bắp thư giãn.');
-    setSpecialistAdvice('Uống đủ 2L nước ấm, chống nắng và dưỡng ẩm đầy đủ tại nhà.');
+    const now = new Date();
+    setSessionDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    setSessionNumberInput(selectedPkg.usedSessions + 1);
+    setTreatmentNotes('');
+    setTreatmentStartTime('');
+    setTreatmentEndTime('');
+    setEvidenceFiles([]);
     setIsLogSessionModalOpen(true);
   };
 
@@ -489,17 +520,22 @@ export const W06_TreatmentManagement: React.FC = () => {
 
     setIsSubmittingSession(true);
     try {
+      setIsUploadingEvidence(evidenceFiles.length > 0);
+      const uploadedEvidence = await Promise.all(
+        evidenceFiles.map((file) => portalService.uploadFileToStorage(file, file.name))
+      );
       const res = await treatmentService.completePackageSession(
         selectedPkg.id,
         selectedPkg.usedSessions,
         selectedPkg.sessionsTotal,
         {
           customerId: selectedPkg.customerId,
+          sessionNumber: sessionNumberInput,
           sessionDate,
-          conditionBefore,
-          conditionAfter,
           treatmentNotes,
-          specialistAdvice,
+          treatmentStartTime: treatmentStartTime || null,
+          treatmentEndTime: treatmentEndTime || null,
+          afterPhotos: uploadedEvidence,
         }
       );
 
@@ -518,6 +554,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       console.error(err);
       toast.error('Lỗi hệ thống', err.message || 'Không thể ghi nhận buổi.');
     } finally {
+      setIsUploadingEvidence(false);
       setIsSubmittingSession(false);
     }
   };
@@ -762,18 +799,19 @@ export const W06_TreatmentManagement: React.FC = () => {
           <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
               <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold whitespace-nowrap">
-                <th className="py-3 px-5 whitespace-nowrap">Gói / giá mua</th>
-                <th className="py-3 px-5 whitespace-nowrap">Khách hàng</th>
-                <th className="py-3 px-5 whitespace-nowrap">Ngày mua / hết hạn</th>
-                <th className="py-3 px-5 whitespace-nowrap">Tổng · đã dùng · còn</th>
-                <th className="py-3 px-5 w-44 whitespace-nowrap">Tiến độ</th>
-                <th className="py-3 px-5 whitespace-nowrap">Cơ sở / trạng thái</th>
+                <th className="py-3 px-5 whitespace-nowrap">Mã liệu trình</th>
+                <th className="py-3 px-5 whitespace-nowrap">Tên liệu trình</th>
+                <th className="py-3 px-5 whitespace-nowrap">Tên dịch vụ</th>
+                <th className="py-3 px-5 whitespace-nowrap">Tên khách hàng</th>
+                <th className="py-3 px-5 whitespace-nowrap">Số buổi</th>
+                <th className="py-3 px-5 whitespace-nowrap">Tổng số buổi cần điều trị</th>
+                <th className="py-3 px-5 whitespace-nowrap">Trạng thái</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0E6DC] whitespace-nowrap">
               {filteredPackages.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#73675F] whitespace-normal">
+                  <td colSpan={7} className="py-12 text-center text-[#73675F] whitespace-normal">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                       <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
                         <Search className="w-5 h-5" />
@@ -809,17 +847,9 @@ export const W06_TreatmentManagement: React.FC = () => {
                         isSelected ? 'bg-[#F8F1E8] border-l-4 border-[#985018]' : 'hover:bg-[#FAF8F5]'
                       }`}
                     >
-                      {/* Col 1: Gói / giá */}
-                      <td className="py-4 px-5 whitespace-nowrap">
-                        <div className="font-bold text-xs text-[#2C241E] whitespace-nowrap">
-                          {pkg.name}
-                        </div>
-                        <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
-                          {pkg.price}
-                        </div>
-                      </td>
-
-                      {/* Col 2: Khách hàng */}
+      <td className="py-4 px-5 font-mono text-[11px] text-[#73675F]" title={pkg.id}>LT-{pkg.id.slice(0, 8).toUpperCase()}</td>
+                      <td className="py-4 px-5 font-semibold text-[#2C241E]">{pkg.treatmentName}</td>
+                      <td className="py-4 px-5 text-[#554A41]">{pkg.serviceName}</td>
                       <td className="py-4 px-5 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <img
@@ -838,43 +868,13 @@ export const W06_TreatmentManagement: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Col 3: Ngày mua / Hết hạn */}
                       <td className="py-4 px-5 whitespace-nowrap">
-                        <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
-                          {pkg.purchaseDate}
-                        </div>
-                        <div className="text-[11px] text-[#73675F] mt-0.5 whitespace-nowrap">
-                          {pkg.expiryDate}
-                        </div>
+                        <span className="font-semibold">{pkg.usedSessions}</span> buổi
                       </td>
-
-                      {/* Col 4: Số buổi */}
                       <td className="py-4 px-5 whitespace-nowrap">
-                        <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
-                          {pkg.sessionsTotal} · {pkg.usedSessions} · {pkg.remainingSessions} buổi
-                        </div>
+                        {pkg.sessionsTotal} buổi
                       </td>
-
-                      {/* Col 5: Tiến độ */}
                       <td className="py-4 px-5 whitespace-nowrap">
-                        <div className="text-xs text-[#2C241E] font-medium mb-1.5 whitespace-nowrap">
-                          {pkg.progressLabel}
-                        </div>
-                        <div className="w-full bg-[#EFE4D9] h-1.5 rounded-full overflow-hidden">
-                          <div
-                            style={{ width: `${pkg.progressPercent}%` }}
-                            className={`h-full rounded-full transition-all ${
-                              pkg.rawStatus === 'COMPLETED' ? 'bg-[#059669]' : 'bg-[#985018]'
-                            }`}
-                          />
-                        </div>
-                      </td>
-
-                      {/* Col 6: Cơ sở / Trạng thái */}
-                      <td className="py-4 px-5 whitespace-nowrap">
-                        <div className="text-xs text-[#2C241E] font-medium whitespace-nowrap">
-                          {pkg.branch}
-                        </div>
                         <span
                           className={`inline-block mt-1 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold whitespace-nowrap ${
                             pkg.rawStatus === 'COMPLETED'
@@ -976,38 +976,6 @@ export const W06_TreatmentManagement: React.FC = () => {
               </div>
             ) : (
               selectedPkg.sessionsHistory.map((s, idx) => {
-                if (s.isUpcoming) {
-                  // Upcoming Session Card (Highlighted box)
-                  return (
-                    <div
-                      key={idx}
-                      className="bg-[#FAF0E4] border border-[#E8DFD8] rounded-xl p-3.5 space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-bold text-[#2C241E]">
-                          Buổi {s.number} · {s.serviceName}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleOpenBookModal}
-                          className="px-2.5 py-1 bg-[#985018] hover:bg-[#854412] text-white text-[10.5px] font-bold rounded-lg cursor-pointer"
-                        >
-                          Đặt lịch ngay
-                        </button>
-                      </div>
-                      <div className="text-[11px] text-[#73675F]">
-                        {s.bookingCode} · {s.date} · {s.time} · {s.staff} · {s.room}
-                      </div>
-                      <div>
-                        <span className="inline-block px-2.5 py-0.5 rounded-md text-[10.5px] font-medium bg-[#EFE1D2] text-[#73675F]">
-                          {s.statusBadge}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Standard Past Session Pill
                 return (
                   <div
                     key={idx}
@@ -1018,13 +986,16 @@ export const W06_TreatmentManagement: React.FC = () => {
                         <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" /> Đã hoàn thành
                         </span>
-                        <span className="text-xs font-bold text-[#2C241E]">
-                          Buổi {s.number} · {s.date}
-                        </span>
+                        <span className="text-xs font-bold text-[#2C241E]">Buổi {s.number} · {s.date}</span>
                       </div>
-                      <span className="text-xs text-[#73675F] font-medium">
-                        {s.serviceName}
-                      </span>
+                      <span className="text-xs text-[#73675F] font-medium">{s.treatmentNotes || '—'}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-[#554A41]">
+                      <div><span className="font-semibold text-[#8A4F23]">Giờ điều trị:</span> {s.treatmentStartTime?.slice(0, 5) || '—'}{s.treatmentEndTime ? `–${s.treatmentEndTime.slice(0, 5)}` : ''}</div>
+                      <div><span className="font-semibold text-[#8A4F23]">Số buổi:</span> {s.number}/{s.totalSessions || '—'}</div>
+                      <div><span className="font-semibold text-[#8A4F23]">Dịch vụ:</span> {selectedPkg.serviceName}</div>
+                      <div><span className="font-semibold text-[#8A4F23]">Trạng thái:</span> {s.statusBadge || 'Đã hoàn thành'}</div>
                     </div>
 
                     {(s.conditionBefore || s.conditionAfter || s.specialistAdvice) && (
@@ -1048,6 +1019,19 @@ export const W06_TreatmentManagement: React.FC = () => {
                           </div>
                         )}
                       </div>
+                    )}
+
+                    <div className="text-[11px] text-[#554A41]">
+                      <span className="font-semibold text-[#8A4F23]">Nội dung:</span> {s.treatmentNotes || s.conditionAfter || s.conditionBefore || '—'}
+                    </div>
+                    {(s.beforePhotos?.length || s.afterPhotos?.length) ? (
+                      <div className="flex flex-wrap gap-2">
+                        {[...(s.beforePhotos || []), ...(s.afterPhotos || [])].map((photo, photoIndex) => (
+                          <img key={`${photo}-${photoIndex}`} src={photo} alt={`Minh chứng ${photoIndex + 1}`} className="w-16 h-16 rounded-lg object-cover border border-[#E8DFD8]" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-[#8C7A6B]">Hình ảnh minh chứng: Chưa có</div>
                     )}
                   </div>
                 );
@@ -1365,9 +1349,9 @@ export const W06_TreatmentManagement: React.FC = () => {
                   <FileText className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#3E200C]">Ghi nhận buổi chăm sóc lâm sàng</h3>
+                  <h3 className="text-sm font-bold text-[#3E200C]">Cập nhật thông tin điều trị</h3>
                   <p className="text-[11px] text-[#73675F]">
-                    Ghi chép buổi {selectedPkg.usedSessions + 1} / {selectedPkg.sessionsTotal} vào hồ sơ điện tử
+                    {selectedPkg.name} · {selectedCustomer?.fullName}
                   </p>
                 </div>
               </div>
@@ -1391,17 +1375,26 @@ export const W06_TreatmentManagement: React.FC = () => {
                   <span className="text-[#73675F]">Liệu trình:</span>
                   <span className="font-semibold text-[#8A4F23]">{selectedPkg.name}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Buổi ghi nhận:</span>
-                  <span className="font-bold text-[#985018]">
-                    Buổi thứ {selectedPkg.usedSessions + 1} (Còn lại {selectedPkg.remainingSessions - 1} buổi sau ghi nhận)
-                  </span>
-                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Ngày thực hiện điều trị <span className="text-red-500">*</span>
+                  Buổi điều trị <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  readOnly
+                  min={1}
+                  max={selectedPkg.sessionsTotal}
+                  value={sessionNumberInput}
+                  className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Ngày điều trị <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -1412,56 +1405,37 @@ export const W06_TreatmentManagement: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Tình trạng trước điều trị
-                </label>
-                <input
-                  type="text"
-                  value={conditionBefore}
-                  onChange={(e) => setConditionBefore(e.target.value)}
-                  placeholder="Ví dụ: Da thiếu ẩm, cơ vai căng nhức..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ bắt đầu điều trị</label>
+                  <input type="time" value={treatmentStartTime} onChange={(e) => setTreatmentStartTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
+                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Tự điền nếu không có lịch hẹn liên kết.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ kết thúc điều trị</label>
+                  <input type="time" value={treatmentEndTime} onChange={(e) => setTreatmentEndTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Quy trình & Ghi chú kỹ thuật trị liệu
+                  Thông tin điều trị trong ngày <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  rows={2}
+                  required
+                  rows={4}
                   value={treatmentNotes}
                   onChange={(e) => setTreatmentNotes(e.target.value)}
-                  placeholder="Ví dụ: Đẩy tinh chất dưỡng ẩm HA, chiếu đèn ánh sáng sinh học 20 phút..."
+                  placeholder="Nhập dịch vụ đã thực hiện và kết quả điều trị trong ngày..."
                   className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Tình trạng sau điều trị
-                </label>
-                <input
-                  type="text"
-                  value={conditionAfter}
-                  onChange={(e) => setConditionAfter(e.target.value)}
-                  placeholder="Ví dụ: Da căng mịn, giảm tiết dầu, cơ thể sảng khoái..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Lời khuyên & Dặn dò của chuyên viên
-                </label>
-                <input
-                  type="text"
-                  value={specialistAdvice}
-                  onChange={(e) => setSpecialistAdvice(e.target.value)}
-                  placeholder="Ví dụ: Uống đủ 2 lít nước, chống nắng cẩn thận, ngủ đủ giấc..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Hình ảnh minh chứng</label>
+                <input type="file" accept="image/*" multiple onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]" />
+                <p className="mt-1 text-[10px] text-[#8C7A6B]">Admin tự tải ảnh lên; ảnh sẽ lưu vào nhật ký điều trị.</p>
+                {evidenceFiles.length > 0 && <p className="mt-1 text-[10px] text-[#2E7D32]">Đã chọn {evidenceFiles.length} ảnh.</p>}
               </div>
 
               {/* Modal Footer */}
@@ -1479,7 +1453,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   disabled={isSubmittingSession}
                   className="px-5 py-2 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  {isSubmittingSession ? (
+                  {isSubmittingSession || isUploadingEvidence ? (
                     <>
                       <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
                       <span>Đang lưu Supabase...</span>
@@ -1487,7 +1461,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   ) : (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Hoàn tất & Lưu buổi</span>
+                      <span>Cập nhật</span>
                     </>
                   )}
                 </button>

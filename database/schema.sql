@@ -591,6 +591,8 @@ CREATE TABLE IF NOT EXISTS treatment_journal (
     assigned_room_id UUID REFERENCES branch_rooms(id) ON DELETE SET NULL,
     session_number INT NOT NULL DEFAULT 1 CHECK (session_number >= 1),
     session_date DATE NOT NULL,
+    treatment_start_time TIME,
+    treatment_end_time TIME,
     condition_before TEXT,
     condition_after TEXT,
     treatment_notes TEXT,

@@ -498,6 +498,8 @@ export interface TreatmentJournal {
   assignedRoomId?: string | null;
   sessionNumber: number;
   sessionDate: string;
+  treatmentStartTime?: string | null;
+  treatmentEndTime?: string | null;
   conditionBefore?: string | null;
   conditionAfter?: string | null;
   treatmentNotes?: string | null;
