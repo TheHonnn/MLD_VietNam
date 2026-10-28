@@ -1453,46 +1453,6 @@ export const W05_StaffSchedule: React.FC = () => {
         </div>
       </div>
 
-      {/* DRC Resource Summary Banner (6 Giường × 6 KTV × Ca 1 Giờ) */}
-      <div className="bg-gradient-to-r from-[#FAF0E4] via-white to-[#E7F4EE] rounded-2xl border border-[#E8DFD8] p-3 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#985018] text-white rounded-xl">
-            <Building2 className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="font-bold text-[#2C241E] flex items-center gap-2">
-              <span>Ràng Buộc Kép DRC (Dual-Resource Capacity)</span>
-              <span className="px-2 py-0.5 bg-[#E7F4EE] text-[#1B6E44] text-[10px] font-bold rounded-md">
-                1 Ca = 60 Phút
-              </span>
-              <span className="px-2 py-0.5 bg-[#FAF0E4] text-[#985018] text-[10px] font-bold rounded-md">
-                Least-Busy Dispatch
-              </span>
-            </div>
-            <div className="text-[11px] text-[#73675F] mt-0.5">
-              Cố định <strong>6 Giường</strong> (2 VIP, 4 Body Massage) &bull; <strong>6 KTV Chuyên Môn</strong> trực ca &bull; Tự động khóa slot khi hết giường/KTV &bull; Tự động nhả khi hết ca.
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {drcSlots.slice(0, 5).map((s) => (
-            <div
-              key={s.slotTime}
-              className={`px-2 py-1 rounded-lg border text-[11px] font-medium text-center ${
-                s.isAvailable
-                  ? 'bg-white border-[#BDE3CF] text-[#1B6E44]'
-                  : 'bg-red-50 border-red-200 text-red-600'
-              }`}
-            >
-              <div className="font-bold">{s.slotTime.slice(0, 5)}</div>
-              <div className="text-[9px]">
-                {s.isAvailable ? `${s.remainingCapacity} chỗ` : 'Hết'}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* 2. Interactive Filter Toolbar (All Controls Fully Functional) */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">

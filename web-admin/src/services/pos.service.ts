@@ -93,6 +93,10 @@ export const posService = {
     }
   },
 
+  async createInvoice(_data: unknown): Promise<ApiResponse<Invoice>> {
+    return failed(new Error('Hãy dùng luồng thu ngân để tạo và xác nhận hóa đơn cùng lúc.'), {} as Invoice);
+  },
+
   async getActiveShift(branchId?: string): Promise<ApiResponse<CashierShift | null>> {
     try {
       const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
@@ -105,6 +109,7 @@ export const posService = {
 
   async openShift(data: {
     branchId: string;
+    cashierId?: string;
     openingCash: number;
     notes?: string;
   }): Promise<ApiResponse<CashierShift>> {
@@ -118,7 +123,14 @@ export const posService = {
 
   async closeShift(
     shiftId: string,
-    data: { closingCash: number; notes?: string },
+    data: {
+      closingCash: number;
+      notes?: string;
+      systemCash?: number;
+      cardSales?: number;
+      transferSales?: number;
+      totalSales?: number;
+    },
   ): Promise<ApiResponse<CashierShift>> {
     try {
       const shift = await adminCommand<CashierShift>(
