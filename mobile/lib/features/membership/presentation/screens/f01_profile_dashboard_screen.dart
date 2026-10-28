@@ -101,7 +101,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               await AuthService.instance.logout();
               if (mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const MainLayoutScreen(initialIndex: 0)),
+                  MaterialPageRoute(builder: (_) => const MainLayoutScreen(initialIndex: 4)),
                   (route) => false,
                 );
                 ScaffoldMessenger.of(context).showSnackBar(

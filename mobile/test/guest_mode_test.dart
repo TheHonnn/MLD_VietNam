@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/core/services/auth_service.dart';
+import 'package:medical_healthcare_app/features/auth/presentation/screens/a02_welcome_screen.dart';
 import 'package:medical_healthcare_app/features/auth/presentation/screens/a03_login_screen.dart';
 import 'package:medical_healthcare_app/features/home/presentation/screens/main_layout_screen.dart';
 import 'package:medical_healthcare_app/features/membership/presentation/screens/f01_profile_dashboard_screen.dart';
@@ -30,6 +31,22 @@ void main() {
   });
 
   group('Guest Mode & Apple Compliance Tests', () {
+    testWidgets('A02WelcomeScreen renders Explore Now button and navigates to Profile', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(_buildWrapper(const A02WelcomeScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Khám phá ngay'), findsOneWidget);
+      expect(find.text('Đăng nhập / Đăng ký'), findsOneWidget);
+
+      await tester.tap(find.text('Khám phá ngay'));
+      await tester.pumpAndSettle();
+      expect(find.byType(MainLayoutScreen), findsOneWidget);
+    });
+
     testWidgets('A03LoginScreen displays Explore Now buttons for guest access', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;

@@ -407,38 +407,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                         validator: (val) => val == null || val.trim().isEmpty ? null : AppValidators.phone(val),
                       ),
 
-                      const SizedBox(height: 24),
 
-                      // --- 4. THẺ BẢO MẬT & QUYỀN RIÊNG TƯ ---
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.border, width: 1.0),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.shield_outlined, size: 20, color: AppColors.primary),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                context.tr(
-                                  'Thông tin cá nhân của bạn được bảo mật tuyệt đối theo tiêu chuẩn mã hóa và bảo vệ dữ liệu y khoa của MLD Vietnam.',
-                                  'Your personal information is securely encrypted and protected in accordance with MLD Vietnam medical data standards.',
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  height: 1.45,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 20),
                     ],
                   ),

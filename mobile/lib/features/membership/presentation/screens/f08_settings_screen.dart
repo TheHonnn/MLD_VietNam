@@ -8,6 +8,7 @@ import '../../../auth/presentation/screens/a03_login_screen.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
+import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
@@ -751,7 +752,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                             if (context.mounted) {
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                                MaterialPageRoute(builder: (_) => const MainLayoutScreen(initialIndex: 4)),
                                 (route) => false,
                               );
                               ScaffoldMessenger.of(context).showSnackBar(

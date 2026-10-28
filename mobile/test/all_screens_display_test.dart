@@ -23,6 +23,7 @@ import 'package:medical_healthcare_app/features/home/presentation/screens/b04_se
 
 // Screens Auth
 import 'package:medical_healthcare_app/features/auth/presentation/screens/a01_splash_screen.dart';
+import 'package:medical_healthcare_app/features/auth/presentation/screens/a02_welcome_screen.dart';
 import 'package:medical_healthcare_app/features/auth/presentation/screens/a03_login_screen.dart';
 import 'package:medical_healthcare_app/features/auth/presentation/screens/a03_email_register_screen.dart';
 import 'package:medical_healthcare_app/features/auth/presentation/screens/a03_forgot_password_screen.dart';
@@ -243,6 +244,16 @@ void main() {
   });
 
   // AUTH MODULE
+  testWidgets('Audit Screen Display: A02WelcomeScreen renders cleanly', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildWrapper(const A02WelcomeScreen()));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Audit Screen Display: A01SplashScreen renders cleanly', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
