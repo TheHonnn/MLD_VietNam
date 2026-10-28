@@ -8,6 +8,7 @@ import 'package:medical_healthcare_app/features/academy/presentation/screens/e09
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e11_attendance_schedule_screen.dart';
 import 'package:medical_healthcare_app/features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:medical_healthcare_app/features/booking/presentation/screens/c09_my_appointments_screen.dart';
+import 'package:medical_healthcare_app/core/services/auth_service.dart';
 import 'package:medical_healthcare_app/features/home/data/repositories/branch_repository.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,6 +32,7 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
     await BranchRepository.instance.init();
+    AuthService.instance.isLoggedInNotifier.value = true;
   });
 
   group('Kịch bản 1: Test đặt lịch trị liệu thử (Booking Flow)', () {

@@ -4,6 +4,7 @@ import {
   Body,
   Get,
   Patch,
+  Delete,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -135,5 +136,16 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Cập nhật số điện thoại thành công' })
   async updatePhone(@CurrentUser('id') userId: string, @Body() body: { phone: string }) {
     return this.authService.updatePhone(userId, body.phone);
+  }
+
+
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xóa vĩnh viễn tài khoản (Apple App Store Guideline 5.1.1(v))' })
+  @ApiResponse({ status: 200, description: 'Tài khoản đã được xóa vĩnh viễn' })
+  async deleteAccount(@CurrentUser('id') userId: string) {
+    return this.authService.deleteAccount(userId);
   }
 }

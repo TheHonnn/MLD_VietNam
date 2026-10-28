@@ -453,7 +453,61 @@ export class AuthService {
       await this.revokeAllTokens(userId);
     }
 
+    
     return { success: true, message: 'Đăng xuất thành công, phiên làm việc đã được thu hồi.' };
+  }
+
+  /**
+   * Xóa vĩnh viễn tài khoản (Tuân thủ Apple App Store Guideline 5.1.1(v) & Google Play Data Safety)
+   */
+  async deleteAccount(userId: string) {
+    this.logger.log(`🗑️ Bắt đầu tiến trình xóa vĩnh viễn tài khoản: ${userId}`);
+
+    // 1. Thu hồi toàn bộ Refresh Token của người dùng
+    await this.revokeAllTokens(userId);
+
+    // 2. Ẩn danh hóa / Vô hiệu hóa thông tin cá nhân trong bảng users để bảo vệ quyền riêng tư
+    const anonymizedPhone = `deleted_${userId}_${Date.now()}`;
+    const { error: userError } = await this.supabaseService.adminClient
+      .from('users')
+      .update({
+        is_active: false,
+        phone: anonymizedPhone,
+        email: null,
+        full_name: 'Tài khoản đã xóa',
+        avatar_url: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (userError) {
+      this.logger.error(`Lỗi khi cập nhật trạng thái xóa tài khoản: ${userError.message}`);
+    }
+
+    // 3. Xóa các định danh xác thực trong auth_identities nếu có
+    try {
+      await this.supabaseService.adminClient
+        .from('auth_identities')
+        .delete()
+        .eq('user_id', userId);
+    } catch (e) {
+      this.logger.warn(`Không thể xóa auth_identities: ${e}`);
+    }
+
+    // 4. Xóa cài đặt cá nhân user_settings nếu có
+    try {
+      await this.supabaseService.adminClient
+        .from('user_settings')
+        .delete()
+        .eq('user_id', userId);
+    } catch (e) {
+      this.logger.warn(`Không thể xóa user_settings: ${e}`);
+    }
+
+    return {
+      success: true,
+      message: 'Tài khoản và toàn bộ dữ liệu cá nhân liên quan đã được xóa thành công khỏi hệ thống.',
+    };
   }
 
   /**

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
@@ -1011,13 +1012,21 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                 _showPendingApprovalNotice(widget.course);
                               }
                             } else {
-                              Navigator.push(
+                              GuestAuthPrompt.ensureLoggedIn(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (_) => E05EnrollmentFormScreen(course: widget.course),
-                                ),
-                              ).then((_) {
-                                if (mounted) setState(() {});
+                                title: 'Đăng nhập để đăng ký học',
+                                message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.',
+                              ).then((ok) {
+                                if (ok && mounted) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => E05EnrollmentFormScreen(course: widget.course),
+                                    ),
+                                  ).then((_) {
+                                    if (mounted) setState(() {});
+                                  });
+                                }
                               });
                             }
                           },

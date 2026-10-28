@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
@@ -130,7 +131,14 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     return true;
   }
 
-  void _handleBooking() {
+  Future<void> _handleBooking() async {
+    final ok = await GuestAuthPrompt.ensureLoggedIn(
+      context,
+      title: 'Đăng nhập để đặt lịch',
+      message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để đặt lịch hẹn.',
+    );
+    if (!ok || !mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(

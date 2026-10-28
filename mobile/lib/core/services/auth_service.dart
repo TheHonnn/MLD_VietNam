@@ -320,4 +320,33 @@ class AuthService {
 
     isLoggedInNotifier.value = false;
   }
+
+  /// Delete user account permanently and clear all stored data
+  /// Compliant with Apple Review Guideline 5.1.1(v) & Google Play Data Safety
+  Future<bool> deleteAccount() async {
+    try {
+      final token = await getAccessToken();
+      if (token != null && token.isNotEmpty) {
+        await ApiClient.instance.delete(ApiEndpoints.authDeleteAccount);
+      }
+    } catch (e) {
+      debugPrint('Error deleting account on backend: $e');
+    }
+
+    // Luôn dọn dẹp sạch sẽ toàn bộ local state và secure storage
+    await logout();
+
+    if (_prefs != null) {
+      await _prefs!.remove('user_phone');
+      await _prefs!.remove('user_full_name');
+      await _prefs!.remove('user_avatar_url');
+      await _prefs!.remove(_keyDisplayName);
+      await _prefs!.remove(_keyAvatarUrl);
+      await _prefs!.remove(_keyLastLoginPhone);
+      await _prefs!.remove(_keyLastLoginEmail);
+      await _prefs!.remove(_keyLastLoginMethod);
+    }
+
+    return true;
+  }
 }

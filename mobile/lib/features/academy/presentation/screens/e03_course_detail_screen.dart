@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
@@ -181,16 +182,23 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(ctx);
-                  Navigator.push(
+                  final ok = await GuestAuthPrompt.ensureLoggedIn(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => E05EnrollmentFormScreen(course: widget.course),
-                    ),
-                  ).then((_) {
-                    if (mounted) setState(() {});
-                  });
+                    title: 'Đăng nhập để đăng ký học',
+                    message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.',
+                  );
+                  if (ok && mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => E05EnrollmentFormScreen(course: widget.course),
+                      ),
+                    ).then((_) {
+                      if (mounted) setState(() {});
+                    });
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -263,12 +271,20 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               );
             }
           } else {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => E05EnrollmentFormScreen(course: course),
-              ),
-            ).then((_) {
-              if (mounted) setState(() {});
+            GuestAuthPrompt.ensureLoggedIn(
+              context,
+              title: 'Đăng nhập để đăng ký học',
+              message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.',
+            ).then((ok) {
+              if (ok && mounted) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => E05EnrollmentFormScreen(course: course),
+                  ),
+                ).then((_) {
+                  if (mounted) setState(() {});
+                });
+              }
             });
           }
         },

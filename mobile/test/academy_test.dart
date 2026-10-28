@@ -7,6 +7,7 @@ import 'package:medical_healthcare_app/features/academy/presentation/screens/e07
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e10_quiz_screen.dart';
 import 'package:medical_healthcare_app/features/academy/data/models/academy_models.dart';
 import 'package:medical_healthcare_app/features/treatment/presentation/screens/d09_documents_screen.dart';
+import 'package:medical_healthcare_app/core/services/auth_service.dart';
 import 'package:medical_healthcare_app/features/home/presentation/screens/main_layout_screen.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
 
@@ -25,6 +26,10 @@ Widget _buildTestApp({required Widget home, Locale locale = const Locale('vi')})
 }
 
 void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    AuthService.instance.isLoggedInNotifier.value = true;
+  });
   testWidgets('Test E01AcademyHomeScreen rendering in Vietnamese (Locale vi)', (WidgetTester tester) async {
     await tester.pumpWidget(_buildTestApp(home: const E01AcademyHomeScreen(), locale: const Locale('vi')));
     await tester.pump();

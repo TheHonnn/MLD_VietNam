@@ -202,43 +202,82 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // --- 1. LOGO THƯƠNG HIỆU ---
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Container(
-                            width: 136,
-                            height: 64,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppColors.secondary,
-                                width: 1.0,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.secondary.withValues(alpha: 0.12),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
+                        // --- 1. LOGO THƯƠNG HIỆU & NÚT KHÁM PHÁ NGAY ---
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 116,
+                              height: 54,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.secondary,
+                                  width: 1.0,
                                 ),
-                              ],
-                            ),
-                            child: Image.asset(
-                              'assets/images/logo.webp',
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Center(
-                                child: Text(
-                                  'MLD Vietnam',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.secondary.withValues(alpha: 0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Image.asset(
+                                'assets/images/logo.webp',
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Text(
+                                    'MLD Vietnam',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
+                            InkWell(
+                              onTap: () {
+                                if (Navigator.canPop(context)) {
+                                  Navigator.pop(context);
+                                } else {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+                                  );
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Khám phá ngay',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
 
                         const SizedBox(height: 28),
@@ -639,6 +678,37 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                               ),
                             ),
                           ],
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // --- NÚT KHÁM PHÁ APP DÀNH CHO KHÁCH (GUEST MODE) ---
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            } else {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.explore_outlined, size: 20, color: AppColors.primary),
+                          label: const Text(
+                            'Khám phá ứng dụng (Không cần đăng nhập)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4), width: 1.2),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            backgroundColor: Colors.white,
+                          ),
                         ),
 
                         const SizedBox(height: 24),

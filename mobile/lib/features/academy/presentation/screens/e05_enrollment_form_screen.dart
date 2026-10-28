@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
@@ -89,6 +90,15 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     final phone = _phoneController.text.trim().replaceAll(' ', '');
     final email = _emailController.text.trim();
     final studentType = _selectedTargetGroup == 0 ? 'BEGINNER' : 'PRO';
+
+    if (!AuthService.instance.isLoggedIn) {
+      final ok = await GuestAuthPrompt.ensureLoggedIn(
+        context,
+        title: 'Đăng nhập để đăng ký học',
+        message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.',
+      );
+      if (!ok || !mounted) return;
+    }
 
     setState(() => _isSubmitting = true);
 

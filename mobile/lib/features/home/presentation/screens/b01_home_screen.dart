@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/supabase_data_service.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
@@ -184,13 +185,24 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     super.dispose();
   }
 
-  void _handleBooking() {
-    Navigator.push(
+  Future<void> _handleBooking() async {
+    final ok = await GuestAuthPrompt.ensureLoggedIn(
       context,
-      MaterialPageRoute(
-        builder: (_) => const AllInOneBookingScreen(),
-      ),
+      title: 'Đăng nhập để đặt lịch',
+      message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để đặt lịch hẹn và lưu trữ hồ sơ điều trị.',
     );
+    if (!ok || !mounted) return;
+
+    if (widget.onNavigateToBooking != null) {
+      widget.onNavigateToBooking!.call();
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const AllInOneBookingScreen(),
+        ),
+      );
+    }
   }
 
   Future<void> _loadCoreServiceFromAdmin() async {

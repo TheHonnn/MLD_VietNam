@@ -166,24 +166,24 @@ class MockHomeRepository {
     return const [
       BranchModel(
         id: 'aaaaaaaa-0001-0001-0001-000000000001',
-        name: 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399',
+        name: 'Trụ sở MLD Việt Nam (5 Master LV3)',
         code: 'MLD-HQ',
         phone: '096.7786.399',
         address: 'Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội, Phường Khương Đình, Thành phố Hà Nội',
-        district: 'Quận 3',
-        city: 'TP. Hồ Chí Minh',
+        district: 'Khương Đình',
+        city: 'Hà Nội',
         distanceKm: 0.0,
         openingHours: '08:30 - 20:30 (Cả tuần)',
         rating: 4.9,
-        imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef',
+        imageUrl: 'assets/images/chinhanh.webp',
         galleryUrls: [
           'https://images.unsplash.com/photo-1540555700478-4be289fbecef',
           'https://images.unsplash.com/photo-1560750588-73207b1ef5b8',
         ],
         services: ['Dẫn lưu bạch huyết MLD', 'Điều trị phù bạch huyết', 'Đào tạo Master Vodder'],
         amenities: ['Phòng VIP riêng tư', 'Phòng khám chuyên khoa', 'Bãi đỗ ô tô miễn phí', 'Trà thảo mộc dưỡng nhan'],
-        latitude: 10.7845,
-        longitude: 106.6912,
+        latitude: 20.9856,
+        longitude: 105.8172,
       ),
     ];
   }
