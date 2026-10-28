@@ -121,6 +121,8 @@ export const W12_FinancialReports: React.FC = () => {
   // 1. Dynamic Completed Invoices
   const completedInvoicesData: CompletedInvoice[] = useMemo(() => {
     const list: CompletedInvoice[] = [];
+    const processedEnrollmentIds = new Set<string>();
+    const processedInvoiceCodes = new Set<string>();
 
     // From Invoices
     liveInvoices
@@ -130,8 +132,10 @@ export const W12_FinancialReports: React.FC = () => {
         const dateStr = d.toLocaleDateString('vi-VN');
         const dateKey = d.toISOString().split('T')[0];
 
-        const isPackage = inv.userPackageId || inv.subtotal >= 2000000;
-        const category: 'service' | 'package' | 'course' = isPackage ? 'package' : 'service';
+        const isCourse = Boolean(inv.enrollmentId) || inv.serviceCategory === 'ACADEMY';
+        const isPackage = Boolean(inv.userPackageId) || inv.serviceCategory === 'PACKAGE' || (!isCourse && inv.subtotal >= 2000000);
+        const category: 'service' | 'package' | 'course' = isCourse ? 'course' : isPackage ? 'package' : 'service';
+
         const methodType: 'pos' | 'online' | 'bank' =
           inv.paymentMethod === 'MOMO'
             ? 'online'
@@ -145,12 +149,19 @@ export const W12_FinancialReports: React.FC = () => {
             ? 'Chuyển khoản QR'
             : 'Thanh toán tại cơ sở';
 
+        if (inv.enrollmentId) {
+          processedEnrollmentIds.add(inv.enrollmentId);
+        }
+        processedInvoiceCodes.add(inv.invoiceCode);
+
         list.push({
           id: inv.id,
           code: inv.invoiceCode,
           date: dateStr,
           dateKey,
-          description: isPackage
+          description: isCourse
+            ? 'Học phí đào tạo kỹ thuật viên MLD'
+            : isPackage
             ? 'Gói liệu trình chăm sóc da 8 buổi'
             : 'Dịch vụ Massage trị liệu & chăm sóc da',
           method,
@@ -163,10 +174,17 @@ export const W12_FinancialReports: React.FC = () => {
         });
       });
 
-    // From Tuition Transactions
+    // From Tuition Transactions (Chỉ bổ sung các giao dịch học phí chưa được lập hóa đơn trong bảng invoices)
     liveTuitionTrans
       .filter((tt) => tt.paymentStatus === 'PAID')
       .forEach((tt) => {
+        if (tt.enrollmentId && processedEnrollmentIds.has(tt.enrollmentId)) {
+          return;
+        }
+        if (processedInvoiceCodes.has(tt.transactionCode)) {
+          return;
+        }
+
         const d = tt.paidAt ? new Date(tt.paidAt) : tt.dueDate ? new Date(tt.dueDate) : new Date();
         const dateStr = d.toLocaleDateString('vi-VN');
         const dateKey = d.toISOString().split('T')[0];
@@ -189,7 +207,7 @@ export const W12_FinancialReports: React.FC = () => {
           code: tt.transactionCode,
           date: dateStr,
           dateKey,
-          description: tt.notes || 'Học phí đào tạo kỹ thuật viên',
+          description: tt.notes || 'Học phí đào tạo kỹ thuật viên MLD',
           method,
           methodType,
           category: 'course',

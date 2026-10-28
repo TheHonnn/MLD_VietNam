@@ -172,6 +172,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
   const [invoiceMethodFilter, setInvoiceMethodFilter] = useState('ALL');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // VAT and Regimen session states
   const [vatRate, setVatRate] = useState<number>(8); // Mặc định VAT 8%
@@ -258,7 +259,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
-      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes, srvRes, techRes] = await Promise.all([
+      let [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes, srvRes, techRes] = await Promise.all([
         posService.getInvoices(),
         bookingService.getBookings(),
         customerService.getCustomers(),
@@ -269,6 +270,13 @@ export const W07_CashierPOS: React.FC = () => {
         supabaseService.getServices(),
         supabaseService.getTechnicians(),
       ]);
+
+      // Tự động kích hoạt đồng bộ nếu hóa đơn rỗng trên Supabase Cloud
+      if (invRes.success && (!invRes.data || invRes.data.length === 0)) {
+        await posService.syncInvoices().catch(() => {});
+        invRes = await posService.getInvoices();
+      }
+
       if (invRes.success) setInvoices(invRes.data);
       if (brRes.success && brRes.data) setBranches(brRes.data);
       if (custRes.success && custRes.data) setAllCustomers(custRes.data);
@@ -285,6 +293,30 @@ export const W07_CashierPOS: React.FC = () => {
       setAllBookings(bks);
     } catch (err) {
       console.error('Failed to load POS data:', err);
+    }
+  };
+
+  const handleSyncInvoices = async () => {
+    setIsSyncing(true);
+    try {
+      const syncRes = await posService.syncInvoices();
+      await fetchPosData();
+      if (syncRes.success && syncRes.data && (syncRes.data.syncedEnrollmentInvoices > 0 || syncRes.data.syncedBookingInvoices > 0)) {
+        toast.success(
+          'Đồng bộ hoàn tất',
+          `Đã đồng bộ thêm ${syncRes.data.syncedEnrollmentInvoices + syncRes.data.syncedBookingInvoices} hóa đơn mới (${syncRes.data.totalSyncedAmount.toLocaleString('vi-VN')}đ) từ CSDL Supabase Cloud.`
+        );
+      } else {
+        toast.success(
+          'Đồng bộ thành công',
+          `Toàn bộ hóa đơn và số tiền doanh thu đã khớp 100% với Supabase Cloud.`
+        );
+      }
+    } catch (err: any) {
+      console.error('Lỗi khi đồng bộ hóa đơn:', err);
+      toast.error('Lỗi đồng bộ', err?.message || 'Không thể đồng bộ hóa đơn.');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -783,7 +815,7 @@ export const W07_CashierPOS: React.FC = () => {
             await commissionService.createCommission({
               staffId: selectedEnrollment.assignedStaffId,
               branchId: validBranchId,
-              invoiceId: generatedInvoiceCode,
+              invoiceId: isUuid(resInvoice?.data?.id) ? resInvoice.data.id : undefined,
               commissionType: 'PACKAGE_UPSELL',
               baseAmount: amount,
               percentage: 5,
@@ -1020,7 +1052,7 @@ export const W07_CashierPOS: React.FC = () => {
             staffId: targetTechId,
             branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
             bookingId: validBookingId || null,
-            invoiceId: generatedInvoiceCode,
+            invoiceId: isUuid(resInvoice?.data?.id) ? resInvoice.data.id : undefined,
             commissionType: isPackage ? 'PACKAGE_UPSELL' : 'SERVICE_DIRECT',
             baseAmount: amount,
             percentage: commPercentage,
@@ -1226,35 +1258,39 @@ export const W07_CashierPOS: React.FC = () => {
 
     // 2. Branch
     const br = inv.branch || branches.find((b) => b.id === inv.branchId);
-    const branchName = br?.name || 'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa';
-    const branchCode = br?.code || 'MLD-Q3';
-    const branchDistrict = br?.district || 'Quận 3';
+    const branchName = br?.name || 'Trụ sở MLD Việt Nam';
+    const branchCode = br?.code || 'MLD-HQ';
+    const branchDistrict = br?.district || 'Hà Nội';
 
     // 3. Service / Package / Tuition
     let title = 'Dịch vụ Spa & Trị liệu';
     let category: 'SERVICE' | 'PACKAGE' | 'ACADEMY' = 'SERVICE';
 
-    if (inv.bookingId) {
+    if (inv.items && inv.items.length > 0) {
+      title = inv.items.map((it: any) => it.itemName || it.item_name).filter(Boolean).join(', ');
+      const itType = inv.items[0].itemType || (inv.items[0] as any).item_type;
+      if (itType === 'COURSE') category = 'ACADEMY';
+      else if (itType === 'PACKAGE') category = 'PACKAGE';
+      else category = 'SERVICE';
+    } else if (inv.enrollmentId) {
+      const enr = allEnrollments.find((e) => e.id === inv.enrollmentId);
+      title = enr?.course?.title ? `Học phí: ${enr.course.title}` : 'Học phí Khóa học MLD Academy';
+      category = 'ACADEMY';
+    } else if (inv.bookingId) {
       const b = allBookings.find((x) => x.id === inv.bookingId);
       if (b && b.items && b.items.length > 0) {
         title = b.items.map((it) => it.service?.name).filter(Boolean).join(', ') || b.bookingCode;
       } else {
-        title = 'Gội Đầu Dưỡng Sinh Thảo Dược Cổ Vai Gáy';
+        title = (b as any)?.serviceName || 'Dịch vụ Trị liệu Dẫn lưu MLD';
       }
       category = 'SERVICE';
     } else if (inv.userPackageId) {
       const tp = treatmentPackages.find((p) => p.id === inv.userPackageId);
       title = tp?.name || 'Liệu Trình Phục Hồi & Trẻ Hóa Da 5 Buổi';
       category = 'PACKAGE';
-    } else if (inv.enrollmentId || inv.totalAmount === 850000) {
-      title = 'Đợt 1 - Học Phí Khóa Gội Đầu Dưỡng Sinh & Bấm Huyệt';
-      category = 'ACADEMY';
-    } else if (inv.totalAmount === 600000) {
-      title = 'Lệ Phí Thi Sát Hạch Kỹ Thuật Viên MLD Academy';
-      category = 'ACADEMY';
-    } else if (inv.totalAmount >= 3000000) {
-      title = 'Liệu Trình Phục Hồi & Trẻ Hóa Da 5 Buổi';
-      category = 'PACKAGE';
+    } else if (inv.serviceTitle) {
+      title = inv.serviceTitle;
+      category = (inv.serviceCategory as any) || 'SERVICE';
     }
 
     // 4. Method label
@@ -1263,6 +1299,8 @@ export const W07_CashierPOS: React.FC = () => {
         ? 'Tiền mặt tại cơ sở'
         : inv.paymentMethod === PaymentMethod.MOMO
         ? 'Ví điện tử MoMo'
+        : (inv.paymentMethod as string) === 'CREDIT_CARD'
+        ? 'Quẹt thẻ POS'
         : 'Chuyển khoản VietQR';
 
     // 5. Date
@@ -1390,15 +1428,13 @@ export const W07_CashierPOS: React.FC = () => {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            onClick={() => {
-              fetchPosData();
-              toast.success('Đồng bộ dữ liệu', 'Đã tải mới nhất danh sách hóa đơn từ Supabase.');
-            }}
-            className="px-3.5 py-2.5 bg-white hover:bg-[#FAF4EE] border border-[#D7BBA6] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
-            title="Tải lại dữ liệu hóa đơn"
+            disabled={isSyncing}
+            onClick={handleSyncInvoices}
+            className={`px-3.5 py-2.5 bg-white hover:bg-[#FAF4EE] border border-[#D7BBA6] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5 ${isSyncing ? 'opacity-60 cursor-not-allowed' : ''}`}
+            title="Đồng bộ hóa đơn và doanh thu từ CSDL Supabase Cloud"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Đồng bộ</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ'}</span>
           </button>
 
           <button
