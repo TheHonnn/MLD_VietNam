@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
@@ -96,54 +95,55 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }
   }
 
+  SpaServiceModel get _displayService {
+    final base = _coreService ?? ServiceRepository.defaultCoreVodderService;
+    if (_selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả') {
+      return base.copyWith(
+        name: '${base.name} - $_selectedServiceCategory',
+        categoryName: _selectedServiceCategory,
+      );
+    }
+    return base;
+  }
+
   bool get _isServiceMatch {
     final query = _searchController.text.trim().toLowerCase();
 
-    // 1. Lọc theo Dịch vụ đã chọn
-    if (_selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả') {
-      final serviceName = (_coreService?.name ?? 'Điều trị dẫn lưu phù bạch huyết').toLowerCase();
-      final filterText = _selectedServiceCategory.toLowerCase();
-      final matchesService = serviceName.contains(filterText) ||
-          'bạch huyết'.contains(filterText) ||
-          'vodder'.contains(filterText) ||
-          'phù'.contains(filterText);
-      if (!matchesService) return false;
-    }
-
-    // 2. Lọc theo Cơ sở đã chọn
-    if (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả') {
-      // Dịch vụ Vodder có mặt ở tất cả các cơ sở chính thức
-    }
-
-    // 3. Lọc theo từ khóa tìm kiếm
+    // Lọc theo từ khóa tìm kiếm nếu có
     if (query.isNotEmpty) {
       final serviceName = (_coreService?.name ?? 'Điều trị dẫn lưu phù bạch huyết').toLowerCase();
-      final filterText = _selectedServiceCategory.toLowerCase();
+      final categoryText = _selectedServiceCategory.toLowerCase();
+      final branchText = _selectedBranch.toLowerCase();
       final matchesQuery = serviceName.contains(query) ||
-          filterText.contains(query) ||
+          categoryText.contains(query) ||
           'bạch huyết'.contains(query) ||
           'vodder'.contains(query) ||
           'phù'.contains(query) ||
-          _selectedBranch.toLowerCase().contains(query);
+          branchText.contains(query);
       if (!matchesQuery) return false;
     }
 
     return true;
   }
 
-  Future<void> _handleBooking() async {
-    final ok = await GuestAuthPrompt.ensureLoggedIn(
-      context,
-      title: 'Đăng nhập để đặt lịch',
-      message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để đặt lịch hẹn.',
-    );
-    if (!ok || !mounted) return;
+  void _handleBooking() {
+    BranchModel? chosenBranch;
+    if (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả') {
+      try {
+        chosenBranch = _branches.firstWhere((b) => b.name == _selectedBranch);
+      } catch (_) {}
+    }
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AllInOneBookingScreen(
           onBack: () => Navigator.pop(context),
+          initialService: _displayService,
+          initialBranch: chosenBranch,
+          initialSpecialty: _selectedServiceCategory != 'Tất cả dịch vụ' && _selectedServiceCategory != 'Tất cả'
+              ? _selectedServiceCategory
+              : null,
         ),
       ),
     );
@@ -556,7 +556,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           else
                             // Thẻ dịch vụ tối giản chuẩn Y khoa MLD
                             VodderServiceCard(
-                              service: _coreService,
+                              service: _displayService,
                               onBooking: _handleBooking,
                             ),
                         ],

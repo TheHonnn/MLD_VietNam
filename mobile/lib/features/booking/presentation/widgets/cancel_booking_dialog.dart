@@ -29,6 +29,92 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isPaid = widget.appointment.paymentStatus.toUpperCase() == 'PAID' || widget.appointment.remainingAmount <= 0;
+    final isApproved = widget.appointment.status == AppointmentStatus.confirmed ||
+        widget.appointment.status == AppointmentStatus.inService ||
+        widget.appointment.status == AppointmentStatus.completed;
+
+    if (isPaid && isApproved) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: BookingColors.cardBorder),
+        ),
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Dấu X
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEE2E2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 38,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Chữ Không thể Hủy
+              const Text(
+                'Không thể Hủy',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              // Bên dưới ghi dịch vụ đã thanh toán, vui lòng liên hệ nhân viên để được hỗ trợ
+              const Text(
+                'Dịch vụ đã thanh toán, vui lòng liên hệ nhân viên để được hỗ trợ',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Đóng',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final d = widget.appointment.appointmentDate;
     final dStr =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';

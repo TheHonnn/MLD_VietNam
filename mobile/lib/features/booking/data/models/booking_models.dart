@@ -109,6 +109,7 @@ class AppointmentItemModel {
   final double depositAmount; // 150.000đ
   final double remainingAmount; // 300.000đ
   final String paymentMethod;
+  final String paymentStatus;
   final AppointmentStatus status;
   final DateTime createdAt;
   final List<BookingTimelineEvent> timeline;
@@ -139,6 +140,7 @@ class AppointmentItemModel {
     required this.depositAmount,
     required this.remainingAmount,
     this.paymentMethod = '',
+    this.paymentStatus = 'UNPAID',
     this.status = AppointmentStatus.confirmed,
     required this.createdAt,
     this.timeline = const [],
@@ -170,6 +172,7 @@ class AppointmentItemModel {
     double? depositAmount,
     double? remainingAmount,
     String? paymentMethod,
+    String? paymentStatus,
     AppointmentStatus? status,
     DateTime? createdAt,
     List<BookingTimelineEvent>? timeline,
@@ -200,6 +203,7 @@ class AppointmentItemModel {
       depositAmount: depositAmount ?? this.depositAmount,
       remainingAmount: remainingAmount ?? this.remainingAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       timeline: timeline ?? this.timeline,

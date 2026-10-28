@@ -107,19 +107,21 @@ export class AppointmentsService {
     } = dto;
 
     const paymentMethod = requestedPaymentMethod?.trim() || 'CASH_AT_SPA';
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
     const bookingCode = dto.bookingCode || `MLD-BK-${Date.now().toString().slice(-6)}`;
-    const effectiveUserId = userId && userId !== 'default-user' ? userId : 'bbbbbbbb-0001-0001-0001-000000000001';
-    const targetBranchId = branchId || 'aaaaaaaa-0001-0001-0001-000000000001';
+    const effectiveUserId = (userId && userId !== 'default-user' && uuidRegex.test(userId)) ? userId : 'bbbbbbbb-0001-0001-0001-000000000001';
+    const targetBranchId = (branchId && uuidRegex.test(branchId)) ? branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+    const targetServiceId = (serviceId && uuidRegex.test(serviceId)) ? serviceId : '235166f2-66c9-4231-bbe1-af91b48fc67c';
 
     // 1. Lấy thông tin Dịch vụ & Giá từ Supabase
     const { data: srv, error: serviceError } = await this.supabaseService.adminClient
       .from('services')
       .select('id, name, price, duration_minutes')
-      .eq('id', serviceId)
+      .eq('id', targetServiceId)
       .maybeSingle();
 
     if (serviceError) {
-      this.logger.error(`Lỗi tải dịch vụ ${serviceId}: ${serviceError.message}`);
+      this.logger.error(`Lỗi tải dịch vụ ${targetServiceId}: ${serviceError.message}`);
       throw new InternalServerErrorException('Không thể xác minh dịch vụ. Vui lòng thử lại.');
     }
     if (!srv) throw new NotFoundException('Không tìm thấy dịch vụ đã chọn');
@@ -213,10 +215,32 @@ export class AppointmentsService {
       let initialPaymentStatus = 'UNPAID';
       let initialBookingStatus = 'PENDING';
       const upperMethod = (paymentMethod || '').toUpperCase();
+      let validPaymentMethod = 'CASH_AT_SPA';
       if (upperMethod === 'MEMBERSHIP_WALLET' || upperMethod === 'PACKAGE' || upperMethod === 'MEMBERSHIP_CARD') {
         initialPaymentStatus = 'PAID';
         initialBookingStatus = 'CONFIRMED';
+        validPaymentMethod = 'MEMBERSHIP_WALLET';
+      } else if (upperMethod === 'VIETQR' || upperMethod === 'BANK_TRANSFER') {
+        initialPaymentStatus = 'UNPAID';
+        initialBookingStatus = 'PENDING';
+        validPaymentMethod = 'BANK_TRANSFER';
+      } else if (upperMethod === 'MOMO') {
+        initialPaymentStatus = 'UNPAID';
+        initialBookingStatus = 'PENDING';
+        validPaymentMethod = 'MOMO';
+      } else if (upperMethod === 'VNPAY') {
+        initialPaymentStatus = 'UNPAID';
+        initialBookingStatus = 'PENDING';
+        validPaymentMethod = 'VNPAY';
+      } else {
+        // CASH_AT_SPA, AT_BRANCH, CASH
+        initialPaymentStatus = 'UNPAID';
+        initialBookingStatus = 'CONFIRMED';
+        validPaymentMethod = 'CASH_AT_SPA';
       }
+
+      const cleanStartTime = /^\d{1,2}:\d{2}/.test(startTime) ? (startTime.length === 5 ? `${startTime}:00` : startTime) : '09:00:00';
+      const cleanEndTime = /^\d{1,2}:\d{2}/.test(calculatedEndTime) ? (calculatedEndTime.length === 5 ? `${calculatedEndTime}:00` : calculatedEndTime) : '10:00:00';
 
       // 3. Chèn vào bảng bookings
       const { data: booking, error: bErr } = await this.supabaseService.adminClient
@@ -228,11 +252,11 @@ export class AppointmentsService {
           technician_id: assignedTechnicianId || null,
           assigned_bed_number: assignedBed,
           booking_date: bookingDate,
-          start_time: startTime,
-          end_time: calculatedEndTime,
+          start_time: cleanStartTime,
+          end_time: cleanEndTime,
           status: initialBookingStatus,
           payment_status: initialPaymentStatus,
-          payment_method: paymentMethod,
+          payment_method: validPaymentMethod,
           base_total: basePrice,
           final_price: finalPrice,
           booked_for_name: bookedForName || 'Khách hàng MLD',
@@ -250,7 +274,7 @@ export class AppointmentsService {
 
       const { error: itemError } = await this.supabaseService.adminClient.from('booking_items').insert({
         booking_id: booking.id,
-        service_id: serviceId,
+        service_id: targetServiceId,
         technician_id: assignedTechnicianId || null,
         duration_minutes: durationMinutes,
         price: basePrice,
@@ -764,6 +788,15 @@ export class AppointmentsService {
     if (currentBooking.status === 'COMPLETED' || currentBooking.status === 'CANCELLED') {
       throw new BadRequestException(
         `Không thể hủy lịch hẹn đã ${currentBooking.status === 'COMPLETED' ? 'hoàn thành' : 'bị hủy'}`,
+      );
+    }
+
+    // 3.1. Chặn hủy nếu lịch hẹn đã thanh toán và đã được duyệt
+    const isPaid = (currentBooking.payment_status || '').toUpperCase() === 'PAID';
+    const isApproved = ['CONFIRMED', 'IN_SERVICE', 'COMPLETED'].includes(currentBooking.status);
+    if (isPaid && isApproved) {
+      throw new BadRequestException(
+        'Không thể Hủy. Dịch vụ đã thanh toán, vui lòng liên hệ nhân viên để được hỗ trợ.',
       );
     }
 

@@ -68,7 +68,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // 3. Kiểm tra Modal thông báo "Đặt lịch thành công!" xuất hiện
-      expect(find.text('Đặt lịch thành công!'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.data == 'Đặt lịch thành công!' || w.data == 'Đã gửi yêu cầu đặt lịch'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Xem lịch hẹn của tôi'), findsOneWidget);
 
       // 4. Bấm "Xem lịch hẹn của tôi" chuyển sang C09

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
@@ -16,8 +15,17 @@ import 'c09_my_appointments_screen.dart';
 /// Màn hình đặt lịch trị liệu All-in-One tinh giản theo chuẩn Design System (#2860EB)
 class AllInOneBookingScreen extends StatefulWidget {
   final VoidCallback? onBack;
+  final SpaServiceModel? initialService;
+  final BranchModel? initialBranch;
+  final String? initialSpecialty;
 
-  const AllInOneBookingScreen({super.key, this.onBack});
+  const AllInOneBookingScreen({
+    super.key,
+    this.onBack,
+    this.initialService,
+    this.initialBranch,
+    this.initialSpecialty,
+  });
 
   @override
   State<AllInOneBookingScreen> createState() => _AllInOneBookingScreenState();
@@ -57,16 +65,28 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
+    if (widget.initialSpecialty != null && widget.initialSpecialty!.isNotEmpty) {
+      _noteController.text = 'Nhu cầu: ${widget.initialSpecialty}';
+    }
+    if (widget.initialService != null) {
+      _serviceTitle = widget.initialService!.name;
+      _serviceDuration = widget.initialService!.durationMinutes;
+      _pricePerPerson = widget.initialService!.displayPrice;
+      _vatRate = widget.initialService!.vatRate;
+    }
+    if (widget.initialBranch != null) {
+      _selectedBranch = widget.initialBranch;
+    }
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       final List<BranchModel> mockBranches = BranchRepository.instance.cachedBranches.isNotEmpty
           ? BranchRepository.instance.cachedBranches
           : MockHomeRepository.getBranches();
       _branches = mockBranches;
-      _selectedBranch = mockBranches.first;
-      _serviceTitle = ServiceRepository.defaultCoreVodderService.name;
-      _serviceDuration = ServiceRepository.defaultCoreVodderService.durationMinutes;
-      _pricePerPerson = ServiceRepository.defaultCoreVodderService.displayPrice;
-      _vatRate = ServiceRepository.defaultCoreVodderService.vatRate;
+      _selectedBranch = widget.initialBranch ?? mockBranches.first;
+      _serviceTitle = widget.initialService?.name ?? ServiceRepository.defaultCoreVodderService.name;
+      _serviceDuration = widget.initialService?.durationMinutes ?? ServiceRepository.defaultCoreVodderService.durationMinutes;
+      _pricePerPerson = widget.initialService?.displayPrice ?? ServiceRepository.defaultCoreVodderService.displayPrice;
+      _vatRate = widget.initialService?.vatRate ?? ServiceRepository.defaultCoreVodderService.vatRate;
       _nameController.text = 'Khách hàng MLD';
       _phoneController.text = '0967786399';
     } else {
@@ -75,7 +95,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   }
 
   Future<void> _loadBranchesAndUser() async {
-    final coreService = await ServiceRepository.instance.getCoreVodderService();
+    final coreService = widget.initialService ?? await ServiceRepository.instance.getCoreVodderService();
     final branches = await BranchRepository.instance.getBranches();
     final profile = await MembershipRepository.instance.fetchProfile();
     final userPhone = AuthService.instance.lastLoginPhone ?? (profile.phone.isNotEmpty ? profile.phone : (AuthService.instance.currentPhone ?? '0967786399'));
@@ -83,15 +103,15 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
     if (mounted) {
       setState(() {
-        _serviceId = coreService.id.isNotEmpty && !coreService.id.startsWith('srv-')
+        _serviceId = (coreService.id.isNotEmpty && !coreService.id.startsWith('srv-'))
             ? coreService.id
             : '235166f2-66c9-4231-bbe1-af91b48fc67c';
-        _serviceTitle = coreService.name;
-        _serviceDuration = coreService.durationMinutes;
-        _pricePerPerson = coreService.displayPrice;
-        _vatRate = coreService.vatRate;
+        _serviceTitle = widget.initialService?.name ?? coreService.name;
+        _serviceDuration = widget.initialService?.durationMinutes ?? coreService.durationMinutes;
+        _pricePerPerson = widget.initialService?.displayPrice ?? coreService.displayPrice;
+        _vatRate = widget.initialService?.vatRate ?? coreService.vatRate;
         _branches = branches;
-        _selectedBranch = BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
+        _selectedBranch = widget.initialBranch ?? BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
         if (_isBookingForSelf) {
           _nameController.text = userName;
           _phoneController.text = userPhone;
@@ -275,26 +295,27 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       return;
     }
 
-    if (!AuthService.instance.isLoggedIn) {
-      final ok = await GuestAuthPrompt.ensureLoggedIn(
-        context,
-        title: 'Đăng nhập để đặt lịch',
-        message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để xác nhận lịch hẹn.',
-      );
-      if (!ok || !mounted) return;
-    }
-
     setState(() => _isSubmitting = true);
 
     final appointmentCode = 'MLD-DL-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
     final dateString =
         '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}';
 
+    final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+    final String rawBranchId = _selectedBranch?.id ?? '';
+    final String safeBranchId = (rawBranchId.isNotEmpty && uuidRegex.hasMatch(rawBranchId))
+        ? rawBranchId
+        : 'aaaaaaaa-0001-0001-0001-000000000001';
+
+    final String safeServiceId = (_serviceId.isNotEmpty && uuidRegex.hasMatch(_serviceId))
+        ? _serviceId
+        : '235166f2-66c9-4231-bbe1-af91b48fc67c';
+
     final appointment = AppointmentItemModel(
       id: appointmentCode,
       bookingCode: appointmentCode,
-      branchId: _selectedBranch?.id ?? 'aaaaaaaa-0001-0001-0001-000000000001',
-      serviceId: _serviceId,
+      branchId: safeBranchId,
+      serviceId: safeServiceId,
       serviceName: _serviceTitle,
       serviceImage: 'assets/images/logo.webp',
       durationMinutes: _serviceDuration,
@@ -314,6 +335,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       depositAmount: 0,
       remainingAmount: _totalPrice,
       paymentMethod: 'CASH_AT_SPA',
+      paymentStatus: 'UNPAID',
       status: AppointmentStatus.pending, // Chờ duyệt
       createdAt: DateTime.now(),
       timeline: [
@@ -587,7 +609,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         if (time != null) setState(() => _selectedStartTime = time);
                       },
                     ),
-                    
                   ],
                 ),
               ),

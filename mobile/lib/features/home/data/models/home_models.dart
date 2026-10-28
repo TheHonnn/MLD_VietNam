@@ -311,6 +311,38 @@ class SpaServiceModel {
       isFeatured: json['is_featured'] as bool? ?? false,
     );
   }
+
+  SpaServiceModel copyWith({
+    String? id,
+    String? name,
+    String? categoryName,
+    String? shortDescription,
+    String? fullDescription,
+    int? durationMinutes,
+    double? price,
+    double? discountPrice,
+    double? vatRate,
+    String? imageUrl,
+    List<String>? steps,
+    List<String>? benefits,
+    bool? isFeatured,
+  }) {
+    return SpaServiceModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      categoryName: categoryName ?? this.categoryName,
+      shortDescription: shortDescription ?? this.shortDescription,
+      fullDescription: fullDescription ?? this.fullDescription,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      price: price ?? this.price,
+      discountPrice: discountPrice ?? this.discountPrice,
+      vatRate: vatRate ?? this.vatRate,
+      imageUrl: imageUrl ?? this.imageUrl,
+      steps: steps ?? this.steps,
+      benefits: benefits ?? this.benefits,
+      isFeatured: isFeatured ?? this.isFeatured,
+    );
+  }
 }
 
 /// 6. Khóa đào tạo nghề MLD (Mới)

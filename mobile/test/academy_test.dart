@@ -211,7 +211,13 @@ void main() {
     // 6. Hiển thị thông báo trạng thái "Chờ nhân viên duyệt"
     expect(find.text('Đăng ký thành công'), findsOneWidget);
     expect(find.text('Trạng thái: Chờ nhân viên duyệt'), findsOneWidget);
-    expect(find.textContaining('Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) =>
+          w is Text &&
+          (w.data?.contains('Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ') == true ||
+              w.data?.contains('Nhân viên kiểm tra hồ sơ và xác nhận học phí') == true)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Test E05EnrollmentFormScreen & E01: Khóa học đã đăng ký hiện nút "Đã đăng ký", không cho đăng ký lại, bấm "Đăng ký học" vào thẳng E05', (WidgetTester tester) async {

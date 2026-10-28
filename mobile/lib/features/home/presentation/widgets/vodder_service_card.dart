@@ -22,8 +22,6 @@ class VodderServiceCard extends StatefulWidget {
 }
 
 class _VodderServiceCardState extends State<VodderServiceCard> {
-  bool _isButtonPressed = false;
-
   String _formatCurrency(double amount) {
     final integerAmount = amount.toInt();
     final str = integerAmount.toString();
@@ -139,47 +137,45 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                       ),
                       const SizedBox(width: 8),
 
-                      // Nút Đặt lịch (chạm vào đổi sang gradient xanh mượt mà, giữ yên không mở trang)
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTapDown: (_) => setState(() => _isButtonPressed = true),
-                        onTapUp: (_) {
-                          setState(() => _isButtonPressed = false);
-                          widget.onBooking();
-                        },
-                        onTapCancel: () => setState(() => _isButtonPressed = false),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeInOut,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.5),
-                          decoration: BoxDecoration(
-                            gradient: _isButtonPressed ? AppColors.greenActionGradient : null,
-                            color: _isButtonPressed ? null : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _isButtonPressed ? const Color(0xFF00693F) : const Color(0xFFE2E8F0),
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                context.tr('Đặt lịch', 'Book Now'),
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _isButtonPressed ? Colors.white : const Color(0xFF0F172A),
+                      // Nút Đặt lịch với InkWell đảm bảo phản hồi chạm 100% không bị scroll cancel
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: widget.onBooking,
+                          child: Ink(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.5),
+                            decoration: BoxDecoration(
+                              gradient: AppColors.greenActionGradient,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF00693F).withValues(alpha: 0.25),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.calendar_month_outlined,
-                                size: 14,
-                                color: _isButtonPressed ? Colors.white : const Color(0xFF0F172A),
-                              ),
-                            ],
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  context.tr('Đặt lịch', 'Book Now'),
+                                  style: const TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.calendar_month_outlined,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

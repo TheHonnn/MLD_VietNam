@@ -207,13 +207,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   }
 
   Future<void> _handleBooking() async {
-    final ok = await GuestAuthPrompt.ensureLoggedIn(
-      context,
-      title: 'Đăng nhập để đặt lịch',
-      message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để đặt lịch hẹn và lưu trữ hồ sơ điều trị.',
-    );
-    if (!ok || !mounted) return;
-
     if (widget.onNavigateToBooking != null) {
       widget.onNavigateToBooking!.call();
     } else {

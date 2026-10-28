@@ -1,6 +1,5 @@
 import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
@@ -729,17 +728,12 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                             );
                           }
 
-                          final ok = await GuestAuthPrompt.ensureLoggedIn(
-                            context,
-                            title: 'Đăng nhập để đặt lịch',
-                            message: 'Quý khách vui lòng đăng nhập để đặt lịch trị liệu với dịch vụ này.',
-                          );
-                          if (!ok || !context.mounted) return;
-
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const AllInOneBookingScreen(),
+                              builder: (_) => AllInOneBookingScreen(
+                                initialService: effectiveService,
+                              ),
                             ),
                           );
                         },

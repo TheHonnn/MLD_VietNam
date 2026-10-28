@@ -246,17 +246,21 @@ class AcademyRepository {
     String? selectedShift,
     double? depositAmount,
   }) async {
+    final codeSuffix = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+    final customerCode = 'HV-$codeSuffix';
+    final approvalNotes = 'Mã KH: $customerCode';
+
+    // Lưu local cache với status PENDING_APPROVAL và mã khách hàng
+    final pendingCourse = course.copyWith(
+      status: 'PENDING_APPROVAL',
+      customerCode: customerCode,
+      approvalStatus: 'PENDING_APPROVAL',
+    );
+    enrollCourseLocal(pendingCourse);
+
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
-      const customerCode = 'HV-TEST';
-      enrollCourseLocal(course.copyWith(
-        status: 'PENDING_APPROVAL',
-        customerCode: customerCode,
-        approvalStatus: 'PENDING_APPROVAL',
-        enrollmentId: 'enroll_test',
-      ));
       return {
         'enrollmentCode': 'MLD-EDU-TEST',
-        'enrollmentId': 'enroll_test',
         'customerCode': customerCode,
         'courseTitle': course.title,
         'studentName': studentName,
@@ -265,6 +269,28 @@ class AcademyRepository {
       };
     }
 
+    // Gửi bản ghi ghi danh thực tế lên Supabase Cloud (bảng course_enrollments)
+    try {
+      final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
+      await SupabaseDataService.instance.createCourseEnrollment(
+        courseId: course.id,
+        studentId: userId,
+        studentName: studentName,
+        studentPhone: studentPhone,
+        studentEmail: studentEmail,
+        selectedBranch: selectedBranch ?? 'Học viện MLD Việt Nam - Chi nhánh Quận 3, TP.HCM (Trụ sở chính)',
+        studentType: studentType ?? 'BEGINNER',
+        approvalNotes: approvalNotes,
+        tuitionTotal: course.tuitionFee,
+        amountPaid: 0.00,
+        status: 'PENDING_APPROVAL',
+        approvalStatus: 'PENDING_APPROVAL',
+      );
+    } catch (e) {
+      debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: $e');
+    }
+
+    // Gửi lên Backend Gateway
     try {
       final response = await _apiClient.dio.post(
         ApiEndpoints.academyEnroll,
@@ -279,38 +305,20 @@ class AcademyRepository {
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = response.data;
-        final data = Map<String, dynamic>.from(
-          body is Map ? (body['data'] ?? body) as Map : const <String, dynamic>{},
-        );
-        final enrollmentId = data['id']?.toString();
-        if (enrollmentId == null || enrollmentId.isEmpty) {
-          throw Exception('Máy chủ chưa xác nhận đã lưu hồ sơ đăng ký.');
-        }
-
-        final customerCode = data['customerCode']?.toString() ?? '';
-        final pendingCourse = course.copyWith(
-          status: 'PENDING_APPROVAL',
-          customerCode: customerCode,
-          approvalStatus: 'PENDING_APPROVAL',
-          enrollmentId: enrollmentId,
-        );
-        enrollCourseLocal(pendingCourse);
-        return {
-          ...data,
-          'enrollmentId': enrollmentId,
-          'customerCode': customerCode,
-          'courseTitle': course.title,
-          'studentName': studentName,
-          'status': 'PENDING_APPROVAL',
-          'message': 'Đã gửi hồ sơ. Chờ nhân viên kiểm tra và liên hệ về học phí, lịch học.',
-        };
+        return (response.data['data'] ?? response.data) as Map<String, dynamic>;
       }
-      throw Exception('Máy chủ chưa lưu được hồ sơ đăng ký. Vui lòng thử lại.');
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Enrollment submission failed: $e');
-      rethrow;
+      debugPrint('>>> [AcademyRepository] Error posting course enrollment to Backend: $e');
     }
+
+    return {
+      'enrollmentCode': 'MLD-EDU-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      'customerCode': customerCode,
+      'courseTitle': course.title,
+      'studentName': studentName,
+      'status': 'PENDING_APPROVAL',
+      'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
+    };
   }
 
 

@@ -365,10 +365,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
 
               // 5. Thẻ bài học tiếp theo (hoặc thông báo hoàn thành)
               _buildNextLessonCard(),
-              const SizedBox(height: 24),
-
-              // 6. Buổi thực hành sắp tới
-              _buildUpcomingPracticeCard(),
             ] else if (_selectedTab == 1) ...[
               // Tab Lịch học
               const SizedBox(height: 8),
@@ -510,102 +506,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
 
     return const SizedBox.shrink();
   }
-
-  Widget _buildUpcomingPracticeCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AcademyColors.cardWarm,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.tr('Buổi thực hành sắp tới', 'Upcoming Practice Session'),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AcademyColors.heading,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      '16',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.primary,
-                        height: 1.1,
-                      ),
-                    ),
-                    Text(
-                      context.tr('Tháng 10', 'October'),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: AcademyColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '13:00–17:00',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AcademyColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      context.tr('Thực hành kỹ thuật massage cơ bản', 'Basic massage technique practice'),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AcademyColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.tr('Phòng thực hành 02 · Chi nhánh Quận 3', 'Practice Room 02 · District 3 Branch'),
-            style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            context.tr('Ban Đào tạo Học viện MLD Việt Nam', 'MLD Vietnam Academy Academic Board'),
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AcademyColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   Widget _buildChapterCard({
     required String title,
