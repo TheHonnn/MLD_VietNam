@@ -1,5 +1,6 @@
 import { StaffCommission, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
+import { isUuid } from '../utils/searchUtils';
 
 export const commissionService = {
   async getCommissions(params?: {
@@ -122,20 +123,29 @@ export const commissionService = {
     notes?: string;
   }): Promise<ApiResponse<StaffCommission | null>> {
     try {
+      const validStaffId = isUuid(data.staffId) ? data.staffId : null;
+      const validBranchId = isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+      const validBookingId = isUuid(data.bookingId) ? data.bookingId : null;
+      const validInvoiceId = isUuid(data.invoiceId) ? data.invoiceId : null;
+
+      if (!validStaffId) {
+        return { success: false, statusCode: 400, message: 'ID nhân viên không hợp lệ', data: null };
+      }
+
       const commissionAmount = Math.round((data.baseAmount * data.percentage) / 100);
       const now = new Date();
       const cycleMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
       const payload = {
-        staff_id: data.staffId,
-        branch_id: data.branchId,
-        booking_id: data.bookingId || null,
-        invoice_id: data.invoiceId || null,
+        staff_id: validStaffId,
+        branch_id: validBranchId,
+        booking_id: validBookingId,
+        invoice_id: validInvoiceId,
         commission_type: data.commissionType,
         base_amount: data.baseAmount,
         percentage: data.percentage,
         commission_amount: commissionAmount,
-        status: 'PENDING_APPROVAL',
+        status: 'APPROVED',
         cycle_month: cycleMonth,
         notes: data.notes || '',
       };

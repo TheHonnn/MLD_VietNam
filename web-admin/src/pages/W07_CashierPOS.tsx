@@ -815,7 +815,7 @@ export const W07_CashierPOS: React.FC = () => {
             await commissionService.createCommission({
               staffId: selectedEnrollment.assignedStaffId,
               branchId: validBranchId,
-              invoiceId: generatedInvoiceCode,
+              invoiceId: isUuid(resInvoice?.data?.id) ? resInvoice.data.id : undefined,
               commissionType: 'PACKAGE_UPSELL',
               baseAmount: amount,
               percentage: 5,
@@ -1052,7 +1052,7 @@ export const W07_CashierPOS: React.FC = () => {
             staffId: targetTechId,
             branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
             bookingId: validBookingId || null,
-            invoiceId: generatedInvoiceCode,
+            invoiceId: isUuid(resInvoice?.data?.id) ? resInvoice.data.id : undefined,
             commissionType: isPackage ? 'PACKAGE_UPSELL' : 'SERVICE_DIRECT',
             baseAmount: amount,
             percentage: commPercentage,
