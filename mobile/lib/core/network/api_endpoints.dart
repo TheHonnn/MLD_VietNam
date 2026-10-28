@@ -92,6 +92,7 @@ class ApiEndpoints {
   static const String authLinkEmail = '/auth/link-email';
   static const String authPhone = '/auth/phone';
   static const String authDeleteAccount = '/auth/account';
+  static const String authChangePassword = '/auth/change-password';
 
   // --- Academy (Group E) Endpoints ---
   static const String academyCourses = '/academy/courses';

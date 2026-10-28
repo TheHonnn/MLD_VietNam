@@ -315,7 +315,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           const Icon(Icons.school_outlined, size: 48, color: AcademyColors.textSecondary),
           const SizedBox(height: 14),
           Text(
-            'Chưa có khóa học $tabTitle',
+            '${context.tr("Chưa có khóa học", "No courses")} ${context.tr(tabTitle)}',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontFamily: 'Montserrat',
@@ -412,8 +412,8 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: const Color(0xFFFDE68A)),
                             ),
-                            child: const Text(
-                              'CHỜ DUYỆT',
+                            child: Text(
+                              context.tr('CHỜ DUYỆT', 'PENDING APPROVAL'),
                               style: TextStyle(
                                 fontFamily: 'Montserrat',
                                 fontSize: 9.5,
@@ -430,8 +430,8 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
-                          child: const Text(
-                            'ĐANG HỌC',
+                          child: Text(
+                            context.tr('ĐANG HỌC', 'IN PROGRESS'),
                             style: TextStyle(
                               fontFamily: 'Montserrat',
                               fontSize: 9.5,
@@ -473,7 +473,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  course.schedule,
+                  course.schedule.tr(context),
                   style: const TextStyle(fontSize: 12, color: AcademyColors.textPrimary, fontWeight: FontWeight.w500),
                 ),
               ),
@@ -552,8 +552,8 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Chọn khóa học để làm bài kiểm tra:',
+        Text(
+          context.tr('Chọn khóa học để làm bài kiểm tra:', 'Select a course to take quiz:'),
           style: TextStyle(
             fontFamily: 'Montserrat',
             fontSize: 14,
@@ -619,7 +619,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                course.title,
+                                course.title.tr(context),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -632,7 +632,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${quizzes.length} bài kiểm tra trắc nghiệm',
+                                '${quizzes.length} ${context.tr("bài kiểm tra trắc nghiệm", "multiple choice quizzes")}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: AcademyColors.textSecondary,
@@ -665,10 +665,10 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                             ),
                           )
                         : quizzes.isEmpty
-                            ? const Padding(
-                                padding: EdgeInsets.all(16.0),
+                            ? Padding(
+                                padding: const EdgeInsets.all(16.0),
                                 child: Text(
-                                  'Chưa có bài kiểm tra nào được tạo cho khóa học này.',
+                                  context.tr('Chưa có bài kiểm tra nào được tạo cho khóa học này.', 'No quizzes created for this course yet.'),
                                   style: TextStyle(fontSize: 12.5, color: Colors.grey),
                                 ),
                               )
@@ -715,7 +715,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
             children: [
               Expanded(
                 child: Text(
-                  quiz.title,
+                  quiz.title.tr(context),
                   style: const TextStyle(
                     fontFamily: 'Montserrat',
                     fontSize: 14,
@@ -735,8 +735,8 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                   ),
                   child: Text(
                     isPassed
-                        ? 'ĐẠT · ${submission.score.toStringAsFixed(1)}/10'
-                        : 'CHƯA ĐẠT · ${submission.score.toStringAsFixed(1)}/10',
+                        ? '${context.tr("ĐẠT", "PASSED")} · ${submission.score.toStringAsFixed(1)}/10'
+                        : '${context.tr("CHƯA ĐẠT", "FAILED")} · ${submission.score.toStringAsFixed(1)}/10',
                     style: TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 10.5,
@@ -752,8 +752,8 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                     color: const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
-                    'Chưa làm bài',
+                  child: Text(
+                    context.tr('Chưa làm bài', 'Not Taken'),
                     style: TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 10.5,
@@ -768,7 +768,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
 
           // Thông tin: Thời gian, số câu, tiêu chí được điểm theo Admin quy định
           Text(
-            '${quiz.totalQuestions} câu hỏi · Thời gian: ${quiz.timeLimitMinutes} phút',
+            '${quiz.totalQuestions} ${context.tr("câu hỏi", "questions")} · ${context.tr("Thời gian:", "Time:")} ${quiz.timeLimitMinutes} ${context.tr("phút", "mins")}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -777,7 +777,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Tiêu chí đạt: ≥ ${quiz.passingScore.toStringAsFixed(1)} / 10 điểm (đạt từ 80% trở lên)',
+            '${context.tr("Tiêu chí đạt:", "Passing criteria:")} ≥ ${quiz.passingScore.toStringAsFixed(1)} / 10 ${context.tr("điểm", "points")} (${context.tr("đạt từ 80% trở lên", "80% or above")})',
             style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
@@ -817,7 +817,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                 elevation: 0,
               ),
               child: Text(
-                hasTaken ? (isPassed ? 'Xem lại bài thi' : 'Bắt đầu làm lại') : 'Bắt đầu',
+                hasTaken ? (isPassed ? context.tr('Xem lại bài thi', 'Review Quiz') : context.tr('Bắt đầu làm lại', 'Retake Quiz')) : context.tr('Bắt đầu', 'Start'),
                 style: const TextStyle(
                   fontFamily: 'Montserrat',
                   fontSize: 13,

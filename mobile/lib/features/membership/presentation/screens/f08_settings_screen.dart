@@ -11,6 +11,7 @@ import '../../../home/data/repositories/branch_repository.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import 'f02_edit_profile_screen.dart';
+import '../widgets/change_password_modal.dart';
 
 class F08SettingsScreen extends StatefulWidget {
   const F08SettingsScreen({super.key});
@@ -487,8 +488,8 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
 
               const SizedBox(height: 24),
 
-              // --- 2. NHÓM TÀI KHOẢN ---
-              _buildSectionTitle(isEn ? 'Account' : 'Tài khoản'),
+              // --- 2. NHÓM BẢO MẬT & TÀI KHOẢN ---
+              _buildSectionTitle(isEn ? 'Security & Account' : 'Bảo mật & Tài khoản'),
               _buildCardGroup([
                 _buildMenuItem(
                   icon: Icons.person_outline_rounded,
@@ -501,12 +502,18 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                   },
                 ),
                 _buildMenuItem(
-                  icon: Icons.shield_outlined,
-                  title: isEn ? 'Account Security' : 'Bảo mật tài khoản',
+                  icon: Icons.lock_reset_rounded,
+                  title: isEn ? 'Change Password' : 'Đổi mật khẩu',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(isEn ? 'Account security & PIN protection' : 'Bảo mật tài khoản & mật khẩu PIN')),
-                    );
+                    if (!AuthService.instance.isLoggedIn) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(isEn ? 'Please sign in to change password' : 'Vui lòng đăng nhập để đổi mật khẩu'),
+                        ),
+                      );
+                      return;
+                    }
+                    ChangePasswordModal.show(context);
                   },
                 ),
                 _buildMenuItem(

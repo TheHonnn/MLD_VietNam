@@ -1,6 +1,7 @@
 ﻿import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
@@ -1153,7 +1154,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
                           );
                         },
-                        child: const Text('Xem bài viết chuyên môn', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                        child: Text(context.tr('Xem bài viết chuyên môn', 'View Expert Articles'), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ],

@@ -22,6 +22,7 @@ import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { AccountLinkDto } from './dto/account-link.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -582,6 +583,52 @@ export class AuthService {
   /**
    * Liên kết tài khoản: Bổ sung Email & Mật khẩu vào tài khoản đã đăng ký bằng SĐT
    */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const { currentPassword, newPassword } = dto;
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('Mật khẩu mới không được trùng với mật khẩu hiện tại');
+    }
+
+    const { data: user, error } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, password_hash, email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error || !user) {
+      throw new NotFoundException('Không tìm thấy tài khoản người dùng');
+    }
+
+    if (!user.password_hash) {
+      throw new BadRequestException('Tài khoản chưa được thiết lập mật khẩu');
+    }
+
+    const isMatch = await this.passwordHasherService.comparePassword(currentPassword, user.password_hash);
+    if (!isMatch) {
+      throw new BadRequestException('Mật khẩu hiện tại không chính xác');
+    }
+
+    const newHash = await this.passwordHasherService.hashPassword(newPassword);
+
+    await this.supabaseService.adminClient
+      .from('users')
+      .update({ password_hash: newHash })
+      .eq('id', userId);
+
+    if (user.email) {
+      await this.supabaseService.adminClient
+        .from('auth_identities')
+        .update({ password_hash: newHash })
+        .eq('user_id', userId)
+        .eq('identifier', user.email.toLowerCase().trim());
+    }
+
+    return {
+      success: true,
+      message: 'Đổi mật khẩu thành công.',
+    };
+  }
+
   async linkAccountWithEmail(userId: string, dto: AccountLinkDto) {
     const cleanEmail = dto.email.toLowerCase().trim();
     await this.otpService.verifyOtp(cleanEmail, 'ACCOUNT_LINKING', dto.otp);

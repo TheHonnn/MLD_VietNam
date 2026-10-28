@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
@@ -94,8 +95,8 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     if (!AuthService.instance.isLoggedIn) {
       final ok = await GuestAuthPrompt.ensureLoggedIn(
         context,
-        title: 'Đăng nhập để đăng ký học',
-        message: 'Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.',
+        title: context.tr('Đăng nhập để đăng ký học', 'Sign In to Enroll'),
+        message: context.tr('Quý khách vui lòng đăng nhập hoặc tạo tài khoản để nộp hồ sơ học viên.', 'Please sign in or create an account to submit your application.'),
       );
       if (!ok || !mounted) return;
     }
@@ -134,7 +135,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Có lỗi xảy ra khi gửi hồ sơ: $e'),
+            content: Text(context.isEn ? 'An error occurred while submitting application: $e' : 'Có lỗi xảy ra khi gửi hồ sơ: $e'),
             backgroundColor: Colors.red[700],
           ),
         );
@@ -507,29 +508,29 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               const SizedBox(height: 22),
 
               // 3. Thông tin cá nhân
-              _buildSectionHeader('1. Thông tin cá nhân học viên'),
+              _buildSectionHeader(context.tr('1. Thông tin cá nhân học viên', '1. Student Personal Information')),
               const SizedBox(height: 12),
               _buildInputField(
-                label: 'Họ và tên *',
+                label: context.tr('Họ và tên *', 'Full Name *'),
                 controller: _nameController,
-                hint: 'Nhập họ và tên đầy đủ',
+                hint: context.tr('Nhập họ và tên đầy đủ', 'Enter full name'),
                 prefixIcon: Icons.person_outline_rounded,
                 validator: AppValidators.fullName,
               ),
               const SizedBox(height: 12),
               _buildInputField(
-                label: 'Số điện thoại *',
+                label: context.tr('Số điện thoại *', 'Phone Number *'),
                 controller: _phoneController,
-                hint: 'Nhập số điện thoại liên hệ',
+                hint: context.tr('Nhập số điện thoại liên hệ', 'Enter contact phone number'),
                 keyboardType: TextInputType.phone,
                 prefixIcon: Icons.phone_outlined,
                 validator: AppValidators.phone,
               ),
               const SizedBox(height: 12),
               _buildInputField(
-                label: 'Địa chỉ Email *',
+                label: context.tr('Địa chỉ Email *', 'Email Address *'),
                 controller: _emailController,
-                hint: 'Nhập địa chỉ email',
+                hint: context.tr('Nhập địa chỉ email', 'Enter email address'),
                 keyboardType: TextInputType.emailAddress,
                 prefixIcon: Icons.mail_outline_rounded,
                 validator: AppValidators.email,
@@ -537,7 +538,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               const SizedBox(height: 22),
 
               // 4. Cơ sở đào tạo
-              _buildSectionHeader('2. Cơ sở đào tạo'),
+              _buildSectionHeader(context.tr('2. Cơ sở đào tạo', '2. Training Branch')),
               const SizedBox(height: 10),
               Container(
                 decoration: BoxDecoration(
@@ -582,7 +583,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               const SizedBox(height: 22),
 
               // 5. Lựa chọn đối tượng học viên (1 là Người mới bắt đầu, 2 là Đang làm nghề)
-              _buildSectionHeader('3. Bạn thuộc nhóm đối tượng nào?'),
+              _buildSectionHeader(context.tr('3. Bạn thuộc nhóm đối tượng nào?', '3. Which target group do you belong to?')),
               const SizedBox(height: 10),
               _buildTargetGroupCard(
                 index: 0,

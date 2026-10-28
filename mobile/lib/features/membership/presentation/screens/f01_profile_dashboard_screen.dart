@@ -480,18 +480,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               const SizedBox(height: 8),
               _buildCardContainer([
                 _buildMenuItem(
-                  icon: Icons.person_outline_rounded,
-                  title: context.tr('Thông tin cá nhân', 'Personal Information'),
-                  onTap: () => _requireLoginAndRun(() async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
-                    );
-                    _refreshProfile();
-                  }, title: 'Thông tin cá nhân', message: 'Vui lòng đăng nhập để xem và cập nhật hồ sơ cá nhân của bạn.'),
-                ),
-                const Divider(height: 1, indent: 56, color: AppColors.border),
-                _buildMenuItem(
                   icon: Icons.settings_outlined,
                   title: context.tr('Cài đặt tài khoản', 'Account Settings'),
                   onTap: () => _requireLoginAndRun(() {
