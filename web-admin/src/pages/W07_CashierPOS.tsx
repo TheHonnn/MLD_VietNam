@@ -25,6 +25,9 @@ import {
   Download,
   GraduationCap,
   Plus,
+  Calendar,
+  Building2,
+  UserCheck,
 } from 'lucide-react';
 import { exportElementToPdf } from '../utils/pdfExport';
 import {
@@ -51,9 +54,25 @@ import {
   CourseEnrollment,
   StudentAdmissionStatus,
   EnrollmentStatus,
+  Service,
+  Technician,
+  DualSlotAvailability,
 } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { useAdmin } from '../admin/Auth';
+
+export const POS_TIME_SLOTS = [
+  { label: '09:00–10:00', startTime: '09:00:00', endTime: '10:00:00' },
+  { label: '10:00–11:00', startTime: '10:00:00', endTime: '11:00:00' },
+  { label: '11:00–12:00', startTime: '11:00:00', endTime: '12:00:00' },
+  { label: '13:30–14:30', startTime: '13:30:00', endTime: '14:30:00' },
+  { label: '14:30–15:30', startTime: '14:30:00', endTime: '15:30:00' },
+  { label: '15:30–16:30', startTime: '15:30:00', endTime: '16:30:00' },
+  { label: '16:30–17:30', startTime: '16:30:00', endTime: '17:30:00' },
+  { label: '17:30–18:30', startTime: '17:30:00', endTime: '18:30:00' },
+  { label: '18:30–19:30', startTime: '18:30:00', endTime: '19:30:00' },
+  { label: '19:30–20:30', startTime: '19:30:00', endTime: '20:30:00' },
+];
 
 export const W07_CashierPOS: React.FC = () => {
   const { user: adminUser } = useAdmin();
@@ -166,6 +185,21 @@ export const W07_CashierPOS: React.FC = () => {
   const [shiftClosingCash, setShiftClosingCash] = useState<number>(0);
   const [shiftNotes, setShiftNotes] = useState('');
 
+  // Walk-in Quick Booking Modal State (DRC: 6 Giường × 6 KTV × Ca 1 Giờ)
+  const [showWalkInModal, setShowWalkInModal] = useState<boolean>(false);
+  const [walkInCustomerName, setWalkInCustomerName] = useState<string>('');
+  const [walkInCustomerPhone, setWalkInCustomerPhone] = useState<string>('');
+  const [walkInCustomerId, setWalkInCustomerId] = useState<string>('');
+  const [walkInServiceId, setWalkInServiceId] = useState<string>('');
+  const [walkInDate, setWalkInDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [walkInSlotIndex, setWalkInSlotIndex] = useState<number>(0);
+  const [walkInTechId, setWalkInTechId] = useState<string>(''); // rỗng = least-busy auto assign
+  const [walkInDrcSlots, setWalkInDrcSlots] = useState<DualSlotAvailability[]>([]);
+  const [isLoadingWalkInSlots, setIsLoadingWalkInSlots] = useState<boolean>(false);
+  const [isSubmittingWalkIn, setIsSubmittingWalkIn] = useState<boolean>(false);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [allTechnicians, setAllTechnicians] = useState<Technician[]>([]);
+
   const [selectedReceiptData, setSelectedReceiptData] = useState<{
     id: string;
     customerName: string;
@@ -224,7 +258,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
-      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes] = await Promise.all([
+      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes, srvRes, techRes] = await Promise.all([
         posService.getInvoices(),
         bookingService.getBookings(),
         customerService.getCustomers(),
@@ -232,6 +266,8 @@ export const W07_CashierPOS: React.FC = () => {
         treatmentService.getTreatmentPackages(),
         posService.getActiveShift(selectedBranchId !== 'ALL' ? selectedBranchId : undefined),
         academyService.getEnrollments(),
+        supabaseService.getServices(),
+        supabaseService.getTechnicians(),
       ]);
       if (invRes.success) setInvoices(invRes.data);
       if (brRes.success && brRes.data) setBranches(brRes.data);
@@ -239,6 +275,11 @@ export const W07_CashierPOS: React.FC = () => {
       if (pkgRes.success && pkgRes.data) setTreatmentPackages(pkgRes.data);
       if (shiftRes.success && shiftRes.data) setCurrentShift(shiftRes.data);
       if (enrRes.success && enrRes.data) setAllEnrollments(enrRes.data);
+      if (srvRes && srvRes.length > 0) {
+        setAllServices(srvRes);
+        setWalkInServiceId((prev) => prev || srvRes[0].id);
+      }
+      if (techRes && techRes.length > 0) setAllTechnicians(techRes);
       
       const bks = bkRes.success ? bkRes.data : [];
       setAllBookings(bks);
@@ -250,6 +291,88 @@ export const W07_CashierPOS: React.FC = () => {
   useEffect(() => {
     fetchPosData();
   }, []);
+
+  // Tự động tải danh sách 10 ca 1 tiếng DRC khi mở modal Đặt lịch tại quầy
+  useEffect(() => {
+    if (!showWalkInModal) return;
+    const fetchWalkInSlots = async () => {
+      setIsLoadingWalkInSlots(true);
+      try {
+        const branch = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+        const res = await bookingService.getDaySlotsDualAvailability(branch, walkInDate);
+        if (res.success && res.data) {
+          setWalkInDrcSlots(res.data);
+        }
+      } catch (e) {
+        console.warn('Lỗi lấy slots cho walk-in POS:', e);
+      } finally {
+        setIsLoadingWalkInSlots(false);
+      }
+    };
+    fetchWalkInSlots();
+  }, [showWalkInModal, walkInDate, selectedBranchId]);
+
+  // Xử lý tạo đơn đặt lịch nhanh tại quầy (Walk-in)
+  const handleCreateWalkInBooking = async () => {
+    if (!walkInCustomerName.trim()) {
+      toast.warning('Thiếu thông tin', 'Vui lòng nhập họ tên khách hàng.');
+      return;
+    }
+    const chosenService = allServices.find((s) => s.id === walkInServiceId) || allServices[0];
+    const chosenSlot = POS_TIME_SLOTS[walkInSlotIndex] || POS_TIME_SLOTS[0];
+    const targetBranchId = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+
+    // Kiểm tra DRC slot
+    const drcInfo = walkInDrcSlots.find(
+      (d) => d.slotTime === chosenSlot.label || d.startTime?.startsWith(chosenSlot.startTime.slice(0, 5))
+    );
+    if (drcInfo && !drcInfo.isAvailable) {
+      toast.error('Hết chỗ', `Không thể đặt lịch ca này: ${drcInfo.statusText}. Vui lòng chọn ca khác!`);
+      return;
+    }
+
+    setIsSubmittingWalkIn(true);
+    try {
+      const srvPrice = Number(chosenService?.price || 450000);
+      const res = await bookingService.createBooking({
+        customerName: walkInCustomerName.trim(),
+        customerPhone: walkInCustomerPhone.trim() || undefined,
+        customerId: walkInCustomerId || undefined,
+        branchId: targetBranchId,
+        serviceId: chosenService?.id,
+        serviceName: chosenService?.name || 'Chăm sóc & Trị liệu Spa',
+        durationMinutes: chosenService?.durationMinutes || 60,
+        bookingDate: walkInDate,
+        startTime: chosenSlot.startTime,
+        endTime: chosenSlot.endTime,
+        baseTotal: srvPrice,
+        finalPrice: srvPrice,
+        status: BookingStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.UNPAID,
+        technicianId: walkInTechId || undefined,
+        notes: `[POS Walk-in] Khách vãng lai tiếp nhận tại quầy ${new Date().toLocaleTimeString('vi-VN')}`,
+      });
+
+      if (res.success && res.data) {
+        toast.success(
+          'Tiếp nhận Walk-in thành công',
+          `Đã tạo đơn ${res.data.bookingCode} cho khách ${walkInCustomerName}. Chuyển sang thanh toán POS!`
+        );
+        setAllBookings((prev) => [res.data, ...prev]);
+        setBooking(res.data);
+        setIsPaid(false);
+        setSearchTerm(`${walkInCustomerName} / ${res.data.bookingCode}`);
+        setShowWalkInModal(false);
+      } else {
+        toast.error('Lỗi đặt lịch tại quầy', res.message || 'Không thể tạo đơn đặt lịch.');
+      }
+    } catch (err: any) {
+      console.error('Lỗi tạo walk-in booking:', err);
+      toast.error('Lỗi', err?.message || 'Có lỗi xảy ra khi tạo lịch hẹn.');
+    } finally {
+      setIsSubmittingWalkIn(false);
+    }
+  };
 
   // Tra cứu đơn hoặc hóa đơn từ CSDL thực tế và hiển thị biên lai
   const loadReceiptByCode = async (rawCode?: string) => {
@@ -1276,6 +1399,21 @@ export const W07_CashierPOS: React.FC = () => {
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Đồng bộ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedBranchId === 'ALL' && branches.length > 0) {
+                setSelectedBranchId(branches[0].id);
+              }
+              setShowWalkInModal(true);
+            }}
+            className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+            title="Tạo lịch hẹn dịch vụ trực tiếp tại quầy theo chuẩn 6 Giường × 6 KTV"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Đặt lịch tại quầy (Walk-in)</span>
           </button>
 
           {activeTab === 'pos' ? (
@@ -3120,6 +3258,255 @@ export const W07_CashierPOS: React.FC = () => {
                   <span>Xác nhận đóng ca</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Walk-in Quick Booking Modal (Dual-Resource Engine: 6 Giường × 6 KTV × Ca 1 Giờ) */}
+      {showWalkInModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-[#D7BBA6] overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-emerald-800 to-teal-800 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-xl backdrop-blur-xs">
+                  <Calendar className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold">Tiếp nhận & Đặt lịch tại quầy (Walk-in)</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/30 text-emerald-100 border border-emerald-400/30">
+                      DRC Engine
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-200/90 mt-0.5">
+                    Ràng buộc tự động: 6 Giường × 6 KTV • Ca 1 Tiếng chuẩn Y tế
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWalkInModal(false)}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              {/* Row 1: Thông tin khách hàng */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Họ tên khách hàng <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={walkInCustomerName}
+                    onChange={(e) => setWalkInCustomerName(e.target.value)}
+                    placeholder="VD: Nguyễn Thị Lan"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="text"
+                    value={walkInCustomerPhone}
+                    onChange={(e) => setWalkInCustomerPhone(e.target.value)}
+                    placeholder="VD: 0988123456"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Chi nhánh & Dịch vụ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Cơ sở thực hiện
+                  </label>
+                  <select
+                    value={selectedBranchId !== 'ALL' ? selectedBranchId : (branches[0]?.id || '')}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        📍 {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Dịch vụ trị liệu Spa
+                  </label>
+                  <select
+                    value={walkInServiceId}
+                    onChange={(e) => setWalkInServiceId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  >
+                    {allServices.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.durationMinutes || 60}p - {Number(s.price || 0).toLocaleString('vi-VN')}đ)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 3: Ngày hẹn & KTV */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Ngày thực hiện
+                  </label>
+                  <input
+                    type="date"
+                    value={walkInDate}
+                    onChange={(e) => setWalkInDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Kỹ thuật viên (DRC Dispatch)
+                  </label>
+                  <select
+                    value={walkInTechId}
+                    onChange={(e) => setWalkInTechId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  >
+                    <option value="">✨ Tự động phân bổ KTV ít ca nhất (Khuyên dùng)</option>
+                    {allTechnicians.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        👤 {t.fullName} {t.ratingAvg ? `(${t.ratingAvg}★)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 4: 10 Khung giờ ca 1 tiếng (DRC Slot Grid) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    Chọn khung giờ ca 1 tiếng & Tải công suất thực tế
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {isLoadingWalkInSlots ? 'Đang kiểm tra công suất...' : 'Trần: 6 Giường × 6 KTV'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {POS_TIME_SLOTS.map((slot, idx) => {
+                    const drc = walkInDrcSlots.find(
+                      (d) =>
+                        d.slotTime === slot.label ||
+                        (d.startTime && d.startTime.slice(0, 5) === slot.startTime.slice(0, 5))
+                    );
+
+                    const isAvail = drc ? drc.isAvailable : true;
+                    const cap = (drc?.remainingCapacity ?? drc?.capacity ?? 6);
+                    const beds = (drc?.freeBeds ?? drc?.availableBeds ?? 6);
+                    const techs = (drc?.freeStaff ?? drc?.availableTechnicians ?? 6);
+                    const isSelected = walkInSlotIndex === idx;
+
+                    if (!isAvail || cap <= 0) {
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={true}
+                          className="p-2.5 rounded-xl border border-dashed border-rose-200 bg-rose-50/60 text-left opacity-60 cursor-not-allowed select-none transition-all"
+                          title={drc?.statusText || 'Đã hết giường hoặc kỹ thuật viên cho ca này'}
+                        >
+                          <div className="text-[11px] font-bold text-rose-800">{slot.label}</div>
+                          <div className="text-[10px] text-rose-600 font-semibold mt-0.5">
+                            {drc?.statusText ? drc.statusText : beds === 0 ? '❌ Hết giường' : '❌ Hết KTV'}
+                          </div>
+                          <div className="text-[9px] text-rose-400 mt-0.5">
+                            {beds}G trống • {techs}NV
+                          </div>
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setWalkInSlotIndex(idx)}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/30 shadow-xs'
+                            : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold">{slot.label}</span>
+                          {drc?.isRecommended && (
+                            <span className="text-[8px] bg-emerald-600 text-white font-extrabold px-1 rounded">
+                              HOT
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                          Còn {cap} chỗ
+                        </div>
+                        <div className="text-[9px] text-slate-500 mt-0.5 flex items-center gap-1">
+                          <span>{beds}G</span> • <span>{techs}NV</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Thông tin xác nhận */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-800 flex items-start gap-2 text-[11px]">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold">Cơ chế quản lý giường & KTV thông minh (DRC Engine):</p>
+                  <p className="text-amber-700">
+                    Khi tạo đơn, hệ thống sẽ tự động chỉ định 1 Giường tiêu chuẩn và 1 Kỹ thuật viên còn trống ít ca nhất. Sau khi kết thúc thời lượng ca (60 phút), hệ thống tự động nhả tài nguyên cho ca kế tiếp.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowWalkInModal(false)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateWalkInBooking}
+                disabled={isSubmittingWalkIn}
+                className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                {isSubmittingWalkIn ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Đang khởi tạo & Khóa tài nguyên...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Xác nhận đặt lịch & Mở đơn POS</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

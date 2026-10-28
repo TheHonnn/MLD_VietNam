@@ -42,7 +42,21 @@ import {
   PaymentStatus,
   PaymentMethod,
   PackageStatus,
+  DualSlotAvailability,
 } from '../types/shared_types';
+
+export const STANDARD_SPA_SLOTS = [
+  { label: '09:00 – 10:00', startTime: '09:00:00', endTime: '10:00:00', startHour: '09:00' },
+  { label: '10:00 – 11:00', startTime: '10:00:00', endTime: '11:00:00', startHour: '10:00' },
+  { label: '11:00 – 12:00', startTime: '11:00:00', endTime: '12:00:00', startHour: '11:00' },
+  { label: '13:30 – 14:30', startTime: '13:30:00', endTime: '14:30:00', startHour: '13:30' },
+  { label: '14:30 – 15:30', startTime: '14:30:00', endTime: '15:30:00', startHour: '14:30' },
+  { label: '15:30 – 16:30', startTime: '15:30:00', endTime: '16:30:00', startHour: '15:30' },
+  { label: '16:30 – 17:30', startTime: '16:30:00', endTime: '17:30:00', startHour: '16:30' },
+  { label: '17:30 – 18:30', startTime: '17:30:00', endTime: '18:30:00', startHour: '17:30' },
+  { label: '18:30 – 19:30', startTime: '18:30:00', endTime: '19:30:00', startHour: '18:30' },
+  { label: '19:30 – 20:30', startTime: '19:30:00', endTime: '20:30:00', startHour: '19:30' },
+];
 
 interface TreatmentPackageUI {
   id: string;
@@ -129,6 +143,7 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [bookingTechnicianId, setBookingTechnicianId] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [drcSlots, setDrcSlots] = useState<DualSlotAvailability[]>([]);
 
   // Clinical Session Form
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -322,6 +337,18 @@ export const W06_TreatmentManagement: React.FC = () => {
     }
   }, [filteredPackages, selectedPkgId]);
 
+  // Fetch DRC slot availability when booking modal is opened
+  useEffect(() => {
+    if (isBookNextModalOpen && bookingDate) {
+      const branchId = bookingBranchId || branches[0]?.id || 'aaaaaaaa-0001-0001-0001-000000000001';
+      bookingService.getDaySlotsDualAvailability(branchId, bookingDate).then((res) => {
+        if (res.success && res.data) {
+          setDrcSlots(res.data);
+        }
+      }).catch(console.error);
+    }
+  }, [isBookNextModalOpen, bookingDate, bookingBranchId, branches]);
+
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredPackages.length / pageSize));
   const paginatedPackages = useMemo(() => {
@@ -399,6 +426,7 @@ export const W06_TreatmentManagement: React.FC = () => {
     try {
       const selectedBranch = branchMap.get(bookingBranchId) || branches[0];
       const selectedTech = technicians.find((t) => t.id === bookingTechnicianId) || availableBranchTechnicians[0];
+      const selectedSlotObj = STANDARD_SPA_SLOTS.find((s) => s.startHour === bookingTime) || STANDARD_SPA_SLOTS[0];
       const res = await bookingService.createBooking({
         customerId: selectedCustomer.id,
         customerName: selectedCustomer.fullName,
@@ -408,8 +436,8 @@ export const W06_TreatmentManagement: React.FC = () => {
         technicianName: selectedTech?.fullName || 'KTV MLD',
         roomName: selectedTech?.title || 'Phòng Trị Liệu',
         bookingDate,
-        startTime: `${bookingTime}:00`,
-        endTime: `${bookingTime.slice(0, 2)}:50:00`,
+        startTime: selectedSlotObj.startTime,
+        endTime: selectedSlotObj.endTime,
         status: BookingStatus.CONFIRMED,
         paymentStatus: PaymentStatus.PAID,
         paymentMethod: PaymentMethod.MEMBERSHIP_WALLET,
@@ -1219,17 +1247,16 @@ export const W06_TreatmentManagement: React.FC = () => {
                     onChange={(e) => setBookingTime(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
                   >
-                    <option value="08:30">08:30 - 09:30</option>
-                    <option value="09:00">09:00 - 10:00</option>
-                    <option value="09:30">09:30 - 10:30</option>
-                    <option value="10:00">10:00 - 11:00</option>
-                    <option value="10:30">10:30 - 11:30</option>
-                    <option value="14:00">14:00 - 15:00</option>
-                    <option value="14:30">14:30 - 15:30</option>
-                    <option value="15:00">15:00 - 16:00</option>
-                    <option value="15:30">15:30 - 16:30</option>
-                    <option value="16:00">16:00 - 17:00</option>
-                    <option value="17:00">17:00 - 18:00</option>
+                    {STANDARD_SPA_SLOTS.map((slot) => {
+                      const drc = drcSlots.find((d) => d.slotTime === slot.label || d.startTime?.startsWith(slot.startHour));
+                      const isAvail = drc ? drc.isAvailable : true;
+                      const capText = drc ? (isAvail ? `(Còn ${drc.remainingCapacity} chỗ)` : '(Hết chỗ)') : '';
+                      return (
+                        <option key={slot.startHour} value={slot.startHour} disabled={drc ? !isAvail : false}>
+                          {slot.label} {capText}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>

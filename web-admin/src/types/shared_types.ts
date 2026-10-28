@@ -354,6 +354,7 @@ export interface Technician {
   avatarUrl: string;
   experienceYears: number;
   ratingAvg: number;
+  rating?: number;
   reviewCount: number;
   specialties: string[];
   bio?: string | null;
@@ -634,6 +635,11 @@ export interface DualSlotAvailability {
   recommendedOrder: number;
   isRecommended?: boolean;
   recommendedTag?: string | null;
+  capacity?: number;
+  availableBeds?: number;
+  availableTechnicians?: number;
+  reason?: string;
+  recommended?: boolean;
 }
 
 export interface BatchSchedule {

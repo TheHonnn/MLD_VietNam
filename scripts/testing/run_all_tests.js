@@ -14,6 +14,9 @@ const scripts = [
   { name: 'Giai đoạn 10: Nghiệm thu Đầu cuối UAT 2 Kịch bản Thực địa (Học viện & Spa 100% Live DB)', file: 'test_step3_uat_acceptance.js' },
   { name: 'Giai đoạn 11: Kiểm thử An ninh RLS - Chặn Tuyệt đối Anon Key Đọc/Ghi Dữ liệu Nhạy cảm (PostgREST Security Audit)', file: 'test_step1_rls_security_verification.js' },
   { name: 'Giai đoạn 12: Tự động Refresh Zalo Token (OAuth v4) & Webhook Ngân Hàng Tự Động (E2E Bank Reconcile)', file: 'test_bank_webhook_and_zalo_refresh.js' },
+  { name: 'Giai đoạn 13: Học viện - Vòng đời Khóa học 1 Năm, Tự động Khóa 365 Ngày & Gia hạn (Academy 365d Expiry)', file: 'test_phase2_365d_expiry.js' },
+  { name: 'Giai đoạn 14: Tự động hóa 3 Email Templates Chuẩn & Ghi Log Thực địa (Email Notification & Audit Logs)', file: 'test_phase3_email_integration.js' },
+  { name: 'Giai đoạn 15: Spa - Dual-Resource Capacity 6 Giường × 6 KTV, Ca 1 Tiếng, Auto-Release & Least-Busy (Spa DRC)', file: 'test_phase5_e2e_full_acceptance.js' },
 ];
 
 console.log('╔════════════════════════════════════════════════════════════════════════════════════╗');
@@ -39,7 +42,7 @@ scripts.forEach((s, idx) => {
 });
 
 if (allSuccess) {
-  console.log('🎉 TOÀN BỘ 12 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
+  console.log('🎉 TOÀN BỘ 15 GIAI ĐOẠN KIỂM THỬ TRÊN NHÁNH DEVELOP ĐỀU ĐẠT CHUẨN 100%!');
 } else {
   console.log('⚠️ CÓ GIAI ĐOẠN CHƯA ĐẠT CHUẨN. CẦN KIỂM TRA LẠI.');
 }

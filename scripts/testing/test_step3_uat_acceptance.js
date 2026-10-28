@@ -591,7 +591,7 @@ async function runStep3UatAcceptanceTests() {
       service.id,
       booking.id,
       spaInvoice.id,
-      technician.id
+      technician.user_id || technician.id
     ]);
     cleanups.consumptionIds.push(consRes.rows[0].id);
 
