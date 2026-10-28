@@ -670,82 +670,86 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ==========================================
-              // 1. HEADER (Lời chào + Avatar + Chuông thông báo)
+              // 1. HEADER (Logo góc trái, Nút thông báo & Khung cá nhân góc phải)
               // ==========================================
               SizedBox(
-                height: 56,
+                height: 48,
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    InkWell(
-                      onTap: widget.onNavigateToProfile,
-                      borderRadius: BorderRadius.circular(22),
-                      child: AppProfileAvatar(
-                        avatarUrl: MembershipRepository.instance.profile.avatarUrl,
-                        size: 44,
-                        borderWidth: 1.5,
-                        borderColor: AppColors.primary,
-                        showShadow: false,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Xin chào,',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _getGreetingName(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    InkWell(
-                      onTap: _showNotificationSheet,
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            const Icon(
-                              Icons.notifications_none_rounded,
-                              size: 24,
-                              color: AppColors.primary,
-                            ),
-                            if (TreatmentRepository.instance.hasUnreadNotifications)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.error,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                          ],
+                    // --- GÓC TRÁI: LOGO MLD VIETNAM ---
+                    Image.asset(
+                      'assets/images/logo.webp',
+                      height: 40,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'MLD VIETNAM',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                          letterSpacing: 0.5,
                         ),
                       ),
+                    ),
+
+                    // --- BÊN PHẢI: NÚT THÔNG BÁO & KHUNG TRANG CÁ NHÂN ---
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Nút Chuông thông báo
+                        InkWell(
+                          onTap: _showNotificationSheet,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border, width: 0.8),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.notifications_none_rounded,
+                                  size: 23,
+                                  color: AppColors.primary,
+                                ),
+                                if (TreatmentRepository.instance.hasUnreadNotifications)
+                                  Positioned(
+                                    top: 9,
+                                    right: 9,
+                                    child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.error,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Khung Trang cá nhân (Avatar Profile)
+                        InkWell(
+                          onTap: widget.onNavigateToProfile,
+                          borderRadius: BorderRadius.circular(22),
+                          child: AppProfileAvatar(
+                            avatarUrl: MembershipRepository.instance.profile.avatarUrl,
+                            size: 42,
+                            borderWidth: 1.5,
+                            borderColor: AppColors.primary,
+                            showShadow: false,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -833,18 +837,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             categoryLabel = category;
                           }
 
-                                                    String ctaText = 'Bấm để xem chi tiết';
-                          if (targetLink.contains('academy') || targetLink.contains('curriculum') || targetLink.contains('enrollment')) {
-                            ctaText = 'Xem khóa đào tạo ngay';
-                          } else if (targetLink.contains('treatment') || targetLink.contains('service')) {
-                            ctaText = 'Khám phá dịch vụ trị liệu';
-                          } else if (targetLink.startsWith('http')) {
-                            ctaText = 'Nhấn để truy cập';
-                          } else if (targetLink.contains('treatment') || targetLink.contains('service')) {
-                            ctaText = 'Khám phá dịch vụ trị liệu →';
-                          } else if (targetLink.startsWith('http')) {
-                            ctaText = 'Nhấn để truy cập';
-                          }
+                          
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 1.0),
@@ -980,25 +973,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                               ),
                                             ],
                                           ),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.touch_app_outlined, size: 13, color: Colors.white),
-                                               const SizedBox(width: 5),
-                                               Expanded(
-                                                 child: Text(
-                                                   ctaText,
-                                                   maxLines: 1,
-                                                   overflow: TextOverflow.ellipsis,
-                                                   style: const TextStyle(
-                                                     fontSize: 12,
-                                                     color: Colors.white,
-                                                     fontWeight: FontWeight.w700,
-                                                     decoration: TextDecoration.underline,
-                                                   ),
-                                                 ),
-                                               ),
-                                            ],
-                                          ),
+
                                         ],
                                       ),
                                     ),
