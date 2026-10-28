@@ -1,15 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { PortalBanner, SpaService, Specialist, Branch } from '@/core/types';
-import { Sparkles, Calendar, BookOpen, FileText, ChevronRight, Award, ShieldCheck, HeartHandshake } from 'lucide-react';
+import { PortalBanner, SpaService, Specialist, Branch, UserProfile } from '@/core/types';
+import {
+  Bell,
+  MapPin,
+  ChevronRight,
+  ChevronsUpDown,
+  Calendar,
+  BookOpen,
+  Phone,
+  Check,
+  X,
+  PhoneCall,
+} from 'lucide-react';
 
 interface HomeScreenProps {
   banners: PortalBanner[];
   services: SpaService[];
   specialists: Specialist[];
   activeBranch: Branch | null;
-  onNavigateTab: (tab: 'services' | 'academy' | 'treatment' | 'booking') => void;
+  currentUser?: UserProfile;
+  branches?: Branch[];
+  onSelectBranch?: (branch: Branch) => void;
+  onNavigateTab: (tab: 'services' | 'academy' | 'documents' | 'profile' | 'booking') => void;
   onSelectService: (service: SpaService) => void;
   onSelectBanner: (banner: PortalBanner) => void;
+  onOpenNotifications?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -17,11 +32,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   services,
   specialists,
   activeBranch,
+  currentUser,
+  branches = [],
+  onSelectBranch,
   onNavigateTab,
   onSelectService,
   onSelectBanner,
+  onOpenNotifications,
 }) => {
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [showBranchModal, setShowBranchModal] = useState(false);
+  const [selectedBannerDetail, setSelectedBannerDetail] = useState<PortalBanner | null>(null);
 
   // 5-second automatic sliding banner carousel
   useEffect(() => {
@@ -32,228 +53,387 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return () => clearInterval(interval);
   }, [banners.length]);
 
+  // Find core Vodder service or fallback to first
+  const coreService =
+    services.find((s) => s.name.toLowerCase().includes('lưu') || s.name.toLowerCase().includes('vodder')) ||
+    services[0] || {
+      id: 'core-service',
+      name: 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
+      categoryName: 'Dẫn lưu bạch huyết MLD',
+      shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật.',
+      fullDescription: '',
+      durationMinutes: 60,
+      price: 700000,
+      vatRate: 0.08,
+      imageUrl: 'https://wstvwushpwcdsmhpunvh.supabase.co/storage/v1/object/public/services/service_1792806886459_u8ho8.png',
+    };
+
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('vi-VN');
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    if (category === 'DAO_TAO') return 'ĐÀO TẠO';
+    if (category === 'DICH_VU' || category === 'TRI_LIEU') return 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
+    if (category === 'KHUYEN_MAI') return 'ƯU ĐÃI ĐẶC QUYỀN';
+    if (category === 'SU_KIEN') return 'SỰ KIỆN CHUYÊN NGÀNH';
+    return category || 'TRUNG TÂM Y KHOA BẠCH HUYẾT';
+  };
+
   return (
-    <div className="pb-24 space-y-5 animate-in fade-in duration-300">
-      {/* 1. DYNAMIC BANNER SLIDER (5s Auto Carousel) */}
-      <div className="px-4 pt-3">
-        <div className="relative w-full h-44 rounded-2xl overflow-hidden shadow-md bg-gradient-to-r from-blue-900 to-blue-700 text-white">
-          {banners.map((banner, idx) => (
-            <div
-              key={banner.id}
-              onClick={() => onSelectBanner(banner)}
-              className={`absolute inset-0 transition-opacity duration-700 cursor-pointer flex flex-col justify-between p-4.5 ${
-                idx === currentBannerIndex ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-              }`}
-            >
-              {/* Background with subtle overlay */}
-              <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${banner.image_url})` }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
-
-              {/* Tag / Badge */}
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-md bg-white/20 backdrop-blur-md text-[10px] font-extrabold uppercase tracking-wider text-blue-100 border border-white/20">
-                  Chuẩn Y Khoa Vodder
-                </span>
-                <span className="text-[11px] text-white/80 font-medium">MLD Việt Nam</span>
-              </div>
-
-              {/* Content */}
-              <div className="relative z-10 space-y-1">
-                <h3 className="text-base font-extrabold line-clamp-1 leading-snug text-white">
-                  {banner.title}
-                </h3>
-                <p className="text-xs text-gray-200 line-clamp-2 leading-relaxed">
-                  {banner.summary}
-                </p>
-                <div className="pt-1 flex items-center text-[11px] font-bold text-blue-300">
-                  <span>Xem chi tiết chuyên khảo</span>
-                  <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                </div>
-              </div>
+    <div className="pb-24 bg-[#F9FAFB] min-h-screen">
+      <div className="px-5 pt-3 space-y-4">
+        {/* ==========================================
+            1. HEADER (Logo góc trái, Chuông & Avatar góc phải)
+            Chuẩn Mobile B01: Height 48px, Logo left, Bell 42x42 & Profile 42x42 right
+            ========================================== */}
+        <div className="h-12 flex items-center justify-between">
+          {/* Logo MLD VIETNAM */}
+          <div className="flex items-center space-x-2">
+            <div className="h-10 flex items-center">
+              <span className="text-[19px] font-extrabold text-[#2860EB] tracking-wider">
+                MLD VIETNAM
+              </span>
             </div>
-          ))}
+          </div>
 
-          {/* Dots Indicator */}
-          {banners.length > 1 && (
-            <div className="absolute bottom-2.5 right-4 z-20 flex space-x-1.5">
-              {banners.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setCurrentBannerIndex(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    i === currentBannerIndex ? 'bg-white w-4' : 'bg-white/40'
-                  }`}
+          {/* Right: Notification Bell & Profile Avatar */}
+          <div className="flex items-center space-x-2.5">
+            {/* Nút Chuông thông báo */}
+            <button
+              type="button"
+              onClick={onOpenNotifications}
+              className="w-[42px] h-[42px] rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center relative hover:bg-gray-50 transition active:scale-95"
+            >
+              <Bell className="w-[22px] h-[22px] text-[#2860EB]" />
+              <span className="w-2 h-2 rounded-full bg-[#EF4444] absolute top-2.5 right-2.5" />
+            </button>
+
+            {/* Avatar Trang cá nhân (Bấm vào chuyển sang Tab 4 Cá nhân) */}
+            <button
+              type="button"
+              onClick={() => onNavigateTab('profile')}
+              className="w-[42px] h-[42px] rounded-full border-[1.5px] border-[#2860EB] overflow-hidden bg-gray-100 flex items-center justify-center hover:opacity-90 transition active:scale-95"
+            >
+              {currentUser?.avatarUrl ? (
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.fullName}
+                  className="w-full h-full object-cover"
                 />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 2. QUICK ACTION BUTTONS */}
-      <div className="px-4">
-        <div className="grid grid-cols-4 gap-2 bg-white p-3 rounded-2xl border border-gray-100 shadow-xs">
-          <button
-            type="button"
-            onClick={() => onNavigateTab('booking')}
-            className="flex flex-col items-center text-center group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Calendar className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-bold text-gray-800 mt-1.5">Đặt lịch</span>
-            <span className="text-[9px] text-gray-400">Trị liệu MLD</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigateTab('services')}
-            className="flex flex-col items-center text-center group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-bold text-gray-800 mt-1.5">Dịch vụ</span>
-            <span className="text-[9px] text-gray-400">Vodder 60p</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigateTab('academy')}
-            className="flex flex-col items-center text-center group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <BookOpen className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-bold text-gray-800 mt-1.5">Đào tạo</span>
-            <span className="text-[9px] text-gray-400">Academy K26</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigateTab('treatment')}
-            className="flex flex-col items-center text-center group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <FileText className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-bold text-gray-800 mt-1.5">Hồ sơ</span>
-            <span className="text-[9px] text-gray-400">Lâm sàng</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 3. CORE VODDER SERVICE HIGHLIGHT */}
-      <div className="px-4">
-        <div className="flex items-center justify-between mb-2.5">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900">Dịch Vụ Lâm Sàng Nổi Bật</h3>
-            <p className="text-[11px] text-gray-500">Kích hoạt lưu thông bạch huyết & tiêu phù nề</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigateTab('services')}
-            className="text-xs font-bold text-blue-600 flex items-center"
-          >
-            Tất cả
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {services.slice(0, 2).map((srv) => (
-          <div
-            key={srv.id}
-            onClick={() => onSelectService(srv)}
-            className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-xs flex space-x-3.5 cursor-pointer hover:border-blue-200 transition-all mb-2.5"
-          >
-            <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-              <img src={srv.imageUrl} alt={srv.name} className="w-full h-full object-cover" />
-            </div>
-            <div className="flex-1 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                  {srv.categoryName}
-                </span>
-                <h4 className="text-xs font-bold text-gray-900 mt-1 line-clamp-2 leading-snug">
-                  {srv.name}
-                </h4>
-                <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">
-                  {srv.shortDescription}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                <span className="text-xs font-extrabold text-emerald-700">
-                  {srv.price.toLocaleString('vi-VN')}đ{' '}
-                  <span className="text-[10px] font-normal text-gray-400">/ {srv.durationMinutes} phút</span>
-                </span>
-                <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-                  Đặt ngay
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 4. MASTER VODDER SPECIALISTS */}
-      <div className="px-4">
-        <div className="flex items-center justify-between mb-2.5">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900">Chuyên Gia Trị Liệu Vodder</h3>
-            <p className="text-[11px] text-gray-500">Đội ngũ kỹ thuật viên chứng chỉ quốc tế</p>
+              ) : (
+                <div className="w-full h-full bg-[#EFF4FE] flex items-center justify-center text-[#2860EB] font-bold text-sm">
+                  {currentUser?.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'M'}
+                </div>
+              )}
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          {specialists.slice(0, 2).map((spec) => (
-            <div
-              key={spec.id}
-              className="bg-white rounded-2xl p-3 border border-gray-100 shadow-xs flex flex-col items-center text-center"
+        {/* Warning Banner nếu đăng nhập chưa có SĐT */}
+        {currentUser && !currentUser.isPhoneVerified && currentUser.phone === '' && (
+          <div className="p-3 bg-[#FFF7ED] border border-[#FDBA74] rounded-xl flex items-center justify-between">
+            <div className="flex items-center space-x-2 min-w-0">
+              <Phone className="w-4 h-4 text-[#C2410C] shrink-0" />
+              <p className="text-xs font-semibold text-[#9A3412] truncate">
+                Cập nhật SĐT để xác nhận lịch hẹn chính xác
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigateTab('profile')}
+              className="text-xs font-bold text-[#2860EB] px-2 py-1 shrink-0 hover:underline"
             >
-              <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-50 border-2 border-blue-100 mb-2">
-                <img src={spec.avatarUrl} alt={spec.name} className="w-full h-full object-cover" />
+              Cập nhật
+            </button>
+          </div>
+        )}
+
+        {/* ==========================================
+            2. BANNER CAROUSEL ĐỘNG (160px height, rounded-2xl 16px, 5s interval)
+            ========================================== */}
+        {banners.length > 0 && (
+          <div>
+            <div className="relative w-full h-[160px] rounded-2xl overflow-hidden shadow-[0_5px_14px_rgba(40,96,235,0.22)] bg-[#002A6B]">
+              {banners.map((b, idx) => {
+                const isActive = idx === currentBannerIndex;
+                return (
+                  <div
+                    key={b.id || idx}
+                    onClick={() => {
+                      if (b.target_link) {
+                        onSelectBanner(b);
+                      } else {
+                        setSelectedBannerDetail(b);
+                      }
+                    }}
+                    className={`absolute inset-0 transition-opacity duration-700 cursor-pointer ${
+                      isActive ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'
+                    }`}
+                  >
+                    {/* Background image */}
+                    <img
+                      src={b.image_url}
+                      alt={b.title}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+
+                    {/* Gradient Overlay Y khoa */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          'linear-gradient(to right, rgba(0, 42, 107, 0.90) 0%, rgba(0, 42, 107, 0.48) 70%, transparent 100%)',
+                      }}
+                    />
+
+                    {/* Watermark logo chìm bên phải */}
+                    <div className="absolute top-4 right-4 text-white/20 font-black text-sm tracking-widest pointer-events-none">
+                      MLD
+                    </div>
+
+                    {/* Banner Content */}
+                    <div className="relative z-10 h-full p-4 flex flex-col justify-between">
+                      {/* Category Label */}
+                      <span className="self-start px-2 py-0.5 rounded-md bg-white/25 backdrop-blur-xs border border-white/35 text-[10.5px] font-bold text-white tracking-wide">
+                        {getCategoryLabel(b.category)}
+                      </span>
+
+                      {/* Title & Summary (Không có nút "Xem" thừa) */}
+                      <div>
+                        <h3 className="text-base font-extrabold text-white leading-snug line-clamp-2">
+                          {b.title}
+                        </h3>
+                        {b.summary && (
+                          <p className="text-xs text-white/90 line-clamp-1 mt-0.5 font-normal">
+                            {b.summary}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Dots Indicator: Height 4.5px, Active 20px, Inactive 6px */}
+            {banners.length > 1 && (
+              <div className="flex items-center justify-center space-x-1.5 mt-2">
+                {banners.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setCurrentBannerIndex(i)}
+                    className={`h-[4.5px] rounded-full transition-all duration-300 ${
+                      i === currentBannerIndex ? 'w-5 bg-[#2860EB]' : 'w-1.5 bg-[#E5E7EB]'
+                    }`}
+                  />
+                ))}
               </div>
-              <h4 className="text-xs font-bold text-gray-900 line-clamp-1">{spec.name}</h4>
-              <span className="text-[10.5px] text-blue-600 font-semibold">{spec.title}</span>
-              <span className="text-[10px] text-gray-400 mt-0.5">{spec.experienceYears} năm kinh nghiệm</span>
+            )}
+          </div>
+        )}
+
+        {/* ==========================================
+            3. THẺ CHI NHÁNH ĐANG CHỌN (Rounded-14, #E5E7EB, Icon trong #EFF4FE)
+            ========================================== */}
+        <div
+          onClick={() => setShowBranchModal(true)}
+          className="p-3.5 bg-white rounded-[14px] border border-[#E5E7EB] flex items-center justify-between cursor-pointer hover:border-[#2860EB]/40 transition active:scale-[0.99]"
+        >
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#EFF4FE] flex items-center justify-center shrink-0">
+              <MapPin className="w-5 h-5 text-[#2860EB]" />
             </div>
-          ))}
+            <div className="min-w-0">
+              <span className="text-[12.5px] text-[#616161] block leading-tight">
+                Chi nhánh trị liệu hiện tại
+              </span>
+              <p className="text-[15px] font-bold text-[#1F2937] truncate mt-0.5">
+                {activeBranch ? activeBranch.name : 'Trụ sở MLD Việt Nam (5 Master LV3)'}
+              </p>
+            </div>
+          </div>
+          <ChevronsUpDown className="w-5 h-5 text-gray-400 shrink-0 ml-2" />
+        </div>
+
+        {/* ==========================================
+            4. DỊCH VỤ CỐT LÕI DUY NHẤT (Vodder MLD)
+            Chuẩn VodderServiceCard: Ảnh 185px, Tên 17px bold, Giá #E11D48 đ gạch chân, Nút Đặt lịch
+            ========================================== */}
+        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
+          {/* Ảnh minh họa 185px */}
+          <div
+            onClick={() => onSelectService(coreService)}
+            className="w-full h-[185px] bg-[#EFF4FE] overflow-hidden cursor-pointer relative"
+          >
+            <img
+              src={coreService.imageUrl}
+              alt={coreService.name}
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+            />
+          </div>
+
+          {/* Nội dung */}
+          <div className="p-3.5">
+            <h3
+              onClick={() => onSelectService(coreService)}
+              className="text-[17px] font-bold text-[#0F172A] leading-snug cursor-pointer line-clamp-2"
+            >
+              {coreService.name}
+            </h3>
+
+            <div className="my-3 border-t border-[#F1F5F9]" />
+
+            {/* Hàng Giá tiền và Nút Đặt lịch */}
+            <div className="flex items-center justify-between">
+              {/* Giá tiền dịch vụ: Màu #E11D48 (rgb(225, 29, 72)), chữ đ gạch chân */}
+              <div className="flex items-baseline text-[#E11D48] font-bold text-[20px]">
+                <span>{formatCurrency(coreService.price)} </span>
+                <span className="underline ml-0.5">đ</span>
+              </div>
+
+              {/* Nút Đặt lịch (Chạm vào chuyển màu xanh #00693F) */}
+              <button
+                type="button"
+                onClick={() => onSelectService(coreService)}
+                className="px-4 py-2 bg-[#F1F5F9] hover:bg-[#00693F] text-[#0F172A] hover:text-white border border-[#E2E8F0] hover:border-[#00693F] rounded-lg text-[13.5px] font-bold flex items-center space-x-1.5 transition-colors cursor-pointer active:scale-95"
+              >
+                <span>Đặt lịch</span>
+                <Calendar className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ==========================================
+            5. KHỐI CỘNG ĐỒNG Y KHOA MLD
+            Gradient AppColors.primaryDark -> AppColors.primary
+            ========================================== */}
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-[#1E4BB8] to-[#2860EB] text-white shadow-[0_3px_10px_rgba(40,96,235,0.18)] space-y-2.5">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-white/20 rounded-lg">
+              <BookOpen className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-white">
+              CỘNG ĐỒNG CHUYÊN GIA MLD
+            </span>
+          </div>
+
+          <h4 className="text-base font-bold leading-snug">
+            Chia sẻ ca lâm sàng & Hướng dẫn phục hồi Vodder
+          </h4>
+
+          <p className="text-[13.5px] text-white/80 leading-relaxed">
+            Theo dõi các tài liệu trị liệu và bài viết chuyên môn do đội ngũ Bác sĩ, Giảng viên MLD trực tiếp biên soạn.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('documents')}
+            className="w-full py-2.5 mt-2 border border-white rounded-lg text-white text-[13.5px] font-bold hover:bg-white/10 transition"
+          >
+            Xem bài viết chuyên môn
+          </button>
         </div>
       </div>
 
-      {/* 5. QUALITY GUARANTEES */}
-      <div className="px-4">
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center space-x-2 text-blue-800">
-            <ShieldCheck className="w-5 h-5 text-blue-600" />
-            <h4 className="text-xs font-bold uppercase tracking-wide">Tiêu Chuẩn Y Khoa MLD Việt Nam</h4>
-          </div>
+      {/* MODAL CHỌN CHI NHÁNH ĐIỀU TRỊ */}
+      {showBranchModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 animate-in fade-in">
+          <div className="fixed inset-0" onClick={() => setShowBranchModal(false)} />
+          <div className="relative z-10 w-full max-w-md bg-white rounded-t-2xl p-5 space-y-4 animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-base font-bold text-gray-900">Chọn chi nhánh điều trị</h3>
+              <button onClick={() => setShowBranchModal(false)} className="text-gray-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center text-gray-700">
-            <div className="bg-white/80 p-2 rounded-xl">
-              <Award className="w-4 h-4 mx-auto text-blue-600 mb-1" />
-              <div className="text-[10px] font-bold">Chuẩn Vodder</div>
-              <div className="text-[8.5px] text-gray-400">Dưới 30 mmHg</div>
-            </div>
-            <div className="bg-white/80 p-2 rounded-xl">
-              <HeartHandshake className="w-4 h-4 mx-auto text-emerald-600 mb-1" />
-              <div className="text-[10px] font-bold">1:1 Riêng Tư</div>
-              <div className="text-[8.5px] text-gray-400">Phòng VIP chuẩn</div>
-            </div>
-            <div className="bg-white/80 p-2 rounded-xl">
-              <ShieldCheck className="w-4 h-4 mx-auto text-purple-600 mb-1" />
-              <div className="text-[10px] font-bold">Không Xâm Lấn</div>
-              <div className="text-[8.5px] text-gray-400">Phục hồi tự nhiên</div>
+            <div className="space-y-2.5 max-h-72 overflow-y-auto">
+              {(branches.length > 0 ? branches : [activeBranch]).filter(Boolean).map((b: any) => {
+                const isSelected = b.id === activeBranch?.id;
+                return (
+                  <div
+                    key={b.id}
+                    onClick={() => {
+                      onSelectBranch?.(b);
+                      setShowBranchModal(false);
+                    }}
+                    className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                      isSelected
+                        ? 'bg-[#EFF4FE] border-[#2860EB]'
+                        : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <MapPin
+                        className={`w-5 h-5 shrink-0 ${
+                          isSelected ? 'text-[#2860EB]' : 'text-gray-400'
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <p
+                          className={`text-sm font-bold truncate ${
+                            isSelected ? 'text-[#2860EB]' : 'text-gray-800'
+                          }`}
+                        >
+                          {b.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{b.address}</p>
+                      </div>
+                    </div>
+                    {isSelected && <Check className="w-5 h-5 text-[#2860EB] shrink-0 ml-2" />}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* MODAL CHI TIẾT BANNER */}
+      {selectedBannerDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+          <div
+            className="fixed inset-0"
+            onClick={() => setSelectedBannerDetail(null)}
+          />
+          <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl space-y-4">
+            <div className="h-40 relative bg-gray-100">
+              <img
+                src={selectedBannerDetail.image_url}
+                alt={selectedBannerDetail.title}
+                className="w-full h-full object-cover"
+              />
+              <button
+                onClick={() => setSelectedBannerDetail(null)}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2">
+              <h3 className="text-base font-bold text-gray-900 leading-snug">
+                {selectedBannerDetail.title}
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {selectedBannerDetail.summary}
+              </p>
+              {selectedBannerDetail.content_text && (
+                <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">
+                  {selectedBannerDetail.content_text}
+                </p>
+              )}
+              <button
+                onClick={() => setSelectedBannerDetail(null)}
+                className="w-full mt-3 py-2.5 bg-[#2860EB] text-white text-xs font-bold rounded-xl"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

@@ -8,6 +8,7 @@ import {
   CommunityPost,
   PortalBanner,
   UserProfile,
+  MedicalDocument,
 } from '@/core/types';
 
 const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
@@ -488,32 +489,81 @@ export const SupabaseDataService = {
     return [DEFAULT_CORE_SERVICE];
   },
 
-  // 3. Portal Banners
+  // 3. Portal Banners (Chuẩn 100% từ miniapp_shared_content và fallback mobile b01_home_screen.dart)
   async getBanners(): Promise<PortalBanner[]> {
-    const url = `${SUPABASE_URL}/rest/v1/portal_banners?is_active=eq.true&order=sort_order.asc`;
+    const url = `${SUPABASE_URL}/rest/v1/miniapp_shared_content?kind=eq.BANNER&status=in.(PUBLISHED,APPROVED)&select=*&order=sort_order.asc,created_at.desc`;
     const data = await safeFetch<any[]>(url, []);
-    if (data.length > 0) {
-      return data.map((b) => ({
-        id: b.id,
-        title: b.title,
-        summary: b.summary || '',
-        content_text: b.content_text || '',
-        image_url: b.image_url,
-        target_link: b.target_link || '',
-        author_name: b.author_name || 'MLD Việt Nam',
-      }));
-    }
-    return [
+    const defaultBanners: PortalBanner[] = [
       {
-        id: 'banner-01',
-        title: 'TRUNG TÂM Y KHOA BẠCH HUYẾT MLD VIỆT NAM',
-        summary: 'Phương pháp Dẫn lưu phù bạch huyết chuẩn Y khoa Quốc tế Dr. Vodder',
-        content_text: 'MLD Việt Nam tự hào là đơn vị tiên phong ứng dụng kỹ thuật dẫn lưu bạch huyết Vodder chuẩn châu Âu.',
-        image_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef',
-        target_link: 'service',
+        id: 'default-banner-1',
+        title: 'Dẫn lưu bạch huyết MLD – Phục hồi chuẩn Y khoa Vodder',
+        summary: 'Tầm soát và điều trị giảm phù nề, tiêu dịch ứ đọng chuyên sâu với chuyên gia MLD',
+        image_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&fit=crop',
+        category: 'TRI_LIEU',
+        target_link: '/services',
+        author_name: 'Hội đồng Y khoa MLD',
+      },
+      {
+        id: 'default-banner-2',
+        title: 'Học viện Đào tạo Nghề MLD Chuẩn Y Khoa Quốc Tế',
+        summary: 'Chương trình đào tạo thực hành cho người mới bắt đầu và nâng cao tay nghề chuẩn Vodder',
+        image_url: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&fit=crop',
+        category: 'DAO_TAO',
+        target_link: '/academy',
+        author_name: 'Học viện MLD Việt Nam',
+      },
+      {
+        id: 'default-banner-3',
+        title: 'Tầm soát & Đánh giá Độ phù nề Hệ Bạch Huyết',
+        summary: 'Thực hiện bài kiểm tra lâm sàng phát hiện sớm nguy cơ phù bạch huyết và tư vấn miễn phí',
+        image_url: 'https://wstvwushpwcdsmhpunvh.supabase.co/storage/v1/object/public/services/thoat_vi_dia_dem_3.webp',
+        category: 'DICH_VU',
+        target_link: '/documents',
         author_name: 'Hội đồng Y khoa MLD',
       },
     ];
+
+    if (data.length > 0) {
+      const fetched = data.map((b) => ({
+        id: b.id,
+        title: b.title || 'MLD Việt Nam',
+        summary: b.summary || '',
+        content_text: b.content_text || '',
+        image_url: b.image_url || defaultBanners[0].image_url,
+        target_link: b.target_link || '',
+        category: b.category || 'DAO_TAO',
+        author_name: b.author_name || 'MLD Việt Nam',
+      }));
+      // Ghép thêm default banners nếu ít hơn 3 để banner slider mượt mà như mobile
+      return [...fetched, ...defaultBanners.slice(fetched.length)];
+    }
+    return defaultBanners;
+  },
+
+  // 3b. Medical Documents & Guidelines (Chuẩn 100% từ home_care_guidelines)
+  async getDocuments(category?: string): Promise<MedicalDocument[]> {
+    let url = `${SUPABASE_URL}/rest/v1/home_care_guidelines?is_published=eq.true&order=created_at.desc&select=*`;
+    if (category && category !== 'Tất cả') {
+      url += `&category=eq.${encodeURIComponent(category)}`;
+    }
+    const data = await safeFetch<any[]>(url, []);
+    if (data.length > 0) {
+      return data.map((doc) => ({
+        id: doc.id,
+        title: doc.title,
+        slug: doc.slug,
+        category: doc.category || 'Tài liệu Y khoa',
+        readTimeMinutes: doc.read_time_minutes || 5,
+        summary: doc.summary || '',
+        content: doc.content || '',
+        steps: doc.steps || [],
+        imageUrl: doc.image_url,
+        authorName: doc.author_name || 'Hội đồng Y khoa MLD',
+        publishedAt: doc.created_at ? new Date(doc.created_at).toLocaleDateString('vi-VN') : '',
+        viewCount: doc.view_count || 100,
+      }));
+    }
+    return [];
   },
 
   // 4. Specialists

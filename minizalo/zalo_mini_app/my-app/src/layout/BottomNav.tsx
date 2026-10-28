@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Sparkles, GraduationCap, Activity, User } from 'lucide-react';
+import { Home, Sparkles, GraduationCap, BookOpen, User } from 'lucide-react';
 
-export type NavTabId = 'home' | 'services' | 'academy' | 'treatment' | 'profile';
+export type NavTabId = 'home' | 'services' | 'academy' | 'documents' | 'profile';
 
 interface BottomNavProps {
   activeTab: NavTabId;
@@ -13,32 +13,41 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) 
     { id: 'home' as NavTabId, label: 'Trang chủ', icon: Home },
     { id: 'services' as NavTabId, label: 'Dịch vụ', icon: Sparkles },
     { id: 'academy' as NavTabId, label: 'Đào tạo', icon: GraduationCap },
-    { id: 'treatment' as NavTabId, label: 'Trị liệu', icon: Activity },
+    { id: 'documents' as NavTabId, label: 'Tài liệu', icon: BookOpen },
     { id: 'profile' as NavTabId, label: 'Cá nhân', icon: User },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 px-2 py-1.5 flex items-center justify-around shadow-lg max-w-md mx-auto">
-      {tabs.map((tab) => {
-        const Icon = tab.icon;
-        const isActive = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onChangeTab(tab.id)}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 ${
-              isActive ? 'text-blue-600 scale-105 font-bold' : 'text-gray-400 hover:text-gray-600 font-medium'
-            }`}
-          >
-            <div className={`p-1 rounded-lg ${isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-500'}`}>
-              <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
-            </div>
-            <span className="text-[10.5px] mt-0.5 tracking-tight">{tab.label}</span>
-          </button>
-        );
-      })}
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E5E7EB] shadow-[0_-2px_8px_rgba(0,0,0,0.04)] max-w-md mx-auto">
+      <div className="h-[68px] flex items-center justify-around px-2 pb-safe">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onChangeTab(tab.id)}
+              className="flex-1 flex flex-col items-center justify-center py-1 transition-colors"
+            >
+              <div
+                className={`px-3.5 py-1 rounded-xl transition-all duration-200 flex items-center justify-center ${
+                  isActive ? 'bg-[#EFF4FE] text-[#2860EB]' : 'bg-transparent text-[#616161]'
+                }`}
+              >
+                <Icon className="w-[22px] h-[22px]" strokeWidth={isActive ? 2.5 : 2} />
+              </div>
+              <span
+                className={`text-[11.5px] mt-0.5 tracking-tight ${
+                  isActive ? 'font-bold text-[#2860EB]' : 'font-medium text-[#616161]'
+                }`}
+              >
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 };
-

@@ -24,6 +24,8 @@ export const AppColors = {
   errorLight: '#FEE2E2',
   
   price: '#00693F', // Chuẩn giá dịch vụ y khoa Vodder
+  servicePrice: '#E11D48', // Giá dịch vụ trị liệu Vodder
+  coursePrice: '#00693F', // Học phí khóa học MLD Academy
   border: '#E5E7EB',
   divider: '#F3F4F6',
 };

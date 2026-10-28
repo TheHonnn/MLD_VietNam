@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 import { SpaService, Branch } from '@/core/types';
-import { ChevronDown, Clock, ShieldCheck, CheckCircle2, Phone, MapPin } from 'lucide-react';
+import {
+  Search,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Sparkles,
+  ChevronLeft,
+} from 'lucide-react';
 
 interface ServicesScreenProps {
   services: SpaService[];
   branches: Branch[];
   activeBranch: Branch | null;
   onBookService: (service: SpaService) => void;
+  onBackToHome?: () => void;
 }
 
 export const ServicesScreen: React.FC<ServicesScreenProps> = ({
@@ -14,216 +23,292 @@ export const ServicesScreen: React.FC<ServicesScreenProps> = ({
   branches,
   activeBranch,
   onBookService,
+  onBackToHome,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
-  const [selectedBranchId, setSelectedBranchId] = useState<string>(activeBranch?.id || 'all');
-  const [detailService, setDetailService] = useState<SpaService | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedFilter, setExpandedFilter] = useState<'service' | 'branch' | null>(null);
 
-  const categories = ['Tất cả', 'Dẫn lưu bạch huyết MLD', 'Trị liệu phù nề', 'Phục hồi hậu phẫu'];
+  const serviceCategories = [
+    'Tất cả dịch vụ',
+    'Dẫn lưu Bạch huyết Giảm phù',
+    'Dẫn lưu ngực',
+    'Dẫn lưu đầu',
+    'Dẫn lưu cổ vai gáy lưng',
+    'Dẫn lưu chân',
+    'Dẫn lưu bụng',
+  ];
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState('Tất cả dịch vụ');
+  const [selectedBranch, setSelectedBranch] = useState(
+    activeBranch ? activeBranch.name : 'Tất cả cơ sở'
+  );
 
-  // Filter logic
-  const filteredServices = services.filter((s) => {
-    const matchCat = selectedCategory === 'Tất cả' || s.categoryName === selectedCategory;
-    return matchCat;
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('vi-VN');
+  };
+
+  const filteredServices = services.filter((srv) => {
+    // 1. Filter by category
+    if (selectedServiceCategory !== 'Tất cả dịch vụ' && selectedServiceCategory !== 'Tất cả') {
+      const sName = (srv.name || '').toLowerCase();
+      const sCat = (srv.categoryName || '').toLowerCase();
+      const filterText = selectedServiceCategory.toLowerCase();
+      const match =
+        sName.includes(filterText) ||
+        sCat.includes(filterText) ||
+        'bạch huyết'.includes(filterText) ||
+        'vodder'.includes(filterText) ||
+        'phù'.includes(filterText);
+      if (!match) return false;
+    }
+
+    // 2. Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const sName = (srv.name || '').toLowerCase();
+      const sCat = (srv.categoryName || '').toLowerCase();
+      const sDesc = (srv.shortDescription || '').toLowerCase();
+      return (
+        sName.includes(q) ||
+        sCat.includes(q) ||
+        sDesc.includes(q) ||
+        'bạch huyết'.includes(q) ||
+        'vodder'.includes(q) ||
+        'phù'.includes(q)
+      );
+    }
+
+    return true;
   });
 
   return (
-    <div className="pb-24 space-y-4 animate-in fade-in duration-300">
-      {/* 1. HEADER & CLEAN FILTER BUTTONS (Chuẩn Mobile B02: [Dịch vụ ▼] & [Cơ sở ▼]) */}
-      <div className="bg-white border-b border-gray-100 p-4 sticky top-14 z-30 shadow-xs">
-        <h2 className="text-base font-extrabold text-gray-900">Danh Mục Dịch Vụ MLD</h2>
-        <p className="text-[11.5px] text-gray-500 mt-0.5">
-          Liệu trình dẫn lưu tuần hoàn bạch huyết chuẩn kỹ thuật Vodder châu Âu
-        </p>
-
-        {/* Clean Filter Text Buttons */}
-        <div className="flex items-center space-x-2 mt-3 overflow-x-auto no-scrollbar">
-          {/* Bộ lọc Dịch vụ */}
-          <div className="relative shrink-0">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="appearance-none bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold py-1.5 pl-3 pr-7 rounded-xl focus:outline-none"
+    <div className="pb-24 bg-[#F9FAFB] min-h-screen">
+      {/* 1. APPBAR: Chuẩn Mobile B02 (22px bold Montserrat) */}
+      <div className="bg-white px-4 py-3 border-b border-[#E5E7EB] sticky top-0 z-30 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {onBackToHome && (
+            <button
+              onClick={onBackToHome}
+              className="p-1 -ml-1 text-gray-600 hover:text-gray-900"
             >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  Dịch vụ: {c}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-blue-700 absolute right-2 top-2.5 pointer-events-none" />
-          </div>
-
-          {/* Bộ lọc Cơ sở */}
-          <div className="relative shrink-0">
-            <select
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="appearance-none bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold py-1.5 pl-3 pr-7 rounded-xl focus:outline-none"
-            >
-              <option value="all">Cơ sở: Tất cả chi nhánh</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  Cơ sở: {b.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-700 absolute right-2 top-2.5 pointer-events-none" />
-          </div>
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          <h1 className="text-[22px] font-bold text-[#1F2937] tracking-tight">
+            Dịch vụ trị liệu
+          </h1>
         </div>
       </div>
 
-      {/* 2. SERVICE LIST */}
-      <div className="px-4 space-y-3">
-        {filteredServices.map((srv) => (
-          <div
-            key={srv.id}
-            className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs hover:border-blue-200 transition-all flex flex-col justify-between"
-          >
-            <div className="flex space-x-3.5">
-              <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                <img src={srv.imageUrl} alt={srv.name} className="w-full h-full object-cover" />
-              </div>
-
-              <div className="flex-1">
-                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                  {srv.categoryName}
-                </span>
-                <h3 className="text-xs font-bold text-gray-900 mt-1 line-clamp-2 leading-snug">
-                  {srv.name}
-                </h3>
-                <div className="flex items-center text-[11px] text-gray-400 mt-1 space-x-2">
-                  <span className="flex items-center">
-                    <Clock className="w-3 h-3 mr-1 text-gray-400" />
-                    {srv.durationMinutes} phút
-                  </span>
-                  <span>•</span>
-                  <span>Chuẩn Vodder</span>
-                </div>
-                <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">
-                  {srv.shortDescription}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-50">
-              <div>
-                <span className="text-xs text-gray-400 block text-[10px]">Chi phí niêm yết</span>
-                <span className="text-sm font-extrabold text-emerald-700">
-                  {srv.price.toLocaleString('vi-VN')}đ
-                </span>
-              </div>
-
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setDetailService(srv)}
-                  className="text-xs font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-xl transition-colors"
-                >
-                  Chi tiết
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onBookService(srv)}
-                  className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-3.5 py-1.5 rounded-xl shadow-xs transition-colors"
-                >
-                  Đặt lịch ngay
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* 2. Ô TÌM KIẾM DỊCH VỤ */}
+      <div className="bg-white px-4 pt-2.5 pb-2.5">
+        <div className="relative flex items-center bg-[#F1F5F9] rounded-lg border border-[#E5E7EB] px-3 py-2">
+          <Search className="w-4 h-4 text-[#2860EB] shrink-0 mr-2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm dịch vụ dẫn lưu bạch huyết..."
+            className="w-full bg-transparent text-[13.5px] text-[#1F2937] placeholder-gray-400 focus:outline-none"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="p-0.5 text-gray-400">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* 3. SERVICE DETAIL MODAL (B03) */}
-      {detailService && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 animate-in fade-in">
-          <div
-            className="fixed inset-0"
-            onClick={() => setDetailService(null)}
-          />
-          <div className="relative z-10 w-full max-w-md bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto p-5 space-y-4 animate-in slide-in-from-bottom duration-300">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-2" />
+      {/* 3. HAI NÚT BỘ LỌC: [ Dịch vụ ▼ ] và [ Cơ sở ▼ ] */}
+      <div className="bg-white px-4 pb-3 flex items-center space-x-2.5 border-b border-[#E5E7EB]">
+        {/* Nút Dịch vụ */}
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedFilter(expandedFilter === 'service' ? null : 'service')
+          }
+          className={`flex-1 flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-bold transition ${
+            expandedFilter === 'service' ||
+            (selectedServiceCategory !== 'Tất cả dịch vụ' && selectedServiceCategory !== 'Tất cả')
+              ? 'bg-[#EFF4FE] border-[#2860EB] text-[#2860EB]'
+              : 'bg-[#F8FAFC] border-[#E5E7EB] text-[#1F2937]'
+          }`}
+        >
+          <span className="truncate">
+            {selectedServiceCategory === 'Tất cả dịch vụ'
+              ? 'Dịch vụ'
+              : selectedServiceCategory}
+          </span>
+          {expandedFilter === 'service' ? (
+            <ChevronUp className="w-4 h-4 text-[#2860EB] shrink-0 ml-1" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-gray-500 shrink-0 ml-1" />
+          )}
+        </button>
 
-            <div className="relative h-44 rounded-2xl overflow-hidden">
-              <img
-                src={detailService.imageUrl}
-                alt={detailService.name}
-                className="w-full h-full object-cover"
-              />
-              <span className="absolute top-3 left-3 bg-blue-600/90 text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg backdrop-blur-xs">
-                {detailService.categoryName}
-              </span>
-            </div>
+        {/* Nút Cơ sở */}
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedFilter(expandedFilter === 'branch' ? null : 'branch')
+          }
+          className={`flex-1 flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-bold transition ${
+            expandedFilter === 'branch' ||
+            (selectedBranch !== 'Tất cả cơ sở' && selectedBranch !== 'Tất cả')
+              ? 'bg-[#EFF4FE] border-[#2860EB] text-[#2860EB]'
+              : 'bg-[#F8FAFC] border-[#E5E7EB] text-[#1F2937]'
+          }`}
+        >
+          <span className="truncate">
+            {selectedBranch === 'Tất cả cơ sở' ? 'Cơ sở' : selectedBranch}
+          </span>
+          {expandedFilter === 'branch' ? (
+            <ChevronUp className="w-4 h-4 text-[#2860EB] shrink-0 ml-1" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-gray-500 shrink-0 ml-1" />
+          )}
+        </button>
+      </div>
 
-            <div>
-              <h3 className="text-base font-extrabold text-gray-900 leading-snug">
-                {detailService.name}
-              </h3>
-              <div className="flex items-center space-x-3 mt-1.5 text-xs text-gray-500">
-                <span className="flex items-center text-blue-600 font-semibold">
-                  <Clock className="w-3.5 h-3.5 mr-1" />
-                  {detailService.durationMinutes} phút / ca
-                </span>
-                <span>•</span>
-                <span className="font-extrabold text-emerald-700 text-sm">
-                  {detailService.price.toLocaleString('vi-VN')}đ
-                </span>
-              </div>
-            </div>
+      {/* 4. KHUNG SỔ XUỐNG CÁC TÙY CHỌN BỘ LỌC (Khi click vào nút Dịch vụ hoặc Cơ sở) */}
+      {expandedFilter && (
+        <div className="bg-[#F8FAFC] px-4 py-3 border-b border-[#E5E7EB] space-y-2 animate-in fade-in duration-200">
+          <p className="text-xs font-semibold text-[#616161]">
+            {expandedFilter === 'service'
+              ? 'Chọn loại dịch vụ:'
+              : 'Chọn cơ sở / chi nhánh:'}
+          </p>
 
-            <div className="bg-blue-50/60 rounded-2xl p-3.5 border border-blue-100 space-y-2">
-              <div className="text-xs font-bold text-blue-900 flex items-center">
-                <ShieldCheck className="w-4 h-4 mr-1.5 text-blue-600" />
-                Chỉ định & Tác dụng Lâm sàng
-              </div>
-              <ul className="text-xs text-gray-700 space-y-1.5 pl-1">
-                <li className="flex items-start">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600 shrink-0 mt-0.5" />
-                  Giải tỏa ứ đọng dịch kẽ mô, giảm sưng nề nhanh gấp 3 lần sau phẫu thuật.
-                </li>
-                <li className="flex items-start">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600 shrink-0 mt-0.5" />
-                  Tăng cường tuần hoàn mao mạch bạch huyết, làm dịu đau nhức và bầm tím.
-                </li>
-                <li className="flex items-start">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600 shrink-0 mt-0.5" />
-                  Phương pháp không dùng lực mạnh, hoàn toàn thư giãn và không đau.
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-1.5">
-              <h4 className="text-xs font-bold text-gray-900">Mô tả quy trình</h4>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                {detailService.fullDescription}
-              </p>
-            </div>
-
-            <div className="pt-2 flex space-x-2">
-              <button
-                type="button"
-                onClick={() => setDetailService(null)}
-                className="w-1/3 py-3 text-xs font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const s = detailService;
-                  setDetailService(null);
-                  onBookService(s);
-                }}
-                className="w-2/3 py-3 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md transition-colors"
-              >
-                Đặt lịch dịch vụ này
-              </button>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {expandedFilter === 'service' ? (
+              serviceCategories.map((cat) => {
+                const isSelected = cat === selectedServiceCategory;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      setSelectedServiceCategory(cat);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs transition ${
+                      isSelected
+                        ? 'bg-[#2860EB] text-white font-bold'
+                        : 'bg-white text-gray-700 border border-[#E5E7EB] hover:bg-gray-50'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBranch('Tất cả cơ sở')}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition ${
+                    selectedBranch === 'Tất cả cơ sở'
+                      ? 'bg-[#2860EB] text-white font-bold'
+                      : 'bg-white text-gray-700 border border-[#E5E7EB] hover:bg-gray-50'
+                  }`}
+                >
+                  Tất cả cơ sở
+                </button>
+                {branches.map((b) => {
+                  const isSelected = selectedBranch === b.name;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setSelectedBranch(b.name)}
+                      className={`px-3 py-1.5 rounded-lg text-xs transition ${
+                        isSelected
+                          ? 'bg-[#2860EB] text-white font-bold'
+                          : 'bg-white text-gray-700 border border-[#E5E7EB] hover:bg-gray-50'
+                      }`}
+                    >
+                      {b.name}
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
       )}
+
+      {/* 5. DANH SÁCH DỊCH VỤ KHẢ DỤNG (Chuẩn Mobile B02: Ảnh 185px, Tên 17px bold, Giá #E11D48 đ gạch chân, Nút Đặt lịch) */}
+      <div className="p-4 space-y-4">
+        {filteredServices.length === 0 ? (
+          <div className="py-20 text-center text-gray-400">
+            <Sparkles className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p className="text-sm font-bold text-gray-700">
+              Không tìm thấy dịch vụ phù hợp
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Vui lòng thử từ khóa khác hoặc chọn danh mục khác
+            </p>
+            <button
+              onClick={() => {
+                setSelectedServiceCategory('Tất cả dịch vụ');
+                setSelectedBranch('Tất cả cơ sở');
+                setExpandedFilter(null);
+                setSearchQuery('');
+              }}
+              className="mt-4 px-4 py-2 bg-[#2860EB] text-white text-xs font-bold rounded-lg"
+            >
+              Đặt lại bộ lọc
+            </button>
+          </div>
+        ) : (
+          filteredServices.map((srv) => (
+            <div
+              key={srv.id}
+              className="bg-white rounded-lg border border-[#E5E7EB] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden"
+            >
+              {/* Ảnh dịch vụ 185px */}
+              <div
+                onClick={() => onBookService(srv)}
+                className="w-full h-[185px] bg-[#EFF4FE] overflow-hidden cursor-pointer relative"
+              >
+                <img
+                  src={srv.imageUrl}
+                  alt={srv.name}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+
+              {/* Nội dung: Tên, Giá, Nút Đặt lịch */}
+              <div className="p-3.5">
+                <h3
+                  onClick={() => onBookService(srv)}
+                  className="text-[17px] font-bold text-[#0F172A] leading-snug cursor-pointer line-clamp-2"
+                >
+                  {srv.name}
+                </h3>
+
+                <div className="my-3 border-t border-[#F1F5F9]" />
+
+                <div className="flex items-center justify-between">
+                  {/* Giá tiền dịch vụ: Màu #E11D48, chữ đ gạch chân */}
+                  <div className="flex items-baseline text-[#E11D48] font-bold text-[20px]">
+                    <span>{formatCurrency(srv.price)} </span>
+                    <span className="underline ml-0.5">đ</span>
+                  </div>
+
+                  {/* Nút Đặt lịch (Chuyển xanh #00693F khi chạm) */}
+                  <button
+                    type="button"
+                    onClick={() => onBookService(srv)}
+                    className="px-4 py-2 bg-[#F1F5F9] hover:bg-[#00693F] text-[#0F172A] hover:text-white border border-[#E2E8F0] hover:border-[#00693F] rounded-lg text-[13.5px] font-bold flex items-center space-x-1.5 transition-colors cursor-pointer active:scale-95"
+                  >
+                    <span>Đặt lịch</span>
+                    <Calendar className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 };
-
