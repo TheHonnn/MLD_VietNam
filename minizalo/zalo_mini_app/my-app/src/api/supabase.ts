@@ -741,20 +741,31 @@ export const SupabaseDataService = {
   getUserProfile(): UserProfile {
     try {
       const raw = localStorage.getItem('mld_user_profile');
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && parsed.isPhoneVerified && parsed.phone) {
+          return parsed;
+        }
+      }
     } catch { }
     return {
-      id: 'usr-001',
-      fullName: 'Khách hàng MLD',
-      phone: '0967786399',
-      isPhoneVerified: true,
-      email: 'buih73444@gmail.com',
+      id: '',
+      fullName: 'Khách hàng',
+      phone: '',
+      isPhoneVerified: false,
+      email: '',
       gender: 'Nữ',
-      dateOfBirth: '1992-06-15',
-      address: 'Quận 3, TP. Hồ Chí Minh',
+      dateOfBirth: '',
+      address: '',
       avatarUrl: '',
-      memberCode: 'MLD-786399',
+      memberCode: '',
     };
+  },
+
+  clearUserProfile() {
+    try {
+      localStorage.removeItem('mld_user_profile');
+    } catch { }
   },
 
   saveUserProfile(profile: UserProfile) {

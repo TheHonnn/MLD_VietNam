@@ -33,6 +33,19 @@ export const MainLayout: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    const handleProfileUpdate = (e: any) => {
+      if (e.detail) {
+        setUserProfile(e.detail);
+      } else {
+        setUserProfile(supabaseApi.getUserProfile());
+      }
+    };
+
+    window.addEventListener('mld:profile-updated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('mld:profile-updated', handleProfileUpdate);
+    };
   }, []);
 
   const loadData = async () => {
@@ -163,6 +176,8 @@ export const MainLayout: React.FC = () => {
 
             {activeTab === 'profile' && (
               <ProfileScreen
+                currentUser={userProfile}
+                onProfileUpdated={(updated) => setUserProfile(updated)}
                 onNavigateTab={(t) => {
                   setActiveSubView(null);
                   setActiveTab(t as NavTabId);

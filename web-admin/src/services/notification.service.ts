@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { ZaloZnsLog } from '../types/shared_types';
+import { toast } from '../components/common/Toast';
 
 export interface AdminNotification {
   id: string;
@@ -19,10 +20,59 @@ class NotificationService {
   private items: AdminNotification[] = [];
   private znsListeners: Array<(logs: ZaloZnsLog[]) => void> = [];
   private znsLogs: ZaloZnsLog[] = [];
+  private pollingTimer: any = null;
 
   constructor() {
     this.loadFromStorage();
-    this.fetchRemote();
+    this.fetchRemote(false);
+    this.startPeriodicSync();
+  }
+
+  private startPeriodicSync() {
+    if (typeof window !== 'undefined' && !this.pollingTimer) {
+      this.pollingTimer = setInterval(() => {
+        this.fetchRemote(true);
+      }, 15000);
+    }
+  }
+
+  public playNotificationSound() {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      const now = ctx.currentTime;
+
+      // Note 1: 587.33 Hz (D5)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.2, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      // Note 2: 880 Hz (A5)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880, now + 0.12);
+      gain2.gain.setValueAtTime(0.25, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.6);
+    } catch (e) {
+      console.warn('[NotificationService] Audio chime error:', e);
+    }
   }
 
   private isTestNotification(item: { title?: string; message?: string }): boolean {
@@ -81,7 +131,7 @@ class NotificationService {
     this.znsListeners.forEach((listener) => listener([...this.znsLogs]));
   }
 
-  private async fetchRemote() {
+  public async fetchRemote(notifyNew = false) {
     try {
       const { data, error } = await supabase
         .from('notifications')
@@ -109,6 +159,12 @@ class NotificationService {
         if (newOnes.length > 0) {
           this.items = [...newOnes, ...this.items];
           this.saveToStorage();
+
+          if (notifyNew) {
+            const top = newOnes[0];
+            this.playNotificationSound();
+            toast.info(top.title, top.message, 6000);
+          }
         }
       }
     } catch (err) {
@@ -176,18 +232,51 @@ class NotificationService {
     }
   }
 
-  public addNotification(notification: Omit<AdminNotification, 'id' | 'createdAt' | 'isRead'>) {
+  public addNotification(
+    notification: Omit<AdminNotification, 'id' | 'createdAt' | 'isRead'>,
+    options?: { playSound?: boolean; showToast?: boolean }
+  ) {
     if (this.isTestNotification(notification)) {
       return; // Never save automated test notifications
     }
+
+    // Deduplicate rapid repeat events within 8 seconds
+    const isDuplicate = this.items.some(
+      (item) =>
+        item.title === notification.title &&
+        item.message === notification.message &&
+        Date.now() - new Date(item.createdAt).getTime() < 8000
+    );
+    if (isDuplicate) return;
+
     const newItem: AdminNotification = {
       ...notification,
-      id: `notif-${Date.now()}`,
+      id: `notif-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       createdAt: new Date().toISOString(),
       isRead: false,
     };
     this.items = [newItem, ...this.items];
     this.saveToStorage();
+
+    if (options?.playSound !== false) {
+      this.playNotificationSound();
+    }
+
+    if (options?.showToast !== false) {
+      toast.info(notification.title, notification.message, 6000);
+    }
+
+    // Try browser system notification if granted
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(notification.title, {
+          body: notification.message,
+          icon: '/favicon.ico',
+        });
+      }
+    } catch {
+      // Ignore desktop notification errors
+    }
   }
 
   public clearTestNotifications() {
