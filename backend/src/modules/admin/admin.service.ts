@@ -740,6 +740,55 @@ export class AdminService {
       Number(next.discount_price) > Number(next.price)
     )
       throw new BadRequestException('Giá ưu đãi không được vượt giá gốc.');
+    if (table === 'treatment_packages' && operation !== 'delete') {
+      if (!next.service_id)
+        throw new BadRequestException('Gói liệu trình phải liên kết với một dịch vụ.');
+      if (Number(next.total_sessions) < 2 || !Number.isInteger(Number(next.total_sessions)))
+        throw new BadRequestException('Gói liệu trình cần có ít nhất 2 buổi nguyên.');
+      if (Number(next.validity_months) < 1 || !Number.isInteger(Number(next.validity_months)))
+        throw new BadRequestException('Thời hạn gói phải từ 1 tháng trở lên.');
+      if (Number(next.price) <= 0)
+        throw new BadRequestException('Giá gốc gói liệu trình phải lớn hơn 0.');
+      if (next.discount_price != null && Number(next.discount_price) < 0)
+        throw new BadRequestException('Giá ưu đãi không được âm.');
+      if (next.service_id) {
+        const service = (await client.query(
+          'SELECT id,is_active FROM services WHERE id=$1', [next.service_id],
+        )).rows[0];
+        if (!service) throw new BadRequestException('Dịch vụ liên kết không tồn tại.');
+      }
+      if (Number(next.discount_price) === 0 && next.discount_price != null)
+        data.discount_price = null;
+    }
+    if (table === 'treatment_packages' && operation === 'delete') {
+      const holders = await client.query(
+        'SELECT 1 FROM user_packages WHERE package_id=$1 LIMIT 1', [previous?.id],
+      );
+      if (holders.rowCount)
+        throw new ConflictException('Không thể xóa gói đã cấp cho khách; hãy ngừng mở bán để giữ lịch sử.');
+    }
+    if (table === 'services' && operation === 'delete') {
+      const usage = await client.query(
+        'SELECT 1 FROM booking_items WHERE service_id=$1 UNION ALL SELECT 1 FROM treatment_packages WHERE service_id=$1 LIMIT 1',
+        [previous?.id],
+      );
+      if (usage.rowCount)
+        throw new ConflictException('Dịch vụ đã được dùng trong lịch hoặc gói; hãy ngừng kinh doanh thay vì xóa.');
+    }
+    if (table === 'user_packages') {
+      if (operation === 'create')
+        throw new BadRequestException('Chỉ luồng POS mới được kích hoạt gói cho khách hàng.');
+      if (operation === 'delete')
+        throw new ConflictException('Không thể xóa gói khách đã mua; hãy xử lý hoàn tiền theo quy trình.');
+      const immutableFields = ['customer_id', 'package_id', 'total_sessions', 'completed_sessions', 'purchased_at', 'expires_at'];
+      if (immutableFields.some((field) => Object.prototype.hasOwnProperty.call(data, field)))
+        throw new BadRequestException('Thông tin mua và số buổi chỉ được cập nhật bởi giao dịch POS/nhật ký điều trị.');
+      if (data.status && !(
+        (previous?.status === 'ACTIVE' && data.status === 'PAUSED') ||
+        (previous?.status === 'PAUSED' && data.status === 'ACTIVE' && new Date(previous.expires_at).getTime() > Date.now())
+      ))
+        throw new ConflictException('Trạng thái gói chỉ được tạm dừng hoặc tiếp tục khi còn hạn.');
+    }
     if (table === 'student_attendance') {
       const match = await client.query(
         'SELECT 1 FROM batch_schedules s JOIN course_enrollments e ON e.batch_id=s.batch_id WHERE s.id=$1 AND e.id=$2',
@@ -752,6 +801,13 @@ export class AdminService {
       data.marked_by_id = actor.id;
     }
     if (table === 'booking_items') {
+      if (operation !== 'delete') {
+        const service = (await client.query(
+          'SELECT is_active FROM services WHERE id=$1', [next.service_id],
+        )).rows[0];
+        if (!service?.is_active)
+          throw new ConflictException('Dịch vụ đã ngừng kinh doanh, không thể thêm vào lịch.');
+      }
       for (const id of new Set(
         [previous?.booking_id, next.booking_id].filter(Boolean),
       )) {
@@ -782,10 +838,20 @@ export class AdminService {
           throw new BadRequestException('Liệu trình không thuộc khách hàng.');
         if (operation === 'create' && pkg.status !== 'ACTIVE')
           throw new ConflictException('Liệu trình không còn hoạt động.');
+        if (operation === 'create' && new Date(pkg.expires_at).getTime() <= Date.now())
+          throw new ConflictException('Liệu trình đã hết hạn sử dụng.');
         if (Number(next.session_number) > Number(pkg.total_sessions))
           throw new BadRequestException(
             'Số thứ tự buổi vượt tổng buổi của liệu trình.',
           );
+        if (operation === 'create') {
+          const expected = (await client.query(
+            'SELECT coalesce(max(session_number),0)::int + 1 AS next_session FROM treatment_journal WHERE user_package_id=$1',
+            [next.user_package_id],
+          )).rows[0].next_session;
+          if (Number(next.session_number) !== Number(expected))
+            throw new ConflictException(`Buổi tiếp theo của gói là buổi ${expected}.`);
+        }
         const exists = await client.query(
           'SELECT 1 FROM treatment_journal WHERE user_package_id=$1 AND session_number=$2 AND id<>$3',
           [
@@ -805,6 +871,27 @@ export class AdminService {
         ).rows[0];
         if (booking?.customer_id !== next.customer_id)
           throw new BadRequestException('Lịch hẹn không thuộc khách hàng.');
+        if (operation === 'create' && !next.user_package_id) {
+          const duplicate = await client.query(
+            'SELECT 1 FROM treatment_journal WHERE booking_id=$1 AND user_package_id IS NULL LIMIT 1',
+            [next.booking_id],
+          );
+          if (duplicate.rowCount)
+            throw new ConflictException('Lịch hẹn đã có nhật ký điều trị.');
+        }
+        if (next.user_package_id) {
+          const packageService = (await client.query(
+            'SELECT tp.service_id FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.id=$1', [next.user_package_id],
+          )).rows[0];
+          if (packageService?.service_id) {
+            const matchingService = await client.query(
+              'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
+              [next.booking_id, packageService.service_id],
+            );
+            if (!matchingService.rowCount)
+              throw new ConflictException('Dịch vụ của lịch không khớp dịch vụ trong gói liệu trình.');
+          }
+        }
       }
     }
     if (
@@ -1358,7 +1445,7 @@ export class AdminService {
   async collectCashierPayment(actor: AdminActor, body: Record<string, unknown>) {
     this.requireCashier(actor);
     const kind = body.kind;
-    const paymentMethod = body.paymentMethod;
+    const paymentMethod = String(body.paymentMethod || '');
     const shiftId = String(body.shiftId || '');
     const vatRate = Number(body.vatRate ?? 0);
     if (!['BOOKING', 'TUITION', 'PACKAGE'].includes(String(kind)))
@@ -1409,7 +1496,6 @@ export class AdminService {
         await client.query(
           `UPDATE course_enrollments SET amount_paid=$2,
            approval_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE approval_status END,
-           student_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE student_status END,
            status=CASE WHEN $2>=tuition_total THEN 'ENROLLED'::enrollment_status ELSE status END,
            approved_by=CASE WHEN $2>=tuition_total THEN $3 ELSE approved_by END,
            approved_at=CASE WHEN $2>=tuition_total THEN now() ELSE approved_at END
@@ -1484,16 +1570,26 @@ export class AdminService {
       if (!this.isUuid(packageId) || !this.isUuid(customerId))
         throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
       const treatmentPackage = (await client.query(
-        'SELECT * FROM treatment_packages WHERE id=$1 AND is_active=true FOR UPDATE', [packageId],
+        `SELECT tp.*,s.is_active AS service_is_active
+         FROM treatment_packages tp
+         LEFT JOIN services s ON s.id=tp.service_id
+         WHERE tp.id=$1 AND tp.is_active=true FOR UPDATE OF tp`, [packageId],
       )).rows[0];
       if (!treatmentPackage) throw new NotFoundException('Gói liệu trình không còn mở bán.');
+      if (!treatmentPackage.service_id)
+        throw new ConflictException('Gói chưa được liên kết với dịch vụ điều trị.');
+      if (treatmentPackage.service_id && treatmentPackage.service_is_active !== true)
+        throw new ConflictException('Dịch vụ của gói đã ngừng kinh doanh.');
       const customer = (await client.query(
         'SELECT id FROM users WHERE id=$1 AND is_active=true', [customerId],
       )).rows[0];
       if (!customer) throw new NotFoundException('Không tìm thấy khách hàng.');
       if (shift.branch_id !== String(body.branchId || shift.branch_id))
         throw new BadRequestException('Ca thu ngân không khớp chi nhánh đang chọn.');
-      const subtotal = Number(treatmentPackage.discount_price ?? treatmentPackage.price);
+      const configuredDiscount = Number(treatmentPackage.discount_price || 0);
+      const subtotal = configuredDiscount > 0 && configuredDiscount < Number(treatmentPackage.price)
+        ? configuredDiscount
+        : Number(treatmentPackage.price);
       const vatAmount = Math.round(subtotal * vatRate) / 100;
       const total = subtotal + vatAmount;
       if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
@@ -1533,7 +1629,7 @@ export class AdminService {
   }
 
   private isUuid(value: string) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
   }
 
   private cashierShiftDto(row: Record<string, any>) {

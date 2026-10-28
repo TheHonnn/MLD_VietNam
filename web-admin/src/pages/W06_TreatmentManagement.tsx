@@ -141,7 +141,6 @@ export const W06_TreatmentManagement: React.FC = () => {
   // Form States
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const [isSubmittingSession, setIsSubmittingSession] = useState(false);
-  const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
 
   // Booking Form
   const [bookingDate, setBookingDate] = useState(() => {
@@ -167,8 +166,6 @@ export const W06_TreatmentManagement: React.FC = () => {
   // Assign Package Form
   const [assignCustomerId, setAssignCustomerId] = useState('');
   const [assignPackageId, setAssignPackageId] = useState('');
-  const [assignValidityMonths, setAssignValidityMonths] = useState(6);
-  const [assignNotes, setAssignNotes] = useState('');
 
   const fetchTreatmentData = useCallback(async () => {
     setIsLoading(true);
@@ -226,20 +223,26 @@ export const W06_TreatmentManagement: React.FC = () => {
       const cust = custMap.get(up.customerId);
       const pkgDef = up.package || livePackages.find((p) => p.id === up.packageId);
       const journals = liveJournals
-        .filter((j) => j.userPackageId === up.id || (!j.userPackageId && j.customerId === up.customerId))
+        .filter((j) => j.userPackageId === up.id)
         .sort((a, b) => a.sessionNumber - b.sessionNumber);
 
       const used = up.completedSessions ?? journals.length;
       const total = up.totalSessions || pkgDef?.totalSessions || 0;
       const remaining = Math.max(0, total - used);
-      const progressPercent = Math.min(100, Math.round((used / total) * 100));
+      const progressPercent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+      const expired = Boolean(up.expiresAt && new Date(up.expiresAt).getTime() <= Date.now());
+      const effectiveStatus = expired && up.status === 'ACTIVE'
+        ? 'EXPIRED'
+        : total > 0 && used >= total
+        ? 'COMPLETED'
+        : up.status;
 
       const purchaseFormatted = up.purchasedAt
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.purchasedAt))
-        : '01/09/2026';
+        : '—';
       const expiryFormatted = up.expiresAt
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.expiresAt))
-        : '31/12/2026';
+        : '—';
 
       const treatmentName = pkgDef?.name || '—';
       const serviceName = (pkgDef?.serviceId && serviceMap.get(pkgDef.serviceId)?.name) || '—';
@@ -280,11 +283,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       });
 
       // Branch determination
-      const branchName = cust?.address?.includes('Hà Nội')
-        ? 'Hà Nội'
-        : cust?.address?.includes('Đà Nẵng')
-          ? 'Đà Nẵng'
-          : 'Quận 3';
+      const branchName = '—';
 
       return {
         id: up.id,
@@ -304,8 +303,8 @@ export const W06_TreatmentManagement: React.FC = () => {
         progressPercent,
         progressLabel: `${progressPercent}% đã dùng`,
         branch: branchName,
-        status: statusLabels[up.status] || '—',
-        rawStatus: up.status || '',
+        status: statusLabels[effectiveStatus] || '—',
+        rawStatus: effectiveStatus || '',
         historySubtitle: `Hồ sơ liệu trình thực tế của ${cust?.fullName || 'khách hàng'}, đồng bộ trực tiếp từ Supabase Cloud.`,
         historyNote: `Đã hoàn thành ${used}/${total} buổi. Còn lại ${remaining} buổi hợp lệ đến ${expiryFormatted}.`,
         sessionsHistory,
@@ -328,7 +327,7 @@ export const W06_TreatmentManagement: React.FC = () => {
 
       // 2. Package Type filter
       if (filterPackageType) {
-        if (!pkg.name.toLowerCase().includes(filterPackageType.toLowerCase())) {
+        if (pkg.packageId !== filterPackageType && !pkg.name.toLowerCase().includes(filterPackageType.toLowerCase())) {
           return false;
         }
       }
@@ -561,51 +560,21 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   // --- ACTION: Đăng ký gói liệu trình mới ---
   const handleOpenAssignPackageModal = () => {
-    if (customers.length > 0) setAssignCustomerId(customers[0].id);
-    if (livePackages.length > 0) setAssignPackageId(livePackages[0].id);
-    setAssignValidityMonths(6);
-    setAssignNotes('Đăng ký gói liệu trình chăm sóc mới');
+    setAssignCustomerId('');
+    setAssignPackageId('');
     setIsAssignPackageModalOpen(true);
   };
 
   const handleSubmitAssignPackage = async (e: React.FormEvent) => {
     e.preventDefault();
-    const pkg = livePackages.find((p) => p.id === assignPackageId) || livePackages[0];
-    const cust = customers.find((c) => c.id === assignCustomerId) || customers[0];
+    const pkg = livePackages.find((p) => p.id === assignPackageId && p.isActive);
+    const cust = customers.find((c) => c.id === assignCustomerId);
 
     if (!pkg || !cust) {
-      toast.error('Thiếu thông tin', 'Vui lòng chọn khách hàng và gói hợp lệ.');
+      toast.error('Thiếu thông tin', 'Chọn khách hàng và gói đang mở bán.');
       return;
     }
-
-    setIsSubmittingAssign(true);
-    try {
-      const res = await treatmentService.assignPackageToCustomer({
-        customerId: cust.id,
-        packageId: pkg.id,
-        packageName: pkg.name,
-        totalSessions: pkg.totalSessions || 5,
-        price: pkg.discountPrice || pkg.price || 2290000,
-        validityMonths: assignValidityMonths,
-        notes: assignNotes,
-      });
-
-      if (res.success) {
-        toast.success(
-          'Đăng ký gói thành công',
-          `Đã kích hoạt gói "${pkg.name}" (${pkg.totalSessions} buổi) cho khách hàng ${cust.fullName}.`
-        );
-        setIsAssignPackageModalOpen(false);
-        await fetchTreatmentData();
-      } else {
-        toast.error('Lỗi kích hoạt', res.message || 'Không thể kích hoạt gói.');
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error('Lỗi hệ thống', err.message || 'Không thể đăng ký gói.');
-    } finally {
-      setIsSubmittingAssign(false);
-    }
+    window.location.href = `/cashier-pos?packageId=${encodeURIComponent(pkg.id)}&packageName=${encodeURIComponent(pkg.name)}&customerId=${encodeURIComponent(cust.id)}`;
   };
 
   return (
@@ -1527,7 +1496,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   onChange={(e) => setAssignPackageId(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
                 >
-                  {livePackages.map((p) => (
+                  {livePackages.filter((p) => p.isActive).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} · {p.totalSessions} buổi ({((p.discountPrice || p.price) || 0).toLocaleString('vi-VN')}đ)
                     </option>
@@ -1535,75 +1504,23 @@ export const W06_TreatmentManagement: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Thời hạn hiệu lực (tháng)
-                  </label>
-                  <select
-                    value={assignValidityMonths}
-                    onChange={(e) => setAssignValidityMonths(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
-                  >
-                    <option value={3}>3 tháng</option>
-                    <option value={6}>6 tháng</option>
-                    <option value={12}>12 tháng (1 năm)</option>
-                    <option value={24}>24 tháng (2 năm)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Trạng thái ban đầu
-                  </label>
-                  <input
-                    type="text"
-                    disabled
-                    value="Đang sử dụng (ACTIVE)"
-                    className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#73675F] cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Ghi chú cấp phát
-                </label>
-                <textarea
-                  rows={2}
-                  value={assignNotes}
-                  onChange={(e) => setAssignNotes(e.target.value)}
-                  placeholder="Ghi chú thêm về gói hoặc tư vấn viên phụ trách..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
-              </div>
+              <p className="text-[11px] text-[#73675F]">Giá, số buổi và hạn dùng được lấy từ cấu hình gói. Gói chỉ được kích hoạt sau khi thu ngân hoàn tất thanh toán.</p>
 
               {/* Modal Footer */}
               <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsAssignPackageModalOpen(false)}
-                  disabled={isSubmittingAssign}
                   className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingAssign}
                   className="px-5 py-2 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  {isSubmittingAssign ? (
-                    <>
-                      <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-                      <span>Đang lưu Supabase...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Kích hoạt gói</span>
-                    </>
-                  )}
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tiếp tục thanh toán</span>
                 </button>
               </div>
             </form>

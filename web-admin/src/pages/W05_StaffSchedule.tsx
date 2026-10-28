@@ -1068,8 +1068,12 @@ export const W05_StaffSchedule: React.FC = () => {
       try {
         const pkgRes = await treatmentService.getUserPackagesByCustomer(targetCustId);
         if (pkgRes.success && pkgRes.data && pkgRes.data.length > 0) {
+          const bookedServiceId = targetBooking?.items?.[0]?.serviceId || app.serviceId;
           const activePkgs = pkgRes.data.filter(
-            (p) => p.status === 'ACTIVE' && p.completedSessions < p.totalSessions
+            (p) => p.status === 'ACTIVE'
+              && p.completedSessions < p.totalSessions
+              && (!p.package?.serviceId || p.package.serviceId === bookedServiceId)
+              && (!p.expiresAt || new Date(p.expiresAt).getTime() > Date.now())
           );
           setClinicalCustomerPackages(activePkgs);
           if (activePkgs.length > 0) {

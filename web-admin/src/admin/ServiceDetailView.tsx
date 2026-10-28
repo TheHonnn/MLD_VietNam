@@ -21,6 +21,7 @@ import {
   Leaf,
 } from 'lucide-react';
 import { Row } from './api';
+import { adminApi } from './api';
 import { toast } from '../components/common';
 import { SUPABASE_URL, getSupabaseHeaders } from '../services/supabaseClient';
 
@@ -159,25 +160,19 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
     setIsTogglingStatus(true);
     const nextStatus = !isActive;
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/services?id=eq.${encodeURIComponent(serviceId)}`, {
-        method: 'PATCH',
-        headers: getSupabaseHeaders({
-          'Content-Type': 'application/json',
-        }),
-        body: JSON.stringify({ is_active: nextStatus }),
+      await adminApi('services/update', {
+        values: { is_active: nextStatus },
+        key: { id: serviceId },
+        ...(row.updated_at ? { expectedUpdatedAt: row.updated_at } : {}),
       });
-      if (res.ok) {
-        setIsActive(nextStatus);
-        toast.success(
-          nextStatus ? 'Đã bật kinh doanh' : 'Đã tạm ngừng phục vụ',
-          `Dịch vụ "${serviceName}" hiện ${nextStatus ? 'sẵn sàng tiếp nhận đặt lịch' : 'tạm dừng nhận khách'}.`
-        );
-        onRefresh?.();
-      } else {
-        toast.error('Lỗi cập nhật', 'Không thể thay đổi trạng thái dịch vụ.');
-      }
-    } catch {
-      toast.error('Lỗi kết nối', 'Không thể kết nối đến máy chủ Supabase.');
+      setIsActive(nextStatus);
+      toast.success(
+        nextStatus ? 'Đã bật kinh doanh' : 'Đã tạm ngừng phục vụ',
+        `Dịch vụ "${serviceName}" hiện ${nextStatus ? 'sẵn sàng tiếp nhận đặt lịch' : 'tạm dừng nhận khách'}.`
+      );
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error('Lỗi cập nhật', error?.message || 'Không thể thay đổi trạng thái dịch vụ.');
     } finally {
       setIsTogglingStatus(false);
     }
@@ -188,23 +183,19 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
     if (!serviceId) return;
     const nextFeatured = !isFeatured;
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/services?id=eq.${encodeURIComponent(serviceId)}`, {
-        method: 'PATCH',
-        headers: getSupabaseHeaders({
-          'Content-Type': 'application/json',
-        }),
-        body: JSON.stringify({ is_featured: nextFeatured }),
+      await adminApi('services/update', {
+        values: { is_featured: nextFeatured },
+        key: { id: serviceId },
+        ...(row.updated_at ? { expectedUpdatedAt: row.updated_at } : {}),
       });
-      if (res.ok) {
-        setIsFeatured(nextFeatured);
-        toast.success(
-          nextFeatured ? 'Đã ghim nổi bật' : 'Đã bỏ ghim nổi bật',
-          `Dịch vụ sẽ ${nextFeatured ? 'hiển thị đầu tiên' : 'hiển thị thông thường'} trên danh mục khách hàng.`
-        );
-        onRefresh?.();
-      }
-    } catch {
-      toast.error('Lỗi', 'Không thể thay đổi trạng thái nổi bật.');
+      setIsFeatured(nextFeatured);
+      toast.success(
+        nextFeatured ? 'Đã ghim nổi bật' : 'Đã bỏ ghim nổi bật',
+        `Dịch vụ sẽ ${nextFeatured ? 'hiển thị đầu tiên' : 'hiển thị thông thường'} trên danh mục khách hàng.`
+      );
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error('Lỗi', error?.message || 'Không thể thay đổi trạng thái nổi bật.');
     }
   };
 

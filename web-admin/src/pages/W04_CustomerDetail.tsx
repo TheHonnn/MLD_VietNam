@@ -129,7 +129,6 @@ export const W04_CustomerDetail: React.FC = () => {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
-  const [isAssigningPackage, setIsAssigningPackage] = useState(false);
   const [isProcessingSession, setIsProcessingSession] = useState(false);
 
   // Edit Profile Modal
@@ -554,41 +553,12 @@ export const W04_CustomerDetail: React.FC = () => {
   const handleAssignPackageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customer?.id) return;
-    const targetPkg = availablePackages.find((p) => p.id === selectedPackageId) || availablePackages[0];
+    const targetPkg = availablePackages.find((p) => p.id === selectedPackageId && p.isActive);
     if (!targetPkg) {
-      toast.warning('Chưa chọn gói', 'Vui lòng chọn một gói liệu trình để gán cho khách hàng.');
+      toast.warning('Gói không khả dụng', 'Chọn một gói đang mở bán để tiếp tục thanh toán.');
       return;
     }
-
-    setIsAssigningPackage(true);
-    try {
-      const res = await treatmentService.assignPackageToCustomer({
-        customerId: customer.id,
-        packageId: targetPkg.id,
-        packageName: targetPkg.name,
-        totalSessions: targetPkg.totalSessions,
-        price: targetPkg.discountPrice || targetPkg.price,
-        validityMonths: targetPkg.validityMonths || 6,
-      });
-
-      if (res.success && res.data) {
-        setPackages((prev) => [res.data, ...prev]);
-        const addedPrice = targetPkg.discountPrice || targetPkg.price;
-        setCustomer((prev) => prev ? { ...prev, totalSpent: (prev.totalSpent || 0) + addedPrice } : prev);
-        toast.success(
-          'Đăng ký gói thành công',
-          `Đã kích hoạt gói "${targetPkg.name}" (${targetPkg.totalSessions} buổi) cho khách hàng ${customer.fullName}.`
-        );
-        setIsAssignModalOpen(false);
-      } else {
-        toast.error('Lỗi gán gói', res.message || 'Không thể đăng ký gói liệu trình');
-      }
-    } catch (err) {
-      console.error('Lỗi khi gán gói liệu trình:', err);
-      toast.error('Lỗi hệ thống', 'Không thể hoàn tất gán gói liệu trình.');
-    } finally {
-      setIsAssigningPackage(false);
-    }
+    window.location.href = `/cashier-pos?packageId=${encodeURIComponent(targetPkg.id)}&packageName=${encodeURIComponent(targetPkg.name)}&customerId=${encodeURIComponent(customer.id)}`;
   };
 
   // Handler: Open Edit Profile Modal
@@ -1646,7 +1616,7 @@ export const W04_CustomerDetail: React.FC = () => {
                   onChange={(e) => setSelectedPackageId(e.target.value)}
                   className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 >
-                  {availablePackages.map((pkg) => (
+                  {availablePackages.filter((pkg) => pkg.isActive).map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
                       {pkg.name} — {pkg.totalSessions} buổi ({(pkg.discountPrice || pkg.price).toLocaleString('vi-VN')}đ)
                     </option>
@@ -1655,7 +1625,7 @@ export const W04_CustomerDetail: React.FC = () => {
               </div>
 
               <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-[#73675F] leading-relaxed">
-                Sau khi kích hoạt, số buổi sẽ tự động hiển thị trong mục Liệu trình và đồng bộ ví tài chính của khách hàng.
+                Gói chỉ được kích hoạt sau khi thu ngân xác nhận thanh toán. Giá, số buổi và hạn dùng lấy từ cấu hình gói.
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
@@ -1668,10 +1638,9 @@ export const W04_CustomerDetail: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isAssigningPackage}
                   className="px-4 py-2 bg-[#985018] text-white rounded-xl font-bold hover:bg-[#854412] transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  {isAssigningPackage ? 'Đang kích hoạt...' : 'Xác nhận gán gói'}
+                  Tiếp tục thanh toán
                 </button>
               </div>
             </form>

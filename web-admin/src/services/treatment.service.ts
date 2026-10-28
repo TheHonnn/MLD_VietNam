@@ -4,7 +4,6 @@ import {
   UserPackage,
   TreatmentJournal,
   ApiResponse,
-  PackageStatus,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
@@ -109,13 +108,6 @@ export const treatmentService = {
     }
   },
 
-  // --- Gói Liệu Trình của Khách hàng (UserPackage) ---
-  getLocalUserPackages(): UserPackage[] {
-    return [];
-  },
-
-  saveLocalUserPackage() {},
-
   async getUserPackagesByCustomer(customerId?: string): Promise<ApiResponse<UserPackage[]>> {
     try {
       const isValidUuid = customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId);
@@ -133,58 +125,6 @@ export const treatmentService = {
         statusCode: 500,
         message: 'Lỗi nạp gói liệu trình từ Supabase Cloud',
         data: [],
-      };
-    }
-  },
-
-  async assignPackageToCustomer(params: {
-    customerId: string;
-    packageId: string;
-    packageName: string;
-    totalSessions: number;
-    price: number;
-    validityMonths?: number;
-    notes?: string;
-  }): Promise<ApiResponse<UserPackage>> {
-    const validity = params.validityMonths || 6;
-    const expiresAt = new Date(Date.now() + validity * 30 * 86400000).toISOString();
-
-    try {
-      const created = await supabaseService.createUserPackage({
-        customerId: params.customerId,
-        packageId: params.packageId,
-        totalSessions: params.totalSessions,
-        completedSessions: 0,
-        status: PackageStatus.ACTIVE,
-        expiresAt,
-      });
-
-      if (created) {
-        created.package = {
-          id: params.packageId,
-          name: params.packageName,
-          totalSessions: params.totalSessions,
-          price: params.price,
-          validityMonths: validity,
-          isActive: true,
-          description: '',
-          imageUrl: '',
-        };
-        return {
-          success: true,
-          statusCode: 201,
-          message: 'Gán gói liệu trình thành công trên Supabase Cloud',
-          data: created,
-        };
-      }
-      throw new Error('Không thể tạo bản ghi gói liệu trình trên Supabase Cloud');
-    } catch (err: any) {
-      console.error('[treatmentService] Cloud assign package failed:', err);
-      return {
-        success: false,
-        statusCode: 500,
-        message: err?.message || 'Lỗi khi gán gói liệu trình lên Supabase Cloud',
-        data: {} as UserPackage,
       };
     }
   },
@@ -239,29 +179,6 @@ export const treatmentService = {
     return legacyWrite<TreatmentJournal>('treatment_journal', data, id);
   },
 
-  async updateUserPackage(
-    userPackageId: string,
-    updates: { completedSessions?: number; status?: PackageStatus }
-  ): Promise<ApiResponse<boolean>> {
-    try {
-      const ok = await supabaseService.updateUserPackage(userPackageId, updates);
-      return {
-        success: ok,
-        statusCode: ok ? 200 : 400,
-        message: ok ? 'Cập nhật gói liệu trình thành công trên Supabase Cloud' : 'Không thể cập nhật gói',
-        data: ok,
-      };
-    } catch (err) {
-      console.error('[treatmentService] updateUserPackage error:', err);
-      return {
-        success: false,
-        statusCode: 500,
-        message: 'Lỗi cập nhật gói liệu trình',
-        data: false,
-      };
-    }
-  },
-
   async createTreatmentJournal(journal: {
     userPackageId?: string | null;
     bookingId?: string | null;
@@ -281,6 +198,14 @@ export const treatmentService = {
   }): Promise<ApiResponse<any>> {
     try {
       const res = await legacyWrite<TreatmentJournal>('treatment_journal', journal);
+      if (!res.success || !res.data?.id) {
+        return {
+          success: false,
+          statusCode: res.statusCode || 500,
+          message: res.message || 'Không xác nhận được nhật ký điều trị đã lưu.',
+          data: null,
+        };
+      }
       return res;
     } catch (err) {
       console.error('[treatmentService] createTreatmentJournal error:', err);
@@ -300,15 +225,6 @@ export const treatmentService = {
     totalSessions: number,
     journalData?: any
   ): Promise<ApiResponse<boolean>> {
-    if (currentCompleted >= totalSessions) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Gói liệu trình này đã hoàn tất đầy đủ các buổi theo phác đồ.',
-        data: false,
-      };
-    }
-
     if (!journalData) {
       return {
         success: false,
@@ -317,12 +233,18 @@ export const treatmentService = {
         data: false,
       };
     }
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(userPackageId) || !uuidPattern.test(journalData.customerId)) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: 'Mã gói hoặc khách hàng không hợp lệ.',
+        data: false,
+      };
+    }
 
-    const nextCompleted = currentCompleted + 1;
-    const existingJournals = journalData.bookingId
-      ? await this.getTreatmentJournalsByCustomer(journalData.customerId)
-      : undefined;
-    if (existingJournals && !existingJournals.success) {
+    const existingJournals = await this.getTreatmentJournalsByCustomer(journalData.customerId);
+    if (!existingJournals.success) {
       return {
         success: false,
         statusCode: 503,
@@ -330,9 +252,22 @@ export const treatmentService = {
         data: false,
       };
     }
-    const existingJournal = existingJournals?.data.find(
-      (journal) => journal.bookingId === journalData.bookingId && journal.userPackageId === userPackageId
+    const nextCompleted = currentCompleted + 1;
+    const existingJournal = existingJournals.data.find((journal) =>
+      journal.userPackageId === userPackageId && (
+        journalData.bookingId
+          ? journal.bookingId === journalData.bookingId
+          : journal.sessionNumber === Number(journalData.sessionNumber || nextCompleted)
+      )
     );
+    if (currentCompleted >= totalSessions && !existingJournal) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: 'Gói liệu trình này đã hoàn tất đầy đủ các buổi theo phác đồ.',
+        data: false,
+      };
+    }
     const requestedSession = Number(journalData.sessionNumber || existingJournal?.sessionNumber || nextCompleted);
     if (!existingJournal && requestedSession !== nextCompleted) {
       return {
@@ -353,19 +288,13 @@ export const treatmentService = {
 
     if (!journalRes.success) return journalRes;
 
-    const nextStatus = requestedSession >= totalSessions ? PackageStatus.COMPLETED : PackageStatus.ACTIVE;
-    const packageRes = await this.updateUserPackage(userPackageId, {
-      completedSessions: Math.max(currentCompleted, requestedSession),
-      status: nextStatus,
-    });
-
     return {
-      success: packageRes.success,
-      statusCode: packageRes.statusCode,
-      message: packageRes.success
-        ? 'Đã cập nhật hồ sơ buổi điều trị.'
-        : 'Đã lưu nhật ký điều trị nhưng chưa cập nhật được số buổi của gói.',
-      data: packageRes.success,
+      success: true,
+      statusCode: journalRes.statusCode,
+      message: requestedSession >= totalSessions
+        ? 'Đã lưu buổi cuối và hoàn tất gói liệu trình.'
+        : 'Đã lưu buổi điều trị và cập nhật tiến trình gói.',
+      data: true,
     };
   },
 };
