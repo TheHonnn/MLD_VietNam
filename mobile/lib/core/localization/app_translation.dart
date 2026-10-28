@@ -55,27 +55,84 @@ class AppTranslation {
              .replaceAll('TP. Hồ Chí Minh', 'Ho Chi Minh City')
              .replaceAll('TP.HCM', 'HCMC');
 
-    // Mẫu giờ học / khóa học
-    final hoursReg = RegExp(r'(\d+)\s+giờ học');
-    res = res.replaceAllMapped(hoursReg, (m) => '${m[1]} learning hours');
+    // 1. Mẫu Chương học (Chapter)
+    final chapterReg = RegExp(r'^Chương\s+(\d+)[:\s]*(.*)$', caseSensitive: false);
+    final chapterMatch = chapterReg.firstMatch(res);
+    if (chapterMatch != null) {
+      final chNum = chapterMatch.group(1);
+      final chTitle = chapterMatch.group(2)?.trim() ?? '';
+      final translatedChTitle = chTitle.isNotEmpty ? translate(chTitle, isEn: true) : '';
+      return translatedChTitle.isNotEmpty ? 'Chapter $chNum: $translatedChTitle' : 'Chapter $chNum';
+    }
 
-    final coursesReg = RegExp(r'(\d+)\s+khóa đang tham gia');
-    res = res.replaceAllMapped(coursesReg, (m) => '${m[1]} enrolled courses');
+    // 2. Mẫu Bài học (Lesson)
+    final lessonReg = RegExp(r'^(?:Video\s+)?Bài\s+(\d+)[:\s]*(.*)$', caseSensitive: false);
+    final lessonMatch = lessonReg.firstMatch(res);
+    if (lessonMatch != null) {
+      final lNum = lessonMatch.group(1);
+      final lTitle = lessonMatch.group(2)?.trim() ?? '';
+      final translatedLTitle = lTitle.isNotEmpty ? translate(lTitle, isEn: true) : '';
+      return translatedLTitle.isNotEmpty ? 'Lesson $lNum: $translatedLTitle' : 'Lesson $lNum';
+    }
 
-    final sessionsLeftReg = RegExp(r'(\d+)\s+buổi còn lại');
-    res = res.replaceAllMapped(sessionsLeftReg, (m) => '${m[1]} sessions left');
+    // 3. Mẫu Câu hỏi kiểm tra (Question)
+    final questionReg = RegExp(r'^Câu\s+(\d+)[:\s]*(.*)$', caseSensitive: false);
+    final questionMatch = questionReg.firstMatch(res);
+    if (questionMatch != null) {
+      final qNum = questionMatch.group(1);
+      final qText = questionMatch.group(2)?.trim() ?? '';
+      final translatedQText = qText.isNotEmpty ? translate(qText, isEn: true) : '';
+      return translatedQText.isNotEmpty ? 'Question $qNum: $translatedQText' : 'Question $qNum';
+    }
 
-    final sessionsUsedReg = RegExp(r'(\d+)\s+buổi đã dùng');
-    res = res.replaceAllMapped(sessionsUsedReg, (m) => '${m[1]} sessions completed');
+    // 4. Mẫu Bài kiểm tra (Quiz Assessment)
+    final evalQuizReg = RegExp(r'^Bài kiểm tra đánh giá:\s*(.*)$', caseSensitive: false);
+    final evalMatch = evalQuizReg.firstMatch(res);
+    if (evalMatch != null) {
+      final cTitle = evalMatch.group(1)?.trim() ?? '';
+      return 'Evaluation Assessment: ${translate(cTitle, isEn: true)}';
+    }
 
-    final sessionsCompletedReg = RegExp(r'(\d+)\s+buổi hoàn thành');
-    res = res.replaceAllMapped(sessionsCompletedReg, (m) => '${m[1]} sessions completed');
+    final moduleQuizReg = RegExp(r'^Bài kiểm tra Module\s+(\d+)[:\s]*(.*)$', caseSensitive: false);
+    final moduleMatch = moduleQuizReg.firstMatch(res);
+    if (moduleMatch != null) {
+      final mNum = moduleMatch.group(1);
+      final mTitle = moduleMatch.group(2)?.trim() ?? '';
+      return 'Module $mNum Quiz: ${translate(mTitle, isEn: true)}';
+    }
 
-    final packagesActiveReg = RegExp(r'(\d+)\s+gói đang dùng');
-    res = res.replaceAllMapped(packagesActiveReg, (m) => '${m[1]} active packages');
+    final compQuizReg = RegExp(r'^Bài kiểm tra Đánh giá Năng lực Thực hành Tổng hợp\s*[-–]\s*(.*)$', caseSensitive: false);
+    final compMatch = compQuizReg.firstMatch(res);
+    if (compMatch != null) {
+      final cTitle = compMatch.group(1)?.trim() ?? '';
+      return 'Comprehensive Practical Qualification Assessment - ${translate(cTitle, isEn: true)}';
+    }
 
-    final usedOnlyReg = RegExp(r'(\d+)\s+đã dùng');
-    res = res.replaceAllMapped(usedOnlyReg, (m) => '${m[1]} used');
+    // 5. Mẫu giờ học / khóa học / video / bài kiểm tra
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+bài học video', caseSensitive: false), (m) => '${m[1]} video lessons');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+bài giảng video', caseSensitive: false), (m) => '${m[1]} video lectures');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+video bài giảng', caseSensitive: false), (m) => '${m[1]} video lectures');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+bài học', caseSensitive: false), (m) => '${m[1]} lessons');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+bài giảng', caseSensitive: false), (m) => '${m[1]} lectures');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+bài kiểm tra trắc nghiệm', caseSensitive: false), (m) => '${m[1]} multiple choice quizzes');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+bài kiểm tra', caseSensitive: false), (m) => '${m[1]} quizzes');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+câu hỏi', caseSensitive: false), (m) => '${m[1]} questions');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+câu', caseSensitive: false), (m) => '${m[1]} questions');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+giờ đào tạo', caseSensitive: false), (m) => '${m[1]} training hours');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+giờ học', caseSensitive: false), (m) => '${m[1]} learning hours');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+khóa đang tham gia', caseSensitive: false), (m) => '${m[1]} enrolled courses');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+buổi còn lại', caseSensitive: false), (m) => '${m[1]} sessions left');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+buổi đã dùng', caseSensitive: false), (m) => '${m[1]} sessions completed');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+buổi hoàn thành', caseSensitive: false), (m) => '${m[1]} sessions completed');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+gói đang dùng', caseSensitive: false), (m) => '${m[1]} active packages');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+đã dùng', caseSensitive: false), (m) => '${m[1]} used');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+bài đạt', caseSensitive: false), (m) => '${m[1]} passed');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+đã đăng ký', caseSensitive: false), (m) => '${m[1]} enrolled');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+video', caseSensitive: false), (m) => '${m[1]} videos');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+phút đọc', caseSensitive: false), (m) => '${m[1]} mins read');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+phút', caseSensitive: false), (m) => '${m[1]} mins');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+buổi', caseSensitive: false), (m) => '${m[1]} sessions');
+    res = res.replaceAllMapped(RegExp(r'(\d+)\s+tuần', caseSensitive: false), (m) => '${m[1]} weeks');
 
     final sessionIdxReg = RegExp(r'Buổi\s+(\d+)');
     res = res.replaceAllMapped(sessionIdxReg, (m) => 'Session ${m[1]}');
@@ -86,14 +143,8 @@ class AppTranslation {
     final completedTabReg = RegExp(r'Đã hoàn thành\s*\((\d+)\)');
     res = res.replaceAllMapped(completedTabReg, (m) => 'Completed (${m[1]})');
 
-    final sessionsReg = RegExp(r'(\d+)\s+buổi');
-    res = res.replaceAllMapped(sessionsReg, (m) => '${m[1]} sessions');
-
-    final weeksReg = RegExp(r'(\d+)\s+tuần');
-    res = res.replaceAllMapped(weeksReg, (m) => '${m[1]} weeks');
-
     // Ngày tháng
-    final monthReg = RegExp(r'Tháng\s+(\d+),\s+(\d+)');
+    final monthReg = RegExp(r'Tháng\s+(\d+)(?:,\s+(\d+))?');
     final monthNames = {
       1: 'January', 2: 'February', 3: 'March', 4: 'April',
       5: 'May', 6: 'June', 7: 'July', 8: 'August',
@@ -101,7 +152,8 @@ class AppTranslation {
     };
     res = res.replaceAllMapped(monthReg, (m) {
       final mNum = int.tryParse(m[1] ?? '') ?? 1;
-      return '${monthNames[mNum] ?? m[1]}, ${m[2]}';
+      final yearPart = m[2] != null ? ', ${m[2]}' : '';
+      return '${monthNames[mNum] ?? m[1]}$yearPart';
     });
 
     return res;
