@@ -37,19 +37,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   // 3. Số người & Ngày giờ
   final int _guestCount = 1; // 1 - 5 người
   late DateTime _selectedDate;
-  String _selectedTimeSlot = '09:45';
-
-  final List<String> _timeSlots = [
-    '08:30',
-    '09:45',
-    '11:00',
-    '14:00',
-    '15:30',
-    '17:00',
-    '18:30',
-    '20:00',
-  ];
-
+  
   // 4. Thông tin người đặt: Bản thân vs Đặt hộ
   bool _isBookingForSelf = true;
   final TextEditingController _nameController = TextEditingController();
@@ -294,7 +282,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       specialistTitle: 'Chuyên viên Vodder tự động phân bổ',
       specialistAvatar: 'assets/images/logo.webp',
       appointmentDate: _selectedDate,
-      timeSlot: '$_selectedTimeSlot - ${_selectedTimeSlot.split(':')[0]}:45',
+      timeSlot: 'Trong ngày',
       customerName: _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : 'Khách hàng MLD',
       customerPhone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : '0900000000',
       customerEmail: '',
@@ -362,8 +350,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             const SizedBox(height: 8),
             Text(
               context.isEn
-                  ? 'Your appointment ($code) at ${_selectedBranch?.name.tr(context)} at $_selectedTimeSlot on $dateString has been booked.'
-                  : 'Lịch hẹn ($code) tại ${_selectedBranch?.name} vào lúc $_selectedTimeSlot ngày $dateString đã được ghi nhận.',
+                  ? 'Your appointment ($code) at ${_selectedBranch?.name.tr(context)} on $dateString has been booked.'
+                  : 'Lịch hẹn ($code) tại ${_selectedBranch?.name} ngày $dateString đã được ghi nhận.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -507,7 +495,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               const SizedBox(height: 16),
 
               // ==========================================
-              // 2. CHỌN NGÀY & KHUNG GIỜ (Chuẩn 4.2: Gọn gàng)
+              // 2. CHỌN NGÀY HẸN
               // ==========================================
               Container(
                 padding: const EdgeInsets.all(16),
@@ -555,43 +543,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 12),
-
-                    // Giờ hẹn
-                    Text(
-                      context.tr('Giờ hẹn (60 phút/ca):', 'Time slot (60 mins/slot):'),
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _timeSlots.map((slot) {
-                        final isSel = _selectedTimeSlot == slot;
-                        return InkWell(
-                          onTap: () => setState(() => _selectedTimeSlot = slot),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSel ? AppColors.primary : Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isSel ? AppColors.primary : AppColors.border,
-                              ),
-                            ),
-                            child: Text(
-                              slot,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                                color: isSel ? Colors.white : AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                    
                   ],
                 ),
               ),
@@ -776,7 +728,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     const SizedBox(height: 12),
                     _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), _serviceTitle.tr(context)),
                     _buildInfoRow(context.tr('Chi nhánh:', 'Branch:'), _selectedBranch != null ? _selectedBranch!.name.tr(context) : '---'),
-                    _buildInfoRow(context.tr('Ngày & Giờ:', 'Date & Time:'), '$dateDisplay ${context.tr('lúc', 'at')} $_selectedTimeSlot'),
+                    _buildInfoRow(context.tr('Ngày hẹn:', 'Date:'), dateDisplay),
                     _buildInfoRow(context.tr('Khách hàng:', 'Customer:'), '${_nameController.text} (${_phoneController.text})'),
                     if (_noteController.text.trim().isNotEmpty)
                       _buildInfoRow(context.tr('Ghi chú:', 'Notes:'), _noteController.text.trim()),

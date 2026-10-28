@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
 
@@ -765,7 +765,7 @@ export class AcademyService {
         totalLessons: 20,
         tuitionFee: 15000000,
         depositAmount: 2000000,
-        certificateTitle: 'Chứng Chỉ Kỹ Thuật Viên Spa Quốc Gia & MLD Academy',
+        certificateTitle: 'Chứng Chỉ Kỹ Thuật Viên Spa Quốc Gia & MLD',
         imageUrl: 'assets/images/gioithieu_1.png',
         isFeatured: true,
         categoryName: 'Chăm sóc da & Trị liệu',
@@ -782,7 +782,7 @@ export class AcademyService {
         totalLessons: 12,
         tuitionFee: 8500000,
         depositAmount: 1500000,
-        certificateTitle: 'Chứng Chỉ Chuyên Viên Dưỡng Sinh MLD Academy',
+        certificateTitle: 'Chứng Chỉ Chuyên Viên Dưỡng Sinh MLD',
         imageUrl: 'assets/images/gioithieu_2.png',
         isFeatured: true,
         categoryName: 'Dưỡng sinh & Đông y',

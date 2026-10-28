@@ -135,10 +135,8 @@ export const W04_CustomerDetail: React.FC = () => {
   // Edit Profile Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [preferredTech, setPreferredTech] = useState<string>('Trần Lan Anh');
-  const [clinicalNotes, setClinicalNotes] = useState<string>(
-    'Ưu tiên kỹ thuật Vodder lực nhẹ, chườm ấm cổ vai gáy, phòng yên tĩnh có tinh dầu sả chanh.'
-  );
+  const [preferredTech, setPreferredTech] = useState<string>('');
+  const [clinicalNotes, setClinicalNotes] = useState<string>('');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -146,13 +144,13 @@ export const W04_CustomerDetail: React.FC = () => {
     email: '',
     gender: 'FEMALE' as 'MALE' | 'FEMALE' | 'OTHER',
     dateOfBirth: '',
-    membershipTier: MemberTier.GOLD,
+    membershipTier: MemberTier.STANDARD,
     address: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
     purpose: PurposeInterest.BEAUTY_SPA,
-    preferredTechnician: 'Trần Lan Anh',
-    clinicalNotes: 'Ưu tiên kỹ thuật Vodder lực nhẹ, chườm ấm cổ vai gáy, phòng yên tĩnh có tinh dầu sả chanh.',
+    preferredTechnician: '',
+    clinicalNotes: '',
   });
 
   const tabs = [
@@ -188,18 +186,6 @@ export const W04_CustomerDetail: React.FC = () => {
             );
             custData = realCustomers.length > 0 ? realCustomers[0] : listRes.data[0];
             custId = custData.id;
-          }
-        }
-
-        if (custId) {
-          const localCache = localStorage.getItem(`mld_cust_${custId}`);
-          if (localCache) {
-            try {
-              const parsed = JSON.parse(localCache);
-              if (parsed.preferredTechnician) setPreferredTech(parsed.preferredTechnician);
-              if (parsed.clinicalNotes) setClinicalNotes(parsed.clinicalNotes);
-              if (custData) custData = { ...custData, ...parsed };
-            } catch {}
           }
         }
 
@@ -473,7 +459,7 @@ export const W04_CustomerDetail: React.FC = () => {
         id: tt.id,
         code: tt.transactionCode || 'HP-ACADEMY',
         type: 'TUITION',
-        title: 'Học phí đào tạo Học viện MLD Academy',
+        title: 'Học phí đào tạo Học viện MLD',
         dateStr: formatDateVN(tt.paidAt),
         timestamp: d.getTime(),
         method:
@@ -699,17 +685,6 @@ export const W04_CustomerDetail: React.FC = () => {
         ...(res.success && res.data ? res.data : {}),
       };
       setCustomer(newCustomerState);
-      setPreferredTech(formData.preferredTechnician.trim() || 'Trần Lan Anh');
-      setClinicalNotes(formData.clinicalNotes.trim());
-
-      localStorage.setItem(
-        `mld_cust_${customer.id}`,
-        JSON.stringify({
-          ...updatedFields,
-          preferredTechnician: formData.preferredTechnician.trim(),
-          clinicalNotes: formData.clinicalNotes.trim(),
-        })
-      );
 
       toast.success('Cập nhật thành công', `Hồ sơ của khách hàng ${formData.fullName} đã được lưu lại.`);
       setIsEditModalOpen(false);
@@ -1138,7 +1113,7 @@ export const W04_CustomerDetail: React.FC = () => {
                         {enrollments.length === 0 ? (
                           <tr>
                             <td colSpan={3} className="py-8 text-center text-xs text-[#8C7A6B]">
-                              Khách hàng chưa ghi danh khóa đào tạo nào tại Học viện MLD Academy.
+                              Khách hàng chưa ghi danh khóa đào tạo nào tại Học viện MLD.
                             </td>
                           </tr>
                         ) : (
@@ -1231,7 +1206,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 <div className="pt-2 border-t border-[#EFE4D9]/80 text-xs text-[#73675F] leading-relaxed">
                   {financialStats.totalLearnedHours > 0 ? (
                     <>
-                      {financialStats.totalLearnedHours} giờ đã học tại MLD Academy.
+                      {financialStats.totalLearnedHours} giờ đã học tại Học viện MLD.
                       {financialStats.enrolledCourseNames.length > 0 && (
                         <span> Đã ghi danh khóa: {financialStats.enrolledCourseNames.join(', ')}.</span>
                       )}
@@ -1464,13 +1439,13 @@ export const W04_CustomerDetail: React.FC = () => {
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F5ECE3] text-[#985018]">
-                  Học viện MLD Academy
+                  Học viện MLD
                 </span>
               </div>
 
               {enrollments.length === 0 ? (
                 <div className="p-6 text-center text-xs text-[#8C7A6B]">
-                  Khách hàng chưa đăng ký khóa đào tạo nào tại Học viện MLD Academy.
+                  Khách hàng chưa đăng ký khóa đào tạo nào tại Học viện MLD.
                 </div>
               ) : (
                 <div className="space-y-3">

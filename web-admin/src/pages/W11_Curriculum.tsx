@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronLeft,
@@ -22,12 +23,14 @@ import {
   Clock,
   Plus,
 } from 'lucide-react';
-import { academyService, staffService, StaffWithProfile } from '../services';
-import { Course, CourseBatch, BatchStatus, CourseLesson } from '../types/shared_types';
+import { academyService, staffService, supabaseService, StaffWithProfile } from '../services';
+import { Course, CourseBatch, BatchStatus, CourseLesson, BranchRoom, BatchSchedule, RoomType } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 interface PracticalSession {
   id: string;
+  batchId?: string;
+  roomId?: string | null;
   room: string;
   dateKey: string; // e.g. '2026-10-16'
   dateLabel: string; // '16/10/2026'
@@ -83,31 +86,6 @@ const TIMETABLE_HOURS = [
   '18:00',
 ];
 
-const timetableRooms: TimetableRoom[] = [
-  {
-    id: 'p1',
-    name: 'Phòng thực hành 01',
-    instructorName: 'Nguyễn Thảo Ngọc',
-    capacity: '15 học viên',
-    branch: 'Cơ sở Quận 3',
-  },
-  {
-    id: 'p2',
-    name: 'Phòng thực hành 02',
-    instructorName: 'Trần Quỳnh Nga',
-    capacity: '15 học viên',
-    branch: 'Cơ sở Quận 3',
-  },
-  {
-    id: 'p3',
-    name: 'Phòng thực hành 03',
-    instructorName: 'Lê Thu Hà',
-    capacity: '12 học viên',
-    branch: 'Cơ sở Quận 1',
-  },
-];
-
-
 const parseTimeRange = (timeRange: string) => {
   const parts = timeRange.split(/[–-]/);
   const startTimeStr = parts[0]?.trim() || '08:00';
@@ -124,6 +102,7 @@ const parseTimeRange = (timeRange: string) => {
 };
 
 export const W11_Curriculum: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('week-12-18');
@@ -134,7 +113,7 @@ export const W11_Curriculum: React.FC = () => {
   const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
   const [isVideoSecurityModalOpen, setIsVideoSecurityModalOpen] = useState<boolean>(false);
   const [isWatermarkActive, setIsWatermarkActive] = useState<boolean>(true);
-  const [watermarkText, setWatermarkText] = useState<string>('Học viên: Nguyễn Thị Mai · SĐT: 0912345678 · MLD#8892');
+  const [watermarkText, setWatermarkText] = useState<string>('MLD-ACADEMY · [HỌ TÊN HỌC VIÊN] · [SĐT]');
   const [watermarkPos, setWatermarkPos] = useState<number>(0);
 
   useEffect(() => {
@@ -150,24 +129,31 @@ export const W11_Curriculum: React.FC = () => {
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
   const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
   const [liveLessons, setLiveLessons] = useState<CourseLesson[]>([]);
+  const [rooms, setRooms] = useState<BranchRoom[]>([]);
+  const [schedules, setSchedules] = useState<BatchSchedule[]>([]);
+
+  const fetchCurriculum = async () => {
+    try {
+      const [crsRes, batRes, instRes, lesRes, roomsRes, schedsRes] = await Promise.all([
+        academyService.getCourses(),
+        academyService.getCourseBatches(),
+        staffService.getInstructors(),
+        academyService.getCourseLessons(),
+        supabaseService.getRooms(),
+        academyService.getAllBatchSchedules(),
+      ]);
+      if (crsRes.success) setLiveCourses(crsRes.data);
+      if (batRes.success) setLiveBatches(batRes.data);
+      if (instRes.success) setInstructors(instRes.data);
+      if (lesRes.success) setLiveLessons(lesRes.data);
+      if (roomsRes) setRooms(roomsRes);
+      if (schedsRes.success) setSchedules(schedsRes.data);
+    } catch (err) {
+      console.error('Failed to load curriculum data:', err);
+    }
+  };
 
   useEffect(() => {
-    const fetchCurriculum = async () => {
-      try {
-        const [crsRes, batRes, instRes, lesRes] = await Promise.all([
-          academyService.getCourses(),
-          academyService.getCourseBatches(),
-          staffService.getInstructors(),
-          academyService.getCourseLessons(),
-        ]);
-        if (crsRes.success) setLiveCourses(crsRes.data);
-        if (batRes.success) setLiveBatches(batRes.data);
-        if (instRes.success) setInstructors(instRes.data);
-        if (lesRes.success) setLiveLessons(lesRes.data);
-      } catch (err) {
-        console.error('Failed to load curriculum data:', err);
-      }
-    };
     fetchCurriculum();
   }, []);
 
@@ -176,7 +162,7 @@ export const W11_Curriculum: React.FC = () => {
     const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
     const instMap = new Map(instructors.map((i) => [i.id, i]));
 
-    return liveBatches.map((bat, idx) => {
+    return liveBatches.map((bat) => {
       const crs = crsMap.get(bat.courseId);
       const inst = instMap.get(bat.instructorId || '');
       const branchName = bat.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3';
@@ -193,11 +179,11 @@ export const W11_Curriculum: React.FC = () => {
         id: bat.id,
         courseTitle: crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên',
         classBatch: `${bat.batchCode} · ${crs?.code || 'Academy'}`,
-        instructor: inst?.fullName || 'Nguyễn Thảo Ngọc',
-        instructorRole: (inst as any)?.title || 'Giảng viên chính',
+        instructor: inst?.fullName || 'Chưa phân công',
+        instructorRole: (inst as any)?.title || 'Giảng viên',
         branch: branchName,
-        room: idx % 2 === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02',
-        scheduleDays: bat.scheduleText || 'Thứ 2 – 4 – 6 · 08:30–11:30',
+        room: 'Phòng thực hành',
+        scheduleDays: bat.scheduleText || 'Chưa xếp lịch',
         timeSlot: 'Đang triển khai',
         startDateStatus: bat.startDate ? `Khai giảng: ${new Date(bat.startDate).toLocaleDateString('vi-VN')}` : 'Đang triển khai',
         studentCount: `${bat.enrolledCount}/${bat.maxStudents}`,
@@ -207,45 +193,80 @@ export const W11_Curriculum: React.FC = () => {
     });
   }, [liveBatches, liveCourses, instructors]);
 
-  const practicalSessionsData: PracticalSession[] = useMemo(() => {
-    if (!liveBatches || liveBatches.length === 0) return [];
-    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
-    const instMap = new Map(instructors.map((i) => [i.id, i]));
+  const practiceRooms = useMemo(() => {
+    if (!rooms || rooms.length === 0) return [];
+    const filtered = rooms.filter(
+      (r) =>
+        r.roomType === RoomType.PRACTICE_LAB ||
+        r.roomType === RoomType.ACADEMY_CLASSROOM ||
+        r.roomType === RoomType.MASSAGE_ROOM ||
+        r.name.toLowerCase().includes('thực hành')
+    );
+    return filtered.length > 0 ? filtered : rooms;
+  }, [rooms]);
 
-    return liveBatches.map((bat, idx) => {
-      const crs = crsMap.get(bat.courseId);
-      const inst = instMap.get(bat.instructorId || '');
-      const room = idx % 2 === 0 ? 'Phòng thực hành 01' : 'Phòng thực hành 02';
-      const dateKey = bat.startDate ? bat.startDate.split('T')[0] : new Date().toISOString().split('T')[0];
-      const dateParts = dateKey.split('-');
-      const dateLabel = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateKey;
-      const timeRange = bat.scheduleText?.includes('13:00') ? '13:00–17:00' : '08:30–11:30';
-
-      const matchedLesson =
-        liveLessons.find((l) => (l as any).chapter?.courseId === bat.courseId) ||
-        liveLessons[idx % (liveLessons.length || 1)];
-
-      const videoTopic = matchedLesson?.title || `Thực hành kỹ thuật chuyên sâu - ${bat.batchCode}`;
-      const videoDuration = matchedLesson?.durationMinutes ? `${matchedLesson.durationMinutes} phút` : '25 phút';
-
+  const timetableRooms: TimetableRoom[] = useMemo(() => {
+    return practiceRooms.map((r) => {
+      const branchName = r.branchId?.includes('0002') ? 'Cơ sở Quận 1' : 'Cơ sở Quận 3';
       return {
-        id: `ps-${bat.id}`,
-        room,
-        dateKey,
-        dateLabel,
-        subject: crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên',
-        timeRange,
-        instructorName: inst?.fullName || 'Nguyễn Thảo Ngọc',
-        className: `${bat.batchCode} · ${room}`,
-        status: (bat.status as any) === 'IN_PROGRESS' ? 'Đang diễn ra' : (bat.status as any) === 'UPCOMING' ? 'Sắp diễn ra' : 'Chưa diễn ra',
-        videoTopic,
-        videoDuration,
-        practiceDuration: '150 phút',
-        prepTime: timeRange.startsWith('13:00') ? '12:45–13:00' : '08:15–08:30',
-        note: 'Nhân sự được phân quyền đối chiếu chuyên cần sau buổi học theo chuẩn học viện MLD.',
+        id: r.id,
+        name: r.name,
+        instructorName: instructors[0]?.fullName || 'Giảng viên chuyên môn',
+        capacity: `${r.bedCapacity || 15} học viên`,
+        branch: branchName,
       };
     });
-  }, [liveBatches, liveCourses, instructors, liveLessons]);
+  }, [practiceRooms, instructors]);
+
+  const practicalSessionsData: PracticalSession[] = useMemo(() => {
+    if (!schedules || schedules.length === 0) return [];
+    const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
+    const instMap = new Map(instructors.map((i) => [i.id, i]));
+    const roomMap = new Map(rooms.map((r) => [r.id, r]));
+
+    return schedules.map((sch) => {
+      const bat = liveBatches.find((b) => b.id === sch.batchId) || (sch as any).batch;
+      const crs = bat ? crsMap.get(bat.courseId) || bat.courses : null;
+      const inst = bat ? instMap.get(bat.instructorId || '') || bat.instructors : null;
+      const assignedRoom = sch.assignedRoomId ? roomMap.get(sch.assignedRoomId) || (sch as any).room : null;
+      const roomName = assignedRoom?.name || 'Phòng thực hành';
+      const dateKey = sch.sessionDate ? sch.sessionDate.split('T')[0] : '';
+      const dateParts = dateKey.split('-');
+      const dateLabel = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateKey;
+      const startTime = sch.startTime || '08:30';
+      const endTime = sch.endTime || '11:30';
+      const timeRange = `${startTime}–${endTime}`;
+
+      const { durationHours } = parseTimeRange(timeRange);
+      const practiceDuration = `${Math.round(durationHours * 60)} phút`;
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const status = dateKey < todayStr
+        ? 'Đã hoàn thành'
+        : dateKey === todayStr
+        ? 'Đang diễn ra'
+        : 'Sắp diễn ra';
+
+      return {
+        id: sch.id,
+        batchId: sch.batchId,
+        roomId: sch.assignedRoomId,
+        room: roomName,
+        dateKey,
+        dateLabel,
+        subject: crs?.title || sch.topic || 'Khóa Đào Tạo Kỹ Thuật Viên',
+        timeRange,
+        instructorName: inst?.fullName || 'Chưa phân công',
+        className: `${bat?.batchCode || 'MLD'} · ${roomName}`,
+        status,
+        videoTopic: sch.topic || 'Thực hành thao tác lâm sàng',
+        videoDuration: '—',
+        practiceDuration,
+        prepTime: '15 phút',
+        note: 'Học viên điểm danh chuyên cần và chuẩn bị giáo cụ trước buổi học.',
+      };
+    });
+  }, [schedules, liveBatches, liveCourses, instructors, rooms]);
 
   // Timetable State & Filters
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -329,32 +350,49 @@ export const W11_Curriculum: React.FC = () => {
       if (filtered.length > 0) return filtered;
     }
     return timetableRooms;
-  }, [selectedRoomFilter]);
+  }, [timetableRooms, selectedRoomFilter]);
 
   // Modals state
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
+  const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Auto select active session when displayedSessions or selectedDate changes
+  // Form states for modals
+  const [batchForm, setBatchForm] = useState({
+    courseId: '',
+    batchCode: '',
+    maxStudents: 15,
+    instructorId: '',
+    room: '',
+    scheduleText: 'Thứ 2 – 4 – 6 · 08:30–11:30',
+    startDate: new Date().toISOString().split('T')[0],
+  });
+
+  const [scheduleForm, setScheduleForm] = useState({
+    batchId: '',
+    assignedRoomId: '',
+    sessionDate: selectedDate,
+    startTime: '08:30',
+    endTime: '11:30',
+    topic: '',
+  });
+
+  // Auto select active session when displayedSessions changes
   useEffect(() => {
     if (displayedSessions.length > 0) {
       if (!selectedSessionId || !displayedSessions.some((s) => s.id === selectedSessionId)) {
         setSelectedSessionId(displayedSessions[0].id);
       }
-    } else if (practicalSessionsData.length > 0) {
-      if (!selectedSessionId || !practicalSessionsData.some((s) => s.id === selectedSessionId)) {
-        setSelectedSessionId(practicalSessionsData[0].id);
-      }
     } else {
       setSelectedSessionId('');
     }
-  }, [displayedSessions, practicalSessionsData, selectedSessionId]);
+  }, [displayedSessions, selectedSessionId]);
 
   const selectedSession: PracticalSession | null =
-    practicalSessionsData.find((ps) => ps.id === selectedSessionId) ||
+    displayedSessions.find((ps) => ps.id === selectedSessionId) ||
     displayedSessions[0] ||
-    practicalSessionsData[0] ||
     null;
 
   const showToast = (message: string) => {
@@ -724,19 +762,6 @@ export const W11_Curriculum: React.FC = () => {
                         />
                       ))}
 
-                      {/* Shared Lunch Break Block: 12:00 to 13:00 */}
-                      <div
-                        style={{
-                          top: `${(12 - BASE_HOUR) * ROW_HEIGHT + 3}px`,
-                          height: `${ROW_HEIGHT - 6}px`,
-                        }}
-                        className="absolute inset-x-2 rounded-xl bg-[#F6EFE8] flex items-center justify-center text-center p-1 select-none pointer-events-none z-5"
-                      >
-                        <span className="text-[11px] text-[#73675F] font-medium">
-                          12:00–13:00 · Nghỉ trưa & Chuẩn bị giáo cụ
-                        </span>
-                      </div>
-
                       {/* Dynamic Practical Session Cards for this room */}
                       {roomSessions.map((session) => {
                         const { startHour, durationHours } = parseTimeRange(session.timeRange);
@@ -868,9 +893,6 @@ export const W11_Curriculum: React.FC = () => {
             <span className="px-3 py-1 bg-[#FEF3C7] text-[#92400E] rounded-lg font-medium">
               Chưa diễn ra
             </span>
-            <span className="px-3 py-1 bg-[#F6EFE8] text-[#73675F] rounded-lg font-medium">
-              12:00–13:00 · Nghỉ trưa & Chuẩn bị giáo cụ
-            </span>
           </div>
         </div>
 
@@ -970,7 +992,13 @@ export const W11_Curriculum: React.FC = () => {
               <div className="space-y-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => showToast(`Đã ghi nhận điểm danh chuyên cần cho lớp ${selectedSession.className}!`)}
+                  onClick={() => {
+                    if (selectedSession.batchId) {
+                      navigate(`/attendance?batchId=${selectedSession.batchId}`);
+                    } else {
+                      navigate('/attendance');
+                    }
+                  }}
                   className="w-full py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
@@ -1169,21 +1197,63 @@ export const W11_Curriculum: React.FC = () => {
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                setIsAddClassModalOpen(false);
-                showToast('Đã khởi tạo lớp học mới thành công!');
+                const selectedCourseId = batchForm.courseId || liveCourses[0]?.id;
+                if (!selectedCourseId) {
+                  showToast('Vui lòng chọn khóa học đào tạo.');
+                  return;
+                }
+                if (!batchForm.batchCode.trim()) {
+                  showToast('Vui lòng nhập mã lớp đào tạo.');
+                  return;
+                }
+                setIsSubmittingBatch(true);
+                try {
+                  const res = await academyService.createCourseBatch({
+                    courseId: selectedCourseId,
+                    batchCode: batchForm.batchCode.trim().toUpperCase(),
+                    maxStudents: Number(batchForm.maxStudents) || 15,
+                    instructorId: batchForm.instructorId || instructors[0]?.id || null,
+                    scheduleText: batchForm.scheduleText || undefined,
+                    startDate: batchForm.startDate || undefined,
+                  });
+                  if (res.success) {
+                    setIsAddClassModalOpen(false);
+                    setBatchForm({
+                      courseId: '',
+                      batchCode: '',
+                      maxStudents: 15,
+                      instructorId: '',
+                      room: '',
+                      scheduleText: 'Thứ 2 – 4 – 6 · 08:30–11:30',
+                      startDate: new Date().toISOString().split('T')[0],
+                    });
+                    showToast('Đã khởi tạo lớp đào tạo mới thành công!');
+                    fetchCurriculum();
+                  } else {
+                    showToast('Lỗi khi tạo lớp: ' + res.message);
+                  }
+                } catch {
+                  showToast('Lỗi kết nối khi khởi tạo lớp học.');
+                } finally {
+                  setIsSubmittingBatch(false);
+                }
               }}
               className="p-5 space-y-4 text-xs"
             >
               <div>
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Tên chương trình đào tạo</label>
-                <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
+                <select
+                  value={batchForm.courseId || liveCourses[0]?.id || ''}
+                  onChange={(e) => setBatchForm({ ...batchForm, courseId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                >
                   {liveCourses.map((c) => (
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
                   {liveCourses.length === 0 && (
-                    <option value="default">Khóa Đào Tạo Kỹ Thuật Viên Spa</option>
+                    <option value="">Chưa có dữ liệu khóa học</option>
                   )}
                 </select>
               </div>
@@ -1193,7 +1263,10 @@ export const W11_Curriculum: React.FC = () => {
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Mã lớp đào tạo</label>
                   <input
                     type="text"
-                    defaultValue="K27-SPA"
+                    required
+                    placeholder="VD: K27-MLD-CB"
+                    value={batchForm.batchCode}
+                    onChange={(e) => setBatchForm({ ...batchForm, batchCode: e.target.value })}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -1201,7 +1274,10 @@ export const W11_Curriculum: React.FC = () => {
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Sĩ số tối đa</label>
                   <input
                     type="number"
-                    defaultValue={15}
+                    min={1}
+                    max={50}
+                    value={batchForm.maxStudents}
+                    onChange={(e) => setBatchForm({ ...batchForm, maxStudents: Number(e.target.value) || 15 })}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -1210,22 +1286,27 @@ export const W11_Curriculum: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Giảng viên chủ nhiệm</label>
-                  <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
+                  <select
+                    value={batchForm.instructorId || instructors[0]?.id || ''}
+                    onChange={(e) => setBatchForm({ ...batchForm, instructorId: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  >
                     {instructors.map((i) => (
-                      <option key={i.id} value={i.id}>{i.fullName} (Giảng viên)</option>
+                      <option key={i.id} value={i.id}>{i.fullName} ({(i as any)?.title || 'Giảng viên'})</option>
                     ))}
                     {instructors.length === 0 && (
-                      <option value="default">Nguyễn Thảo Ngọc</option>
+                      <option value="">Chưa có giảng viên</option>
                     )}
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Phòng thực hành cố định</label>
-                  <select className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]">
-                    <option value="p2">Phòng thực hành 02</option>
-                    <option value="p1">Phòng thực hành 01</option>
-                    <option value="p3">Phòng thực hành 03</option>
-                  </select>
+                  <label className="block font-semibold text-[#2C241E] mb-1.5">Ngày khai giảng</label>
+                  <input
+                    type="date"
+                    value={batchForm.startDate}
+                    onChange={(e) => setBatchForm({ ...batchForm, startDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
                 </div>
               </div>
 
@@ -1233,7 +1314,9 @@ export const W11_Curriculum: React.FC = () => {
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Lịch học trong tuần</label>
                 <input
                   type="text"
-                  defaultValue="Thứ 6 – 7 – CN · 13:00–17:00"
+                  placeholder="VD: Thứ 2 – 4 – 6 · 08:30–11:30"
+                  value={batchForm.scheduleText}
+                  onChange={(e) => setBatchForm({ ...batchForm, scheduleText: e.target.value })}
                   className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 />
               </div>
@@ -1248,9 +1331,10 @@ export const W11_Curriculum: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs"
+                  disabled={isSubmittingBatch}
+                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  Khởi tạo lớp
+                  {isSubmittingBatch ? 'Đang tạo...' : 'Khởi tạo lớp'}
                 </button>
               </div>
             </form>
@@ -1265,7 +1349,7 @@ export const W11_Curriculum: React.FC = () => {
             <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF5EF]">
               <div>
                 <h3 className="text-base font-bold text-[#2C241E]">Lập lịch thực hành phòng lab</h3>
-                <p className="text-xs text-[#73675F] mt-0.5">Xếp lịch thực hành cho buổi học</p>
+                <p className="text-xs text-[#73675F] mt-0.5">Xếp lịch thực hành cho buổi học vào cơ sở dữ liệu</p>
               </div>
               <button
                 onClick={() => setIsScheduleModalOpen(false)}
@@ -1276,34 +1360,115 @@ export const W11_Curriculum: React.FC = () => {
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                setIsScheduleModalOpen(false);
-                showToast(`Đã lưu lịch thực hành cho ${selectedSession?.className || 'lớp học'}!`);
+                const effectiveBatchId = scheduleForm.batchId || selectedSession?.batchId || liveBatches[0]?.id;
+                if (!effectiveBatchId) {
+                  showToast('Vui lòng chọn lớp học để xếp lịch.');
+                  return;
+                }
+                if (!scheduleForm.topic.trim()) {
+                  showToast('Vui lòng nhập chủ đề buổi thực hành.');
+                  return;
+                }
+                setIsSubmittingSchedule(true);
+                try {
+                  const res = await academyService.createBatchSchedule({
+                    batchId: effectiveBatchId,
+                    assignedRoomId: scheduleForm.assignedRoomId || practiceRooms[0]?.id || null,
+                    sessionDate: scheduleForm.sessionDate || selectedDate,
+                    startTime: scheduleForm.startTime || '08:30',
+                    endTime: scheduleForm.endTime || '11:30',
+                    topic: scheduleForm.topic.trim(),
+                    isPracticeLab: true,
+                  });
+                  if (res.success) {
+                    setIsScheduleModalOpen(false);
+                    setScheduleForm({
+                      batchId: '',
+                      assignedRoomId: '',
+                      sessionDate: selectedDate,
+                      startTime: '08:30',
+                      endTime: '11:30',
+                      topic: '',
+                    });
+                    showToast('Đã lưu lịch thực hành thành công!');
+                    fetchCurriculum();
+                  } else {
+                    showToast('Lỗi khi lưu lịch: ' + res.message);
+                  }
+                } catch {
+                  showToast('Lỗi kết nối khi lưu lịch thực hành.');
+                } finally {
+                  setIsSubmittingSchedule(false);
+                }
               }}
               className="p-5 space-y-4 text-xs"
             >
               <div>
-                <label className="block font-semibold text-[#2C241E] mb-1.5">Lớp & Giảng viên</label>
-                <div className="px-3.5 py-2.5 bg-[#FAF5EF] rounded-xl font-medium text-[#2C241E] border border-[#EFE4D9]">
-                  {selectedSession ? `${selectedSession.className} (${selectedSession.instructorName})` : 'Lớp thực hành chung'}
-                </div>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">Lớp đào tạo</label>
+                <select
+                  value={scheduleForm.batchId || selectedSession?.batchId || liveBatches[0]?.id || ''}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, batchId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                >
+                  {liveBatches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.batchCode} · {liveCourses.find((c) => c.id === b.courseId)?.title || 'Khóa đào tạo'}
+                    </option>
+                  ))}
+                  {liveBatches.length === 0 && (
+                    <option value="">Chưa có lớp học nào trong hệ thống</option>
+                  )}
+                </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-[#2C241E] mb-1.5">Phòng thực hành</label>
+                <select
+                  value={scheduleForm.assignedRoomId || practiceRooms[0]?.id || ''}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, assignedRoomId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                >
+                  {practiceRooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3'})
+                    </option>
+                  ))}
+                  {practiceRooms.length === 0 && (
+                    <option value="">Chưa có phòng thực hành</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block font-semibold text-[#2C241E] mb-1.5">Ngày thực hành</label>
                   <input
                     type="date"
-                    defaultValue={selectedSession?.dateKey || selectedDate}
+                    required
+                    value={scheduleForm.sessionDate}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, sessionDate: e.target.value })}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Khung giờ</label>
+                  <label className="block font-semibold text-[#2C241E] mb-1.5">Giờ bắt đầu</label>
                   <input
-                    type="text"
-                    defaultValue={selectedSession?.timeRange || '13:00 - 17:00'}
+                    type="time"
+                    required
+                    value={scheduleForm.startTime}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, startTime: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#2C241E] mb-1.5">Giờ kết thúc</label>
+                  <input
+                    type="time"
+                    required
+                    value={scheduleForm.endTime}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, endTime: e.target.value })}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
                 </div>
@@ -1313,29 +1478,12 @@ export const W11_Curriculum: React.FC = () => {
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Chủ đề bài giảng thực hành</label>
                 <input
                   type="text"
-                  defaultValue={selectedSession?.videoTopic || ''}
-                  placeholder="Nhập chủ đề bài giảng..."
+                  required
+                  placeholder="VD: Buổi 1 - Thực hành kỹ thuật Vodder mở đường bạch huyết..."
+                  value={scheduleForm.topic}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, topic: e.target.value })}
                   className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Thời lượng thực hành</label>
-                  <input
-                    type="text"
-                    defaultValue={selectedSession?.practiceDuration || '4 giờ'}
-                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#2C241E] mb-1.5">Chuẩn bị phòng</label>
-                  <input
-                    type="text"
-                    defaultValue={selectedSession?.prepTime || '15 phút'}
-                    className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2.5">
@@ -1348,9 +1496,10 @@ export const W11_Curriculum: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs"
+                  disabled={isSubmittingSchedule}
+                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  Lưu lịch thực hành
+                  {isSubmittingSchedule ? 'Đang lưu...' : 'Lưu lịch thực hành'}
                 </button>
               </div>
             </form>
@@ -1391,16 +1540,16 @@ export const W11_Curriculum: React.FC = () => {
               {/* Thống kê bài thi */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-100">
-                  <div className="text-gray-500 font-medium">Tổng số câu hỏi đề thi</div>
-                  <div className="text-xl font-bold text-gray-900 mt-0.5">25 câu trắc nghiệm</div>
+                  <div className="text-gray-500 font-medium">Tổng số bài học trực tuyến</div>
+                  <div className="text-xl font-bold text-gray-900 mt-0.5">{liveLessons.length} bài giảng</div>
                 </div>
                 <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
-                  <div className="text-gray-500 font-medium">Học viên đã đạt chuẩn lý thuyết</div>
-                  <div className="text-xl font-bold text-emerald-700 mt-0.5">42 / 48 (87.5%)</div>
+                  <div className="text-gray-500 font-medium">Học viên đạt chuẩn lý thuyết</div>
+                  <div className="text-xl font-bold text-emerald-700 mt-0.5">0 lượt nộp</div>
                 </div>
                 <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
                   <div className="text-gray-500 font-medium">Điểm trung bình toàn viện</div>
-                  <div className="text-xl font-bold text-blue-700 mt-0.5">8.8 / 10</div>
+                  <div className="text-xl font-bold text-blue-700 mt-0.5">—</div>
                 </div>
               </div>
 
@@ -1462,52 +1611,17 @@ export const W11_Curriculum: React.FC = () => {
                 </div>
               </div>
 
-              {/* Bảng điểm học viên mẫu */}
+              {/* Bảng điểm học viên */}
               <div className="pt-2">
                 <h4 className="font-bold text-gray-800 uppercase tracking-wide mb-2">
-                  2. Bảng tổng hợp điểm thi lý thuyết lớp K26-MLD-HANOI
+                  2. Bảng tổng hợp điểm thi lý thuyết các lớp
                 </h4>
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-100/80 text-gray-600 font-semibold">
-                        <th className="py-2 px-3">Học viên</th>
-                        <th className="py-2 px-3 text-center">Số câu đúng</th>
-                        <th className="py-2 px-3 text-center">Điểm số</th>
-                        <th className="py-2 px-3 text-center">Kết quả</th>
-                        <th className="py-2 px-3 text-right">Điều kiện thi thực hành</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      <tr>
-                        <td className="py-2 px-3 font-semibold text-gray-900">Nguyễn Thị Mai</td>
-                        <td className="py-2 px-3 text-center font-mono">24 / 25</td>
-                        <td className="py-2 px-3 text-center font-mono font-bold text-sky-700">9.6 / 10</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">XUẤT SẮC</span>
-                        </td>
-                        <td className="py-2 px-3 text-right text-emerald-600 font-semibold">✓ Đủ điều kiện</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3 font-semibold text-gray-900">Trần Thu Trang</td>
-                        <td className="py-2 px-3 text-center font-mono">22 / 25</td>
-                        <td className="py-2 px-3 text-center font-mono font-bold text-sky-700">8.8 / 10</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">GIỎI</span>
-                        </td>
-                        <td className="py-2 px-3 text-right text-emerald-600 font-semibold">✓ Đủ điều kiện</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3 font-semibold text-gray-900">Phạm Hoàng Oanh</td>
-                        <td className="py-2 px-3 text-center font-mono">23 / 25</td>
-                        <td className="py-2 px-3 text-center font-mono font-bold text-sky-700">9.2 / 10</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">XUẤT SẮC</span>
-                        </td>
-                        <td className="py-2 px-3 text-right text-emerald-600 font-semibold">✓ Đủ điều kiện</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="border border-gray-200 rounded-xl p-8 text-center bg-gray-50/50">
+                  <HelpCircle className="w-8 h-8 text-amber-600/50 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-gray-700">Chưa có lượt nộp bài thi trắc nghiệm nào</p>
+                  <p className="text-[11px] text-gray-500 mt-1 max-w-sm mx-auto">
+                    Khi học viên nộp bài thi trắc nghiệm trên cổng học viên (Portal), điểm số và kết quả đủ điều kiện thực hành lâm sàng sẽ hiển thị trực tiếp tại đây.
+                  </p>
                 </div>
               </div>
             </div>

@@ -592,31 +592,6 @@ export const W02_Branches: React.FC = () => {
       let archivedBranchesList: Branch[] =
         archivedBrRes.success && archivedBrRes.data.length > 0 ? archivedBrRes.data : [];
 
-      // Merge with local storage branches
-      try {
-        const storedArchived = localStorage.getItem('mld_archived_custom_branches');
-        const archivedIds = new Set(archivedBranchesList.map((b) => b.id));
-        if (storedArchived) {
-          const parsedArchived: Branch[] = JSON.parse(storedArchived);
-          for (const ab of parsedArchived) {
-            if (!archivedIds.has(ab.id)) {
-              archivedBranchesList.push(ab);
-              archivedIds.add(ab.id);
-            }
-          }
-        }
-
-        const stored = localStorage.getItem('mld_custom_branches');
-        if (stored) {
-          const parsed: Branch[] = JSON.parse(stored);
-          const remoteIds = new Set(allBranches.map((b) => b.id));
-          const newCustom = parsed.filter(
-            (b) => !remoteIds.has(b.id) && !archivedIds.has(b.id)
-          );
-          allBranches = [...newCustom, ...allBranches];
-        }
-      } catch {}
-
       setBranches(allBranches);
       setAllArchivedBranches(archivedBranchesList);
 
@@ -663,34 +638,6 @@ export const W02_Branches: React.FC = () => {
           });
       }
 
-      // 3. Merge cached local rooms safely
-      for (const b of allBranches) {
-        const cached = localStorage.getItem(`mld_rooms_${b.id}`);
-        if (cached) {
-          try {
-            const parsed: BranchRoom[] = JSON.parse(cached);
-            for (const lr of parsed) {
-              const isLegacyFake =
-                lr.id.match(/^r-.*-[123]$/) &&
-                (lr.name === 'Phòng VIP Hoàng Gia' ||
-                  lr.name === 'Phòng Trị Liệu Vodder 01' ||
-                  lr.name === 'Phòng Skincare Hydrafacial');
-              if (
-                !combinedRooms.some((cr) => cr.id === lr.id) &&
-                !isLegacyFake &&
-                !archivedRoomIds.has(lr.id) &&
-                !lr.isArchived
-              ) {
-                combinedRooms.push({
-                  ...lr,
-                  branchName: b.name,
-                  branchCode: b.code,
-                });
-              }
-            }
-          } catch {}
-        }
-      }
       setAllRooms(combinedRooms);
 
       if (allBranches.length > 0) {
@@ -1101,12 +1048,10 @@ export const W02_Branches: React.FC = () => {
       };
 
       const res = await branchService.createRoom(roomPayload);
-      const createdRoom: BranchRoom = res.data || {
-        id: `r-${Date.now()}`,
-        ...roomPayload,
-        isArchived: false,
-        createdAt: new Date().toISOString(),
-      };
+      if (!res.success || !res.data?.id) {
+        throw new Error(res.message || 'Supabase không trả về phòng vừa tạo.');
+      }
+      const createdRoom: BranchRoom = res.data;
 
       const newJoinedRoom: BranchRoom & { branchName?: string; branchCode?: string } = {
         ...createdRoom,
@@ -1116,16 +1061,6 @@ export const W02_Branches: React.FC = () => {
 
       // Add to allRooms state
       setAllRooms((prev) => [newJoinedRoom, ...prev]);
-
-      // Update localStorage
-      try {
-        const cached = localStorage.getItem(`mld_rooms_${createdRoom.branchId}`);
-        const parsed: BranchRoom[] = cached ? JSON.parse(cached) : [];
-        localStorage.setItem(
-          `mld_rooms_${createdRoom.branchId}`,
-          JSON.stringify([...parsed, createdRoom])
-        );
-      } catch {}
 
       if (managingBranch && managingBranch.id === createdRoom.branchId) {
         setManageRooms((prev) => [...prev, createdRoom]);
@@ -1607,25 +1542,7 @@ export const W02_Branches: React.FC = () => {
         branchService.getRoomsByBranch(branch.id),
         branchService.getArchivedRooms(branch.id),
       ]);
-      let branchRooms: BranchRoom[] = res.success && res.data.length > 0 ? res.data : [];
-      const cached = localStorage.getItem(`mld_rooms_${branch.id}`);
-      if (cached) {
-        try {
-          const localRooms: BranchRoom[] = JSON.parse(cached);
-          const liveIds = new Set(branchRooms.map((r) => r.id));
-          for (const lr of localRooms) {
-            const isLegacyFake =
-              lr.id.match(/^r-.*-[123]$/) &&
-              (lr.name === 'Phòng VIP Hoàng Gia' ||
-                lr.name === 'Phòng Trị Liệu Vodder 01' ||
-                lr.name === 'Phòng Skincare Hydrafacial');
-            if (!liveIds.has(lr.id) && !isLegacyFake) {
-              branchRooms.push(lr);
-            }
-          }
-        } catch {}
-      }
-      // Giữ đúng trạng thái thực tế: nếu cơ sở chưa có phòng thì để trống, không tự ý chèn dữ liệu mẫu
+      const branchRooms: BranchRoom[] = res.success ? res.data : [];
       setManageRooms(branchRooms);
       setArchivedRooms(archRes.success ? archRes.data : []);
     } catch {
@@ -1863,20 +1780,13 @@ export const W02_Branches: React.FC = () => {
         isAvailable: newRoomData.isAvailable,
       });
 
-      const newRoom: BranchRoom = (res.success && res.data)
-        ? res.data
-        : {
-            id: `r-${managingBranch.id}-${Date.now()}`,
-            branchId: managingBranch.id,
-            name: cleanName,
-            roomType,
-            bedCapacity: bedCap,
-            isAvailable: newRoomData.isAvailable,
-          };
+      if (!res.success || !res.data?.id) {
+        throw new Error(res.message || 'Supabase không trả về phòng vừa tạo.');
+      }
+      const newRoom: BranchRoom = res.data;
 
       const updated = [...manageRooms, newRoom];
       setManageRooms(updated);
-      localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
       const joinedNewRoom: BranchRoom & { branchName?: string; branchCode?: string } = {
         ...newRoom,
         branchName: managingBranch.name,
@@ -1893,25 +1803,7 @@ export const W02_Branches: React.FC = () => {
       toast.success('Đã thêm phòng thành công', `Phòng "${newRoom.name}" (${newRoom.bedCapacity} giường) đã được bổ sung vào cơ sở.`);
     } catch (err) {
       console.error('Lỗi khi thêm phòng:', err);
-      const fallbackRoom: BranchRoom = {
-        id: `r-${managingBranch.id}-${Date.now()}`,
-        branchId: managingBranch.id,
-        name: cleanName,
-        roomType,
-        bedCapacity: bedCap,
-        isAvailable: newRoomData.isAvailable,
-      };
-      const updated = [...manageRooms, fallbackRoom];
-      setManageRooms(updated);
-      localStorage.setItem(`mld_rooms_${managingBranch.id}`, JSON.stringify(updated));
-      const joinedFallback: BranchRoom & { branchName?: string; branchCode?: string } = {
-        ...fallbackRoom,
-        branchName: managingBranch.name,
-        branchCode: managingBranch.code,
-      };
-      setAllRooms((prev) => [joinedFallback, ...prev.filter((r) => r.id !== fallbackRoom.id)]);
-      setShowAddRoom(false);
-      toast.success('Đã thêm phòng', `Phòng "${fallbackRoom.name}" đã được lưu vào cơ sở.`);
+      toast.error('Không thể thêm phòng', err instanceof Error ? err.message : 'Dữ liệu chưa được lưu trên Supabase.');
     } finally {
       setIsAddingRoom(false);
     }
@@ -2223,21 +2115,15 @@ export const W02_Branches: React.FC = () => {
         code: cleanCode,
         phone: cleanPhone,
         address: cleanAddress,
-        district: formData.district.trim() || 'Quận 1',
-        city: formData.city.trim() || 'TP. Hồ Chí Minh',
+        district: formData.district.trim(),
+        city: formData.city.trim(),
         latitude: 10.7769,
         longitude: 106.7009,
         openingTime: `${formData.openingTime}:00`,
         closingTime: `${formData.closingTime}:00`,
-        imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-        galleryUrls: [
-          formData.imageUrl || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-          'https://images.unsplash.com/photo-1600334129128-685c5582fd35?w=800',
-        ],
-        amenities:
-          formData.amenities.length > 0
-            ? formData.amenities
-            : ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
+        imageUrl: formData.imageUrl || '',
+        galleryUrls: formData.imageUrl ? [formData.imageUrl] : [],
+        amenities: formData.amenities,
         isActive: true,
       };
 
@@ -2256,16 +2142,6 @@ export const W02_Branches: React.FC = () => {
       const updatedList = [createdBranch, ...branches];
       setBranches(updatedList);
       setSelectedBranchId(createdBranch.id);
-
-      // Persist to localStorage
-      try {
-        const stored = localStorage.getItem('mld_custom_branches');
-        const customArr: Branch[] = stored ? JSON.parse(stored) : [];
-        localStorage.setItem('mld_custom_branches', JSON.stringify([createdBranch, ...customArr]));
-      } catch {}
-
-      // Cơ sở mới tạo để trống sơ đồ phòng (không tự ý chèn phòng mẫu)
-      localStorage.setItem(`mld_rooms_${createdBranch.id}`, JSON.stringify([]));
 
       toast.success(
         'Thêm chi nhánh thành công',

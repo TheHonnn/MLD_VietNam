@@ -270,7 +270,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noScheduleDesc =>
-      'You are currently not enrolled in any training course at MLD Academy. Once enrolled, your class schedule, practice sessions, and attendance QR code will appear here.';
+      'You are currently not enrolled in any training course. Once enrolled, your class schedule, practice sessions, and attendance QR code will appear here.';
 
   @override
   String get exploreTrainingNow => 'Explore Courses Now';
@@ -286,7 +286,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noLearningResultsDesc =>
-      'You have not completed any course at MLD Academy yet. Once completed, your skill assessment results and digital certificates will be issued here.';
+      'You have not completed any course yet. Once completed, your skill assessment results and digital certificates will be issued here.';
 
   @override
   String get enrollNow => 'Enroll in Course Now';

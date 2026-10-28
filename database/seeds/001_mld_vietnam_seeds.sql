@@ -1,4 +1,4 @@
--- ==============================================================================
+﻿-- ==============================================================================
 -- MLD VIỆT NAM - SEED DATA TOÀN DIỆN CHO TOÀN BỘ HỆ SINH THÁI
 -- Tương thích 100% với Master Schema 53 bảng trong database/schema.sql
 -- ==============================================================================
@@ -11,7 +11,7 @@ VALUES
         'MLD Beauty & Spa — Cơ sở Nam Kỳ Khởi Nghĩa',
         'MLD-Q3',
         '02839301234',
-        'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu',
+        'Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội, Phường Khương Đình, Thành phố Hà Nội',
         'Quận 3',
         'TP. Hồ Chí Minh',
         10.7845,
@@ -360,7 +360,7 @@ VALUES
         'Master Trainer Thẩm mỹ & Dưỡng sinh',
         'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848',
         10,
-        'Giám đốc Đào tạo MLD Academy, hơn 10 năm kinh nghiệm huấn luyện hơn 2,000 kỹ thuật viên và chủ spa khởi nghiệp thành công trên toàn quốc.',
+        'Giám đốc Đào tạo MLD, hơn 10 năm kinh nghiệm huấn luyện hơn 2,000 kỹ thuật viên và chủ spa khởi nghiệp thành công trên toàn quốc.',
         '["Chứng chỉ Quốc tế CIDESCO", "Giám khảo Hội thi Tay nghề Làm đẹp Quốc gia", "Tác giả giáo trình Dưỡng sinh chuẩn Y khoa MLD"]'::jsonb
     )
 ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;

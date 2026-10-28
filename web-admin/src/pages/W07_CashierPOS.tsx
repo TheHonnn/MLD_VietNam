@@ -251,122 +251,127 @@ export const W07_CashierPOS: React.FC = () => {
     fetchPosData();
   }, []);
 
-  // Handle URL query parameters (e.g. ?booking=BK-20261016-003&receipt=true)
-  useEffect(() => {
-    const bookingParam = searchParams.get('booking');
-    const receiptParam = searchParams.get('receipt');
+  // Tra cứu đơn hoặc hóa đơn từ CSDL thực tế và hiển thị biên lai
+  const loadReceiptByCode = async (rawCode?: string) => {
+    if (!rawCode || !rawCode.trim()) return;
+    const cleanCode = rawCode.trim();
 
-    if (bookingParam) {
-      const kw = bookingParam.toLowerCase().trim();
-      const found = allBookings.find(
-        (b) =>
-          b.bookingCode.toLowerCase().includes(kw) ||
-          b.id.toLowerCase() === kw
-      );
-      if (found) {
-        setBooking(found);
-        setIsPaid(found.paymentStatus === 'PAID');
-        if (found.customer) {
-          setCustomer(found.customer);
-          setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
-        } else {
-          setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
-        }
+    // 1. Kiểm tra trong danh sách allBookings hiện hành
+    const found = allBookings.find(
+      (b) =>
+        b.bookingCode?.toLowerCase() === cleanCode.toLowerCase() ||
+        b.id?.toLowerCase() === cleanCode.toLowerCase()
+    );
+    if (found) {
+      setBooking(found);
+      setIsPaid(found.paymentStatus === 'PAID');
+      setSelectedReceiptData(null);
+      if (found.customer) {
+        setCustomer(found.customer);
+        setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
       } else {
-        if (bookingParam.includes('BK-20261016-003')) {
-          setSearchTerm(`Xuân Trường / BK-20261016-003`);
-          setIsPaid(true);
-        }
+        setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
       }
-    }
-
-    // Xử lý nạp nhanh Gói liệu trình VIP khi chuyển từ trang Quản lý Gói liệu trình
-    const packageIdParam = searchParams.get('packageId');
-    const packageNameParam = searchParams.get('packageName');
-    if (packageIdParam || packageNameParam) {
-      const foundPkg = treatmentPackages.find(
-        (p) =>
-          p.id === packageIdParam ||
-          (packageNameParam && p.name?.toLowerCase().includes(packageNameParam.toLowerCase()))
-      );
-      const pkgName = foundPkg?.name || packageNameParam || 'Liệu Trình Phục Hồi & Trẻ Hóa Da 5 Buổi';
-      const pkgPrice = foundPkg?.price || 2290000;
-      const totalSessions = foundPkg?.totalSessions || 5;
-
-      setCustomer({
-        id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-        fullName: 'Xuân Trường',
-        phone: '0334750241',
-        membershipTier: 'GOLD',
-      } as any);
-
-      setBooking({
-        id: `pkg-order-${packageIdParam || Date.now()}`,
-        bookingCode: `VIP-PKG-${Math.floor(1000 + Math.random() * 9000)}`,
-        branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
-        customerId: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-        technicianId: 'cccccccc-0001-0001-0001-000000000001',
-        bookingDate: new Date().toISOString().split('T')[0],
-        status: BookingStatus.PENDING,
-        paymentStatus: PaymentStatus.UNPAID,
-        baseTotal: foundPkg?.discountPrice && foundPkg.discountPrice > pkgPrice ? foundPkg.discountPrice : Math.round(pkgPrice * 1.2),
-        discountAmount: foundPkg?.discountPrice && foundPkg.discountPrice > pkgPrice ? foundPkg.discountPrice - pkgPrice : Math.round(pkgPrice * 0.2),
-        finalPrice: pkgPrice,
-        customer: {
-          id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-          fullName: 'Xuân Trường',
-          phone: '0334750241',
-        } as any,
-        items: [
-          {
-            id: `item-${packageIdParam || 'pkg'}`,
-            serviceId: foundPkg?.serviceId || 'srv-pkg',
-            service: {
-              id: foundPkg?.serviceId || 'srv-pkg',
-              name: `${pkgName} (${totalSessions} buổi)`,
-              durationMinutes: 75,
-              price: pkgPrice,
-            } as any,
-            quantity: 1,
-            unitPrice: pkgPrice,
-          } as any,
-        ],
-      } as any);
-      setIsPaid(false);
-      setSearchTerm(`Xuân Trường / ${pkgName}`);
-    }
-
-    if (receiptParam === 'true') {
       setShowReceiptModal(true);
+      return;
     }
-  }, [searchParams, allBookings, treatmentPackages]);
+
+    // 2. Tra cứu trực tiếp bảng invoices trên Supabase Cloud
+    try {
+      const invRows = await supabaseService.query<any[]>(
+        `invoices?invoice_code=eq.${cleanCode}&select=*,customer:users!customer_id(full_name,phone),branch:branches!branch_id(name)`
+      );
+      if (invRows && invRows.length > 0) {
+        const inv = invRows[0];
+        const invAmount = Number(inv.total_amount || inv.subtotal || 0);
+        setSelectedReceiptData({
+          id: inv.invoice_code,
+          customerName: inv.customer?.full_name || 'Khách hàng',
+          customerPhone: inv.customer?.phone || '--',
+          branchName: inv.branch?.name || 'Chi nhánh MLD',
+          serviceName: 'Dịch vụ Trị liệu Dẫn lưu bạch huyết',
+          method: inv.payment_method === 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'Tiền mặt tại cơ sở',
+          amount: `${invAmount.toLocaleString('vi-VN')}đ`,
+          date: new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+          }).format(new Date(inv.paid_at || inv.created_at || new Date())),
+          commissionText: `+${Math.round(invAmount * 0.1).toLocaleString('vi-VN')}đ (KTV Phụ trách)`,
+          shiftCode: inv.shift_id ? `Ca ${inv.shift_id.slice(-4)}` : undefined,
+        });
+        setSearchTerm(`${inv.customer?.full_name || 'Khách hàng'} / ${inv.invoice_code}`);
+        setShowReceiptModal(true);
+        return;
+      }
+    } catch (e) {
+      console.warn('[POS] Tra cứu hóa đơn từ Supabase lỗi:', e);
+    }
+
+    // 3. Tra cứu trực tiếp bảng bookings trên Supabase Cloud
+    try {
+      const bkRows = await supabaseService.query<any[]>(
+        `bookings?booking_code=eq.${cleanCode}&select=*,customer:users!customer_id(full_name,phone),branch:branches!branch_id(name)`
+      );
+      if (bkRows && bkRows.length > 0) {
+        const bk = bkRows[0];
+        const finalAmt = Number(bk.final_price || bk.base_total || 0);
+        setSelectedReceiptData({
+          id: bk.booking_code,
+          customerName: bk.customer?.full_name || bk.booked_for_name || 'Khách hàng',
+          customerPhone: bk.customer?.phone || bk.booked_for_phone || '--',
+          branchName: bk.branch?.name || 'Chi nhánh MLD',
+          serviceName: 'Dịch vụ Trị liệu Dẫn lưu bạch huyết',
+          method: bk.payment_method === 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'Tiền mặt tại cơ sở',
+          amount: `${finalAmt.toLocaleString('vi-VN')}đ`,
+          date: new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+          }).format(new Date(bk.booking_date || new Date())),
+          commissionText: `+${Math.round(finalAmt * 0.1).toLocaleString('vi-VN')}đ (KTV Phụ trách)`,
+        });
+        setSearchTerm(`${bk.customer?.full_name || bk.booked_for_name || 'Khách hàng'} / ${bk.booking_code}`);
+        setShowReceiptModal(true);
+        return;
+      }
+    } catch (e) {
+      console.warn('[POS] Tra cứu lịch hẹn từ Supabase lỗi:', e);
+    }
+
+    // 4. Nếu mã không tồn tại trên hệ thống
+    toast.error('Không tìm thấy', `Đơn hoặc hóa đơn "${cleanCode}" không tồn tại hoặc đã được dọn dẹp khỏi CSDL.`);
+    setShowReceiptModal(false);
+    setSelectedReceiptData(null);
+    setBooking(undefined);
+    setCustomer(undefined);
+    setSearchTerm('');
+    if (searchParams.get('receipt') || searchParams.get('booking') || searchParams.get('invoice')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('receipt');
+      nextParams.delete('booking');
+      nextParams.delete('invoice');
+      nextParams.delete('code');
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
+
+  // Handle URL query parameters (e.g. ?invoice=HD-... or ?booking=BK-...)
+  useEffect(() => {
+    const invoiceParam = searchParams.get('invoice');
+    const bookingParam = searchParams.get('booking');
+    const codeParam = searchParams.get('code') || invoiceParam || bookingParam;
+
+    if (codeParam) {
+      loadReceiptByCode(codeParam);
+    }
+  }, [searchParams, allBookings]);
 
   // Handle cross-page / in-page dispatch event from notification click
   useEffect(() => {
     const handleOpenReceipt = (e: any) => {
-      const bCode = e.detail?.bookingCode;
-      if (bCode) {
-        const kw = bCode.toLowerCase().trim();
-        const found = allBookings.find(
-          (b) =>
-            b.bookingCode.toLowerCase().includes(kw) ||
-            b.id.toLowerCase() === kw
-        );
-        if (found) {
-          setBooking(found);
-          setIsPaid(found.paymentStatus === 'PAID');
-          if (found.customer) {
-            setCustomer(found.customer);
-            setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
-          } else {
-            setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
-          }
-        } else if (bCode.includes('BK-20261016-003')) {
-          setSearchTerm(`Xuân Trường / BK-20261016-003`);
-          setIsPaid(true);
-        }
+      const code = e.detail?.invoiceCode || e.detail?.bookingCode || e.detail?.code;
+      if (code) {
+        loadReceiptByCode(code);
       }
-      setShowReceiptModal(true);
     };
 
     window.addEventListener('mld_open_pos_receipt', handleOpenReceipt);
@@ -750,8 +755,8 @@ export const W07_CashierPOS: React.FC = () => {
           ? PaymentMethod.MOMO
           : PaymentMethod.BANK_TRANSFER;
 
-      const bookingCode = booking.bookingCode || 'BK-20261016-003';
-      const baseSubtotal = booking.baseTotal || (booking.finalPrice || 390000);
+      const bookingCode = booking.bookingCode || '';
+      const baseSubtotal = booking.baseTotal || (booking.finalPrice || 0);
       const discountVal = booking.discountAmount || 0;
       const pointsVal = booking.pointsDiscount || 0;
       const preTax = isPackageRedemption ? 0 : Math.max(0, baseSubtotal - discountVal - pointsVal);
@@ -1219,7 +1224,7 @@ export const W07_CashierPOS: React.FC = () => {
   const kpiCashOrMomoAmount = kpiCashOrMomo.reduce((sum, r) => sum + r.rawAmount, 0);
 
   // Tính toán chi phí, VAT và tổng thanh toán theo chuẩn Y tế
-  const rawSubtotal = booking ? (booking.baseTotal || (booking.finalPrice || 390000)) : 0;
+  const rawSubtotal = booking ? (booking.baseTotal || (booking.finalPrice || 0)) : 0;
   const rawDiscount = booking ? (booking.discountAmount || 0) : 0;
   const rawPoints = booking ? (booking.pointsDiscount || 0) : 0;
   const preTaxAmount = isPackageRedemption ? 0 : Math.max(0, rawSubtotal - rawDiscount - rawPoints);
@@ -1859,7 +1864,7 @@ export const W07_CashierPOS: React.FC = () => {
                   Chưa chọn đơn dịch vụ nào
                 </h3>
                 <p className="text-xs text-[#73675F] max-w-sm mx-auto mt-1 leading-relaxed">
-                  Vui lòng nhập mã đơn (ví dụ: BK-20261016-003) hoặc tên khách hàng tại thanh tìm kiếm phía trên để tra cứu và quyết toán.
+                  Vui lòng nhập mã đơn hoặc tên khách hàng tại thanh tìm kiếm phía trên để tra cứu và quyết toán.
                 </p>
               </div>
               {allBookings.filter((b) => {
@@ -2657,7 +2662,7 @@ export const W07_CashierPOS: React.FC = () => {
       )}
 
       {/* 8. Luxury Electronic Receipt Modal */}
-      {showReceiptModal && (
+      {showReceiptModal && (Boolean(selectedReceiptData) || Boolean(booking?.id && (booking.finalPrice || booking.baseTotal))) && (
         <div
           role="dialog"
           aria-modal="true"
@@ -2696,7 +2701,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <div className="flex items-center justify-between pb-2 border-b border-dashed border-[#E0D4C7]">
                   <span className="text-[#73675F]">Mã hóa đơn / Phiếu thu:</span>
                   <span className="font-bold text-[#2C241E] font-mono">
-                    {selectedReceiptData?.id || booking?.bookingCode || 'BK-20261016-003'}
+                    {selectedReceiptData?.id || booking?.bookingCode || '--'}
                   </span>
                 </div>
 
@@ -2779,7 +2784,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <div className="pt-2.5 border-t border-dashed border-[#E0D4C7] flex items-center justify-between">
                   <span className="font-bold text-sm text-[#2C241E]">Tổng đã quyết toán:</span>
                   <span className="text-base font-extrabold text-[#0D6832]">
-                    {selectedReceiptData?.amount || `${(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ`}
+                    {selectedReceiptData?.amount || `${(booking?.finalPrice || 0).toLocaleString('vi-VN')}đ`}
                   </span>
                 </div>
 
@@ -2791,7 +2796,7 @@ export const W07_CashierPOS: React.FC = () => {
                       <span>Hoa hồng KTV (10%):</span>
                     </span>
                     <span className="font-bold text-[#8A4F23]">
-                      {selectedReceiptData?.commissionText || '+39.000đ (KTV Phụ trách)'}
+                      {selectedReceiptData?.commissionText || `${Math.round(((booking?.finalPrice || 0) * 0.1)).toLocaleString('vi-VN')}đ (KTV Phụ trách)`}
                     </span>
                   </div>
 

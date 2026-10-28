@@ -9,7 +9,7 @@ SET
     name = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399',
     code = 'MLD-HQ',
     phone = '096.7786.399',
-    address = 'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu, Quận 3',
+    address = 'Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội, Phường Khương Đình, Thành phố Hà Nội',
     district = 'Quận 3',
     city = 'TP. Hồ Chí Minh',
     is_active = TRUE,

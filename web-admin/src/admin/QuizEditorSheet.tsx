@@ -504,7 +504,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
               <ListChecks size={13} />
-              MLD Academy · Khảo thí & Bài kiểm tra
+              Học viện MLD · Khảo thí & Bài kiểm tra
             </span>
             <span className="text-xs text-[#7F6E60]">
               {isCreate

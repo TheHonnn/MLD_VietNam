@@ -14,6 +14,13 @@ class AppColors {
   // Menu Color: #2860EB
   static const Color menuBackground = Color(0xFF2860EB); // Header & Menu background
 
+  // Green Action Gradient (linear-gradient 135deg từ xanh rgb(0, 105, 63) 0% sang rgb(0, 140, 80) 100%)
+  static const LinearGradient greenActionGradient = LinearGradient(
+    colors: [Color(0xFF00693F), Color(0xFF008C50)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   // Brand Gradient
   static const LinearGradient brandGradient = LinearGradient(
     colors: [Color(0xFF2860EB), Color(0xFF4C82FB)],

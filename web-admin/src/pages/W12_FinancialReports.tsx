@@ -211,11 +211,11 @@ export const W12_FinancialReports: React.FC = () => {
     liveBookings
       .filter((b) => b.paymentStatus === 'UNPAID' || b.status === 'PENDING')
       .forEach((b) => {
-        const price = b.finalPrice || 390000;
+        const price = b.finalPrice || b.baseTotal || 0;
         list.push({
           id: b.id,
           code: b.bookingCode,
-          description: `Massage trị liệu · ${b.bookingDate || '16/10/2026'} · Chờ quyết toán tại quầy`,
+          description: `Massage trị liệu · ${b.bookingDate || 'Hôm nay'} · Chờ quyết toán tại quầy`,
           totalContractNumber: price,
           totalContract: `${price.toLocaleString('vi-VN')}đ`,
           dueNowNumber: price,

@@ -448,46 +448,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // Khung chứng nhận y khoa MLD
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFCCE0FF)),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.verified_user_outlined, color: AppColors.primary, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Tài liệu chuẩn Y khoa MLD Vietnam',
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Tài liệu này được biên soạn và kiểm chứng theo tiêu chuẩn Dẫn lưu bạch huyết y khoa quốc tế (MLD Vodder Method).',
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: 13,
-                        color: AppColors.textPrimary,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
+
             ],
           ),
         ),

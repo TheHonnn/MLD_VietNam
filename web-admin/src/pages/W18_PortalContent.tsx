@@ -135,7 +135,7 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
               return;
             }
           }
-        } catch {}
+        } catch { }
       }
       const text = await navigator.clipboard.readText();
       const trimmed = text ? text.trim() : '';
@@ -169,9 +169,8 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
           await handleProcessFile(files[0]);
         }
       }}
-      className={`space-y-2 p-3.5 rounded-2xl border transition-all ${
-        isDragging ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/20' : 'bg-[#FAF8F5] border-[#E8DFD8]'
-      }`}
+      className={`space-y-2 p-3.5 rounded-2xl border transition-all ${isDragging ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/20' : 'bg-[#FAF8F5] border-[#E8DFD8]'
+        }`}
     >
       <input
         type="file"
@@ -187,9 +186,8 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
         {/* Preview box */}
         {!isDocument ? (
           <div
-            className={`relative w-full sm:w-44 ${
-              aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-square'
-            } rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 flex items-center justify-center group shadow-2xs`}
+            className={`relative w-full sm:w-44 ${aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-square'
+              } rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 flex items-center justify-center group shadow-2xs`}
           >
             {uploading ? (
               <div className="w-full h-full flex flex-col items-center justify-center bg-[#FAF0E4] text-[#985018] gap-1 p-2">
@@ -308,144 +306,144 @@ export const AVAILABLE_BANNER_ROUTES: {
   group: string;
   items: BannerRouteOption[];
 }[] = [
-  {
-    group: '1. Học viện & Đào tạo (MLD Academy)',
-    items: [
-      {
-        label: 'Trang chủ Học viện Đào tạo',
-        path: '/academy',
-        badge: 'Học viện',
-        description: 'Trang chủ cổng đào tạo chuyên môn MLD',
-      },
-      {
-        label: 'Danh mục tất cả Khóa học Đào tạo',
-        path: '/academy/courses',
-        badge: 'Khóa học',
-        description: 'Danh sách các khóa học MLD Vodder, cơ bản & chuyên sâu',
-      },
-      {
-        label: 'Khóa học của tôi (Học liệu & Video)',
-        path: '/academy/my-courses',
-        badge: 'Bài giảng',
-        description: 'Danh sách khóa học đã đăng ký và video bài giảng trực tuyến',
-      },
-      {
-        label: 'Đăng ký ghi danh khóa học mới',
-        path: '/academy/enrollment',
-        badge: 'Ghi danh',
-        description: 'Mẫu đăng ký nhập học và tư vấn tuyển sinh khóa mới',
-      },
-    ],
-  },
-  {
-    group: '2. Dịch vụ & Trị liệu Y khoa',
-    items: [
-      {
-        label: 'Danh mục Dịch vụ Trị liệu Y khoa',
-        path: '/services',
-        badge: 'Dịch vụ',
-        description: 'Bảng giá và các gói phác đồ trị liệu dẫn lưu bạch huyết',
-      },
-      {
-        label: 'Dịch vụ Trọng tâm Vodder MLD',
-        path: '/services/vodder',
-        badge: 'Trọng tâm',
-        description: 'Dẫn lưu phù bạch huyết chuẩn Y khoa Dr. Vodder',
-      },
-      {
-        label: 'Gói liệu trình trị liệu của tôi',
-        path: '/treatment/packages',
-        badge: 'Gói của tôi',
-        description: 'Quản lý số buổi trị liệu còn lại và lịch sử sử dụng',
-      },
-      {
-        label: 'Nhật ký Chăm sóc & Tiến trình',
-        path: '/treatment/journal',
-        badge: 'Nhật ký',
-        description: 'Hồ sơ theo dõi tiến trình hồi phục phù nề sau phẫu thuật',
-      },
-    ],
-  },
-  {
-    group: '3. Đặt lịch hẹn Khám & Trị liệu',
-    items: [
-      {
-        label: 'Đặt lịch hẹn khám & trị liệu trực tuyến',
-        path: '/booking',
-        badge: 'Đặt lịch',
-        description: 'Đặt hẹn nhanh chọn chi nhánh, phòng trị liệu và KTV',
-      },
-      {
-        label: 'Danh sách lịch hẹn của tôi',
-        path: '/booking/appointments',
-        badge: 'Lịch hẹn',
-        description: 'Xem các lịch hẹn đã đặt và trạng thái xác nhận',
-      },
-    ],
-  },
-  {
-    group: '4. Cẩm nang Y khoa & Kiến thức',
-    items: [
-      {
-        label: 'Cẩm nang Y khoa MLD & Chăm sóc tại nhà',
-        path: '/documents',
-        badge: 'Cẩm nang',
-        description: 'Kho bài viết chuyên môn, phác đồ và tài liệu hướng dẫn',
-      },
-    ],
-  },
-  {
-    group: '5. Hệ thống Cơ sở & Chi nhánh',
-    items: [
-      {
-        label: 'Danh sách 2 Cơ sở Chi nhánh điều trị',
-        path: '/branches',
-        badge: 'Cơ sở',
-        description: 'Cơ sở Liễu Giai (Hà Nội) & Nam Kỳ Khởi Nghĩa (TP.HCM)',
-      },
-    ],
-  },
-  {
-    group: '6. Tài khoản & Quyền lợi Hội viên',
-    items: [
-      {
-        label: 'Hồ sơ tài khoản & Hạng hội viên',
-        path: '/profile',
-        badge: 'Tài khoản',
-        description: 'Thông tin cá nhân, tích điểm và cấp bậc thành viên',
-      },
-      {
-        label: 'Ví Voucher & Ưu đãi đặc quyền',
-        path: '/profile/vouchers',
-        badge: 'Voucher',
-        description: 'Kho mã ưu đãi giảm giá và voucher trị liệu',
-      },
-      {
-        label: 'Hộp thư thông báo hệ thống',
-        path: '/profile/notifications',
-        badge: 'Thông báo',
-        description: 'Tin nhắn nhắc lịch hẹn và thông báo đào tạo',
-      },
-    ],
-  },
-  {
-    group: '7. Kênh Truyền thông & Website ngoài',
-    items: [
-      {
-        label: 'Website chính thức MLD Việt Nam',
-        path: 'https://mldvietnam.com',
-        badge: 'Website',
-        description: 'Cổng thông tin chính thức mldvietnam.com',
-      },
-      {
-        label: 'Fanpage Facebook MLD Việt Nam',
-        path: 'https://facebook.com/mldvietnam',
-        badge: 'Facebook',
-        description: 'Trang Facebook tư vấn trực tiếp 24/7',
-      },
-    ],
-  },
-];
+    {
+      group: '1. Học viện & Đào tạo',
+      items: [
+        {
+          label: 'Trang chủ Học viện Đào tạo',
+          path: '/academy',
+          badge: 'Học viện',
+          description: 'Trang chủ cổng đào tạo chuyên môn MLD',
+        },
+        {
+          label: 'Danh mục tất cả Khóa học Đào tạo',
+          path: '/academy/courses',
+          badge: 'Khóa học',
+          description: 'Danh sách các khóa học MLD Vodder, cơ bản & chuyên sâu',
+        },
+        {
+          label: 'Khóa học của tôi (Học liệu & Video)',
+          path: '/academy/my-courses',
+          badge: 'Bài giảng',
+          description: 'Danh sách khóa học đã đăng ký và video bài giảng trực tuyến',
+        },
+        {
+          label: 'Đăng ký ghi danh khóa học mới',
+          path: '/academy/enrollment',
+          badge: 'Ghi danh',
+          description: 'Mẫu đăng ký nhập học và tư vấn tuyển sinh khóa mới',
+        },
+      ],
+    },
+    {
+      group: '2. Dịch vụ & Trị liệu Y khoa',
+      items: [
+        {
+          label: 'Danh mục Dịch vụ Trị liệu Y khoa',
+          path: '/services',
+          badge: 'Dịch vụ',
+          description: 'Bảng giá và các gói phác đồ trị liệu dẫn lưu bạch huyết',
+        },
+        {
+          label: 'Dịch vụ Trọng tâm Vodder MLD',
+          path: '/services/vodder',
+          badge: 'Trọng tâm',
+          description: 'Dẫn lưu phù bạch huyết chuẩn Y khoa Dr. Vodder',
+        },
+        {
+          label: 'Gói liệu trình trị liệu của tôi',
+          path: '/treatment/packages',
+          badge: 'Gói của tôi',
+          description: 'Quản lý số buổi trị liệu còn lại và lịch sử sử dụng',
+        },
+        {
+          label: 'Nhật ký Chăm sóc & Tiến trình',
+          path: '/treatment/journal',
+          badge: 'Nhật ký',
+          description: 'Hồ sơ theo dõi tiến trình hồi phục phù nề sau phẫu thuật',
+        },
+      ],
+    },
+    {
+      group: '3. Đặt lịch hẹn Khám & Trị liệu',
+      items: [
+        {
+          label: 'Đặt lịch hẹn khám & trị liệu trực tuyến',
+          path: '/booking',
+          badge: 'Đặt lịch',
+          description: 'Đặt hẹn nhanh chọn chi nhánh, phòng trị liệu và KTV',
+        },
+        {
+          label: 'Danh sách lịch hẹn của tôi',
+          path: '/booking/appointments',
+          badge: 'Lịch hẹn',
+          description: 'Xem các lịch hẹn đã đặt và trạng thái xác nhận',
+        },
+      ],
+    },
+    {
+      group: '4. Cẩm nang Y khoa & Kiến thức',
+      items: [
+        {
+          label: 'Cẩm nang Y khoa MLD & Chăm sóc tại nhà',
+          path: '/documents',
+          badge: 'Cẩm nang',
+          description: 'Kho bài viết chuyên môn, phác đồ và tài liệu hướng dẫn',
+        },
+      ],
+    },
+    {
+      group: '5. Hệ thống Cơ sở & Chi nhánh',
+      items: [
+        {
+          label: 'Danh sách 2 Cơ sở Chi nhánh điều trị',
+          path: '/branches',
+          badge: 'Cơ sở',
+          description: 'Cơ sở Liễu Giai (Hà Nội) & Nam Kỳ Khởi Nghĩa (TP.HCM)',
+        },
+      ],
+    },
+    {
+      group: '6. Tài khoản & Quyền lợi Hội viên',
+      items: [
+        {
+          label: 'Hồ sơ tài khoản & Hạng hội viên',
+          path: '/profile',
+          badge: 'Tài khoản',
+          description: 'Thông tin cá nhân, tích điểm và cấp bậc thành viên',
+        },
+        {
+          label: 'Ví Voucher & Ưu đãi đặc quyền',
+          path: '/profile/vouchers',
+          badge: 'Voucher',
+          description: 'Kho mã ưu đãi giảm giá và voucher trị liệu',
+        },
+        {
+          label: 'Hộp thư thông báo hệ thống',
+          path: '/profile/notifications',
+          badge: 'Thông báo',
+          description: 'Tin nhắn nhắc lịch hẹn và thông báo đào tạo',
+        },
+      ],
+    },
+    {
+      group: '7. Kênh Truyền thông & Website ngoài',
+      items: [
+        {
+          label: 'Website chính thức MLD Việt Nam',
+          path: 'https://mldvietnam.com',
+          badge: 'Website',
+          description: 'Cổng thông tin chính thức mldvietnam.com',
+        },
+        {
+          label: 'Fanpage Facebook MLD Việt Nam',
+          path: 'https://facebook.com/mldvietnam',
+          badge: 'Facebook',
+          description: 'Trang Facebook tư vấn trực tiếp 24/7',
+        },
+      ],
+    },
+  ];
 
 // ==========================================
 // MOBILE HOME APP MOCKUP (CHUẨN FLUTTER MLD)
@@ -470,13 +468,13 @@ const MobileHomeMockup: React.FC<MobileHomeMockupProps> = ({
     isRealtimeEdit && banner
       ? banner
       : banners.length > 0
-      ? banners[currentIndex % banners.length]
-      : banner || undefined;
+        ? banners[currentIndex % banners.length]
+        : banner || undefined;
 
   const getCategoryLabel = (cat?: string) => {
     switch (cat) {
       case 'DAO_TAO':
-        return 'MLD ACADEMY & ĐÀO TẠO';
+        return 'ĐÀO TẠO';
       case 'DICH_VU':
         return 'DỊCH VỤ TRỊ LIỆU Y KHOA';
       case 'KHUYEN_MAI':
@@ -609,9 +607,8 @@ const MobileHomeMockup: React.FC<MobileHomeMockupProps> = ({
               <div
                 key={idx}
                 onClick={() => onIndexChange?.(idx)}
-                className={`h-1 rounded-full transition-all cursor-pointer ${
-                  idx === currentIndex % banners.length ? 'w-4 bg-[#168477]' : 'w-1.5 bg-slate-300'
-                }`}
+                className={`h-1 rounded-full transition-all cursor-pointer ${idx === currentIndex % banners.length ? 'w-4 bg-[#168477]' : 'w-1.5 bg-slate-300'
+                  }`}
               />
             ))}
           </div>
@@ -752,7 +749,7 @@ export const W18_PortalContent: React.FC = () => {
     course_name: 'Khóa Chuyên gia Dẫn lưu Bạch huyết MLD Vodder Cấp độ 2',
     student_code: 'MLD-K15-089',
     start_date: '15/11/2026 lúc 08:30 sáng',
-    branch_address: 'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh',
+    branch_address: 'Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội, Phường Khương Đình, Thành phố Hà Nội',
     paid_amount: '15.000.000',
     class_title: 'Thực hành băng ép đa lớp phù tay tại Phòng Lab VIP',
     time_slot: '14:00 - 17:00',
@@ -1209,11 +1206,10 @@ export const W18_PortalContent: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowMobileMockup(!showMobileMockup)}
-                className={`px-3.5 py-2.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
-                  showMobileMockup
+                className={`px-3.5 py-2.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${showMobileMockup
                     ? 'bg-[#FAF0E4] text-[#985018] border-[#BA7E4C]'
                     : 'bg-white text-[#73675F] border-[#E8DFD8] hover:border-[#BA7E4C]'
-                }`}
+                  }`}
               >
                 <Smartphone className="w-4 h-4" />
                 <span>{showMobileMockup ? 'Đóng xem trước App' : 'Xem trước App Mobile'}</span>
@@ -1257,11 +1253,10 @@ export const W18_PortalContent: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           onClick={() => setActiveTab('banners')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === 'banners'
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'banners'
               ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
               : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#73675F]">Banner Trang chủ</span>
@@ -1278,11 +1273,10 @@ export const W18_PortalContent: React.FC = () => {
 
         <div
           onClick={() => setActiveTab('documents')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === 'documents'
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'documents'
               ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
               : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#73675F]">Giáo trình & PDF</span>
@@ -1299,11 +1293,10 @@ export const W18_PortalContent: React.FC = () => {
 
         <div
           onClick={() => setActiveTab('community')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === 'community'
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'community'
               ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
               : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#73675F]">Cộng đồng & Hỏi đáp</span>
@@ -1326,11 +1319,10 @@ export const W18_PortalContent: React.FC = () => {
 
         <div
           onClick={() => setActiveTab('email')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === 'email'
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'email'
               ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
               : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#73675F]">Kênh Email Đào tạo</span>
@@ -1351,11 +1343,10 @@ export const W18_PortalContent: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('banners')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'banners'
+          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'banners'
               ? 'bg-[#985018] text-white shadow-xs'
               : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-          }`}
+            }`}
         >
           <ImageIcon className="w-4 h-4" />
           <span>1. Banner Trang Chủ ({banners.length})</span>
@@ -1364,11 +1355,10 @@ export const W18_PortalContent: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('documents')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'documents'
+          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'documents'
               ? 'bg-[#985018] text-white shadow-xs'
               : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-          }`}
+            }`}
         >
           <FileText className="w-4 h-4" />
           <span>2. Thư viện Giáo trình PDF ({documents.length})</span>
@@ -1377,11 +1367,10 @@ export const W18_PortalContent: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('community')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'community'
+          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'community'
               ? 'bg-[#985018] text-white shadow-xs'
               : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-          }`}
+            }`}
         >
           <MessageSquare className="w-4 h-4" />
           <span>3. Bài viết Cộng đồng ({communityPosts.length})</span>
@@ -1395,11 +1384,10 @@ export const W18_PortalContent: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('email')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'email'
+          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'email'
               ? 'bg-[#985018] text-white shadow-xs'
               : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-          }`}
+            }`}
         >
           <Mail className="w-4 h-4" />
           <span>4. Kênh Email Thông báo Đào tạo ({emailTemplates.length})</span>
@@ -1461,7 +1449,7 @@ export const W18_PortalContent: React.FC = () => {
                         <ChevronLeft size={16} />
                       </button>
                       <span className="text-xs font-mono font-bold">
-                        Banner { (currentMockupIndex % previewBanners.length) + 1 } / { previewBanners.length }
+                        Banner {(currentMockupIndex % previewBanners.length) + 1} / {previewBanners.length}
                       </span>
                       <button
                         type="button"
@@ -1575,11 +1563,10 @@ export const W18_PortalContent: React.FC = () => {
                     }, 100);
                   }
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  showMobileMockup
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${showMobileMockup
                     ? 'bg-[#002A6B] text-white shadow-xs'
                     : 'bg-[#FAF8F5] text-[#002A6B] border border-blue-200 hover:bg-blue-50'
-                }`}
+                  }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
                 <span>{showMobileMockup ? 'Đang mở Mockup' : 'Xem trước Mobile'}</span>
@@ -1627,9 +1614,8 @@ export const W18_PortalContent: React.FC = () => {
                           #{banner.sortOrder || index + 1}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold backdrop-blur-xs ${
-                            isLive ? 'bg-emerald-600/90 text-white' : 'bg-neutral-800/80 text-neutral-300'
-                          }`}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold backdrop-blur-xs ${isLive ? 'bg-emerald-600/90 text-white' : 'bg-neutral-800/80 text-neutral-300'
+                            }`}
                         >
                           {isLive ? 'ĐANG HIỂN THỊ' : 'TẠM ẨN'}
                         </span>
@@ -1666,11 +1652,10 @@ export const W18_PortalContent: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleToggleBannerStatus(banner)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          isLive
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${isLive
                             ? 'bg-white border border-[#E8DFD8] text-[#73675F] hover:bg-neutral-100'
                             : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
-                        }`}
+                          }`}
                       >
                         {isLive ? <Eye className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
                         <span>{isLive ? 'Tạm ẩn' : 'Bật hiển thị'}</span>
@@ -1833,13 +1818,12 @@ export const W18_PortalContent: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap justify-end">
                           <span
-                            className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
-                              isMemberOnly
+                            className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${isMemberOnly
                                 ? 'bg-amber-50 text-amber-800 border border-amber-200'
                                 : isFreeTrial
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-blue-50 text-blue-800 border border-blue-200'
-                            }`}
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : 'bg-blue-50 text-blue-800 border border-blue-200'
+                              }`}
                           >
                             {isMemberOnly ? <Lock size={10} /> : <Unlock size={10} />}
                             <span>
@@ -1943,19 +1927,18 @@ export const W18_PortalContent: React.FC = () => {
                     key={st}
                     type="button"
                     onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      statusFilter === st
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${statusFilter === st
                         ? 'bg-[#985018] text-white shadow-2xs'
                         : 'bg-[#FAF8F5] text-[#73675F] hover:bg-[#FAF0E4] border border-[#E8DFD8]'
-                    }`}
+                      }`}
                   >
                     {st === 'ALL'
                       ? 'Tất cả'
                       : st === 'PENDING'
-                      ? 'Chờ duyệt'
-                      : st === 'PUBLISHED'
-                      ? 'Đã duyệt'
-                      : 'Đã từ chối'}
+                        ? 'Chờ duyệt'
+                        : st === 'PUBLISHED'
+                          ? 'Đã duyệt'
+                          : 'Đã từ chối'}
                   </button>
                 ))}
               </div>
@@ -2001,13 +1984,12 @@ export const W18_PortalContent: React.FC = () => {
                           {post.category || 'CHIA_SE_KINH_NGHIEM'}
                         </span>
                         <span
-                          className={`px-3 py-0.5 rounded-full text-[11px] font-bold ${
-                            isApproved
+                          className={`px-3 py-0.5 rounded-full text-[11px] font-bold ${isApproved
                               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                               : isPending
-                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                              : 'bg-rose-50 text-rose-800 border border-rose-200'
-                          }`}
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                : 'bg-rose-50 text-rose-800 border border-rose-200'
+                            }`}
                         >
                           {isApproved ? 'Đã duyệt công khai' : isPending ? 'Chờ kiểm duyệt' : 'Đã từ chối'}
                         </span>
@@ -2330,11 +2312,10 @@ export const W18_PortalContent: React.FC = () => {
                               key={pill.path}
                               type="button"
                               onClick={() => setEditingBanner({ ...editingBanner, targetLink: pill.path })}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
-                                isActive
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${isActive
                                   ? 'bg-[#985018] text-white shadow-xs font-bold scale-[1.02]'
                                   : 'bg-[#FAF0E4]/70 text-[#7A3E10] hover:bg-[#FAF0E4] border border-[#BA7E4C]/30'
-                              }`}
+                                }`}
                             >
                               {pill.label}
                             </button>
@@ -2670,7 +2651,7 @@ export const W18_PortalContent: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-base text-[#2C241E] line-clamp-1">{previewingDoc.title}</h3>
-                  <span className="text-[11px] text-[#73675F]">Tài liệu chuyên môn nội bộ MLD Academy</span>
+                  <span className="text-[11px] text-[#73675F]">Tài liệu chuyên môn nội bộ MLD</span>
                 </div>
               </div>
               <button
@@ -2948,22 +2929,20 @@ export const W18_PortalContent: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTemplateEditorTab('preview')}
-                className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-                  templateEditorTab === 'preview'
+                className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${templateEditorTab === 'preview'
                     ? 'border-[#985018] text-[#985018]'
                     : 'border-transparent text-[#73675F]'
-                }`}
+                  }`}
               >
                 Xem trước trực quan (Live HTML)
               </button>
               <button
                 type="button"
                 onClick={() => setTemplateEditorTab('html')}
-                className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-                  templateEditorTab === 'html'
+                className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${templateEditorTab === 'html'
                     ? 'border-[#985018] text-[#985018]'
                     : 'border-transparent text-[#73675F]'
-                }`}
+                  }`}
               >
                 Chỉnh sửa mã HTML
               </button>

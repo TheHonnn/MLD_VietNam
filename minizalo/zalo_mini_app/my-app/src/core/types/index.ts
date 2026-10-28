@@ -98,6 +98,7 @@ export interface Lesson {
   title: string;
   durationMinutes: number;
   youtubeId?: string;
+  videoUrl?: string;
   isFreePreview?: boolean;
 }
 

@@ -96,7 +96,7 @@ const defaultStudent: StudentRecord = {
   status: 'studying',
   statusLabel: 'Đang học',
   branch: 'Quận 3',
-  instructorName: 'Nguyễn Thảo Ngọc',
+  instructorName: '—',
   enrolledCoursesCount: '1 khóa',
   statusBreakdown: '1 / 0 / 0',
   totalStudyHours: '0 giờ',
@@ -334,7 +334,7 @@ export const W10_Attendance: React.FC = () => {
       const custCode = `${cust?.referralCode || `HV-2026-${String(idx + 1).padStart(3, '0')}`} · ${bat?.batchCode || 'Lớp Đào Tạo'}`;
       const branchName = bat?.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3';
       const courseTitle = crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên';
-      const instructorName = inst?.fullName || 'Nguyễn Thảo Ngọc';
+      const instructorName = inst?.fullName || 'Chưa phân công';
 
       const progress = enr.progressPercent || Math.min(100, Math.round(((enr.completedLessonsCount || 0) / (crs?.totalLessons || 20)) * 100));
       const totalLessons = crs?.totalLessons || 20;
@@ -524,7 +524,7 @@ export const W10_Attendance: React.FC = () => {
               {activeBatch && (
                 <div className="text-xs text-[#73675F] border-l border-[#EFE4D9] pl-3 py-1 space-y-0.5 hidden md:block">
                   <div className="font-semibold text-[#2C241E]">
-                    Giảng viên: <span className="text-[#8D4B1A] font-bold">{activeBatchInstructor?.fullName || (activeBatchInstructor as any)?.name || 'ThS. Nguyễn Thảo Ngọc'}</span>
+                    Giảng viên: <span className="text-[#8D4B1A] font-bold">{activeBatchInstructor?.fullName || (activeBatchInstructor as any)?.name || 'Chưa phân công'}</span>
                   </div>
                   <div>
                     Lịch: <span className="font-medium text-[#2C241E]">{activeBatch.scheduleText || 'Thứ 7 – Chủ nhật'}</span> · Quy mô: {batchStudents.length} học viên

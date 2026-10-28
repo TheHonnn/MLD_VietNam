@@ -150,48 +150,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     }).toList();
   }
 
-  Widget _buildQuickChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    IconData? icon,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 14, color: isSelected ? Colors.white : AppColors.primary),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Montserrat',
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                color: isSelected ? Colors.white : const Color(0xFF334155),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredCourses;
@@ -298,69 +256,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
-                ),
-              ),
-            ),
-
-            // Thanh lọc nhanh tìm khóa học
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: [
-                    _buildQuickChip(
-                      label: context.tr('Tất cả', 'All'),
-                      isSelected: _selectedAudience == 'Tất cả đối tượng' && _selectedNeed == 'Tất cả nhu cầu',
-                      onTap: () {
-                        setState(() {
-                          _selectedAudience = 'Tất cả đối tượng';
-                          _selectedNeed = 'Tất cả nhu cầu';
-                        });
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _buildQuickChip(
-                      label: _academyRepo.enrolledCourses.isNotEmpty
-                          ? '${context.tr('Đã đăng ký', 'Enrolled')} (${_academyRepo.enrolledCourses.length})'
-                          : context.tr('Đã đăng ký', 'Enrolled'),
-                      icon: Icons.bookmark_added_rounded,
-                      isSelected: _selectedAudience == 'Khóa học đã đăng ký',
-                      onTap: () {
-                        setState(() {
-                          _selectedAudience = _selectedAudience == 'Khóa học đã đăng ký'
-                              ? 'Tất cả đối tượng'
-                              : 'Khóa học đã đăng ký';
-                        });
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _buildQuickChip(
-                      label: context.tr('Người mới bắt đầu', 'Beginners'),
-                      isSelected: _selectedAudience == 'Người mới bắt đầu',
-                      onTap: () {
-                        setState(() {
-                          _selectedAudience = _selectedAudience == 'Người mới bắt đầu'
-                              ? 'Tất cả đối tượng'
-                              : 'Người mới bắt đầu';
-                        });
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _buildQuickChip(
-                      label: context.tr('Đang làm nghề', 'Professionals'),
-                      isSelected: _selectedAudience == 'Người đang làm nghề',
-                      onTap: () {
-                        setState(() {
-                          _selectedAudience = _selectedAudience == 'Người đang làm nghề'
-                              ? 'Tất cả đối tượng'
-                              : 'Người đang làm nghề';
-                        });
-                      },
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -680,6 +575,7 @@ class _CourseCardItem extends StatefulWidget {
 
 class _CourseCardItemState extends State<_CourseCardItem> {
   bool _isPressed = false;
+  bool _isButtonPressed = false;
 
   String _formatCurrency(double amount) {
     final integerAmount = amount.toInt();
@@ -857,7 +753,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
     final isApproved = AcademyRepository.instance.isCourseApproved(course.id, course.title);
     final hasDiscount = course.originalPrice != null && course.originalPrice! > course.tuitionFee;
     final discount = course.discountPercentage;
-    final sessionsCount = course.sessionCount;
+    final totalVideos = course.totalVideos > 0 ? course.totalVideos : 4;
 
     return Container(
       decoration: BoxDecoration(
@@ -875,9 +771,9 @@ class _CourseCardItemState extends State<_CourseCardItem> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
+          onTap: _navigateToDetail,
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapCancel: () => setState(() => _isPressed = false),
-          onTap: _navigateToDetail,
           borderRadius: BorderRadius.circular(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -984,7 +880,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                       ),
                     ),
 
-                  // Huy hiệu Số lượng buổi học (▶ 6 buổi học)
+                  // Huy hiệu Tổng video trong khóa học (▶ 4 video)
                   Positioned(
                     bottom: 10,
                     left: 10,
@@ -1000,7 +896,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                           const Icon(Icons.play_circle_fill, color: Colors.white, size: 14),
                           const SizedBox(width: 4),
                           Text(
-                            '$sessionsCount ${context.tr('buổi học', 'sessions')}',
+                            '$totalVideos ${context.tr('video', 'videos')}',
                             style: const TextStyle(
                               fontFamily: 'Montserrat',
                               color: Colors.white,
@@ -1022,8 +918,8 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Tiêu đề khóa học (Bình thường: Đen in đậm | Khi chạm: #2860EB)
-                    AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 150),
+                    Text(
+                      course.title.tr(context),
                       style: TextStyle(
                         fontFamily: 'Montserrat',
                         fontSize: 15.5,
@@ -1031,7 +927,6 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                         color: _isPressed ? AppColors.primary : const Color(0xFF0F172A),
                         height: 1.35,
                       ),
-                      child: Text(course.title.tr(context)),
                     ),
 
                     const SizedBox(height: 12),
@@ -1097,7 +992,11 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                         // - Nếu chưa đăng ký: hiển thị "Đăng ký học", bấm vào MỞ THẲNG TRANG ĐĂNG KÝ KHÓA HỌC E05 LUÔN!
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () {
+                          onTapDown: (_) {
+                            if (!isEnrolled) setState(() => _isButtonPressed = true);
+                          },
+                          onTapUp: (_) {
+                            if (!isEnrolled) setState(() => _isButtonPressed = false);
                             if (isEnrolled) {
                               if (isApproved) {
                                 Navigator.push(
@@ -1122,18 +1021,23 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                               });
                             }
                           },
+                          onTapCancel: () {
+                            if (_isButtonPressed) setState(() => _isButtonPressed = false);
+                          },
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
+                              gradient: !isEnrolled && _isButtonPressed ? AppColors.greenActionGradient : null,
                               color: isEnrolled
                                   ? (isApproved ? const Color(0xFF059669) : const Color(0xFFD97706))
-                                  : (_isPressed ? AppColors.primary : const Color(0xFFF1F5F9)),
+                                  : (_isButtonPressed ? null : const Color(0xFFF1F5F9)),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isEnrolled
                                     ? (isApproved ? const Color(0xFF059669) : const Color(0xFFD97706))
-                                    : (_isPressed ? AppColors.primary : const Color(0xFFE2E8F0)),
+                                    : (_isButtonPressed ? const Color(0xFF00693F) : const Color(0xFFE2E8F0)),
                                 width: 1.0,
                               ),
                             ),
@@ -1148,7 +1052,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                     fontFamily: 'Montserrat',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
+                                    color: isEnrolled || _isButtonPressed ? Colors.white : const Color(0xFF0F172A),
                                   ),
                                 ),
                                 const SizedBox(width: 4),
@@ -1157,7 +1061,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                       ? (isApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded)
                                       : Icons.arrow_forward_rounded,
                                   size: isEnrolled ? 16 : 14,
-                                  color: isEnrolled || _isPressed ? Colors.white : const Color(0xFF0F172A),
+                                  color: isEnrolled || _isButtonPressed ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ],
                             ),

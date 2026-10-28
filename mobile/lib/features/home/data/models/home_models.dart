@@ -270,8 +270,8 @@ class SpaServiceModel {
   });
 
   double get displayPrice => discountPrice ?? price;
-  double get vatAmount => displayPrice * vatRate;
-  double get priceWithVat => displayPrice + vatAmount;
+  double get vatAmount => 0.0;
+  double get priceWithVat => displayPrice;
   String get description => shortDescription.isNotEmpty ? shortDescription : fullDescription;
   String get category => categoryName;
 
@@ -302,7 +302,7 @@ class SpaServiceModel {
       shortDescription: json['short_description'] as String? ?? json['description'] as String? ?? '',
       fullDescription: json['full_description'] as String? ?? json['description'] as String? ?? '',
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 60,
-      price: (json['price'] as num?)?.toDouble() ?? (json['priceRaw'] as num?)?.toDouble() ?? 450000.0,
+      price: (json['price'] as num?)?.toDouble() ?? (json['priceRaw'] as num?)?.toDouble() ?? 700000.0,
       discountPrice: (json['discount_price'] as num?)?.toDouble() ?? (json['discountPrice'] as num?)?.toDouble(),
       vatRate: (json['vat_rate'] as num?)?.toDouble() ?? (json['vatRate'] as num?)?.toDouble() ?? 0.08,
       imageUrl: json['image_url'] as String? ?? json['image'] as String? ?? 'assets/images/gioithieu_1.png',
@@ -313,7 +313,7 @@ class SpaServiceModel {
   }
 }
 
-/// 6. Khóa đào tạo nghề MLD Academy (Mới)
+/// 6. Khóa đào tạo nghề MLD (Mới)
 class AcademyCourseModel {
   final String id;
   final String title;
@@ -338,7 +338,7 @@ class AcademyCourseModel {
     required this.totalSessions,
     required this.tuitionFee,
     this.discountFee,
-    this.certificateTitle = 'Giấy chứng nhận MLD Academy',
+    this.certificateTitle = 'Giấy chứng nhận MLD',
     required this.imageUrl,
     this.isHot = false,
   });

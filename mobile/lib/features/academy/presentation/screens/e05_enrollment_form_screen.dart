@@ -57,7 +57,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     final initialPhone = (currentPhone != null && currentPhone.trim().isNotEmpty)
         ? currentPhone
         : (profile.phone.trim().isNotEmpty ? profile.phone : '0901234567');
-    final initialEmail = (email != null && email.trim().isNotEmpty)
+    final initialEmail = email.trim().isNotEmpty
         ? email
         : 'hocvien@mldvietnam.vn';
 

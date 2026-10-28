@@ -6,7 +6,6 @@ import 'package:medical_healthcare_app/features/academy/presentation/screens/e05
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e07_my_courses_screen.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e10_quiz_screen.dart';
 import 'package:medical_healthcare_app/features/academy/data/models/academy_models.dart';
-import 'package:medical_healthcare_app/features/academy/data/repositories/academy_repository.dart';
 import 'package:medical_healthcare_app/features/treatment/presentation/screens/d09_documents_screen.dart';
 import 'package:medical_healthcare_app/features/home/presentation/screens/main_layout_screen.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
@@ -35,7 +34,7 @@ void main() {
 
     // Kiểm tra các thành phần của thẻ khóa học
     expect(find.text('DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU - Level 0'), findsOneWidget);
-    expect(find.text('6 buổi học'), findsOneWidget);
+    expect(find.text('4 video'), findsWidgets);
     expect(find.text('ĐÃ ĐĂNG KÝ'), findsWidgets);
     expect(find.text('Đã đăng ký'), findsWidgets);
     expect(find.text('Đăng ký học'), findsWidgets);
@@ -47,7 +46,7 @@ void main() {
     expect(find.byType(E01AcademyHomeScreen), findsOneWidget);
     expect(find.text('Academy & Courses'), findsOneWidget);
     expect(find.text('BASIC MANUAL LYMPHATIC DRAINAGE FOR BEGINNERS - Level 0'), findsOneWidget);
-    expect(find.text('6 sessions'), findsOneWidget);
+    expect(find.text('4 videos'), findsWidgets);
     expect(find.text('ENROLLED'), findsWidgets);
     expect(find.text('Enrolled'), findsWidgets);
     expect(find.text('Enroll Now'), findsWidgets);

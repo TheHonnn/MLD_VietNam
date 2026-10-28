@@ -46,12 +46,12 @@ interface InstructorRecord {
 }
 
 const defaultInstructor: InstructorRecord = {
-  id: '10101010-0001-0001-0001-000000000001',
-  initials: 'TN',
-  name: 'Nguyễn Thảo Ngọc',
-  code: 'GV-MLD-001',
-  role: 'Master Trainer Thẩm mỹ & Dưỡng sinh',
-  specialty: 'Massage & Dưỡng sinh chuẩn Y khoa',
+  id: '',
+  initials: 'GV',
+  name: 'Chưa có thông tin giảng viên',
+  code: 'GV-MLD',
+  role: 'Giảng viên chuyên môn',
+  specialty: 'Đào tạo trị liệu MLD',
   assignedClasses: {
     line1: 'Chưa phân công',
     line2: 'Chưa có lịch',
@@ -61,16 +61,16 @@ const defaultInstructor: InstructorRecord = {
   branch: 'Quận 3',
   assignmentStatus: 'chưa phân công',
   badgeLabel: 'Chưa phân công',
-  detailRoleBadge: 'Master Trainer Giám đốc Đào tạo',
-  programTitle: 'Khóa Đào Tạo Kỹ Thuật Viên Spa Chuyên Nghiệp',
+  detailRoleBadge: 'Giảng viên chuyên môn',
+  programTitle: 'Khóa Đào Tạo Kỹ Thuật Viên Spa',
   currentClass: 'Chưa phân công',
   upcomingClass: 'Chưa có lớp mới',
   newClassStartDate: '-',
   nextPracticeSession: '-',
   timeSlot: 'Chưa có lịch',
-  room: 'Phòng Thực Hành Lâm Sàng · Quận 3',
-  availabilityTitle: 'Lịch giảng dạy phân bổ tối ưu',
-  availabilityContent: 'Hơn 10 năm kinh nghiệm huấn luyện kỹ thuật viên spa chuyên nghiệp chuẩn Y khoa.',
+  room: 'Phòng Thực Hành Lâm Sàng',
+  availabilityTitle: 'Lịch giảng dạy phân bổ',
+  availabilityContent: 'Hồ sơ giảng viên đang được cập nhật trên hệ thống.',
 };
 
 export const W09_Instructors: React.FC = () => {
@@ -110,7 +110,7 @@ export const W09_Instructors: React.FC = () => {
 
   const instructorsData: InstructorRecord[] = useMemo(() => {
     if (!dbInstructors || dbInstructors.length === 0) {
-      return [defaultInstructor];
+      return [];
     }
 
     const crsMap = new Map(liveCourses.map((c) => [c.id, c]));

@@ -128,7 +128,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     final remainingSessions = TreatmentRepository.instance.packages
         .where((p) => p.status == PackageStatus.active)
         .fold<int>(0, (acc, p) => acc + (p.totalSessions - p.completedSessions));
-    final myCoursesCount = AcademyRepository.instance.enrolledCourses.length;
+    final myCoursesCount = AcademyRepository.instance.enrolledCourses
+        .where((c) => AcademyRepository.instance.isCourseApproved(c.id, c.title))
+        .length;
 
     return Scaffold(
       backgroundColor: AppColors.background,

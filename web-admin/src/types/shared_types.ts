@@ -270,6 +270,7 @@ export interface User {
   referralCode: string;
   referredById?: string | null;
   isActive: boolean;
+  clinicalNotes?: string | null;
   lockedReason?: string | null;
   lockedAt?: string | null;
   createdAt: string;

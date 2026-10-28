@@ -1408,6 +1408,57 @@ class SupabaseService {
     return this.updateCourseBatch(batchId, updates);
   }
 
+  async createCourseBatch(data: {
+    courseId: string;
+    branchId?: string;
+    batchCode: string;
+    instructorId?: string | null;
+    startDate?: string;
+    endDate?: string;
+    scheduleText?: string;
+    maxStudents?: number;
+    status?: string;
+  }): Promise<CourseBatch | null> {
+    try {
+      const payload: Record<string, any> = {
+        course_id: data.courseId,
+        branch_id: data.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+        batch_code: data.batchCode,
+        instructor_id: isUuid(data.instructorId) ? data.instructorId : null,
+        start_date: data.startDate || new Date().toISOString().split('T')[0],
+        end_date: data.endDate || null,
+        schedule_text: data.scheduleText || null,
+        max_students: data.maxStudents || 15,
+        enrolled_count: 0,
+        status: data.status || 'OPEN_FOR_ENROLLMENT',
+      };
+      const res = await this.query<any[]>('course_batches', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const cb = res[0];
+        return {
+          id: cb.id,
+          courseId: cb.course_id,
+          branchId: cb.branch_id,
+          batchCode: cb.batch_code,
+          instructorId: cb.instructor_id,
+          startDate: cb.start_date,
+          endDate: cb.end_date,
+          scheduleText: cb.schedule_text,
+          maxStudents: Number(cb.max_students),
+          enrolledCount: Number(cb.enrolled_count),
+          status: cb.status,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createCourseBatch error:', err);
+    }
+    return null;
+  }
+
   // 13. HỒ SƠ HỌC VIÊN GHI DANH (COURSE ENROLLMENTS)
   async getEnrollments(batchId?: string): Promise<CourseEnrollment[] | null> {
     const path = batchId
@@ -1502,11 +1553,11 @@ class SupabaseService {
     return raw.map((ins) => ({
       id: ins.id,
       userId: ins.user_id,
-      fullName: ins.full_name || ins.user?.full_name || 'Nguyễn Thảo Ngọc',
-      title: ins.title || 'Master Trainer Thẩm mỹ & Dưỡng sinh',
-      avatarUrl: ins.avatar_url || ins.user?.avatar_url || 'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848',
-      experienceYears: Number(ins.experience_years || 10),
-      bio: ins.bio || 'Giám đốc Đào tạo MLD Academy',
+      fullName: ins.full_name || ins.user?.full_name || 'Chưa cập nhật',
+      title: ins.title || 'Giảng viên',
+      avatarUrl: ins.avatar_url || ins.user?.avatar_url || '',
+      experienceYears: Number(ins.experience_years || 0),
+      bio: ins.bio || '',
       achievements: Array.isArray(ins.achievements) ? ins.achievements : [],
       isActive: Boolean(ins.is_active),
       createdAt: ins.created_at,
@@ -2109,11 +2160,11 @@ class SupabaseService {
       issue_date: data.issueDate || new Date().toISOString().split('T')[0],
       theory_score: data.theoryScore ?? null,
       practical_score: data.practicalScore ?? null,
-      final_grade: data.finalGrade || 'GIỎI',
+      final_grade: data.finalGrade || null,
       certificate_pdf_url: data.certificatePdfUrl || null,
       qr_image_url: data.qrImageUrl || null,
-      signer_name: data.signerName || 'BS. CKI Trần Hoàng Nam',
-      signer_title: data.signerTitle || 'Chủ Tịch Hội Đồng Y Khoa MLD',
+      signer_name: data.signerName || null,
+      signer_title: data.signerTitle || null,
       status: data.status || 'ISSUED',
     };
 
@@ -2233,7 +2284,7 @@ class SupabaseService {
       customer_id: isUuid(data.customerId) ? data.customerId : null,
       customer_name: data.customerName,
       customer_phone: data.customerPhone,
-      branch_id: isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+      branch_id: isUuid(data.branchId) ? data.branchId : null,
       examiner_id: isUuid(data.examinerId) ? data.examinerId : null,
       assessment_date: data.assessmentDate || new Date().toISOString().split('T')[0],
       time_slot: data.timeSlot || '09:00 - 10:00',
@@ -2342,6 +2393,76 @@ class SupabaseService {
       console.warn('[SupabaseService] getBatchSchedules error:', err);
     }
     return [];
+  }
+
+  public async getAllBatchSchedules(): Promise<BatchSchedule[]> {
+    try {
+      const res = await this.query<any[]>(
+        'batch_schedules?select=*,course_batches(id,batch_code,course_id,instructor_id,status,courses(id,title,code)),assigned_room:branch_rooms!assigned_room_id(id,name,branch_id)&order=session_date.asc,start_time.asc'
+      );
+      if (Array.isArray(res)) {
+        return res.map((r) => ({
+          id: r.id,
+          batchId: r.batch_id,
+          assignedRoomId: r.assigned_room_id,
+          sessionDate: r.session_date,
+          startTime: (r.start_time || '').slice(0, 5),
+          endTime: (r.end_time || '').slice(0, 5),
+          topic: r.topic,
+          isPracticeLab: Boolean(r.is_practice_lab),
+          batch: r.course_batches,
+          room: r.assigned_room,
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] getAllBatchSchedules error:', err);
+    }
+    return [];
+  }
+
+  public async createBatchSchedule(data: {
+    batchId: string;
+    assignedRoomId?: string | null;
+    sessionDate: string;
+    startTime: string;
+    endTime: string;
+    topic: string;
+    isPracticeLab?: boolean;
+  }): Promise<BatchSchedule | null> {
+    try {
+      const payload: any = {
+        batch_id: data.batchId,
+        assigned_room_id: isUuid(data.assignedRoomId) ? data.assignedRoomId : null,
+        session_date: data.sessionDate,
+        start_time: data.startTime.length === 5 ? `${data.startTime}:00` : data.startTime,
+        end_time: data.endTime.length === 5 ? `${data.endTime}:00` : data.endTime,
+        topic: data.topic,
+        is_practice_lab: data.isPracticeLab !== undefined ? data.isPracticeLab : true,
+      };
+
+      const res = await this.query<any[]>('batch_schedules', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+
+      if (Array.isArray(res) && res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          batchId: r.batch_id,
+          assignedRoomId: r.assigned_room_id,
+          sessionDate: r.session_date,
+          startTime: (r.start_time || '').slice(0, 5),
+          endTime: (r.end_time || '').slice(0, 5),
+          topic: r.topic,
+          isPracticeLab: Boolean(r.is_practice_lab),
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createBatchSchedule error:', err);
+    }
+    return null;
   }
 
   public async seedBatchSchedules(batchId: string, startDateStr?: string): Promise<BatchSchedule[]> {

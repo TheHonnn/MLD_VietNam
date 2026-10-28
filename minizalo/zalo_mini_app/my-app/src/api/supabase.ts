@@ -1,4 +1,4 @@
-import {
+﻿import {
   Branch,
   SpaService,
   Specialist,
@@ -28,7 +28,7 @@ export const DEFAULT_BRANCHES: Branch[] = [
     id: 'aaaaaaaa-0001-0001-0001-000000000001',
     name: 'Trụ sở MLD Việt Nam (5 Master LV3)',
     phone: '096.7786.399',
-    address: 'Số 186 Nam Kỳ Khởi Nghĩa, Phường Võ Thị Sáu, Quận 3',
+    address: 'Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội, Phường Khương Đình, Thành phố Hà Nội',
     city: 'TP. Hồ Chí Minh',
     district: 'Quận 3',
     distanceKm: '0.0',
@@ -39,7 +39,7 @@ export const DEFAULT_BRANCHES: Branch[] = [
   },
   {
     id: 'bbbbbbbb-0002-0002-0002-000000000002',
-    name: 'Chi nhánh Hà Nội - MLD Academy',
+    name: 'Chi nhánh Hà Nội - MLD',
     phone: '096.7786.399',
     address: 'Tòa nhà Charmvit, 117 Trần Duy Hưng, Cầu Giấy',
     city: 'Hà Nội',
@@ -60,7 +60,7 @@ export const DEFAULT_CORE_SERVICE: SpaService = {
   shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
   fullDescription: 'Ứng dụng kỹ thuật Vodder MLD nhẹ nhàng kích hoạt hệ mao mạch bạch huyết dưới bề mặt da, hỗ trợ giải phóng dịch ứ đọng, tăng cường miễn dịch và thải độc tế bào.',
   durationMinutes: 60,
-  price: 650000,
+  price: 700000,
   vatRate: 0.08,
   imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef',
   isFeatured: true,
@@ -84,7 +84,7 @@ export const DEFAULT_SPECIALISTS: Specialist[] = [
     avatarUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2',
     branchName: 'Chi nhánh Cầu Giấy - Hà Nội',
     experienceYears: 7,
-    bio: 'Giảng viên thực hành MLD Academy, trên 7 năm kinh nghiệm dẫn lưu giải độc hệ bạch huyết.',
+    bio: 'Giảng viên thực hành MLD, trên 7 năm kinh nghiệm dẫn lưu giải độc hệ bạch huyết.',
   },
 ];
 
@@ -108,7 +108,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Chủ nhật · 09:00–12:00',
     description: 'Chuyên đề lâm sàng hướng dẫn thực hành các kỹ thuật tự dẫn lưu nhẹ nhàng và tư thế sinh hoạt tránh ứ trệ dịch bạch huyết sau phẫu thuật ung thư vú.',
-    youtubeId: '1F2b2Uf0a88',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: '046185ac-2f31-411e-8e55-a7188b43c3b9',
@@ -128,7 +128,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Thứ 7 · 14:00–17:00',
     description: 'Dinh dưỡng lâm sàng hỗ trợ giảm viêm mô kẽ và bảo vệ sức khỏe tuyến vú chủ động.',
-    youtubeId: 'e_s9dI7j81w',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: 'c6532ed9-3da5-403a-80e9-966caf549ba1',
@@ -148,7 +148,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Chủ nhật · 14:00–17:00',
     description: 'Bài tập vận động trị liệu kích hoạt bơm cơ cải thiện hồi lưu tuần hoàn bạch huyết chi trên.',
-    youtubeId: 'kJQP7kiw5Fk',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: 'fef4cb51-36ba-4a11-b0db-6b45a6435d8e',
@@ -168,7 +168,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: '6 buổi · Linh hoạt online & thực hành',
     description: 'Khóa học nhập môn chi phí hợp lý giúp người mới hiểu đúng cơ chế giải độc, tăng miễn dịch tự nhiên và kỹ thuật tự dẫn lưu cơ bản.',
-    youtubeId: '1F2b2Uf0a88',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: '15fb79f0-c533-4bbd-9860-2ff586c0c2be',
@@ -188,7 +188,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Thứ 6 & Thứ 7 · 09:00–12:00',
     description: 'Dẫn lưu tiêu phù sau sinh, hỗ trợ phục hồi tử cung và giảm ứ dịch toàn thân an toàn.',
-    youtubeId: 'aqz-KE-bpKQ',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: 'ae1be598-a83a-4ddf-ba78-591745db7285',
@@ -208,7 +208,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Thứ 2–4–6 · 13:00–17:00',
     description: 'Nắm vững giải phẫu hệ tuần hoàn bạch huyết nông, lực miết lông vũ 30-40 mmHg và các thao tác dẫn lưu toàn thân cơ bản.',
-    youtubeId: '1F2b2Uf0a88',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: '62f22649-4eac-426c-8ac6-a2b7840ead66',
@@ -228,7 +228,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Thứ 6 – Thứ 7 – Chủ Nhật',
     description: 'Chương trình chuyên sâu đào tạo kỹ thuật định tuyến dòng chảy bạch huyết, can thiệp xử lý phù nề sau phẫu thuật và chăm sóc bệnh lý mô mềm.',
-    youtubeId: 'e_s9dI7j81w',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: 'd9f96bca-4ea0-47da-9bf9-95a289659b8a',
@@ -248,7 +248,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Thứ 3–5–7 · 13:00–17:00',
     description: 'Kỹ thuật khai mở chuỗi hạch bạch huyết sâu, xử lý xơ hóa mô sẹo, phối hợp vật lý trị liệu phục hồi chức năng sau mổ.',
-    youtubeId: 'kJQP7kiw5Fk',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: 'f942ba92-d6b0-466c-bdba-3aa25c389771',
@@ -268,7 +268,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Tập trung chuyên đề lâm sàng',
     description: 'Liệu pháp phức hợp chống phù nề (CDT) kết hợp MLD và kỹ thuật quấn băng ép đa lớp chuẩn y khoa Đức.',
-    youtubeId: 'aqz-KE-bpKQ',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: '42015c6f-66f4-4bba-bddf-4aad1449fb5f',
@@ -288,7 +288,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Theo đợt tập trung chuyên môn',
     description: 'Đào tạo và chuẩn hóa đội ngũ giảng viên, chuyên gia học thuật chuyển giao phương pháp dẫn lưu bạch huyết chuẩn y khoa quốc tế.',
-    youtubeId: '1F2b2Uf0a88',
+    youtubeId: 'mDhpMX4EeY8',
   },
   {
     id: '3c90e0c8-47bc-49a0-8a16-dcf03d8d64ab',
@@ -308,7 +308,7 @@ export const DEFAULT_COURSES: Course[] = [
     branch: 'Học viện MLD Việt Nam',
     schedule: 'Đào tạo 1-1 Chuyển giao trọn đời',
     description: 'Chương trình huấn luyện tinh hoa Master toàn diện: Đào tạo cá nhân 1-1, chuyển giao toàn bộ phác đồ độc quyền và hỗ trợ setup trung tâm trị liệu chuẩn quốc tế.',
-    youtubeId: 'e_s9dI7j81w',
+    youtubeId: 'mDhpMX4EeY8',
   },
 ];
 
@@ -329,14 +329,14 @@ export const DEFAULT_CHAPTERS: Chapter[] = [
         id: 'les_02',
         title: 'Bài 2: Cấu tạo mao mạch và hạch bạch huyết',
         durationMinutes: 20,
-        youtubeId: '0h9sC3wK-yA',
+        youtubeId: 'mDhpMX4EeY8',
         isFreePreview: false,
       },
       {
         id: 'les_03',
         title: 'Bài 3: Áp lực mô và cơ chế hình thành dịch phù',
         durationMinutes: 25,
-        youtubeId: '2r1pZ3Wf2lA',
+        youtubeId: 'mDhpMX4EeY8',
         isFreePreview: false,
       },
     ],
@@ -349,21 +349,21 @@ export const DEFAULT_CHAPTERS: Chapter[] = [
         id: 'les_04',
         title: 'Bài 4: Thao tác xoay tròn tĩnh (Stationary Circles)',
         durationMinutes: 20,
-        youtubeId: 'Zz1X1U0v6g0',
+        youtubeId: 'mDhpMX4EeY8',
         isFreePreview: false,
       },
       {
         id: 'les_05',
         title: 'Bài 5: Thao tác Áp bơm (Pump technique)',
         durationMinutes: 25,
-        youtubeId: 'XvcJpA_k24k',
+        youtubeId: 'mDhpMX4EeY8',
         isFreePreview: false,
       },
       {
         id: 'les_06',
         title: 'Bài 6: Thao tác Múc và Cuộn (Scoop & Rotary)',
         durationMinutes: 30,
-        youtubeId: 'Yp69xN1D9Xk',
+        youtubeId: 'mDhpMX4EeY8',
         isFreePreview: false,
       },
     ],
@@ -376,14 +376,14 @@ export const DEFAULT_CHAPTERS: Chapter[] = [
         id: 'les_07',
         title: 'Bài 7: Quy trình dẫn lưu vùng cổ vai gáy và đầu mặt',
         durationMinutes: 30,
-        youtubeId: 'QA-xR_E24G8',
+        youtubeId: 'mDhpMX4EeY8',
         isFreePreview: false,
       },
       {
         id: 'les_08',
         title: 'Bài 8: Xử lý phù chi và phòng ngừa biến chứng',
         durationMinutes: 35,
-        youtubeId: '0h9sC3wK-yA',
+        youtubeId: 'mDhpMX4EeY8',
         isFreePreview: false,
       },
     ],
@@ -557,7 +557,7 @@ export const SupabaseDataService = {
           branch: 'Học viện MLD Việt Nam',
           schedule: 'Linh hoạt online & thực hành',
           description: c.short_description || c.full_description || '',
-          youtubeId: '1F2b2Uf0a88',
+          youtubeId: 'mDhpMX4EeY8',
         };
       });
     }
@@ -595,7 +595,7 @@ export const SupabaseDataService = {
     try {
       const raw = localStorage.getItem('mld_appointments');
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch { }
     return [];
   },
 
@@ -625,7 +625,7 @@ export const SupabaseDataService = {
               title: l.title,
               durationMinutes: l.duration_minutes || 15,
               videoUrl: l.video_url,
-              youtubeId: match ? match[1] : '1F2b2Uf0a88',
+              youtubeId: match ? match[1] : 'mDhpMX4EeY8',
               isFreePreview: false,
             };
           }),
@@ -646,7 +646,7 @@ export const SupabaseDataService = {
         }
         return allKeys;
       }
-    } catch {}
+    } catch { }
     return [];
   },
 
@@ -655,7 +655,7 @@ export const SupabaseDataService = {
     let list: string[] = [];
     try {
       if (raw) list = JSON.parse(raw);
-    } catch {}
+    } catch { }
     const key = `${courseId}_${lessonId}`;
     if (!list.includes(key)) {
       list.push(key);
@@ -678,7 +678,7 @@ export const SupabaseDataService = {
     try {
       const raw = localStorage.getItem('mld_enrolled_courses');
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch { }
     return ['30303030-0001-0001-0001-000000000001']; // Mở khóa Khóa 1 (Level 0) để trải nghiệm
   },
 
@@ -699,7 +699,7 @@ export const SupabaseDataService = {
     try {
       const raw = localStorage.getItem('mld_user_profile');
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch { }
     return {
       id: 'usr-001',
       fullName: 'Khách hàng MLD',

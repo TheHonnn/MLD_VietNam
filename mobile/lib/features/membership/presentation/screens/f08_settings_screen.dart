@@ -611,7 +611,7 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                     context,
                     'MLD Việt Nam',
                     isEn
-                        ? 'MLD Vietnam - Premier medical aesthetic, body healthcare, and international standard vocational beauty academy.'
+                        ? 'MLD Vietnam - Premier medical aesthetic, body healthcare, and international standard vocational training center.'
                         : 'MLD Việt Nam - Hệ thống chăm sóc thẩm mỹ, dưỡng sinh y khoa và học viện đào tạo nghề thẩm mỹ chuẩn quốc tế.',
                   ),
                 ),
