@@ -89,6 +89,10 @@ DO $$ BEGIN
         );
     END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'shift_status') THEN
+        CREATE TYPE shift_status AS ENUM ('OPEN', 'CLOSED', 'RECONCILED');
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'voucher_status') THEN
         CREATE TYPE voucher_status AS ENUM ('AVAILABLE', 'USED', 'EXPIRED');
     END IF;
@@ -1009,6 +1013,28 @@ CREATE TABLE IF NOT EXISTS student_academic_records (
 -- 12. PHÂN HỆ 9: THU HỌC PHÍ, ĐẶT CỌC & THU NGÂN POS (FINANCIALS)
 -- ==============================================================================
 
+CREATE TABLE IF NOT EXISTS cashier_shifts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    cashier_id UUID NOT NULL REFERENCES users(id),
+    shift_code VARCHAR(50) UNIQUE NOT NULL,
+    opening_cash NUMERIC(14, 2) NOT NULL DEFAULT 0.00 CHECK (opening_cash >= 0),
+    closing_cash NUMERIC(14, 2) DEFAULT 0.00,
+    system_cash NUMERIC(14, 2) DEFAULT 0.00,
+    card_sales NUMERIC(14, 2) DEFAULT 0.00,
+    transfer_sales NUMERIC(14, 2) DEFAULT 0.00,
+    total_sales NUMERIC(14, 2) DEFAULT 0.00,
+    discrepancy_amount NUMERIC(14, 2) DEFAULT 0.00,
+    status shift_status NOT NULL DEFAULT 'OPEN',
+    opened_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMPTZ,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_cashier_shifts_branch_status ON cashier_shifts(branch_id, status);
+CREATE INDEX IF NOT EXISTS idx_cashier_shifts_cashier ON cashier_shifts(cashier_id);
+
 -- Bảng 49: tuition_transactions (Thu học phí, đặt cọc & trả góp học viên)
 CREATE TABLE IF NOT EXISTS tuition_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1018,6 +1044,7 @@ CREATE TABLE IF NOT EXISTS tuition_transactions (
     course_id UUID NOT NULL REFERENCES courses(id),
     branch_id UUID NOT NULL REFERENCES branches(id),
     cashier_id UUID REFERENCES users(id),
+    shift_id UUID REFERENCES cashier_shifts(id) ON DELETE SET NULL,
     transaction_type tuition_trans_type NOT NULL DEFAULT 'DEPOSIT',
     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     payment_method payment_method NOT NULL DEFAULT 'BANK_TRANSFER',
@@ -1036,16 +1063,20 @@ CREATE TABLE IF NOT EXISTS invoices (
     branch_id UUID NOT NULL REFERENCES branches(id),
     customer_id UUID NOT NULL REFERENCES users(id),
     cashier_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    shift_id UUID REFERENCES cashier_shifts(id) ON DELETE SET NULL,
     booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
     user_package_id UUID REFERENCES user_packages(id) ON DELETE SET NULL,
     enrollment_id UUID REFERENCES course_enrollments(id) ON DELETE SET NULL,
     subtotal NUMERIC(14, 2) NOT NULL,
     discount_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
     points_redeemed_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+    pre_tax_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+    vat_rate NUMERIC(4, 2) NOT NULL DEFAULT 8.00,
     vat_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
     total_amount NUMERIC(14, 2) NOT NULL,
     payment_method payment_method NOT NULL DEFAULT 'CASH_AT_SPA',
     payment_status payment_status NOT NULL DEFAULT 'PAID',
+    printed_count INT NOT NULL DEFAULT 0 CHECK (printed_count >= 0),
     gateway_transaction_id VARCHAR(100),
     receipt_pdf_url TEXT,
     refund_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,

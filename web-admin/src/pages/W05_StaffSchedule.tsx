@@ -37,7 +37,6 @@ import {
   customerService,
   supabaseService,
   inventoryService,
-  commissionService,
   znsService,
   treatmentService,
 } from '../services';
@@ -807,29 +806,26 @@ export const W05_StaffSchedule: React.FC = () => {
 
   // Update Booking Status directly on Supabase Cloud
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
-  const handleUpdateBookingStatus = async (bookingId: string, nextStatus: BookingStatus) => {
+  const handleUpdateBookingStatus = async (bookingId: string, nextStatus: BookingStatus): Promise<boolean> => {
     setIsUpdatingStatus(true);
     try {
       const res = await bookingService.updateBookingStatus(bookingId, nextStatus);
-      if (res.success) {
-        setLiveBookings((prev) =>
-          prev.map((b) => (b.id === bookingId ? { ...b, status: nextStatus } : b))
-        );
-        const statusMap: Record<string, string> = {
-          [BookingStatus.CONFIRMED]: 'Đã xác nhận',
-          [BookingStatus.IN_SERVICE]: 'Đang thực hiện',
-          [BookingStatus.COMPLETED]: 'Hoàn thành',
-          [BookingStatus.CANCELLED]: 'Đã hủy',
-        };
-        toast.success(
-          'Cập nhật thành công',
-          `Trạng thái lịch hẹn đã chuyển thành: ${statusMap[nextStatus] || nextStatus}`
-        );
-      } else {
-        toast.error('Lỗi cập nhật', res.message || 'Không thể cập nhật trạng thái');
+      if (!res.success) {
+        toast.error('Cập nhật thất bại', res.message || 'Không thể cập nhật trạng thái lịch.');
+        return false;
       }
-    } catch (err) {
+      setLiveBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: nextStatus } : b)));
+      const statusMap: Record<string, string> = {
+        [BookingStatus.CONFIRMED]: 'Đã xác nhận',
+        [BookingStatus.IN_SERVICE]: 'Đang thực hiện',
+        [BookingStatus.COMPLETED]: 'Hoàn thành',
+        [BookingStatus.CANCELLED]: 'Đã hủy',
+      };
+      toast.success('Cập nhật thành công', `Trạng thái lịch hẹn: ${statusMap[nextStatus] || nextStatus}`);
+      return true;
+    } catch {
       toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+      return false;
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -1094,25 +1090,27 @@ export const W05_StaffSchedule: React.FC = () => {
       setSelectedUserPackageId('');
     }
 
-    setClinicalConditionBefore(`Khách hàng ${app.customer}: Khảo sát ban đầu mô kẽ ứ dịch, căng tức nhẹ vùng điều trị.`);
-    setClinicalConditionAfter(`Sau phiên dẫn lưu Vodder: Mô mềm hóa rõ rệt, giải phóng ứ trệ, cảm giác nhẹ nhõm tức thì.`);
+    setClinicalConditionBefore('');
+    setClinicalConditionAfter('');
     setShowClinicalModal(true);
   };
 
   const handleConfirmCompleteWithJournal = async () => {
     if (!clinicalApp) return;
+    if (!clinicalConditionBefore.trim() || !clinicalConditionAfter.trim()) {
+      toast.warning('Cần bổ sung hồ sơ điều trị', 'Nhập tình trạng trước và sau buổi điều trị để tiếp tục.');
+      return;
+    }
     setIsSavingClinical(true);
     try {
       const targetBooking = liveBookings.find((b) => b.id === clinicalApp.id);
-      const targetCustomerId =
-        targetBooking?.customerId ||
-        clinicalApp.customerId ||
-        '00000000-0000-0000-0000-000000000000';
-      const targetServiceId = clinicalApp.serviceId || 'db29e3c0-c659-492c-8aef-a7d8abc772a3';
-      const targetBranchId = clinicalApp.branchId || (selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001');
-
-      // 1. Cập nhật booking status = COMPLETED
-      await handleUpdateBookingStatus(clinicalApp.id, BookingStatus.COMPLETED);
+      const targetCustomerId = targetBooking?.customerId || clinicalApp.customerId;
+      const targetServiceId = clinicalApp.serviceId;
+      const targetBranchId = clinicalApp.branchId;
+      if (!isUuid(targetCustomerId) || !isUuid(targetServiceId) || !isUuid(targetBranchId)) {
+        toast.error('Thiếu dữ liệu lịch', 'Lịch cần có khách hàng, dịch vụ và chi nhánh hợp lệ trước khi hoàn tất.');
+        return;
+      }
 
       // 2. Ghi nhận hồ sơ bệnh án / nhật ký trị liệu lâm sàng (treatment_journal)
       const combinedNotes = `[Vùng dẫn lưu Vodder]: ${clinicalVodderAreas.join(', ')} | [Mức áp lực]: ${
@@ -1125,15 +1123,22 @@ export const W05_StaffSchedule: React.FC = () => {
 
       let sessionNum = 1;
       let chosenPkg = clinicalCustomerPackages.find((p) => p.id === selectedUserPackageId);
+      const journalHistory = await treatmentService.getTreatmentJournalsByCustomer(targetCustomerId);
+      if (!journalHistory.success) {
+        toast.error('Chưa kiểm tra được nhật ký', 'Tải lại lịch sử điều trị trước khi hoàn tất để tránh ghi trùng.');
+        return;
+      }
+      const existingBookingJournal = journalHistory.data.find((journal) => journal.bookingId === clinicalApp.id);
 
       if (chosenPkg) {
-        sessionNum = (chosenPkg.completedSessions || 0) + 1;
-        await treatmentService.completePackageSession(
+        sessionNum = existingBookingJournal?.sessionNumber || (chosenPkg.completedSessions || 0) + 1;
+        const packageResult = await treatmentService.completePackageSession(
           chosenPkg.id,
           chosenPkg.completedSessions,
           chosenPkg.totalSessions,
           {
             bookingId: clinicalApp.id,
+            sessionNumber: sessionNum,
             customerId: targetCustomerId,
             technicianId: clinicalApp.technicianId || null,
             assignedRoomId: null,
@@ -1143,8 +1148,12 @@ export const W05_StaffSchedule: React.FC = () => {
             specialistAdvice: clinicalSpecialistAdvice,
           }
         );
-      } else {
-        await treatmentService.createTreatmentJournal({
+        if (!packageResult.success) {
+          toast.error('Chưa lưu được buổi điều trị', packageResult.message);
+          return;
+        }
+      } else if (!existingBookingJournal) {
+        const journalResult = await treatmentService.createTreatmentJournal({
           bookingId: clinicalApp.id,
           customerId: targetCustomerId,
           technicianId: clinicalApp.technicianId || null,
@@ -1156,37 +1165,25 @@ export const W05_StaffSchedule: React.FC = () => {
           treatmentNotes: combinedNotes,
           specialistAdvice: clinicalSpecialistAdvice,
         });
+        if (!journalResult.success) {
+          toast.error('Chưa lưu được nhật ký điều trị', journalResult.message);
+          return;
+        }
       }
 
       // 3. Tự động trừ kho vật tư tiêu hao (BOM)
-      try {
-        await inventoryService.deductMaterialsForBooking({
-          bookingId: clinicalApp.id,
-          serviceId: targetServiceId,
-          branchId: targetBranchId,
-          technicianId: clinicalApp.technicianId || null,
-        });
-      } catch (bomErr) {
-        console.warn('Lỗi trừ kho BOM:', bomErr);
+      const inventoryResult = await inventoryService.deductMaterialsForBooking({
+        bookingId: clinicalApp.id,
+        serviceId: targetServiceId,
+        branchId: targetBranchId,
+        technicianId: clinicalApp.technicianId || null,
+      });
+      if (!inventoryResult.success) {
+        toast.error('Nhật ký đã lưu, chưa trừ vật tư', 'Kiểm tra định mức BOM và thử lại thao tác hoàn tất.');
+        return;
       }
 
-      // 4. Tự động trích hoa hồng 10% KTV
-      if (clinicalApp.technicianId && isUuid(clinicalApp.technicianId)) {
-        try {
-          const rawPrice = parseInt(clinicalApp.price.replace(/\D/g, ''), 10) || 450000;
-          await commissionService.createCommission({
-            staffId: clinicalApp.technicianId,
-            branchId: targetBranchId,
-            bookingId: clinicalApp.id,
-            commissionType: 'SERVICE_DIRECT',
-            baseAmount: rawPrice,
-            percentage: 10,
-            notes: `Hoa hồng ca trị liệu ${clinicalApp.service} cho khách ${clinicalApp.customer}`,
-          });
-        } catch (commErr) {
-          console.warn('Lỗi ghi hoa hồng KTV:', commErr);
-        }
-      }
+      if (!(await handleUpdateBookingStatus(clinicalApp.id, BookingStatus.COMPLETED))) return;
 
       // 5. Tự động gửi tin nhắn Zalo ZNS dặn dò sau trị liệu
       if (clinicalApp.customerPhone) {
@@ -1208,10 +1205,10 @@ export const W05_StaffSchedule: React.FC = () => {
 
       setShowClinicalModal(false);
       toast.success(
-        'Hoàn tất ca & Lưu bệnh án thành công!',
-        `Đã lưu hồ sơ bệnh án Vodder cho ${clinicalApp.customer}${
-          chosenPkg ? ` (Trừ buổi ${sessionNum}/${chosenPkg.totalSessions} của gói)` : ''
-        }, trích 10% hoa hồng KTV và trừ kho vật tư tiêu hao.`
+        'Hoàn tất buổi điều trị',
+        `Đã lưu hồ sơ điều trị cho ${clinicalApp.customer}${
+          chosenPkg ? ` (Buổi ${sessionNum}/${chosenPkg.totalSessions} của gói)` : ''
+        } và ghi nhận vật tư theo định mức.`
       );
     } catch (err: any) {
       console.error('Lỗi hoàn tất ca:', err);
@@ -2559,6 +2556,11 @@ export const W05_StaffSchedule: React.FC = () => {
                       className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
                     />
                   </div>
+                  {custName.trim() && !selectedCustomerId && (
+                    <p className="mt-1.5 text-[11px] text-amber-700" role="status">
+                      Chọn khách trong danh sách để gắn lịch đúng hồ sơ. Khách mới cần tạo hồ sơ trước.
+                    </p>
+                  )}
 
                   {/* Customer Autocomplete Dropdown */}
                   {showCustomerDropdown && custName.trim().length > 0 && (
@@ -2868,7 +2870,7 @@ export const W05_StaffSchedule: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EFE4D9]">
                 <button
                   type="button"
-                  disabled={isCreating || createDrcStatus !== 'ready' || !selectedCustomerId}
+                  disabled={isCreating}
                   onClick={() => setShowCreateModal(false)}
                   className="px-5 py-2.5 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer disabled:opacity-50"
                 >
@@ -2876,7 +2878,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isCreating}
+                  disabled={isCreating || createDrcStatus !== 'ready' || !selectedCustomerId}
                   className="px-6 py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] disabled:opacity-60 text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-2"
                 >
                   {isCreating ? (

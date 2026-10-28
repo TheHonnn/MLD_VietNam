@@ -744,8 +744,13 @@ export const W07_CashierPOS: React.FC = () => {
         const randPart = Math.floor(1000 + Math.random() * 9000);
         const generatedInvoiceCode = `HD-HP-${datePart}-${randPart}`;
 
-        const validCustomerId = isUuid(selectedEnrollment.studentId) ? selectedEnrollment.studentId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e';
-        const validBranchId = isUuid(selectedEnrollment.batchId) ? selectedEnrollment.batchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+        const validCustomerId = isUuid(selectedEnrollment.studentId) ? selectedEnrollment.studentId : '';
+        const enrollmentBranchId = selectedEnrollment.batch?.branchId || primaryBranch?.id;
+        const validBranchId = isUuid(enrollmentBranchId) ? enrollmentBranchId : '';
+        if (!validCustomerId || !validBranchId) {
+          toast.error('Thiếu thông tin hóa đơn', 'Hồ sơ học viên hoặc chi nhánh của khóa học chưa hợp lệ.');
+          return;
+        }
 
         // 1. Tạo hóa đơn học phí trên Supabase Cloud
         const resInvoice = await posService.createInvoice({
@@ -766,6 +771,10 @@ export const W07_CashierPOS: React.FC = () => {
           paymentStatus: PaymentStatus.PAID,
           paidAt: new Date().toISOString(),
         });
+        if (!resInvoice.success || !isUuid(resInvoice.data?.id)) {
+          toast.error('Chưa ghi nhận thanh toán', resInvoice.message || 'Không lưu được hóa đơn học phí.');
+          return;
+        }
 
         // 2. Cập nhật doanh thu ca thu ngân hiện tại
         if (currentShift) {
@@ -900,6 +909,15 @@ export const W07_CashierPOS: React.FC = () => {
       toast.error('Lỗi', 'Không tìm thấy thông tin đơn đặt lịch để thanh toán.');
       return;
     }
+    if (!isUuid(booking.id) || !isUuid(booking.branchId) || !isUuid(booking.customerId)) {
+      toast.error('Thiếu thông tin hóa đơn', 'Lịch cần có mã lịch, khách hàng và chi nhánh hợp lệ.');
+      return;
+    }
+    if (invoices.some((invoice) => invoice.bookingId === booking.id && invoice.paymentStatus === PaymentStatus.PAID)) {
+      setIsPaid(true);
+      toast.info('Lịch đã thanh toán', 'Đã có hóa đơn đã thanh toán cho lịch này. Không tạo thêm hóa đơn.');
+      return;
+    }
 
     setIsProcessing(true);
     try {
@@ -929,8 +947,8 @@ export const W07_CashierPOS: React.FC = () => {
       // 1. Lưu hóa đơn vào Supabase Cloud (bảng invoices)
       const resInvoice = await posService.createInvoice({
         invoiceCode: generatedInvoiceCode,
-        branchId: isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
-        customerId: isUuid(customer?.id) ? customer?.id : isUuid(booking.customerId) ? booking.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
+        branchId: booking.branchId,
+        customerId: booking.customerId,
         cashierId: adminUser?.id || undefined,
         bookingId: validBookingId,
         userPackageId: validPackageId,
@@ -946,6 +964,10 @@ export const W07_CashierPOS: React.FC = () => {
         paymentStatus: PaymentStatus.PAID,
         paidAt: new Date().toISOString(),
       });
+      if (!resInvoice.success || !isUuid(resInvoice.data?.id)) {
+        toast.error('Chưa ghi nhận thanh toán', resInvoice.message || 'Không lưu được hóa đơn. Vui lòng thử lại.');
+        return;
+      }
 
       // Cập nhật doanh thu ca thu ngân hiện tại
       if (currentShift) {
@@ -966,12 +988,13 @@ export const W07_CashierPOS: React.FC = () => {
       // 2. Cập nhật trạng thái Booking trên Supabase Cloud (bảng bookings)
       if (validBookingId) {
         try {
-          await bookingService.updateBookingStatus(
-            booking.id,
-            BookingStatus.COMPLETED,
-            PaymentStatus.PAID,
-            paymentMethodEnum
-          );
+          const statusUpdate = await bookingService.updateBooking(booking.id, {
+            paymentStatus: PaymentStatus.PAID,
+            paymentMethod: paymentMethodEnum,
+          });
+          if (!statusUpdate.success) {
+            toast.warning('Đã lưu hóa đơn', 'Chưa đồng bộ được trạng thái thanh toán của lịch. Tải lại lịch để kiểm tra.');
+          }
         } catch (bkErr) {
           console.warn('Lỗi cập nhật trạng thái booking:', bkErr);
         }
@@ -1063,45 +1086,6 @@ export const W07_CashierPOS: React.FC = () => {
         }
       }
 
-      // TRỤ CỘT 4: QUẢN LÝ ĐỊNH MỨC TIÊU HAO VẬT TƯ (BOM)
-      const branchIdForStock = isUuid(booking.branchId) ? booking.branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
-      try {
-        await Promise.all([
-          supabaseService.recordInventoryConsumption({
-            branchId: branchIdForStock,
-            serviceId: booking.items?.[0]?.serviceId || 'srv-1',
-            bookingId: validBookingId || null,
-            invoiceId: generatedInvoiceCode,
-            technicianId: targetTechId,
-            materialName: 'Dầu gội thảo dược Organic MLD',
-            quantityDeducted: 30,
-            unit: 'ml',
-          }),
-          supabaseService.recordInventoryConsumption({
-            branchId: branchIdForStock,
-            serviceId: booking.items?.[0]?.serviceId || 'srv-1',
-            bookingId: validBookingId || null,
-            invoiceId: generatedInvoiceCode,
-            technicianId: targetTechId,
-            materialName: 'Tinh dầu dưỡng tóc phục hồi Argan',
-            quantityDeducted: 5,
-            unit: 'ml',
-          }),
-          supabaseService.recordInventoryConsumption({
-            branchId: branchIdForStock,
-            serviceId: booking.items?.[0]?.serviceId || 'srv-1',
-            bookingId: validBookingId || null,
-            invoiceId: generatedInvoiceCode,
-            technicianId: targetTechId,
-            materialName: 'Khăn bông spa tiệt trùng',
-            quantityDeducted: 2,
-            unit: 'chiếc',
-          }),
-        ]);
-      } catch (invErr) {
-        console.warn('Lỗi ghi định mức tiêu hao vật tư:', invErr);
-      }
-
       // TRỤ CỘT 3: TỰ ĐỘNG HÓA CRM GỬI TIN NHẮN ZALO ZNS
       await notificationService.sendZaloZNS(
         'BOOKING_CONFIRM',
@@ -1170,7 +1154,6 @@ export const W07_CashierPOS: React.FC = () => {
           ? {
               ...prev,
               paymentStatus: PaymentStatus.PAID,
-              status: BookingStatus.COMPLETED,
               paymentMethod: paymentMethodEnum,
             }
           : undefined
@@ -1182,7 +1165,6 @@ export const W07_CashierPOS: React.FC = () => {
             ? {
                 ...b,
                 paymentStatus: PaymentStatus.PAID,
-                status: BookingStatus.COMPLETED,
                 paymentMethod: paymentMethodEnum,
               }
             : b

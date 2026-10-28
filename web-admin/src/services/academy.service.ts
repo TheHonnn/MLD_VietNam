@@ -182,7 +182,7 @@ export const academyService = {
     batchId: string,
     updates: {
       instructorId?: string | null;
-      scheduleText?: string;
+      scheduleText?: string | null;
       startDate?: string;
       endDate?: string;
       status?: string;

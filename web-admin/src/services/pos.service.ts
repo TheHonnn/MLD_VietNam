@@ -1,15 +1,33 @@
+import { adminCommand } from '../admin/api';
 import {
-  Invoice,
-  PaymentStatus,
-  PaymentMethod,
   ApiResponse,
   CashierShift,
-  ShiftStatus,
+  Invoice,
   InvoiceSyncResult,
+  PaymentMethod,
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
-import { legacyWrite } from './adminAdapter';
-import { isUuid } from '../utils/searchUtils';
+
+export interface CashierCollection {
+  kind: 'BOOKING' | 'TUITION' | 'PACKAGE';
+  bookingId?: string;
+  enrollmentId?: string;
+  packageId?: string;
+  customerId?: string;
+  branchId?: string;
+  amount?: number;
+  vatRate?: number;
+  paymentMethod: PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER;
+  shiftId: string;
+  notes?: string;
+}
+
+const failed = <T>(error: any, data: T): ApiResponse<T> => ({
+  success: false,
+  statusCode: error?.statusCode || 500,
+  message: error?.message || 'Không thể hoàn tất thao tác thu ngân.',
+  data,
+});
 
 export const posService = {
   async syncInvoices(): Promise<ApiResponse<InvoiceSyncResult | null>> {
@@ -18,267 +36,98 @@ export const posService = {
       return {
         success: true,
         statusCode: 200,
-        message: result ? 'Đồng bộ hóa đơn và doanh thu thành công từ Supabase Cloud' : 'Hóa đơn đã được đồng bộ mới nhất',
+        message: 'Đã đồng bộ hóa đơn.',
         data: result,
       };
-    } catch (err) {
-      console.error('[posService] syncInvoices error:', err);
-      return {
-        success: false,
-        statusCode: 500,
-        message: 'Lỗi khi đồng bộ hóa đơn từ hệ thống',
-        data: null,
-      };
+    } catch (error) {
+      return failed(error, null);
     }
   },
+
   async getInvoices(params?: {
     branchId?: string;
     customerId?: string;
-    paymentStatus?: PaymentStatus;
+    paymentStatus?: string;
     search?: string;
   }): Promise<ApiResponse<Invoice[]>> {
     try {
-      const live = await supabaseService.getInvoices(params?.branchId, params?.customerId);
-      let result = live || [];
+      let invoices = (await supabaseService.getInvoices(params?.branchId, params?.customerId)) || [];
       if (params?.paymentStatus) {
-        result = result.filter((inv) => inv.paymentStatus === params.paymentStatus);
+        invoices = invoices.filter((invoice) => invoice.paymentStatus === params.paymentStatus);
       }
       if (params?.search) {
-        const kw = params.search.toLowerCase();
-        result = result.filter((inv) =>
-          inv.invoiceCode.toLowerCase().includes(kw)
-        );
+        const query = params.search.toLowerCase();
+        invoices = invoices.filter((invoice) => invoice.invoiceCode.toLowerCase().includes(query));
       }
-      return {
-        success: true,
-        statusCode: 200,
-        message: 'Dữ liệu hóa đơn từ Supabase Cloud',
-        data: result,
-      };
-    } catch (err) {
-      console.error('[posService] getInvoices error:', err);
-      return {
-        success: false,
-        statusCode: 500,
-        message: 'Lỗi truy vấn hóa đơn từ Supabase Cloud',
-        data: [],
-      };
+      return { success: true, statusCode: 200, message: 'Đã tải hóa đơn.', data: invoices };
+    } catch (error) {
+      return failed(error, []);
     }
   },
 
   async getInvoiceById(id: string): Promise<ApiResponse<Invoice | undefined>> {
     try {
-      const live = await supabaseService.getInvoices();
-      const found = live?.find((inv) => inv.id === id);
+      const invoices = await supabaseService.getInvoices();
       return {
         success: true,
         statusCode: 200,
-        message: 'Chi tiết hóa đơn từ Supabase Cloud',
-        data: found,
+        message: 'Đã tải hóa đơn.',
+        data: invoices?.find((invoice) => invoice.id === id),
       };
-    } catch (err) {
-      console.error('[posService] getInvoiceById error:', err);
-      return {
-        success: false,
-        statusCode: 500,
-        message: 'Lỗi truy vấn chi tiết hóa đơn từ Supabase',
-        data: undefined,
-      };
+    } catch (error) {
+      return failed(error, undefined);
     }
   },
 
-  async createInvoice(data: any): Promise<ApiResponse<Invoice>> {
-    const validBookingId = isUuid(data.bookingId) ? data.bookingId : null;
-    const validUserPackageId = isUuid(data.userPackageId) ? data.userPackageId : null;
-    const validEnrollmentId = isUuid(data.enrollmentId) ? data.enrollmentId : null;
-    const validCustomerId = isUuid(data.customerId) ? data.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e';
-    const validBranchId = isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
-    const invoiceCode = data.invoiceCode || `HD-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-
+  async collectPayment(data: CashierCollection): Promise<ApiResponse<any>> {
     try {
-      const created = await supabaseService.createInvoice({
-        invoiceCode,
-        branchId: validBranchId,
-        customerId: validCustomerId,
-        cashierId: isUuid(data.cashierId) ? data.cashierId : 'bbbbbbbb-0001-0001-0001-000000000002',
-        bookingId: validBookingId,
-        userPackageId: validUserPackageId,
-        enrollmentId: validEnrollmentId,
-        subtotal: data.subtotal || data.totalAmount || 0,
-        discountAmount: data.discountAmount || 0,
-        pointsRedeemedAmount: data.pointsRedeemedAmount || 0,
-        vatAmount: data.vatAmount || 0,
-        totalAmount: data.totalAmount || 0,
-        paymentMethod: data.paymentMethod || PaymentMethod.CASH_AT_SPA,
-        paymentStatus: data.paymentStatus || PaymentStatus.PAID,
-        paidAt: data.paidAt || new Date().toISOString(),
-      });
-
-      if (created) {
-        return {
-          success: true,
-          statusCode: 201,
-          message: 'Tạo hóa đơn thành công trên Supabase Cloud',
-          data: created,
-        };
-      }
-    } catch (err) {
-      console.error('[posService] createInvoice error:', err);
-    }
-
-    try {
-      const sanitizedData = {
-        ...data,
-        invoiceCode,
-        branchId: validBranchId,
-        customerId: validCustomerId,
-        bookingId: validBookingId,
-        userPackageId: validUserPackageId,
-        enrollmentId: validEnrollmentId,
-      };
-      return await legacyWrite<Invoice>('invoices', sanitizedData);
-    } catch (fallbackErr) {
-      console.error('[posService] createInvoice error:', fallbackErr);
+      const result = await adminCommand<any>('cashier/collect', data);
       return {
-        success: false,
-        statusCode: 500,
-        message: 'Lỗi khi tạo hóa đơn trên hệ thống',
-        data: {} as Invoice,
+        success: true,
+        statusCode: 200,
+        message: 'Đã ghi nhận khoản thu.',
+        data: result,
       };
+    } catch (error) {
+      return failed(error, null);
     }
-  },
-
-  async updatePaymentStatus(
-    id: string,
-    status: PaymentStatus,
-    method?: PaymentMethod
-  ): Promise<ApiResponse<Invoice>> {
-    return legacyWrite<Invoice>('invoices',{paymentStatus:status,...(method?{paymentMethod:method}:{})},id);
   },
 
   async getActiveShift(branchId?: string): Promise<ApiResponse<CashierShift | null>> {
     try {
-      const saved = localStorage.getItem('mld_current_shift');
-      if (saved) {
-        const parsed = JSON.parse(saved) as CashierShift;
-        if (parsed && parsed.status === ShiftStatus.OPEN) {
-          if (!branchId || parsed.branchId === branchId) {
-            return { success: true, statusCode: 200, message: 'Ca làm việc đang mở', data: parsed };
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[posService] Error reading active shift:', e);
+      const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+      const shift = await adminCommand<CashierShift | null>(`cashier/shifts/active${query}`);
+      return { success: true, statusCode: 200, message: 'Đã tải ca thu ngân.', data: shift };
+    } catch (error) {
+      return failed(error, null);
     }
-    return { success: true, statusCode: 200, message: 'Chưa có ca làm việc nào đang mở', data: null };
   },
 
   async openShift(data: {
     branchId: string;
-    cashierId?: string;
     openingCash: number;
     notes?: string;
   }): Promise<ApiResponse<CashierShift>> {
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-    const randNum = Math.floor(10 + Math.random() * 90);
-    const shiftCode = `CA-${dateStr}-${randNum}`;
-
-    const newShift: CashierShift = {
-      id: `shift-${Date.now()}`,
-      branchId: data.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-      cashierId: data.cashierId || 'bbbbbbbb-0001-0001-0001-000000000002',
-      shiftCode,
-      openingCash: Number(data.openingCash) || 0,
-      closingCash: 0,
-      systemCash: Number(data.openingCash) || 0,
-      cardSales: 0,
-      transferSales: 0,
-      totalSales: 0,
-      discrepancyAmount: 0,
-      status: ShiftStatus.OPEN,
-      openedAt: now.toISOString(),
-      notes: data.notes || '',
-    };
-
-    localStorage.setItem('mld_current_shift', JSON.stringify(newShift));
-    return {
-      success: true,
-      statusCode: 201,
-      message: `Đã mở ca làm việc ${shiftCode} thành công`,
-      data: newShift,
-    };
+    try {
+      const shift = await adminCommand<CashierShift>('cashier/shifts/open', data);
+      return { success: true, statusCode: 201, message: 'Đã mở ca.', data: shift };
+    } catch (error) {
+      return failed(error, {} as CashierShift);
+    }
   },
 
-  async closeShift(shiftId: string, data: {
-    closingCash: number;
-    systemCash: number;
-    cardSales: number;
-    transferSales: number;
-    totalSales: number;
-    notes?: string;
-  }): Promise<ApiResponse<CashierShift>> {
-    let baseShift: CashierShift;
+  async closeShift(
+    shiftId: string,
+    data: { closingCash: number; notes?: string },
+  ): Promise<ApiResponse<CashierShift>> {
     try {
-      const saved = localStorage.getItem('mld_current_shift');
-      baseShift = saved ? JSON.parse(saved) : {
-        id: shiftId,
-        branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
-        cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
-        shiftCode: 'CA-DEFAULT',
-        openingCash: 0,
-        status: ShiftStatus.OPEN,
-        openedAt: new Date().toISOString(),
-      };
-    } catch {
-      baseShift = {
-        id: shiftId,
-        branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
-        cashierId: 'bbbbbbbb-0001-0001-0001-000000000002',
-        shiftCode: 'CA-DEFAULT',
-        openingCash: 0,
-        status: ShiftStatus.OPEN,
-        openedAt: new Date().toISOString(),
-      };
-    }
-
-    const discrepancy = Number(data.closingCash) - Number(data.systemCash);
-    const updatedShift: CashierShift = {
-      ...baseShift,
-      closingCash: Number(data.closingCash),
-      systemCash: Number(data.systemCash),
-      cardSales: Number(data.cardSales),
-      transferSales: Number(data.transferSales),
-      totalSales: Number(data.totalSales),
-      discrepancyAmount: discrepancy,
-      status: ShiftStatus.CLOSED,
-      closedAt: new Date().toISOString(),
-      notes: data.notes || baseShift.notes,
-    };
-
-    localStorage.removeItem('mld_current_shift');
-    try {
-      const history = JSON.parse(localStorage.getItem('mld_closed_shifts') || '[]');
-      history.unshift(updatedShift);
-      localStorage.setItem('mld_closed_shifts', JSON.stringify(history.slice(0, 50)));
-    } catch (e) {
-      console.warn('Error saving closed shift history:', e);
-    }
-
-    return {
-      success: true,
-      statusCode: 200,
-      message: `Đã kết ca ${updatedShift.shiftCode} và đối soát hoàn tất`,
-      data: updatedShift,
-    };
-  },
-
-  async getClosedShifts(): Promise<ApiResponse<CashierShift[]>> {
-    try {
-      const history = JSON.parse(localStorage.getItem('mld_closed_shifts') || '[]');
-      return { success: true, statusCode: 200, message: 'Danh sách ca đã đóng', data: history };
-    } catch {
-      return { success: true, statusCode: 200, message: 'Danh sách ca đã đóng', data: [] };
+      const shift = await adminCommand<CashierShift>(
+        `cashier/shifts/${encodeURIComponent(shiftId)}/close`,
+        data,
+      );
+      return { success: true, statusCode: 200, message: 'Đã đóng ca.', data: shift };
+    } catch (error) {
+      return failed(error, {} as CashierShift);
     }
   },
 };

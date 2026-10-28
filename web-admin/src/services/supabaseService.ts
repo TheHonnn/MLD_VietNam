@@ -1510,6 +1510,7 @@ class SupabaseService {
     paidAt?: string;
   }): Promise<Invoice | null> {
     try {
+      if (!isUuid(invoice.branchId) || !isUuid(invoice.customerId)) return null;
       const computedPreTax = invoice.preTaxAmount !== undefined
         ? invoice.preTaxAmount
         : Math.max(0, invoice.subtotal - (invoice.discountAmount || 0) - (invoice.pointsRedeemedAmount || 0));
@@ -1520,9 +1521,9 @@ class SupabaseService {
 
       const payload = {
         invoice_code: invoice.invoiceCode,
-        branch_id: isUuid(invoice.branchId) ? invoice.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
-        customer_id: isUuid(invoice.customerId) ? invoice.customerId : '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-        cashier_id: isUuid(invoice.cashierId) ? invoice.cashierId : 'bbbbbbbb-0001-0001-0001-000000000002',
+        branch_id: invoice.branchId,
+        customer_id: invoice.customerId,
+        cashier_id: isUuid(invoice.cashierId) ? invoice.cashierId : null,
         booking_id: isUuid(invoice.bookingId) ? invoice.bookingId : null,
         user_package_id: isUuid(invoice.userPackageId) ? invoice.userPackageId : null,
         enrollment_id: isUuid(invoice.enrollmentId) ? invoice.enrollmentId : null,
@@ -1602,7 +1603,7 @@ class SupabaseService {
     batchId: string,
     updates: {
       instructorId?: string | null;
-      scheduleText?: string;
+      scheduleText?: string | null;
       startDate?: string;
       endDate?: string;
       status?: string;

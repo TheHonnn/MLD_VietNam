@@ -33,6 +33,34 @@ export class AdminController {
   session(@Req() req) {
     return req.admin;
   }
+  @Post('cashier/collect')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  collectCashierPayment(@Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.collectCashierPayment(req.admin, body);
+  }
+  @Get('cashier/shifts/active')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  activeCashierShift(@Query('branchId') branchId: string, @Req() req) {
+    return this.service.activeCashierShift(req.admin, branchId);
+  }
+  @Post('cashier/shifts/open')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  openCashierShift(@Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.openCashierShift(req.admin, body);
+  }
+  @Post('cashier/shifts/:id/close')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  closeCashierShift(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req,
+  ) {
+    return this.service.closeCashierShift(req.admin, id, body);
+  }
   @Get('resources')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

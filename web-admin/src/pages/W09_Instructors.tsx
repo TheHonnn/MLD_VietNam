@@ -8,10 +8,22 @@ import {
   CheckCircle2,
   Search,
   Settings2,
+  CalendarX,
 } from 'lucide-react';
 import { academyService, supabaseService } from '../services';
 import { Course, CourseBatch } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
+
+export interface ScheduleItem {
+  id: string;
+  batchId: string;
+  instructorId?: string | null;
+  batchCode: string;
+  courseTitle: string;
+  instructorName: string;
+  dateTime: string;
+  description: string;
+}
 
 interface InstructorRecord {
   id: string;
@@ -190,17 +202,27 @@ export const W09_Instructors: React.FC = () => {
     });
   }, [dbInstructors, liveCourses, liveBatches]);
 
-  const weeklyTeachingSchedule = useMemo(() => {
+  const weeklyTeachingSchedule: ScheduleItem[] = useMemo(() => {
     if (!liveBatches || liveBatches.length === 0) return [];
     const crsMap = new Map(liveCourses.map((c) => [c.id, c]));
     const insMap = new Map(dbInstructors.map((i) => [i.id, i.fullName || i.full_name || 'Giảng viên']));
 
-    return liveBatches.map((b, idx) => {
+    // Filter only batches that have an assigned instructor and schedule text
+    const activeBatches = liveBatches.filter(
+      (b) => Boolean(b.instructorId && b.scheduleText && b.scheduleText.trim().length > 0)
+    );
+
+    return activeBatches.map((b, idx) => {
       const crs = crsMap.get(b.courseId);
       const insName = b.instructorId ? (insMap.get(b.instructorId) || 'Giảng viên') : 'Chưa phân công GV';
       const dateStr = b.startDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(b.startDate)) : 'Sắp xếp';
       return {
         id: `ws-${b.id || idx}`,
+        batchId: b.id,
+        instructorId: b.instructorId,
+        batchCode: b.batchCode,
+        courseTitle: crs?.title || b.batchCode,
+        instructorName: insName,
         dateTime: `${b.scheduleText || 'Lịch định kỳ'} · Bắt đầu ${dateStr}`,
         description: `${insName} · ${crs?.title || b.batchCode} · Phòng thực hành Quận 3`,
       };
@@ -216,6 +238,8 @@ export const W09_Instructors: React.FC = () => {
   // Modals state
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [cancelTargetSchedule, setCancelTargetSchedule] = useState<ScheduleItem | null>(null);
+  const [isCanceling, setIsCanceling] = useState<boolean>(false);
 
   // Assignment modal states
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
@@ -308,6 +332,55 @@ export const W09_Instructors: React.FC = () => {
     } finally {
       setIsAssigning(false);
     }
+  };
+
+  const handleRequestCancelSchedule = (schedule: ScheduleItem) => {
+    setCancelTargetSchedule(schedule);
+  };
+
+  const handleConfirmCancelSchedule = async () => {
+    if (!cancelTargetSchedule) return;
+    setIsCanceling(true);
+    try {
+      const ok = await supabaseService.updateCourseBatch(cancelTargetSchedule.batchId, {
+        instructorId: null,
+        scheduleText: null,
+      });
+
+      if (ok) {
+        showToast(`Đã hủy lịch giảng dạy lớp ${cancelTargetSchedule.batchCode} thành công!`);
+        setCancelTargetSchedule(null);
+        await fetchInstructorData();
+      } else {
+        showToast('Không thể hủy lịch giảng dạy. Vui lòng thử lại.');
+      }
+    } catch (err) {
+      console.error('Error canceling schedule:', err);
+      showToast('Có lỗi xảy ra khi hủy lịch giảng dạy.');
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
+  const handleCancelSelectedInstructorSchedule = () => {
+    const assignedBatches = liveBatches.filter((b) => b.instructorId === selectedInstructor.id);
+    if (assignedBatches.length === 0) {
+      showToast('Giảng viên này hiện chưa được phân công lớp nào.');
+      return;
+    }
+    const targetBatch = assignedBatches[0];
+    const crs = liveCourses.find((c) => c.id === targetBatch.courseId);
+    const dateStr = targetBatch.startDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(targetBatch.startDate)) : 'Sắp xếp';
+    setCancelTargetSchedule({
+      id: `ws-${targetBatch.id}`,
+      batchId: targetBatch.id,
+      instructorId: targetBatch.instructorId,
+      batchCode: targetBatch.batchCode,
+      courseTitle: crs?.title || targetBatch.batchCode,
+      instructorName: selectedInstructor.name,
+      dateTime: `${targetBatch.scheduleText || 'Lịch định kỳ'} · Bắt đầu ${dateStr}`,
+      description: `${selectedInstructor.name} · ${crs?.title || targetBatch.batchCode} · Phòng thực hành Quận 3`,
+    });
   };
 
   if (loading) {
@@ -573,24 +646,54 @@ export const W09_Instructors: React.FC = () => {
 
           {/* Card 2: Lịch giảng dạy tuần · 12/10/2026 – 18/10/2026 */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-            <h2 className="text-base font-bold text-[#2C241E]">
-              Lịch giảng dạy tuần · 12/10/2026 – 18/10/2026
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-[#2C241E]">
+                Lịch giảng dạy tuần · 12/10/2026 – 18/10/2026
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FAF3EC] text-[#8A4F23] border border-[#EFE4D9]">
+                {weeklyTeachingSchedule.length} lịch giảng dạy
+              </span>
+            </div>
 
             <div className="space-y-3">
-              {weeklyTeachingSchedule.map((schedule) => (
-                <div
-                  key={schedule.id}
-                  className="bg-[#F5EADF] rounded-2xl p-4 space-y-1"
-                >
-                  <div className="text-xs font-bold text-[#2C241E]">
-                    {schedule.dateTime}
-                  </div>
-                  <div className="text-xs text-[#73675F]">
-                    {schedule.description}
-                  </div>
+              {weeklyTeachingSchedule.length === 0 ? (
+                <div className="p-8 text-center bg-[#FAF5EF] rounded-2xl border border-dashed border-[#D7BBA6] space-y-2">
+                  <CalendarX className="w-8 h-8 text-[#A69788] mx-auto stroke-[1.5]" />
+                  <p className="text-xs font-bold text-[#2C241E]">Chưa có lịch giảng dạy nào trong tuần</p>
+                  <p className="text-[11px] text-[#73675F]">
+                    Tất cả các lớp đào tạo hiện tại chưa phân công giảng viên hoặc đã hoàn tất.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                weeklyTeachingSchedule.map((schedule) => (
+                  <div
+                    key={schedule.id}
+                    className="bg-[#F5EADF] rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group border border-transparent hover:border-[#D7BBA6] transition-all"
+                  >
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-[#2C241E] flex flex-wrap items-center gap-2">
+                        <span>{schedule.dateTime}</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#EAD8C7] text-[#8A4F23]">
+                          {schedule.batchCode}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[#73675F]">
+                        {schedule.description}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRequestCancelSchedule(schedule)}
+                      className="shrink-0 self-start sm:self-auto px-3 py-1.5 rounded-xl border border-[#D7BBA6] bg-white text-[#8A4F23] hover:bg-[#FAF5EF] hover:text-[#DC2626] hover:border-[#FECACA] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      title={`Hủy lịch giảng dạy lớp ${schedule.batchCode}`}
+                    >
+                      <CalendarX className="w-3.5 h-3.5 text-[#DC2626]" />
+                      <span>Hủy lịch dạy</span>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Footnote below schedule cards */}
@@ -686,14 +789,25 @@ export const W09_Instructors: React.FC = () => {
                     <span>Lớp phụ trách: {selectedInstructor.currentClass}</span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOpenAssignModal}
-                  className="w-full py-2.5 bg-[#FAF5EF] hover:bg-[#F3E7D8] text-[#8D4B1A] border border-[#D7BBA6] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Settings2 className="w-3.5 h-3.5" />
-                  <span>Điều chỉnh phân công lớp</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenAssignModal}
+                    className="w-full py-2.5 px-2 bg-[#FAF5EF] hover:bg-[#F3E7D8] text-[#8D4B1A] border border-[#D7BBA6] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Settings2 className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Điều chỉnh lớp</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelSelectedInstructorSchedule}
+                    className="w-full py-2.5 px-2 bg-white hover:bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Hủy lịch giảng dạy của giảng viên này"
+                  >
+                    <CalendarX className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Hủy lịch dạy</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <button
@@ -742,6 +856,81 @@ export const W09_Instructors: React.FC = () => {
           Hệ thống quản lý giảng viên & phân công lớp học • MLD Vietnam Healthcare Admin.
         </span>
       </div>
+
+      {/* MODAL: Xác nhận hủy lịch dạy */}
+      {cancelTargetSchedule && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-md shadow-xl overflow-hidden p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#FEE2E2] flex items-center justify-center shrink-0">
+                <CalendarX className="w-5 h-5 text-[#DC2626]" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#2C241E]">
+                  Xác nhận hủy lịch giảng dạy?
+                </h3>
+                <p className="text-xs text-[#73675F] mt-0.5">
+                  Gỡ phân công và xóa lịch giảng dạy của lớp học
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAF5EF] rounded-xl p-3.5 border border-[#EFE4D9] space-y-2 text-xs">
+              <div className="flex justify-between items-start gap-2">
+                <span className="text-[#73675F] shrink-0">Lớp / Khóa học:</span>
+                <span className="font-bold text-[#2C241E] text-right">
+                  {cancelTargetSchedule.courseTitle} ({cancelTargetSchedule.batchCode})
+                </span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-[#73675F] shrink-0">Giảng viên:</span>
+                <span className="font-bold text-[#8A4F23]">
+                  {cancelTargetSchedule.instructorName}
+                </span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-[#73675F] shrink-0">Thời gian:</span>
+                <span className="font-medium text-[#2C241E]">
+                  {cancelTargetSchedule.dateTime}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#73675F] leading-relaxed">
+              Lịch giảng dạy này sẽ được gỡ khỏi giảng viên <strong>{cancelTargetSchedule.instructorName}</strong> và xóa khỏi thời khóa biểu tuần. Lớp học sẽ chuyển về trạng thái chờ phân công lại.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#EFE4D9]">
+              <button
+                type="button"
+                disabled={isCanceling}
+                onClick={() => setCancelTargetSchedule(null)}
+                className="px-4 py-2 bg-white border border-[#EFE4D9] text-[#73675F] hover:bg-[#FAF7F2] rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                disabled={isCanceling}
+                onClick={handleConfirmCancelSchedule}
+                className="px-4 py-2 bg-[#DC2626] hover:bg-[#B91C1C] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isCanceling ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Đang hủy...</span>
+                  </>
+                ) : (
+                  <>
+                    <CalendarX className="w-3.5 h-3.5" />
+                    <span>Xác nhận hủy lịch dạy</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: Phân công lớp */}
       {isAssignModalOpen && (
@@ -838,21 +1027,36 @@ export const W09_Instructors: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAssignModalOpen(false)}
-                  className="px-4 py-2 bg-white border border-[#EFE4D9] text-[#73675F] hover:bg-[#FAF7F2] rounded-xl font-medium cursor-pointer"
-                >
-                  Đóng
-                </button>
-                <button
-                  type="submit"
-                  disabled={isAssigning}
-                  className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  {isAssigning ? 'Đang lưu...' : selectedBatchId === '__unassign__' ? 'Xác nhận gỡ phân công' : 'Xác nhận phân công'}
-                </button>
+              <div className="pt-2 flex items-center justify-between gap-2.5">
+                {selectedInstructor.hasAssignedClasses ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAssignModalOpen(false);
+                      handleCancelSelectedInstructorSchedule();
+                    }}
+                    className="text-[#DC2626] hover:text-[#B91C1C] flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                  >
+                    <CalendarX className="w-3.5 h-3.5" />
+                    <span>Hủy lịch dạy lớp này</span>
+                  </button>
+                ) : <div />}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAssignModalOpen(false)}
+                    className="px-4 py-2 bg-white border border-[#EFE4D9] text-[#73675F] hover:bg-[#FAF7F2] rounded-xl font-medium cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAssigning}
+                    className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isAssigning ? 'Đang lưu...' : selectedBatchId === '__unassign__' ? 'Xác nhận gỡ phân công' : 'Xác nhận phân công'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

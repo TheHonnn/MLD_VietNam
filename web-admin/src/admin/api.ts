@@ -1131,6 +1131,35 @@ export async function adminApi<T>(
   }
 }
 
+export async function adminCommand<T>(path: string, body?: unknown): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20000);
+  const token = sessionStorage.getItem('mld_admin_token');
+  try {
+    const response = await fetch(`${base}/admin/${path}`, {
+      method: body === undefined ? 'GET' : 'POST',
+      signal: controller.signal,
+      headers: {
+        'X-MLD-Local-Admin': '1',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success) {
+      if (response.status === 401 && token) {
+        sessionStorage.removeItem('mld_admin_token');
+        window.dispatchEvent(new Event('admin-signout'));
+      }
+      throw new Error(json?.message || `Không thể hoàn tất thao tác (${response.status}).`);
+    }
+    return json.data as T;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 export function rowKey(columns: Column[], row: Row) {
   const primaryCols = columns.filter((c) => c.primary);
   if (primaryCols.length === 0 && row?.id !== undefined) {

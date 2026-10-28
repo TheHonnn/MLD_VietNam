@@ -113,12 +113,21 @@ export const inventoryService = {
     try {
       // 1. Tìm định mức tiêu hao của dịch vụ
       const materialsRes = await this.getServiceMaterials(params.serviceId);
-      if (!materialsRes.success || !materialsRes.data || materialsRes.data.length === 0) {
+      if (!materialsRes.success) {
+        return { success: false, statusCode: materialsRes.statusCode, message: materialsRes.message, data: 0 };
+      }
+      if (materialsRes.data.length === 0) {
         return { success: true, statusCode: 200, message: 'Dịch vụ không có định mức vật tư tiêu hao', data: 0 };
       }
 
-      let count = 0;
+      const logsRes = await this.getConsumptionLogs({ bookingId: params.bookingId });
+      if (!logsRes.success) {
+        return { success: false, statusCode: logsRes.statusCode, message: logsRes.message, data: 0 };
+      }
+      const alreadyLogged = new Set(logsRes.data.map((log) => log.materialName));
+      let count = alreadyLogged.size;
       for (const mat of materialsRes.data) {
+        if (alreadyLogged.has(mat.materialName)) continue;
         const payload = {
           branch_id: params.branchId,
           service_id: params.serviceId,
@@ -128,10 +137,19 @@ export const inventoryService = {
           quantity_deducted: mat.dosagePerSession,
           unit: mat.unit,
         };
-        await supabaseService.query<any[]>('inventory_consumption_logs', {
+        const created = await supabaseService.query<any[]>('inventory_consumption_logs', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
+        if (!created || created.length === 0) {
+          return {
+            success: false,
+            statusCode: 500,
+            message: `Chưa ghi được vật tư ${mat.materialName}. Thử lại để ghi các vật tư còn thiếu.`,
+            data: count,
+          };
+        }
+        alreadyLogged.add(mat.materialName);
         count++;
       }
 

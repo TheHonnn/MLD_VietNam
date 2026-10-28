@@ -319,8 +319,22 @@ export const treatmentService = {
     }
 
     const nextCompleted = currentCompleted + 1;
-    const requestedSession = Number(journalData.sessionNumber || nextCompleted);
-    if (requestedSession !== nextCompleted) {
+    const existingJournals = journalData.bookingId
+      ? await this.getTreatmentJournalsByCustomer(journalData.customerId)
+      : undefined;
+    if (existingJournals && !existingJournals.success) {
+      return {
+        success: false,
+        statusCode: 503,
+        message: 'Không thể kiểm tra nhật ký hiện có. Buổi điều trị chưa được lưu.',
+        data: false,
+      };
+    }
+    const existingJournal = existingJournals?.data.find(
+      (journal) => journal.bookingId === journalData.bookingId && journal.userPackageId === userPackageId
+    );
+    const requestedSession = Number(journalData.sessionNumber || existingJournal?.sessionNumber || nextCompleted);
+    if (!existingJournal && requestedSession !== nextCompleted) {
       return {
         success: false,
         statusCode: 409,
@@ -328,18 +342,20 @@ export const treatmentService = {
         data: false,
       };
     }
-    const journalRes = await this.createTreatmentJournal({
-        ...journalData,
-        userPackageId,
-        sessionNumber: requestedSession,
-        sessionDate: journalData.sessionDate || new Date().toISOString().slice(0, 10),
-      });
+    const journalRes = existingJournal
+      ? { success: true, statusCode: 200, message: 'Buổi điều trị đã được ghi nhận.', data: existingJournal }
+      : await this.createTreatmentJournal({
+          ...journalData,
+          userPackageId,
+          sessionNumber: requestedSession,
+          sessionDate: journalData.sessionDate || new Date().toISOString().slice(0, 10),
+        });
 
     if (!journalRes.success) return journalRes;
 
     const nextStatus = requestedSession >= totalSessions ? PackageStatus.COMPLETED : PackageStatus.ACTIVE;
     const packageRes = await this.updateUserPackage(userPackageId, {
-      completedSessions: requestedSession,
+      completedSessions: Math.max(currentCompleted, requestedSession),
       status: nextStatus,
     });
 

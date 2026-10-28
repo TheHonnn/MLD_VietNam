@@ -1264,6 +1264,304 @@ export class AdminService {
     }
   }
 
+  async activeCashierShift(actor: AdminActor, branchId?: string) {
+    this.requireCashier(actor);
+    if (branchId && !this.isUuid(branchId))
+      throw new BadRequestException('Chi nhánh không hợp lệ.');
+    const values: unknown[] = [actor.id];
+    const branchClause = branchId ? 'AND branch_id=$2' : '';
+    if (branchId) values.push(branchId);
+    try {
+      const result = await this.db.connection.query(
+        `SELECT * FROM cashier_shifts WHERE cashier_id=$1 AND status='OPEN' ${branchClause} ORDER BY opened_at DESC LIMIT 1`,
+        values,
+      );
+      return result.rows[0] ? this.cashierShiftDto(result.rows[0]) : null;
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+
+  async openCashierShift(actor: AdminActor, body: Record<string, unknown>) {
+    this.requireCashier(actor);
+    const branchId = String(body.branchId || '');
+    const openingCash = Number(body.openingCash);
+    if (!this.isUuid(branchId) || !Number.isFinite(openingCash) || openingCash < 0)
+      throw new BadRequestException('Chi nhánh hoặc tiền đầu ca không hợp lệ.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-cashier-shift'))");
+      const existing = await client.query(
+        "SELECT id FROM cashier_shifts WHERE cashier_id=$1 AND branch_id=$2 AND status='OPEN' FOR UPDATE",
+        [actor.id, branchId],
+      );
+      if (existing.rowCount)
+        throw new ConflictException('Bạn đã có ca đang mở tại chi nhánh này.');
+      const result = await client.query(
+        `INSERT INTO cashier_shifts(branch_id,cashier_id,shift_code,opening_cash,system_cash,notes)
+         VALUES($1,$2,$3,$4,$4,$5) RETURNING *`,
+        [
+          branchId,
+          actor.id,
+          `CA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          openingCash,
+          typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null,
+        ],
+      );
+      await this.audit(client, actor, 'cashier_shifts', 'OPEN', result.rows[0].id);
+      await client.query('COMMIT');
+      return this.cashierShiftDto(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async closeCashierShift(actor: AdminActor, id: string, body: Record<string, unknown>) {
+    this.requireCashier(actor);
+    if (!this.isUuid(id)) throw new BadRequestException('Ca thu ngân không hợp lệ.');
+    const closingCash = Number(body.closingCash);
+    if (!Number.isFinite(closingCash) || closingCash < 0)
+      throw new BadRequestException('Tiền thực đếm không hợp lệ.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const shift = (await client.query(
+        'SELECT * FROM cashier_shifts WHERE id=$1 FOR UPDATE', [id],
+      )).rows[0];
+      if (!shift) throw new NotFoundException('Không tìm thấy ca thu ngân.');
+      if (shift.cashier_id !== actor.id && !['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
+        throw new ForbiddenException('Bạn không được phép đóng ca này.');
+      if (shift.status !== 'OPEN')
+        throw new ConflictException('Ca thu ngân này đã được đóng.');
+      const systemCash = Number(shift.system_cash || shift.opening_cash || 0);
+      const result = await client.query(
+        `UPDATE cashier_shifts SET closing_cash=$2, discrepancy_amount=$2-$3,
+         status='CLOSED',closed_at=now(),notes=COALESCE($4,notes),updated_at=now()
+         WHERE id=$1 RETURNING *`,
+        [id, closingCash, systemCash, typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
+      );
+      await this.audit(client, actor, 'cashier_shifts', 'CLOSE', id);
+      await client.query('COMMIT');
+      return this.cashierShiftDto(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async collectCashierPayment(actor: AdminActor, body: Record<string, unknown>) {
+    this.requireCashier(actor);
+    const kind = body.kind;
+    const paymentMethod = body.paymentMethod;
+    const shiftId = String(body.shiftId || '');
+    const vatRate = Number(body.vatRate ?? 0);
+    if (!['BOOKING', 'TUITION', 'PACKAGE'].includes(String(kind)))
+      throw new BadRequestException('Loại khoản thu không hợp lệ.');
+    if (!['CASH_AT_SPA', 'BANK_TRANSFER'].includes(String(paymentMethod)))
+      throw new BadRequestException('POS hiện chỉ nhận tiền mặt hoặc chuyển khoản đã xác nhận.');
+    if (!this.isUuid(shiftId) || ![0, 8, 10].includes(vatRate))
+      throw new BadRequestException('Ca thu ngân hoặc mức thuế không hợp lệ.');
+
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const shift = (await client.query(
+        "SELECT * FROM cashier_shifts WHERE id=$1 FOR UPDATE",
+        [shiftId],
+      )).rows[0];
+      if (!shift || shift.cashier_id !== actor.id || shift.status !== 'OPEN')
+        throw new ConflictException('Hãy mở ca thu ngân của bạn trước khi thu tiền.');
+
+      if (kind === 'TUITION') {
+        const enrollmentId = String(body.enrollmentId || '');
+        const amount = Number(body.amount);
+        if (!this.isUuid(enrollmentId) || !Number.isFinite(amount) || amount <= 0)
+          throw new BadRequestException('Hồ sơ học viên hoặc số tiền thu không hợp lệ.');
+        const enrollment = (await client.query(
+          `SELECT e.*,b.branch_id AS batch_branch_id FROM course_enrollments e
+           LEFT JOIN course_batches b ON b.id=e.batch_id WHERE e.id=$1 FOR UPDATE OF e`,
+          [enrollmentId],
+        )).rows[0];
+        if (!enrollment) throw new NotFoundException('Không tìm thấy hồ sơ học viên.');
+        const branchId = enrollment.batch_branch_id || String(body.branchId || '');
+        if (!this.isUuid(branchId) || branchId !== shift.branch_id)
+          throw new BadRequestException('Ca thu ngân không khớp chi nhánh của lớp học.');
+        const paid = Number(enrollment.amount_paid || 0);
+        const tuition = Number(enrollment.tuition_total || 0);
+        if (amount > tuition - paid)
+          throw new ConflictException('Số tiền vượt quá học phí còn phải thu.');
+        const nextPaid = paid + amount;
+        const transactionCode = `TT-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+        const transactionType = nextPaid >= tuition
+          ? (paid > 0 ? 'REMAINING_BALANCE' : 'FULL_PAYMENT')
+          : (paid > 0 ? 'INSTALLMENT_1' : 'DEPOSIT');
+        const transaction = (await client.query(
+          `INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,cashier_id,shift_id,transaction_type,amount,payment_method,payment_status,receipt_number,notes,paid_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PAID',$1,$11,now()) RETURNING *`,
+          [transactionCode,enrollment.id,enrollment.student_id,enrollment.course_id,branchId,actor.id,shiftId,transactionType,amount,paymentMethod,typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
+        )).rows[0];
+        await client.query(
+          `UPDATE course_enrollments SET amount_paid=$2,
+           approval_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE approval_status END,
+           student_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE student_status END,
+           status=CASE WHEN $2>=tuition_total THEN 'ENROLLED'::enrollment_status ELSE status END,
+           approved_by=CASE WHEN $2>=tuition_total THEN $3 ELSE approved_by END,
+           approved_at=CASE WHEN $2>=tuition_total THEN now() ELSE approved_at END
+           WHERE id=$1`,
+          [enrollment.id,nextPaid,actor.id],
+        );
+        await this.updateCashierShiftTotals(client, shiftId, paymentMethod, amount);
+        await this.audit(client, actor, 'tuition_transactions', 'COLLECT', transaction.id);
+        await client.query('COMMIT');
+        return { kind, amount, transactionCode, paymentStatus: 'PAID', paidTotal: nextPaid, tuitionTotal: tuition };
+      }
+
+      if (kind === 'BOOKING') {
+        const bookingId = String(body.bookingId || '');
+        if (!this.isUuid(bookingId)) throw new BadRequestException('Lịch hẹn không hợp lệ.');
+        const booking = (await client.query(
+          'SELECT * FROM bookings WHERE id=$1 FOR UPDATE', [bookingId],
+        )).rows[0];
+        if (!booking) throw new NotFoundException('Không tìm thấy lịch hẹn.');
+        if (booking.branch_id !== shift.branch_id)
+          throw new BadRequestException('Ca thu ngân không khớp chi nhánh của lịch hẹn.');
+        if (['COMPLETED','CANCELLED','NO_SHOW'].includes(booking.status))
+          throw new ConflictException('Lịch đã kết thúc hoặc bị hủy.');
+        if (booking.payment_status === 'PAID')
+          throw new ConflictException('Lịch hẹn đã được thanh toán.');
+        const items = await client.query(
+          `SELECT bi.id,bi.service_id,bi.duration_minutes,bi.price,s.name
+           FROM booking_items bi JOIN services s ON s.id=bi.service_id
+           WHERE bi.booking_id=$1 ORDER BY bi.created_at,bi.id`, [bookingId],
+        );
+        if (!items.rowCount) throw new ConflictException('Lịch hẹn chưa có dịch vụ để thu tiền.');
+        const subtotal = Number(booking.base_total);
+        const discount = Number(booking.discount_amount || 0);
+        const points = Number(booking.points_discount || 0);
+        const preTax = Math.max(0, subtotal - discount - points);
+        const finalPrice = Number(booking.final_price);
+        if (Math.round(preTax * 100) !== Math.round(finalPrice * 100))
+          throw new ConflictException('Tổng tiền lịch hẹn không khớp chi tiết. Hãy tải lại lịch.');
+        const itemsTotal = items.rows.reduce((sum, item) => sum + Number(item.price), 0);
+        if (Math.round(itemsTotal * 100) !== Math.round(subtotal * 100))
+          throw new ConflictException('Chi tiết dịch vụ không khớp tạm tính lịch hẹn.');
+        const vatAmount = Math.round(preTax * vatRate) / 100;
+        const total = preTax + vatAmount;
+        if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
+        const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+        const invoice = (await client.query(
+          `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,booking_id,subtotal,discount_amount,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PENDING',now()) RETURNING *`,
+          [invoiceCode,booking.branch_id,booking.customer_id,actor.id,shiftId,booking.id,subtotal,discount,points,preTax,vatRate,vatAmount,total,paymentMethod],
+        )).rows[0];
+        for (const item of items.rows) {
+          await client.query(
+            `INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount)
+             VALUES($1,$2,'SERVICE',1,$3,$3)`, [invoice.id,item.name,item.price],
+          );
+        }
+        await client.query(
+          "UPDATE bookings SET payment_status='PAID',payment_method=$2,updated_at=now() WHERE id=$1",
+          [booking.id,paymentMethod],
+        );
+        const paidInvoice = (await client.query(
+          "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],
+        )).rows[0];
+        await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
+        await this.audit(client, actor, 'invoices', 'COLLECT', invoice.id);
+        await client.query('COMMIT');
+        return { kind, amount: total, invoice: paidInvoice, paymentStatus: 'PAID' };
+      }
+
+      const packageId = String(body.packageId || '');
+      const customerId = String(body.customerId || '');
+      if (!this.isUuid(packageId) || !this.isUuid(customerId))
+        throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
+      const treatmentPackage = (await client.query(
+        'SELECT * FROM treatment_packages WHERE id=$1 AND is_active=true FOR UPDATE', [packageId],
+      )).rows[0];
+      if (!treatmentPackage) throw new NotFoundException('Gói liệu trình không còn mở bán.');
+      const customer = (await client.query(
+        'SELECT id FROM users WHERE id=$1 AND is_active=true', [customerId],
+      )).rows[0];
+      if (!customer) throw new NotFoundException('Không tìm thấy khách hàng.');
+      if (shift.branch_id !== String(body.branchId || shift.branch_id))
+        throw new BadRequestException('Ca thu ngân không khớp chi nhánh đang chọn.');
+      const subtotal = Number(treatmentPackage.discount_price ?? treatmentPackage.price);
+      const vatAmount = Math.round(subtotal * vatRate) / 100;
+      const total = subtotal + vatAmount;
+      if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
+      const packageOwner = (await client.query(
+        `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at)
+         VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month')) RETURNING *`,
+        [customerId,packageId,treatmentPackage.total_sessions,treatmentPackage.validity_months],
+      )).rows[0];
+      const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const invoice = (await client.query(
+        `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,user_package_id,subtotal,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,'PENDING',now()) RETURNING *`,
+        [invoiceCode,shift.branch_id,customerId,actor.id,shiftId,packageOwner.id,subtotal,vatRate,vatAmount,total,paymentMethod],
+      )).rows[0];
+      await client.query(
+        `INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount)
+         VALUES($1,$2,'PACKAGE',1,$3,$3)`, [invoice.id,treatmentPackage.name,subtotal],
+      );
+      const paidInvoice = (await client.query(
+        "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],
+      )).rows[0];
+      await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
+      await this.audit(client, actor, 'invoices', 'PACKAGE_SALE', invoice.id);
+      await client.query('COMMIT');
+      return { kind, amount: total, invoice: paidInvoice, userPackage: packageOwner, paymentStatus: 'PAID' };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  private requireCashier(actor: AdminActor) {
+    if (!['CASHIER','BRANCH_MANAGER','ADMIN','SUPER_ADMIN'].includes(actor.role))
+      throw new ForbiddenException('Vai trò hiện tại không được thao tác thu ngân.');
+  }
+
+  private isUuid(value: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  }
+
+  private cashierShiftDto(row: Record<string, any>) {
+    return {
+      id: row.id, branchId: row.branch_id, cashierId: row.cashier_id,
+      shiftCode: row.shift_code, openingCash: Number(row.opening_cash),
+      closingCash: Number(row.closing_cash || 0), systemCash: Number(row.system_cash || 0),
+      cardSales: Number(row.card_sales || 0), transferSales: Number(row.transfer_sales || 0),
+      totalSales: Number(row.total_sales || 0), discrepancyAmount: Number(row.discrepancy_amount || 0),
+      status: row.status, openedAt: row.opened_at, closedAt: row.closed_at, notes: row.notes,
+    };
+  }
+
+  private async updateCashierShiftTotals(
+    client: PoolClient,
+    shiftId: string,
+    paymentMethod: string,
+    amount: number,
+  ) {
+    await client.query(
+      `UPDATE cashier_shifts SET total_sales=total_sales+$2,
+       system_cash=system_cash+CASE WHEN $3='CASH_AT_SPA' THEN $2 ELSE 0 END,
+       transfer_sales=transfer_sales+CASE WHEN $3='BANK_TRANSFER' THEN $2 ELSE 0 END,
+       updated_at=now() WHERE id=$1`,
+      [shiftId,amount,paymentMethod],
+    );
+  }
+
   private async audit(
     client: PoolClient,
     actor: AdminActor,
