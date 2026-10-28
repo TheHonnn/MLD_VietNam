@@ -172,7 +172,7 @@ class RealtimeSyncService {
     this.eventLogs = [logItem, ...this.eventLogs.slice(0, 49)];
 
     // 2. Auto-dispatch desktop / admin notification on key events
-    this.generateAutoNotification(table, eventType, newRecord);
+    this.generateAutoNotification(table, eventType, newRecord, oldRecord);
 
     // 3. Dispatch to specific table listeners
     const tableListeners = this.listeners.get(table);
@@ -227,16 +227,28 @@ class RealtimeSyncService {
     }
   }
 
-  private generateAutoNotification(table: RealtimeTable, eventType: string, record: any) {
+  private generateAutoNotification(table: RealtimeTable, eventType: string, record: any, oldRecord?: any) {
     if (!record || eventType === 'DELETE') return;
 
     if (table === 'bookings' && eventType === 'INSERT') {
+      const custInfo = record.booked_for_name
+        ? `${record.booked_for_name}${record.booked_for_phone ? ' (' + record.booked_for_phone + ')' : ''}`
+        : 'Khách hàng';
       notificationService.addNotification({
-        title: '⚡ Lịch hẹn mới từ khách hàng',
-        message: `Khách hàng vừa đặt lịch hẹn #${record.booking_code || ''} ngày ${record.booking_date || ''} lúc ${record.start_time?.slice(0, 5) || ''}.`,
+        title: `⚡ Khách đặt lịch mới: ${record.booking_code || ''}`,
+        message: `${custInfo} vừa đặt lịch hẹn ngày ${record.booking_date || ''} lúc ${record.start_time?.slice(0, 5) || ''}.`,
         type: 'BOOKING',
         link: `/staff-schedule?booking=${record.booking_code || ''}`,
       });
+    } else if (table === 'bookings' && eventType === 'UPDATE') {
+      if (record.status === 'CANCELLED' && oldRecord?.status !== 'CANCELLED') {
+        notificationService.addNotification({
+          title: `⚠️ Hủy lịch hẹn: #${record.booking_code || ''}`,
+          message: `Lịch hẹn #${record.booking_code || ''} ngày ${record.booking_date || ''} đã bị hủy.${record.cancellation_reason ? ' Lý do: ' + record.cancellation_reason : ''}`,
+          type: 'BOOKING',
+          link: `/staff-schedule?booking=${record.booking_code || ''}`,
+        });
+      }
     } else if (table === 'invoices' && (eventType === 'INSERT' || record.payment_status === 'PAID')) {
       const amount = Number(record.total_amount || 0).toLocaleString('vi-VN');
       notificationService.addNotification({
@@ -260,6 +272,16 @@ class RealtimeSyncService {
         type: 'SYSTEM',
         link: `/customers?search=${encodeURIComponent(record.phone || record.full_name || '')}`,
       });
+    } else if (table === 'notifications' && eventType === 'INSERT') {
+      // Nhận broadcast notification hoặc booking/payment notification
+      if (!record.user_id || record.type === 'BOOKING' || record.type === 'PAYMENT' || record.type === 'ACADEMY') {
+        notificationService.addNotification({
+          title: record.title || '⚡ Thông báo mới từ hệ thống',
+          message: record.message || '',
+          type: (record.type || 'SYSTEM').toUpperCase() as any,
+          link: record.data?.link,
+        });
+      }
     }
   }
 
