@@ -1427,8 +1427,11 @@ class SupabaseService {
         subtotal: Number(inv.subtotal),
         discountAmount: Number(inv.discount_amount || 0),
         pointsRedeemedAmount: Number(inv.points_redeemed_amount || 0),
+        preTaxAmount: Number(inv.pre_tax_amount !== null && inv.pre_tax_amount !== undefined ? inv.pre_tax_amount : (Number(inv.total_amount) - Number(inv.vat_amount || 0))),
+        vatRate: Number(inv.vat_rate || 0),
         vatAmount: Number(inv.vat_amount || 0),
         totalAmount: Number(inv.total_amount),
+        shiftId: inv.shift_id,
         paymentMethod: inv.payment_method,
         paymentStatus: inv.payment_status,
         gatewayTransactionId: inv.gateway_transaction_id,
@@ -1494,9 +1497,12 @@ class SupabaseService {
     bookingId?: string | null;
     userPackageId?: string | null;
     enrollmentId?: string | null;
+    shiftId?: string | null;
     subtotal: number;
     discountAmount?: number;
     pointsRedeemedAmount?: number;
+    preTaxAmount?: number;
+    vatRate?: number;
     vatAmount?: number;
     totalAmount: number;
     paymentMethod: PaymentMethod;
@@ -1504,6 +1510,14 @@ class SupabaseService {
     paidAt?: string;
   }): Promise<Invoice | null> {
     try {
+      const computedPreTax = invoice.preTaxAmount !== undefined
+        ? invoice.preTaxAmount
+        : Math.max(0, invoice.subtotal - (invoice.discountAmount || 0) - (invoice.pointsRedeemedAmount || 0));
+      const computedVat = invoice.vatAmount !== undefined
+        ? invoice.vatAmount
+        : Math.round(computedPreTax * ((invoice.vatRate || 0) / 100));
+      const computedTotal = invoice.totalAmount || (computedPreTax + computedVat);
+
       const payload = {
         invoice_code: invoice.invoiceCode,
         branch_id: isUuid(invoice.branchId) ? invoice.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
@@ -1512,11 +1526,14 @@ class SupabaseService {
         booking_id: isUuid(invoice.bookingId) ? invoice.bookingId : null,
         user_package_id: isUuid(invoice.userPackageId) ? invoice.userPackageId : null,
         enrollment_id: isUuid(invoice.enrollmentId) ? invoice.enrollmentId : null,
+        shift_id: isUuid(invoice.shiftId) ? invoice.shiftId : null,
         subtotal: invoice.subtotal,
         discount_amount: invoice.discountAmount || 0,
         points_redeemed_amount: invoice.pointsRedeemedAmount || 0,
-        vat_amount: invoice.vatAmount || 0,
-        total_amount: invoice.totalAmount,
+        pre_tax_amount: computedPreTax,
+        vat_rate: invoice.vatRate !== undefined ? invoice.vatRate : 0,
+        vat_amount: computedVat,
+        total_amount: computedTotal,
         payment_method: invoice.paymentMethod,
         payment_status: invoice.paymentStatus || 'PAID',
         paid_at: invoice.paidAt || new Date().toISOString(),
@@ -1538,11 +1555,14 @@ class SupabaseService {
         bookingId: inv.booking_id,
         userPackageId: inv.user_package_id,
         enrollmentId: inv.enrollment_id,
+        shiftId: inv.shift_id || payload.shift_id,
         subtotal: Number(inv.subtotal),
         discountAmount: Number(inv.discount_amount || 0),
         pointsRedeemedAmount: Number(inv.points_redeemed_amount || 0),
-        vatAmount: Number(inv.vat_amount || 0),
-        totalAmount: Number(inv.total_amount),
+        preTaxAmount: Number(inv.pre_tax_amount !== null && inv.pre_tax_amount !== undefined ? inv.pre_tax_amount : payload.pre_tax_amount),
+        vatRate: Number(inv.vat_rate !== null && inv.vat_rate !== undefined ? inv.vat_rate : payload.vat_rate),
+        vatAmount: Number(inv.vat_amount !== null && inv.vat_amount !== undefined ? inv.vat_amount : payload.vat_amount),
+        totalAmount: Number(inv.total_amount || payload.total_amount),
         paymentMethod: inv.payment_method,
         paymentStatus: inv.payment_status,
         gatewayTransactionId: inv.gateway_transaction_id,

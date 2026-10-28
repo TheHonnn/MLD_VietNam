@@ -1318,6 +1318,18 @@ export const W07_CashierPOS: React.FC = () => {
       }
     }
 
+    const effectivePreTax = inv.preTaxAmount && inv.preTaxAmount > 0
+      ? inv.preTaxAmount
+      : inv.vatAmount && inv.vatAmount > 0
+      ? Math.max(0, inv.totalAmount - inv.vatAmount)
+      : inv.subtotal || inv.totalAmount;
+    const effectiveVatRate = inv.vatRate !== undefined && inv.vatRate !== null
+      ? inv.vatRate
+      : (inv.vatAmount && effectivePreTax > 0 ? Math.round((inv.vatAmount / effectivePreTax) * 100) : 0);
+    const effectiveVatAmount = inv.vatAmount !== undefined && inv.vatAmount !== null && inv.vatAmount > 0
+      ? inv.vatAmount
+      : (effectiveVatRate > 0 && inv.totalAmount > effectivePreTax ? (inv.totalAmount - effectivePreTax) : 0);
+
     return {
       id: inv.invoiceCode,
       rawId: inv.id,
@@ -1339,6 +1351,10 @@ export const W07_CashierPOS: React.FC = () => {
       rawAmount: inv.totalAmount,
       subtotal: inv.subtotal,
       discountAmount: inv.discountAmount,
+      preTaxAmount: `${effectivePreTax.toLocaleString('vi-VN')}đ`,
+      vatRateText: `${effectiveVatRate}%`,
+      vatAmountText: effectiveVatAmount > 0 ? `${effectiveVatAmount.toLocaleString('vi-VN')}đ` : undefined,
+      shiftCode: (inv as any).shift?.shiftCode || (inv.shiftId ? `CA-${inv.shiftId.slice(-6).toUpperCase()}` : undefined),
       status: inv.paymentStatus === PaymentStatus.PAID ? 'Đã thanh toán' : 'Chờ thanh toán',
       statusCode: inv.paymentStatus,
       rawInvoice: inv,
@@ -2248,7 +2264,11 @@ export const W07_CashierPOS: React.FC = () => {
               </div>
               <div className="flex items-center justify-between text-xs text-[#73675F]">
                 <span>Trạng thái thuế</span>
-                <span className="font-medium text-slate-600">{vatRate > 0 && !isPackageRedemption ? `Đã gồm VAT ${vatRate}%` : 'Không tính thuế VAT'}</span>
+                <span className="font-medium text-slate-600">
+                  {vatRate > 0 && !isPackageRedemption
+                    ? `Chưa gồm VAT — Cộng thêm ${vatRate}% (+${calculatedVat.toLocaleString('vi-VN')}đ)`
+                    : 'Miễn thuế VAT (0% - Chuẩn Y tế)'}
+                </span>
               </div>
             </div>
           </div>
@@ -2777,6 +2797,10 @@ export const W07_CashierPOS: React.FC = () => {
                                 amount: r.amount,
                                 subtotal: `${(r.subtotal || r.rawAmount).toLocaleString('vi-VN')}đ`,
                                 discount: r.discountAmount ? `${r.discountAmount.toLocaleString('vi-VN')}đ` : '0đ',
+                                preTaxAmount: (r as any).preTaxAmount,
+                                vatRateText: (r as any).vatRateText,
+                                vatAmountText: (r as any).vatAmountText,
+                                shiftCode: (r as any).shiftCode,
                                 date: r.date,
                                 status: r.status,
                               });
@@ -2932,17 +2956,22 @@ export const W07_CashierPOS: React.FC = () => {
                   </div>
                 )}
 
-                {selectedReceiptData?.preTaxAmount && (
+                {selectedReceiptData?.preTaxAmount && selectedReceiptData?.vatAmountText && (
                   <div className="flex items-center justify-between text-[#73675F]">
-                    <span>Tiền trước thuế:</span>
+                    <span>Tiền dịch vụ (trước thuế):</span>
                     <span className="font-semibold text-[#2C241E]">{selectedReceiptData.preTaxAmount}</span>
                   </div>
                 )}
 
-                {selectedReceiptData?.vatAmountText && (
+                {selectedReceiptData?.vatAmountText ? (
                   <div className="flex items-center justify-between text-[#73675F]">
                     <span>Thuế GTGT ({selectedReceiptData.vatRateText || '8%'}):</span>
                     <span className="font-semibold text-sky-700">+{selectedReceiptData.vatAmountText}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-[#73675F]">
+                    <span>Thuế GTGT:</span>
+                    <span className="font-medium text-slate-500">0% (Miễn thuế / Y tế)</span>
                   </div>
                 )}
 
