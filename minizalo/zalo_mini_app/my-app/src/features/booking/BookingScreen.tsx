@@ -165,30 +165,6 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               className="w-full text-xs font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl p-2.5 focus:outline-none"
             />
           </div>
-
-          {/* Time Slots Wrap */}
-          <div>
-            <span className="text-[11px] text-gray-400 block mb-2">Giờ hẹn (60 phút / ca):</span>
-            <div className="grid grid-cols-3 gap-2">
-              {timeSlots.map((slot) => {
-                const isSelected = selectedSlot === slot;
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setSelectedSlot(slot)}
-                    className={`py-2 text-xs font-bold rounded-xl border transition-all ${
-                      isSelected
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
-                    }`}
-                  >
-                    {slot}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {/* 5. THÔNG TIN KHÁCH HÀNG */}

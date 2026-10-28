@@ -42,7 +42,37 @@ class B01HomeScreen extends StatefulWidget {
 class _B01HomeScreenState extends State<B01HomeScreen> {
   String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
   SpaServiceModel? _coreService;
-  List<Map<String, dynamic>> _banners = [];
+  static final List<Map<String, dynamic>> _defaultBanners = [
+    {
+      'id': 'default-banner-1',
+      'title': 'Dẫn lưu bạch huyết MLD – Phục hồi chuẩn Y khoa Vodder',
+      'summary': 'Tầm soát và điều trị giảm phù nề, tiêu dịch ứ đọng chuyên sâu với chuyên gia MLD',
+      'image_url': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&fit=crop',
+      'category': 'TRI_LIEU',
+      'target_link': '/treatment',
+      'status': 'PUBLISHED',
+    },
+    {
+      'id': 'default-banner-2',
+      'title': 'Học viện Đào tạo Nghề MLD Chuẩn Y Khoa Quốc Tế',
+      'summary': 'Chương trình đào tạo thực hành cho người mới bắt đầu và nâng cao tay nghề chuẩn Vodder',
+      'image_url': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&fit=crop',
+      'category': 'DAO_TAO',
+      'target_link': '/academy',
+      'status': 'PUBLISHED',
+    },
+    {
+      'id': 'default-banner-3',
+      'title': 'Tầm soát & Đánh giá Độ phù nề Hệ Bạch Huyết',
+      'summary': 'Thực hiện bài kiểm tra lâm sàng phát hiện sớm nguy cơ phù bạch huyết và tư vấn miễn phí',
+      'image_url': 'https://wstvwushpwcdsmhpunvh.supabase.co/storage/v1/object/public/services/thoat_vi_dia_dem_3.webp',
+      'category': 'DICH_VU',
+      'target_link': '/treatment',
+      'status': 'PUBLISHED',
+    },
+  ];
+
+  List<Map<String, dynamic>> _banners = List.from(_defaultBanners);
   int _currentBannerIndex = 0;
   late final PageController _bannerPageController;
   Timer? _bannerTimer;
@@ -55,6 +85,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     _loadUserProfile();
     _loadCoreServiceFromAdmin();
     _loadBanners();
+    _startBannerAutoScroll();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
     });
@@ -66,14 +97,23 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       final data = await SupabaseDataService().fetchBanners();
       if (!mounted) return;
       setState(() {
-        _banners = data;
-        if (_currentBannerIndex >= data.length) {
+        if (data.isNotEmpty) {
+          _banners = data;
+        } else if (_banners.isEmpty) {
+          _banners = List.from(_defaultBanners);
+        }
+        if (_currentBannerIndex >= _banners.length) {
           _currentBannerIndex = 0;
         }
       });
       _startBannerAutoScroll();
     } catch (_) {
-
+      if (mounted && _banners.isEmpty) {
+        setState(() {
+          _banners = List.from(_defaultBanners);
+        });
+        _startBannerAutoScroll();
+      }
     }
   }
 
@@ -822,11 +862,21 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                                 ),
                                               ),
                                             )
-                                          : Container(
-                                              decoration: const BoxDecoration(
-                                                gradient: AppColors.brandGradient,
-                                              ),
-                                            ),
+                                          : (imageUrl.startsWith('assets/')
+                                              ? Image.asset(
+                                                  imageUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) => Container(
+                                                    decoration: const BoxDecoration(
+                                                      gradient: AppColors.brandGradient,
+                                                    ),
+                                                  ),
+                                                )
+                                              : Container(
+                                                  decoration: const BoxDecoration(
+                                                    gradient: AppColors.brandGradient,
+                                                  ),
+                                                )),
                                     ),
                                     // 2. Lớp phủ gradient y khoa sang trọng
                                     Positioned.fill(

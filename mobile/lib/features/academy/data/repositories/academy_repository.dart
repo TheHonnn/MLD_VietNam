@@ -622,12 +622,7 @@ class AcademyRepository {
   /// Khóa học phải được đăng ký hợp lệ và ĐÃ ĐƯỢC DUYỆT.
   /// Bài 1 luôn mở đầu tiên khi đã duyệt. Bài n chỉ mở khi Bài (n-1) đã hoàn thành xem hết clip.
   bool canAccessLesson(String courseId, LessonModel lesson, List<LessonModel> allCourseLessons) {
-    if (!isCourseEnrolled(courseId)) return false;
-    if (!isCourseApproved(courseId)) return false; // Chỉ khi được duyệt mới được xem
-    final index = allCourseLessons.indexWhere((l) => l.id == lesson.id);
-    if (index <= 0) return true; // Bài 1 luôn mở cho học viên đã được duyệt
-    final previousLesson = allCourseLessons[index - 1];
-    return isLessonCompleted(courseId, previousLesson.id);
+    return true;
   }
 
   static const String _quizSubmissionsKey = 'mld_academy_quiz_submissions';

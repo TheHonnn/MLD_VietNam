@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabaseApi } from '@/api/supabase';
 import { Course, Chapter, Lesson, QuizQuestion } from '@/core/types';
 import {
@@ -523,56 +523,6 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
                   </div>
                 );
               })}
-
-              {/* Quiz Card - STRICTLY LOCKED UNTIL 100% COMPLETED */}
-              <div
-                className={`rounded-xl border p-4 shadow-sm transition ${
-                  is100PercentDone
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300'
-                    : 'bg-slate-50 border-slate-200 opacity-80'
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      is100PercentDone ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
-                    }`}
-                  >
-                    {is100PercentDone ? <Award className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h3 className="text-sm font-bold text-slate-900">
-                        BÀI KIỂM TRA ĐÁNH GIÁ KHÓA HỌC (E10)
-                      </h3>
-                      {!is100PercentDone && (
-                        <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
-                          Đang khóa
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-600 mt-1">
-                      10 câu hỏi trắc nghiệm y khoa chuyên môn Vodder · Điểm đạt tối thiểu: 8/10 câu
-                    </p>
-
-                    {!is100PercentDone ? (
-                      <div className="mt-2 text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 flex items-center space-x-1.5">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>Bạn cần hoàn thành tất cả video bài học trước khi làm bài kiểm tra.</span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setIsQuizModalOpen(true)}
-                        className="mt-3 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow transition flex items-center space-x-1.5"
-                      >
-                        <Award className="w-4 h-4" />
-                        <span>Bắt đầu làm bài kiểm tra (15 phút)</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -663,7 +613,7 @@ export const AcademyScreen: React.FC<AcademyScreenProps> = () => {
             >
               <iframe
                 className="w-full h-full"
-                src={`https://www.youtube.com/embed/${activeVideoLesson.youtubeId || (activeVideoLesson.videoUrl ? (activeVideoLesson.videoUrl.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] || '1F2b2Uf0a88') : '1F2b2Uf0a88')}?autoplay=1&rel=0&modestbranding=1`}
+                src={`https://www.youtube.com/embed/${activeVideoLesson.youtubeId || (activeVideoLesson.videoUrl ? (activeVideoLesson.videoUrl.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] || 'mDhpMX4EeY8') : 'mDhpMX4EeY8')}?autoplay=1&rel=0&modestbranding=1`}
                 title={activeVideoLesson.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

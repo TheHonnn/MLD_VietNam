@@ -107,6 +107,8 @@ export const portalService = {
         status: (data.status || 'PUBLISHED').toUpperCase(),
         author_name: data.authorName || 'Hệ thống MLD',
         author_avatar: data.authorAvatar || null,
+        attachments: (data as any).attachments || [],
+        payload_hash: ' ',
         published_at: data.status === 'PUBLISHED' || data.status === 'APPROVED' ? new Date().toISOString() : null,
       };
 
