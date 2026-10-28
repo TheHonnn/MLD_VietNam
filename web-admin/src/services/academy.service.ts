@@ -337,6 +337,54 @@ export const academyService = {
   },
 
   /**
+   * Admin gia hạn thời gian học (+N tháng) cho học viên
+   */
+  async extendEnrollment(
+    enrollmentId: string,
+    extensionMonths: number,
+    reason: string
+  ): Promise<ApiResponse<{ newValidUntil?: string }>> {
+    try {
+      const res = await supabaseService.extendEnrollment(enrollmentId, extensionMonths, reason);
+      return {
+        success: res.success,
+        statusCode: res.success ? 200 : 400,
+        message: res.message,
+        data: { newValidUntil: res.newValidUntil },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: err.message || 'Lỗi khi gia hạn học viên',
+        data: {},
+      };
+    }
+  },
+
+  /**
+   * Quét kiểm tra học viên hết hạn 365 ngày (Trigger cron thủ công từ Admin)
+   */
+  async sweepExpiredEnrollments(): Promise<ApiResponse<{ expiredCount: number; expiringSoonCount: number; activeCount: number }>> {
+    try {
+      const res = await supabaseService.sweepExpiredEnrollments();
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Đã quét hoàn tất: ${res.expiredCount} học viên hết hạn (EXPIRED), ${res.expiringSoonCount} học viên sắp hết hạn (<=30 ngày), ${res.activeCount} học viên đang hoạt động.`,
+        data: res,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: err.message || 'Lỗi quét hết hạn',
+        data: { expiredCount: 0, expiringSoonCount: 0, activeCount: 0 },
+      };
+    }
+  },
+
+  /**
    * Tự động kiểm tra đối soát tiền về qua ngân hàng theo mã khách hàng
    */
   async checkEnrollmentPayment(enrollmentId: string): Promise<ApiResponse<{

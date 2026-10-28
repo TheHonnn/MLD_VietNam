@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
 
@@ -519,6 +519,12 @@ export class AcademyService {
             amount_paid,
             completed_lessons_count,
             progress_percent,
+            enrolled_at,
+            valid_until,
+            access_status,
+            expired_at,
+            extension_months,
+            extension_reason,
             courses (
               id,
               title,
@@ -547,6 +553,17 @@ export class AcademyService {
               ['APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.student_status).toUpperCase()) ||
               ['APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.status).toUpperCase());
 
+            // TÍNH TOÁN HIỆU LỰC 365 NGÀY THEO CHUẨN ĐẶC TẢ GIAI ĐOẠN 2
+            const validUntil = item.valid_until || (item.enrolled_at ? new Date(new Date(item.enrolled_at).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() : null);
+            const nowTime = Date.now();
+            const validTime = validUntil ? new Date(validUntil).getTime() : 0;
+            const isExpired = item.access_status === 'EXPIRED' || (validTime > 0 && nowTime > validTime);
+            const daysRemaining = validTime > 0 ? Math.max(0, Math.ceil((validTime - nowTime) / (1000 * 60 * 60 * 24))) : 365;
+            const isExpiringSoon = !isExpired && daysRemaining <= 30;
+            const computedAccessStatus = isExpired
+              ? 'EXPIRED'
+              : (item.access_status === 'EXTENDED' ? 'EXTENDED' : (isExpiringSoon ? 'EXPIRING_SOON' : 'ACTIVE'));
+
             return {
               id: item.id,
               courseId: item.courses?.id,
@@ -563,7 +580,18 @@ export class AcademyService {
               approvalStatus: isApproved ? 'APPROVED' : (item.approval_status || item.student_status || 'NOT_APPROVED'),
               studentStatus: item.student_status,
               customerCode,
-              statusText: item.status === 'GRADUATED' ? 'Đã hoàn thành' : (isApproved ? 'Đang học' : 'Chờ duyệt'),
+              validUntil,
+              accessStatus: computedAccessStatus,
+              isExpired,
+              daysRemaining,
+              isExpiringSoon,
+              extensionMonths: item.extension_months || 0,
+              extensionReason: item.extension_reason || null,
+              isBlocked: isExpired,
+              blockReason: isExpired ? 'Khóa học đã hết hạn hiệu lực 365 ngày. Quyền truy cập bài học và lịch thực hành đã bị khóa.' : null,
+              statusText: isExpired
+                ? 'Hết hạn 365 ngày (Đã khóa quyền)'
+                : (item.status === 'GRADUATED' ? 'Đã hoàn thành' : (isApproved ? 'Đang học' : 'Chờ duyệt')),
               instructorName: item.courses?.instructors?.full_name || 'ThS. Nguyễn Thu Hà',
               instructorAvatar: item.courses?.instructors?.avatar_url || 'assets/images/le_hoai_an.png',
               imageUrl: item.courses?.image_url || 'assets/images/gioithieu_1.png',
@@ -582,6 +610,177 @@ export class AcademyService {
       success: true,
       data: [],
     };
+  }
+
+  /**
+   * KIỂM TRA QUYỀN TRUY CẬP BÀI HỌC (CHẶN NẾU HẾT HẠN 365 NGÀY)
+   */
+  async checkLessonAccess(userId: string, courseId: string, lessonId: string) {
+    try {
+      // 1. Kiểm tra bài học có cho phép học thử miễn phí (is_free_preview) không
+      const { data: lesson } = await this.supabaseService.adminClient
+        .from('course_lessons')
+        .select('id, title, is_free_preview, video_url, duration_minutes')
+        .eq('id', lessonId)
+        .maybeSingle();
+
+      if (!lesson) {
+        return {
+          success: false,
+          statusCode: 404,
+          allowed: false,
+          error: 'LESSON_NOT_FOUND',
+          message: 'Không tìm thấy bài học',
+        };
+      }
+
+      if (lesson.is_free_preview) {
+        return {
+          success: true,
+          statusCode: 200,
+          allowed: true,
+          isFreePreview: true,
+          message: 'Bài học xem trước miễn phí',
+          data: lesson,
+        };
+      }
+
+      // 2. Kiểm tra hồ sơ học viên
+      if (!userId || userId === 'default-user') {
+        return {
+          success: false,
+          statusCode: 401,
+          allowed: false,
+          error: 'UNAUTHORIZED',
+          message: 'Vui lòng đăng nhập để xem bài học',
+        };
+      }
+
+      const { data: enr } = await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .select('id, status, approval_status, student_status, valid_until, access_status, enrolled_at')
+        .eq('student_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+      if (!enr) {
+        return {
+          success: false,
+          statusCode: 403,
+          allowed: false,
+          error: 'NOT_ENROLLED',
+          message: 'Bạn chưa đăng ký khóa học này.',
+        };
+      }
+
+      // 3. Kiểm tra duyệt học phí
+      const isApproved = enr.approval_status === 'APPROVED' ||
+        ['APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(enr.student_status).toUpperCase()) ||
+        ['APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(enr.status).toUpperCase());
+
+      if (!isApproved) {
+        return {
+          success: false,
+          statusCode: 403,
+          allowed: false,
+          error: 'PENDING_APPROVAL',
+          message: 'Hồ sơ học viên của bạn đang chờ phê duyệt thanh toán.',
+        };
+      }
+
+      // 4. KIỂM TRA HẠN 365 NGÀY (CHẶN NẾU HẾT HẠN)
+      const validUntil = enr.valid_until || (enr.enrolled_at ? new Date(new Date(enr.enrolled_at).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() : null);
+      const isExpired = enr.access_status === 'EXPIRED' || (validUntil && Date.now() > new Date(validUntil).getTime());
+
+      if (isExpired) {
+        return {
+          success: false,
+          statusCode: 403,
+          allowed: false,
+          error: 'COURSE_EXPIRED',
+          message: 'Khóa học của bạn đã hết hạn hiệu lực 365 ngày. Quyền truy cập bài học và làm bài thi đã bị khóa. Vui lòng liên hệ ban quản trị để gia hạn.',
+          validUntil,
+        };
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        allowed: true,
+        validUntil,
+        data: lesson,
+      };
+    } catch (err: any) {
+      this.logger.error(`Lỗi checkLessonAccess: ${err.message}`);
+      return {
+        success: false,
+        statusCode: 500,
+        allowed: false,
+        error: 'SERVER_ERROR',
+        message: err.message,
+      };
+    }
+  }
+
+  /**
+   * ADMIN GIA HẠN THỜI GIAN KHÓA HỌC CHO HỌC VIÊN
+   */
+  async extendEnrollment(enrollmentId: string, extensionMonths: number, reason: string) {
+    try {
+      const { data, error } = await this.supabaseService.adminClient.rpc('fn_extend_enrollment', {
+        p_enrollment_id: enrollmentId,
+        p_extension_months: extensionMonths,
+        p_reason: reason,
+      });
+
+      if (!error && data && data.length > 0) {
+        return {
+          success: data[0].success,
+          statusCode: data[0].success ? 200 : 400,
+          message: data[0].message,
+          newValidUntil: data[0].new_valid_until,
+        };
+      }
+
+      // Fallback update trực tiếp
+      const { data: cur } = await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .select('valid_until, extension_months')
+        .eq('id', enrollmentId)
+        .maybeSingle();
+
+      if (!cur) {
+        return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ học viên' };
+      }
+
+      const curValid = cur.valid_until ? new Date(cur.valid_until).getTime() : Date.now();
+      const baseTime = curValid < Date.now() ? Date.now() : curValid;
+      const newValid = new Date(baseTime + extensionMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .update({
+          valid_until: newValid,
+          access_status: 'EXTENDED',
+          expired_at: null,
+          extension_months: (cur.extension_months || 0) + extensionMonths,
+          extension_reason: reason,
+        })
+        .eq('id', enrollmentId);
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Đã gia hạn thành công +${extensionMonths} tháng!`,
+        newValidUntil: newValid,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: err.message || 'Lỗi gia hạn học viên',
+      };
+    }
   }
 
   /**
