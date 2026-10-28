@@ -148,6 +148,36 @@ export const academyService = {
     }
   },
 
+  async createCourseBatch(data: {
+    courseId: string;
+    branchId?: string;
+    batchCode: string;
+    instructorId?: string | null;
+    startDate?: string;
+    endDate?: string;
+    scheduleText?: string;
+    maxStudents?: number;
+    status?: string;
+  }): Promise<ApiResponse<CourseBatch | null>> {
+    try {
+      const created = await supabaseService.createCourseBatch(data);
+      return {
+        success: Boolean(created),
+        statusCode: created ? 201 : 400,
+        message: created ? 'Đã khởi tạo lớp đào tạo mới thành công' : 'Không thể khởi tạo lớp',
+        data: created,
+      };
+    } catch (err) {
+      console.error('[academyService] createCourseBatch failed:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi tạo lớp đào tạo',
+        data: null,
+      };
+    }
+  },
+
   async updateCourseBatch(
     batchId: string,
     updates: {
@@ -304,6 +334,54 @@ export const academyService = {
       console.error('[academyService] updateEnrollmentStatus error:', err);
     }
     return legacyWrite<CourseEnrollment>('course_enrollments', { status, ...extraUpdates }, id);
+  },
+
+  /**
+   * Admin gia hạn thời gian học (+N tháng) cho học viên
+   */
+  async extendEnrollment(
+    enrollmentId: string,
+    extensionMonths: number,
+    reason: string
+  ): Promise<ApiResponse<{ newValidUntil?: string }>> {
+    try {
+      const res = await supabaseService.extendEnrollment(enrollmentId, extensionMonths, reason);
+      return {
+        success: res.success,
+        statusCode: res.success ? 200 : 400,
+        message: res.message,
+        data: { newValidUntil: res.newValidUntil },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: err.message || 'Lỗi khi gia hạn học viên',
+        data: {},
+      };
+    }
+  },
+
+  /**
+   * Quét kiểm tra học viên hết hạn 365 ngày (Trigger cron thủ công từ Admin)
+   */
+  async sweepExpiredEnrollments(): Promise<ApiResponse<{ expiredCount: number; expiringSoonCount: number; activeCount: number }>> {
+    try {
+      const res = await supabaseService.sweepExpiredEnrollments();
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Đã quét hoàn tất: ${res.expiredCount} học viên hết hạn (EXPIRED), ${res.expiringSoonCount} học viên sắp hết hạn (<=30 ngày), ${res.activeCount} học viên đang hoạt động.`,
+        data: res,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: err.message || 'Lỗi quét hết hạn',
+        data: { expiredCount: 0, expiringSoonCount: 0, activeCount: 0 },
+      };
+    }
   },
 
   /**
@@ -975,6 +1053,54 @@ export const academyService = {
         statusCode: 500,
         message: 'Lỗi truy vấn thời khóa biểu lớp học',
         data: [],
+      };
+    }
+  },
+
+  async getAllBatchSchedules(): Promise<ApiResponse<BatchSchedule[]>> {
+    try {
+      const live = await supabaseService.getAllBatchSchedules();
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Dữ liệu thời khóa biểu toàn viện từ Supabase Cloud',
+        data: live || [],
+      };
+    } catch (err) {
+      console.error('[academyService] getAllBatchSchedules error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi truy vấn thời khóa biểu',
+        data: [],
+      };
+    }
+  },
+
+  async createBatchSchedule(data: {
+    batchId: string;
+    assignedRoomId?: string | null;
+    sessionDate: string;
+    startTime: string;
+    endTime: string;
+    topic: string;
+    isPracticeLab?: boolean;
+  }): Promise<ApiResponse<BatchSchedule | null>> {
+    try {
+      const created = await supabaseService.createBatchSchedule(data);
+      return {
+        success: Boolean(created),
+        statusCode: created ? 201 : 400,
+        message: created ? 'Đã xếp lịch thực hành thành công' : 'Không thể lưu lịch thực hành',
+        data: created,
+      };
+    } catch (err) {
+      console.error('[academyService] createBatchSchedule error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi khi xếp lịch thực hành',
+        data: null,
       };
     }
   },

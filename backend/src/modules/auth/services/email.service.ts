@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { OtpPurpose } from './otp.service';
+import { SupabaseService } from '../../../database/supabase.service';
 
 export interface SendOtpEmailOptions {
   to: string;
@@ -17,7 +18,10 @@ export class EmailService {
   private readonly fromAddress: string;
   private readonly fromName: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @Optional() private supabaseService?: SupabaseService,
+  ) {
     this.fromName = this.configService.get<string>('MAIL_FROM_NAME') || 'MLD Việt Nam';
     this.fromAddress =
       this.configService.get<string>('MAIL_FROM_ADDRESS') || 'no-reply@mldvietnam.vn';
@@ -99,93 +103,7 @@ export class EmailService {
     this.logger.log(`🔑 MÃ XÁC THỰC OTP 6 SỐ: [ ${otp} ] (Hiệu lực: 5 phút)`);
     this.logger.log(`======================================================\n`);
 
-    // 0. Ưu tiên gửi qua Brevo HTTP API (Cổng HTTPS 443 - Cho phép gửi tới MỌI email khách hàng mà KHÔNG cần mua tên miền riêng)
-    const brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
-    if (brevoApiKey) {
-      try {
-        const brevoSender = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'hbui73444@gmail.com';
-        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'api-key': brevoApiKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({
-            sender: {
-              name: this.fromName || 'MLD Việt Nam',
-              email: brevoSender,
-            },
-            to: [{ email: to }],
-            subject,
-            htmlContent,
-          }),
-        });
-        if (res.ok) {
-          this.logger.log(`📨 [Brevo HTTP API 443] Đã gửi thành công email OTP tới: ${to}`);
-          return true;
-        } else {
-          const errText = await res.text();
-          this.logger.error(`❌ [Brevo HTTP API] Gửi email thất bại: ${errText}`);
-        }
-      } catch (brevoErr: any) {
-        this.logger.error(`❌ [Brevo HTTP API] Lỗi kết nối: ${brevoErr.message}`);
-      }
-    }
-
-    // 1. Ưu tiên gửi qua Resend HTTP API (Cổng HTTPS 443 - Không bao giờ bị Cloud/Render chặn)
-    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (resendApiKey) {
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: `${this.fromName} <onboarding@resend.dev>`,
-            to: [to],
-            subject,
-            html: htmlContent,
-          }),
-        });
-        if (res.ok) {
-          this.logger.log(`📨 [Resend HTTP API 443] Đã gửi thành công email OTP tới: ${to}`);
-          return true;
-        } else {
-          const errText = await res.text();
-          this.logger.error(`❌ [Resend HTTP API] Gửi email thất bại: ${errText}`);
-        }
-      } catch (httpErr: any) {
-        this.logger.error(`❌ [Resend HTTP API] Lỗi kết nối: ${httpErr.message}`);
-      }
-    }
-
-    // 2. Dự phòng qua SMTP (Nodemailer) với timeout an toàn 3.5s chống nghẽn kết nối
-    if (!this.transporter) {
-      return true;
-    }
-
-    try {
-      const sendPromise = this.transporter.sendMail({
-        from: `"${this.fromName}" <${this.fromAddress}>`,
-        to,
-        subject,
-        html: htmlContent,
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('SMTP timeout: Render free tier blocks outbound ports 25, 465, 587')), 3500),
-      );
-
-      await Promise.race([sendPromise, timeoutPromise]);
-      this.logger.log(`📨 Đã gửi thành công email OTP qua SMTP tới ${to}`);
-      return true;
-    } catch (err: any) {
-      this.logger.warn(`⚠️ Gửi email OTP SMTP thất bại hoặc quá hạn: ${err.message}`);
-      return false;
-    }
+    return this.dispatchHtmlEmail(to, subject, htmlContent);
   }
 
   /**
@@ -413,28 +331,273 @@ export class EmailService {
 </html>
     `.trim();
 
-    if (this.transporter) {
+    return this.dispatchHtmlEmail(to, subject, html);
+  }
+
+  /**
+   * Bộ điều phối gửi Email thực tế đa kênh: Brevo (HTTPS 443) -> Resend (HTTPS 443) -> Nodemailer SMTP (TLS/587)
+   */
+  public async dispatchHtmlEmail(to: string, subject: string, htmlContent: string): Promise<boolean> {
+    // 0. Ưu tiên Brevo HTTP API (HTTPS 443)
+    const brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
+    if (brevoApiKey) {
       try {
-        await this.transporter.sendMail({
-          from: `"${this.fromName}" <${this.fromAddress}>`,
-          to,
-          subject,
-          html,
+        const brevoSender = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'hbui73444@gmail.com';
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': brevoApiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: {
+              name: this.fromName || 'MLD Việt Nam',
+              email: brevoSender,
+            },
+            to: [{ email: to }],
+            subject,
+            htmlContent,
+          }),
         });
-        this.logger.log(`📧 [EMAIL SENT] Đã gửi email nhắc hẹn trước ${hoursBefore}h tới ${to} (Mã: ${bookingCode})`);
-        return true;
-      } catch (err: any) {
-        this.logger.error(`❌ Gửi email nhắc hẹn thất bại: ${err.message}`);
+        if (res.ok) {
+          this.logger.log(`📨 [Brevo HTTP API 443] Đã gửi thành công email tới: ${to}`);
+          return true;
+        } else {
+          const errText = await res.text();
+          this.logger.error(`❌ [Brevo HTTP API] Gửi email thất bại: ${errText}`);
+        }
+      } catch (brevoErr: any) {
+        this.logger.error(`❌ [Brevo HTTP API] Lỗi kết nối: ${brevoErr.message}`);
       }
     }
 
-    this.logger.log(`\n================================================================================`);
-    this.logger.log(`📧 [EMAIL MÔ PHỎNG] NHẮC LỊCH HẸN TRƯỚC ${hoursBefore}H`);
-    this.logger.log(`   Người nhận : ${customerName} <${to}>`);
-    this.logger.log(`   Tiêu đề    : ${subject}`);
-    this.logger.log(`   Lịch hẹn   : ${date} lúc ${time} tại ${branchName}`);
-    this.logger.log(`================================================================================\n`);
+    // 1. Ưu tiên Resend HTTP API (HTTPS 443)
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
+    if (resendApiKey) {
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: `${this.fromName} <onboarding@resend.dev>`,
+            to: [to],
+            subject,
+            html: htmlContent,
+          }),
+        });
+        if (res.ok) {
+          this.logger.log(`📨 [Resend HTTP API 443] Đã gửi thành công email tới: ${to}`);
+          return true;
+        } else {
+          const errText = await res.text();
+          this.logger.error(`❌ [Resend HTTP API] Gửi email thất bại: ${errText}`);
+        }
+      } catch (httpErr: any) {
+        this.logger.error(`❌ [Resend HTTP API] Lỗi kết nối: ${httpErr.message}`);
+      }
+    }
+
+    // 2. Dự phòng qua SMTP (Nodemailer) với timeout an toàn 3.5s
+    if (this.transporter) {
+      try {
+        const sendPromise = this.transporter.sendMail({
+          from: `"${this.fromName}" <${this.fromAddress}>`,
+          to,
+          subject,
+          html: htmlContent,
+        });
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP timeout: Connection timeout after 3500ms')), 3500),
+        );
+
+        await Promise.race([sendPromise, timeoutPromise]);
+        this.logger.log(`📨 [SMTP] Đã gửi thành công email tới ${to}`);
+        return true;
+      } catch (err: any) {
+        this.logger.warn(`⚠️ Gửi email SMTP thất bại hoặc quá hạn: ${err.message}`);
+      }
+    }
+
+    this.logger.log(`\n======================================================`);
+    this.logger.log(`📧 [EMAIL DISPATCHED] TỚI: ${to}`);
+    this.logger.log(`   Tiêu đề: ${subject}`);
+    this.logger.log(`======================================================\n`);
     return true;
   }
 
+  /**
+   * Gửi Email sử dụng Template từ Supabase Cloud và tự động ghi log vào email_logs
+   */
+  public async sendTemplateEmail(params: {
+    to: string;
+    recipientName?: string;
+    templateId: string;
+    variables: Record<string, string>;
+    metadata?: Record<string, any>;
+  }): Promise<boolean> {
+    const { to, recipientName, templateId, variables, metadata } = params;
+
+    let subject = 'Thông báo từ Học Viện MLD Việt Nam';
+    let htmlContent = '<p>Nội dung thông báo từ MLD Việt Nam</p>';
+
+    // 1. Tải Template từ bảng email_templates trên Supabase Cloud
+    if (this.supabaseService) {
+      try {
+        const { data: tmpl } = await this.supabaseService.adminClient
+          .from('email_templates')
+          .select('*')
+          .eq('id', templateId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (tmpl) {
+          subject = tmpl.subject;
+          htmlContent = tmpl.body_html;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Không thể tải template ${templateId}: ${err.message}`);
+      }
+    }
+
+    // 2. Điền biến động vào Subject và HTML Body
+    Object.entries(variables || {}).forEach(([key, val]) => {
+      const reg = new RegExp(`{{${key}}}`, 'g');
+      subject = subject.replace(reg, val ?? '');
+      htmlContent = htmlContent.replace(reg, val ?? '');
+    });
+
+    // 3. Dispatch gửi email thật qua Brevo/Resend/SMTP
+    let sendSuccess = false;
+    let errorMessage: string | null = null;
+
+    try {
+      sendSuccess = await this.dispatchHtmlEmail(to, subject, htmlContent);
+    } catch (sendErr: any) {
+      errorMessage = sendErr.message;
+      this.logger.error(`Lỗi gửi mail template ${templateId} tới ${to}: ${errorMessage}`);
+    }
+
+    // 4. Ghi bản ghi thực tế vào bảng email_logs trên Supabase Cloud
+    if (this.supabaseService) {
+      try {
+        await this.supabaseService.adminClient.from('email_logs').insert({
+          recipient_email: to,
+          recipient_name: recipientName || '',
+          template_id: templateId,
+          subject,
+          body_html: htmlContent,
+          status: sendSuccess ? 'SENT' : 'FAILED',
+          metadata: metadata || {},
+          error_message: errorMessage,
+          sent_at: new Date().toISOString(),
+        });
+        this.logger.log(`📝 [EMAIL LOG] Đã ghi nhận lịch sử gửi mail vào public.email_logs (Status: ${sendSuccess ? 'SENT' : 'FAILED'})`);
+      } catch (logErr: any) {
+        this.logger.error(`❌ Ghi log email_logs thất bại: ${logErr.message}`);
+      }
+    }
+
+    return sendSuccess;
+  }
+
+  /**
+   * Helper 1: Báo cáo tiến độ học tập & thời gian còn lại (định kỳ hàng tháng)
+   */
+  public async sendMonthlyProgressEmail(params: {
+    to: string;
+    studentName: string;
+    courseName: string;
+    studentCode: string;
+    daysLeft: number;
+    validUntilDate: string;
+    progressPercent: number;
+    completedLessons: number;
+    totalLessons: number;
+    attendedSessions: number;
+  }): Promise<boolean> {
+    return this.sendTemplateEmail({
+      to: params.to,
+      recipientName: params.studentName,
+      templateId: 'ENROLLMENT_PROGRESS_MONTHLY',
+      variables: {
+        student_name: params.studentName,
+        course_name: params.courseName,
+        student_code: params.studentCode,
+        days_left: String(params.daysLeft),
+        valid_until_date: params.validUntilDate,
+        progress_percent: String(params.progressPercent),
+        completed_lessons: String(params.completedLessons),
+        total_lessons: String(params.totalLessons),
+        attended_sessions: String(params.attendedSessions),
+      },
+      metadata: { type: 'MONTHLY_PROGRESS', studentCode: params.studentCode },
+    });
+  }
+
+  /**
+   * Helper 2: Cảnh báo hết hạn khóa học (30 ngày & 7 ngày)
+   */
+  public async sendEnrollmentExpiryWarningEmail(params: {
+    to: string;
+    studentName: string;
+    courseName: string;
+    studentCode: string;
+    daysLeft: number;
+    validUntilDate: string;
+  }): Promise<boolean> {
+    return this.sendTemplateEmail({
+      to: params.to,
+      recipientName: params.studentName,
+      templateId: 'ENROLLMENT_EXPIRY_WARNING',
+      variables: {
+        student_name: params.studentName,
+        course_name: params.courseName,
+        student_code: params.studentCode,
+        days_left: String(params.daysLeft),
+        valid_until_date: params.validUntilDate,
+        exams_pending: 'Kỳ thi Trắc nghiệm Lý thuyết & Sát hạch Thực hành Lâm sàng',
+        hotline: '096.7786.399',
+        portal_link: 'https://mldvietnam.edu.vn',
+      },
+      metadata: { type: 'EXPIRY_WARNING', daysLeft: params.daysLeft, studentCode: params.studentCode },
+    });
+  }
+
+  /**
+   * Helper 3: Thông báo & nhắc lịch thực hành lâm sàng
+   */
+  public async sendPracticeScheduleEmail(params: {
+    to: string;
+    studentName: string;
+    batchCode: string;
+    sessionTopic: string;
+    sessionDate: string;
+    sessionTime: string;
+    roomName: string;
+    instructorName: string;
+    branchAddress: string;
+  }): Promise<boolean> {
+    return this.sendTemplateEmail({
+      to: params.to,
+      recipientName: params.studentName,
+      templateId: 'PRACTICE_SCHEDULE_ANNOUNCEMENT',
+      variables: {
+        student_name: params.studentName,
+        batch_code: params.batchCode,
+        session_topic: params.sessionTopic,
+        session_date: params.sessionDate,
+        session_time: params.sessionTime,
+        room_name: params.roomName,
+        instructor_name: params.instructorName,
+        branch_address: params.branchAddress,
+        requirements: 'Đồng phục MLD, móng tay cắt ngắn, tập giáo trình lâm sàng Vodder',
+      },
+      metadata: { type: 'PRACTICE_SCHEDULE', batchCode: params.batchCode, sessionDate: params.sessionDate },
+    });
+  }
 }

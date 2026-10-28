@@ -55,7 +55,7 @@ export const W17_EdemaAssessments: React.FC = () => {
   const [createForm, setCreateForm] = useState({
     customerName: '',
     customerPhone: '',
-    branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
+    branchId: '',
     assessmentDate: new Date().toISOString().split('T')[0],
     timeSlot: '09:00 - 10:00',
     clinicalNotes: '',
@@ -91,7 +91,7 @@ export const W17_EdemaAssessments: React.FC = () => {
     garmentClass: 'Class II (23 - 32 mmHg)',
     followUpDate: '',
     clinicalNotes: '',
-    examinerName: 'BS. CKI Trần Hoàng Nam',
+    examinerName: '',
   });
 
   const reportPrintRef = useRef<HTMLDivElement>(null);
@@ -266,7 +266,7 @@ export const W17_EdemaAssessments: React.FC = () => {
         setCreateForm({
           customerName: '',
           customerPhone: '',
-          branchId: branches[0]?.id || 'aaaaaaaa-0001-0001-0001-000000000001',
+          branchId: branches[0]?.id || '',
           assessmentDate: new Date().toISOString().split('T')[0],
           timeSlot: '09:00 - 10:00',
           clinicalNotes: '',
@@ -1249,11 +1249,7 @@ export const W17_EdemaAssessments: React.FC = () => {
                         {b.name}
                       </option>
                     ))}
-                    {branches.length === 0 && (
-                      <option value="aaaaaaaa-0001-0001-0001-000000000001">
-                        MLD Trụ Sở Chính - Hà Nội
-                      </option>
-                    )}
+                    {branches.length === 0 && <option value="">Chưa có chi nhánh trên Supabase</option>}
                   </select>
                 </div>
               </div>

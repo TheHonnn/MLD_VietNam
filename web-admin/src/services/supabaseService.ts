@@ -31,6 +31,7 @@ import {
   BatchSchedule,
   StudentAttendance,
   AttendanceStatus,
+  DualSlotAvailability,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -1185,6 +1186,146 @@ class SupabaseService {
     }
   }
 
+  // 10.1. DUAL-RESOURCE CAPACITY & AUTO-RELEASE (6 GIƯỜNG × 6 KTV × CA 1 TIẾNG)
+  async getDaySlotsDualAvailability(branchId: string, bookingDate: string): Promise<DualSlotAvailability[]> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_get_day_slots_dual_availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+          p_booking_date: bookingDate,
+        }),
+      });
+
+      if (!res || res.length === 0) return [];
+
+      return res.map((r: any) => ({
+        slotTime: r.slot_time,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        isAvailable: Boolean(r.is_available),
+        freeBeds: Number(r.free_beds || 0),
+        freeStaff: Number(r.free_staff || 0),
+        remainingCapacity: Number(r.remaining_capacity || 0),
+        statusText: r.status_text || (r.is_available ? 'Còn chỗ' : 'Hết chỗ'),
+        recommendedOrder: Number(r.recommended_order || 0),
+      }));
+    } catch (err) {
+      console.warn('[SupabaseService] getDaySlotsDualAvailability error:', err);
+      return [];
+    }
+  }
+
+  async checkSlotDualAvailability(
+    branchId: string,
+    bookingDate: string,
+    startTime: string,
+    endTime: string
+  ): Promise<DualSlotAvailability | null> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_check_slot_dual_availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+          p_booking_date: bookingDate,
+          p_start_time: startTime,
+          p_end_time: endTime,
+        }),
+      });
+
+      if (!res || res.length === 0) return null;
+      const r = res[0];
+      return {
+        slotTime: `${startTime.slice(0, 5)}–${endTime.slice(0, 5)}`,
+        startTime,
+        endTime,
+        isAvailable: Boolean(r.is_available),
+        freeBeds: Number(r.free_beds || 0),
+        freeStaff: Number(r.free_staff || 0),
+        remainingCapacity: Number(r.remaining_capacity || 0),
+        statusText: r.reason || (r.is_available ? 'Còn chỗ' : 'Hết chỗ'),
+        recommendedOrder: 1,
+      };
+    } catch (err) {
+      console.warn('[SupabaseService] checkSlotDualAvailability error:', err);
+      return null;
+    }
+  }
+
+  async releaseCompletedBookings(branchId?: string): Promise<{ releasedCount: number; message: string }> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_release_completed_bookings', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId && isUuid(branchId) ? branchId : null,
+        }),
+      });
+
+      if (res && res.length > 0) {
+        return {
+          releasedCount: Number(res[0].released_count || 0),
+          message: res[0].message || 'Đã giải phóng tài nguyên thành công',
+        };
+      }
+
+      // Fallback update trực tiếp
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().split(' ')[0];
+      let filter = `booking_date=eq.${todayStr}&end_time=lte.${timeStr}&status=in.(CONFIRMED,IN_SERVICE)`;
+      if (branchId && isUuid(branchId)) filter += `&branch_id=eq.${branchId}`;
+
+      const past = await this.query<any[]>(`bookings?${filter}&select=id`);
+      let releasedCount = 0;
+      if (past && past.length > 0) {
+        for (const item of past) {
+          await this.query(`bookings?id=eq.${item.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'COMPLETED' }),
+          });
+          releasedCount++;
+        }
+      }
+
+      return {
+        releasedCount,
+        message: `Đã tự động giải phóng ${releasedCount} ca trị liệu hoàn tất (nhả giường & KTV).`,
+      };
+    } catch (err: any) {
+      console.warn('[SupabaseService] releaseCompletedBookings error:', err);
+      return { releasedCount: 0, message: err?.message || 'Lỗi khi giải phóng tài nguyên' };
+    }
+  }
+
+  async dispatchLeastBusyTechnician(
+    branchId: string,
+    bookingDate: string,
+    startTime: string,
+    endTime: string
+  ): Promise<{ technicianId: string; fullName: string; sessionsToday: number } | null> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_dispatch_least_busy_technician', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_branch_id: branchId && isUuid(branchId) ? branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+          p_booking_date: bookingDate,
+          p_start_time: startTime,
+          p_end_time: endTime,
+        }),
+      });
+
+      if (!res || res.length === 0) return null;
+      return {
+        technicianId: res[0].technician_id,
+        fullName: res[0].full_name,
+        sessionsToday: Number(res[0].sessions_today || 0),
+      };
+    } catch (err) {
+      console.warn('[SupabaseService] dispatchLeastBusyTechnician error:', err);
+      return null;
+    }
+  }
+
   // Xóa lịch hẹn theo ID trên Supabase Cloud
   async deleteBooking(bookingId: string): Promise<boolean> {
     if (!isUuid(bookingId)) {
@@ -1408,6 +1549,57 @@ class SupabaseService {
     return this.updateCourseBatch(batchId, updates);
   }
 
+  async createCourseBatch(data: {
+    courseId: string;
+    branchId?: string;
+    batchCode: string;
+    instructorId?: string | null;
+    startDate?: string;
+    endDate?: string;
+    scheduleText?: string;
+    maxStudents?: number;
+    status?: string;
+  }): Promise<CourseBatch | null> {
+    try {
+      const payload: Record<string, any> = {
+        course_id: data.courseId,
+        branch_id: data.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+        batch_code: data.batchCode,
+        instructor_id: isUuid(data.instructorId) ? data.instructorId : null,
+        start_date: data.startDate || new Date().toISOString().split('T')[0],
+        end_date: data.endDate || null,
+        schedule_text: data.scheduleText || null,
+        max_students: data.maxStudents || 15,
+        enrolled_count: 0,
+        status: data.status || 'OPEN_FOR_ENROLLMENT',
+      };
+      const res = await this.query<any[]>('course_batches', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      if (res && res.length > 0) {
+        const cb = res[0];
+        return {
+          id: cb.id,
+          courseId: cb.course_id,
+          branchId: cb.branch_id,
+          batchCode: cb.batch_code,
+          instructorId: cb.instructor_id,
+          startDate: cb.start_date,
+          endDate: cb.end_date,
+          scheduleText: cb.schedule_text,
+          maxStudents: Number(cb.max_students),
+          enrolledCount: Number(cb.enrolled_count),
+          status: cb.status,
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createCourseBatch error:', err);
+    }
+    return null;
+  }
+
   // 13. HỒ SƠ HỌC VIÊN GHI DANH (COURSE ENROLLMENTS)
   async getEnrollments(batchId?: string): Promise<CourseEnrollment[] | null> {
     const path = batchId
@@ -1443,7 +1635,81 @@ class SupabaseService {
       finalTuition: e.final_tuition ? Number(e.final_tuition) : Number(e.tuition_total || 0),
       consultationHistory: e.consultation_history || [],
       qrCreatedAt: e.qr_created_at,
+      validUntil: e.valid_until,
+      accessStatus: e.access_status || 'ACTIVE',
+      expiredAt: e.expired_at,
+      extensionMonths: Number(e.extension_months || 0),
+      extensionReason: e.extension_reason,
+      lastExpiryNotifiedAt: e.last_expiry_notified_at,
     }));
+  }
+
+  async extendEnrollment(
+    enrollmentId: string,
+    extensionMonths: number,
+    reason: string
+  ): Promise<{ success: boolean; newValidUntil?: string; message: string }> {
+    try {
+      // 1. Thử gọi RPC fn_extend_enrollment
+      const rpcRes = await this.query<any[]>('rpc/fn_extend_enrollment', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_enrollment_id: enrollmentId,
+          p_extension_months: extensionMonths,
+          p_reason: reason,
+        }),
+      });
+
+      if (rpcRes && rpcRes.length > 0) {
+        return {
+          success: Boolean(rpcRes[0].success),
+          newValidUntil: rpcRes[0].new_valid_until,
+          message: rpcRes[0].message || 'Gia hạn thành công',
+        };
+      }
+
+      // 2. Fallback update trực tiếp
+      const curList = await this.query<any[]>(`course_enrollments?id=eq.${enrollmentId}&select=valid_until,extension_months`);
+      const cur = curList?.[0];
+      const curValid = cur?.valid_until ? new Date(cur.valid_until).getTime() : Date.now();
+      const baseTime = curValid < Date.now() ? Date.now() : curValid;
+      const newValid = new Date(baseTime + extensionMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const ok = await this.updateEnrollment(enrollmentId, {
+        validUntil: newValid,
+        accessStatus: 'EXTENDED',
+        extensionMonths: Number(cur?.extension_months || 0) + extensionMonths,
+        extensionReason: reason,
+      });
+
+      return {
+        success: ok,
+        newValidUntil: newValid,
+        message: ok ? `Gia hạn thành công +${extensionMonths} tháng!` : 'Lỗi cập nhật gia hạn',
+      };
+    } catch (err: any) {
+      console.warn('[SupabaseService] extendEnrollment error:', err);
+      return { success: false, message: err?.message || 'Lỗi khi gia hạn học viên' };
+    }
+  }
+
+  async sweepExpiredEnrollments(): Promise<{ expiredCount: number; expiringSoonCount: number; activeCount: number }> {
+    try {
+      const rpcRes = await this.query<any[]>('rpc/fn_expire_enrollments_cron', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (rpcRes && rpcRes.length > 0) {
+        return {
+          expiredCount: Number(rpcRes[0].expired_count || 0),
+          expiringSoonCount: Number(rpcRes[0].expiring_soon_count || 0),
+          activeCount: Number(rpcRes[0].active_count || 0),
+        };
+      }
+    } catch (e) {
+      console.warn('[SupabaseService] sweepExpiredEnrollments rpc error:', e);
+    }
+    return { expiredCount: 0, expiringSoonCount: 0, activeCount: 0 };
   }
 
   // 14. PHÂN CA KỸ THUẬT VIÊN (TECHNICIAN SHIFTS)
@@ -1502,11 +1768,11 @@ class SupabaseService {
     return raw.map((ins) => ({
       id: ins.id,
       userId: ins.user_id,
-      fullName: ins.full_name || ins.user?.full_name || 'Nguyễn Thảo Ngọc',
-      title: ins.title || 'Master Trainer Thẩm mỹ & Dưỡng sinh',
-      avatarUrl: ins.avatar_url || ins.user?.avatar_url || 'https://images.unsplash.com/photo-1594824813515-5e6fe7a5e848',
-      experienceYears: Number(ins.experience_years || 10),
-      bio: ins.bio || 'Giám đốc Đào tạo MLD',
+      fullName: ins.full_name || ins.user?.full_name || 'Chưa cập nhật',
+      title: ins.title || 'Giảng viên',
+      avatarUrl: ins.avatar_url || ins.user?.avatar_url || '',
+      experienceYears: Number(ins.experience_years || 0),
+      bio: ins.bio || '',
       achievements: Array.isArray(ins.achievements) ? ins.achievements : [],
       isActive: Boolean(ins.is_active),
       createdAt: ins.created_at,
@@ -1623,6 +1889,12 @@ class SupabaseService {
       finalTuition?: number;
       consultationHistory?: any[];
       qrCreatedAt?: string | null;
+      validUntil?: string | null;
+      accessStatus?: string;
+      expiredAt?: string | null;
+      extensionMonths?: number;
+      extensionReason?: string | null;
+      lastExpiryNotifiedAt?: string | null;
     }
   ): Promise<boolean> {
     try {
@@ -1649,6 +1921,12 @@ class SupabaseService {
       if (updates.finalTuition !== undefined) payload.final_tuition = updates.finalTuition;
       if (updates.consultationHistory !== undefined) payload.consultation_history = updates.consultationHistory;
       if (updates.qrCreatedAt !== undefined) payload.qr_created_at = updates.qrCreatedAt;
+      if (updates.validUntil !== undefined) payload.valid_until = updates.validUntil;
+      if (updates.accessStatus !== undefined) payload.access_status = updates.accessStatus;
+      if (updates.expiredAt !== undefined) payload.expired_at = updates.expiredAt;
+      if (updates.extensionMonths !== undefined) payload.extension_months = updates.extensionMonths;
+      if (updates.extensionReason !== undefined) payload.extension_reason = updates.extensionReason;
+      if (updates.lastExpiryNotifiedAt !== undefined) payload.last_expiry_notified_at = updates.lastExpiryNotifiedAt;
 
       const res = await this.query<any[]>(`course_enrollments?id=eq.${enrollmentId}`, {
         method: 'PATCH',
@@ -2109,11 +2387,11 @@ class SupabaseService {
       issue_date: data.issueDate || new Date().toISOString().split('T')[0],
       theory_score: data.theoryScore ?? null,
       practical_score: data.practicalScore ?? null,
-      final_grade: data.finalGrade || 'GIỎI',
+      final_grade: data.finalGrade || null,
       certificate_pdf_url: data.certificatePdfUrl || null,
       qr_image_url: data.qrImageUrl || null,
-      signer_name: data.signerName || 'BS. CKI Trần Hoàng Nam',
-      signer_title: data.signerTitle || 'Chủ Tịch Hội Đồng Y Khoa MLD',
+      signer_name: data.signerName || null,
+      signer_title: data.signerTitle || null,
       status: data.status || 'ISSUED',
     };
 
@@ -2233,7 +2511,7 @@ class SupabaseService {
       customer_id: isUuid(data.customerId) ? data.customerId : null,
       customer_name: data.customerName,
       customer_phone: data.customerPhone,
-      branch_id: isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001',
+      branch_id: isUuid(data.branchId) ? data.branchId : null,
       examiner_id: isUuid(data.examinerId) ? data.examinerId : null,
       assessment_date: data.assessmentDate || new Date().toISOString().split('T')[0],
       time_slot: data.timeSlot || '09:00 - 10:00',
@@ -2342,6 +2620,76 @@ class SupabaseService {
       console.warn('[SupabaseService] getBatchSchedules error:', err);
     }
     return [];
+  }
+
+  public async getAllBatchSchedules(): Promise<BatchSchedule[]> {
+    try {
+      const res = await this.query<any[]>(
+        'batch_schedules?select=*,course_batches(id,batch_code,course_id,instructor_id,status,courses(id,title,code)),assigned_room:branch_rooms!assigned_room_id(id,name,branch_id)&order=session_date.asc,start_time.asc'
+      );
+      if (Array.isArray(res)) {
+        return res.map((r) => ({
+          id: r.id,
+          batchId: r.batch_id,
+          assignedRoomId: r.assigned_room_id,
+          sessionDate: r.session_date,
+          startTime: (r.start_time || '').slice(0, 5),
+          endTime: (r.end_time || '').slice(0, 5),
+          topic: r.topic,
+          isPracticeLab: Boolean(r.is_practice_lab),
+          batch: r.course_batches,
+          room: r.assigned_room,
+        }));
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] getAllBatchSchedules error:', err);
+    }
+    return [];
+  }
+
+  public async createBatchSchedule(data: {
+    batchId: string;
+    assignedRoomId?: string | null;
+    sessionDate: string;
+    startTime: string;
+    endTime: string;
+    topic: string;
+    isPracticeLab?: boolean;
+  }): Promise<BatchSchedule | null> {
+    try {
+      const payload: any = {
+        batch_id: data.batchId,
+        assigned_room_id: isUuid(data.assignedRoomId) ? data.assignedRoomId : null,
+        session_date: data.sessionDate,
+        start_time: data.startTime.length === 5 ? `${data.startTime}:00` : data.startTime,
+        end_time: data.endTime.length === 5 ? `${data.endTime}:00` : data.endTime,
+        topic: data.topic,
+        is_practice_lab: data.isPracticeLab !== undefined ? data.isPracticeLab : true,
+      };
+
+      const res = await this.query<any[]>('batch_schedules', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+
+      if (Array.isArray(res) && res.length > 0) {
+        const r = res[0];
+        return {
+          id: r.id,
+          batchId: r.batch_id,
+          assignedRoomId: r.assigned_room_id,
+          sessionDate: r.session_date,
+          startTime: (r.start_time || '').slice(0, 5),
+          endTime: (r.end_time || '').slice(0, 5),
+          topic: r.topic,
+          isPracticeLab: Boolean(r.is_practice_lab),
+        };
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] createBatchSchedule error:', err);
+    }
+    return null;
   }
 
   public async seedBatchSchedules(batchId: string, startDateStr?: string): Promise<BatchSchedule[]> {
@@ -2455,6 +2803,21 @@ class SupabaseService {
       console.warn('[SupabaseService] saveBatchAttendance error:', err);
       return false;
     }
+  }
+
+  public async revokeExpiredEnrollments(): Promise<number> {
+    try {
+      const res = await this.query<any[]>('rpc/fn_revoke_expired_enrollments', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (res && res.length > 0) {
+        return Number(res[0].revoked_count || 0);
+      }
+    } catch (err) {
+      console.warn('[SupabaseService] revokeExpiredEnrollments error:', err);
+    }
+    return 0;
   }
 }
 

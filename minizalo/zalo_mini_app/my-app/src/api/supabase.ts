@@ -1,4 +1,4 @@
-﻿import {
+import {
   Branch,
   SpaService,
   Specialist,
@@ -426,15 +426,19 @@ export const DEFAULT_POSTS: CommunityPost[] = [
 ];
 
 // Helper: safe fetch with timeout
-async function safeFetch<T>(url: string, fallback: T): Promise<T> {
+async function safeFetch<T>(url: string, fallback: T, options?: RequestInit): Promise<T> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(url, { headers, signal: controller.signal });
+    const res = await fetch(url, {
+      ...options,
+      headers: { ...headers, ...(options?.headers || {}) },
+      signal: controller.signal,
+    });
     clearTimeout(timeout);
     if (!res.ok) return fallback;
     const data = await res.json();
-    return Array.isArray(data) && data.length > 0 ? (data as T) : fallback;
+    return Array.isArray(data) ? (data as T) : ((data as T) || fallback);
   } catch {
     return fallback;
   }
@@ -603,10 +607,49 @@ export const SupabaseDataService = {
     return this.getStoredAppointments();
   },
 
-  saveAppointment(app: Appointment) {
+  // 7b. DRC Dual-Resource Slot Availability (6 Beds × 6 Staff)
+  async getDaySlotsDualAvailability(branchId: string, date: string): Promise<any[]> {
+    const url = `${SUPABASE_URL}/rest/v1/rpc/fn_get_day_slots_dual_availability`;
+    return safeFetch<any[]>(url, [], {
+      method: 'POST',
+      body: JSON.stringify({ p_branch_id: branchId, p_booking_date: date }),
+    });
+  },
+
+  async saveAppointment(app: Appointment, extra?: { branchId?: string; startTime?: string; endTime?: string }) {
     const list = this.getStoredAppointments();
     list.unshift(app);
     localStorage.setItem('mld_appointments', JSON.stringify(list));
+
+    // Persist real booking to Supabase Cloud bookings table (Zero Mock Data)
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({
+          booking_code: app.bookingCode,
+          branch_id: extra?.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+          booked_for_name: app.customerName,
+          booked_for_phone: app.customerPhone,
+          booking_date: app.appointmentDate,
+          start_time: extra?.startTime || '09:00:00',
+          end_time: extra?.endTime || '10:00:00',
+          base_total: app.totalAmount,
+          final_price: app.totalAmount,
+          deposit_amount: 0,
+          status: 'CONFIRMED',
+          payment_status: 'UNPAID',
+          payment_method: 'CASH_AT_SPA',
+          notes: app.specialNotes || 'Đặt lịch qua Zalo Mini App (Dual-Resource Capacity Engine)',
+          qr_code_hash: `ZMA-${app.bookingCode}-${Date.now()}`,
+        }),
+      });
+    } catch (err) {
+      console.warn('Persist booking to Supabase Cloud failed:', err);
+    }
   },
 
   // 8. Curriculum (Chapters & Lessons) - Tải động từ CSDL Supabase

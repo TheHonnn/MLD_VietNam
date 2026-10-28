@@ -25,11 +25,17 @@ class NotificationService {
     this.fetchRemote();
   }
 
+  private isTestNotification(item: { title?: string; message?: string }): boolean {
+    const text = `${item.title || ''} ${item.message || ''}`;
+    return /WB-\d+|UAT-\d+/i.test(text);
+  }
+
   private loadFromStorage() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        this.items = JSON.parse(stored);
+        const parsed: AdminNotification[] = JSON.parse(stored);
+        this.items = parsed.filter((item) => !this.isTestNotification(item));
       } else {
         this.items = [];
       }
@@ -85,15 +91,17 @@ class NotificationService {
 
       if (!error && data && data.length > 0) {
         // Map Supabase rows to AdminNotification
-        const remoteItems: AdminNotification[] = data.map((d: any) => ({
-          id: d.id,
-          title: d.title,
-          message: d.message,
-          type: (d.type || 'SYSTEM').toUpperCase() as any,
-          createdAt: d.created_at,
-          isRead: !!d.is_read,
-          link: d.data?.link,
-        }));
+        const remoteItems: AdminNotification[] = data
+          .map((d: any) => ({
+            id: d.id,
+            title: d.title,
+            message: d.message,
+            type: (d.type || 'SYSTEM').toUpperCase() as any,
+            createdAt: d.created_at,
+            isRead: !!d.is_read,
+            link: d.data?.link,
+          }))
+          .filter((i) => !this.isTestNotification(i));
 
         // Merge without duplicating IDs
         const existingIds = new Set(this.items.map((i) => i.id));
@@ -169,6 +177,9 @@ class NotificationService {
   }
 
   public addNotification(notification: Omit<AdminNotification, 'id' | 'createdAt' | 'isRead'>) {
+    if (this.isTestNotification(notification)) {
+      return; // Never save automated test notifications
+    }
     const newItem: AdminNotification = {
       ...notification,
       id: `notif-${Date.now()}`,
@@ -176,6 +187,11 @@ class NotificationService {
       isRead: false,
     };
     this.items = [newItem, ...this.items];
+    this.saveToStorage();
+  }
+
+  public clearTestNotifications() {
+    this.items = this.items.filter((item) => !this.isTestNotification(item));
     this.saveToStorage();
   }
 

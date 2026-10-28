@@ -270,6 +270,7 @@ export interface User {
   referralCode: string;
   referredById?: string | null;
   isActive: boolean;
+  clinicalNotes?: string | null;
   lockedReason?: string | null;
   lockedAt?: string | null;
   createdAt: string;
@@ -353,6 +354,7 @@ export interface Technician {
   avatarUrl: string;
   experienceYears: number;
   ratingAvg: number;
+  rating?: number;
   reviewCount: number;
   specialties: string[];
   bio?: string | null;
@@ -609,9 +611,35 @@ export interface CourseEnrollment {
   finalTuition?: number;
   consultationHistory?: ConsultationNote[];
   qrCreatedAt?: string | null;
+  // Hạn định khóa học 1 năm & Quản lý vòng đời
+  validUntil?: string;
+  accessStatus?: 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED' | 'EXTENDED';
+  expiredAt?: string | null;
+  extensionMonths?: number;
+  extensionReason?: string | null;
+  lastExpiryNotifiedAt?: string | null;
   student?: User;
   course?: Course;
   batch?: CourseBatch;
+}
+
+export interface DualSlotAvailability {
+  slotTime: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+  freeBeds: number;
+  freeStaff: number;
+  remainingCapacity: number;
+  statusText: string;
+  recommendedOrder: number;
+  isRecommended?: boolean;
+  recommendedTag?: string | null;
+  capacity?: number;
+  availableBeds?: number;
+  availableTechnicians?: number;
+  reason?: string;
+  recommended?: boolean;
 }
 
 export interface BatchSchedule {

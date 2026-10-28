@@ -199,21 +199,27 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
   const handleItemClick = (item: AdminNotification) => {
     notificationService.markAsRead(item.id);
 
-    // Xử lý thông báo thanh toán POS
+    // Xử lý thông báo thanh toán POS hoặc Hóa đơn
     if (
       item.type === 'PAYMENT' ||
       item.link?.includes('/cashier-pos') ||
-      item.title?.toLowerCase().includes('thanh toán')
+      item.title?.toLowerCase().includes('thanh toán') ||
+      item.title?.toLowerCase().includes('hóa đơn')
     ) {
-      const bkMatch = item.message.match(/BK-[\w\d-]+/i);
-      const bookingCode = bkMatch ? bkMatch[0] : 'BK-20261016-003';
+      const hdMatch = item.message.match(/HD-[\w\d-]+/i) || item.title?.match(/HD-[\w\d-]+/i);
+      const bkMatch = item.message.match(/BK-[\w\d-]+/i) || item.title?.match(/BK-[\w\d-]+/i);
+      const invoiceCode = hdMatch ? hdMatch[0] : '';
+      const bookingCode = bkMatch ? bkMatch[0] : '';
 
-      // Phát sự kiện để mở ngay popup biên lai nếu người dùng đang ở sẵn trang /cashier-pos
-      window.dispatchEvent(
-        new CustomEvent('mld_open_pos_receipt', { detail: { bookingCode } })
-      );
-
-      navigate(`/cashier-pos?booking=${bookingCode}&receipt=true`);
+      if (invoiceCode || bookingCode) {
+        window.dispatchEvent(
+          new CustomEvent('mld_open_pos_receipt', { detail: { invoiceCode, bookingCode } })
+        );
+        const query = invoiceCode ? `invoice=${invoiceCode}&receipt=true` : `booking=${bookingCode}&receipt=true`;
+        navigate(`/cashier-pos?${query}`);
+      } else {
+        navigate('/cashier-pos');
+      }
       setShowNotifications(false);
       setSelectedNotifDetail(null);
       return;

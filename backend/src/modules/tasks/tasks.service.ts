@@ -208,7 +208,113 @@ export class TasksService {
         }
       }
     } catch (err: any) {
-      this.logger.warn(`Lỗi trong cron job tự động refresh Zalo token: ${err.message}`);
+      this.logger.warn(`Lỗi trong cron job refresh Zalo token: ${err.message}`);
+    }
+  }
+
+  /**
+   * CRON JOB 4: Tự động quét kiểm tra thời hạn 365 ngày của học viên
+   * Chạy định kỳ vào 00:00 (nửa đêm) mỗi ngày
+   * Tự động chuyển các ghi danh quá hạn 365 ngày sang trạng thái EXPIRED và thu hồi quyền truy cập
+   */
+  @Cron('0 0 * * *')
+  async handleSweepExpiredEnrollments(): Promise<{ expiredCount: number; expiringSoonCount: number; activeCount: number }> {
+    try {
+      this.logger.log('⏱️ [CRON JOB HỌC VIỆN] Bắt đầu quét kiểm tra thời hạn 365 ngày của học viên...');
+
+      const { data, error } = await this.supabaseService.adminClient.rpc('fn_expire_enrollments_cron');
+
+      if (!error && data && data.length > 0) {
+        const row = data[0];
+        const expiredCount = Number(row.expired_count || 0);
+        const expiringSoonCount = Number(row.expiring_soon_count || 0);
+        const activeCount = Number(row.active_count || 0);
+
+        this.logger.log(
+          `✅ [CRON JOB HỌC VIỆN] Quét hoàn tất: ${expiredCount} học viên hết hạn (EXPIRED), ${expiringSoonCount} học viên sắp hết hạn (<=30 ngày), ${activeCount} học viên đang hoạt động.`,
+        );
+
+        return { expiredCount, expiringSoonCount, activeCount };
+      } else {
+        // Fallback nếu RPC chưa sẵn sàng: truy vấn và cập nhật trực tiếp qua Supabase Client
+        const nowIso = new Date().toISOString();
+        const { data: expiredList } = await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .select('id, student_name, valid_until')
+          .lt('valid_until', nowIso)
+          .neq('access_status', 'EXPIRED');
+
+        let expiredCount = 0;
+        if (expiredList && expiredList.length > 0) {
+          for (const item of expiredList) {
+            await this.supabaseService.adminClient
+              .from('course_enrollments')
+              .update({
+                access_status: 'EXPIRED',
+                expired_at: nowIso,
+              })
+              .eq('id', item.id);
+            expiredCount++;
+          }
+        }
+
+        this.logger.log(`✅ [CRON JOB HỌC VIỆN] Đã cập nhật ${expiredCount} học viên hết hạn sang EXPIRED.`);
+        return { expiredCount, expiringSoonCount: 0, activeCount: 0 };
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron job quét hết hạn học viên: ${err.message}`);
+      return { expiredCount: 0, expiringSoonCount: 0, activeCount: 0 };
+    }
+  }
+
+  /**
+   * CRON JOB 5: Tự động giải phóng tài nguyên Spa khi ca kết thúc (Auto-Release Lifecycle)
+   * Chạy định kỳ mỗi 10 phút
+   * Cập nhật các booking đã qua giờ kết thúc thành COMPLETED, giải phóng 6 Giường và 6 KTV cho ca tiếp theo
+   */
+  @Cron('*/5 * * * *')
+  async handleAutoReleaseExpiredBookings(): Promise<{ releasedCount: number }> {
+    try {
+      this.logger.log('⏱️ [CRON JOB SPA DRC] Bắt đầu quét giải phóng tài nguyên ca đã kết thúc (Auto-Release)...');
+      
+      // 1. Thử gọi RPC fn_release_completed_bookings
+      const { data, error } = await this.supabaseService.adminClient.rpc('fn_release_completed_bookings');
+      if (!error && data && data.length > 0) {
+        const releasedCount = Number(data[0].released_count || 0);
+        if (releasedCount > 0) {
+          this.logger.log(
+            `✅ [CRON JOB SPA DRC] Auto-release RPC hoàn tất: ${releasedCount} ca đã hoàn thành (nhả giường & KTV).`,
+          );
+        }
+        return { releasedCount };
+      }
+
+      // 2. Fallback trực tiếp bằng Supabase query
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentTimeStr = now.toTimeString().split(' ')[0];
+      const { data: pastBookings } = await this.supabaseService.adminClient
+        .from('bookings')
+        .select('id')
+        .eq('booking_date', todayStr)
+        .lte('end_time', currentTimeStr)
+        .in('status', ['IN_SERVICE', 'CONFIRMED']);
+
+      let releasedCount = 0;
+      if (pastBookings && pastBookings.length > 0) {
+        for (const b of pastBookings) {
+          await this.supabaseService.adminClient
+            .from('bookings')
+            .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
+            .eq('id', b.id);
+          releasedCount++;
+        }
+        this.logger.log(`✅ [CRON JOB SPA DRC] Fallback hoàn tất: Đã nhả phòng & KTV cho ${releasedCount} ca.`);
+      }
+      return { releasedCount };
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron job auto-release booking: ${err.message}`);
+      return { releasedCount: 0 };
     }
   }
 }

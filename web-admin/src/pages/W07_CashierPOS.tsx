@@ -25,6 +25,9 @@ import {
   Download,
   GraduationCap,
   Plus,
+  Calendar,
+  Building2,
+  UserCheck,
 } from 'lucide-react';
 import { exportElementToPdf } from '../utils/pdfExport';
 import {
@@ -51,9 +54,25 @@ import {
   CourseEnrollment,
   StudentAdmissionStatus,
   EnrollmentStatus,
+  Service,
+  Technician,
+  DualSlotAvailability,
 } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { useAdmin } from '../admin/Auth';
+
+export const POS_TIME_SLOTS = [
+  { label: '09:00–10:00', startTime: '09:00:00', endTime: '10:00:00' },
+  { label: '10:00–11:00', startTime: '10:00:00', endTime: '11:00:00' },
+  { label: '11:00–12:00', startTime: '11:00:00', endTime: '12:00:00' },
+  { label: '13:30–14:30', startTime: '13:30:00', endTime: '14:30:00' },
+  { label: '14:30–15:30', startTime: '14:30:00', endTime: '15:30:00' },
+  { label: '15:30–16:30', startTime: '15:30:00', endTime: '16:30:00' },
+  { label: '16:30–17:30', startTime: '16:30:00', endTime: '17:30:00' },
+  { label: '17:30–18:30', startTime: '17:30:00', endTime: '18:30:00' },
+  { label: '18:30–19:30', startTime: '18:30:00', endTime: '19:30:00' },
+  { label: '19:30–20:30', startTime: '19:30:00', endTime: '20:30:00' },
+];
 
 export const W07_CashierPOS: React.FC = () => {
   const { user: adminUser } = useAdmin();
@@ -166,6 +185,21 @@ export const W07_CashierPOS: React.FC = () => {
   const [shiftClosingCash, setShiftClosingCash] = useState<number>(0);
   const [shiftNotes, setShiftNotes] = useState('');
 
+  // Walk-in Quick Booking Modal State (DRC: 6 Giường × 6 KTV × Ca 1 Giờ)
+  const [showWalkInModal, setShowWalkInModal] = useState<boolean>(false);
+  const [walkInCustomerName, setWalkInCustomerName] = useState<string>('');
+  const [walkInCustomerPhone, setWalkInCustomerPhone] = useState<string>('');
+  const [walkInCustomerId, setWalkInCustomerId] = useState<string>('');
+  const [walkInServiceId, setWalkInServiceId] = useState<string>('');
+  const [walkInDate, setWalkInDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [walkInSlotIndex, setWalkInSlotIndex] = useState<number>(0);
+  const [walkInTechId, setWalkInTechId] = useState<string>(''); // rỗng = least-busy auto assign
+  const [walkInDrcSlots, setWalkInDrcSlots] = useState<DualSlotAvailability[]>([]);
+  const [isLoadingWalkInSlots, setIsLoadingWalkInSlots] = useState<boolean>(false);
+  const [isSubmittingWalkIn, setIsSubmittingWalkIn] = useState<boolean>(false);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [allTechnicians, setAllTechnicians] = useState<Technician[]>([]);
+
   const [selectedReceiptData, setSelectedReceiptData] = useState<{
     id: string;
     customerName: string;
@@ -224,7 +258,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
-      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes] = await Promise.all([
+      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes, srvRes, techRes] = await Promise.all([
         posService.getInvoices(),
         bookingService.getBookings(),
         customerService.getCustomers(),
@@ -232,6 +266,8 @@ export const W07_CashierPOS: React.FC = () => {
         treatmentService.getTreatmentPackages(),
         posService.getActiveShift(selectedBranchId !== 'ALL' ? selectedBranchId : undefined),
         academyService.getEnrollments(),
+        supabaseService.getServices(),
+        supabaseService.getTechnicians(),
       ]);
       if (invRes.success) setInvoices(invRes.data);
       if (brRes.success && brRes.data) setBranches(brRes.data);
@@ -239,6 +275,11 @@ export const W07_CashierPOS: React.FC = () => {
       if (pkgRes.success && pkgRes.data) setTreatmentPackages(pkgRes.data);
       if (shiftRes.success && shiftRes.data) setCurrentShift(shiftRes.data);
       if (enrRes.success && enrRes.data) setAllEnrollments(enrRes.data);
+      if (srvRes && srvRes.length > 0) {
+        setAllServices(srvRes);
+        setWalkInServiceId((prev) => prev || srvRes[0].id);
+      }
+      if (techRes && techRes.length > 0) setAllTechnicians(techRes);
       
       const bks = bkRes.success ? bkRes.data : [];
       setAllBookings(bks);
@@ -251,122 +292,209 @@ export const W07_CashierPOS: React.FC = () => {
     fetchPosData();
   }, []);
 
-  // Handle URL query parameters (e.g. ?booking=BK-20261016-003&receipt=true)
+  // Tự động tải danh sách 10 ca 1 tiếng DRC khi mở modal Đặt lịch tại quầy
   useEffect(() => {
-    const bookingParam = searchParams.get('booking');
-    const receiptParam = searchParams.get('receipt');
-
-    if (bookingParam) {
-      const kw = bookingParam.toLowerCase().trim();
-      const found = allBookings.find(
-        (b) =>
-          b.bookingCode.toLowerCase().includes(kw) ||
-          b.id.toLowerCase() === kw
-      );
-      if (found) {
-        setBooking(found);
-        setIsPaid(found.paymentStatus === 'PAID');
-        if (found.customer) {
-          setCustomer(found.customer);
-          setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
-        } else {
-          setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
+    if (!showWalkInModal) return;
+    const fetchWalkInSlots = async () => {
+      setIsLoadingWalkInSlots(true);
+      try {
+        const branch = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+        const res = await bookingService.getDaySlotsDualAvailability(branch, walkInDate);
+        if (res.success && res.data) {
+          setWalkInDrcSlots(res.data);
         }
-      } else {
-        if (bookingParam.includes('BK-20261016-003')) {
-          setSearchTerm(`Xuân Trường / BK-20261016-003`);
-          setIsPaid(true);
-        }
+      } catch (e) {
+        console.warn('Lỗi lấy slots cho walk-in POS:', e);
+      } finally {
+        setIsLoadingWalkInSlots(false);
       }
+    };
+    fetchWalkInSlots();
+  }, [showWalkInModal, walkInDate, selectedBranchId]);
+
+  // Xử lý tạo đơn đặt lịch nhanh tại quầy (Walk-in)
+  const handleCreateWalkInBooking = async () => {
+    if (!walkInCustomerName.trim()) {
+      toast.warning('Thiếu thông tin', 'Vui lòng nhập họ tên khách hàng.');
+      return;
+    }
+    const chosenService = allServices.find((s) => s.id === walkInServiceId) || allServices[0];
+    const chosenSlot = POS_TIME_SLOTS[walkInSlotIndex] || POS_TIME_SLOTS[0];
+    const targetBranchId = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
+
+    // Kiểm tra DRC slot
+    const drcInfo = walkInDrcSlots.find(
+      (d) => d.slotTime === chosenSlot.label || d.startTime?.startsWith(chosenSlot.startTime.slice(0, 5))
+    );
+    if (drcInfo && !drcInfo.isAvailable) {
+      toast.error('Hết chỗ', `Không thể đặt lịch ca này: ${drcInfo.statusText}. Vui lòng chọn ca khác!`);
+      return;
     }
 
-    // Xử lý nạp nhanh Gói liệu trình VIP khi chuyển từ trang Quản lý Gói liệu trình
-    const packageIdParam = searchParams.get('packageId');
-    const packageNameParam = searchParams.get('packageName');
-    if (packageIdParam || packageNameParam) {
-      const foundPkg = treatmentPackages.find(
-        (p) =>
-          p.id === packageIdParam ||
-          (packageNameParam && p.name?.toLowerCase().includes(packageNameParam.toLowerCase()))
-      );
-      const pkgName = foundPkg?.name || packageNameParam || 'Liệu Trình Phục Hồi & Trẻ Hóa Da 5 Buổi';
-      const pkgPrice = foundPkg?.price || 2290000;
-      const totalSessions = foundPkg?.totalSessions || 5;
-
-      setCustomer({
-        id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-        fullName: 'Xuân Trường',
-        phone: '0334750241',
-        membershipTier: 'GOLD',
-      } as any);
-
-      setBooking({
-        id: `pkg-order-${packageIdParam || Date.now()}`,
-        bookingCode: `VIP-PKG-${Math.floor(1000 + Math.random() * 9000)}`,
-        branchId: 'aaaaaaaa-0001-0001-0001-000000000001',
-        customerId: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-        technicianId: 'cccccccc-0001-0001-0001-000000000001',
-        bookingDate: new Date().toISOString().split('T')[0],
-        status: BookingStatus.PENDING,
+    setIsSubmittingWalkIn(true);
+    try {
+      const srvPrice = Number(chosenService?.price || 450000);
+      const res = await bookingService.createBooking({
+        customerName: walkInCustomerName.trim(),
+        customerPhone: walkInCustomerPhone.trim() || undefined,
+        customerId: walkInCustomerId || undefined,
+        branchId: targetBranchId,
+        serviceId: chosenService?.id,
+        serviceName: chosenService?.name || 'Chăm sóc & Trị liệu Spa',
+        durationMinutes: chosenService?.durationMinutes || 60,
+        bookingDate: walkInDate,
+        startTime: chosenSlot.startTime,
+        endTime: chosenSlot.endTime,
+        baseTotal: srvPrice,
+        finalPrice: srvPrice,
+        status: BookingStatus.CONFIRMED,
         paymentStatus: PaymentStatus.UNPAID,
-        baseTotal: foundPkg?.discountPrice && foundPkg.discountPrice > pkgPrice ? foundPkg.discountPrice : Math.round(pkgPrice * 1.2),
-        discountAmount: foundPkg?.discountPrice && foundPkg.discountPrice > pkgPrice ? foundPkg.discountPrice - pkgPrice : Math.round(pkgPrice * 0.2),
-        finalPrice: pkgPrice,
-        customer: {
-          id: '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-          fullName: 'Xuân Trường',
-          phone: '0334750241',
-        } as any,
-        items: [
-          {
-            id: `item-${packageIdParam || 'pkg'}`,
-            serviceId: foundPkg?.serviceId || 'srv-pkg',
-            service: {
-              id: foundPkg?.serviceId || 'srv-pkg',
-              name: `${pkgName} (${totalSessions} buổi)`,
-              durationMinutes: 75,
-              price: pkgPrice,
-            } as any,
-            quantity: 1,
-            unitPrice: pkgPrice,
-          } as any,
-        ],
-      } as any);
-      setIsPaid(false);
-      setSearchTerm(`Xuân Trường / ${pkgName}`);
+        technicianId: walkInTechId || undefined,
+        notes: `[POS Walk-in] Khách vãng lai tiếp nhận tại quầy ${new Date().toLocaleTimeString('vi-VN')}`,
+      });
+
+      if (res.success && res.data) {
+        toast.success(
+          'Tiếp nhận Walk-in thành công',
+          `Đã tạo đơn ${res.data.bookingCode} cho khách ${walkInCustomerName}. Chuyển sang thanh toán POS!`
+        );
+        setAllBookings((prev) => [res.data, ...prev]);
+        setBooking(res.data);
+        setIsPaid(false);
+        setSearchTerm(`${walkInCustomerName} / ${res.data.bookingCode}`);
+        setShowWalkInModal(false);
+      } else {
+        toast.error('Lỗi đặt lịch tại quầy', res.message || 'Không thể tạo đơn đặt lịch.');
+      }
+    } catch (err: any) {
+      console.error('Lỗi tạo walk-in booking:', err);
+      toast.error('Lỗi', err?.message || 'Có lỗi xảy ra khi tạo lịch hẹn.');
+    } finally {
+      setIsSubmittingWalkIn(false);
+    }
+  };
+
+  // Tra cứu đơn hoặc hóa đơn từ CSDL thực tế và hiển thị biên lai
+  const loadReceiptByCode = async (rawCode?: string) => {
+    if (!rawCode || !rawCode.trim()) return;
+    const cleanCode = rawCode.trim();
+
+    // 1. Kiểm tra trong danh sách allBookings hiện hành
+    const found = allBookings.find(
+      (b) =>
+        b.bookingCode?.toLowerCase() === cleanCode.toLowerCase() ||
+        b.id?.toLowerCase() === cleanCode.toLowerCase()
+    );
+    if (found) {
+      setBooking(found);
+      setIsPaid(found.paymentStatus === 'PAID');
+      setSelectedReceiptData(null);
+      if (found.customer) {
+        setCustomer(found.customer);
+        setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
+      } else {
+        setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
+      }
+      setShowReceiptModal(true);
+      return;
     }
 
-    if (receiptParam === 'true') {
-      setShowReceiptModal(true);
+    // 2. Tra cứu trực tiếp bảng invoices trên Supabase Cloud
+    try {
+      const invRows = await supabaseService.query<any[]>(
+        `invoices?invoice_code=eq.${cleanCode}&select=*,customer:users!customer_id(full_name,phone),branch:branches!branch_id(name)`
+      );
+      if (invRows && invRows.length > 0) {
+        const inv = invRows[0];
+        const invAmount = Number(inv.total_amount || inv.subtotal || 0);
+        setSelectedReceiptData({
+          id: inv.invoice_code,
+          customerName: inv.customer?.full_name || 'Khách hàng',
+          customerPhone: inv.customer?.phone || '--',
+          branchName: inv.branch?.name || 'Chi nhánh MLD',
+          serviceName: 'Dịch vụ Trị liệu Dẫn lưu bạch huyết',
+          method: inv.payment_method === 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'Tiền mặt tại cơ sở',
+          amount: `${invAmount.toLocaleString('vi-VN')}đ`,
+          date: new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+          }).format(new Date(inv.paid_at || inv.created_at || new Date())),
+          commissionText: `+${Math.round(invAmount * 0.1).toLocaleString('vi-VN')}đ (KTV Phụ trách)`,
+          shiftCode: inv.shift_id ? `Ca ${inv.shift_id.slice(-4)}` : undefined,
+        });
+        setSearchTerm(`${inv.customer?.full_name || 'Khách hàng'} / ${inv.invoice_code}`);
+        setShowReceiptModal(true);
+        return;
+      }
+    } catch (e) {
+      console.warn('[POS] Tra cứu hóa đơn từ Supabase lỗi:', e);
     }
-  }, [searchParams, allBookings, treatmentPackages]);
+
+    // 3. Tra cứu trực tiếp bảng bookings trên Supabase Cloud
+    try {
+      const bkRows = await supabaseService.query<any[]>(
+        `bookings?booking_code=eq.${cleanCode}&select=*,customer:users!customer_id(full_name,phone),branch:branches!branch_id(name)`
+      );
+      if (bkRows && bkRows.length > 0) {
+        const bk = bkRows[0];
+        const finalAmt = Number(bk.final_price || bk.base_total || 0);
+        setSelectedReceiptData({
+          id: bk.booking_code,
+          customerName: bk.customer?.full_name || bk.booked_for_name || 'Khách hàng',
+          customerPhone: bk.customer?.phone || bk.booked_for_phone || '--',
+          branchName: bk.branch?.name || 'Chi nhánh MLD',
+          serviceName: 'Dịch vụ Trị liệu Dẫn lưu bạch huyết',
+          method: bk.payment_method === 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'Tiền mặt tại cơ sở',
+          amount: `${finalAmt.toLocaleString('vi-VN')}đ`,
+          date: new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+          }).format(new Date(bk.booking_date || new Date())),
+          commissionText: `+${Math.round(finalAmt * 0.1).toLocaleString('vi-VN')}đ (KTV Phụ trách)`,
+        });
+        setSearchTerm(`${bk.customer?.full_name || bk.booked_for_name || 'Khách hàng'} / ${bk.booking_code}`);
+        setShowReceiptModal(true);
+        return;
+      }
+    } catch (e) {
+      console.warn('[POS] Tra cứu lịch hẹn từ Supabase lỗi:', e);
+    }
+
+    // 4. Nếu mã không tồn tại trên hệ thống
+    toast.error('Không tìm thấy', `Đơn hoặc hóa đơn "${cleanCode}" không tồn tại hoặc đã được dọn dẹp khỏi CSDL.`);
+    setShowReceiptModal(false);
+    setSelectedReceiptData(null);
+    setBooking(undefined);
+    setCustomer(undefined);
+    setSearchTerm('');
+    if (searchParams.get('receipt') || searchParams.get('booking') || searchParams.get('invoice')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('receipt');
+      nextParams.delete('booking');
+      nextParams.delete('invoice');
+      nextParams.delete('code');
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
+
+  // Handle URL query parameters (e.g. ?invoice=HD-... or ?booking=BK-...)
+  useEffect(() => {
+    const invoiceParam = searchParams.get('invoice');
+    const bookingParam = searchParams.get('booking');
+    const codeParam = searchParams.get('code') || invoiceParam || bookingParam;
+
+    if (codeParam) {
+      loadReceiptByCode(codeParam);
+    }
+  }, [searchParams, allBookings]);
 
   // Handle cross-page / in-page dispatch event from notification click
   useEffect(() => {
     const handleOpenReceipt = (e: any) => {
-      const bCode = e.detail?.bookingCode;
-      if (bCode) {
-        const kw = bCode.toLowerCase().trim();
-        const found = allBookings.find(
-          (b) =>
-            b.bookingCode.toLowerCase().includes(kw) ||
-            b.id.toLowerCase() === kw
-        );
-        if (found) {
-          setBooking(found);
-          setIsPaid(found.paymentStatus === 'PAID');
-          if (found.customer) {
-            setCustomer(found.customer);
-            setSearchTerm(`${found.customer.fullName} / ${found.bookingCode}`);
-          } else {
-            setSearchTerm(`${found.bookedForName || 'Khách hàng'} / ${found.bookingCode}`);
-          }
-        } else if (bCode.includes('BK-20261016-003')) {
-          setSearchTerm(`Xuân Trường / BK-20261016-003`);
-          setIsPaid(true);
-        }
+      const code = e.detail?.invoiceCode || e.detail?.bookingCode || e.detail?.code;
+      if (code) {
+        loadReceiptByCode(code);
       }
-      setShowReceiptModal(true);
     };
 
     window.addEventListener('mld_open_pos_receipt', handleOpenReceipt);
@@ -750,8 +878,8 @@ export const W07_CashierPOS: React.FC = () => {
           ? PaymentMethod.MOMO
           : PaymentMethod.BANK_TRANSFER;
 
-      const bookingCode = booking.bookingCode || 'BK-20261016-003';
-      const baseSubtotal = booking.baseTotal || (booking.finalPrice || 390000);
+      const bookingCode = booking.bookingCode || '';
+      const baseSubtotal = booking.baseTotal || (booking.finalPrice || 0);
       const discountVal = booking.discountAmount || 0;
       const pointsVal = booking.pointsDiscount || 0;
       const preTax = isPackageRedemption ? 0 : Math.max(0, baseSubtotal - discountVal - pointsVal);
@@ -1219,7 +1347,7 @@ export const W07_CashierPOS: React.FC = () => {
   const kpiCashOrMomoAmount = kpiCashOrMomo.reduce((sum, r) => sum + r.rawAmount, 0);
 
   // Tính toán chi phí, VAT và tổng thanh toán theo chuẩn Y tế
-  const rawSubtotal = booking ? (booking.baseTotal || (booking.finalPrice || 390000)) : 0;
+  const rawSubtotal = booking ? (booking.baseTotal || (booking.finalPrice || 0)) : 0;
   const rawDiscount = booking ? (booking.discountAmount || 0) : 0;
   const rawPoints = booking ? (booking.pointsDiscount || 0) : 0;
   const preTaxAmount = isPackageRedemption ? 0 : Math.max(0, rawSubtotal - rawDiscount - rawPoints);
@@ -1271,6 +1399,21 @@ export const W07_CashierPOS: React.FC = () => {
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Đồng bộ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedBranchId === 'ALL' && branches.length > 0) {
+                setSelectedBranchId(branches[0].id);
+              }
+              setShowWalkInModal(true);
+            }}
+            className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+            title="Tạo lịch hẹn dịch vụ trực tiếp tại quầy theo chuẩn 6 Giường × 6 KTV"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Đặt lịch tại quầy (Walk-in)</span>
           </button>
 
           {activeTab === 'pos' ? (
@@ -1859,7 +2002,7 @@ export const W07_CashierPOS: React.FC = () => {
                   Chưa chọn đơn dịch vụ nào
                 </h3>
                 <p className="text-xs text-[#73675F] max-w-sm mx-auto mt-1 leading-relaxed">
-                  Vui lòng nhập mã đơn (ví dụ: BK-20261016-003) hoặc tên khách hàng tại thanh tìm kiếm phía trên để tra cứu và quyết toán.
+                  Vui lòng nhập mã đơn hoặc tên khách hàng tại thanh tìm kiếm phía trên để tra cứu và quyết toán.
                 </p>
               </div>
               {allBookings.filter((b) => {
@@ -2657,7 +2800,7 @@ export const W07_CashierPOS: React.FC = () => {
       )}
 
       {/* 8. Luxury Electronic Receipt Modal */}
-      {showReceiptModal && (
+      {showReceiptModal && (Boolean(selectedReceiptData) || Boolean(booking?.id && (booking.finalPrice || booking.baseTotal))) && (
         <div
           role="dialog"
           aria-modal="true"
@@ -2696,7 +2839,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <div className="flex items-center justify-between pb-2 border-b border-dashed border-[#E0D4C7]">
                   <span className="text-[#73675F]">Mã hóa đơn / Phiếu thu:</span>
                   <span className="font-bold text-[#2C241E] font-mono">
-                    {selectedReceiptData?.id || booking?.bookingCode || 'BK-20261016-003'}
+                    {selectedReceiptData?.id || booking?.bookingCode || '--'}
                   </span>
                 </div>
 
@@ -2779,7 +2922,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <div className="pt-2.5 border-t border-dashed border-[#E0D4C7] flex items-center justify-between">
                   <span className="font-bold text-sm text-[#2C241E]">Tổng đã quyết toán:</span>
                   <span className="text-base font-extrabold text-[#0D6832]">
-                    {selectedReceiptData?.amount || `${(booking?.finalPrice || 390000).toLocaleString('vi-VN')}đ`}
+                    {selectedReceiptData?.amount || `${(booking?.finalPrice || 0).toLocaleString('vi-VN')}đ`}
                   </span>
                 </div>
 
@@ -2791,7 +2934,7 @@ export const W07_CashierPOS: React.FC = () => {
                       <span>Hoa hồng KTV (10%):</span>
                     </span>
                     <span className="font-bold text-[#8A4F23]">
-                      {selectedReceiptData?.commissionText || '+39.000đ (KTV Phụ trách)'}
+                      {selectedReceiptData?.commissionText || `${Math.round(((booking?.finalPrice || 0) * 0.1)).toLocaleString('vi-VN')}đ (KTV Phụ trách)`}
                     </span>
                   </div>
 
@@ -3115,6 +3258,255 @@ export const W07_CashierPOS: React.FC = () => {
                   <span>Xác nhận đóng ca</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Walk-in Quick Booking Modal (Dual-Resource Engine: 6 Giường × 6 KTV × Ca 1 Giờ) */}
+      {showWalkInModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-[#D7BBA6] overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-emerald-800 to-teal-800 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-xl backdrop-blur-xs">
+                  <Calendar className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold">Tiếp nhận & Đặt lịch tại quầy (Walk-in)</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/30 text-emerald-100 border border-emerald-400/30">
+                      DRC Engine
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-200/90 mt-0.5">
+                    Ràng buộc tự động: 6 Giường × 6 KTV • Ca 1 Tiếng chuẩn Y tế
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWalkInModal(false)}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              {/* Row 1: Thông tin khách hàng */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Họ tên khách hàng <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={walkInCustomerName}
+                    onChange={(e) => setWalkInCustomerName(e.target.value)}
+                    placeholder="VD: Nguyễn Thị Lan"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="text"
+                    value={walkInCustomerPhone}
+                    onChange={(e) => setWalkInCustomerPhone(e.target.value)}
+                    placeholder="VD: 0988123456"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Chi nhánh & Dịch vụ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Cơ sở thực hiện
+                  </label>
+                  <select
+                    value={selectedBranchId !== 'ALL' ? selectedBranchId : (branches[0]?.id || '')}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        📍 {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Dịch vụ trị liệu Spa
+                  </label>
+                  <select
+                    value={walkInServiceId}
+                    onChange={(e) => setWalkInServiceId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  >
+                    {allServices.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.durationMinutes || 60}p - {Number(s.price || 0).toLocaleString('vi-VN')}đ)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 3: Ngày hẹn & KTV */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Ngày thực hiện
+                  </label>
+                  <input
+                    type="date"
+                    value={walkInDate}
+                    onChange={(e) => setWalkInDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Kỹ thuật viên (DRC Dispatch)
+                  </label>
+                  <select
+                    value={walkInTechId}
+                    onChange={(e) => setWalkInTechId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  >
+                    <option value="">✨ Tự động phân bổ KTV ít ca nhất (Khuyên dùng)</option>
+                    {allTechnicians.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        👤 {t.fullName} {t.ratingAvg ? `(${t.ratingAvg}★)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 4: 10 Khung giờ ca 1 tiếng (DRC Slot Grid) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    Chọn khung giờ ca 1 tiếng & Tải công suất thực tế
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {isLoadingWalkInSlots ? 'Đang kiểm tra công suất...' : 'Trần: 6 Giường × 6 KTV'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {POS_TIME_SLOTS.map((slot, idx) => {
+                    const drc = walkInDrcSlots.find(
+                      (d) =>
+                        d.slotTime === slot.label ||
+                        (d.startTime && d.startTime.slice(0, 5) === slot.startTime.slice(0, 5))
+                    );
+
+                    const isAvail = drc ? drc.isAvailable : true;
+                    const cap = (drc?.remainingCapacity ?? drc?.capacity ?? 6);
+                    const beds = (drc?.freeBeds ?? drc?.availableBeds ?? 6);
+                    const techs = (drc?.freeStaff ?? drc?.availableTechnicians ?? 6);
+                    const isSelected = walkInSlotIndex === idx;
+
+                    if (!isAvail || cap <= 0) {
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={true}
+                          className="p-2.5 rounded-xl border border-dashed border-rose-200 bg-rose-50/60 text-left opacity-60 cursor-not-allowed select-none transition-all"
+                          title={drc?.statusText || 'Đã hết giường hoặc kỹ thuật viên cho ca này'}
+                        >
+                          <div className="text-[11px] font-bold text-rose-800">{slot.label}</div>
+                          <div className="text-[10px] text-rose-600 font-semibold mt-0.5">
+                            {drc?.statusText ? drc.statusText : beds === 0 ? '❌ Hết giường' : '❌ Hết KTV'}
+                          </div>
+                          <div className="text-[9px] text-rose-400 mt-0.5">
+                            {beds}G trống • {techs}NV
+                          </div>
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setWalkInSlotIndex(idx)}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/30 shadow-xs'
+                            : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold">{slot.label}</span>
+                          {drc?.isRecommended && (
+                            <span className="text-[8px] bg-emerald-600 text-white font-extrabold px-1 rounded">
+                              HOT
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                          Còn {cap} chỗ
+                        </div>
+                        <div className="text-[9px] text-slate-500 mt-0.5 flex items-center gap-1">
+                          <span>{beds}G</span> • <span>{techs}NV</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Thông tin xác nhận */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-800 flex items-start gap-2 text-[11px]">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold">Cơ chế quản lý giường & KTV thông minh (DRC Engine):</p>
+                  <p className="text-amber-700">
+                    Khi tạo đơn, hệ thống sẽ tự động chỉ định 1 Giường tiêu chuẩn và 1 Kỹ thuật viên còn trống ít ca nhất. Sau khi kết thúc thời lượng ca (60 phút), hệ thống tự động nhả tài nguyên cho ca kế tiếp.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowWalkInModal(false)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateWalkInBooking}
+                disabled={isSubmittingWalkIn}
+                className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                {isSubmittingWalkIn ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Đang khởi tạo & Khóa tài nguyên...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Xác nhận đặt lịch & Mở đơn POS</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -133,31 +133,7 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
           }));
           setHolders(mapped);
         } else if (isSubscribed) {
-          // Fallback demo holders if empty or offline
-          setHolders([
-            {
-              id: 'demo-holder-1',
-              customer_id: 'cust-1',
-              customer_name: 'Trần Thị Mai',
-              customer_phone: '0912 345 678',
-              total_sessions: totalSessions,
-              completed_sessions: Math.min(3, totalSessions),
-              status: 'ACTIVE',
-              created_at: '2026-10-10T09:00:00Z',
-              expires_at: '2027-04-10T23:59:59Z',
-            },
-            {
-              id: 'demo-holder-2',
-              customer_id: 'cust-2',
-              customer_name: 'Nguyễn Thị Bích Phương',
-              customer_phone: '0988 776 655',
-              total_sessions: totalSessions,
-              completed_sessions: 1,
-              status: 'ACTIVE',
-              created_at: '2026-10-18T14:30:00Z',
-              expires_at: '2027-04-18T23:59:59Z',
-            },
-          ]);
+          setHolders([]);
         }
       } catch (err) {
         console.warn('Lỗi tải khách hàng gói liệu trình:', err);

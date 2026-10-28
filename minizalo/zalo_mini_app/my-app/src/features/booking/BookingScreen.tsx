@@ -1,7 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Branch, SpaService, Appointment, UserProfile } from '@/core/types';
 import { SupabaseDataService } from '@/api/supabase';
 import { Calendar, Clock, MapPin, User, Phone, CheckCircle, ArrowLeft, AlertCircle, FileText } from 'lucide-react';
+
+export const MINI_APP_SPA_SLOTS = [
+  { label: '09:00 – 10:00', startTime: '09:00:00', endTime: '10:00:00' },
+  { label: '10:00 – 11:00', startTime: '10:00:00', endTime: '11:00:00' },
+  { label: '11:00 – 12:00', startTime: '11:00:00', endTime: '12:00:00' },
+  { label: '13:30 – 14:30', startTime: '13:30:00', endTime: '14:30:00' },
+  { label: '14:30 – 15:30', startTime: '14:30:00', endTime: '15:30:00' },
+  { label: '15:30 – 16:30', startTime: '15:30:00', endTime: '16:30:00' },
+  { label: '16:30 – 17:30', startTime: '16:30:00', endTime: '17:30:00' },
+  { label: '17:30 – 18:30', startTime: '17:30:00', endTime: '18:30:00' },
+  { label: '18:30 – 19:30', startTime: '18:30:00', endTime: '19:30:00' },
+  { label: '19:30 – 20:30', startTime: '19:30:00', endTime: '20:30:00' },
+];
 
 interface BookingScreenProps {
   branches: Branch[];
@@ -31,6 +44,24 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(tomorrowStr);
+
+  const [selectedSlot, setSelectedSlot] = useState(MINI_APP_SPA_SLOTS[0]);
+  const [drcSlots, setDrcSlots] = useState<any[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+
+  useEffect(() => {
+    if (selectedBranch?.id && selectedDate) {
+      setIsLoadingSlots(true);
+      SupabaseDataService.getDaySlotsDualAvailability(selectedBranch.id, selectedDate)
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setDrcSlots(data);
+          }
+        })
+        .catch(console.warn)
+        .finally(() => setIsLoadingSlots(false));
+    }
+  }, [selectedBranch?.id, selectedDate]);
 
   
 
@@ -66,11 +97,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       branchName: selectedBranch.name,
       branchAddress: selectedBranch.address,
       branchPhone: selectedBranch.phone,
-      specialistName: 'Kỹ thuật viên hệ thống MLD',
+      specialistName: 'Kỹ thuật viên hệ thống MLD (Least-Busy Dispatch)',
       specialistTitle: 'Chuyên viên Vodder tự động phân bổ',
       specialistAvatar: 'https://images.unsplash.com/photo-1594824813633-4f90bf4a8585',
       appointmentDate: selectedDate,
-      timeSlot: 'Trong ngày',
+      timeSlot: selectedSlot.label,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       specialNotes: note.trim(),
@@ -80,12 +111,14 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    SupabaseDataService.saveAppointment(newAppointment);
+    await SupabaseDataService.saveAppointment(newAppointment, {
+      branchId: selectedBranch.id,
+      startTime: selectedSlot.startTime,
+      endTime: selectedSlot.endTime,
+    });
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setConfirmedBooking(newAppointment);
-    }, 400);
+    setIsSubmitting(false);
+    setConfirmedBooking(newAppointment);
   };
 
   return (
@@ -164,6 +197,53 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               onChange={(e) => setSelectedDate(e.target.value)}
               className="w-full text-xs font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl p-2.5 focus:outline-none"
             />
+          </div>
+
+          {/* 10 Ca 1 tiếng Dual-Resource Capacity Engine */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] text-gray-500 font-medium">Khung giờ ca 1 tiếng:</span>
+              <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
+                Cố định 6 Giường · 6 KTV
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {MINI_APP_SPA_SLOTS.map((slot) => {
+                const isSelected = selectedSlot.label === slot.label;
+                const drc = drcSlots.find((d) => d.slot_time === slot.label || d.slotTime === slot.label);
+                const isAvail = drc ? (drc.is_available ?? drc.isAvailable) : true;
+                const rem = drc ? (drc.remaining_capacity ?? drc.remainingCapacity ?? 6) : 6;
+                const isFull = !isAvail || rem <= 0;
+
+                return (
+                  <button
+                    key={slot.label}
+                    type="button"
+                    disabled={isFull}
+                    onClick={() => setSelectedSlot(slot)}
+                    className={`p-2 rounded-xl text-left border transition-all text-xs ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-50/50 text-blue-900 shadow-xs'
+                        : isFull
+                          ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center justify-between">
+                      <span>{slot.label}</span>
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
+                    </div>
+                    <div className="text-[10px] mt-0.5">
+                      {isFull ? (
+                        <span className="text-red-500 font-medium">Hết chỗ</span>
+                      ) : (
+                        <span className="text-emerald-600 font-medium">Còn {rem} chỗ</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
