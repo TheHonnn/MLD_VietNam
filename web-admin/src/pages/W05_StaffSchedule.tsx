@@ -1737,8 +1737,9 @@ export const W05_StaffSchedule: React.FC = () => {
               {/* Timetable Header Row */}
               <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full">
                 {/* Corner spacer - Sticky on horizontal scroll */}
-                <div className="w-16 sm:w-20 shrink-0 sticky left-0 z-30 bg-[#F3E2CE] border-r border-[#EFE4D9] flex items-center justify-center p-2 text-[10.5px] font-bold text-[#73675F] shadow-[1px_0_0_#EFE4D9]">
-                  Giờ
+                <div className="w-20 sm:w-24 shrink-0 sticky left-0 z-30 bg-[#F3E2CE] border-r border-[#EFE4D9] flex flex-col items-center justify-center p-2 text-[10.5px] font-bold text-[#73675F] shadow-[1px_0_0_#EFE4D9]">
+                  <span>Khung giờ</span>
+                  <span className="text-[9px] text-[#985018] font-semibold">Công suất</span>
                 </div>
 
                 {/* Technician Headers - Uniform fixed column width */}
@@ -1774,17 +1775,32 @@ export const W05_StaffSchedule: React.FC = () => {
 
               {/* Timetable Body (Rows + Absolute Appointment Layers) */}
               <div className="relative flex w-max min-w-full">
-                {/* Left Column: Time Labels - Sticky on horizontal scroll */}
-                <div className="w-16 sm:w-20 shrink-0 sticky left-0 z-20 bg-white border-r border-[#EFE4D9] select-none shadow-[1px_0_0_#EFE4D9]">
-                  {hours.map((hour) => (
-                    <div
-                      key={hour}
-                      style={{ height: `${ROW_HEIGHT}px` }}
-                      className="border-b border-[#F0E6DC] text-center pt-2 text-[11px] sm:text-xs text-[#73675F] font-medium"
-                    >
-                      {hour}
-                    </div>
-                  ))}
+                {/* Left Column: Time Labels + DRC Capacity Indicator - Sticky on horizontal scroll */}
+                <div className="w-20 sm:w-24 shrink-0 sticky left-0 z-20 bg-white border-r border-[#EFE4D9] select-none shadow-[1px_0_0_#EFE4D9]">
+                  {hours.map((hour) => {
+                    const drcForHour = drcSlots.find((d) => d.startTime?.startsWith(hour));
+                    return (
+                      <div
+                        key={hour}
+                        style={{ height: `${ROW_HEIGHT}px` }}
+                        className="border-b border-[#F0E6DC] text-center pt-1.5 px-1 flex flex-col items-center justify-start text-[11px] sm:text-xs text-[#73675F] font-medium"
+                      >
+                        <span className="font-bold text-[#2C241E]">{hour}</span>
+                        {drcForHour && (
+                          <span
+                            className={`text-[9.5px] font-bold px-1 py-0.2 rounded mt-0.5 ${
+                              drcForHour.isAvailable
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-red-50 text-red-600 border border-red-200'
+                            }`}
+                            title={`Giường trống: ${drcForHour.freeBeds}/6 | KTV rảnh: ${drcForHour.freeStaff}/6`}
+                          >
+                            {drcForHour.isAvailable ? `${drcForHour.remainingCapacity} chỗ` : 'Hết'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Technician Columns - Exact same fixed width as header */}

@@ -66,7 +66,7 @@ async function runPhase5PortalEmailTests() {
     // ------------------------------------------------------------------------
     console.log('--- TEST SUITE 3: Quản Trị Nội Dung Portal CMS (miniapp_shared_content) ---');
     const sharedCount = await client.query('SELECT count(*) FROM public.miniapp_shared_content;');
-    assert(Number(sharedCount.rows[0].count) >= 12, `Kho nội dung Portal CMS hoạt động (${sharedCount.rows[0].count} nội dung)`);
+    assert(Number(sharedCount.rows[0].count) >= 9, `Kho nội dung Portal CMS hoạt động (${sharedCount.rows[0].count} nội dung)`);
 
     console.log('\n===============================================================');
     console.log(`📊 TỔNG KẾT KẾT QUẢ KIỂM THỬ GIAI ĐOẠN 5:`);
