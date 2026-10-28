@@ -272,7 +272,15 @@ export const bookingService = {
         params.startTime,
         params.endTime
       );
-      if (drc && !drc.isAvailable) {
+      if (!drc) {
+        return {
+          success: false,
+          statusCode: 503,
+          message: 'Chua kiem tra duoc suc chua. Lich chua duoc tao; vui long thu lai.',
+          data: {} as Booking,
+        };
+      }
+      if (!drc.isAvailable) {
         return {
           success: false,
           statusCode: 409,
@@ -282,17 +290,47 @@ export const bookingService = {
       }
 
       // 2. Gán giường trống cố định trong 6 giường (2 VIP + 4 Body)
+      const bookings = await supabaseService.getBookings(targetBranchId) || [];
+      const overlappingBookings = bookings.filter((booking) =>
+        booking.bookingDate === params.bookingDate &&
+        booking.status !== BookingStatus.CANCELLED &&
+        booking.status !== BookingStatus.COMPLETED &&
+        booking.startTime < params.endTime &&
+        params.startTime < booking.endTime
+      );
+      if (params.technicianId && overlappingBookings.some((booking) => booking.technicianId === params.technicianId)) {
+        return {
+          success: false,
+          statusCode: 409,
+          message: 'Ky thuat vien da co lich trung gio. Chon KTV khac hoac khung gio khac.',
+          data: {} as Booking,
+        };
+      }
+
       const standardBeds = ['G-VIP-01', 'G-VIP-02', 'G-BODY-01', 'G-BODY-02', 'G-BODY-03', 'G-BODY-04'];
-      let bedCode = params.assignedBedNumber || params.roomName;
+      let bedCode = params.assignedBedNumber;
       if (!bedCode) {
-        const bookings = await supabaseService.getBookings(targetBranchId);
         const busyBeds = new Set(
-          (bookings || [])
-            .filter((b) => b.bookingDate === params.bookingDate && b.status !== BookingStatus.CANCELLED)
+          overlappingBookings
             .map((b) => b.assignedBedNumber)
             .filter(Boolean)
         );
-        bedCode = standardBeds.find((b) => !busyBeds.has(b)) || 'G-BODY-01';
+        bedCode = standardBeds.find((b) => !busyBeds.has(b));
+        if (!bedCode) {
+          return {
+            success: false,
+            statusCode: 409,
+            message: 'Khong con giuong trong trong khung gio nay. Chon gio khac.',
+            data: {} as Booking,
+          };
+        }
+      } else if (overlappingBookings.some((booking) => booking.assignedBedNumber === bedCode)) {
+        return {
+          success: false,
+          statusCode: 409,
+          message: 'Giuong da co lich trung gio. Chon giuong khac hoac khung gio khac.',
+          data: {} as Booking,
+        };
       }
 
       // 3. Tự động điều phối KTV rảnh có số ca ít nhất nếu không chỉ định riêng (Least-Busy Dispatch)
