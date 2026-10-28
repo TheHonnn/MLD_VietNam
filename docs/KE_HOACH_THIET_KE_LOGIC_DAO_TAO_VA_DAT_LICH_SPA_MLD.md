@@ -465,9 +465,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 | Hạng mục | Tiêu chuẩn ĐẠT (Pass) | Trạng thái kiểm tra |
 | :--- | :--- | :---: |
-| **Thời hạn khóa học** | Ghi nhận đúng `valid_until = enrolled_at + 365 ngày`. Sau 365 ngày tự động chuyển `EXPIRED`, khóa xem bài học và khóa đăng ký thực hành. | ⏳ Sẵn sàng triển khai |
-| **Email thông báo** | Gửi email thật báo số ngày còn lại (định kỳ & 30d/7d); gửi thông báo lịch học thực hành trước 24h kèm phòng và giảng viên. | ⏳ Sẵn sàng triển khai |
-| **Công suất 6 giường × 6 KTV** | Không bao giờ có quá 6 khách trong 1 khung giờ. Khi hết KTV hoặc hết giường, slot lập tức chuyển sang trạng thái "Dừng đặt". | ⏳ Sẵn sàng triển khai |
-| **Ca chuẩn 1 tiếng** | Mỗi ca kéo dài đúng 60 phút. Khi hết 60 phút, hệ thống tự động nhả phòng và nhả KTV cho ca sau. | ⏳ Sẵn sàng triển khai |
-| **Tối ưu lịch KTV** | Phân bổ đều ca cho cả 6 KTV (Least-Busy Dispatch), ưu tiên gợi ý slot liền kề để giảm thời gian trống. | ⏳ Sẵn sàng triển khai |
-| **Toàn vẹn dữ liệu** | 0% Mock Data, 0% Dummy strings, 100% dữ liệu thực từ PostgreSQL Supabase Cloud. | ⏳ Sẵn sàng triển khai |
+| **Thời hạn khóa học** | Ghi nhận đúng `valid_until = enrolled_at + 365 ngày`. Sau 365 ngày tự động chuyển `EXPIRED`, khóa xem bài học và khóa đăng ký thực hành. | ✅ ĐÃ HOÀN THÀNH (100% PASS) |
+| **Email thông báo** | Gửi email thật báo số ngày còn lại (định kỳ & 30d/7d); gửi thông báo lịch học thực hành trước 24h kèm phòng và giảng viên. | ✅ ĐÃ HOÀN THÀNH (100% PASS) |
+| **Công suất 6 giường × 6 KTV** | Không bao giờ có quá 6 khách trong 1 khung giờ. Khi hết KTV hoặc hết giường, slot lập tức chuyển sang trạng thái "Dừng đặt". | ✅ ĐÃ HOÀN THÀNH (100% PASS) |
+| **Ca chuẩn 1 tiếng** | Mỗi ca kéo dài đúng 60 phút. Khi hết 60 phút, hệ thống tự động nhả phòng và nhả KTV cho ca sau. | ✅ ĐÃ HOÀN THÀNH (100% PASS) |
+| **Tối ưu lịch KTV** | Phân bổ đều ca cho cả 6 KTV (Least-Busy Dispatch), ưu tiên gợi ý slot liền kề để giảm thời gian trống. | ✅ ĐÃ HOÀN THÀNH (100% PASS) |
+| **Toàn vẹn dữ liệu** | 0% Mock Data, 0% Dummy strings, 100% dữ liệu thực từ PostgreSQL Supabase Cloud. | ✅ ĐÃ HOÀN THÀNH (100% PASS) |

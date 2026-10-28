@@ -95,6 +95,28 @@ export class AppointmentsController {
     return this.appointmentsService.getMyAppointments(userId || 'default-user', status);
   }
 
+  @Post('auto-release')
+  @ApiOperation({ summary: 'Tự động giải phóng tài nguyên các ca trị liệu đã hoàn tất (Auto-Release Lifecycle)' })
+  @ApiQuery({ name: 'branchId', required: false, description: 'ID chi nhánh cần quét' })
+  async autoReleaseExpiredBookings(@Query('branchId') branchId?: string) {
+    return this.appointmentsService.autoReleaseExpiredBookings(branchId);
+  }
+
+  @Get('least-busy-technician')
+  @ApiOperation({ summary: 'Thuật toán điều phối KTV có tải thấp nhất trong ngày (Least-Busy Dispatch)' })
+  @ApiQuery({ name: 'branchId', required: false, description: 'ID chi nhánh' })
+  @ApiQuery({ name: 'date', required: true, description: 'Ngày YYYY-MM-DD' })
+  @ApiQuery({ name: 'startTime', required: true, description: 'Giờ bắt đầu HH:MM:SS' })
+  @ApiQuery({ name: 'endTime', required: true, description: 'Giờ kết thúc HH:MM:SS' })
+  async getLeastBusyTechnician(
+    @Query('branchId') branchId: string,
+    @Query('date') date: string,
+    @Query('startTime') startTime: string,
+    @Query('endTime') endTime: string,
+  ) {
+    return this.appointmentsService.dispatchLeastBusyTechnician(branchId, date, startTime, endTime);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'C10: Lấy chi tiết lịch hẹn kèm mã QR check-in & KTV' })
   async getAppointmentDetail(
