@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
+import 'a02_welcome_screen.dart';
 import 'a03_login_screen.dart';
 
 class A01SplashScreen extends StatefulWidget {
@@ -31,7 +32,7 @@ class _A01SplashScreenState extends State<A01SplashScreen> {
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+          MaterialPageRoute(builder: (_) => const A02WelcomeScreen()),
         );
       }
     });

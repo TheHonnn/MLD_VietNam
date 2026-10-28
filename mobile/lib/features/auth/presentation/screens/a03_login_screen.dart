@@ -243,14 +243,11 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                             ),
                             InkWell(
                               onTap: () {
-                                if (Navigator.canPop(context)) {
-                                  Navigator.pop(context);
-                                } else {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
-                                  );
-                                }
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const MainLayoutScreen(initialIndex: 4)),
+                                  (route) => false,
+                                );
                               },
                               borderRadius: BorderRadius.circular(20),
                               child: Container(
@@ -713,40 +710,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        // --- 6. KHUNG CAM KẾT BẢO MẬT ---
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.mintBackground,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: AppColors.border,
-                              width: 0.8,
-                            ),
-                          ),
-                          child: const Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.shield_outlined,
-                                size: 22,
-                                color: AppColors.primary,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Thông tin của bạn được bảo mật tuyệt đối với tiêu chuẩn mã hóa Bcrypt và phiên làm việc bảo vệ bởi Refresh Token an toàn.',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.45,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+
 
                         const Spacer(),
                         const SizedBox(height: 28),
