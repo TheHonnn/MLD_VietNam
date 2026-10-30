@@ -196,13 +196,17 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               BookingStatusBadge(status: app.status),
-              Text(
-                app.bookingCode,
-                style: const TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  app.bookingCode,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
@@ -261,25 +265,28 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr('Chi phí dịch vụ', 'Service Cost'),
-                    style: const TextStyle(fontFamily: 'Montserrat', fontSize: 11, color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatCurrency(app.totalAmount),
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.servicePrice,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('Chi phí dịch vụ', 'Service Cost'),
+                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 11, color: AppColors.textSecondary),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatCurrency(app.totalAmount),
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.servicePrice,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               SizedBox(
                 height: 38,
                 child: OutlinedButton(

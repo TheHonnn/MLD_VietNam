@@ -39,7 +39,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   String _serviceTitle = 'Lưu phù bạch huyết';
   int _serviceDuration = 60;
   double _pricePerPerson = 700000;
-  double _vatRate = 0.0;
 
   // 2. Chi nhánh từ repository
   List<BranchModel> _branches = [];
@@ -47,19 +46,23 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
   // 3. Số người & Ngày giờ
   int _guestCount = 1; // 1 - 10 người
-  int _sessionCount = 1; // 1 - 30 buổi
   late DateTime _selectedDate;
   String _selectedTimeSlot = '08:00 - 09:00';
   static const List<String> _bookingTimeSlots = [
     '08:00 - 09:00',
-    '09:15 - 10:15',
-    '10:30 - 11:30',
-    '13:30 - 14:30',
-    '14:45 - 15:45',
+    '09:00 - 10:00',
+    '10:00 - 11:00',
+    '11:00 - 12:00',
+    '12:00 - 13:00',
+    '13:00 - 14:00',
+    '14:00 - 15:00',
+    '15:00 - 16:00',
     '16:00 - 17:00',
-    '17:15 - 18:15',
-    '18:30 - 19:30',
-    '19:45 - 20:45',
+    '17:00 - 18:00',
+    '18:00 - 19:00',
+    '19:00 - 20:00',
+    '20:00 - 21:00',
+    '21:00 - 22:00',
   ];
   
   // 4. Thông tin người đặt: Bản thân vs Đặt hộ
@@ -86,7 +89,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       _serviceTitle = ServiceRepository.defaultCoreVodderService.name;
       _serviceDuration = ServiceRepository.defaultCoreVodderService.durationMinutes;
       _pricePerPerson = ServiceRepository.defaultCoreVodderService.displayPrice;
-      _vatRate = ServiceRepository.defaultCoreVodderService.vatRate;
       _nameController.text = 'Khách hàng MLD';
       _phoneController.text = '0967786399';
       _emailController.text = 'khachhang@mldvietnam.vn';
@@ -100,10 +102,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     final coreService = await ServiceRepository.instance.getCoreVodderService();
     final branches = await BranchRepository.instance.getBranches();
     final profile = await MembershipRepository.instance.fetchProfile();
-    final userPhone = AuthService.instance.lastLoginPhone ?? (profile.phone.isNotEmpty ? profile.phone : (AuthService.instance.currentPhone ?? '0967786399'));
     final userName = profile.fullName.isNotEmpty ? profile.fullName : 'Khách hàng MLD';
-    final userEmail = AuthService.instance.lastLoginEmail ?? (profile.email.isNotEmpty ? profile.email : '');
-    final userAddress = profile.address.isNotEmpty ? profile.address : '';
 
     if (mounted) {
       setState(() {
@@ -113,14 +112,15 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         _serviceTitle = coreService.name;
         _serviceDuration = coreService.durationMinutes;
         _pricePerPerson = coreService.displayPrice;
-        _vatRate = 0.0;
         _branches = branches;
         _selectedBranch = BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
         if (_isBookingForSelf) {
-          _nameController.text = userName;
-          _phoneController.text = userPhone;
-          _emailController.text = userEmail;
-          _addressController.text = userAddress;
+          _nameController.text = (userName != 'Khách hàng' && userName != 'Khách hàng MLD')
+              ? userName
+              : (profile.fullName.isNotEmpty ? profile.fullName : '');
+          _phoneController.clear();
+          _emailController.clear();
+          _addressController.clear();
         }
       });
     }
@@ -141,10 +141,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       _isBookingForSelf = forSelf;
       if (forSelf) {
         final profile = MembershipRepository.instance.profile;
-        _nameController.text = profile.fullName.isNotEmpty ? profile.fullName : 'Khách hàng MLD';
-        _phoneController.text = AuthService.instance.lastLoginPhone ?? (profile.phone.isNotEmpty ? profile.phone : (AuthService.instance.currentPhone ?? '0967786399'));
-        _emailController.text = AuthService.instance.lastLoginEmail ?? (profile.email.isNotEmpty ? profile.email : '');
-        _addressController.text = profile.address.isNotEmpty ? profile.address : '';
+        _nameController.text = (profile.fullName.isNotEmpty && profile.fullName != 'Khách hàng' && profile.fullName != 'Khách hàng MLD')
+            ? profile.fullName
+            : '';
+        _phoneController.clear();
+        _emailController.clear();
+        _addressController.clear();
       } else {
         _nameController.clear();
         _phoneController.clear();
@@ -276,8 +278,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     }
   }
 
-  double get _subtotal => _pricePerPerson * _guestCount * _sessionCount;
-  double get _vatAmount => 0.0;
+  double get _subtotal => _pricePerPerson * _guestCount;
   double get _totalPrice => _subtotal;
 
   String _formatCurrency(double amount) {
@@ -367,7 +368,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       timeline: [
         BookingTimelineEvent(
           title: 'Đăng ký đặt lịch thành công',
-          description: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người, $_sessionCount buổi). Chờ chuyên viên phòng khám xác nhận.',
+          description: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người). Chờ chuyên gia liên hệ xác nhận trong ít phút.',
           timestamp: DateTime.now(),
           isCompleted: true,
           isCurrent: true,
@@ -615,7 +616,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${_formatCurrency(_pricePerPerson)}đ / người / buổi',
+                                '${_formatCurrency(_pricePerPerson)}đ / người',
                                 style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                               ),
                             ],
@@ -665,117 +666,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 14),
-
-                    // Mục chọn Buổi điều trị
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.event_repeat_rounded, size: 18, color: AppColors.primary),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      context.tr('Buổi điều trị', 'Treatment sessions'),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                context.tr('Số buổi theo liệu trình', 'Sessions in treatment plan'),
-                                style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove, size: 18),
-                                color: _sessionCount > 1 ? AppColors.textPrimary : AppColors.border,
-                                onPressed: _sessionCount > 1
-                                    ? () => setState(() => _sessionCount--)
-                                    : null,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                padding: EdgeInsets.zero,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                child: Text(
-                                  '$_sessionCount',
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add, size: 18),
-                                color: _sessionCount < 30 ? AppColors.primary : AppColors.border,
-                                onPressed: _sessionCount < 30
-                                    ? () => setState(() => _sessionCount++)
-                                    : null,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Chip chọn nhanh số buổi: 1 buổi, 2 buổi, 3 buổi, 5 buổi, 10 buổi
-                    Wrap(
-                      spacing: 8,
-                      children: [1, 2, 3, 5, 10].map((s) {
-                        final isSel = _sessionCount == s;
-                        return InkWell(
-                          onTap: () => setState(() => _sessionCount = s),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isSel ? AppColors.primary : const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isSel ? AppColors.primary : AppColors.border,
-                              ),
-                            ),
-                            child: Text(
-                              '$s ${context.tr('buổi', 'sessions')}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                                color: isSel ? Colors.white : AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -788,7 +678,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              '$_guestCount người x $_sessionCount buổi',
+                              '$_guestCount ${context.tr('người', 'guests')}',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -930,7 +820,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
                     const SizedBox(height: 16),
                     Text(
-                      context.tr('Khung giờ trị liệu (60 phút/ca, nghỉ 15 phút):', 'Therapy time slot (60 mins/slot, 15m break):'),
+                      context.tr('Khung giờ trị liệu:', 'Therapy time slot:'),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 8),
@@ -1186,9 +1076,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), (_serviceTitle.toLowerCase().contains('bạch huyết') || _serviceTitle.toLowerCase().contains('vodder')) ? 'Lưu phù bạch huyết' : _serviceTitle.tr(context)),
-                    _buildInfoRow(context.tr('Đơn giá:', 'Unit price:'), '${_formatCurrency(_pricePerPerson)}đ / buổi'),
+                    _buildInfoRow(context.tr('Đơn giá:', 'Unit price:'), '${_formatCurrency(_pricePerPerson)}đ / người'),
                     _buildInfoRow(context.tr('Số lượng:', 'Guests:'), '$_guestCount ${context.tr('người', 'guests')}'),
-                    _buildInfoRow(context.tr('Buổi điều trị:', 'Sessions:'), '$_sessionCount ${context.tr('buổi', 'sessions')}'),
                     _buildInfoRow(context.tr('Chi nhánh:', 'Branch:'), _selectedBranch != null ? _selectedBranch!.name.tr(context) : '---'),
                     _buildInfoRow(context.tr('Ngày hẹn:', 'Date:'), dateDisplay),
                     _buildInfoRow(context.tr('Khung giờ:', 'Time:'), _selectedTimeSlot),
@@ -1211,11 +1100,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                 context.tr('Tổng chi phí:', 'Estimated Cost:'),
                                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                               ),
-                              if (_guestCount > 1 || _sessionCount > 1)
+                              if (_guestCount > 1)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Text(
-                                    '${_formatCurrency(_pricePerPerson)}đ x $_guestCount x $_sessionCount',
+                                    '${_formatCurrency(_pricePerPerson)}đ x $_guestCount',
                                     style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                                   ),
                                 ),

@@ -280,7 +280,7 @@ class AcademyRepository {
         studentPhone: studentPhone,
         studentEmail: studentEmail,
         studentAddress: studentAddress,
-        selectedBranch: selectedBranch ?? 'Học viện MLD Việt Nam - Chi nhánh Quận 3, TP.HCM (Trụ sở chính)',
+        selectedBranch: selectedBranch ?? 'Trụ sở MLD Việt Nam (5 Master LV3) - Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội',
         studentType: studentType ?? 'BEGINNER',
         approvalNotes: approvalNotes,
         tuitionTotal: course.tuitionFee,

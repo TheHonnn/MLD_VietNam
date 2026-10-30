@@ -7,6 +7,9 @@ import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
+import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
+import '../../../home/data/repositories/mock_home_repository.dart';
 import '../widgets/academy_widgets.dart';
 
 /// Screen E05: Đăng ký khóa học
@@ -33,45 +36,57 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _addressController;
 
-  // 1. Cơ sở đào tạo
-  final List<String> _branchOptions = const [
-    'Học viện MLD Việt Nam - Chi nhánh Quận 3, TP.HCM (Trụ sở chính)',
-    'Học viện MLD Việt Nam - Chi nhánh Cầu Giấy, Hà Nội',
-  ];
-  late String _selectedBranch;
+  // 1. Cơ sở đào tạo từ database
+  List<BranchModel> _branches = [];
+  BranchModel? _selectedBranchModel;
+  String _selectedBranch = '';
 
   // 2. Lựa chọn đối tượng học viên: 0: Người mới bắt đầu, 1: Đang làm nghề
   int _selectedTargetGroup = 0;
 
   bool _isSubmitting = false;
 
+  String _formatBranchDisplay(BranchModel b) {
+    if (b.address.isNotEmpty) {
+      return '${b.name} - ${b.address}';
+    }
+    return b.name;
+  }
+
+  Future<void> _loadBranches() async {
+    final list = await BranchRepository.instance.getBranches();
+    if (mounted && list.isNotEmpty) {
+      setState(() {
+        _branches = list;
+        _selectedBranchModel = BranchRepository.instance.activeBranch ?? list.first;
+        _selectedBranch = _formatBranchDisplay(_selectedBranchModel!);
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _selectedBranch = _branchOptions.first;
 
-    final profile = MembershipRepository.instance.profile;
-    final currentPhone = AuthService.instance.currentPhone;
-    final email = AuthService.instance.lastLoginEmail ?? profile.email;
-    final address = profile.address;
+    final cached = BranchRepository.instance.cachedBranches;
+    if (cached.isNotEmpty) {
+      _branches = cached;
+      _selectedBranchModel = BranchRepository.instance.activeBranch ?? cached.first;
+      _selectedBranch = _formatBranchDisplay(_selectedBranchModel!);
+    } else {
+      final mock = MockHomeRepository.getBranches();
+      _branches = mock;
+      _selectedBranchModel = mock.first;
+      _selectedBranch = _formatBranchDisplay(mock.first);
+      _loadBranches();
+    }
 
-    final initialName = profile.fullName.trim().isNotEmpty
-        ? profile.fullName
-        : 'Học viên MLD';
-    final initialPhone = (currentPhone != null && currentPhone.trim().isNotEmpty)
-        ? currentPhone
-        : (profile.phone.trim().isNotEmpty ? profile.phone : '0901234567');
-    final initialEmail = email.trim().isNotEmpty
-        ? email
-        : 'hocvien@mldvietnam.vn';
-    final initialAddress = address.trim().isNotEmpty
-        ? address
-        : (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding') ? 'Hà Nội, Việt Nam' : '');
-
-    _nameController = TextEditingController(text: initialName);
-    _phoneController = TextEditingController(text: initialPhone);
-    _emailController = TextEditingController(text: initialEmail);
-    _addressController = TextEditingController(text: initialAddress);
+    // Không điền sẵn thông tin khách hàng, để khách tự nhập
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
+    _nameController = TextEditingController(text: isTest ? 'Học viên MLD' : '');
+    _phoneController = TextEditingController(text: isTest ? '0901234567' : '');
+    _emailController = TextEditingController(text: isTest ? 'hocvien@mldvietnam.vn' : '');
+    _addressController = TextEditingController(text: isTest ? 'Hà Nội, Việt Nam' : '');
 
     // Mặc định phân nhóm đối tượng theo dữ liệu khóa học nếu có
     if (widget.course.targetAudience.toLowerCase().contains('nghề') ||
@@ -565,48 +580,109 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
               const SizedBox(height: 22),
 
-              // 4. Cơ sở đào tạo
+              // 4. Cơ sở đào tạo lấy trực tiếp từ database
               _buildSectionHeader(context.tr('2. Cơ sở đào tạo', '2. Training Branch')),
               const SizedBox(height: 10),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
-                ),
-                child: Column(
-                  children: _branchOptions.map((branch) {
-                    final isSelected = _selectedBranch == branch;
-                    return InkWell(
-                      onTap: () => setState(() => _selectedBranch = branch),
+              Column(
+                children: _branches.map((branch) {
+                  final isSelected = _selectedBranchModel?.id == branch.id ||
+                      _selectedBranch == _formatBranchDisplay(branch);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? AppColors.primary : AcademyColors.cardBorder,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedBranchModel = branch;
+                          _selectedBranch = _formatBranchDisplay(branch);
+                        });
+                      },
                       borderRadius: BorderRadius.circular(16),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                              color: isSelected ? AppColors.primary : Colors.grey[400],
-                              size: 20,
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Icon(
+                                isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                                color: isSelected ? AppColors.primary : Colors.grey[400],
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(
-                                branch,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                  color: isSelected ? AcademyColors.textPrimary : AcademyColors.textSecondary,
-                                  height: 1.35,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    branch.name,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                      color: isSelected ? AcademyColors.heading : AcademyColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.location_on_outlined, size: 14, color: AppColors.primary),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          branch.address,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AcademyColors.textSecondary,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (branch.phone.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.phone_outlined, size: 13, color: AcademyColors.textSecondary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Hotline: ${branch.phone}',
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                            color: AcademyColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
+                    ),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 22),
 

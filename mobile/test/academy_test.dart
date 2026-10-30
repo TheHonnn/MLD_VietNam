@@ -189,7 +189,8 @@ void main() {
 
     // 2. Cơ sở đào tạo
     expect(find.text('2. Cơ sở đào tạo'), findsOneWidget);
-    expect(find.textContaining('Chi nhánh Quận 3, TP.HCM'), findsOneWidget);
+    expect(find.textContaining('Trụ sở MLD Việt Nam'), findsWidgets);
+    expect(find.textContaining('Bùi Xương Trạch'), findsWidgets);
 
     // 3. Phân nhóm đối tượng học viên (1: Người mới bắt đầu, 2: Đang làm nghề)
     expect(find.text('3. Bạn thuộc nhóm đối tượng nào?'), findsOneWidget);

@@ -447,6 +447,15 @@ class SupabaseDataService {
     } catch (_) {}
 
     try {
+      final notes = <String>[];
+      if (approvalNotes != null && approvalNotes.isNotEmpty) {
+        notes.add(approvalNotes);
+      }
+      if (studentAddress != null && studentAddress.trim().isNotEmpty) {
+        notes.add('Địa chỉ: ${studentAddress.trim()}');
+      }
+      final combinedNotes = notes.join(' | ');
+
       final response = await _client.post(
         ApiEndpoints.courseEnrollments,
         data: {
@@ -456,10 +465,9 @@ class SupabaseDataService {
           if (studentName != null) 'student_name': studentName,
           if (studentPhone != null) 'student_phone': studentPhone,
           if (studentEmail != null) 'student_email': studentEmail,
-          if (studentAddress != null) 'student_address': studentAddress,
           if (selectedBranch != null) 'selected_branch': selectedBranch,
           if (studentType != null) 'student_type': studentType,
-          if (approvalNotes != null) 'approval_notes': approvalNotes,
+          if (combinedNotes.isNotEmpty) 'approval_notes': combinedNotes,
           'tuition_total': tuitionTotal ?? 9000000.00,
           'amount_paid': amountPaid ?? 0.00,
           'status': status,
