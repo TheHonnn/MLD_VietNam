@@ -36,7 +36,7 @@ class AllInOneBookingScreen extends StatefulWidget {
 class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   // 1. Dịch vụ duy nhất & Thuế giá lấy động từ Admin backend
   String _serviceId = '235166f2-66c9-4231-bbe1-af91b48fc67c';
-  String _serviceTitle = 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
+  String _serviceTitle = 'Lưu phù bạch huyết';
   int _serviceDuration = 60;
   double _pricePerPerson = 700000;
   double _vatRate = 0.0;
@@ -522,14 +522,20 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            'assets/images/service_luu_phu_bach_huyet.png',
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 48,
+                              height: 48,
+                              color: const Color(0xFFEFF6FF),
+                              child: const Icon(Icons.spa_rounded, color: AppColors.primary, size: 24),
+                            ),
                           ),
-                          child: const Icon(Icons.spa_outlined, color: AppColors.primary, size: 24),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -537,16 +543,18 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _serviceTitle.tr(context),
+                                (_serviceTitle.toLowerCase().contains('bạch huyết') || _serviceTitle.toLowerCase().contains('vodder'))
+                                    ? 'Lưu phù bạch huyết'
+                                    : _serviceTitle.tr(context),
                                 style: const TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                                  color: Color(0xFF0F2942),
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Wrap(
-                                spacing: 10,
+                                spacing: 8,
                                 runSpacing: 4,
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
@@ -556,17 +564,17 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                       const Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
                                       const SizedBox(width: 4),
                                       Text(
-                                        '$_serviceDuration phút/ca',
-                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                        '$_serviceDuration phút / ca',
+                                        style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                                       ),
                                     ],
                                   ),
                                   Text(
-                                    '${_formatCurrency(_pricePerPerson)}đ / buổi',
+                                    '${_formatCurrency(_pricePerPerson)}đ',
                                     style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.servicePrice,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFFDC2626),
                                     ),
                                   ),
                                 ],
@@ -1177,7 +1185,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), _serviceTitle.tr(context)),
+                    _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), (_serviceTitle.toLowerCase().contains('bạch huyết') || _serviceTitle.toLowerCase().contains('vodder')) ? 'Lưu phù bạch huyết' : _serviceTitle.tr(context)),
                     _buildInfoRow(context.tr('Đơn giá:', 'Unit price:'), '${_formatCurrency(_pricePerPerson)}đ / buổi'),
                     _buildInfoRow(context.tr('Số lượng:', 'Guests:'), '$_guestCount ${context.tr('người', 'guests')}'),
                     _buildInfoRow(context.tr('Buổi điều trị:', 'Sessions:'), '$_sessionCount ${context.tr('buổi', 'sessions')}'),

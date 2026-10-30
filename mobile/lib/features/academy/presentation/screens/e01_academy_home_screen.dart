@@ -24,11 +24,15 @@ enum AcademyFilterExpanded { audience, need }
 class E01AcademyHomeScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
   final String? initialGroup;
+  final String? initialNeed;
+  final String? initialSearchQuery;
 
   const E01AcademyHomeScreen({
     super.key,
     this.onBackToHome,
     this.initialGroup,
+    this.initialNeed,
+    this.initialSearchQuery,
   });
 
   @override
@@ -72,6 +76,12 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     super.initState();
     if (widget.initialGroup != null && widget.initialGroup!.isNotEmpty) {
       _selectedAudience = widget.initialGroup!;
+    }
+    if (widget.initialNeed != null && widget.initialNeed!.isNotEmpty) {
+      _selectedNeed = widget.initialNeed!;
+    }
+    if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery!;
     }
     _academyRepo.enrollmentNotifier.addListener(_onEnrollmentChanged);
     _loadCourses();

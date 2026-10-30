@@ -17,14 +17,14 @@ class ServiceRepository {
   /// Dịch vụ dẫn lưu phù bạch huyết Vodder MLD cốt lõi do Admin thiết lập
   static const SpaServiceModel defaultCoreVodderService = SpaServiceModel(
     id: 'srv-vodder-core',
-    name: 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
+    name: 'Lưu phù bạch huyết',
     categoryName: 'Dẫn lưu bạch huyết MLD',
     shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
     fullDescription: 'Dẫn lưu phù bạch huyết chuẩn kỹ thuật Vodder chuyên sâu...',
     durationMinutes: 60,
     price: 700000,
     vatRate: 0.0,
-    imageUrl: 'assets/images/logo.webp',
+    imageUrl: 'assets/images/service_luu_phu_bach_huyet.png',
     isFeatured: true,
   );
 

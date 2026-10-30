@@ -22,11 +22,15 @@ enum ServiceFilterExpanded { service, branch }
 class B02ServiceListingScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final String? initialQuery;
+  final String? initialCategory;
+  final String? initialBranch;
 
   const B02ServiceListingScreen({
     super.key,
     this.onBack,
     this.initialQuery,
+    this.initialCategory,
+    this.initialBranch,
   });
 
   @override
@@ -62,6 +66,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     super.initState();
     if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
       _searchController.text = widget.initialQuery!.trim();
+    }
+    if (widget.initialCategory != null && widget.initialCategory!.trim().isNotEmpty) {
+      _selectedServiceCategory = widget.initialCategory!.trim();
+    }
+    if (widget.initialBranch != null && widget.initialBranch!.trim().isNotEmpty) {
+      _selectedBranch = widget.initialBranch!.trim();
     }
     _loadCoreServiceFromDb();
     _loadBranches();

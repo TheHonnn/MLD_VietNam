@@ -3,13 +3,10 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/localization/app_translation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/supabase_data_service.dart';
-import '../../../../core/widgets/guest_auth_prompt.dart';
-import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
@@ -40,11 +37,16 @@ import 'b04_search_screen.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/branch_repository.dart';
 import '../../data/repositories/service_repository.dart';
-import '../widgets/vodder_service_card.dart';
 
 /// Màn hình Trang chủ MLD Việt Nam (Mobile-First)
-/// Tuân thủ chuẩn đặc tả: Giao diện trang chủ.docx & Website Trang chủ, dịch vụ, đặt lịch.txt
-/// Phong cách thiết kế: Modern Medical, Scientific, Clean, Professional (#168477)
+/// Thiết kế đồng bộ 100% theo giao diện nhận diện thương hiệu chuẩn MLD:
+/// 1. Banner Hero YHCT với 2 nút [Gọi tư vấn ngay] và [Đặt lịch]
+/// 2. Khung Tìm kiếm 2 Tab: [Tìm khóa học] & [Tìm dịch vụ & cơ sở]
+/// 3. Đăng ký trong 30 giây: Bác sĩ gọi lại tư vấn miễn phí
+/// 4. Nhắn tin trực tiếp: Zalo, Facebook, Instagram, Messenger
+/// 5. Truy cập nhanh: Dịch vụ, Tài liệu, Đào tạo
+/// 6. Gần bạn hơn: Hệ thống cơ sở với định vị chi nhánh & giờ mở cửa
+/// 7. Chân trang MLD Health (Navy #072D4A) & Hotline
 class B01HomeScreen extends StatefulWidget {
   final VoidCallback? onNavigateToServices;
   final VoidCallback? onNavigateToBooking;
@@ -64,17 +66,62 @@ class B01HomeScreen extends StatefulWidget {
 }
 
 class _B01HomeScreenState extends State<B01HomeScreen> {
-  String _selectedBranch = 'Trụ sở MLD Việt Nam (5 Master LV3) - Hotline: 096.7786.399';
+  String _selectedBranch = 'Cơ sở Hà Nội';
   SpaServiceModel? _coreService;
+  SpaServiceModel? get coreService => _coreService;
+
   // Cache bộ nhớ lưu các banner do Admin đẩy lên từ Supabase/Web Admin.
-  // Đảm bảo khi người dùng chuyển trang/tab, banner của Admin hiển thị ngay lập tức,
-  // không bị giật hay nhảy từ bất kỳ ảnh mẫu nào.
   static List<Map<String, dynamic>> _cachedAdminBanners = [];
 
   List<Map<String, dynamic>> _banners = List.from(_cachedAdminBanners);
   int _currentBannerIndex = 0;
   late final PageController _bannerPageController;
   Timer? _bannerTimer;
+
+  // Tab tìm kiếm (0: Khóa học, 1: Dịch vụ & cơ sở)
+  int _searchTabIndex = 0;
+
+  // Controller & Dropdown cho Tab Khóa học
+  final TextEditingController _courseSearchController = TextEditingController();
+  static const List<String> _audienceCategories = [
+    'Tất cả đối tượng',
+    'Khóa học đã đăng ký',
+    'Người mới bắt đầu',
+    'Người đang làm nghề',
+    'Kỹ thuật viên XBBH/VLTL',
+    'Y tế & Phục hồi',
+  ];
+  String _selectedAudience = 'Tất cả đối tượng';
+
+  static const List<String> _needCategories = [
+    'Tất cả nhu cầu',
+    'Kiến thức nền tảng & Tự chăm sóc',
+    'Tích hợp dịch vụ mới',
+    'Mở cơ sở chăm sóc',
+  ];
+  String _selectedNeed = 'Tất cả nhu cầu';
+
+  // Controller & Dropdown cho Tab Dịch vụ & Cơ sở
+  final TextEditingController _serviceSearchController = TextEditingController();
+  String _selectedBranchFilter = 'Cơ sở';
+
+  static const List<String> _serviceCategories = [
+    'Dịch vụ',
+    'Tất cả dịch vụ',
+    'Lưu phù bạch huyết',
+    'Dẫn lưu Bạch huyết Giảm phù',
+    'Dẫn lưu ngực',
+    'Dẫn lưu đầu',
+    'Dẫn lưu cổ vai gáy lưng',
+    'Dẫn lưu chân',
+    'Dẫn lưu bụng',
+  ];
+  String _selectedServiceCategory = 'Dịch vụ';
+
+  // Controller cho Form Đăng ký tư vấn 30 giây (Không tự điền dữ liệu ở ngoài)
+  final TextEditingController _leadNameController = TextEditingController();
+  final TextEditingController _leadPhoneController = TextEditingController();
+  bool _isSubmittingLead = false;
 
   @override
   void initState() {
@@ -201,7 +248,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     if (AuthService.instance.isLoggedIn) {
       try {
         await MembershipRepository.instance.fetchProfile();
-        if (mounted) setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
       } catch (_) {}
     }
   }
@@ -219,6 +268,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   void dispose() {
     _bannerTimer?.cancel();
     _bannerPageController.dispose();
+    _courseSearchController.dispose();
+    _serviceSearchController.dispose();
+    _leadNameController.dispose();
+    _leadPhoneController.dispose();
     BranchRepository.instance.activeBranchNotifier.removeListener(_onActiveBranchChanged);
     super.dispose();
   }
@@ -241,7 +294,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     if (!mounted) return;
     setState(() => _coreService = srv);
   }
-
 
   void _showBranchPicker() async {
     List<BranchModel> branches = BranchRepository.instance.cachedBranches;
@@ -363,49 +415,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
-  Widget _buildFallbackBannerCard(String title, String summary) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: AppColors.brandGradient,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (title.isNotEmpty)
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0.3,
-                height: 1.25,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          if (summary.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              summary,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.90),
-                height: 1.3,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   void _showNotificationSheet() {
     Navigator.push(
       context,
@@ -413,8 +422,68 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
+  Future<void> _launchExternal(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+  }
 
-  /// Xử lý điều hướng khi bấm vào Banner động
+  /// Xử lý gửi Form Đăng ký tư vấn 30 giây
+  Future<void> _submitConsultationLead() async {
+    final name = _leadNameController.text.trim();
+    final phone = _leadPhoneController.text.trim();
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập Số điện thoại để Bác sĩ gọi lại tư vấn!'),
+          backgroundColor: Color(0xFFE5533D),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmittingLead = true);
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    setState(() => _isSubmittingLead = false);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF0D766E), size: 28),
+            SizedBox(width: 10),
+            Text('Đăng ký thành công', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+          ],
+        ),
+        content: Text(
+          'Cảm ơn ${name.isNotEmpty ? name : 'bạn'}! Đội ngũ Bác sĩ YHCT Hệ Bách Huyệt sẽ liên hệ qua SĐT $phone trong vòng 30 phút để thăm khám & tư vấn 1:1 miễn phí.',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.45),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D766E),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Xác nhận', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Xử lý điều hướng khi bấm vào Banner động từ Admin
   void _handleBannerTap(Map<String, dynamic> banner) async {
     final targetLink = (banner['target_link'] as String?)?.trim() ?? '';
     if (targetLink.isEmpty) {
@@ -422,7 +491,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
-    // 1. External URL (Website, Facebook, Zalo, etc.)
+    // 1. External URL
     if (targetLink.startsWith('http://') || targetLink.startsWith('https://')) {
       try {
         final uri = Uri.parse(targetLink);
@@ -434,95 +503,77 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     }
 
     // 2. Specific Sub-routes Matching AVAILABLE_BANNER_ROUTES
-    // 2.1 Cẩm nang Y khoa & Tài liệu
     if (targetLink == '/documents' || targetLink.contains('tai-lieu') || targetLink.contains('cam-nang')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D09DocumentsScreen()));
       return;
     }
 
-    // 2.2 Cộng đồng chuyên gia & Ca lâm sàng
     if (targetLink == '/community' || targetLink.contains('cong-dong')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D11CommunityScreen()));
       return;
     }
 
-    // 2.3 Hộp thư thông báo
     if (targetLink == '/notifications' || targetLink.contains('thong-bao')) {
       _showNotificationSheet();
       return;
     }
 
-    // 2.4 Tìm kiếm dịch vụ & chuyên khoa
     if (targetLink == '/home/search' || targetLink.contains('tim-kiem')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const B04SearchScreen()));
       return;
     }
 
-    // 2.5 Danh sách Chi nhánh / Cơ sở
     if (targetLink.startsWith('/branches') || targetLink.contains('chi-nhanh') || targetLink.contains('co-so')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const B05BranchListingScreen()));
       return;
     }
 
-    // 2.6 Đội ngũ Kỹ thuật viên & Chuyên gia
     if (targetLink.startsWith('/specialists') || targetLink.contains('chuyen-vien') || targetLink.contains('chuyen-gia')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const B07SpecialistListingScreen()));
       return;
     }
 
-    // 2.7 Tầm soát & Đánh giá Độ phù Hệ Bạch huyết
     if (targetLink == '/treatment/lymph-examination' || targetLink.contains('lymph') || targetLink.contains('tam-soat')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D10LymphExaminationScreen()));
       return;
     }
 
-    // 2.8 Gói liệu trình trị liệu của tôi
     if (targetLink.contains('my-packages') || targetLink.contains('/treatment/packages')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()));
       return;
     }
 
-    // 2.9 Nhật ký Chăm sóc & Tiến trình Hồi phục
     if (targetLink.contains('care-journal') || targetLink.contains('nhat-ky') || targetLink == '/treatment/journal') {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D03CareJournalScreen()));
       return;
     }
 
-    // 2.10 Hướng dẫn tự chăm sóc tại nhà
     if (targetLink.contains('home-care') || targetLink.contains('tai-nha')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D06HomeCareGuidelinesScreen()));
       return;
     }
 
-    // 2.11 Khám sàng lọc & Tư vấn trước trị liệu
     if (targetLink.contains('consultation') || targetLink.contains('sang-loc')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D04PreServiceConsultationScreen()));
       return;
     }
 
-    // 2.12 Đánh giá & Phản hồi chất lượng ca
     if (targetLink.contains('review') || targetLink.contains('danh-gia')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const D05ServiceReviewScreen()));
       return;
     }
 
-    // 2.13 Danh sách lịch hẹn của tôi
     if (targetLink.contains('/booking/appointments') || targetLink.contains('lich-hen')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const C09MyAppointmentsScreen()));
       return;
     }
 
-    // 2.14 Đặt lịch khám & Trị liệu trực tuyến
     if (targetLink == '/booking' || targetLink.contains('dat-lich')) {
-      if (widget.onNavigateToBooking != null) {
-        widget.onNavigateToBooking!.call();
-      } else {
-        _handleBooking();
-      }
+      _handleBooking();
       return;
     }
 
-    // 2.15 Học viện: Các trang con
+    // 2.15 Học viện
     if (targetLink.contains('/academy/courses') || targetLink.contains('khoa-hoc')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const E02CourseCatalogScreen()));
       return;
@@ -544,7 +595,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
-    // 2.16 Hồ sơ cá nhân: Các trang con
+    // 2.16 Hồ sơ cá nhân
     if (targetLink == '/profile/edit' || targetLink.contains('chinh-sua')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const F02EditProfileScreen()));
       return;
@@ -586,7 +637,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
-    // Fallback: Hiện modal chi tiết banner
     _showBannerDetailModal(context, banner);
   }
 
@@ -629,7 +679,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header ảnh với nút đóng
               Stack(
                 children: [
                   Container(
@@ -828,419 +877,1495 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
-  String _getGreetingName() {
-    final profileName = MembershipRepository.instance.profile.fullName.trim();
-    if (profileName.isNotEmpty && profileName != 'Khách hàng') {
-      return profileName;
-    }
-    final authName = AuthService.instance.currentDisplayName?.trim();
-    if (authName != null && authName.isNotEmpty) {
-      return authName;
-    }
-    return 'Khách hàng MLD';
-  }
-
   @override
   Widget build(BuildContext context) {
+    final activeBranch = BranchRepository.instance.activeBranch;
+    final displayBranchName = activeBranch?.name ?? _selectedBranch;
+    final displayBranchAddress = activeBranch?.address ?? '52 Nguyễn Chí Thanh, Đống Đa, Hà Nội';
+
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.primary,
-          onRefresh: () async {
-            await Future.wait([
-              _loadUserProfile(),
-              _loadCoreServiceFromAdmin(),
-              _loadBanners(),
-            ]);
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-          padding: const EdgeInsets.only(
-            left: 20.0,
-            right: 20.0,
-            top: 10.0,
-            bottom: 32.0,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ==========================================
-              // 1. HEADER (Logo góc trái, Nút thông báo & Khung cá nhân góc phải)
-              // ==========================================
-              SizedBox(
-                height: 48,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: Column(
+        children: [
+          // ==========================================
+          // 0. HEADER MÀU TRẮNG TRÊN CÙNG (LOGO & THÔNG BÁO, AVATAR CÁ NHÂN)
+          // ==========================================
+          _buildTopHeader(),
+
+          Expanded(
+            child: RefreshIndicator(
+              color: const Color(0xFF2563EB),
+              onRefresh: () async {
+                await Future.wait([
+                  _loadUserProfile(),
+                  _loadCoreServiceFromAdmin(),
+                  _loadBanners(),
+                ]);
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // --- GÓC TRÁI: LOGO MLD VIETNAM ---
-                    Image.asset(
-                      'assets/images/logo.webp',
-                      height: 40,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Text(
-                        'MLD VIETNAM',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 12),
 
-                    // --- BÊN PHẢI: NÚT THÔNG BÁO & KHUNG TRANG CÁ NHÂN ---
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Nút Chuông thông báo
-                        InkWell(
-                          onTap: _showNotificationSheet,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border, width: 0.8),
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.notifications_none_rounded,
-                                  size: 23,
-                                  color: AppColors.primary,
-                                ),
-                                if (TreatmentRepository.instance.hasUnreadNotifications)
-                                  Positioned(
-                                    top: 9,
-                                    right: 9,
-                                    child: Container(
-                                      width: 7,
-                                      height: 7,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.error,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
+                    // ==========================================
+                    // 1. BANNER CHUẨN TỶ LỆ 16:9 TỪ ADMIN CMS
+                    // ==========================================
+                    _buildHeroBannerSection(),
 
-                        // Khung Trang cá nhân (Avatar Profile)
-                        InkWell(
-                          onTap: widget.onNavigateToProfile,
-                          borderRadius: BorderRadius.circular(22),
-                          child: AppProfileAvatar(
-                            avatarUrl: MembershipRepository.instance.profile.avatarUrl,
-                            size: 42,
-                            borderWidth: 1.5,
-                            borderColor: AppColors.primary,
-                            showShadow: false,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 12),
 
-              // Banner cảnh báo bổ sung SĐT nếu đăng nhập bằng Email
-              ValueListenableBuilder<String?>(
-                valueListenable: AuthService.instance.phoneNotifier,
-                builder: (context, phone, _) {
-                  final hasPhone = (phone != null && phone.trim().isNotEmpty) ||
-                      MembershipRepository.instance.profile.phone.trim().isNotEmpty;
-                  if (!AuthService.instance.isLoggedIn || hasPhone) {
-                    return const SizedBox.shrink();
-                  }
-                  return Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF7ED),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFFDBA74)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.phone_android_rounded, color: Color(0xFFC2410C), size: 20),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Cập nhật SĐT để xác nhận lịch hẹn chính xác',
-                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF9A3412)),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => UpdatePhoneModal.show(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: const Size(0, 32),
-                          ),
-                          child: const Text('Cập nhật', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              // ==========================================
+              // 1b. HAI NÚT THAO TÁC: [GỌI TƯ VẤN NGAY] & [ĐẶT LỊCH]
+              // ==========================================
+              _buildBannerActionButtons(),
 
               const SizedBox(height: 14),
 
               // ==========================================
-              // 2. BANNER NGANG GIỚI THIỆU MLD TRÊN ĐẦU
-              // (Dynamic Banner Carousel từ Supabase / CMS, fallback offline an toàn)
+              // 2. KHUNG TÌM KIẾM DỊCH VỤ TRỊ LIỆU & BỘ LỌC (DỊCH VỤ, CƠ SỞ)
+              // KÈM CARD NỔI BẬT "LƯU PHÙ BẠCH HUYẾT" THEO MẪU MỚI
               // ==========================================
-              if (_banners.isNotEmpty) ...[
-                Column(
-                  children: [
-                    SizedBox(
-                      height: 220,
-                      child: PageView.builder(
-                        controller: _bannerPageController,
-                        itemCount: _banners.length,
-                        onPageChanged: (idx) {
-                          if (mounted) {
-                            setState(() => _currentBannerIndex = idx);
-                          }
-                        },
-                        itemBuilder: (context, index) {
-                          final banner = _banners[index];
-                          final title = banner['title'] as String? ?? 'MLD VIỆT NAM';
-                          final summary = banner['summary'] as String? ?? '';
-                          final imageUrl = (banner['image_url'] as String?)?.trim() ?? '';
-                          final hasImage = imageUrl.isNotEmpty;
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 1.0),
-                            child: InkWell(
-                              onTap: () => _handleBannerTap(banner),
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                clipBehavior: Clip.antiAlias,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: 0.15),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: hasImage
-                                    ? (imageUrl.startsWith('http')
-                                        ? Image.network(
-                                            imageUrl,
-                                            fit: BoxFit.cover,
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            errorBuilder: (_, __, ___) => _buildFallbackBannerCard(title, summary),
-                                          )
-                                        : (imageUrl.startsWith('assets/')
-                                            ? Image.asset(
-                                                imageUrl,
-                                                fit: BoxFit.cover,
-                                                width: double.infinity,
-                                                height: double.infinity,
-                                                errorBuilder: (_, __, ___) => _buildFallbackBannerCard(title, summary),
-                                              )
-                                            : _buildFallbackBannerCard(title, summary)))
-                                    : _buildFallbackBannerCard(title, summary),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    if (_banners.length > 1) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(_banners.length, (dotIdx) {
-                          final isActive = dotIdx == _currentBannerIndex;
-                          return GestureDetector(
-                            onTap: () {
-                              _bannerPageController.animateToPage(
-                                dotIdx,
-                                duration: const Duration(milliseconds: 350),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              height: 4.5,
-                              width: isActive ? 20 : 6,
-                              decoration: BoxDecoration(
-                                color: isActive ? AppColors.primary : AppColors.border,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 18),
-              ],
-
-              // ==========================================
-              // 3. MỤC CHI NHÁNH ĐANG CHỌN
-              // ==========================================
-              InkWell(
-                onTap: _showBranchPicker,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.mintBackground,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Chi nhánh trị liệu hiện tại',
-                              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _selectedBranch,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.unfold_more_rounded, color: AppColors.textSecondary, size: 20),
-                    ],
-                  ),
-                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildSearchAndFeaturedServiceSection(),
               ),
 
-              const SizedBox(height: 20),
-
+              const SizedBox(height: 16),
 
               // ==========================================
-              // 5. DỊCH VỤ CỐT LÕI DUY NHẤT (Vodder MLD)
-              // Thiết kế chuẩn như trang Đào tạo: Ít chữ, không giải thích,
-              // chỉ có tên dịch vụ, giá tiền và nút Đặt lịch
+              // 3. ĐĂNG KÝ TRONG 30 GIÂY - BÁC SĨ GỌI LẠI TƯ VẤN MIỄN PHÍ
               // ==========================================
-              VodderServiceCard(
-                service: _coreService,
-                onBooking: _handleBooking,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildConsultationLeadCard(),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
               // ==========================================
-              // 6. KHỐI CỘNG ĐỒNG Y KHOA MLD
+              // 4. NHẮN TIN TRỰC TIẾP (Zalo, Facebook, Instagram, Messenger)
               // ==========================================
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primaryDark, AppColors.primary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.18),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.menu_book_outlined, color: Colors.white, size: 16),
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'CỘNG ĐỒNG CHUYÊN GIA MLD',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Chia sẻ ca lâm sàng & Hướng dẫn phục hồi Vodder',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Theo dõi các tài liệu trị liệu và bài viết chuyên môn do đội ngũ Bác sĩ, Giảng viên MLD trực tiếp biên soạn.',
-                      style: TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.4),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 42,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.white, width: 1.2),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const D11CommunityScreen()),
-                          );
-                        },
-                        child: Text(context.tr('Xem bài viết chuyên môn', 'View Expert Articles'), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                  ],
-                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildDirectMessagingSection(),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ==========================================
+              // 5. TRUY CẬP NHANH (Dịch vụ, Tài liệu, Đào tạo)
+              // ==========================================
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildQuickAccessSection(),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ==========================================
+              // 6. GẦN BẠN HƠN - HỆ THỐNG CƠ SỞ
+              // ==========================================
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildNearestBranchSection(displayBranchName, displayBranchAddress),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ==========================================
+              // 7. FOOTER MLD HEALTH (Navy #072D4A) & HOTLINE
+              // ==========================================
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                child: _buildMldHealthFooter(),
               ),
             ],
           ),
         ),
       ),
     ),
-  );
+  ],
+),
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: HEADER TRÊN CÙNG MÀU TRẮNG
+  // =========================================================================
+  Widget _buildTopHeader() {
+    final profile = MembershipRepository.instance.profile;
+    final avatarUrl = profile.avatarUrl.trim();
+
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1.0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Image.asset(
+                'assets/images/logo.webp',
+                height: 40,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Text(
+                  'MLD VIETNAM',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  InkWell(
+                    onTap: _showNotificationSheet,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(Icons.notifications_none_rounded, color: Color(0xFF1E293B), size: 22),
+                          if (TreatmentRepository.instance.hasUnreadNotifications)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEF4444),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  InkWell(
+                    onTap: () {
+                      if (widget.onNavigateToProfile != null) {
+                        widget.onNavigateToProfile!.call();
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const F01ProfileDashboardScreen()),
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.primary, width: 1.5),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x140D766E),
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: avatarUrl.isNotEmpty
+                          ? (avatarUrl.startsWith('http')
+                              ? Image.network(
+                                  avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _buildFallbackAvatar(),
+                                )
+                              : Image.asset(
+                                  avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _buildFallbackAvatar(),
+                                ))
+                          : _buildFallbackAvatar(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackAvatar() {
+    return Image.asset(
+      'assets/images/specialist_hero_1.png',
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        color: const Color(0xFFE6F4F1),
+        alignment: Alignment.center,
+        child: const Icon(Icons.person, color: AppColors.primary, size: 22),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: HERO BANNER 16:9 DYNAMIC TỪ ADMIN SUPABASE (KHÔNG CỨNG CHỮ)
+  // =========================================================================
+  Widget _buildHeroBannerSection() {
+    final hasBanners = _banners.isNotEmpty;
+    final bannerCount = hasBanners ? _banners.length : 1;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  hasBanners
+                      ? PageView.builder(
+                          controller: _bannerPageController,
+                          itemCount: bannerCount,
+                          onPageChanged: (idx) {
+                            if (mounted) setState(() => _currentBannerIndex = idx);
+                          },
+                          itemBuilder: (context, index) {
+                            final banner = _banners[index];
+                            final imageUrl = (banner['image_url'] as String?)?.trim() ?? '';
+                            final title = (banner['title'] as String?)?.trim() ?? '';
+                            final summary = (banner['summary'] as String?)?.trim() ?? '';
+                            final category = (banner['category'] as String?)?.trim() ?? '';
+
+                            return GestureDetector(
+                              onTap: () => _handleBannerTap(banner),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  imageUrl.startsWith('http')
+                                      ? Image.network(
+                                          imageUrl,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          errorBuilder: (_, __, ___) => _buildFallbackHeroImage(),
+                                        )
+                                      : (imageUrl.startsWith('assets/')
+                                          ? Image.asset(
+                                              imageUrl,
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              errorBuilder: (_, __, ___) => _buildFallbackHeroImage(),
+                                            )
+                                          : _buildFallbackHeroImage()),
+                                  // Hiển thị tiêu đề động nếu Admin có cấu hình tiêu đề cho banner:
+                                  if (title.isNotEmpty) ...[
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.transparent,
+                                              Colors.black.withValues(alpha: 0.75),
+                                            ],
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 12,
+                                      left: 14,
+                                      right: 14,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (category.isNotEmpty)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              margin: const EdgeInsets.only(bottom: 6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(alpha: 0.25),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                category == 'DAO_TAO'
+                                                    ? 'ĐÀO TẠO'
+                                                    : category == 'DICH_VU'
+                                                        ? 'DỊCH VỤ TRỊ LIỆU'
+                                                        : category,
+                                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                                              ),
+                                            ),
+                                          Text(
+                                            title,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              height: 1.25,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (summary.isNotEmpty && summary != title) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              summary,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: Colors.white.withValues(alpha: 0.9),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        )
+                      : _buildFallbackHeroImage(),
+                ],
+              ),
+            ),
+          ),
+          if (_banners.length > 1) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_banners.length, (dotIdx) {
+                final isActive = dotIdx == _currentBannerIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  height: 4,
+                  width: isActive ? 18 : 6,
+                  decoration: BoxDecoration(
+                    color: isActive ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: HAI NÚT [GỌI TƯ VẤN NGAY] & [ĐẶT LỊCH]
+  // =========================================================================
+  Widget _buildBannerActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE5533D),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
+              label: const Text(
+                'Gọi tư vấn ngay',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
+              ),
+              onPressed: () => _launchExternal('tel:0987186399'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D766E),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.calendar_month_outlined, size: 18),
+              label: const Text(
+                'Đặt lịch',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
+              ),
+              onPressed: _handleBooking,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFallbackHeroImage() {
+    return Image.asset(
+      'assets/images/chinhanh.webp',
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, __, ___) => Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: KHUNG TÌM KIẾM 2 TAB (KHÓA HỌC / DỊCH VỤ & CƠ SỞ)
+  // =========================================================================
+  Widget _buildSearchAndFeaturedServiceSection() {
+    final cachedBranches = BranchRepository.instance.cachedBranches;
+    final branchOptions = ['Cơ sở', 'Tất cả cơ sở', ...cachedBranches.map((b) => b.name)];
+    if (!branchOptions.contains(_selectedBranchFilter)) {
+      _selectedBranchFilter = 'Cơ sở';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Ô tìm kiếm dịch vụ trị liệu
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: TextField(
+            controller: _serviceSearchController,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Tìm kiếm dịch vụ trị liệu...',
+              hintStyle: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF94A3B8),
+                fontWeight: FontWeight.w400,
+              ),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: Color(0xFF2563EB),
+                size: 22,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              suffixIcon: _serviceSearchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18, color: Color(0xFF94A3B8)),
+                      onPressed: () {
+                        _serviceSearchController.clear();
+                        setState(() {});
+                      },
+                    )
+                  : null,
+            ),
+            onChanged: (val) => setState(() {}),
+            onSubmitted: (val) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => B02ServiceListingScreen(
+                    initialQuery: val.trim(),
+                    initialCategory: _selectedServiceCategory != 'Dịch vụ' && _selectedServiceCategory != 'Tất cả dịch vụ'
+                        ? _selectedServiceCategory
+                        : null,
+                    initialBranch: _selectedBranchFilter != 'Cơ sở' && _selectedBranchFilter != 'Tất cả cơ sở'
+                        ? _selectedBranchFilter
+                        : null,
+                    onBack: () => Navigator.pop(context),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // 2. Hàng 2 Dropdown lọc: [Dịch vụ v] và [Cơ sở v]
+        Row(
+          children: [
+            // Dropdown Dịch vụ
+            Expanded(
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedServiceCategory,
+                    isExpanded: true,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1E293B)),
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: Color(0xFF1E293B),
+                      fontWeight: FontWeight.w700,
+                    ),
+                    items: _serviceCategories
+                        .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _selectedServiceCategory = val);
+                        if (val != 'Dịch vụ' && val != 'Tất cả dịch vụ' && val != 'Lưu phù bạch huyết') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => B02ServiceListingScreen(
+                                initialCategory: val,
+                                onBack: () => Navigator.pop(context),
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Dropdown Cơ sở
+            Expanded(
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedBranchFilter,
+                    isExpanded: true,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1E293B)),
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: Color(0xFF1E293B),
+                      fontWeight: FontWeight.w700,
+                    ),
+                    items: branchOptions
+                        .map((b) => DropdownMenuItem(
+                              value: b,
+                              child: Text(b, overflow: TextOverflow.ellipsis),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedBranchFilter = val;
+                          if (val != 'Cơ sở' && val != 'Tất cả cơ sở') {
+                            _selectedBranch = val;
+                          }
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 3. THẺ DỊCH VỤ NỔI BẬT "LƯU PHÙ BẠCH HUYẾT" CHUẨN MẪU THIẾT KẾ
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AllInOneBookingScreen(),
+              ),
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Hình ảnh thực tế của Lưu phù bạch huyết (Không dùng icon)
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                  child: Image.asset(
+                    'assets/images/service_luu_phu_bach_huyet.png',
+                    width: double.infinity,
+                    height: 195,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Lưu phù bạch huyết',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F2942),
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  '700.000đ',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFFDC2626), // red
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  '60 phút / ca',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const AllInOneBookingScreen(),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F766E), // Dark Teal #0F766E
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Đặt lịch',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                                ),
+                                SizedBox(width: 6),
+                                Icon(Icons.calendar_month_outlined, size: 18),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  
+  Widget _buildConsultationLeadCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'ĐĂNG KÝ TRONG 30 GIÂY',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0D9488),
+                  letterSpacing: 0.6,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6F4F1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0D9488), size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Bác sĩ gọi lại tư vấn miễn\nphí',
+            style: TextStyle(
+              fontSize: 21,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _leadNameController,
+            decoration: InputDecoration(
+              hintText: 'Họ và tên của bạn',
+              hintStyle: const TextStyle(fontSize: 13.5, color: Color(0xFF94A3B8)),
+              prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF94A3B8), size: 20),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              filled: true,
+              fillColor: Colors.white,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF0D766E), width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _leadPhoneController,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              hintText: 'Số điện thoại',
+              hintStyle: const TextStyle(fontSize: 13.5, color: Color(0xFF94A3B8)),
+              prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF94A3B8), size: 20),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              filled: true,
+              fillColor: Colors.white,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF0D766E), width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D766E),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _isSubmittingLead ? null : _submitConsultationLead,
+              child: _isSubmittingLead
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Nhận tư vấn từ chuyên gia',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward_rounded, size: 18),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.verified_user_outlined, size: 14, color: Color(0xFF64748B)),
+              SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Thông tin của bạn được bảo mật tuyệt đối',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: NHẮN TIN TRỰC TIẾP (Zalo, Facebook, Instagram, Messenger)
+  // =========================================================================
+  Widget _buildDirectMessagingSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6F4F1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0D9488), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nhắn tin trực tiếp',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Chọn kênh thuận tiện nhất với bạn',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Zalo
+              Expanded(
+                child: _buildSocialChannelCard(
+                  title: 'Zalo',
+                  subtitle: 'Phản hồi nhanh',
+                  iconWidget: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0068FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text('Z', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                  ),
+                  onTap: () => _launchExternal('https://zalo.me/0987186399'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Facebook
+              Expanded(
+                child: _buildSocialChannelCard(
+                  title: 'Facebook',
+                  subtitle: 'Theo dõi chúng tôi',
+                  iconWidget: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1877F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text('f', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                  ),
+                  onTap: () => _launchExternal('https://facebook.com/mldvietnam'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // Instagram
+              Expanded(
+                child: _buildSocialChannelCard(
+                  title: 'Instagram',
+                  subtitle: 'Xem hoạt động',
+                  iconWidget: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 20),
+                  ),
+                  onTap: () => _launchExternal('https://instagram.com/mldvietnam'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Messenger
+              Expanded(
+                child: _buildSocialChannelCard(
+                  title: 'Messenger',
+                  subtitle: 'Chat tư vấn',
+                  iconWidget: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF00B2FE), Color(0xFF006AFF), Color(0xFF9B00E8)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+                  ),
+                  onTap: () => _launchExternal('https://m.me/mldvietnam'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialChannelCard({
+    required String title,
+    required String subtitle,
+    required Widget iconWidget,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            iconWidget,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: TRUY CẬP NHANH (Dịch vụ, Tài liệu, Đào tạo)
+  // =========================================================================
+  Widget _buildQuickAccessSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'TRUY CẬP NHANH',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0D9488), letterSpacing: 0.6),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Bạn muốn tìm gì?',
+          style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            // Dịch vụ
+            Expanded(
+              child: _buildQuickAccessCard(
+                title: 'Dịch vụ',
+                icon: Icons.medical_services_outlined,
+                iconColor: const Color(0xFF10B981),
+                bgColor: const Color(0xFFE6F7F2),
+                onTap: () {
+                  if (widget.onNavigateToServices != null) {
+                    widget.onNavigateToServices!.call();
+                  } else {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const B02ServiceListingScreen()));
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Tài liệu
+            Expanded(
+              child: _buildQuickAccessCard(
+                title: 'Tài liệu',
+                icon: Icons.description_outlined,
+                iconColor: const Color(0xFF3B82F6),
+                bgColor: const Color(0xFFEFF6FF),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const D09DocumentsScreen()));
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Đào tạo
+            Expanded(
+              child: _buildQuickAccessCard(
+                title: 'Đào tạo',
+                icon: Icons.school_outlined,
+                iconColor: const Color(0xFFF97316),
+                bgColor: const Color(0xFFFFF7ED),
+                onTap: () {
+                  if (widget.onNavigateToAcademy != null) {
+                    widget.onNavigateToAcademy!.call();
+                  } else {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const E01AcademyHomeScreen()));
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickAccessCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: GẦN BẠN HƠN - HỆ THỐNG CƠ SỞ
+  // =========================================================================
+  Widget _buildNearestBranchSection(String branchName, String branchAddress) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'GẦN BẠN HƠN',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0D9488), letterSpacing: 0.6),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Expanded(
+              child: Text(
+                'Hệ thống cơ sở',
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              ),
+            ),
+            InkWell(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const B05BranchListingScreen()));
+              },
+              child: const Text(
+                'Xem bản đồ',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0D9488)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        InkWell(
+          onTap: _showBranchPicker,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE6F7F2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.location_on_rounded, color: Color(0xFF059669), size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            branchName,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            branchAddress,
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.35),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Row(
+                        children: [
+                          Icon(Icons.access_time_rounded, size: 15, color: Color(0xFF64748B)),
+                          SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              'Mở cửa hôm nay: 08:00 – 20:00',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Đang mở cửa',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF059669)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // =========================================================================
+  // WIDGET CON: FOOTER MLD HEALTH (Navy #072D4A) & HOTLINE
+  // =========================================================================
+  Widget _buildMldHealthFooter() {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFF072D4A),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF072D4A).withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF072D4A), size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'MLD Health',
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Trung tâm ứng dụng khoa học Bách Huyệt Việt Nam trong chăm sóc và phục hồi sức khỏe.',
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+          ),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: () => _launchExternal('tel:0987186399'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.phone_outlined, color: Color(0xFF2DD4BF), size: 20),
+                SizedBox(width: 8),
+                Text(
+                  '0987 186 399',
+                  style: TextStyle(color: Color(0xFF2DD4BF), fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              // Zalo circle
+              _buildFooterSocialButton(
+                color: const Color(0xFF0068FF),
+                child: const Text('Z', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                onTap: () => _launchExternal('https://zalo.me/0987186399'),
+              ),
+              const SizedBox(width: 12),
+              // Facebook circle
+              _buildFooterSocialButton(
+                color: const Color(0xFF1877F2),
+                child: const Text('f', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                onTap: () => _launchExternal('https://facebook.com/mldvietnam'),
+              ),
+              const SizedBox(width: 12),
+              // Instagram circle
+              _buildFooterSocialButton(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                child: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 18),
+                onTap: () => _launchExternal('https://instagram.com/mldvietnam'),
+              ),
+              const SizedBox(width: 12),
+              // Messenger circle
+              _buildFooterSocialButton(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00B2FE), Color(0xFF006AFF), Color(0xFF9B00E8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
+                onTap: () => _launchExternal('https://m.me/mldvietnam'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterSocialButton({
+    Color? color,
+    Gradient? gradient,
+    required Widget child,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: color,
+          gradient: gradient,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: child,
+      ),
+    );
   }
 }
-
