@@ -4,9 +4,10 @@ import '../../../../core/localization/app_translation.dart';
 import '../../data/models/home_models.dart';
 
 /// Thẻ Dịch vụ Chuẩn Y khoa MLD Việt Nam:
-/// - Thiết kế tối giản: Ảnh, Tên dịch vụ, Giá tiền và Nút Đặt lịch
-/// - Tương tác chạm vào nút Đặt lịch: chuyển mượt mà sang gradient xanh rgb(0, 105, 63) -> rgb(0, 140, 80)
-/// - Giữ yên nút không bị mở dịch vụ sớm, chỉ chuyển trang khi nhả ngón tay
+/// - Thiết kế mới chuẩn Figma: Ảnh chụp thực tế Lưu phù bạch huyết
+/// - Tiêu đề: Lưu phù bạch huyết
+/// - Giá tiền: 700.000đ (màu đỏ đậm), 60 phút / ca
+/// - Nút Đặt lịch: Màu Dark Teal #0F766E kèm icon lịch
 class VodderServiceCard extends StatefulWidget {
   final SpaServiceModel? service;
   final VoidCallback onBooking;
@@ -33,36 +34,38 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
   Widget build(BuildContext context) {
     final service = widget.service;
     final price = service?.displayPrice ?? 700000.0;
-    final rawTitle = service?.name ?? 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)';
-    final title = context.tr(rawTitle);
+    final rawTitle = service?.name ?? 'Lưu phù bạch huyết';
+    final title = (rawTitle.toLowerCase().contains('bạch huyết') || rawTitle.toLowerCase().contains('vodder'))
+        ? (rawTitle.contains(' - ') ? 'Lưu phù bạch huyết - ${rawTitle.split(' - ').last}' : 'Lưu phù bạch huyết')
+        : context.tr(rawTitle);
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Ảnh minh họa dịch vụ
+            // 1. Ảnh minh họa dịch vụ Lưu phù bạch huyết (Không dùng icon)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onBooking,
               child: SizedBox(
                 width: double.infinity,
-                height: 185,
+                height: 195,
                 child: Image.asset(
-                  'assets/images/course_banner_clean.png',
+                  'assets/images/service_luu_phu_bach_huyet.png',
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
                     color: AppColors.primaryLight,
@@ -76,7 +79,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
 
             // 2. Nội dung: Tên dịch vụ, Giá tiền và Nút Đặt lịch
             Padding(
-              padding: const EdgeInsets.all(14.0),
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -88,94 +91,70 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                       title,
                       style: const TextStyle(
                         fontFamily: 'Montserrat',
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
-                        height: 1.35,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F2942),
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-                  const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-                  const SizedBox(height: 12),
-
-                  // Hàng Giá tiền và Nút Đặt lịch
+                  const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      // Giá tiền dịch vụ: Màu rgb(225, 29, 72) (#E11D48), chữ đ gạch chân
                       Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '${_formatCurrency(price)} ',
-                                style: const TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.servicePrice,
-                                ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_formatCurrency(price)}đ',
+                              style: const TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFDC2626), // red
                               ),
-                              const TextSpan(
-                                text: 'đ/buổi',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.servicePrice,
-                                ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              '60 phút / ca',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF64748B),
                               ),
-                            ],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
-
-                      // Nút Đặt lịch với InkWell đảm bảo phản hồi chạm 100% không bị scroll cancel
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: widget.onBooking,
-                          child: Ink(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.5),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.greenActionGradient,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF00693F).withValues(alpha: 0.25),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  context.tr('Đặt lịch', 'Book Now'),
-                                  style: const TextStyle(
-                                    fontFamily: 'Montserrat',
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.calendar_month_outlined,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ],
-                            ),
+                      ElevatedButton(
+                        onPressed: widget.onBooking,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F766E), // Dark Teal #0F766E
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Đặt lịch',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(Icons.calendar_month_outlined, size: 18),
+                          ],
                         ),
                       ),
                     ],

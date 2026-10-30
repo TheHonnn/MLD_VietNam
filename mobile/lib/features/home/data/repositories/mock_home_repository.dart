@@ -199,14 +199,14 @@ class MockHomeRepository {
       // Dịch vụ gốc duy nhất trên CSDL Supabase
       SpaServiceModel(
         id: '235166f2-66c9-4231-bbe1-af91b48fc67c',
-        name: 'Điều trị dẫn lưu phù bạch huyết chuyên sâu (Vodder MLD)',
+        name: 'Lưu phù bạch huyết',
         categoryName: 'Dẫn lưu bạch huyết MLD',
         shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
         fullDescription: 'Ứng dụng kỹ thuật Vodder MLD nhẹ nhàng kích hoạt hệ mao mạch bạch huyết dưới bề mặt da, hỗ trợ giải phóng dịch ứ đọng, tăng cường miễn dịch và thải độc tế bào.',
         durationMinutes: 60,
         price: 700000,
         vatRate: 0.0,
-        imageUrl: 'assets/images/logo.webp',
+        imageUrl: 'assets/images/service_luu_phu_bach_huyet.png',
         isFeatured: true,
       ),
     ];

@@ -219,7 +219,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
-                    hintText: context.tr('Tìm kiếm dịch vụ dẫn lưu bạch huyết...', 'Search lymphatic drainage services...'),
+                    hintText: context.tr('Tìm kiếm dịch vụ trị liệu...', 'Search therapy services...'),
                     hintStyle: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontSize: 14,
