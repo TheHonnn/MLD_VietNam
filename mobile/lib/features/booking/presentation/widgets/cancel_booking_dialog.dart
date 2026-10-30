@@ -29,12 +29,13 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isPaid = widget.appointment.paymentStatus.toUpperCase() == 'PAID' || widget.appointment.remainingAmount <= 0;
+    final isPending = widget.appointment.status == AppointmentStatus.pending;
+    final isPaid = widget.appointment.paymentStatus.toUpperCase() == 'PAID';
     final isApproved = widget.appointment.status == AppointmentStatus.confirmed ||
         widget.appointment.status == AppointmentStatus.inService ||
         widget.appointment.status == AppointmentStatus.completed;
 
-    if (isPaid && isApproved) {
+    if (!isPending && isPaid && isApproved) {
       return Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),

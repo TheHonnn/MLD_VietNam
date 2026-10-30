@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/smart_image.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/supabase_data_service.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
@@ -259,7 +260,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   }
 
   Future<void> _loadUserProfile() async {
-    if (AuthService.instance.isLoggedIn) {
+    if (true) {
       try {
         await MembershipRepository.instance.fetchProfile();
         if (mounted) {
@@ -967,7 +968,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     const SizedBox(height: 24),
 
                     // ==========================================
-                    // 6. GẦN BẠN HƠN - HỆ THỐNG CƠ SỞ
+                    // 6. HỆ THỐNG CƠ SỞ (THỜI GIAN THỰC)
                     // ==========================================
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1082,7 +1083,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               onBackToHome: () => Navigator.pop(context),
                             ),
                           ),
-                        );
+                        ).then((_) {
+                          if (mounted) setState(() {});
+                        });
                       }
                     },
                     borderRadius: BorderRadius.circular(20),
@@ -1095,21 +1098,36 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: MembershipRepository.instance.profile.avatarUrl.trim().isNotEmpty
-                          ? Image.network(
-                              MembershipRepository.instance.profile.avatarUrl.trim(),
+                      child: Builder(
+                        builder: (context) {
+                          final pAvatar = MembershipRepository.instance.profile.avatarUrl.trim();
+                          final effectiveAvatar = pAvatar.isNotEmpty
+                              ? pAvatar
+                              : (AuthService.instance.currentAvatarUrl?.trim() ?? '');
+                          if (effectiveAvatar.isNotEmpty) {
+                            return SmartImage(
+                              imageUrl: effectiveAvatar,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.person_rounded,
-                                color: Color(0xFF2563EB),
-                                size: 22,
+                              width: 40,
+                              height: 40,
+                              placeholder: const Center(
+                                child: Icon(
+                                  Icons.person_rounded,
+                                  color: Color(0xFF2563EB),
+                                  size: 22,
+                                ),
                               ),
-                            )
-                          : const Icon(
+                            );
+                          }
+                          return const Center(
+                            child: Icon(
                               Icons.person_rounded,
                               color: Color(0xFF2563EB),
                               size: 22,
                             ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -2091,7 +2109,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           onBackToHome: () => Navigator.pop(context),
                         ),
                       ),
-                    );
+                    ).then((_) {
+                      if (mounted) setState(() {});
+                    });
                   }
                 },
               ),
@@ -2150,18 +2170,46 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     );
   }
 
+  bool _isBranchCurrentlyOpen(String openingHours) {
+    try {
+      final now = DateTime.now();
+      final currentMinutes = now.hour * 60 + now.minute;
+
+      int openMinutes = 8 * 60; // 08:00
+      int closeMinutes = 20 * 60; // 20:00
+
+      final clean = openingHours.replaceAll('–', '-');
+      final parts = clean.split('-');
+      if (parts.length == 2) {
+        final startParts = parts[0].trim().split(':');
+        final endParts = parts[1].trim().split(':');
+        if (startParts.isNotEmpty && endParts.isNotEmpty) {
+          openMinutes = int.parse(startParts[0].trim()) * 60 +
+              (startParts.length > 1 ? int.parse(startParts[1].trim()) : 0);
+          closeMinutes = int.parse(endParts[0].trim()) * 60 +
+              (endParts.length > 1 ? int.parse(endParts[1].trim()) : 0);
+        }
+      }
+      return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+    } catch (_) {
+      final hour = DateTime.now().hour;
+      return hour >= 8 && hour < 20;
+    }
+  }
+
   // =========================================================================
-  // WIDGET CON: GẦN BẠN HƠN - HỆ THỐNG CƠ SỞ
+  // WIDGET CON: HỆ THỐNG CƠ SỞ (Thời gian thực đóng / mở cửa)
   // =========================================================================
   Widget _buildNearestBranchSection(String branchName, String branchAddress) {
+    final activeBranch = BranchRepository.instance.activeBranch;
+    final openingHours = (activeBranch != null && activeBranch.openingHours.trim().isNotEmpty)
+        ? activeBranch.openingHours.trim()
+        : '08:00 – 20:00';
+    final isOpen = _isBranchCurrentlyOpen(openingHours);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'GẦN BẠN HƠN',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0D9488), letterSpacing: 0.6),
-        ),
-        const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -2241,17 +2289,17 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Row(
                         children: [
-                          Icon(Icons.access_time_rounded, size: 15, color: Color(0xFF64748B)),
-                          SizedBox(width: 5),
+                          const Icon(Icons.access_time_rounded, size: 15, color: Color(0xFF64748B)),
+                          const SizedBox(width: 5),
                           Expanded(
                             child: Text(
-                              'Mở cửa hôm nay: 08:00 – 20:00',
+                              'Mở cửa hôm nay: $openingHours',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF334155), fontWeight: FontWeight.w500),
                             ),
                           ),
                         ],
@@ -2261,12 +2309,16 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: isOpen ? const Color(0xFFECFDF5) : const Color(0xFFFEE2E2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'Đang mở cửa',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF059669)),
+                      child: Text(
+                        isOpen ? 'Đang mở cửa' : 'Đã đóng cửa',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: isOpen ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                        ),
                       ),
                     ),
                   ],

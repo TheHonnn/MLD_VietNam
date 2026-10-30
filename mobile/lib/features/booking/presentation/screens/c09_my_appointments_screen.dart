@@ -6,6 +6,7 @@ import '../../data/repositories/booking_repository.dart';
 import '../widgets/booking_status_badge.dart';
 import 'all_in_one_booking_screen.dart';
 import 'c10_appointment_detail_screen.dart';
+import '../widgets/cancel_booking_dialog.dart';
 
 /// Screen C09: Lịch hẹn của tôi - Tinh giản chuẩn Design System (#2860EB)
 class C09MyAppointmentsScreen extends StatefulWidget {
@@ -40,6 +41,36 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
     setState(() => _isLoading = true);
     await _repo.fetchMyAppointments();
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  void _onCancelAppointment(AppointmentItemModel app) {
+    showDialog(
+      context: context,
+      builder: (_) => CancelBookingDialog(
+        appointment: app,
+        onConfirmCancel: (reason) async {
+          final success = await _repo.cancelAppointment(app.id, reason);
+          if (mounted) {
+            if (success) {
+              await _loadAppointments();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.tr('Đã hủy lịch hẹn theo yêu cầu', 'Appointment cancelled successfully')),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.tr('Không thể hủy lịch hẹn. Vui lòng thử lại!', 'Could not cancel appointment. Please try again!')),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
 
   List<AppointmentItemModel> _getCurrentAppointments() {
@@ -287,33 +318,64 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                height: 38,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => C10AppointmentDetailScreen(appointmentId: app.id),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (app.status == AppointmentStatus.pending) ...[
+                    SizedBox(
+                      height: 34,
+                      child: OutlinedButton(
+                        onPressed: () => _onCancelAppointment(app),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFEF4444)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        child: Text(
+                          context.tr('Hủy lịch', 'Cancel'),
+                          style: const TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFEF4444),
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                  ),
-                  child: Text(
-                    context.tr('Xem chi tiết', 'View Details'),
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                    const SizedBox(width: 6),
+                  ],
+                  SizedBox(
+                    height: 34,
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => C10AppointmentDetailScreen(appointmentId: app.id),
+                          ),
+                        );
+                        _loadAppointments();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: Text(
+                        context.tr('Xem chi tiết', 'View Details'),
+                        style: const TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),

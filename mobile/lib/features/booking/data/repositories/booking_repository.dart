@@ -479,17 +479,42 @@ class BookingRepository {
   /// C10: Hủy lịch hẹn và giải phóng khung giờ
   Future<bool> cancelAppointment(String id, String reason) async {
     try {
-      final res = await _apiClient.dio.patch(
-        ApiEndpoints.bookingCancel(id),
-        data: {'reason': reason},
+      final cancellationNote = reason.trim().isNotEmpty ? reason.trim() : 'Khách hàng yêu cầu hủy lịch';
+
+      // 1. Cập nhật trực tiếp lên Database Supabase (bảng bookings)
+      final response = await _apiClient.dio.patch(
+        '${ApiEndpoints.bookings}?id=eq.$id',
+        data: {
+          'status': 'CANCELLED',
+          'cancellation_reason': cancellationNote,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+        ),
       );
-      if (res.statusCode == 200) {
+
+      // 2. Dự phòng gọi backend trung tâm nếu có
+      try {
+        await _apiClient.dio.patch(
+          ApiEndpoints.bookingCancel(id),
+          data: {'reason': cancellationNote},
+        );
+      } catch (_) {}
+
+      final isSuccess = response.statusCode == 200 || response.statusCode == 204;
+      if (isSuccess) {
         final index = _appointments.indexWhere((a) => a.id == id);
         if (index != -1) {
           final old = _appointments[index];
           _appointments[index] = old.copyWith(
             status: AppointmentStatus.cancelled,
-            cancellationReason: reason.trim().isNotEmpty ? reason.trim() : old.cancellationReason,
+            cancellationReason: cancellationNote,
             specialNotes: old.specialNotes,
           );
         }

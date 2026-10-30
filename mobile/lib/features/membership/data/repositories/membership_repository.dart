@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -179,7 +180,9 @@ class MembershipRepository {
   Future<void> _loadPersistedProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedAvatar = prefs.getString(_avatarPrefKey);
+      final savedAvatar = prefs.getString(_avatarPrefKey) ??
+          prefs.getString('user_avatar_path') ??
+          AuthService.instance.currentAvatarUrl;
       final savedName = prefs.getString(_namePrefKey);
       final savedPhone = prefs.getString(_phonePrefKey);
       final savedEmail = prefs.getString(_emailPrefKey);
@@ -408,15 +411,80 @@ class MembershipRepository {
     return _userProfile;
   }
 
+  /// Tải ảnh đại diện lên Supabase Storage (Bucket: avatars) và trả về Public URL vĩnh viễn
+  Future<String?> uploadAvatarFile(String localPath) async {
+    final cleanPath = localPath.trim();
+    if (cleanPath.isEmpty) return null;
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+
+    try {
+      final file = File(cleanPath);
+      if (!file.existsSync()) {
+        debugPrint('>>> [MembershipRepository] Avatar file does not exist locally: $cleanPath');
+        return null;
+      }
+
+      final bytes = await file.readAsBytes();
+      final ext = cleanPath.split('.').last.toLowerCase();
+      final mimeType = (ext == 'png')
+          ? 'image/png'
+          : (ext == 'webp' ? 'image/webp' : 'image/jpeg');
+
+      final userPhone = _userProfile.phone.replaceAll(RegExp(r'\D'), '');
+      final userId = AuthService.instance.currentUserId ?? 'user';
+      final fileName = 'avatar_${userPhone.isNotEmpty ? userPhone : userId}_${DateTime.now().millisecondsSinceEpoch}.${ext == 'png' ? 'png' : 'jpg'}';
+
+      final uploadUrl = '${ApiEndpoints.supabaseUrl}/storage/v1/object/avatars/$fileName';
+
+      final res = await _apiClient.dio.post(
+        uploadUrl,
+        data: bytes,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Content-Type': mimeType,
+          },
+        ),
+      );
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final publicUrl = '${ApiEndpoints.supabaseUrl}/storage/v1/object/public/avatars/$fileName';
+        debugPrint('>>> [MembershipRepository] Uploaded avatar to Supabase Storage: $publicUrl');
+        return publicUrl;
+      }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Error uploading avatar to Supabase: $e');
+    }
+    return null;
+  }
+
   /// F02: Cập nhật thông tin hồ sơ lên Cơ Sở Dữ Liệu (Supabase & Backend)
   Future<void> updateProfile(UserProfile updated) async {
+    String finalAvatarUrl = updated.avatarUrl.trim();
+    if (finalAvatarUrl.isNotEmpty &&
+        !finalAvatarUrl.startsWith('http://') &&
+        !finalAvatarUrl.startsWith('https://')) {
+      final uploadedUrl = await uploadAvatarFile(finalAvatarUrl);
+      if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+        finalAvatarUrl = uploadedUrl;
+      }
+    }
+
     final effectivePhone = updated.phone.trim();
     final isVerified = updated.isPhoneVerified || effectivePhone.isNotEmpty;
     _userProfile = updated.copyWith(
+      avatarUrl: finalAvatarUrl,
       phone: effectivePhone,
       isPhoneVerified: isVerified,
     );
     _persistLocalProfile(_userProfile);
+
+    if (finalAvatarUrl.isNotEmpty) {
+      AuthService.instance.updateProfile(avatarUrl: finalAvatarUrl);
+    }
 
     if (updated.phone.trim().isNotEmpty) {
       AuthService.instance.updatePhone(updated.phone.trim());
@@ -455,7 +523,7 @@ class MembershipRepository {
           if (updated.fullName.trim().isNotEmpty) 'full_name': updated.fullName.trim(),
           if (updated.phone.trim().isNotEmpty) 'phone': updated.phone.trim(),
           if (updated.email.trim().isNotEmpty) 'email': updated.email.trim(),
-          if (updated.avatarUrl.trim().isNotEmpty) 'avatar_url': updated.avatarUrl.trim(),
+          if (finalAvatarUrl.isNotEmpty) 'avatar_url': finalAvatarUrl,
           'address': updated.address.trim(),
           'gender': dbGender,
           if (dbDob != null) 'date_of_birth': dbDob,
@@ -464,7 +532,7 @@ class MembershipRepository {
           'updated_at': DateTime.now().toIso8601String(),
         };
 
-        await _apiClient.dio.patch(
+        final patchRes = await _apiClient.dio.patch(
           '${ApiEndpoints.users}?$queryParam',
           data: updateData,
           options: Options(
@@ -476,6 +544,37 @@ class MembershipRepository {
             },
           ),
         );
+
+        // Nếu bảng users chưa có record, tự động tạo mới để lưu vĩnh viễn
+        if (patchRes.data is List && (patchRes.data as List).isEmpty) {
+          final insertData = <String, dynamic>{
+            'full_name': updated.fullName.trim().isNotEmpty ? updated.fullName.trim() : 'Khách hàng MLD',
+            if (updated.phone.trim().isNotEmpty) 'phone': updated.phone.trim(),
+            if (updated.email.trim().isNotEmpty) 'email': updated.email.trim(),
+            if (finalAvatarUrl.isNotEmpty) 'avatar_url': finalAvatarUrl,
+            'address': updated.address.trim(),
+            'gender': dbGender,
+            'role': 'CUSTOMER',
+            'membership_tier': 'MEMBER',
+            'reward_points': 0,
+            if (dbDob != null) 'date_of_birth': dbDob,
+            'emergency_contact_name': updated.emergencyContactName.trim(),
+            'emergency_contact_phone': updated.emergencyContactPhone.trim(),
+          };
+
+          await _apiClient.dio.post(
+            ApiEndpoints.users,
+            data: insertData,
+            options: Options(
+              headers: {
+                'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation',
+              },
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error saving profile directly to Supabase: $e');
@@ -495,7 +594,7 @@ class MembershipRepository {
           'occupation': updated.occupation,
           'emergencyContactName': updated.emergencyContactName,
           'emergencyContactPhone': updated.emergencyContactPhone,
-          'avatarUrl': updated.avatarUrl,
+          'avatarUrl': finalAvatarUrl,
         },
       );
     } catch (e) {
@@ -503,13 +602,54 @@ class MembershipRepository {
     }
   }
 
-  void updateAvatar(String newAvatarUrl) {
-    _userProfile = _userProfile.copyWith(avatarUrl: newAvatarUrl);
+  Future<void> updateAvatar(String newAvatarUrl) async {
+    String finalAvatar = newAvatarUrl.trim();
+    if (finalAvatar.isNotEmpty &&
+        !finalAvatar.startsWith('http://') &&
+        !finalAvatar.startsWith('https://')) {
+      final uploadedUrl = await uploadAvatarFile(finalAvatar);
+      if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+        finalAvatar = uploadedUrl;
+      }
+    }
+
+    _userProfile = _userProfile.copyWith(avatarUrl: finalAvatar);
     _persistLocalProfile(_userProfile);
+    if (finalAvatar.isNotEmpty) {
+      AuthService.instance.updateProfile(avatarUrl: finalAvatar);
+    }
+
+    // Cập nhật Supabase users table
+    try {
+      final lookupPhone = _userProfile.phone.trim();
+      final lookupEmail = _userProfile.email.trim();
+      final lookupId = AuthService.instance.currentUserId;
+      final queryParam = (lookupId != null && lookupId.isNotEmpty && RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(lookupId))
+          ? 'id=eq.$lookupId'
+          : (lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : (lookupEmail.isNotEmpty ? 'email=eq.$lookupEmail' : ''));
+
+      if (queryParam.isNotEmpty) {
+        await _apiClient.dio.patch(
+          '${ApiEndpoints.users}?$queryParam',
+          data: {
+            'avatar_url': finalAvatar,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation',
+            },
+          ),
+        );
+      }
+    } catch (_) {}
 
     _apiClient.dio.put(
       ApiEndpoints.membershipProfile,
-      data: {'avatarUrl': newAvatarUrl, 'fullName': _userProfile.fullName},
+      data: {'avatarUrl': finalAvatar, 'fullName': _userProfile.fullName},
     ).then((_) {}, onError: (_) {});
   }
 
