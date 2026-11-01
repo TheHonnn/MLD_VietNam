@@ -1,6 +1,7 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 import { notificationService } from './notification.service';
+import { supabaseService } from './supabaseService';
 
 export type RealtimeSyncStatus = 'CONNECTING' | 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 
@@ -147,6 +148,8 @@ class RealtimeSyncService {
 
   private handlePostgresChange(table: RealtimeTable, payload: any) {
     const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
+    // Instantly invalidate client memory cache when database changes
+    supabaseService.invalidateCache(table);
     const newRecord = payload.new || null;
     const oldRecord = payload.old || null;
     const timestamp = new Date();

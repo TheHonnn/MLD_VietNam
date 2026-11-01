@@ -27,8 +27,23 @@ const AuthContext = createContext<AuthContextType>({
 export const useAdmin = () => useContext(AuthContext);
 
 export function AdminAuth({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AdminUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AdminUser | null>(() => {
+    try {
+      const cached = sessionStorage.getItem("mld_admin_profile");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    try {
+      const token = sessionStorage.getItem("mld_admin_token");
+      const profile = sessionStorage.getItem("mld_admin_profile");
+      return !(token && profile);
+    } catch {
+      return true;
+    }
+  });
 
   // Helper to fetch user details from public.users and verify administrative permissions
   const fetchAdminProfile = async (email: string, authId?: string): Promise<AdminUser | null> => {
@@ -93,12 +108,18 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
 
         sessionStorage.setItem("mld_admin_token", session.access_token);
         const profile = await fetchAdminProfile(session.user.email, session.user.id);
+        if (profile) {
+          sessionStorage.setItem("mld_admin_profile", JSON.stringify(profile));
+        } else {
+          sessionStorage.removeItem("mld_admin_profile");
+        }
         if (isMounted) {
           setUser(profile);
         }
       } catch (err) {
         console.warn("[AdminAuth] Lỗi khôi phục phiên:", err);
         sessionStorage.removeItem("mld_admin_token");
+        sessionStorage.removeItem("mld_admin_profile");
         await supabase.auth.signOut().catch(() => {});
         if (isMounted) {
           setUser(null);
@@ -116,6 +137,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT" || !session) {
         sessionStorage.removeItem("mld_admin_token");
+        sessionStorage.removeItem("mld_admin_profile");
         setUser(null);
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         sessionStorage.setItem("mld_admin_token", session.access_token);
@@ -187,6 +209,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
       }
 
       sessionStorage.setItem("mld_admin_token", data.session.access_token);
+      sessionStorage.setItem("mld_admin_profile", JSON.stringify(profile));
       setUser(profile);
       return { success: true };
     } catch (err: any) {
@@ -205,6 +228,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
       console.warn("[AdminAuth] Lỗi khi đăng xuất:", err);
     } finally {
       sessionStorage.removeItem("mld_admin_token");
+      sessionStorage.removeItem("mld_admin_profile");
       setUser(null);
     }
   };

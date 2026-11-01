@@ -23,6 +23,7 @@ const W14_ZaloZNS = lazy(() => import('./pages/W14_ZaloZNS').then((m) => ({ defa
 const W16_Certificates = lazy(() => import('./pages/W16_Certificates').then((m) => ({ default: m.W16_Certificates })));
 const W18_PortalContent = lazy(() => import('./pages/W18_PortalContent').then((m) => ({ default: m.W18_PortalContent })));
 const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ default: m.ResourcePage })));
+const PublicTreatmentJournal = lazy(() => import('./pages/PublicTreatmentJournal').then((m) => ({ default: m.PublicTreatmentJournal })));
 
 // Tự động dọn sạch các khóa dữ liệu thử nghiệm/cục bộ cũ khỏi localStorage để luôn đồng bộ 100% với Supabase Cloud
 (function purgeLegacyMockStorage() {
@@ -114,7 +115,13 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (!user) {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isPublicShareRoute =
+    pathname.startsWith('/treatment-journal/') ||
+    pathname.startsWith('/journal/') ||
+    pathname === '/treatment-journal';
+
+  if (!user && !isPublicShareRoute) {
     return (
       <Suspense fallback={<PageLoadingFallback />}>
         <LoginPage />
@@ -126,6 +133,10 @@ const AppContent: React.FC = () => {
     <BrowserRouter>
       <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
+          {/* Public Shareable Treatment Journal for Customers (No login needed) */}
+          <Route path="/treatment-journal/:id" element={<PublicTreatmentJournal />} />
+          <Route path="/journal/:id" element={<PublicTreatmentJournal />} />
+
           <Route path="/" element={<Layout />}>
             <Route index element={<W01_Dashboard />} />
             <Route path="branches" element={<W02_Branches />} />

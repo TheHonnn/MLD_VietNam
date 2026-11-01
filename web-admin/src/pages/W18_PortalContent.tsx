@@ -43,8 +43,12 @@ import {
   Home,
   GraduationCap,
   Compass,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
-import { portalService, emailService } from '../services';
+import { portalService, emailService, academyService } from '../services';
+
 import {
   PortalContentItem,
   PortalContentKind,
@@ -849,16 +853,22 @@ export const W18_PortalContent: React.FC = () => {
   // Email Log Detail Modal
   const [selectedLog, setSelectedLog] = useState<EmailLog | null>(null);
 
+  // Phân quyền Giáo trình theo Khóa học & Bộ lọc
+  const [coursesList, setCoursesList] = useState<{ id: string; title: string; code?: string }[]>([]);
+  const [courseFilter, setCourseFilter] = useState<string>('ALL');
+  const [downloadFilter, setDownloadFilter] = useState<string>('ALL');
+
   // Load All Portal & Email Data
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [bannerRes, docRes, commRes, tplRes, logRes] = await Promise.all([
+      const [bannerRes, docRes, commRes, tplRes, logRes, coursesRes] = await Promise.all([
         portalService.getContentList({ kind: 'BANNER' }),
         portalService.getContentList({ kind: 'DOCUMENT' }),
         portalService.getContentList({ kind: 'COMMUNITY' }),
         emailService.getTemplates(),
         emailService.getLogs(),
+        academyService.getCourses(),
       ]);
 
       if (bannerRes.success && bannerRes.data) setBanners(bannerRes.data);
@@ -866,6 +876,9 @@ export const W18_PortalContent: React.FC = () => {
       if (commRes.success && commRes.data) setCommunityPosts(commRes.data);
       if (tplRes.success && tplRes.data) setEmailTemplates(tplRes.data);
       if (logRes.success && logRes.data) setEmailLogs(logRes.data);
+      if (coursesRes && coursesRes.success && coursesRes.data) {
+        setCoursesList(coursesRes.data.map((c) => ({ id: c.id, title: c.title, code: c.code })));
+      }
     } catch (err) {
       console.error('Error loading portal content:', err);
       toast.error('Lỗi tải dữ liệu', 'Không thể kết nối đến cơ sở dữ liệu Portal.');
@@ -873,6 +886,7 @@ export const W18_PortalContent: React.FC = () => {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadData();
@@ -1045,6 +1059,10 @@ export const W18_PortalContent: React.FC = () => {
       targetLink: '',
       category: 'GIAI_PHAU',
       accessLevel: 'MEMBERS_ONLY',
+      courseId: null,
+      allowDownload: false,
+      requireFullPayment: true,
+      watermarkText: 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
       status: 'PUBLISHED',
       isFeatured: false,
       authorName: 'Hội đồng Chuyên môn MLD',
@@ -1053,6 +1071,7 @@ export const W18_PortalContent: React.FC = () => {
     });
     setIsDocModalOpen(true);
   };
+
 
   const handleSaveDoc = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1849,12 +1868,38 @@ export const W18_PortalContent: React.FC = () => {
 
             <div className="flex items-center gap-2 flex-wrap">
               <select
+                aria-label="Lọc theo khóa học áp dụng"
+                value={courseFilter}
+                onChange={(e) => setCourseFilter(e.target.value)}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:outline-none font-medium cursor-pointer"
+              >
+                <option value="ALL">Tất cả khóa học</option>
+                <option value="GENERAL">Tài liệu chung</option>
+                {coursesList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    🎯 {c.title}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Lọc theo quyền tải tài liệu"
+                value={downloadFilter}
+                onChange={(e) => setDownloadFilter(e.target.value)}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:outline-none font-medium cursor-pointer"
+              >
+                <option value="ALL">Mọi quyền tải</option>
+                <option value="ALLOW">Được phép tải PDF</option>
+                <option value="VIEW_ONLY">Chỉ xem online (Bảo mật)</option>
+              </select>
+
+              <select
                 aria-label="Lọc theo phân quyền tài liệu"
                 value={accessFilter}
                 onChange={(e) => setAccessFilter(e.target.value)}
                 className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] focus:outline-none font-medium cursor-pointer"
               >
-                <option value="ALL">Tất cả phân quyền</option>
+                <option value="ALL">Tất cả đối tượng</option>
                 <option value="MEMBERS_ONLY">Dành riêng học viên (Members Only)</option>
                 <option value="FREE_TRIAL">Đọc thử miễn phí (Free Trial)</option>
                 <option value="PUBLIC">Công khai (Public)</option>
@@ -1881,6 +1926,14 @@ export const W18_PortalContent: React.FC = () => {
               .filter((d) => {
                 if (accessFilter !== 'ALL' && d.accessLevel !== accessFilter) return false;
                 if (categoryFilter !== 'ALL' && d.category !== categoryFilter) return false;
+                if (courseFilter !== 'ALL') {
+                  if (courseFilter === 'GENERAL' && d.courseId) return false;
+                  if (courseFilter !== 'GENERAL' && d.courseId !== courseFilter) return false;
+                }
+                if (downloadFilter !== 'ALL') {
+                  if (downloadFilter === 'ALLOW' && !d.allowDownload) return false;
+                  if (downloadFilter === 'VIEW_ONLY' && d.allowDownload) return false;
+                }
                 if (searchTerm && !d.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
                 return true;
               })
@@ -1900,25 +1953,41 @@ export const W18_PortalContent: React.FC = () => {
                           <FileText className="w-6 h-6" />
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${isMemberOnly
-                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                : isFreeTrial
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  : 'bg-blue-50 text-blue-800 border border-blue-200'
-                              }`}
-                          >
-                            {isMemberOnly ? <Lock size={10} /> : <Unlock size={10} />}
-                            <span>
-                              {isMemberOnly ? 'Học viên MLD' : isFreeTrial ? 'Đọc thử' : 'Công khai'}
+                          {/* Course Scoping Badge */}
+                          {doc.courseId ? (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200 flex items-center gap-1 shadow-2xs">
+                              <GraduationCap size={11} className="text-amber-700 shrink-0" />
+                              <span className="truncate max-w-[120px]" title={coursesList.find((c) => c.id === doc.courseId)?.title || doc.courseTitle}>
+                                {coursesList.find((c) => c.id === doc.courseId)?.title || doc.courseTitle || 'Khóa chuyên sâu'}
+                              </span>
                             </span>
-                          </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-[#FAF0E4] text-[#8A4F23]">
+                              Mọi học viên
+                            </span>
+                          )}
 
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#FAF0E4] text-[#8A4F23]">
-                            {doc.category || 'GIÁO TRÌNH'}
-                          </span>
+                          {/* Permission & Security Badge */}
+                          {doc.allowDownload ? (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                              <Download size={10} className="text-emerald-700" />
+                              <span>Được tải PDF</span>
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200 flex items-center gap-1" title="Khóa tải file để bảo vệ bản quyền giáo trình MLD">
+                              <Shield size={10} className="text-purple-600" />
+                              <span>Chỉ xem online</span>
+                            </span>
+                          )}
+
+                          {doc.requireFullPayment && (
+                            <span className="px-1.5 py-0.5 rounded-lg text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200" title="Chỉ mở quyền khi đã hoàn thành 100% học phí">
+                              Đủ học phí
+                            </span>
+                          )}
                         </div>
                       </div>
+
 
                       {/* Content */}
                       <div>
@@ -2652,18 +2721,26 @@ export const W18_PortalContent: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1">Phân quyền học viên</label>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1">Khóa học áp dụng *</label>
                   <select
-                    value={editingDoc.accessLevel || 'MEMBERS_ONLY'}
+                    value={editingDoc.courseId || ''}
                     onChange={(e) =>
-                      setEditingDoc({ ...editingDoc, accessLevel: e.target.value as DocumentAccessLevel })
+                      setEditingDoc({ ...editingDoc, courseId: e.target.value ? e.target.value : null })
                     }
                     className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   >
-                    <option value="MEMBERS_ONLY">Chỉ học viên khóa học (Members Only)</option>
-                    <option value="FREE_TRIAL">Cho phép đọc thử (Free Trial)</option>
-                    <option value="PUBLIC">Mở công khai (Public)</option>
+                    <option value="">-- Mở chung cho mọi học viên Học viện MLD --</option>
+                    {coursesList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        🎯 {c.title}
+                      </option>
+                    ))}
                   </select>
+                  <span className="text-[10px] text-[#8C7A6B] mt-0.5 block">
+                    {editingDoc.courseId
+                      ? 'Chỉ học viên đã được duyệt của khóa học này mới được truy cập.'
+                      : 'Mọi học viên chính thức của MLD đều được truy cập.'}
+                  </span>
                 </div>
 
                 <div>
@@ -2680,6 +2757,100 @@ export const W18_PortalContent: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {/* Phân quyền Chuyên sâu: Quyền tải file & Chống leak */}
+              <div className="p-3.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#8A4F23]">
+                    <ShieldCheck className="w-4 h-4 text-[#BA7E4C]" />
+                    <span>Chính sách Bản quyền & Phân quyền Tải file (Anti-Leak)</span>
+                  </div>
+                  <div>
+                    <select
+                      value={editingDoc.accessLevel || 'MEMBERS_ONLY'}
+                      onChange={(e) =>
+                        setEditingDoc({ ...editingDoc, accessLevel: e.target.value as DocumentAccessLevel })
+                      }
+                      className="text-xs px-2 py-1 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none font-semibold"
+                    >
+                      <option value="MEMBERS_ONLY">Dành cho học viên (Members Only)</option>
+                      <option value="FREE_TRIAL">Đọc thử miễn phí (Free Trial)</option>
+                      <option value="PUBLIC">Mở công khai (Public)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <label
+                    className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                      !editingDoc.allowDownload
+                        ? 'bg-purple-50/70 border-purple-300 ring-1 ring-purple-400/30'
+                        : 'bg-white border-[#E8DFD8] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="allowDownloadOption"
+                      checked={!editingDoc.allowDownload}
+                      onChange={() => setEditingDoc({ ...editingDoc, allowDownload: false })}
+                      className="mt-0.5 text-purple-600 focus:ring-purple-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-purple-900 flex items-center gap-1">
+                        <Shield size={12} className="text-purple-600" />
+                        Chỉ xem trực tuyến (Bảo mật tối đa)
+                      </span>
+                      <span className="text-[10px] text-purple-700 block mt-0.5 leading-relaxed">
+                        Học viên chỉ đọc trên App/Web. Khóa nút tải file PDF để bảo vệ bí quyết đào tạo MLD.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                      editingDoc.allowDownload
+                        ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-400/30'
+                        : 'bg-white border-[#E8DFD8] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="allowDownloadOption"
+                      checked={Boolean(editingDoc.allowDownload)}
+                      onChange={() => setEditingDoc({ ...editingDoc, allowDownload: true })}
+                      className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1">
+                        <Download size={12} className="text-emerald-600" />
+                        Cho phép tải file PDF về máy
+                      </span>
+                      <span className="text-[10px] text-emerald-700 block mt-0.5 leading-relaxed">
+                        Học viên được tải file gốc về máy để in tài liệu phát tay hoặc học offline.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="pt-2 border-t border-[#EFE4D9] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editingDoc.requireFullPayment !== false}
+                      onChange={(e) => setEditingDoc({ ...editingDoc, requireFullPayment: e.target.checked })}
+                      className="rounded text-[#985018] focus:ring-[#985018]"
+                    />
+                    <span className="text-xs font-semibold text-[#2C241E]">
+                      Yêu cầu hoàn tất 100% học phí mới mở quyền tải
+                    </span>
+                  </label>
+
+                  <span className="text-[10px] text-[#8C7A6B] italic">
+                    (Tự động đối soát trạng thái đóng tiền)
+                  </span>
+                </div>
+              </div>
+
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -2752,19 +2923,54 @@ export const W18_PortalContent: React.FC = () => {
 
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               {/* Document Overview Header */}
-              <div className="p-4 bg-[#FAF0E4]/60 rounded-2xl border border-[#BA7E4C]/30 flex items-center justify-between">
+              <div className="p-4 bg-[#FAF0E4]/60 rounded-2xl border border-[#BA7E4C]/30 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#985018]">Phân loại:</span>
-                  <div className="font-bold text-sm text-[#2C241E] mt-0.5">{previewingDoc.category}</div>
+                  <div className="font-bold text-xs text-[#2C241E] mt-0.5 truncate">{previewingDoc.category}</div>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#985018]">Quyền đọc:</span>
-                  <div className="font-bold text-sm text-[#2C241E] mt-0.5">{previewingDoc.accessLevel}</div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#985018]">Khóa học áp dụng:</span>
+                  <div className="font-bold text-xs text-[#2C241E] mt-0.5 truncate" title={previewingDoc.courseTitle || (previewingDoc.courseId ? coursesList.find(c => c.id === previewingDoc.courseId)?.title : 'Toàn viện MLD')}>
+                    {previewingDoc.courseTitle || (previewingDoc.courseId ? coursesList.find(c => c.id === previewingDoc.courseId)?.title : 'Chung (Toàn viện)')}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#985018]">Quyền tải PDF:</span>
+                  <div className="mt-0.5">
+                    {previewingDoc.allowDownload ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                        <Download size={11} /> Được tải PDF
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-md">
+                        <Shield size={11} /> Chỉ xem online
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#985018]">Lượt tải:</span>
-                  <div className="font-bold text-sm text-[#0284c7] mt-0.5">{previewingDoc.downloadCount} lượt</div>
+                  <div className="font-bold text-xs text-[#0284c7] mt-0.5">{previewingDoc.downloadCount || 0} lượt</div>
                 </div>
+              </div>
+
+              {/* Watermark & Security Policy notice */}
+              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#E8DFD8] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-[#985018] shrink-0" />
+                  <span className="text-[#2C241E]">
+                    Chính sách: {previewingDoc.requireFullPayment !== false ? (
+                      <strong className="text-amber-800">Yêu cầu hoàn tất 100% học phí</strong>
+                    ) : (
+                      <span className="text-slate-600">Không ràng buộc thanh toán</span>
+                    )}
+                  </span>
+                </div>
+                {previewingDoc.watermarkText && (
+                  <span className="text-[11px] text-[#8C7A6B] italic font-mono bg-white px-2 py-0.5 rounded border border-[#E8DFD8]">
+                    Dấu chìm: {previewingDoc.watermarkText}
+                  </span>
+                )}
               </div>
 
               <div>
@@ -2774,23 +2980,46 @@ export const W18_PortalContent: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-700" />
-                  <div>
-                    <span className="text-xs font-bold text-emerald-900 block">Tài liệu đã được kiểm định chuyên khoa</span>
-                    <span className="text-[11px] text-emerald-700">Tác giả: {previewingDoc.authorName || 'Hội đồng Khoa học MLD'}</span>
+              {previewingDoc.allowDownload ? (
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-emerald-900 block">Tài liệu cho phép học viên tải về máy</span>
+                      <span className="text-[11px] text-emerald-700">Tác giả: {previewingDoc.authorName || 'Hội đồng Khoa học MLD'}</span>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadDoc(previewingDoc)}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs shrink-0"
+                  >
+                    <Download size={13} />
+                    <span>Tải file về máy</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDownloadDoc(previewingDoc)}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs"
-                >
-                  <Download size={13} />
-                  <span>Tải file về</span>
-                </button>
-              </div>
+              ) : (
+                <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="w-5 h-5 text-purple-700 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-purple-900 block">Bảo mật Bản quyền Giáo trình (Chỉ xem trực tuyến)</span>
+                      <span className="text-[11px] text-purple-700 block mt-0.5">
+                        Tài liệu này được cấu hình bảo vệ nội bộ. Học viên chỉ được đọc và ôn tập trên App MLD / Web Portal, không thể tải tệp gốc về máy.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadDoc(previewingDoc)}
+                    title="Quản trị viên có thể tải file để kiểm tra nội dung gốc"
+                    className="px-3.5 py-1.5 bg-white border border-purple-300 hover:bg-purple-100 text-purple-900 rounded-xl text-[11px] font-bold flex items-center gap-1.5 shadow-2xs shrink-0"
+                  >
+                    <Download size={12} className="text-purple-600" />
+                    <span>Tải kiểm tra (Admin)</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-t border-[#E8DFD8] bg-[#FAF8F5] flex justify-end">

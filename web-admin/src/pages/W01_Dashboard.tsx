@@ -354,8 +354,20 @@ export const W01_Dashboard: React.FC = () => {
   }, [invoices, selectedBranchId, datePreset, startDateStr, endDateStr]);
 
   const filteredTuitions = useMemo(() => {
-    // 1. Các giao dịch từ bảng tuition_transactions
+    // 0. Tập hợp các enrollmentId và mã chứng từ đã được ghi nhận hóa đơn trong filteredInvoices (tránh tính trùng x2)
+    const invoicedEnrollmentIds = new Set<string>();
+    const invoicedCodes = new Set<string>();
+    filteredInvoices
+      .filter((inv) => inv.paymentStatus === 'PAID')
+      .forEach((inv) => {
+        if (inv.enrollmentId) invoicedEnrollmentIds.add(inv.enrollmentId);
+        if (inv.invoiceCode) invoicedCodes.add(inv.invoiceCode);
+      });
+
+    // 1. Các giao dịch từ bảng tuition_transactions (bỏ qua nếu đã được ghi nhận trong bảng invoices)
     const explicitTxs = tuitions.filter((t) => {
+      if (t.enrollmentId && invoicedEnrollmentIds.has(t.enrollmentId)) return false;
+      if (t.transactionCode && invoicedCodes.has(t.transactionCode)) return false;
       const matchBranch = selectedBranchId === 'ALL' || t.branchId === selectedBranchId;
       if (!matchBranch) return false;
       if (datePreset === 'ALL') return true;
@@ -363,8 +375,11 @@ export const W01_Dashboard: React.FC = () => {
     });
 
     // 2. Dự phòng: Các hồ sơ học viên đã thu tiền (amountPaid > 0)
-    // nhưng chưa có bản ghi trong tuition_transactions
-    const existingEnrollmentIds = new Set(explicitTxs.map((t) => t.enrollmentId));
+    // nhưng chưa có bản ghi trong tuition_transactions VÀ chưa có trong invoices
+    const existingEnrollmentIds = new Set([
+      ...invoicedEnrollmentIds,
+      ...explicitTxs.map((t) => t.enrollmentId),
+    ]);
     const implicitTxs: TuitionTransaction[] = [];
 
     enrollments.forEach((e) => {
@@ -395,7 +410,7 @@ export const W01_Dashboard: React.FC = () => {
     });
 
     return [...explicitTxs, ...implicitTxs];
-  }, [tuitions, enrollments, selectedBranchId, datePreset, startDateStr, endDateStr]);
+  }, [tuitions, enrollments, filteredInvoices, selectedBranchId, datePreset, startDateStr, endDateStr]);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
@@ -1271,8 +1286,18 @@ export const W01_Dashboard: React.FC = () => {
                     const branchInvs = invoices.filter(
                       (inv) => inv.branchId === b.id && inv.paymentStatus === 'PAID'
                     );
+                    const branchInvoicedEnrollmentIds = new Set<string>();
+                    const branchInvoicedCodes = new Set<string>();
+                    branchInvs.forEach((inv) => {
+                      if (inv.enrollmentId) branchInvoicedEnrollmentIds.add(inv.enrollmentId);
+                      if (inv.invoiceCode) branchInvoicedCodes.add(inv.invoiceCode);
+                    });
                     const branchTuis = tuitions.filter(
-                      (t) => t.branchId === b.id && t.paymentStatus === 'PAID'
+                      (t) =>
+                        t.branchId === b.id &&
+                        t.paymentStatus === 'PAID' &&
+                        (!t.enrollmentId || !branchInvoicedEnrollmentIds.has(t.enrollmentId)) &&
+                        (!t.transactionCode || !branchInvoicedCodes.has(t.transactionCode))
                     );
                     const branchTotal =
                       branchInvs.reduce((s, i) => s + i.totalAmount, 0) +
