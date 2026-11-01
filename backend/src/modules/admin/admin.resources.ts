@@ -8,8 +8,8 @@ export const ADMIN_RESOURCES: Record<
   service_categories: { title: 'Danh mục dịch vụ', group: 'Dịch vụ' },
   services: { title: 'Dịch vụ', group: 'Dịch vụ' },
   treatment_packages: { title: 'Gói liệu trình', group: 'Dịch vụ' },
-  bookings: { title: 'Lịch hẹn / Check-in / Check-out', group: 'Tiếp đón' },
-  booking_items: { title: 'Dịch vụ trong lịch hẹn', group: 'Tiếp đón' },
+  bookings: { title: 'Lịch hẹn / Check-in / Check-out', group: 'Thu ngân' },
+  booking_items: { title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân' },
   users: { title: 'Tài khoản', group: 'Khách hàng' },
   consultation_surveys: {
     title: 'Khảo sát trước dịch vụ',
@@ -69,7 +69,7 @@ export const ADMIN_RESOURCES: Record<
   },
   certificate_templates: { title: 'Mẫu chứng chỉ', group: 'Chứng chỉ' },
   student_certificates: { title: 'Chứng chỉ điện tử', group: 'Chứng chỉ' },
-  tuition_transactions: { title: 'Học phí / Đặt cọc', group: 'Thu ngân' },
+  tuition_transactions: { title: 'Học phí / Đặt cọc', group: 'Đào tạo' },
   invoices: { title: 'Hóa đơn', group: 'Thu ngân' },
   invoice_items: { title: 'Chi tiết hóa đơn', group: 'Thu ngân' },
 };
