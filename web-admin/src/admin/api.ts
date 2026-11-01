@@ -1068,6 +1068,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
   throw new Error(`Thao tác ${path} chưa được hỗ trợ.`);
 }
 
+let localBackendChecked = false;
+let localBackendAvailable = false;
+
 export async function adminApi<T>(
   path: string,
   body?: unknown,
@@ -1078,7 +1081,9 @@ export async function adminApi<T>(
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
   const shouldDirectSupabase =
-    (isHttps && base.startsWith("http://")) || (!isLocalhost && base.includes("127.0.0.1"));
+    (isHttps && base.startsWith("http://")) ||
+    (!isLocalhost && base.includes("127.0.0.1")) ||
+    (localBackendChecked && !localBackendAvailable);
 
   // On production (Vercel) or remote environments, immediately query Supabase to prevent mixed content & delay
   if (shouldDirectSupabase) {
@@ -1090,7 +1095,7 @@ export async function adminApi<T>(
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) controller.abort();
-  const timeout = window.setTimeout(abort, 4000); // 4s fast fail for local NestJS
+  const timeout = window.setTimeout(abort, 1500); // 1.5s fast probe for local NestJS
 
   try {
     const response = await fetch(`${base}/admin/${path}`, {
@@ -1115,9 +1120,13 @@ export async function adminApi<T>(
           : json?.message || `Không tải được dữ liệu (${response.status}).`,
       );
     }
+    localBackendChecked = true;
+    localBackendAvailable = true;
     return json.data as T;
   } catch (err) {
-    // If backend is not running or unreachable, fallback seamlessly to Supabase
+    // If backend is not running or unreachable, remember to avoid delay on subsequent calls
+    localBackendChecked = true;
+    localBackendAvailable = false;
     try {
       return await querySupabaseFallback<T>(path, body, signal);
     } catch (fallbackErr) {

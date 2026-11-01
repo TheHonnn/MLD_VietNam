@@ -38,13 +38,69 @@ import { adminApi, Listing } from '../admin/api';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, getSupabaseHeaders } from './supabaseClient';
 
+const CACHE_TABLE_TTLS: Record<string, number> = {
+  // Static / configuration data: 3 minutes
+  branches: 180_000,
+  branch_rooms: 180_000,
+  services: 180_000,
+  service_categories: 180_000,
+  technicians: 180_000,
+  staff_profiles: 180_000,
+  roles: 300_000,
+  permissions: 300_000,
+  certificate_templates: 300_000,
+  course_categories: 180_000,
+  courses: 180_000,
+  course_batches: 180_000,
+  treatment_packages: 180_000,
+  // Operational data: 30 seconds
+  bookings: 30_000,
+  booking_items: 30_000,
+  invoices: 30_000,
+  invoice_items: 30_000,
+  user_packages: 30_000,
+  course_enrollments: 30_000,
+  tuition_transactions: 30_000,
+  users: 30_000,
+  consultation_surveys: 30_000,
+  reviews: 30_000,
+};
+
+const RELATED_TABLE_MAP: Record<string, string[]> = {
+  booking_items: ['bookings'],
+  invoice_items: ['invoices'],
+  tuition_transactions: ['course_enrollments'],
+  technician_shifts: ['technicians'],
+  technician_slots: ['technicians'],
+  treatment_journal: ['user_packages'],
+};
+
 class SupabaseService {
   private url: string;
   private key: string;
+  private cache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
 
   constructor(url: string, key: string) {
     this.url = url.replace(/\/+$/, '');
     this.key = key;
+  }
+
+  public invalidateCache(table?: string): void {
+    if (!table) {
+      this.cache.clear();
+      return;
+    }
+    const cleanTable = table.split('?')[0].replace(/^\/+/, '');
+    const toInvalidate = [cleanTable, ...(RELATED_TABLE_MAP[cleanTable] || [])];
+
+    for (const key of Array.from(this.cache.keys())) {
+      for (const t of toInvalidate) {
+        if (key.startsWith(t) || key.includes(`/${t}?`) || key.includes(`/${t}/`)) {
+          this.cache.delete(key);
+          break;
+        }
+      }
+    }
   }
 
   private getHeaders(): Record<string, string> {
@@ -56,6 +112,24 @@ class SupabaseService {
   }
 
   public async query<T>(path: string, options: RequestInit = {}): Promise<T | null> {
+    const method = (options.method || 'GET').toUpperCase();
+    const isGet = method === 'GET';
+    const bypassCache = (options as any).cache === 'no-store' || (options as any).cache === 'no-cache';
+
+    // 0. Cache lookup for fast instant render (0ms response)
+    if (isGet && !bypassCache) {
+      const cached = this.cache.get(path);
+      if (cached && Date.now() - cached.timestamp < cached.ttl) {
+        return cached.data as T;
+      }
+    }
+
+    // On mutation (POST, PATCH, DELETE), automatically invalidate matching cached tables
+    if (!isGet) {
+      const targetTable = path.split('?')[0].replace(/^\/+/, '');
+      this.invalidateCache(targetTable);
+    }
+
     // 1. Direct Supabase Cloud REST API (Primary for live production on Vercel & mobile sync)
     if (this.url && this.key) {
       try {
@@ -70,6 +144,15 @@ class SupabaseService {
 
         if (res.ok) {
           const json = await res.json();
+          if (isGet && !bypassCache) {
+            const cleanTable = path.split('?')[0].replace(/^\/+/, '');
+            const ttl = CACHE_TABLE_TTLS[cleanTable] || 30_000;
+            this.cache.set(path, {
+              data: json,
+              timestamp: Date.now(),
+              ttl,
+            });
+          }
           return json as T;
         }
 
@@ -89,6 +172,15 @@ class SupabaseService {
             });
             if (retryRes.ok) {
               const retryJson = await retryRes.json();
+              if (isGet && !bypassCache) {
+                const cleanTable = path.split('?')[0].replace(/^\/+/, '');
+                const ttl = CACHE_TABLE_TTLS[cleanTable] || 30_000;
+                this.cache.set(path, {
+                  data: retryJson,
+                  timestamp: Date.now(),
+                  ttl,
+                });
+              }
               return retryJson as T;
             }
           } catch {

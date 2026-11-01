@@ -16,6 +16,15 @@ export default defineConfig({
   },
   build: {
     emptyOutDir: false,
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
   },
 });
